@@ -1,0 +1,57 @@
+package cells
+
+import "strings"
+
+func cellText(v Cell, charset Charset) string {
+	switch {
+	case v.Cont:
+		return ""
+	case v.Label != "":
+		return v.Label
+	case v.Symbol != 0:
+		return string(v.Symbol)
+	case v.Mask != 0:
+		return string(Glyph(charset, v.Style, v.Mask))
+	default:
+		return string(BrailleGlyph(charset, v.Dots))
+	}
+}
+func (c *Canvas) Serialise(charset Charset, mode ColorMode, lookup ColourLookup) []byte {
+	var out strings.Builder
+	for row := 0; row < c.H; row++ {
+		c.writeRow(&out, row, charset, mode, lookup)
+	}
+	return []byte(out.String())
+}
+func (c *Canvas) writeRow(out *strings.Builder, row int, charset Charset, mode ColorMode, lookup ColourLookup) {
+	end := c.W
+	for end > 0 && cellText(c.cells[row*c.W+end-1], charset) == " " {
+		end--
+	}
+	current := TokenFG
+	for x := 0; x < end; x++ {
+		v := c.cells[row*c.W+x]
+		text := cellText(v, charset)
+		token := v.colourToken()
+		if mode != ColorNone && text != "" && text != " " && token != current {
+			out.WriteString(SGR(mode, token, lookup))
+			current = token
+		}
+		out.WriteString(text)
+	}
+	if mode != ColorNone && current != TokenFG {
+		out.WriteString("\x1b[39m")
+	}
+	out.WriteByte('\n')
+}
+
+func (v Cell) colourToken() Token {
+	token := v.Ink
+	if v.Label != "" {
+		token = v.LabelInk
+	}
+	if token == TokenBG {
+		return TokenFG
+	}
+	return token
+}
