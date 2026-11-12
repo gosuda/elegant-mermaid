@@ -28,8 +28,6 @@ func (p *parser) parseVertexStatement() (Stmt, bool) {
 		case linkBroken:
 			return p.finishVertexStatement(stmt, false), true
 		}
-		stmt.Links = append(stmt.Links, link)
-		stmt.Span = spanJoin(stmt.Span, link.Span)
 		p.skipSpaces()
 		if !p.atVertexStart() {
 			p.report(plainDiagnostic(codeLinkMissing, link.Span))
@@ -39,6 +37,8 @@ func (p *parser) parseVertexStatement() (Stmt, bool) {
 		if !ok {
 			return p.finishVertexStatement(stmt, false), true
 		}
+		stmt.Links = append(stmt.Links, link)
+		stmt.Span = spanJoin(stmt.Span, link.Span)
 		stmt.Groups = append(stmt.Groups, next)
 		stmt.Span = spanJoin(stmt.Span, next.Span)
 	}

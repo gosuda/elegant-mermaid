@@ -16,3 +16,31 @@ func TestResolveDemo(t *testing.T) {
 		}
 	}
 }
+
+func TestTypedShapeValueSpan(t *testing.T) {
+	src := []byte("flowchart\nA@{ shape: missing }\n")
+	ast, syntax := syn.Parse(src, nil)
+	if len(syntax) != 0 {
+		t.Fatalf("syntax diagnostics: %+v", syntax)
+	}
+	_, diagnostics := Resolve(src, ast)
+	if len(diagnostics) != 1 {
+		t.Fatalf("diagnostics: %+v", diagnostics)
+	}
+	d := diagnostics[0]
+	if d.Code != "flowchart/typed-shape-unsupported" || string(src[d.Span.Start:d.Span.End]) != "missing" {
+		t.Fatalf("wrong typed shape diagnostic: %+v", d)
+	}
+}
+
+func TestIncompleteEdgeDoesNotResolve(t *testing.T) {
+	src := []byte("flowchart\nA -->\n")
+	ast, diagnostics := syn.Parse(src, nil)
+	if len(diagnostics) == 0 {
+		t.Fatal("missing incomplete edge diagnostic")
+	}
+	model, _ := Resolve(src, ast)
+	if len(model.Edges) != 0 {
+		t.Fatalf("incomplete edge resolved: %+v", model.Edges)
+	}
+}

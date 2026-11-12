@@ -115,7 +115,7 @@ func (r *resolver) shapeValues(data *syngrammar.ShapeData) (map[string]string, m
 	}
 	for _, entry := range value.Entries {
 		values[entry.Key] = configText(entry.Value)
-		spans[entry.Key] = body.sourceSpan(entry.KeySpan, at)
+		spans[entry.Key] = body.sourceSpan(entry.Value.Span, at)
 	}
 	return values, spans
 }
