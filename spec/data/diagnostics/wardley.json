@@ -1,0 +1,8 @@
+[
+  {"code":"wardley/unexpected-token","severity":"error","summary":"unexpected TOKEN, expected one of: LIST","help":"","rationale":"The token must fit the current grammar production.","fix_safety":"none","aliases":[]},
+  {"code":"wardley/unknown-statement","severity":"error","summary":"unknown statement TOKEN","help":"","rationale":"An unknown statement cannot create a model element.","fix_safety":"none","aliases":[]},
+  {"code":"wardley/unterminated","severity":"error","summary":"unterminated TOKEN","help":"","rationale":"An opened delimiter must close before the input ends.","fix_safety":"none","aliases":[]},
+  {"code":"wardley/coordinate-out-of-range","severity":"error","summary":"CONTEXT must be between 0-1 (decimal) or 0-100 (percentage). Received: VALUE","help":"","rationale":"Upstream rejects used coordinates outside its normalized percentage range.","fix_safety":"none","aliases":[]},
+  {"code":"wardley/pipeline-parent-unknown","severity":"error","summary":"Pipeline \"NAME\" must reference an existing component with coordinates.","help":"","rationale":"A pipeline inherits visibility from an existing parent node.","fix_safety":"none","aliases":[]},
+  {"code":"wardley/missing-coordinates","severity":"error","summary":"Node \"NAME\" is missing coordinates","help":"","rationale":"The builder requires both coordinates for every resolved node.","fix_safety":"none","aliases":[]}
+]

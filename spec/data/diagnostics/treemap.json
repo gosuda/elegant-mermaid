@@ -1,0 +1,38 @@
+[
+  {
+    "code": "treemap/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "Each token must fit the selected row or metadata production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "treemap/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "Unknown statements must not create hierarchy items.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "treemap/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "Quoted names and accessibility bodies need closing delimiters.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "treemap/multiple-roots",
+    "severity": "error",
+    "summary": "multiple root nodes are not allowed in a treemap",
+    "help": "",
+    "rationale": "The upstream validator rejects a second item without indentation.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

@@ -1459,6 +1459,106 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "gantt",
+        key: "axisFormat",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "barGap",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "barHeight",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "displayMode",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "fontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "gridLineStartPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "leftPadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "numberSectionStyles",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "rightPadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "sectionFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "tickInterval",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "titleTopMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "topAxis",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "topPadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gantt",
+        key: "weekday",
+        class: "honoured",
+    },
+    ConfigKey {
         kind: "gitgraph",
         key: "arrowMarkerAbsolute",
         class: "accepted-ignored",
@@ -1582,6 +1682,151 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         kind: "ishikawa",
         key: "useWidth",
         class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "activationWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "actorColours",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "bottomMarginAdj",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "boxMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "boxTextMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "diagramMarginX",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "diagramMarginY",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "height",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "leftMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "maxLabelWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "messageAlign",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "messageMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "noteMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "rightAngles",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "sectionColours",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "sectionFills",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "taskFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "taskFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "taskMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "textPlacement",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "titleColor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "titleFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "titleFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "journey",
+        key: "width",
+        class: "honoured",
     },
     ConfigKey {
         kind: "kanban",
@@ -1727,6 +1972,236 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         kind: "packet",
         key: "useWidth",
         class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "pie",
+        key: "donutHole",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "pie",
+        key: "highlightSlice",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "pie",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "pie",
+        key: "legendPosition",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "pie",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "pie",
+        key: "textPosition",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "pie",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "pie",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "pie",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "chartHeight",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "chartWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "pointLabelFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "pointRadius",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "pointTextPadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "quadrantExternalBorderStrokeWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "quadrantInternalBorderStrokeWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "quadrantLabelFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "quadrantPadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "quadrantTextTopPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "titleFontSize",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "titlePadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "xAxisLabelFontSize",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "xAxisLabelPadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "xAxisPosition",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "yAxisLabelFontSize",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "yAxisLabelPadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "quadrant",
+        key: "yAxisPosition",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "axisLabelFactor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "axisScaleFactor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "curveTension",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "height",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "marginBottom",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "marginLeft",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "marginRight",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "marginTop",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "radar",
+        key: "width",
+        class: "honoured",
     },
     ConfigKey {
         kind: "railroad",
@@ -1937,6 +2412,86 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         kind: "requirement",
         key: "useWidth",
         class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "height",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "labelStyle",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "linkColor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "nodeAlignment",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "nodeColors",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "nodePadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "nodeWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "prefix",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "showValues",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "suffix",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sankey",
+        key: "width",
+        class: "honoured",
     },
     ConfigKey {
         kind: "sequence",
@@ -2439,6 +2994,76 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "treemap",
+        key: "borderWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "diagramPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "labelFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "nodeHeight",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "nodeWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "padding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "showValues",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "valueFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treemap",
+        key: "valueFormat",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "treeview",
         key: "defaultIconPack",
         class: "accepted-ignored",
@@ -2581,6 +3206,111 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
     ConfigKey {
         kind: "usecase",
         key: "wrappingWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "venn",
+        key: "height",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "venn",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "venn",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "venn",
+        key: "padding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "venn",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "venn",
+        key: "useDebugLayout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "venn",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "venn",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "venn",
+        key: "width",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "axisFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "height",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "labelFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "nodeLabelOffset",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "nodeRadius",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "padding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "showGrid",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "width",
         class: "honoured",
     },
     ConfigKey {

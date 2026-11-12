@@ -1,0 +1,47 @@
+[
+  {
+    "kind": "venn",
+    "key": "height",
+    "class": "honoured"
+  },
+  {
+    "kind": "venn",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "venn",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "venn",
+    "key": "padding",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "venn",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "venn",
+    "key": "useDebugLayout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "venn",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "venn",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "venn",
+    "key": "width",
+    "class": "honoured"
+  }
+]

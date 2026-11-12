@@ -1,0 +1,18 @@
+[
+  {"kind":"sankey","key":"height","class":"honoured"},
+  {"kind":"sankey","key":"labelStyle","class":"accepted-ignored"},
+  {"kind":"sankey","key":"layout","class":"accepted-ignored"},
+  {"kind":"sankey","key":"linkColor","class":"accepted-ignored"},
+  {"kind":"sankey","key":"look","class":"honoured"},
+  {"kind":"sankey","key":"nodeAlignment","class":"honoured"},
+  {"kind":"sankey","key":"nodeColors","class":"accepted-ignored"},
+  {"kind":"sankey","key":"nodePadding","class":"accepted-ignored"},
+  {"kind":"sankey","key":"nodeWidth","class":"accepted-ignored"},
+  {"kind":"sankey","key":"prefix","class":"accepted-ignored"},
+  {"kind":"sankey","key":"showValues","class":"honoured"},
+  {"kind":"sankey","key":"suffix","class":"accepted-ignored"},
+  {"kind":"sankey","key":"theme","class":"honoured"},
+  {"kind":"sankey","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"sankey","key":"useWidth","class":"accepted-ignored"},
+  {"kind":"sankey","key":"width","class":"honoured"}
+]
