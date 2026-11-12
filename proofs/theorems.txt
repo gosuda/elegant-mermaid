@@ -41,4 +41,9 @@ Elegant.Layered.route_orthogonal
 Elegant.Layered.route_endpoints_on_ports
 Elegant.Layered.route_avoids_nodes
 Elegant.Layered.slots_separate_overlapping_segments
+Elegant.Text.Place.lineStart_inside_rect
+Elegant.Text.Place.label_never_overwrites_border
+Elegant.Text.Place.place_labels_disjoint
+Elegant.Text.canvas_size_eq_scene_extent
+Elegant.Text.text_valid
 Elegant.Layered.rawPass_separated

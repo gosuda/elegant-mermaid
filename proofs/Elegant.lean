@@ -34,3 +34,5 @@ import Elegant.Layered.Normalize
 import Elegant.Layered.Coords
 import Elegant.Layered.Order
 import Elegant.Layered.Route
+import Elegant.Text.Place
+import Elegant.Text.Render
