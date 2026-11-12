@@ -20,6 +20,7 @@ type Proper struct {
 	Rank    []int32
 	Chains  [][]int32
 	Out, In [][]int32
+	Params
 }
 
 func Normalize(g *Graph, rank []int32) (*Proper, error) {
@@ -33,7 +34,7 @@ func Normalize(g *Graph, rank []int32) (*Proper, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &Proper{Rank: slices.Clone(rank), Chains: make([][]int32, len(g.Edges))}
+	p := &Proper{Rank: slices.Clone(rank), Chains: make([][]int32, len(g.Edges)), Params: g.Params}
 	for _, n := range g.Nodes {
 		p.Nodes = append(p.Nodes, ProperNode{Node: n, Edge: -1})
 	}

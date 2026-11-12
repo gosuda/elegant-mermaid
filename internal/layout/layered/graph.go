@@ -44,6 +44,9 @@ func (e Edge) Chain() (tail, head int32) {
 type Params struct {
 	Slot        int32
 	PivotFactor int32
+	NodeGap     int32
+	RankGap     int32
+	PortGap     int32
 }
 
 type Graph struct {
@@ -64,6 +67,12 @@ func DefaultParams(profile scene.Profile) (Params, error) {
 			p.Slot, haveSlot = c.Value, true
 		case pivotName:
 			p.PivotFactor, havePivot = c.Value, true
+		case profile.String() + ".node_gap":
+			p.NodeGap = c.Value
+		case profile.String() + ".rank_gap":
+			p.RankGap = c.Value
+		case profile.String() + ".port_gap":
+			p.PortGap = c.Value
 		}
 	}
 	if !haveSlot || !havePivot {
