@@ -643,23 +643,9 @@ impl<'a> Cfg<'a> {
             return ConfigValue::Null;
         }
         if l.col > n {
-            self.pos = l.content;
-            if self.plain_line_kind() != LineKind::Entry {
-                return self.nested_scalar(n);
-            }
             return self.block_map(l.col, l.content);
         }
         ConfigValue::Null
-    }
-
-    fn nested_scalar(&mut self, n: usize) -> ConfigValue {
-        let Some((value, _, consumed)) = self.entry_value(n) else {
-            return ConfigValue::Null;
-        };
-        if !consumed {
-            self.finish_line();
-        }
-        value
     }
 
     fn entry(&mut self, n: usize) -> Option<EntryOut> {
@@ -707,13 +693,13 @@ impl<'a> Cfg<'a> {
                 Some((ConfigValue::String(s), true, true))
             }
             Some(_) => {
-                let v = self.entry_plain_value(n)?;
+                let v = self.entry_plain_value()?;
                 Some((v, true, false))
             }
         }
     }
 
-    fn entry_plain_value(&mut self, n: usize) -> Option<ConfigValue> {
+    fn entry_plain_value(&mut self) -> Option<ConfigValue> {
         if self.node_guard() || self.plain_first_rejected() {
             if !self.stop {
                 self.fail(self.pos);
@@ -724,7 +710,7 @@ impl<'a> Cfg<'a> {
             self.fail(self.pos);
             return None;
         }
-        let text = self.continued_plain(n);
+        let text = self.plain_value_text();
         Some(resolve_plain(&text))
     }
 
@@ -816,52 +802,6 @@ impl<'a> Cfg<'a> {
         self.pos = j;
         let te = trim_end(self.b, from, j);
         self.text(from, te)
-    }
-
-    fn continued_plain(&mut self, n: usize) -> String {
-        let mut text = self.plain_value_text();
-        loop {
-            let end = self.content_end(self.pos);
-            let next = end + self.eol(end);
-            if self.pos < end || next >= self.end {
-                break;
-            }
-            let Some((at, blanks)) = self.plain_continuation(next, n) else {
-                break;
-            };
-            self.pos = at;
-            if blanks == 0 {
-                text.push(' ');
-            } else {
-                text.push_str(&"\n".repeat(blanks));
-            }
-            text.push_str(&self.plain_value_text());
-        }
-        text
-    }
-
-    fn plain_continuation(&mut self, mut next: usize, n: usize) -> Option<(usize, usize)> {
-        let mut blanks = 0;
-        while next < self.end {
-            let line = self.take_line(next);
-            if line.tab_at.is_some() {
-                return None;
-            }
-            if line.content == line.eol_pos {
-                blanks += 1;
-                next = line.next;
-                continue;
-            }
-            if line.col <= n || self.raw(line.content) == Some(b'#') {
-                return None;
-            }
-            let saved = self.pos;
-            self.pos = line.content;
-            let entry = self.plain_line_kind() == LineKind::Entry;
-            self.pos = saved;
-            return (!entry).then_some((line.content, blanks));
-        }
-        None
     }
 
     fn finish_line(&mut self) -> Option<()> {
@@ -1932,53 +1872,6 @@ fn mantissa_thousandths(d: &str, exp: i64, k: i64) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn config_multiline_plain() {
-        for (src, want) in [
-            (
-                "description:\n  first line,\n  `second` line.\nconfig:\n  layout: \"dagre\"\n",
-                "first line, `second` line.",
-            ),
-            ("a: first\n  second\nb: end\n", "first second"),
-            ("a: first\n\n  second\n", "first\nsecond"),
-            ("a:\r\n  first\r\n  second\r\n", "first second"),
-        ] {
-            let (value, diagnostics) = parse_config_yaml(src, 0, src.len());
-            assert!(diagnostics.is_empty(), "{diagnostics:?}");
-            let entries = mapping(value);
-            assert_eq!(entries[0].value, ConfigValue::String(want.into()));
-        }
-    }
-
-    #[test]
-    #[allow(clippy::unwrap_used)]
-    fn config_description_frontmatter() {
-        let src = "---\ndescription:\n  Renders a basic top-down flowchart under dagre layout, covering rectangle,\n  round, and decision node shapes plus labeled edges and a FontAwesome icon\n  label, as a baseline smoke test.\nconfig:\n  layout: \"dagre\"\n---\nflowchart TD\n";
-        let p = crate::syntax::preprocess::preprocess(src);
-        assert!(p.diagnostics.is_empty());
-        let front = p.frontmatter.unwrap();
-        let entries = mapping(front.value);
-        assert_eq!(entries[0].value, ConfigValue::String("Renders a basic top-down flowchart under dagre layout, covering rectangle, round, and decision node shapes plus labeled edges and a FontAwesome icon label, as a baseline smoke test.".into()));
-        let config = mapping(front.config.unwrap());
-        assert_eq!(config[0].value, ConfigValue::String("dagre".into()));
-    }
-
-    #[test]
-    fn config_nested_scalar_rejections() {
-        for src in [
-            "a:\n  - item\n",
-            "a:\n  first\n\tsecond\n",
-            "a:\n  first\n  invalid: mapping\n",
-        ] {
-            let (_, ds) = parse_config_yaml(src, 0, src.len());
-            assert_eq!(ds[0].code, C_MALFORMED);
-        }
-        for src in ["a:\n  &anchor\n", "a:\n  *alias\n"] {
-            let (_, ds) = parse_config_yaml(src, 0, src.len());
-            assert_eq!(ds[0].code, C_ANCHOR);
-        }
-    }
 
     fn check(ds: &[Diagnostic], code: &str, msg: &str, span: Span) {
         assert!(!ds.is_empty(), "no diagnostic; want {code} {msg} {span:?}");

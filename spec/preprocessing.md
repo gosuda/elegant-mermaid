@@ -76,7 +76,7 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 - preprocessing-035: The first entry of a block map MUST set its column `n`. [just go-check]
 - preprocessing-036: A line at a column smaller than `n` MUST end the map. [just go-check]
 - preprocessing-037: The root column MAY be greater than 0. [just go-check]
-- preprocessing-038: With no value on the key line, the value MUST be the next node whose column is greater than `n`: a nested block map, or a plain scalar that continues over the following lines indented more than the key. [just go-check]
+- preprocessing-038: With no value on the key line, the value MUST be a nested block map whose column is greater than `n`. [just go-check]
 - preprocessing-039: When no such nested line follows, the value MUST be `Null`. [just go-check]
 - preprocessing-040: A `-` followed by SP, HT, or a line end where a node starts MUST raise `config/malformed`. [just go-check]
 - preprocessing-041: A `?` followed by SP, HT, or a line end MUST raise `config/malformed`. [just go-check]
@@ -310,4 +310,3 @@ The requirements below fix the cases that the grammar above leaves open. Where o
 - preprocessing-157: A `|` or `>` that starts a line at the column of a block map MUST raise `config/malformed` at that byte, and MUST NOT be read as an empty block scalar. [just parity]
 - preprocessing-158: A `config/malformed` diagnostic at a byte that is not SP, HT, CR, or LF MUST have the token rule span, which runs from that byte to the next SP, HT, CR, LF, or the end of the reader's range; it MUST NOT be a zero-width span at the end of the range. [just parity]
 - preprocessing-159: When the next line of an open flow collection is not blank and does not start at a column greater than the continuation column, the reader MUST raise `config/malformed` at the first byte of that line that is not SP. [just parity]
-- preprocessing-160: A plain scalar MUST continue over the following non-comment lines that are indented more than its key; adjacent non-empty lines MUST fold to one SP, a run of `k` blank lines between non-empty lines MUST fold to `k` LF, the indentation of a continuation line and its trailing SP and HT MUST be removed, a mapping colon on a continuation line MUST raise `config/malformed`, and the scalar span MUST run from its first content byte to its last content byte. [just go-check]

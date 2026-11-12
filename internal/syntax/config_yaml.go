@@ -190,7 +190,8 @@ func (r *configReader) nestedMapOrNull(col, valuePos int) (ConfigValue, bool) {
 	}
 	lineContent, _ := splitLine(r.src, r.pos, r.end)
 	if keyColonAt(r.src, r.pos, lineContent) < 0 {
-		return r.parseInlineValue(col)
+		r.failMalformed(lineContent)
+		return ConfigValue{}, false
 	}
 	return r.parseYAMLBlockMap(indent)
 }
@@ -218,7 +219,7 @@ func (r *configReader) parseInlineValue(col int) (ConfigValue, bool) {
 		}
 		return value, r.finishLineValue()
 	}
-	return r.parseInlineScalarAt(col)
+	return r.parseInlineScalar()
 }
 
 func (r *configReader) parseInlineScalar() (ConfigValue, bool) {
@@ -227,69 +228,6 @@ func (r *configReader) parseInlineScalar() (ConfigValue, bool) {
 		return ConfigValue{}, false
 	}
 	return value, true
-}
-
-func (r *configReader) parseInlineScalarAt(col int) (ConfigValue, bool) {
-	start := r.pos
-	value, ok := r.parseScalarValue()
-	if !ok {
-		return ConfigValue{}, false
-	}
-	if r.src[start] != '"' && r.src[start] != '\'' {
-		value = r.continuePlain(value, col)
-	}
-	return value, r.finishLineValue()
-}
-
-func (r *configReader) continuePlain(value ConfigValue, col int) ConfigValue {
-	var text strings.Builder
-	text.Write(r.src[value.Span.Start:value.Span.End])
-	for {
-		content, next := splitLine(r.src, r.pos, r.end)
-		if r.pos < content || next >= r.end {
-			break
-		}
-		at, blanks := r.plainContinuation(next, col)
-		if at < 0 {
-			break
-		}
-		end, _ := splitLine(r.src, at, r.end)
-		partEnd := at
-		for partEnd < end && !commentAfterSpace(r.src, partEnd, end) {
-			partEnd++
-		}
-		part := strings.TrimRight(string(r.src[at:partEnd]), " \t")
-		r.pos = partEnd
-		separator := " "
-		if blanks > 0 {
-			separator = strings.Repeat("\n", blanks)
-		}
-		text.WriteString(separator)
-		text.WriteString(part)
-		value.Span.End = at + len(part)
-	}
-	return resolvePlain(text.String(), value.Span)
-}
-
-func (r *configReader) plainContinuation(next, col int) (int, int) {
-	blanks := 0
-	for next < r.end {
-		end, after := splitLine(r.src, next, r.end)
-		indent, at, tab := r.scanIndent(next, end)
-		if tab >= 0 {
-			return -1, 0
-		}
-		if at == end {
-			blanks++
-			next = after
-			continue
-		}
-		if indent <= col || r.src[at] == '#' || keyColonAt(r.src, at, end) >= 0 {
-			return -1, 0
-		}
-		return at, blanks
-	}
-	return -1, 0
 }
 
 func (r *configReader) parseScalarValue() (ConfigValue, bool) {
