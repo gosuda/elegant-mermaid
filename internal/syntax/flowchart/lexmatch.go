@@ -8,7 +8,11 @@ import (
 func lit(s string) func(*lexer, int) int {
 	return func(l *lexer, limit int) int {
 		if matchLiteral(l.src, l.pos, limit, s) {
-			return l.pos + len(s)
+			end := l.pos + len(s)
+			if asciiAlnum(s[0]) && asciiAlnum(s[len(s)-1]) && end < limit && (asciiAlnum(l.src[end]) || l.src[end] == '_') {
+				return -1
+			}
+			return end
 		}
 		return -1
 	}
@@ -136,6 +140,9 @@ func hrefKeyword(l *lexer, limit int) int {
 func dirNoDir(l *lexer, limit int) int {
 	pos := l.pos
 	for pos < limit && isJSSpace(l.src[pos]) {
+		if l.src[pos] == '\n' || l.src[pos] == '\r' {
+			return pos + 1
+		}
 		pos++
 	}
 	if pos == l.pos {
@@ -182,7 +189,7 @@ func isLinkIDByte(b byte) bool {
 		return false
 	}
 	switch b {
-	case '"', '[', ']', '(', ')', '{', '}', '|':
+	case '@', '"', '[', ']', '(', ')', '{', '}', '|':
 		return false
 	}
 	return true
@@ -446,6 +453,9 @@ func oneByteUnless(open byte) func(*lexer, int) int {
 
 func callbackNameRun(l *lexer, limit int) int {
 	pos := l.pos
+	if l.src[pos] == '"' {
+		return -1
+	}
 	for pos < limit && l.src[pos] != '(' {
 		pos++
 	}
@@ -544,9 +554,6 @@ func trapEndRule(l *lexer, limit int) int {
 	if l.pos+1 < limit && l.src[l.pos] == '\\' && l.src[l.pos+1] == ']' {
 		return l.pos + 2
 	}
-	if l.src[l.pos] == ']' {
-		return l.pos + 1
-	}
 	return -1
 }
 
@@ -559,13 +566,16 @@ func invTrapEndRule(l *lexer, limit int) int {
 
 func trapTextRun(l *lexer, limit int) int {
 	pos := l.pos
-	if pos < limit && isTrapPlain(l.src[pos]) {
+	for pos < limit && isTrapPlain(l.src[pos]) {
+		pos++
+	}
+	if pos == l.pos && pos+1 < limit && (l.src[pos] == '/' || l.src[pos] == '\\') && l.src[pos+1] != ']' {
 		return pos + 1
 	}
-	if pos+1 < limit && (l.src[pos] == '\\' || l.src[pos] == '/') && l.src[pos+1] != ']' {
-		return pos + 1
+	if pos == l.pos {
+		return -1
 	}
-	return -1
+	return pos
 }
 
 func isTrapPlain(b byte) bool {
@@ -578,10 +588,17 @@ func isTrapPlain(b byte) bool {
 
 func textRun(l *lexer, limit int) int {
 	pos := l.pos
+	inTag := false
 	for pos < limit {
 		b := l.src[pos]
-		if strings.ContainsRune("[](){}|\"", rune(b)) {
+		if strings.ContainsRune("[](){}|", rune(b)) || b == '"' && !inTag {
 			break
+		}
+		if b == '<' {
+			inTag = true
+		}
+		if b == '>' {
+			inTag = false
 		}
 		pos++
 	}

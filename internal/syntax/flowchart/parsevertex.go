@@ -140,13 +140,8 @@ func (p *parser) parseVertex() (Vertex, bool) {
 	if opener.Kind == TokVertexWithPropsStart {
 		p.parseRectProps()
 	}
-	if opener.Kind == TokPS && p.at(TokPS) {
-		p.next()
-		vertex.Shape = "circle"
-		text := p.parseText(TokDoubleCircleEnd, TokPE)
-		vertex.Text = text
-		vertex.Span = source.Span{Start: id.Span.Start, End: p.closeCircle(text, opener)}
-		return vertex, true
+	if (opener.Kind == TokPS || opener.Kind == TokDiamondStart) && p.at(opener.Kind) {
+		return p.parsePairedVertex(vertex, opener), true
 	}
 	text := p.parseText(closerByOpener[opener.Kind]...)
 	vertex.Text = text
@@ -154,17 +149,26 @@ func (p *parser) parseVertex() (Vertex, bool) {
 	return vertex, true
 }
 
-func (p *parser) closeCircle(text Text, opener Token) int {
+func (p *parser) parsePairedVertex(vertex Vertex, opener Token) Vertex {
+	p.next()
+	closer := TokPE
+	vertex.Shape = "circle"
+	if opener.Kind == TokDiamondStart {
+		closer = TokDiamondStop
+		vertex.Shape = "hexagon"
+	}
+	text := p.parseText(closer)
 	p.reportLabelRules(text, opener)
-	if _, ok := p.accept(TokPE); !ok {
-		p.end = endStateUnclosedBracket
-		return textEnd(text, opener)
+	vertex.Text = text
+	for range 2 {
+		last, ok := p.accept(closer)
+		if !ok {
+			p.end = endStateUnclosedBracket
+			return vertex
+		}
+		vertex.Span.End = last.Span.End
 	}
-	if closer, ok := p.accept(TokPE); ok {
-		return closer.Span.End
-	}
-	p.end = endStateUnclosedBracket
-	return textEnd(text, opener)
+	return vertex
 }
 
 func (p *parser) parseRectProps() {
@@ -355,6 +359,7 @@ const (
 
 func (p *parser) tryParseLink() (Link, linkOutcome) {
 	save := p.i
+	p.skipSpaces()
 	link := Link{}
 	stmt := LinkStatement{}
 	if p.at(TokLinkID) {
@@ -386,6 +391,8 @@ func (p *parser) tryParseLink() (Link, linkOutcome) {
 	link.Edge = &edge
 	end, ok := p.accept(TokLink)
 	if !ok {
+		tok := p.peek()
+		p.report(unexpectedDiagnostic(codeUnexpectedToken, tok.Span, tok.Text, []string{"LINK"}))
 		p.i = save
 		return Link{}, linkBroken
 	}

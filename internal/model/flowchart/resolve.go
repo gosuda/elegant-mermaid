@@ -123,6 +123,9 @@ func (r *resolver) nodeIndex(id string, at source.Span) int {
 
 func (r *resolver) styledVertex(sv *syn.StyledVertex) string {
 	id := sv.Vertex.ID.String()
+	if sv.ShapeData != nil && r.referenceData(id, sv.ShapeData) {
+		return id
+	}
 	node := &r.model.Nodes[r.nodeIndex(id, sv.Vertex.ID.Span)]
 	node.Span = sv.Span
 	if sv.Vertex.Label {
@@ -322,24 +325,18 @@ func readHalves(stmt syn.LinkStatement, edge *Edge) {
 	endBody := strings.TrimSpace(end.Text)
 	edge.Stroke = strokeOf(endBody)
 	edge.Length = edgeLength(endBody)
-	if stmt.End == nil {
-		edge.Marker = endMarker(endBody)
-		return
-	}
 	startBody := strings.TrimSpace(stmt.Open.Text)
+	edge.Start, edge.Marker = "none", "none"
 	if startBody == "" || endBody == "" {
 		return
 	}
 	startKind := markerName(startBody[0])
 	endKind := endMarker(endBody)
-	if strokeOf(startBody) != edge.Stroke || startKind != endKind && !openMarker(startBody[0]) {
+	if strokeOf(startBody) != edge.Stroke || startKind != "none" && startKind != endKind {
 		return
 	}
-	edge.Start = startKind
-	edge.Marker = endKind
+	edge.Start, edge.Marker = startKind, endKind
 }
-
-func openMarker(b byte) bool { return b == '<' }
 
 func endMarker(body string) string {
 	if body == "" {
@@ -373,6 +370,9 @@ func markerName(b byte) string {
 }
 
 func edgeLength(body string) int {
+	if dots := strings.Count(body, "."); dots > 0 {
+		return min(dots, 10)
+	}
 	count := strings.Count(body, "-") + strings.Count(body, "=") + strings.Count(body, ".")
 	if count <= 1 {
 		return 0

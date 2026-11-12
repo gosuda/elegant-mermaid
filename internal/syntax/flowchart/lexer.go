@@ -206,6 +206,9 @@ func (l *lexer) emit(r *lexRule, end int) {
 	tok := Token{Kind: r.kind, Text: l.text(start, end), Span: l.span(start, end), StringOpen: -1}
 	switch r.act {
 	case actOpenString:
+		if l.top() == modeCallbackName {
+			l.report(unexpectedDiagnostic(codeUnexpectedToken, tok.Span, tok.Text, []string{"CALLBACKNAME"}))
+		}
 		l.openQuote = start
 		l.push(modeString, tok.Span)
 		return
@@ -258,6 +261,9 @@ func (l *lexer) finishEmit(r *lexRule, tok Token) {
 	}
 	if r.pop {
 		l.pop()
+	}
+	if tok.Kind == TokNone {
+		return
 	}
 	l.shapeToken(tok)
 }

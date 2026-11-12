@@ -37,9 +37,7 @@ func init() {
 	for _, shape := range gen.Shapes {
 		keywordShapes[shape.ID] = shape.ID
 		for _, alias := range shape.Aliases {
-			if _, taken := keywordShapes[alias]; !taken {
-				keywordShapes[alias] = shape.ID
-			}
+			keywordShapes[alias] = shape.ID
 		}
 	}
 }
@@ -193,4 +191,37 @@ func iconShape(form string) string {
 		return "iconRounded"
 	}
 	return "icon"
+}
+
+func (r *resolver) referenceData(id string, data *syngrammar.ShapeData) bool {
+	for i := range r.model.Edges {
+		edge := &r.model.Edges[i]
+		if edge.UserID != id {
+			continue
+		}
+		values, _ := r.shapeValues(data)
+		applyEdgeValues(edge, values)
+		return true
+	}
+	for i := range r.model.Groups {
+		if r.model.Groups[i].ID == id {
+			values, _ := r.shapeValues(data)
+			if value, ok := values["view"]; ok {
+				r.model.Groups[i].View = value
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func applyEdgeValues(edge *Edge, values map[string]string) {
+	for _, key := range []string{"curve", "animate", "animation", "step"} {
+		if value, ok := values[key]; ok {
+			if edge.Attrs == nil {
+				edge.Attrs = make(map[string]string)
+			}
+			edge.Attrs[key] = value
+		}
+	}
 }

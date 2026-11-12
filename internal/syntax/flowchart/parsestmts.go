@@ -13,6 +13,9 @@ func (p *parser) parseSubgraph() Stmt {
 		sg.Title = header.title
 		sg.Span.End = header.end
 	}
+	if sg.ID == nil {
+		p.report(unexpectedDiagnostic(codeUnexpectedToken, p.peek().Span, p.peek().Text, []string{"NODE_STRING", "STR"}))
+	}
 	if p.atAny(TokNewline, TokSemi) {
 		p.next()
 	}
@@ -261,6 +264,9 @@ func (p *parser) parseNumList() (NumList, bool) {
 			break
 		}
 		out.Numbers = append(out.Numbers, num)
+		if p.at(TokColon) {
+			p.report(plainDiagnostic(codeLinkStyleRange, p.peek().Span))
+		}
 		if !p.at(TokComma) {
 			break
 		}
@@ -290,14 +296,7 @@ func (p *parser) parseClick() Stmt {
 	kw := p.next()
 	stmt := &ClickStatement{Keyword: kw}
 	stmt.Span = kw.Span
-	p.skipSpaces()
-	target, ok := p.parseIdString()
-	if !ok {
-		p.report(plainDiagnostic(codeClickExtraText, kw.Span))
-		return stmt
-	}
-	stmt.Target = target
-	stmt.Span.End = target.Span.End
+	stmt.Target = IdString{Tokens: []Token{kw}, Span: kw.Span}
 	p.skipSpaces()
 	p.parseClickAction(stmt)
 	return stmt
@@ -328,7 +327,11 @@ func (p *parser) parseClickAction(stmt *ClickStatement) {
 		}
 		return
 	}
-	stmt.Span.End = stmt.Link.Span.End
+	if stmt.Callback != nil {
+		stmt.Span.End = stmt.Callback.Span.End
+	} else {
+		stmt.Span.End = stmt.Link.Span.End
+	}
 }
 
 func (p *parser) parseCallbackAction() *CallbackAction {
@@ -339,8 +342,12 @@ func (p *parser) parseCallbackAction() *CallbackAction {
 		action.Span.End = args.Span.End
 	}
 	p.skipSpaces()
-	if p.atAny(TokStr, TokMDStr, TokLinkTarget) {
-		extra := p.peek()
+	if tip, ok := p.parseClickString(); ok {
+		action.Span.End = tip.Span.End
+	}
+	p.skipSpaces()
+	if p.at(TokLinkTarget) {
+		extra := p.next()
 		action.Extra = &extra
 		action.Span.End = extra.Span.End
 		p.report(plainDiagnostic(codeClickExtraText, extra.Span))
