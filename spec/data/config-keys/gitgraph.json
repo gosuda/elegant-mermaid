@@ -1,0 +1,97 @@
+[
+  {
+    "kind": "gitgraph",
+    "key": "arrowMarkerAbsolute",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "diagramPadding",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "mainBranchName",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "mainBranchOrder",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "nodeLabel",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "nodeLabel.height",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "nodeLabel.width",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "nodeLabel.x",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "nodeLabel.y",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "parallelCommits",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "rotateCommitLabel",
+    "class": "honoured"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "showBranches",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "showCommitLabel",
+    "class": "honoured"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "titleTopMargin",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "gitgraph",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  }
+]

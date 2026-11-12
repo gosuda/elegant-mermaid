@@ -1354,6 +1354,101 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "gitgraph",
+        key: "arrowMarkerAbsolute",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "diagramPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "mainBranchName",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "mainBranchOrder",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "nodeLabel",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "nodeLabel.height",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "nodeLabel.width",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "nodeLabel.x",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "nodeLabel.y",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "parallelCommits",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "rotateCommitLabel",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "showBranches",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "showCommitLabel",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "titleTopMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "gitgraph",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "mindmap",
         key: "colorBy",
         class: "accepted-ignored",
@@ -1907,5 +2002,220 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         kind: "usecase",
         key: "wrappingWidth",
         class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "chartOrientation",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "height",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "legendFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "legendPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "plotReservedSpacePercent",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "showDataLabel",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "showDataLabelOutsideBar",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "showLegend",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "showTitle",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "titleFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "titlePadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "width",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.axisLineWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.labelFontSize",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.labelPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.labelRotation",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.showAxisLine",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.showLabel",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.showTick",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.showTitle",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.tickLength",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.tickWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.titleFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "xAxis.titlePadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.axisLineWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.labelFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.labelPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.labelRotation",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.showAxisLine",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.showLabel",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.showTick",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.showTitle",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.tickLength",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.tickWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.titleFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "xychart",
+        key: "yAxis.titlePadding",
+        class: "accepted-ignored",
     },
 ];
