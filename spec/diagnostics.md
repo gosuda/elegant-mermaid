@@ -93,7 +93,7 @@ This file fixes the diagnostic model, the severity and fix safety values, the re
 - diagnostics-32: Each diagnostic MUST be one result with `ruleId` set to the code, `level` set by the table under diagnostics-36, `message.text` set to the message, and `locations[0].physicalLocation` holding `artifactLocation.uri` (the path as given, or `<stdin>`) and `region` with `startLine`, `startColumn`, `endLine`, and `endColumn`. [just go-check: TestLintGolden]
 - diagnostics-33: SARIF columns MUST be 1-based UTF-16 code units, and `endColumn` MUST be exclusive. [just go-check: TestLintGolden]
 - diagnostics-34: Related spans MUST go to `relatedLocations`, and `help` and fixes MUST NOT be emitted. [just go-check: TestLintGolden]
-- diagnostics-35: `tool.driver.rules` MUST list the distinct codes of the output in the registry order of spec/lint.md, with `shortDescription.text` set to the summary and `help.text` set to the help. [just go-check: TestLintGolden]
+- diagnostics-35: `tool.driver.rules` MUST list the distinct codes of the output in this order: the lint rule rows in the registry order of spec/lint.md, then the diagnostic rows in registry order, then codes with no registry row in ascending byte order; `shortDescription.text` MUST be the summary and `help.text` MUST be the help. [just go-check: TestLintGolden]
 - diagnostics-36: The severity mapping of the machine formats MUST be the table below, and severity `off` MUST NOT be emitted. [just go-check: TestLintGolden]
 
     |severity|`json`|`sarif` `level`|`github` command|
