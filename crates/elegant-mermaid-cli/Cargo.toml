@@ -1,0 +1,22 @@
+[package]
+name = "elegant-mermaid-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command-line tool emd to render, check, lint, and view Mermaid diagrams."
+readme = "README.md"
+keywords = ["mermaid", "diagram", "svg", "ascii", "lint"]
+categories = ["visualization", "command-line-utilities"]
+include = ["src/**", "assets/**", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]
+
+[[bin]]
+name = "emd"
+path = "src/main.rs"
+
+[dependencies]
+elegant-mermaid = { version = "=0.1.0", path = "../elegant-mermaid", features = ["png"] }
+
+[lints]
+workspace = true

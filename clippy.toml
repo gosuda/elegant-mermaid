@@ -1,0 +1,12 @@
+cognitive-complexity-threshold = 15
+
+disallowed-methods = [
+    "std::time::SystemTime::now",
+    "std::time::Instant::now",
+]
+
+disallowed-types = [
+    "std::net::TcpStream",
+    "std::net::TcpListener",
+    "std::net::UdpSocket",
+]

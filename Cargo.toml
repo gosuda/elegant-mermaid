@@ -1,0 +1,39 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/elegant-mermaid",
+    "crates/elegant-mermaid-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0 AND OFL-1.1 AND Unicode-3.0"
+repository = "https://github.com/gosuda/elegant-mermaid"
+
+[workspace.dependencies]
+thiserror = { version = "=2.0.21" }
+tiny-skia = { version = "=0.12.0" }
+skrifa = { version = "=0.50.0" }
+clap = { version = "=4.6.7", features = ["derive"] }
+anyhow = { version = "=1.0.104" }
+ratatui = { version = "=0.30.2" }
+crossterm = { version = "=0.29.0" }
+notify = { version = "=8.2.2" }
+notify-debouncer-full = { version = "=0.7.0" }
+base64 = { version = "=0.23.1" }
+proptest = { version = "=1.12.0" }
+criterion = { version = "=0.8.2" }
+wasm-bindgen = { version = "=0.2.130" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+cognitive_complexity = "deny"
+iter_over_hash_type = "deny"

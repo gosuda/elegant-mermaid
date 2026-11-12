@@ -1,0 +1,14 @@
+[licenses]
+version = 2
+allow = ["Apache-2.0", "MIT", "ISC", "BSD-3-Clause", "Unicode-3.0", "OFL-1.1", "Zlib"]
+
+[[licenses.exceptions]]
+crate = "arrayref"
+allow = ["BSD-2-Clause"]
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[bans]
+deny = [{ crate = "chrono" }]

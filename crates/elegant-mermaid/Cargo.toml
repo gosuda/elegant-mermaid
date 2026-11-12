@@ -1,0 +1,23 @@
+[package]
+name = "elegant-mermaid"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Render, check, and lint Mermaid diagrams as SVG, PNG, or terminal text."
+readme = "README.md"
+keywords = ["mermaid", "diagram", "svg", "ascii", "lint"]
+categories = ["visualization", "command-line-utilities"]
+include = ["src/**", "assets/**", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]
+
+[features]
+png = ["dep:tiny-skia", "dep:skrifa"]
+
+[dependencies]
+thiserror = { workspace = true }
+tiny-skia = { workspace = true, optional = true }
+skrifa = { workspace = true, optional = true }
+
+[lints]
+workspace = true
