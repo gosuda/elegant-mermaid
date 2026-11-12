@@ -223,7 +223,7 @@ check-fast:
     just gen-check
     just go-check
     just rust-check
-    just parity SAMPLE=10
+    just parity KIND=flowchart FILES=corpus/flat-flowchart.txt SAMPLE=10
 
 # Run every gate whose subject exists, in order
 verify:
