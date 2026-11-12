@@ -11,3 +11,9 @@ Segment.cross_comm
 Segment.cross_iff_common_interior_point
 inversions_eq_crossings
 Validator.sound
+Elegant.Measure.wrap_preserves_text
+Elegant.Measure.wrap_no_cluster_split
+Elegant.Measure.wrap_lines_fit
+Elegant.Measure.segment_concat
+Elegant.Measure.width_nonneg
+Elegant.Measure.width_append_le

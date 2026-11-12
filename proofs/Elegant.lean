@@ -24,3 +24,4 @@ import Elegant.Gen.Unicodewidth
 import Elegant.Model
 import Elegant.Scene
 import Elegant.Dump
+import Elegant.Measure
