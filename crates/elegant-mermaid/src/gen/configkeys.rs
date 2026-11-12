@@ -1249,6 +1249,61 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "cynefin",
+        key: "boundaryAmplitude",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "height",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "padding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "seed",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "showDomainDescriptions",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "cynefin",
+        key: "width",
+        class: "honoured",
+    },
+    ConfigKey {
         kind: "er",
         key: "diagramPadding",
         class: "accepted-ignored",

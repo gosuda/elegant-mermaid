@@ -1,0 +1,13 @@
+[
+  {"kind":"cynefin","key":"boundaryAmplitude","class":"honoured"},
+  {"kind":"cynefin","key":"height","class":"honoured"},
+  {"kind":"cynefin","key":"layout","class":"accepted-ignored"},
+  {"kind":"cynefin","key":"look","class":"honoured"},
+  {"kind":"cynefin","key":"padding","class":"accepted-ignored"},
+  {"kind":"cynefin","key":"seed","class":"honoured"},
+  {"kind":"cynefin","key":"showDomainDescriptions","class":"accepted-ignored"},
+  {"kind":"cynefin","key":"theme","class":"honoured"},
+  {"kind":"cynefin","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"cynefin","key":"useWidth","class":"accepted-ignored"},
+  {"kind":"cynefin","key":"width","class":"honoured"}
+]
