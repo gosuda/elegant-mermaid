@@ -299,6 +299,731 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "honoured",
     },
     ConfigKey {
+        kind: "c4",
+        key: "boundaryFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "boundaryFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "boundaryFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "boundaryFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "boxMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "c4BoundaryInRow",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "c4ShapeInRow",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "c4ShapeMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "c4ShapePadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "componentFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "componentFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "componentFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "componentFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_dbFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_dbFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_dbFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_dbFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_db_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_db_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_queueFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_queueFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_queueFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_queueFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_queue_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "component_queue_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "containerFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "containerFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "containerFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "containerFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_dbFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_dbFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_dbFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_dbFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_db_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_db_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_queueFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_queueFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_queueFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_queueFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_queue_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "container_queue_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "diagramMarginX",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "diagramMarginY",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_componentFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_componentFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_componentFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_componentFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_dbFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_dbFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_dbFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_dbFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_db_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_db_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_queueFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_queueFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_queueFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_queueFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_queue_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_component_queue_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_containerFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_containerFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_containerFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_containerFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_dbFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_dbFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_dbFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_dbFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_db_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_db_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_queueFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_queueFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_queueFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_queueFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_queue_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_container_queue_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_personFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_personFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_personFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_personFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_person_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_person_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_systemFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_systemFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_systemFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_systemFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_dbFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_dbFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_dbFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_dbFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_db_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_db_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_queueFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_queueFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_queueFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_queueFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_queue_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "external_system_queue_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "height",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "messageFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "messageFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "messageFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "messageFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "nextLinePaddingX",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "personFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "personFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "personFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "personFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "person_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "person_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "systemFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "systemFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "systemFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "systemFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_dbFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_dbFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_dbFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_dbFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_db_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_db_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_queueFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_queueFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_queueFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_queueFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_queue_bg_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "system_queue_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "width",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "wrap",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "c4",
+        key: "wrapPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "class",
         key: "arrowMarkerAbsolute",
         class: "accepted-ignored",
@@ -742,5 +1467,85 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         kind: "state",
         key: "wrappingWidth",
         class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "actorFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "actorFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "actorFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "colorScheme",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "diagramPadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "minNodeWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "nodeSpacing",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "rankSpacing",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "usecaseFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "usecaseFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "usecaseFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
+        key: "wrappingWidth",
+        class: "honoured",
     },
 ];

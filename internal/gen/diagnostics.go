@@ -13,6 +13,9 @@ type Diagnostic struct {
 }
 
 var Diagnostics = []Diagnostic{
+	{"c4/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "A token must fit the active grammar production.", "none", []string{}},
+	{"c4/unknown-statement", "error", "unknown statement TOKEN", "", "An unrecognized statement cannot introduce model objects.", "none", []string{}},
+	{"c4/unterminated", "error", "unterminated TOKEN", "", "An open construct requires its closing delimiter.", "none", []string{}},
 	{"class/annotation-target-unknown", "error", "annotation references unknown class ID", "", "The database requires a class before a standalone annotation.", "none", []string{}},
 	{"class/nested-member-block", "error", "class member cannot contain a block", "", "The member lexer explicitly rejects nested braces.", "none", []string{}},
 	{"class/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "A token must fit the current production.", "none", []string{}},
@@ -52,4 +55,15 @@ var Diagnostics = []Diagnostic{
 	{"state/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "Each token must fit the current production.", "none", []string{}},
 	{"state/unknown-statement", "error", "unknown statement TOKEN", "", "An unknown statement cannot create a state.", "none", []string{}},
 	{"state/unterminated", "error", "unterminated TOKEN", "", "Each open string or block needs its closing delimiter.", "none", []string{}},
+	{"usecase/declaration-conflict", "error", "conflicting declaration of ID: REASON", "", "One symbol must have one consistent declaration.", "none", []string{}},
+	{"usecase/invalid-actor", "error", "invalid actor ID: REASON", "", "Actor geometry options must be compatible.", "none", []string{}},
+	{"usecase/invalid-business-usecase", "error", "rectangular use case ID cannot be business", "", "Business use cases require ellipse geometry.", "none", []string{}},
+	{"usecase/invalid-json", "error", "invalid JSON object: REASON", "", "A JSON node must contain a strict JSON object.", "none", []string{}},
+	{"usecase/invalid-metadata", "error", "invalid metadata KEY for KIND ID", "", "Metadata properties must apply to the target kind.", "none", []string{}},
+	{"usecase/invalid-relationship", "error", "invalid TYPE relationship: REASON", "", "Relationship kinds constrain endpoint and marker kinds.", "none", []string{}},
+	{"usecase/reference-class-suffix", "error", "endpoint ID uses classes without a declaration", "", "An endpoint class suffix requires a node declaration.", "none", []string{}},
+	{"usecase/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "Each token must fit the current production.", "none", []string{}},
+	{"usecase/unknown-statement", "error", "unknown statement TOKEN", "", "Unsupported statements must not create model nodes.", "none", []string{}},
+	{"usecase/unresolved-target", "error", "unresolved KIND target ID", "", "Assignments and notes require a target of the correct kind.", "none", []string{}},
+	{"usecase/unterminated", "error", "unterminated TOKEN", "", "An open construct needs its closing delimiter.", "none", []string{}},
 }
