@@ -23,6 +23,9 @@ func layoutModel(cfg Config) error {
 	if err != nil {
 		return err
 	}
+	if path == "-" {
+		path = "<stdin>"
+	}
 	p := syntax.Preprocess(src)
 	detection := syntax.Detect(src, p.Removed)
 	ds := append(p.Diags, detection.Diagnostics...)
@@ -41,7 +44,22 @@ func layoutModel(cfg Config) error {
 		return &ExitError{Code: 1}
 	}
 	in, _ := layout.FromFlowchart(m, profile, scene.Options{})
-	return layout.WriteModelDump(cfg.Stdout, in)
+	return writeLayoutResult(cfg, path, src, in)
+}
+
+func writeLayoutResult(cfg Config, path string, src []byte, in layout.Input) error {
+	if modelStage(cfg.Args[1:]) {
+		return layout.WriteModelDump(cfg.Stdout, in)
+	}
+	s, diagnostics, err := layout.Layout(in)
+	if err != nil {
+		return err
+	}
+	if err = diag.RenderText(cfg.Stderr, path, src, diagnostics, diag.FrameOptions{}); err != nil {
+		return err
+	}
+	_, err = cfg.Stdout.Write(s.AppendJSON(nil))
+	return err
 }
 
 func hasErrors(ds []diag.Diagnostic) bool {
@@ -112,8 +130,8 @@ func consumeModelFlag(args []string, profile *scene.Profile) (int, error) {
 
 func modelFlag(flag, value string, profile *scene.Profile) error {
 	if flag == "--stage" {
-		if value != "model" {
-			return fmt.Errorf("invalid value %s for --stage; expected one of: model", value)
+		if value != "model" && value != "layout" {
+			return fmt.Errorf("invalid value %s for --stage; expected one of: model, layout", value)
 		}
 		return nil
 	}
@@ -126,4 +144,16 @@ func modelFlag(flag, value string, profile *scene.Profile) error {
 		return fmt.Errorf("invalid value %s for --profile; expected one of: vector, cell", value)
 	}
 	return nil
+}
+
+func modelStage(args []string) bool {
+	for i := 0; i+1 < len(args); i++ {
+		if args[i] == "--" {
+			break
+		}
+		if args[i] == "--stage" && args[i+1] == "model" {
+			return true
+		}
+	}
+	return false
 }

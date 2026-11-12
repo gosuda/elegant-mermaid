@@ -54,3 +54,13 @@ func layoutExitCode(t *testing.T, err error) int {
 	}
 	return 0
 }
+
+func TestLayoutPublic(t *testing.T) {
+	for _, profile := range []string{"vector", "cell"} {
+		var out, stderr bytes.Buffer
+		err := Run(context.Background(), Config{Args: []string{"layout", "--profile", profile}, Stdin: strings.NewReader("flowchart LR\n A[Start] --> B{Choice}\n B -->|yes| C[Done]\n B -->|no| A\n"), Stdout: &out, Stderr: &stderr})
+		if layoutExitCode(t, err) != 0 || !strings.Contains(out.String(), `"stage":"layout"`) {
+			t.Fatalf("%v %s %s", err, out.String(), stderr.String())
+		}
+	}
+}
