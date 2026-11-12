@@ -21,3 +21,6 @@ import Elegant.Gen.Strokeok
 import Elegant.Gen.Styles
 import Elegant.Gen.Themes
 import Elegant.Gen.Unicodewidth
+import Elegant.Model
+import Elegant.Scene
+import Elegant.Dump
