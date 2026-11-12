@@ -76,7 +76,10 @@ pub fn parse(src: &str, removed: &[Span]) -> Parsed {
 impl<'a> Parser<'a> {
     fn new(src: &'a str, removed: &'a [Span]) -> Parser<'a> {
         let mut lexer = Lexer::new(src, removed);
-        let cur = lexer.next_token();
+        let mut cur = lexer.next_token();
+        while cur.kind == TokenKind::Space {
+            cur = lexer.next_token();
+        }
         let prev = cur.clone();
         Parser {
             src,
@@ -146,16 +149,13 @@ impl<'a> Parser<'a> {
     }
 
     fn unexpected(&mut self, kinds: &[TokenKind]) -> bool {
-        if self.at(TokenKind::Eof) {
-            return false;
-        }
         let span = self.cur.span;
         let raw = self.raw(span);
         let mut names: Vec<&'static str> = kinds.iter().map(|k| k.as_str()).collect();
         names.sort_unstable();
         let message = format!("unexpected {raw}, expected one of: {}", names.join(", "));
         self.raise(C_UNEXPECTED_TOKEN, span, message);
-        true
+        !self.at(TokenKind::Eof)
     }
 
     fn recover(&mut self) {
@@ -187,6 +187,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_document(&mut self) -> Document {
+        self.skip_separators();
         if self.at(TokenKind::Eof) {
             self.diags.push(diagnostic(
                 "common/empty-source",
@@ -215,6 +216,7 @@ impl<'a> Parser<'a> {
                 lines.push(line);
             }
             if !self.at_separator() {
+                self.unexpected(&[TokenKind::Eof, TokenKind::Newline, TokenKind::Semi]);
                 self.recover();
             }
             self.skip_separators();
@@ -601,14 +603,6 @@ impl<'a> Parser<'a> {
 
     fn parse_click(&mut self) -> Option<Statement> {
         let keyword = self.cur.span;
-        self.bump();
-        if self.at_separator() {
-            let kinds = [TokenKind::Click, TokenKind::Str, TokenKind::NodeString];
-            if self.unexpected(&kinds) {
-                self.recover();
-            }
-            return None;
-        }
         let target = self.cur.span;
         self.bump();
         let action = self.parse_click_action()?;
@@ -668,7 +662,7 @@ impl<'a> Parser<'a> {
         } else {
             None
         };
-        if self.at(TokenKind::LinkTarget) || (args.is_some() && self.at(TokenKind::Str)) {
+        if self.at(TokenKind::LinkTarget) {
             let span = self.cur.span;
             self.raise(
                 C_CLICK_EXTRA,
@@ -681,6 +675,17 @@ impl<'a> Parser<'a> {
             return None;
         }
         let tooltip = self.string_text();
+        if self.at(TokenKind::LinkTarget) {
+            self.raise(
+                C_CLICK_EXTRA,
+                self.cur.span,
+                String::from(
+                    "A click call statement carries tooltip or target text after call fn()",
+                ),
+            );
+            self.recover();
+            return None;
+        }
         Some(ClickAction::Call {
             name,
             args,
@@ -738,6 +743,9 @@ impl<'a> Parser<'a> {
             let chunk = self.text(&self.cur).to_owned();
             text.push_str(&chunk);
             self.bump();
+            if self.cur.span.start > self.prev.span.end {
+                break;
+            }
         }
         IdString {
             span: Span {
@@ -787,6 +795,9 @@ impl<'a> Parser<'a> {
                 }
                 return None;
             }
+        }
+        if id.is_none() && title.is_none() {
+            self.unexpected(&[TokenKind::NodeString, TokenKind::Str]);
         }
         if matches!(self.cur.kind, TokenKind::Newline | TokenKind::Semi) {
             self.bump();
@@ -1088,6 +1099,15 @@ impl<'a> Parser<'a> {
             }
             return None;
         }
+        let form = match form {
+            LabelForm::Diamond if self.src.as_bytes().get(self.cur.span.end) == Some(&b'{') => {
+                LabelForm::Diamond2
+            }
+            LabelForm::Round if self.src.as_bytes().get(self.cur.span.end) == Some(&b'(') => {
+                LabelForm::Round2
+            }
+            other => other,
+        };
         let label = self.parse_label(form, &id);
         let end = label.as_ref().map_or(id.span.end, |value| value.span.end);
         Some(Vertex {
@@ -1258,124 +1278,50 @@ impl<'a> Parser<'a> {
         let mut kind = TextKind::Plain;
         let mut text = String::new();
         let mut end = start;
-        let mut depth = 0usize;
-        let mut plain_before = false;
-        let mut strings = 0usize;
-        let mut quoted = false;
+        let mut any = false;
         loop {
             let current = self.cur.kind;
-            if depth == 0 && closers.contains(&current) {
+            if closers.contains(&current) || self.at_separator() {
                 break;
             }
-            if self.at_separator() {
-                break;
-            }
-            match current {
-                TokenKind::Text
-                | TokenKind::UnicodeText
-                | TokenKind::TagStart
-                | TokenKind::TagEnd => {
-                    plain_before = true;
-                    text.push_str(self.text(&self.cur));
-                }
-                TokenKind::Str => {
-                    strings += 1;
-                    quoted = true;
-                    if plain_before {
-                        let at = self.cur.span;
-                        self.raise(
+            if matches!(current, TokenKind::Str | TokenKind::MdStr) {
+                if any {
+                    let (code, message) = if kind == TextKind::Plain {
+                        (
                             C_LABEL_QUOTE_IN_UNQUOTED,
-                            Span {
-                                start: at.start,
-                                end: at.start,
-                            },
-                            String::from("A double quote appears inside an unquoted label"),
-                        );
-                    }
-                    if strings > 1 {
-                        let at = self.cur.span;
-                        self.raise(
+                            "A double quote appears inside an unquoted label",
+                        )
+                    } else {
+                        (
                             C_LABEL_DOUBLE_IN_DOUBLE,
-                            Span {
-                                start: at.start,
-                                end: at.start,
-                            },
-                            String::from("A double-quoted label contains another double quote"),
-                        );
-                    }
-                    kind = TextKind::String;
-                    text.push_str(self.text(&self.cur));
+                            "A double-quoted label contains another double quote",
+                        )
+                    };
+                    self.raise(code, self.cur.span, message);
+                    break;
                 }
-                TokenKind::MdStr => {
-                    strings += 1;
-                    quoted = true;
-                    if plain_before {
-                        let at = self.cur.span;
-                        self.raise(
-                            C_LABEL_QUOTE_IN_UNQUOTED,
-                            Span {
-                                start: at.start,
-                                end: at.start,
-                            },
-                            String::from("A double quote appears inside an unquoted label"),
-                        );
-                    }
-                    kind = TextKind::Markdown;
-                    text.push_str(self.text(&self.cur));
+                kind = if current == TokenKind::MdStr {
+                    TextKind::Markdown
+                } else {
+                    TextKind::String
+                };
+            } else if !matches!(
+                current,
+                TokenKind::Text | TokenKind::UnicodeText | TokenKind::TagStart | TokenKind::TagEnd
+            ) {
+                if current == TokenKind::Ps {
+                    self.raise(
+                        C_LABEL_PARENS_UNQUOTED,
+                        self.cur.span,
+                        String::from(
+                            "An unquoted label contains an opening or closing parenthesis",
+                        ),
+                    );
                 }
-                TokenKind::Ps
-                | TokenKind::Sqs
-                | TokenKind::DiamondStart
-                | TokenKind::EllipseStart
-                | TokenKind::StadiumStart
-                | TokenKind::SubroutineStart
-                | TokenKind::CylinderStart
-                | TokenKind::DoubleCircleStart
-                | TokenKind::TrapStart
-                | TokenKind::InvTrapStart
-                | TokenKind::VertexWithPropsStart => {
-                    if current == TokenKind::Ps && !quoted {
-                        let at = self.cur.span;
-                        self.raise(
-                            C_LABEL_PARENS_UNQUOTED,
-                            at,
-                            String::from(
-                                "An unquoted label contains an opening or closing parenthesis",
-                            ),
-                        );
-                    }
-                    depth += 1;
-                    plain_before = true;
-                    text.push_str(self.raw(self.cur.span));
-                }
-                TokenKind::Pe
-                | TokenKind::Sqe
-                | TokenKind::DiamondStop
-                | TokenKind::EllipseEnd
-                | TokenKind::StadiumEnd
-                | TokenKind::SubroutineEnd
-                | TokenKind::CylinderEnd
-                | TokenKind::DoubleCircleEnd
-                | TokenKind::TrapEnd
-                | TokenKind::InvTrapEnd => {
-                    if depth == 0 {
-                        break;
-                    }
-                    if current == TokenKind::Pe && !quoted {
-                        let at = self.cur.span;
-                        self.raise(
-                            C_LABEL_PARENS_UNQUOTED,
-                            at,
-                            String::from(
-                                "An unquoted label contains an opening or closing parenthesis",
-                            ),
-                        );
-                    }
-                    depth -= 1;
-                    text.push_str(self.raw(self.cur.span));
-                }
-                _ => break,
+                break;
             }
+            any = true;
+            text.push_str(self.text(&self.cur));
             end = self.cur.span.end;
             self.bump();
         }
@@ -1473,6 +1419,10 @@ impl<'a> Parser<'a> {
         let mut end = start;
         let mut any = false;
         loop {
+            if any && matches!(self.cur.kind, TokenKind::Str | TokenKind::MdStr) {
+                self.unexpected(&[TokenKind::Link]);
+                break;
+            }
             match self.cur.kind {
                 TokenKind::EdgeText | TokenKind::UnicodeText => {
                     text.push_str(self.text(&self.cur));

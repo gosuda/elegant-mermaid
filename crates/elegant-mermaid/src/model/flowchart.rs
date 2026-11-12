@@ -262,11 +262,15 @@ fn edge(source: &str, link: &Link, from: &str, to: &str) -> Edge {
         stroke: stroke.into(),
         marker: end_marker.into(),
         start: start_marker.into(),
-        length: count.saturating_sub(1).min(10),
+        length: if body.contains('.') {
+            body.bytes().filter(|b| *b == b'.').count().min(10)
+        } else {
+            count.saturating_sub(1).min(10)
+        },
         user_id: link
             .statement
             .link_id
-            .map(|span| source[span.start..span.end].into())
+            .map(|span| source[span.start..span.end].trim_end_matches('@').into())
             .unwrap_or_default(),
         span: link.span,
         attrs: std::collections::BTreeMap::new(),
@@ -287,13 +291,13 @@ fn stroke_of(body: &str) -> &'static str {
 
 fn edge_markers(source: &str, link: &Link, end: &str) -> (&'static str, &'static str) {
     let end_marker = marker(end.chars().last());
-    let Some(span) = link.statement.start else {
-        return ("", end_marker);
-    };
-    let start = source[span.start..span.end].trim();
+    let start = link
+        .statement
+        .start
+        .map_or(end, |span| source[span.start..span.end].trim());
     let start_marker = marker(start.chars().next());
-    if stroke_of(start) != stroke_of(end) || start_marker != end_marker && !start.starts_with('<') {
-        return ("", "none");
+    if stroke_of(start) != stroke_of(end) || start_marker != "none" && start_marker != end_marker {
+        return ("none", "none");
     }
     (start_marker, end_marker)
 }

@@ -226,9 +226,9 @@ impl<'a> Lexer<'a> {
             .map_or(fallback, |frame| frame.opener.start)
     }
 
-    fn run_while<F>(&self, from: usize, pred: F) -> (String, bool, usize)
+    fn run_while<F>(&self, from: usize, mut pred: F) -> (String, bool, usize)
     where
-        F: Fn(char) -> bool,
+        F: FnMut(char) -> bool,
     {
         let mut out = String::new();
         let mut pos = from;
@@ -449,27 +449,35 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_initial(&mut self, p: usize) -> Option<Token> {
-        self.try_acc(p)
-            .or_else(|| self.try_shape_data_open(p))
-            .or_else(|| self.try_call(p))
-            .or_else(|| self.try_quote(p))
-            .or_else(|| self.try_keyword(p))
-            .or_else(|| self.try_href(p))
-            .or_else(|| self.try_click(p))
-            .or_else(|| self.try_header(p))
-            .or_else(|| self.try_block_keyword(p))
-            .or_else(|| self.try_direction_stmt(p))
-            .or_else(|| self.try_link_id(p))
-            .or_else(|| self.try_punct(p))
-            .or_else(|| self.try_link(p))
-            .or_else(|| self.try_opener(p))
-            .or_else(|| self.try_angle(p))
-            .or_else(|| self.try_node_string(p))
-            .or_else(|| self.try_minus(p))
-            .or_else(|| self.try_unicode_text(p))
-            .or_else(|| self.try_loose_opener(p))
-            .or_else(|| self.whitespace(p))
-            .or_else(|| self.unmatched(Mode::Initial, p))
+        let rules: [fn(&mut Self, usize) -> Option<Token>; 20] = [
+            Self::try_acc,
+            Self::try_shape_data_open,
+            Self::try_call,
+            Self::try_quote,
+            Self::try_keyword,
+            Self::try_href,
+            Self::try_click,
+            Self::try_header,
+            Self::try_block_keyword,
+            Self::try_direction_stmt,
+            Self::try_link_id,
+            Self::try_punct,
+            Self::try_link,
+            Self::try_opener,
+            Self::try_angle,
+            Self::try_node_string,
+            Self::try_minus,
+            Self::try_unicode_text,
+            Self::try_loose_opener,
+            Self::whitespace,
+        ];
+        for rule in rules {
+            let token = rule(self, p);
+            if token.is_some() || self.pos != p {
+                return token;
+            }
+        }
+        self.unmatched(Mode::Initial, p)
     }
 
     fn simple_token(&mut self, kind: TokenKind, p: usize) -> Option<Token> {
@@ -478,8 +486,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn try_acc(&mut self, p: usize) -> Option<Token> {
-        if self.title_rule(p).is_some() {
-            return self.simple_token(TokenKind::AccTitle, p);
+        if let Some(end) = self.title_rule(p) {
+            let span = Span { start: p, end };
+            let token = self.finish(TokenKind::AccTitle, p, end, TextVal::Slice(span));
+            self.push(Mode::AccTitle, span, false);
+            return Some(token);
         }
         let kw_end = self.match_lit(p, "accDescr")?;
         let colon = self.ws_star(kw_end);
@@ -552,6 +563,12 @@ impl<'a> Lexer<'a> {
             ("class", TokenKind::Class),
         ] {
             if let Some(end) = self.match_lit(p, lit) {
+                if self
+                    .at(end)
+                    .is_some_and(|b| b.is_ascii_alphanumeric() || b == b'_')
+                {
+                    continue;
+                }
                 let span = Span { start: p, end };
                 return Some(self.finish(kind, p, end, TextVal::Slice(span)));
             }
@@ -590,7 +607,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn try_block_keyword(&mut self, p: usize) -> Option<Token> {
-        if let Some(end) = self.match_lit(p, "subgraph") {
+        if let Some(end) = self.match_lit(p, "subgraph")
+            && !self
+                .at(end)
+                .is_some_and(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
             let span = Span { start: p, end };
             return Some(self.finish(TokenKind::Subgraph, p, end, TextVal::Slice(span)));
         }
@@ -769,6 +790,7 @@ impl<'a> Lexer<'a> {
             Some(b'-') | Some(b'x') | Some(b'o') | Some(b'>') => {
                 Some(self.ws_star(self.next_visible(p)))
             }
+            _ if dashes >= 3 => Some(self.ws_star(p)),
             _ => None,
         }
     }
@@ -784,6 +806,7 @@ impl<'a> Lexer<'a> {
             Some(b'=') | Some(b'x') | Some(b'o') | Some(b'>') => {
                 Some(self.ws_star(self.next_visible(p)))
             }
+            _ if run >= 3 => Some(self.ws_star(p)),
             _ => None,
         }
     }
@@ -1200,6 +1223,9 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_callback_name(&mut self, p: usize) -> Option<Token> {
+        if self.at(p) == Some(b'"') {
+            return self.unmatched(Mode::CallbackName, p);
+        }
         if self.at(p) == Some(b'(') {
             let after = self.next_visible(p);
             let close = self.ws_star(after);
@@ -1248,10 +1274,21 @@ impl<'a> Lexer<'a> {
         if let Some(tok) = self.text_closer(p) {
             return Some(tok);
         }
-        if let Some(tok) = self.shared_opener(p) {
-            return Some(tok);
+        let opener = self.shared_opener(p);
+        if opener.is_some() || self.pos != p {
+            return opener;
         }
-        let (text, bridged, end) = self.run_while(p, |c| !"[\\](){}|\"".contains(c));
+        let mut in_tag = false;
+        let (text, bridged, end) = self.run_while(p, |c| {
+            let accepted = !"[](){}|".contains(c) && (c != '"' || in_tag);
+            if c == '<' {
+                in_tag = true;
+            }
+            if c == '>' {
+                in_tag = false;
+            }
+            accepted
+        });
         if end == p {
             return self.unmatched(Mode::Text, p);
         }
@@ -1331,8 +1368,9 @@ impl<'a> Lexer<'a> {
             let span = Span { start: p, end };
             return Some(self.finish(TokenKind::EllipseEnd, p, end, TextVal::Slice(span)));
         }
-        if let Some(tok) = self.shared_opener(p) {
-            return Some(tok);
+        let opener = self.shared_opener(p);
+        if opener.is_some() || self.pos != p {
+            return opener;
         }
         let (text, bridged, end) = self.run_while(p, |c| !"()[]{}".contains(c));
         if end == p {
@@ -1356,10 +1394,10 @@ impl<'a> Lexer<'a> {
         if let Some(tok) = self.trap_end(p) {
             return Some(tok);
         }
-        if let Some(tok) = self.shared_opener(p) {
-            return Some(tok);
+        if self.at(p) == Some(b'"') {
+            return self.try_quote(p);
         }
-        let (text, bridged, end) = self.run_while(p, |c| !"\\[](){}".contains(c) && c != '/');
+        let (text, bridged, end) = self.run_while(p, |c| !"\\[](){}\"".contains(c) && c != '/');
         if end > p {
             let value = Lexer::value(p, end, text, bridged);
             return Some(self.finish(TokenKind::Text, p, end, value));
@@ -1391,13 +1429,6 @@ impl<'a> Lexer<'a> {
                 return Some(token);
             }
         }
-        if self.at(p) == Some(b']') {
-            let end = self.next_visible(p);
-            let span = Span { start: p, end };
-            let token = self.finish(TokenKind::TrapEnd, p, end, TextVal::Slice(span));
-            self.pop();
-            return Some(token);
-        }
         None
     }
 
@@ -1425,7 +1456,7 @@ impl<'a> Lexer<'a> {
             Mode::DottedEdgeText => '.',
             _ => '-',
         };
-        let (text, bridged, end) = self.run_while(p, |c| c != blocked && !is_ws(c));
+        let (text, bridged, end) = self.run_while(p, |c| c != blocked && c != '"' && !is_ws(c));
         if end > p {
             let value = Lexer::value(p, end, text, bridged);
             return Some(self.finish(TokenKind::EdgeText, p, end, value));
