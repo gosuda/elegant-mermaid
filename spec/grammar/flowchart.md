@@ -28,7 +28,7 @@ This file fixes the lexical rules, the grammar, the abstract syntax tree, the se
 | `^` | `BT` |
 | `v` | `TB` |
 
-- flowchart-009: The keyword `BR` MUST lex as `DIR` and MUST raise `flowchart/dir-invalid` (error) at the direction token, because it is not one of the nine direction keywords of the table above and resolves to no layout direction. [just oracle]
+- flowchart-009: The keyword `BR` MUST lex as `DIR` and MUST raise no diagnostic, because the authority accepts it and stores it as the direction; the model MUST resolve it to `TB`, which is the fallback of `flowchart-012` for a direction outside the nine keywords. [just oracle]
 - flowchart-010: A header with no direction MUST be accepted and MUST resolve to `TB`, which is the authority action for `NODIR`. [just oracle]
 - flowchart-011: The header MUST end at a line end, at `;`, or at the end of the input, and spaces before that byte MUST be accepted. [just go-check]
 - flowchart-012: The header MUST set the resolved direction of the model, and the dump MUST report a `TD` header as `TB`. [just validate]
@@ -279,15 +279,15 @@ link-statement  = [ LINK_ID ] , LINK
                 | [ LINK_ID ] , START_LINK , [ edge-text ] , LINK ;
 arrow-text      = PIPE , text , PIPE ;
 edge-text       = EDGE_TEXT , { EDGE_TEXT }
-                | STR
-                | MD_STR ;
+                | STR , { EDGE_TEXT }
+                | MD_STR , { EDGE_TEXT } ;
 text            = text-token , { text-token }
                 | STR , { text-token }
                 | MD_STR , { text-token } ;
 text-token      = TEXT | TAGSTART | TAGEND | UNICODE_TEXT ;
 text-no-tags    = text-no-tags-token , { text-no-tags-token }
-                | STR
-                | MD_STR ;
+                | STR , { text-no-tags-token }
+                | MD_STR , { text-no-tags-token } ;
 text-no-tags-token = NUM | NODE_STRING | SPACE | MINUS | AMP | UNICODE_TEXT | COLON | MULT | BRKT
                 | STYLE | LINKSTYLE | CLASSDEF | CLASS | CLICK | DOWN | UP | subgraph | end
                 | GRAPH | DIR | direction_tb | direction_bt | direction_rl | direction_lr
@@ -525,8 +525,24 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 - flowchart-097: The codes `flowchart/click-target-not-found`, `flowchart/strict-label-quotes-required`, and `flowchart/node-unclosed-bracket` MUST NOT be raised, because their rows are `rejected` in `spec/data/lint-rules/flowchart.json`. [just gen-check]
 - flowchart-098: A code that this file names and that holds no row in `spec/data/diagnostics/flowchart.json`, `spec/data/diagnostics/common.json`, or `spec/data/lint-rules/flowchart.json` MUST fail `gen-check`. [just gen-check]
 - flowchart-099: Every diagnostic MUST carry the span of its row, and a diagnostic of severity error MUST make `check` exit 1. [just go-check]
-- flowchart-100: The parser MUST raise `flowchart/dir-invalid` at the token after the header keyword when that token is not one of the nine direction keywords of the header table, which covers `BR`, and MUST raise no diagnostic when the header holds no direction at all. [just go-check]
+- flowchart-100: The parser MUST raise `flowchart/dir-invalid` at the token after the header keyword when that token is neither a direction token of the `dir` mode nor `NODIR`, as in `flowchart XY`, and MUST raise no diagnostic when the header holds no direction at all. [just go-check]
 - flowchart-101: A bracket label that holds plain text before a `"` MUST raise `flowchart/label-quote-in-unquoted` as a parser code, because the authority `text` production admits a plain run, or a string or markdown run followed by plain text, and never plain text before a string. [just oracle]
 - flowchart-102: The Rust parser MUST be `syntax::flowchart`, file `crates/elegant-mermaid/src/syntax/flowchart.rs`, and it MUST hold the tree nodes of the table above under the same names. [just rust-check]
 - flowchart-103: The Go parser MUST be `internal/syntax/flowchart`, with the fuzz target `FuzzFlowchart` beside the package. [just go-check]
 - flowchart-104: The Go and Rust models MUST hold the same node list, edge list, and group list, in the same order, for the same source. [just parity]
+- flowchart-105: The lexer MUST take the first matching rule of the current mode at the current byte, in the order of the rule tables of this file; jison without `%options flex` does the same. [just parity]
+
+## Upstream readings
+
+| Reading | Authority fact | This file |
+|---|---|---|
+| `\|` outside a shape | Line 202 returns `SEP` and line 275 returns `PIPE` with `pushState("text")`; no production consumes `SEP` | `PIPE`, dead token `SEP`, `flowchart-020` |
+| `"` outside a shape | Line 87 returns `QUOTE`; no production consumes it, and the `string` mode supplies `STR` | no token, dead token `QUOTE`, `flowchart-023` |
+| Start condition `vertex`, `href`, `shapeDataEndBracket` | declared at lines 15, 23, and 28, entered by no rule | no mode, `flowchart-016` |
+| `link: linkStatement TESTSTR SPACE` | `TESTSTR` is returned by no rule | alternative dropped, `flowchart-031` |
+| Plain text before a string in a label | `text: textToken | text textToken | STR | MD_STR`, and `textToken` holds no `STR` | `A["a"b]` parses, `A[foo"bar"]` fails, `flowchart-101` |
+| A header keyword with no direction | `<dir>(\r?\n)*\s*\n` needs a line end, and the corpus holds `flowchart ` headers | `NODIR` also covers the end of the input, `flowchart-010` |
+| `BR` as the direction | `<dir>\s*BR` returns `DIR` and `setDirection` leaves the word unresolved | accepted, resolved to `TB`, `flowchart-009` |
+| A trap closer | Line 191 is the class `[\\(?=\])]` followed by `\]`, so one byte of that class then `]` closes | `\]` or `]`, `flowchart-025` |
+| A vertex id | Ids are token sequences, not byte runs, so `odd-` is `NODE_STRING` `MINUS` `TAGEND` | `id-string`, `flowchart-042` |
+| An edge half that mixes markers and strokes | `x-->` gives `INVALID` and no diagnostic, and `--x-->` lexes as two `LINK` tokens | no diagnostic for the first, `flowchart/link-unsupported-marker` for the second, `flowchart-074` |
