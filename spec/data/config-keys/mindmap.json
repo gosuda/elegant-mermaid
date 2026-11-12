@@ -1,0 +1,47 @@
+[
+  {
+    "kind": "mindmap",
+    "key": "colorBy",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "mindmap",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "mindmap",
+    "key": "layoutAlgorithm",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "mindmap",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "mindmap",
+    "key": "maxNodeWidth",
+    "class": "honoured"
+  },
+  {
+    "kind": "mindmap",
+    "key": "padding",
+    "class": "honoured"
+  },
+  {
+    "kind": "mindmap",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "mindmap",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "mindmap",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  }
+]
