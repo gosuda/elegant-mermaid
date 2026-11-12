@@ -176,7 +176,7 @@ func (r *renderer) marker(m *scene.MarkerRef) (string, error) {
 		case "open":
 			style, tag = "edge", "polyline"
 		}
-		return r.element(tag, scene.Shape{Style: style}, "points='"+points(ps)+"'")
+		return r.markerParts(tag, style, ps, row.Breaks)
 	}
 	return "", &ConfigError{"unknown marker: " + m.Marker}
 }
@@ -196,6 +196,25 @@ func markerPoint(p, ref [2]int32, m *scene.MarkerRef) (geom.Point, error) {
 		return geom.Point{}, geom.ErrOverflow
 	}
 	return geom.Point{X: int32(x), Y: int32(y)}, nil
+}
+
+func (r *renderer) markerParts(tag, style string, ps []geom.Point, breaks []uint32) (string, error) {
+	var out strings.Builder
+	start := 0
+	for _, end := range breaks {
+		text, err := r.element(tag, scene.Shape{Style: style}, "points='"+points(ps[start:int(end)])+"'")
+		if err != nil {
+			return "", err
+		}
+		out.WriteString(text)
+		start = int(end)
+	}
+	text, err := r.element(tag, scene.Shape{Style: style}, "points='"+points(ps[start:])+"'")
+	if err != nil {
+		return "", err
+	}
+	out.WriteString(text)
+	return out.String(), nil
 }
 func (r *renderer) text(t *scene.Text) (string, error) {
 	if _, e := styleRow(t.Style); e != nil {
