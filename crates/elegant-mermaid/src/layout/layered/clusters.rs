@@ -296,26 +296,30 @@ pub fn borders(
 
 pub fn ports(clusters: &[Cluster], p: &mut Proper, x: &mut [i32]) -> Result<(), LayoutError> {
     for cluster in clusters {
-        let left = cluster
-            .left
-            .iter()
-            .map(|&v| i64::from(x[v]) - i64::from(p.nodes[v].node.w) / 2)
-            .min()
-            .ok_or(LayoutError::Domain)?;
-        let right = cluster
-            .right
-            .iter()
-            .map(|&v| {
-                i64::from(x[v]) - i64::from(p.nodes[v].node.w) / 2 + i64::from(p.nodes[v].node.w)
-            })
-            .max()
-            .ok_or(LayoutError::Domain)?;
-        let width = i32::try_from(right - left).map_err(|_| LayoutError::Overflow)?;
-        let centre =
-            i32::try_from(left + i64::from(width) / 2).map_err(|_| LayoutError::Overflow)?;
         for node in [cluster.node, cluster.bottom] {
+            let rank = p.rank[node];
+            let left = cluster
+                .left
+                .iter()
+                .copied()
+                .find(|&v| p.rank[v] == rank)
+                .ok_or(LayoutError::Domain)?;
+            let right = cluster
+                .right
+                .iter()
+                .copied()
+                .find(|&v| p.rank[v] == rank)
+                .ok_or(LayoutError::Domain)?;
+            let lo = i64::from(x[left]) - i64::from(p.nodes[left].node.w) / 2;
+            let hi = i64::from(x[right]) - i64::from(p.nodes[right].node.w) / 2
+                + i64::from(p.nodes[right].node.w);
+            if hi < lo {
+                return Err(LayoutError::Domain);
+            }
+            let width = i32::try_from(hi - lo).map_err(|_| LayoutError::Overflow)?;
             p.nodes[node].node.w = width;
-            x[node] = centre;
+            x[node] =
+                i32::try_from(lo + i64::from(width) / 2).map_err(|_| LayoutError::Overflow)?;
         }
     }
     Ok(())

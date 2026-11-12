@@ -18,3 +18,6 @@ pub mod rank;
 pub mod route;
 
 pub use crate::geom::GeomError as LayoutError;
+
+#[cfg(test)]
+mod proxy_span_tests;

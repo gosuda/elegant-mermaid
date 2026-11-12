@@ -114,11 +114,19 @@ func groupProxyPorts(p *Proper, x []int32, r *Routing) error {
 	}
 	r.ClusterBounds = bounds
 	geometry := proxyGeometry{proper: p, routing: r, x: x}
-	for i, c := range p.Clusters {
-		if err := geometry.placeSide(ports, proxySide{anchor: c.Top, bounds: bounds[i]}); err != nil {
+	for _, c := range p.Clusters {
+		top, err := clusterRankBounds(p, x, c.ID, p.Rank[c.Top])
+		if err != nil {
 			return err
 		}
-		if err := geometry.placeSide(ports, proxySide{anchor: c.Bottom, bounds: bounds[i]}); err != nil {
+		bottom, err := clusterRankBounds(p, x, c.ID, p.Rank[c.Bottom])
+		if err != nil {
+			return err
+		}
+		if err := geometry.placeSide(ports, proxySide{anchor: c.Top, bounds: top}); err != nil {
+			return err
+		}
+		if err := geometry.placeSide(ports, proxySide{anchor: c.Bottom, bounds: bottom}); err != nil {
 			return err
 		}
 	}
@@ -257,4 +265,27 @@ func borderSpan(node ProperNode, x int32) (horizontalSpan, error) {
 		return horizontalSpan{}, err
 	}
 	return horizontalSpan{Lo: lo, Hi: hi}, nil
+}
+func clusterRankBounds(p *Proper, x []int32, cluster string, rank int32) (horizontalSpan, error) {
+	var bounds horizontalSpan
+	var left, right bool
+	for i, node := range p.Nodes {
+		if node.Parent != cluster || p.Rank[i] != rank {
+			continue
+		}
+		span, err := borderSpan(node, x[i])
+		if err != nil {
+			return bounds, err
+		}
+		switch node.Border {
+		case BorderLeft:
+			bounds.Lo, left = span.Lo, true
+		case BorderRight:
+			bounds.Hi, right = span.Hi, true
+		}
+	}
+	if !left || !right || bounds.Lo > bounds.Hi {
+		return bounds, ErrGraph
+	}
+	return bounds, nil
 }
