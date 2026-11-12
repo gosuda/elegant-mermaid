@@ -468,4 +468,134 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         key: "wrappingWidth",
         class: "accepted-ignored",
     },
+    ConfigKey {
+        kind: "state",
+        key: "arrowMarkerAbsolute",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "compositTitleSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "dividerMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "edgeLengthFactor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "fontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "fontSizeFactor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "forkHeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "forkWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "labelHeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "minNodeWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "miniPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "nodeSpacing",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "noteMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "padding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "radius",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "rankSpacing",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "sizeUnit",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "textHeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "titleShift",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "titleTopMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "state",
+        key: "wrappingWidth",
+        class: "accepted-ignored",
+    },
 ];

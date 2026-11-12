@@ -41,4 +41,9 @@ var Diagnostics = []Diagnostic{
 	{"math/syntax", "error", "invalid math syntax: REASON", "The source text is shown as written.", "A broken formula cannot be typeset, so the raw text stands in and the author gets the reason instead of a silently wrong symbol.", "none", []string{}},
 	{"math/unsupported-command", "warning", "unsupported math command COMMAND", "The source text is shown as written.", "The command is printed literally instead of typeset, so the author can see which part of the formula did not become math.", "none", []string{}},
 	{"source/invalid-utf8", "error", "invalid UTF-8 at byte OFFSET", "Save the source as UTF-8.", "Bytes that are not UTF-8 put the offset of every later diagnostic at risk, so the file must be repaired before anything else can be trusted.", "none", []string{}},
+	{"state/group-description", "error", "composite state ID cannot have additional descriptions", "", "A composite supports a label but not additional description rows.", "none", []string{}},
+	{"state/multiword-state-name", "error", "state name must be a single word: NAME", "", "The state lexer rejects an unquoted multiword composite name.", "none", []string{}},
+	{"state/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "Each token must fit the current production.", "none", []string{}},
+	{"state/unknown-statement", "error", "unknown statement TOKEN", "", "An unknown statement cannot create a state.", "none", []string{}},
+	{"state/unterminated", "error", "unterminated TOKEN", "", "Each open string or block needs its closing delimiter.", "none", []string{}},
 }
