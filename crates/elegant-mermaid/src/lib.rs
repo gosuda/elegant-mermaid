@@ -61,6 +61,8 @@ pub mod markdown;
 pub mod measure;
 pub mod model;
 pub mod options;
+#[cfg(feature = "png")]
+pub mod raster;
 pub mod scene;
 pub mod source;
 pub mod svg;
