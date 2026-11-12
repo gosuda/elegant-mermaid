@@ -35,6 +35,7 @@ pub mod geom;
 pub mod kind;
 pub mod markdown;
 pub mod measure;
+pub mod model;
 pub mod options;
 pub mod scene;
 pub mod source;
