@@ -285,3 +285,23 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 
 - preprocessing-138: An overflow in a config value MUST raise `ErrBadConfig` in Go, or `RenderError::InvalidConfig` in Rust. [just go-check]
 - preprocessing-139: The worked examples MUST hold: `0.75` gives 750; `0.0005` gives 1; `1` gives 1000. [just go-check]
+
+## Settled readings
+
+The requirements below fix the cases that the grammar above leaves open. Where one of them and an earlier requirement both apply, the requirement below decides.
+
+- preprocessing-140: The document root MUST be one of a block map, a flow collection, a quoted scalar, or a plain scalar. [just parity]
+- preprocessing-141: A block scalar header (`|` or `>`) at the document root MUST raise `config/malformed` at the header byte, because the first byte rule for plain scalars rejects it and a header is valid only as the value of a key. [just parity]
+- preprocessing-142: Leading SP before a root scalar MUST be indentation and MUST NOT be part of the scalar text. [just parity]
+- preprocessing-143: The multi-document marker rule MUST apply at column 0 only; `---` or `...` at any other column MUST be read by the plain scalar rules. [just parity]
+- preprocessing-144: A map colon MUST be a `:` followed by SP, HT, a line end, or the end of the reader's range, outside a quoted scalar and outside a flow collection. A block line MUST be a map entry exactly when it holds a map colon, and its key MUST be the text before the first map colon. [just parity]
+- preprocessing-145: A plain key MUST obey the first byte rules for plain scalars, so the line `-x:` MUST be an entry with key `-x`, and a line whose first byte is a map colon MUST raise `config/malformed` at that byte. [just parity]
+- preprocessing-146: A `-` or `?` at the end of the reader's range with no line end MUST be read as a plain scalar. [just parity]
+- preprocessing-147: Every invalid escape, including `\u` with fewer than four hexadecimal digits, MUST have the span of the backslash and the next byte, clamped to the end of the reader's range. [just parity]
+- preprocessing-148: An HT met while the reader scans the leading whitespace of a line MUST raise `config/malformed` at that HT, in the document, in a block map, in a block scalar, and in a flow continuation line. [just parity]
+- preprocessing-149: After a value and after a map colon, the reader MUST skip SP and HT before a comment or a line end. [just parity]
+- preprocessing-150: The continuation column of a flow collection with no owning key MUST be the start column of the collection. [just parity]
+- preprocessing-151: A block scalar with no non-empty line MUST give the empty string under clip and strip, and one LF for each blank line under keep. [just parity]
+- preprocessing-152: The duplicate key rule MUST apply to block maps, flow maps, and JSON objects. [just parity]
+- preprocessing-153: A `%%` comment line MUST allow leading SP and HT, and a `#` comment line inside a config value MUST allow leading SP only. [just parity]
+- preprocessing-154: In a flow collection the reader MUST report the first byte that the current rule rejects, and MUST NOT read to the end of a token before it reports. [just parity]
