@@ -29,6 +29,11 @@ rust-check FILTER='':
 slop:
     sloplint check . --format agent --strictness standard --mode threshold --fail-on deny
 
+# Lean build with warnings as errors, then the proof hygiene audit
+proofs:
+    cd proofs && lake build --wfail
+    bash proofs/scripts/audit.sh
+
 # TLC model check of the preview scheduler
 model:
     java -cp .tools/tla2tools.jar tlc2.TLC -config models/PreviewScheduler.cfg -workers auto models/PreviewScheduler.tla
@@ -52,4 +57,5 @@ verify:
     just go-check
     just rust-check
     just slop
+    just proofs
     just model
