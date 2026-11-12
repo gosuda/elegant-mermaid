@@ -33,6 +33,7 @@ pub mod error;
 pub(crate) mod r#gen;
 pub mod geom;
 pub mod kind;
+pub mod layout;
 pub mod markdown;
 pub mod measure;
 pub mod model;
