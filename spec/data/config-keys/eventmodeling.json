@@ -1,0 +1,9 @@
+[
+  { "kind": "eventmodeling", "key": "layout", "class": "accepted-ignored" },
+  { "kind": "eventmodeling", "key": "look", "class": "honoured" },
+  { "kind": "eventmodeling", "key": "padding", "class": "accepted-ignored" },
+  { "kind": "eventmodeling", "key": "rowHeight", "class": "accepted-ignored" },
+  { "kind": "eventmodeling", "key": "theme", "class": "honoured" },
+  { "kind": "eventmodeling", "key": "useMaxWidth", "class": "accepted-ignored" },
+  { "kind": "eventmodeling", "key": "useWidth", "class": "accepted-ignored" }
+]

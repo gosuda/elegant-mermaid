@@ -1329,6 +1329,41 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "eventmodeling",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "eventmodeling",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "eventmodeling",
+        key: "padding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "eventmodeling",
+        key: "rowHeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "eventmodeling",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "eventmodeling",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "eventmodeling",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "flowchart",
         key: "arrowMarkerAbsolute",
         class: "accepted-ignored",
@@ -1515,6 +1550,36 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
     },
     ConfigKey {
         kind: "gitgraph",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "ishikawa",
+        key: "diagramPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "ishikawa",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "ishikawa",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "ishikawa",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "ishikawa",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "ishikawa",
         key: "useWidth",
         class: "accepted-ignored",
     },
@@ -2237,6 +2302,206 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         kind: "swimlane",
         key: "theme",
         class: "honoured",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "activationWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "actorColours",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "bottomMarginAdj",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "boxMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "boxTextMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "diagramMarginX",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "diagramMarginY",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "disableMulticolor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "height",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "leftMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "messageAlign",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "messageMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "noteMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "padding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "rightAngles",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "sectionColours",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "sectionFills",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "taskFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "taskFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "taskMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "textPlacement",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "timeline",
+        key: "width",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "defaultIconPack",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "extensionIcons",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "filenameIcons",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "lineThickness",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "paddingX",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "paddingY",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "rowIndent",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "showIcons",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "treeview",
+        key: "useWidth",
+        class: "accepted-ignored",
     },
     ConfigKey {
         kind: "usecase",

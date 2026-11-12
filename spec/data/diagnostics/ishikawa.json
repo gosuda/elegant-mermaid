@@ -1,0 +1,29 @@
+[
+  {
+    "code": "ishikawa/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "Each token must fit the current grammar production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "ishikawa/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "A rejected statement must not create a cause node.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "ishikawa/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "The common parser contract reserves this code for an unclosed construct; Ishikawa opens none.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]
