@@ -52,7 +52,7 @@ The authority declares one start condition per row of the table below. The lexer
 | `dir` | a header keyword that is the first one | a `dir` rule below |
 | `text` | a shape opener of the `INITIAL` table | its matching closer |
 | `ellipseText` | `(-` | `-)` |
-| `trapText` | `[/` or `[\` | `\]`, `]`, or `/]` |
+| `trapText` | `[/` or `[\` | `\]` or `/]`; a bare `]` does not close the label |
 | `edgeText` | the start half of a normal link | the end half of that link |
 | `thickEdgeText` | the start half of a thick link | the end half of that link |
 | `dottedEdgeText` | the start half of a dotted link | the end half of that link |
@@ -63,7 +63,7 @@ The authority declares one start condition per row of the table below. The lexer
 | `shapeDataStr` | `"` inside `shapeData` | `"` inside the mode |
 
 - flowchart-016: The modes `vertex`, `href`, and `shapeDataEndBracket` MUST NOT exist, because no authority rule enters them. [just go-check]
-- flowchart-017: Within a mode, the lexer MUST take the first rule that matches at the current byte, in the order of the tables below, and MUST NOT prefer the longer match of a later rule. [just parity]
+- flowchart-017: Within a mode, the lexer MUST take the first rule that matches at the current byte, in the order of the tables below, and MUST NOT prefer the longer match of a later rule; a word literal MUST end at a word boundary, as Jison adds to quoted word patterns, so a keyword MUST NOT match the prefix of a longer identifier. [just parity]
 - flowchart-018: The lexer MUST NOT panic on any input, and a byte that no rule of the mode matches MUST raise `flowchart/unexpected-token`. [just go-check]
 - flowchart-019: The lexer MUST read the repaired UTF-8 text of `spec/source-and-positions.md`, and a token MUST carry the span of every byte that its rule consumed, whitespace included. [just go-check]
 
@@ -333,7 +333,7 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 - flowchart-037: A `click` action MUST accept the four callback forms `CLICK CALLBACKNAME`, `CLICK CALLBACKNAME SP STR`, `CLICK CALLBACKNAME CALLBACKARGS`, and `CLICK CALLBACKNAME CALLBACKARGS SP STR`. [just parity]
 - flowchart-038: A `click` action MUST accept the four link forms of `CLICK STR`, `CLICK STR SP STR`, `CLICK STR SP LINK_TARGET`, and `CLICK STR SP STR SP LINK_TARGET`, and the same four forms with `HREF` before the first `STR`. [just parity]
 - flowchart-039: A `click` action MUST accept the two plain callback forms `CLICK alpha-num` and `CLICK alpha-num SP STR`. [just parity]
-- flowchart-040: A `click` statement that holds a tooltip or a link target after a callback MUST raise `flowchart/click-call-extra-text` (error) at the first extra token. [just oracle]
+- flowchart-040: A callback MUST accept an optional quoted tooltip, also after an argument list, and a `click` statement that holds a link target after a callback, with or without a tooltip, MUST raise `flowchart/click-call-extra-text` (error) at the target token. [just oracle]
 - flowchart-041: The parser MUST accept the spaces around `&` as optional, and MUST accept a shape-data block between a node and a following `&` or link. [just parity]
 - flowchart-042: The parser MUST accept a vertex statement that is one node with no label, and that node MUST take its id as its label text. [just parity]
 - flowchart-043: The parser MUST accept a chain of links of any length, and a `&` group on either side of a link MUST produce one edge for each pair of a last start node and a first end node. [just oracle]
@@ -540,7 +540,7 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 | `"` outside a shape | Line 87 returns `QUOTE`; no production consumes it, and the `string` mode supplies `STR` | no token, dead token `QUOTE`, `flowchart-023` |
 | Start condition `vertex`, `href`, `shapeDataEndBracket` | declared at lines 15, 23, and 28, entered by no rule | no mode, `flowchart-016` |
 | `link: linkStatement TESTSTR SPACE` | `TESTSTR` is returned by no rule | alternative dropped, `flowchart-031` |
-| Plain text before a string in a label | `text: textToken | text textToken | STR | MD_STR`, and `textToken` holds no `STR` | `A["a"b]` parses, `A[foo"bar"]` fails, `flowchart-101` |
+| Plain text before a string in a label | `text: textToken | text textToken | STR | MD_STR`, and `textToken` holds no `STR`; a double quote inside the attributes of an HTML tag in a plain label stays label text | `A["a"b]` parses, `A[foo"bar"]` fails, `A[<img src="x">]` parses, `flowchart-101` |
 | A header keyword with no direction | `<dir>(\r?\n)*\s*\n` needs a line end, and the corpus holds `flowchart ` headers | `NODIR` also covers the end of the input, `flowchart-010` |
 | `BR` as the direction | `<dir>\s*BR` returns `DIR` and `setDirection` leaves the word unresolved | accepted, resolved to `TB`, `flowchart-009` |
 | A trap closer | Line 191 is the class `[\\(?=\])]` followed by `\]`, so one byte of that class then `]` closes | `\]` or `]`, `flowchart-025` |
