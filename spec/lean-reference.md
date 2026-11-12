@@ -51,7 +51,7 @@ This file fixes the scope, project layout, gates, proof hygiene, fuel scheme, wo
     ```
 
 - lean-reference-14: The kernel library `ElegantGeometry` MUST import the generated module `Elegant.Gen.Sine`, and that module MUST import nothing from `ElegantGeometry`, so no import cycle exists. [just proofs]
-- lean-reference-15: `proofs/theorems.txt` MUST hold one fully qualified theorem name per line, and every theorem name of every theorem table of `spec/layout/layered.md`, `spec/layout/sequence.md`, `spec/layout/grid.md`, `spec/layout/tree.md`, `spec/layout/lanes.md`, `spec/layout/charts.md`, `spec/layout/railroad.md`, `spec/text-measurement.md`, `spec/render-cells.md`, and this file MUST be listed there. [just proofs]
+- lean-reference-15: `proofs/theorems.txt` MUST hold one fully qualified theorem name per line, and every theorem name of every theorem table in `spec/` MUST be listed there. [just proofs]
 
 ## Subcommands
 
@@ -192,7 +192,7 @@ This file fixes the scope, project layout, gates, proof hygiene, fuel scheme, wo
 
 - lean-reference-67: Every theorem MUST be stated over the Lean functions that `geomcheck` runs, and names MUST follow `<phase>_<property>`. [just proofs]
 - lean-reference-68: Each family MUST end with a validity theorem of this form: for every well-formed model within `Limits`, if the family layout returns a scene, the scene satisfies `HardConstraints`, so `Validator.check` returns true. [just proofs]
-- lean-reference-69: The per-family theorem tables, of theorem name, statement, and proof approach, MUST be the tables of `spec/layout/layered.md`, `spec/layout/sequence.md`, `spec/layout/grid.md`, `spec/layout/tree.md`, `spec/layout/lanes.md`, `spec/layout/charts.md`, `spec/layout/railroad.md`, `spec/text-measurement.md`, and `spec/render-cells.md`, and this file MUST NOT restate them. [just proofs]
+- lean-reference-69: The per-family theorem tables, of theorem name, statement, and proof approach, MUST be the `## Theorems` sections of `spec/layout/layered.md`, `spec/layout/sequence.md`, `spec/layout/grid.md`, `spec/layout/tree.md`, and `spec/layout/lanes.md`, and the `## Proofs` sections of `spec/layout/charts.md` and `spec/layout/railroad.md`, and this file MUST NOT restate them. [just proofs]
 - lean-reference-70: The shared names `Validator.check`, `WellFormed`, `WithinLimits`, `toDump`, and `softCost` MUST be used across the families. [just proofs]
 - lean-reference-71: `Layered.initRank g` MUST be the longest-path ranking of `g`, `Layered.initOrder g` MUST be the declaration-order layer assignment, and `cost r` MUST be the sum over edges `e` of `(r e.head - r e.tail)` with unit weight for every edge. [just proofs]
 
