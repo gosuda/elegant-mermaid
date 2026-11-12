@@ -51,10 +51,13 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 - preprocessing-030: The frontmatter body and the `Config` text MUST parse by this grammar. [just go-check]
 
   ```
-  document     = { blank | comment-line } , [ block-map ] , { blank | comment-line } ;
-  block-map    = entry , { entry } ;                 all entries of one map start at column n
-  entry        = key , ':' , [ SP , value ] , [ SP , comment ] , EOL , [ block-body | block-map ] ;
-                 a nested block-map starts at a column greater than n; block-body follows only a block header
+  document     = { blank | comment-line } , [ block-node ] , { blank | comment-line } ;
+  block-node   = block-map | block-seq | flow | scalar ;
+  block-map    = entry , { entry } ;                 entries of one map start at column n
+  entry        = key , ':' , [ SP , value ] , [ SP , comment ] , EOL , [ nested-node ] ;
+  block-seq    = sequence-item , { sequence-item } ; items of one sequence share a dash column
+  sequence-item = '-' , ( SP | EOL ) , [ value | compact-map | compact-seq ] ;
+  nested-node  = block-node | block-body ;           starts deeper than its owning map or dash
   key          = plain-key | dquoted | squoted ;
   value        = flow | block-header | scalar ;
   flow         = flow-seq | flow-map ;
@@ -76,9 +79,9 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 - preprocessing-035: The first entry of a block map MUST set its column `n`. [just go-check]
 - preprocessing-036: A line at a column smaller than `n` MUST end the map. [just go-check]
 - preprocessing-037: The root column MAY be greater than 0. [just go-check]
-- preprocessing-038: With no value on the key line, the value MUST be a nested block map whose column is greater than `n`. [just go-check]
-- preprocessing-039: When no such nested line follows, the value MUST be `Null`. [just go-check]
-- preprocessing-040: A `-` followed by SP, HT, or a line end where a node starts MUST raise `config/malformed`. [just go-check]
+- preprocessing-038: With no value on the key line, a deeper node MUST supply the value. It MAY be a mapping, sequence, flow value, or scalar. [just go-check]
+- preprocessing-039: When no such nested node follows, the value MUST be `Null`. [just go-check]
+- preprocessing-040: A `-` followed by separation or a line end MUST open a block-sequence item. Items MUST preserve declaration order and MAY be null, scalars, flow values, nested sequences, or compact mappings. Collection openings MUST count toward the existing depth limit. [just go-check]
 - preprocessing-041: A `?` followed by SP, HT, or a line end MUST raise `config/malformed`. [just go-check]
 - preprocessing-042: A line that starts at column 0 with `---` or `...`, followed by SP, HT, a line end, or the end of the reader's range, MUST raise `config/malformed`. [just go-check]
 
@@ -86,23 +89,23 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 
 - preprocessing-043: In block context the first byte of a plain scalar MUST NOT be one of `[ ] { } , # & * ! | > '`, a double quote, `%`, `@`, or a backtick. [just go-check]
 - preprocessing-044: A `-`, `?`, or `:` first byte MUST be allowed only when the next byte is not SP, HT, or a line end. [just go-check]
-- preprocessing-045: A plain block scalar MUST run to the line end. [just go-check]
+- preprocessing-045: A plain YAML value MAY continue on deeper lines until a comment or a mapping or sequence boundary ends it. Implicit keys MUST remain on one line. [just go-check]
 - preprocessing-046: It MUST stop before SP or HT followed by `#`. [just go-check]
 - preprocessing-047: Trailing SP and HT MUST be removed. [just go-check]
 - preprocessing-048: In a key a plain scalar MUST stop before `:` followed by SP, HT, or a line end. [just go-check]
-- preprocessing-049: Any other continuation MUST be malformed. [just go-check]
+- preprocessing-049: Scalar continuation MUST follow YAML 1.2.2 line folding: one ordinary break becomes one space; each empty line between nonempty lines contributes one LF. Continuation indentation and trailing separation MUST NOT enter the value. Scalar resolution MUST run once on the complete folded text. [just go-check]
 - preprocessing-050: In flow context the first-byte rule MUST be the same. [just go-check]
 - preprocessing-051: In flow context a plain scalar MUST stop before `,`, `[`, `]`, `{`, `}`, and `:`. [just go-check]
-- preprocessing-052: A flow-context plain scalar MUST NOT contain a line end. [just go-check]
+- preprocessing-052: A YAML flow-context value MAY contain folded line breaks under preprocessing-049. Flow keys MUST remain on one line. JSON strings and numbers MUST retain their separate strict grammar. [just go-check]
 - preprocessing-053: A TAB inside a plain scalar MUST be text. [just go-check]
 
 ## Quoted scalars
 
 - preprocessing-054: In a single-quoted scalar `''` MUST stand for one `'`, and no other escape MUST exist. [just go-check]
-- preprocessing-055: A single-quoted scalar MUST be one line. [just go-check]
+- preprocessing-055: A single-quoted YAML value MAY span lines and MUST fold them under preprocessing-049. A single-quoted implicit key MUST remain on one line. [just go-check]
 - preprocessing-056: A double-quoted scalar MUST use the escape table under Escapes. [just go-check]
-- preprocessing-057: A double-quoted scalar MUST be one line. [just go-check]
-- preprocessing-058: Raw bytes U+0000 to U+001F MUST be malformed inside a quoted scalar, TAB included. [just go-check]
+- preprocessing-057: A double-quoted YAML value MAY span lines and MUST fold ordinary breaks under preprocessing-049. A backslash immediately before a line ending MUST suppress that break and continuation indentation. A double-quoted implicit key MUST remain on one line. [just go-check]
+- preprocessing-058: Raw bytes U+0000 to U+001F MUST be malformed inside a quoted scalar, TAB included, except physical YAML value line endings handled by preprocessing-055 and preprocessing-057. JSON MUST NOT gain this exception. [just go-check]
 - preprocessing-059: `&` or `*` at the start of a node MUST raise `config/unsupported-anchor`. [just go-check]
 - preprocessing-060: `!` at the start of a node MUST raise `config/unsupported-tag`. [just go-check]
 - preprocessing-061: Inside plain text, `&`, `*`, and `!` MUST be ordinary characters. [just go-check]
@@ -145,7 +148,7 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 
 - preprocessing-070: The block scalar header MUST be `|` or `>`, then `-` (strip), `+` (keep), or nothing (clip), then optional SP and a comment, then a line end. [just go-check]
 - preprocessing-071: A digit after the header MUST raise `config/malformed`. [just go-check]
-- preprocessing-072: The header MUST be the value of a key on that key's line. [just go-check]
+- preprocessing-072: A block-scalar header MUST be a mapping value or sequence item, including a deeper value after an omitted key-line value. A standalone root block-scalar header MUST remain malformed. [just go-check]
 - preprocessing-073: With `n` the key's column, the first non-blank line after the header MUST set the content indentation `m` to its count of leading SP bytes. [just go-check]
 - preprocessing-074: If that line's column is `n` or less, the scalar MUST be empty, and the line MUST belong to the parent. [just go-check]
 - preprocessing-075: The scalar MUST continue over blank lines and over lines with at least `m` leading SP bytes. [just go-check]
@@ -244,7 +247,6 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
   |Construct|Code|Message|Span|
   |---|---|---|---|
   |Tab before the first non-SP byte of a line|`config/malformed`|`tab in indentation`|the TAB|
-  |Block sequence `-`|`config/malformed`|`block sequences are not supported`|the `-`|
   |Complex key `?`|`config/malformed`|`complex keys are not supported`|the `?`|
   |Multi-document marker|`config/malformed`|`multi-document streams are not supported`|the three bytes|
   |Digit in a block scalar header|`config/malformed`|`block scalar indentation indicator is not supported`|the digit|

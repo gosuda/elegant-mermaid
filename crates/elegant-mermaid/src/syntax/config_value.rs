@@ -118,6 +118,7 @@ struct Cfg<'a> {
     pos: usize,
     depth: usize,
     json: bool,
+    yaml_value_indent: Option<usize>,
     stop: bool,
     diags: Vec<Diagnostic>,
     starts: Vec<(String, usize)>,
@@ -132,6 +133,7 @@ impl<'a> Cfg<'a> {
             end,
             pos: start,
             depth: 0,
+            yaml_value_indent: None,
             json,
             stop: false,
             diags: Vec::new(),
@@ -472,7 +474,89 @@ impl<'a> Cfg<'a> {
         v
     }
 
+    fn sequence_start(&self) -> bool {
+        self.raw(self.pos) == Some(b'-') && self.map_boundary(self.pos + 1)
+    }
+
+    fn block_sequence(&mut self, n: usize) -> ConfigValue {
+        if !self.enter(self.pos) {
+            return ConfigValue::Null;
+        }
+        let mut items = Vec::new();
+        while !self.stop && self.sequence_start() {
+            self.pos += 1;
+            self.skip_inline_ws();
+            let value = self.sequence_item(n);
+            if self.stop {
+                break;
+            }
+            items.push(value);
+            self.skip_lines();
+            if self.at_end() || self.stop {
+                break;
+            }
+            let line = self.take_line(self.pos);
+            if line.col < n {
+                break;
+            }
+            self.pos = line.content;
+            if line.col != n || !self.sequence_start() {
+                self.fail(self.pos);
+            }
+        }
+        self.leave();
+        if self.stop {
+            ConfigValue::Null
+        } else {
+            ConfigValue::Sequence(items)
+        }
+    }
+
+    fn sequence_item(&mut self, n: usize) -> ConfigValue {
+        if matches!(self.raw(self.pos), None | Some(b'\r' | b'\n' | b'#')) {
+            self.finish_line();
+            return self.nested_or_null(n);
+        }
+        let col = self.pos - self.line_start(self.pos);
+        if self.sequence_start() {
+            return self.block_sequence(col);
+        }
+        if self.plain_line_kind() == LineKind::Entry {
+            return self.block_map(col, self.pos);
+        }
+        let Some((value, _, consumed)) = self.entry_value(n) else {
+            return ConfigValue::Null;
+        };
+        if !consumed {
+            self.finish_line();
+        }
+        value
+    }
+
+    fn quoted_break(&mut self) -> Option<usize> {
+        let mut breaks = 0;
+        loop {
+            self.pos += self.eol(self.pos);
+            breaks += 1;
+            let line = self.take_line(self.pos);
+            if self.stop {
+                return None;
+            }
+            self.pos = line.content;
+            if self.eol(self.pos) == 0 {
+                if self.at_end() || line.col <= self.yaml_value_indent.unwrap_or(0) {
+                    self.fail(self.pos);
+                    return None;
+                }
+                return Some(breaks);
+            }
+        }
+    }
     fn root_value(&mut self, col: usize) -> ConfigValue {
+        self.yaml_value_indent = Some(col.saturating_sub(1));
+        if self.sequence_start() {
+            return self.block_sequence(col);
+        }
         match self.raw(self.pos) {
             Some(b'[') => {
                 let value = self.flow_seq_value(col);
@@ -561,11 +645,13 @@ impl<'a> Cfg<'a> {
         let mut first = true;
         while !self.stop {
             if first {
-                let l = self.take_line(self.pos);
-                if self.stop {
-                    break;
+                if self.pos == self.line_start(self.pos) {
+                    let l = self.take_line(self.pos);
+                    if self.stop {
+                        break;
+                    }
+                    self.pos = l.content;
                 }
-                self.pos = l.content;
                 first = false;
             } else if !self.map_advance(n) {
                 break;
@@ -643,7 +729,14 @@ impl<'a> Cfg<'a> {
             return ConfigValue::Null;
         }
         if l.col > n {
-            return self.block_map(l.col, l.content);
+            self.pos = l.content;
+            if matches!(self.raw(self.pos), Some(b'|' | b'>')) {
+                return match self.block_scalar(n) {
+                    Some(text) => ConfigValue::String(text),
+                    None => ConfigValue::Null,
+                };
+            }
+            return self.root_value(l.col);
         }
         ConfigValue::Null
     }
@@ -673,6 +766,7 @@ impl<'a> Cfg<'a> {
     }
 
     fn entry_value(&mut self, n: usize) -> Option<(ConfigValue, bool, bool)> {
+        self.yaml_value_indent = Some(n);
         match self.raw(self.pos) {
             None | Some(b'\r') | Some(b'\n') | Some(b'#') => {
                 self.finish_line()?;
@@ -721,10 +815,12 @@ impl<'a> Cfg<'a> {
         }
         match self.raw(self.pos) {
             Some(b'"') => {
+                self.yaml_value_indent = None;
                 let (t, sp) = self.quoted_double()?;
                 self.entry_colon(t, sp)
             }
             Some(b'\'') => {
+                self.yaml_value_indent = None;
                 let (t, sp) = self.quoted_single()?;
                 self.entry_colon(t, sp)
             }
@@ -790,7 +886,7 @@ impl<'a> Cfg<'a> {
 
     fn plain_value_text(&mut self) -> String {
         let from = self.pos;
-        let to = self.content_end(from);
+        let mut to = self.content_end(from);
         let mut j = from;
         while j < to {
             let c = self.raw(j);
@@ -801,9 +897,61 @@ impl<'a> Cfg<'a> {
         }
         self.pos = j;
         let te = trim_end(self.b, from, j);
-        self.text(from, te)
+        let mut text = self.text(from, te);
+        let n = self.yaml_value_indent.unwrap_or(0);
+        let mut next = to + self.eol(to);
+        let mut blanks = 0;
+        while j == to && next < self.end {
+            let line = self.line_scan(next);
+            if self.line_blank(&line) {
+                blanks += 1;
+                next = line.next;
+                continue;
+            }
+            if line.col <= n || self.raw(line.content) == Some(b'#') {
+                break;
+            }
+            self.pos = line.content;
+            if self.sequence_start() || self.plain_line_kind() == LineKind::Entry {
+                self.pos = j;
+                break;
+            }
+            let line = self.take_line(next);
+            if self.stop {
+                break;
+            }
+            self.pos = line.content;
+            let part = self.plain_value_line();
+            if blanks == 0 {
+                text.push(' ');
+            } else {
+                text.extend(std::iter::repeat_n('\n', blanks));
+            }
+            text.push_str(&part);
+            blanks = 0;
+            j = self.pos;
+            if j != line.eol_pos {
+                break;
+            }
+            to = line.eol_pos;
+            next = line.next;
+        }
+        text
     }
 
+    fn plain_value_line(&mut self) -> String {
+        let from = self.pos;
+        let to = self.content_end(from);
+        let mut j = from;
+        while j < to {
+            if matches!(self.raw(j), Some(b' ' | b'\t')) && self.raw(j + 1) == Some(b'#') {
+                break;
+            }
+            j += 1;
+        }
+        self.pos = j;
+        self.text(from, trim_end(self.b, from, j))
+    }
     fn finish_line(&mut self) -> Option<()> {
         if self.stop {
             return None;
@@ -1068,6 +1216,7 @@ impl<'a> Cfg<'a> {
     }
 
     fn flow_key(&mut self) -> Option<(String, Span)> {
+        self.yaml_value_indent = None;
         match self.raw(self.pos) {
             Some(b'"') => self.quoted_double(),
             Some(b'\'') => self.quoted_single(),
@@ -1076,6 +1225,7 @@ impl<'a> Cfg<'a> {
     }
 
     fn flow_item(&mut self, n: usize) -> ConfigValue {
+        self.yaml_value_indent = Some(n);
         if self.node_guard() {
             return ConfigValue::Null;
         }
@@ -1094,7 +1244,7 @@ impl<'a> Cfg<'a> {
                 self.fail(self.pos);
                 ConfigValue::Null
             }
-            _ => self.plain_flow(),
+            _ => self.plain_flow(n),
         }
     }
 
@@ -1105,11 +1255,47 @@ impl<'a> Cfg<'a> {
         }
     }
 
-    fn plain_flow(&mut self) -> ConfigValue {
-        match self.plain_flow_text() {
-            Some((t, _)) => resolve_plain(&t),
-            None => ConfigValue::Null,
+    fn plain_flow(&mut self, n: usize) -> ConfigValue {
+        let Some((mut text, _)) = self.plain_flow_text() else {
+            return ConfigValue::Null;
+        };
+        while self.eol(self.pos) > 0 {
+            let saved = self.pos;
+            let mut next = saved + self.eol(saved);
+            let mut blanks = 0;
+            while next < self.end {
+                let line = self.line_scan(next);
+                if !self.line_blank(&line) {
+                    break;
+                }
+                blanks += 1;
+                next = line.next;
+            }
+            let line = self.line_scan(next);
+            if line.col <= n
+                || matches!(
+                    self.raw(line.content),
+                    None | Some(b',' | b'[' | b']' | b'{' | b'}' | b':' | b'#')
+                )
+            {
+                break;
+            }
+            let line = self.take_line(next);
+            if self.stop {
+                return ConfigValue::Null;
+            }
+            self.pos = line.content;
+            let Some((part, _)) = self.plain_flow_text() else {
+                return ConfigValue::Null;
+            };
+            if blanks == 0 {
+                text.push(' ');
+            } else {
+                text.extend(std::iter::repeat_n('\n', blanks));
+            }
+            text.push_str(&part);
         }
+        resolve_plain(&text)
     }
     fn plain_flow_text(&mut self) -> Option<(String, Span)> {
         let from = self.pos;
@@ -1148,6 +1334,23 @@ impl<'a> Cfg<'a> {
         self.quoted_core(false, true)
     }
 
+    fn fold_quoted_break(&mut self, out: &mut Vec<u8>, escaped: bool) -> Option<()> {
+        if escaped {
+            self.pos += 1;
+        } else {
+            while matches!(out.last(), Some(b' ' | b'\t')) {
+                out.pop();
+            }
+        }
+        let breaks = self.quoted_break()?;
+        if !escaped && breaks == 1 {
+            out.push(b' ');
+        } else {
+            out.extend(std::iter::repeat_n(b'\n', breaks - 1));
+        }
+        Some(())
+    }
+
     fn quoted_core(&mut self, single: bool, json: bool) -> Option<(String, Span)> {
         let open = self.pos;
         let qc = if json { b'"' } else { self.raw(open)? };
@@ -1159,6 +1362,11 @@ impl<'a> Cfg<'a> {
                 return None;
             }
             let c = self.raw(self.pos).unwrap_or(0);
+            let escaped = !single && c == b'\\' && self.eol(self.pos + 1) > 0;
+            if !json && self.yaml_value_indent.is_some() && (self.eol(self.pos) > 0 || escaped) {
+                self.fold_quoted_break(&mut out, escaped)?;
+                continue;
+            }
             if c == b'\r' || c == b'\n' || c <= 0x1F {
                 self.fail(self.pos);
                 return None;
@@ -1873,6 +2081,20 @@ fn mantissa_thousandths(d: &str, exp: i64, k: i64) -> Option<String> {
 mod tests {
     use super::*;
 
+    #[test]
+    fn yaml_extensions_flow_multiline_values() {
+        let src = "flow: [first\n  second, 'third\n  fourth']\n";
+        let (value, diagnostics) = parse_config_yaml(src, 0, src.len());
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        assert_eq!(
+            mapping(value)[0].value,
+            ConfigValue::Sequence(vec![
+                ConfigValue::String("first second".into()),
+                ConfigValue::String("third fourth".into()),
+            ])
+        );
+    }
+
     fn check(ds: &[Diagnostic], code: &str, msg: &str, span: Span) {
         assert!(!ds.is_empty(), "no diagnostic; want {code} {msg} {span:?}");
         let d = &ds[0];
@@ -1883,6 +2105,109 @@ mod tests {
         assert!(d.help.is_empty());
         assert!(d.fixes.is_empty());
         assert!(d.related.is_empty());
+    }
+
+    #[test]
+    fn yaml_extensions_sequence_nodes_and_compact_collections() {
+        let src = "items:\n  - 12\n  - [true, null]\n  -\n  - name: café\n    enabled: false\n  - - inner\n    - outer\n";
+        let (value, diagnostics) = parse_config_yaml(src, 0, src.len());
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let entries = mapping(value);
+        let items = sequence(entries[0].value.clone());
+        assert_eq!(items[0], ConfigValue::Integer("12".into()));
+        assert_eq!(
+            items[1],
+            ConfigValue::Sequence(vec![ConfigValue::Bool(true), ConfigValue::Null])
+        );
+        assert_eq!(items[2], ConfigValue::Null);
+        assert_eq!(
+            mapping(items[3].clone())[0].value,
+            ConfigValue::String("café".into())
+        );
+        assert_eq!(
+            items[4],
+            ConfigValue::Sequence(vec![
+                ConfigValue::String("inner".into()),
+                ConfigValue::String("outer".into())
+            ])
+        );
+    }
+
+    #[test]
+    fn yaml_extensions_multiline_folding_and_escaped_breaks() {
+        for ending in ["\n", "\r\n", "\r"] {
+            let src = "plain: 12\n  34\nsingle: 'one\n  \n  two'\ndouble: \"one \\\n  two\"\nomitted:\n  text\n  continued\nbacktick: first line\n  `subroutine` remains plain\nquote: first line\n  'neo' remains plain\ndescription:\n  first long line\n  second longer line\n  size.\n".replace('\n', ending);
+            let (value, diagnostics) = parse_config_yaml(&src, 0, src.len());
+            assert!(diagnostics.is_empty(), "{diagnostics:?}");
+            let entries = mapping(value);
+            assert_eq!(entries[0].value, ConfigValue::String("12 34".into()));
+            assert_eq!(entries[1].value, ConfigValue::String("one\ntwo".into()));
+            assert_eq!(entries[2].value, ConfigValue::String("one two".into()));
+            assert_eq!(
+                entries[3].value,
+                ConfigValue::String("text continued".into())
+            );
+            assert_eq!(
+                entries[4].value,
+                ConfigValue::String("first line `subroutine` remains plain".into())
+            );
+            assert_eq!(
+                entries[5].value,
+                ConfigValue::String("first line 'neo' remains plain".into())
+            );
+            assert_eq!(
+                entries[6].value,
+                ConfigValue::String("first long line second longer line size.".into())
+            );
+        }
+    }
+
+    #[test]
+    fn yaml_extensions_depth_and_original_spans() {
+        let accepted = format!("{}x\n", "- ".repeat(64));
+        let (_, diagnostics) = parse_config_yaml(&accepted, 0, accepted.len());
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let src = format!("{}x\n", "- ".repeat(65));
+        let (_, diagnostics) = parse_config_yaml(&src, 0, src.len());
+        assert_eq!(diagnostics[0].code, C_DEPTH);
+        assert_eq!(
+            diagnostics[0].span,
+            Span {
+                start: 128,
+                end: 129
+            }
+        );
+        let src = "é:\n  - ok\n  - &anchor\n";
+        let (_, diagnostics) = parse_config_yaml(src, 0, src.len());
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, C_ANCHOR);
+        let span = diagnostics[0].span;
+        assert_eq!(&src[span.start..span.end], "&anchor");
+    }
+
+    #[test]
+    fn yaml_extensions_do_not_extend_json_or_implicit_keys() {
+        for src in ["{\"key\":\"one\n  two\"}", "{\"key\": - item}"] {
+            let (_, diagnostics) = parse_config_json(src, 0, src.len());
+            assert!(!diagnostics.is_empty());
+        }
+        for src in ["'one\n  two': value\n", "{\"one\n  two\": value}\n"] {
+            let (_, diagnostics) = parse_config_yaml(src, 0, src.len());
+            assert!(!diagnostics.is_empty());
+        }
+    }
+
+    #[test]
+    fn yaml_extensions_compact_duplicate_preserves_key_span() {
+        let src = "- café: first\n  café: second\n";
+        let (value, diagnostics) = parse_config_yaml(src, 0, src.len());
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].message, "duplicate key");
+        let entries = mapping(sequence(value).remove(0));
+        assert_eq!(entries[0].key_span, Span { start: 2, end: 7 });
+        assert_eq!(entries[0].value, ConfigValue::String("second".into()));
+        let span = diagnostics[0].span;
+        assert_eq!(&src[span.start..span.end], "café");
     }
 
     fn mapping(v: ConfigValue) -> Vec<Entry> {
@@ -1994,13 +2319,12 @@ mod tests {
     }
 
     #[test]
-    fn block_sequence_span() {
-        let (_, ds) = parse_config_yaml("- x\n", 0, 4);
-        check(
-            &ds,
-            C_MALFORMED,
-            "block sequences are not supported",
-            Span { start: 0, end: 1 },
+    fn block_sequence_scalar() {
+        let (value, ds) = parse_config_yaml("- x\n", 0, 4);
+        assert!(ds.is_empty());
+        assert_eq!(
+            value,
+            ConfigValue::Sequence(vec![ConfigValue::String("x".into())])
         );
     }
 
@@ -2452,9 +2776,19 @@ mod tests {
         let (v, ds) = parse_config_yaml("a :b\n", 0, 5);
         assert!(ds.is_empty());
         assert_eq!(v, ConfigValue::String(String::from("a :b")));
+    }
+
+    #[test]
+    fn settled_root_indicator_forms() {
         let (v, ds) = parse_config_yaml("-", 0, 1);
         assert!(ds.is_empty());
-        assert_eq!(v, ConfigValue::String(String::from("-")));
+        assert_eq!(v, ConfigValue::Sequence(vec![ConfigValue::Null]));
+        let (v, ds) = parse_config_yaml("-42", 0, 3);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::Integer(String::from("-42")));
+        let (v, ds) = parse_config_yaml("-word", 0, 5);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::String(String::from("-word")));
         let (v, ds) = parse_config_yaml("?", 0, 1);
         assert!(ds.is_empty());
         assert_eq!(v, ConfigValue::String(String::from("?")));

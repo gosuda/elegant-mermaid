@@ -322,13 +322,17 @@ func TestSettledReadingsQuotedKeyNeedsMapColon(t *testing.T) {
 	requireDiags(t, ds, []diagWant{{codeMalformed, msgMalformed, span(3, 5)}})
 }
 
-func TestSettledReadingsTrailingDashIsPlainScalar(t *testing.T) {
-	for _, src := range []string{"-", "?"} {
-		value, ds := ParseConfigYAML([]byte(src), 0, len(src))
-		require.Empty(t, ds, "source %q", src)
-		require.Equal(t, ValueString, value.Kind, "source %q", src)
-		require.Equal(t, src, value.Text, "source %q", src)
-	}
+func TestSettledReadingsTrailingDashIsNullSequence(t *testing.T) {
+	value, ds := ParseConfigYAML([]byte("-"), 0, 1)
+	require.Empty(t, ds)
+	require.Equal(t, ValueSequence, value.Kind)
+	require.Len(t, value.Items, 1)
+	require.Equal(t, ValueNull, value.Items[0].Kind)
+
+	value, ds = ParseConfigYAML([]byte("?"), 0, 1)
+	require.Empty(t, ds)
+	require.Equal(t, ValueString, value.Kind)
+	require.Equal(t, "?", value.Text)
 }
 
 func TestSettledReadingsFlowFirstFailurePosition(t *testing.T) {
