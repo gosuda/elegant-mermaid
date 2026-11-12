@@ -1,0 +1,13 @@
+Rect.disjoint_comm
+Rect.disjoint_translate
+Rect.contains_translate
+Rect.contains_trans
+Rect.bbox_contains
+placeAfter_disjoint
+compact_pairwise_disjoint
+compact_preserves_order
+compact_respects_gaps
+Segment.cross_comm
+Segment.cross_iff_common_interior_point
+inversions_eq_crossings
+Validator.sound
