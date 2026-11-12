@@ -1,0 +1,72 @@
+[
+  {
+    "path": ".tools/binaryen-version_133-x86_64-linux.tar.gz",
+    "url": "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-linux.tar.gz",
+    "sha256": "2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489"
+  },
+  {
+    "path": ".tools/tla2tools.jar",
+    "url": "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar",
+    "sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+  },
+  {
+    "path": "spec/data/entities.json",
+    "url": "https://html.spec.whatwg.org/entities.json",
+    "sha256": "d741d877ac77c4194c4ad526b5b4a19aef8dfe411ab840a466891cdbb9f362e6"
+  },
+  {
+    "path": "spec/data/fonts/Inter-Regular.ttf",
+    "url": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+    "sha256": "40d692fce188e4471e2b3cba937be967878f631ad3ebbbdcd587687c7ebe0c82"
+  },
+  {
+    "path": "spec/data/fonts/Inter-Regular.woff2",
+    "url": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+    "sha256": "e06f6b1bc553aaea4e4668023ed0ab0a147129c3107f511bc7d03d361b0ae085"
+  },
+  {
+    "path": "spec/data/fonts/Inter-SemiBold.ttf",
+    "url": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+    "sha256": "78a843fade9d4612a5567302fb595b56976eb5fcebf4fea5a5912d638bafcde3"
+  },
+  {
+    "path": "spec/data/fonts/Inter-SemiBold.woff2",
+    "url": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+    "sha256": "5cb7103e4e605989afebc03d989c79201e54b21b5183db33981f70db9178a301"
+  },
+  {
+    "path": "spec/data/fonts/LICENSE.txt",
+    "url": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+    "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
+  },
+  {
+    "path": "spec/data/unicode/DerivedCoreProperties.txt",
+    "url": "https://www.unicode.org/Public/18.0.0/ucd/DerivedCoreProperties.txt",
+    "sha256": "09c928886a178fcafd93c29e4bd59073a058e5a100b716d425cb563ab50f68c9"
+  },
+  {
+    "path": "spec/data/unicode/EastAsianWidth.txt",
+    "url": "https://www.unicode.org/Public/18.0.0/ucd/EastAsianWidth.txt",
+    "sha256": "a0cf29eacd00cfcaec4381c6b7c281685f18dbb4e7ff82b4076ccb342ca839aa"
+  },
+  {
+    "path": "spec/data/unicode/GraphemeBreakProperty.txt",
+    "url": "https://www.unicode.org/Public/18.0.0/ucd/auxiliary/GraphemeBreakProperty.txt",
+    "sha256": "0839dcb79e4ac639ecd538b1abf7c9d22e3f9dd265b7e182d33627aa4d75b45a"
+  },
+  {
+    "path": "spec/data/unicode/LICENSE.txt",
+    "url": "https://www.unicode.org/license.txt",
+    "sha256": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96"
+  },
+  {
+    "path": "spec/data/unicode/PropList.txt",
+    "url": "https://www.unicode.org/Public/18.0.0/ucd/PropList.txt",
+    "sha256": "f438f532e8737bb8a2702126cdf9c4af5e357c58c7acf9d9eb2fc7c1a1d955d6"
+  },
+  {
+    "path": "spec/data/unicode/emoji-data.txt",
+    "url": "https://www.unicode.org/Public/18.0.0/ucd/emoji/emoji-data.txt",
+    "sha256": "80d00f8e616a0ef27fd6b8de3b758c06383b5d917e2977709578e68baf733bf1"
+  }
+]
