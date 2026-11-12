@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	err := cli.Run(context.Background(), cli.Config{Args: os.Args[1:], Stdout: os.Stdout, Stderr: os.Stderr})
+	err := cli.Run(context.Background(), cli.Config{Args: os.Args[1:], Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr})
 	if err == nil {
 		return
 	}
