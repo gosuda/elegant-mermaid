@@ -1,26 +1,17 @@
 import ElegantGeometry
 import Elegant
+import ElegantGeometry.Eval
 
-/-! `geomcheck`: the developer entry point. This step provides `validate`; `eval` arrives
-with the kernel case runner, `layout` and `text` with the Lean reference layout.
-
-`validate` reads a canonical layout dump on stdin and prints `valid` (exit 0), or
-`invalid <clause-id>: <message>` (exit 1), or `malformed dump: REASON` (exit 2). Any
-other subcommand prints the usage line on stderr and exits 2. -/
 
 set_option autoImplicit false
 
-/-- The usage line, printed when the subcommand is missing or unknown. -/
 def usage : String :=
-  "usage: geomcheck validate"
+  "usage: geomcheck validate | eval FILE"
 
-/-- Read all of stdin. -/
 def readStdin : IO String := do
   let stdin ← IO.getStdin
   stdin.readToEnd
 
-/-- `geomcheck validate`: read a layout dump on stdin and report the first violated
-clause. -/
 def validateMain : IO UInt32 := do
   let text ← readStdin
   match DumpReader.readDump text with
@@ -36,9 +27,28 @@ def validateMain : IO UInt32 := do
       IO.println s!"invalid {id}: {msg}"
       pure 1
 
-/-- Dispatch on the subcommand. -/
+def evalLines : List String → Nat → IO UInt32
+  | [], _ => pure 0
+  | [""], _ => pure 0
+  | [_], n => do
+    IO.eprintln s!"bad case line {n}"
+    pure 2
+  | line :: rest, n => do
+    match ElegantGeometry.Eval.evalLine line with
+    | .error _ =>
+      IO.eprintln s!"bad case line {n}"
+      pure 2
+    | .ok out =>
+      IO.println out
+      evalLines rest (n + 1)
+
+def evalMain (file : String) : IO UInt32 := do
+  let text ← IO.FS.readFile file
+  evalLines (text.splitOn "\n") 1
+
 def dispatch : List String → IO UInt32
   | ["validate"] => validateMain
+  | ["eval", file] => evalMain file
   | _ => do
     IO.eprintln usage
     pure 2
