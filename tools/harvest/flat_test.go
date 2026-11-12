@@ -16,8 +16,8 @@ func TestFlatClassification(t *testing.T) {
 		{"long", `[{"id":"A","role":"node"},{"id":"B","role":"node"},{"id":"C","role":"node"}]`, `[{"from":"A","to":"B"},{"from":"B","to":"C"},{"from":"C","to":"A"}]`, `[]`, "cycle"},
 		{"group", `[{"id":"G","role":"group"}]`, `[]`, `[]`, "group"},
 		{"nested", `[{"id":"A","role":"node","parent":"G"}]`, `[]`, `[]`, "nested"},
-		{"edge label", `[{"id":"A","role":"node"},{"id":"B","role":"node"}]`, `[{"id":"e","from":"A","to":"B"}]`, `[{"owner":"e"}]`, "edge-label"},
-		{"box label", `[{"id":"A","role":"node"}]`, `[]`, `[{"owner":"A"}]`, ""},
+		{"edge label", `[{"id":"A","role":"node"},{"id":"B","role":"node"}]`, `[{"id":"e","from":"A","to":"B"}]`, `[{"owner":"e"}]`, "label"},
+		{"box label", `[{"id":"A","role":"node"}]`, `[]`, `[{"owner":"A"}]`, "label"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var model flatModel
@@ -54,7 +54,7 @@ func TestFlatListEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "corpus/flowchart/test/a.mmd\ncorpus/flowchart/test/b.mmd\n"
+	want := "corpus/flowchart/test/a.mmd\n"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}

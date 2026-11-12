@@ -144,17 +144,13 @@ func flatReason(model flatModel) string {
 			return "nested"
 		}
 	}
-	routes := make(map[string]bool, len(model.Routes))
 	for _, route := range model.Routes {
 		if route.From == route.To {
 			return "self-loop"
 		}
-		routes[route.ID] = true
 	}
-	for _, label := range model.Labels {
-		if routes[label.Owner] {
-			return "edge-label"
-		}
+	if len(model.Labels) != 0 {
+		return "label"
 	}
 	if flatCycle(model) {
 		return "cycle"
