@@ -1,5 +1,7 @@
 package mermaid
 
+import "github.com/gosuda/elegant-mermaid/internal/scenelink"
+
 type Severity uint8
 
 const (
@@ -137,7 +139,7 @@ type TextOptions struct {
 
 type IconPack struct{}
 
-type GlyphOutlines struct{}
+type GlyphOutlines struct{ fonts scenelink.Outlines }
 
 type Block struct {
 	Source []byte
