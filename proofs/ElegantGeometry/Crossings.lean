@@ -479,13 +479,22 @@ theorem inversions_eq_crossings_raw (P Q : Int → Int) (es : List LayerEdge) :
   rw [inversions_sorted _ (sortKeys_pairwise _), crossCountN_perm (sortKeys_perm _)]
 
 /-- `inversions_eq_crossings`: for edges between two layers with position maps `P` and
-`Q`, the inversion count of the bottom positions, taken in the order sorted by
-`(P top, Q bot)`, is the number of unordered edge pairs whose position differences have
-opposite signs, provided that count fits the int32 range; a larger count is the kernel's
-`overflow` error, as `spec/geometry-kernel.md` requires. -/
-theorem inversions_eq_crossings (P Q : Int → Int) (es : List LayerEdge)
+`Q`, `countInversions` of the bottom positions, taken in the order sorted by
+`(P top, Q bot)`, is the number `n` of unordered edge pairs whose position differences
+have opposite signs when `n` fits the int32 range, and the kernel's `overflow` error
+otherwise, as `spec/geometry-kernel.md` requires. It holds for every input. -/
+theorem inversions_eq_crossings (P Q : Int → Int) (es : List LayerEdge) :
+    countInversions ((sortKeys (es.map (edgeKey P Q))).map (fun k => k.2)) =
+      if crossCount (es.map (edgeKey P Q)) ≤ I32_MAX
+      then .ok (crossCount (es.map (edgeKey P Q)))
+      else .error .overflow := by
+  unfold countInversions
+  rw [inversions_eq_crossings_raw]
+
+/-- The case of `inversions_eq_crossings` in which the count fits the int32 range: the
+result is `.ok n`. -/
+theorem inversions_eq_crossings_of_le (P Q : Int → Int) (es : List LayerEdge)
     (h : crossCount (es.map (edgeKey P Q)) ≤ I32_MAX) :
     countInversions ((sortKeys (es.map (edgeKey P Q))).map (fun k => k.2)) =
       .ok (crossCount (es.map (edgeKey P Q))) := by
-  unfold countInversions
-  rw [inversions_eq_crossings_raw, ite_eq_left h]
+  rw [inversions_eq_crossings, ite_eq_left h]
