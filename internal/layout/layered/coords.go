@@ -225,7 +225,7 @@ func (c *coordinatePass) alignNode(v, last int32) int32 {
 func (c *coordinatePass) separation(a, b int32) int64 {
 	left, right := c.p.Nodes[a], c.p.Nodes[b]
 	gap := c.gap
-	if borderMember(c.p, left, right) && c.p.ClusterPad > 0 {
+	if (borderMember(c.p, left, right) || borderMember(c.p, right, left)) && c.p.ClusterPad > 0 {
 		gap = int64(c.p.ClusterPad)
 	} else if ownTitleAnchor(left, right) {
 		gap = 0

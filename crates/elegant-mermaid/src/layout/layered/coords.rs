@@ -174,11 +174,13 @@ impl<'a> Pass<'a> {
             if !matches!(self.p.nodes[border].edge, -2 | -3) {
                 continue;
             }
-            if let Some(owner) = self.paths.get(border).and_then(|path| path.last()) {
-                return self
+            if let Some(owner) = self.paths.get(border).and_then(|path| path.last())
+                && self
                     .paths
                     .get(member)
-                    .is_some_and(|path| path.contains(owner));
+                    .is_some_and(|path| path.contains(owner))
+            {
+                return true;
             }
         }
         false
@@ -402,22 +404,33 @@ mod tests {
     use std::collections::BTreeMap;
 
     #[test]
-    fn cluster_padding_requires_membership_in_border_owner() {
-        let (mut p, layers) = case(0);
+    fn nested_border_padding_is_symmetric() {
+        let graph = Graph {
+            nodes: vec![
+                Node {
+                    w: 2,
+                    ..Node::default()
+                };
+                2
+            ],
+            edges: Vec::new(),
+            params: Params::for_profile("cell").unwrap(),
+        };
+        let mut p = normalize(&graph, &[0, 0]).unwrap();
+        let layers = vec![vec![0, 1]];
         p.nodes[0].edge = -2;
         p.nodes[1].edge = -3;
         let mut paths = vec![Vec::new(); p.nodes.len()];
         paths[0] = vec![10, 11];
         paths[1] = vec![10];
         let marked = vec![false; p.edges.len()];
-        let mut pass = Pass::new(&p, &layers, &marked, 1536, 0);
+        let mut pass = Pass::new(&p, &layers, &marked, 2, 0);
         pass.paths = &paths;
-        assert!(!pass.border_member(0, 1));
-        assert!(pass.border_member(1, 0));
-        assert_eq!(
-            pass.sep(0, 1),
-            i64::from(p.nodes[0].node.w) / 2 + i64::from(p.nodes[1].node.w) / 2 + 1536
-        );
+        let expected = i64::from(p.nodes[0].node.w) / 2
+            + i64::from(p.nodes[1].node.w) / 2
+            + i64::from(p.params.cluster_pad);
+        assert_eq!(pass.sep(0, 1), expected);
+        assert_eq!(pass.sep(1, 0), expected);
     }
 
     fn case(index: usize) -> (Proper, Vec<Vec<usize>>) {

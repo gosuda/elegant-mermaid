@@ -15,6 +15,23 @@ import (
 	random "github.com/gosuda/elegant-mermaid/tools/randgraph/gen"
 )
 
+func TestNestedBorderPaddingIsSymmetric(t *testing.T) {
+	p := &Proper{
+		Nodes: []ProperNode{
+			{Node: Node{W: 2, Parent: "inner", Border: BorderRight}},
+			{Node: Node{W: 2, Parent: "outer", Border: BorderRight}},
+		},
+		Clusters: []Cluster{{ID: "outer"}, {ID: "inner", Parent: "outer"}},
+		Params:   Params{ClusterPad: 1},
+	}
+	c := coordinatePass{p: p, gap: 2}
+	for _, pair := range [][2]int32{{0, 1}, {1, 0}} {
+		if got := c.separation(pair[0], pair[1]); got != 3 {
+			t.Fatalf("separation(%d, %d) = %d, want widths plus cluster_pad = 3", pair[0], pair[1], got)
+		}
+	}
+}
+
 func coordinateCase(t *testing.T, index int) (*Proper, [][]int32) {
 	t.Helper()
 	src, err := random.Source("layered", index)
