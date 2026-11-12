@@ -22,8 +22,12 @@ impl Cell {
         } else {
             self.token
         }
-        .unwrap_or(Token::Fg);
-        if token == Token::Bg { Token::Fg } else { token }
+        .unwrap_or(Token::Foreground);
+        if token == Token::Background {
+            Token::Foreground
+        } else {
+            token
+        }
     }
     fn write_text(&self, out: &mut String, charset: Charset) {
         match &self.label {
@@ -58,7 +62,7 @@ impl Canvas {
         while end > 0 && self.cell(end - 1, y).is_some_and(|c| c.is_space(charset)) {
             end -= 1
         }
-        let mut current = Token::Fg;
+        let mut current = Token::Foreground;
         for x in 0..end {
             let Some(cell) = self.cell(x, y) else {
                 continue;
@@ -74,7 +78,7 @@ impl Canvas {
             }
             cell.write_text(out, charset);
         }
-        if mode != ColorMode::None && current != Token::Fg {
+        if mode != ColorMode::None && current != Token::Foreground {
             out.push_str("\x1b[39m")
         }
         out.push('\n');

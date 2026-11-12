@@ -2,82 +2,9 @@ use crate::r#gen::seriestext::SERIES_TEXT;
 use crate::r#gen::strokeok::STROKE_OK;
 use crate::r#gen::styles::STYLES;
 use crate::r#gen::themes::THEMES;
+pub use crate::theme::{Colour as Rgb, Token};
 
 const DEFAULT_FG: &str = "\u{1b}[39m";
-
-/// The closed list of colour tokens, in rank order, rank 0 first.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Token {
-    /// The theme background.
-    Bg,
-    /// The theme foreground; the terminal default.
-    Fg,
-    /// The line colour.
-    Line,
-    /// The accent colour.
-    Accent,
-    /// The muted colour.
-    Muted,
-    /// The surface colour.
-    Surface,
-    /// The border colour.
-    Border,
-    /// Series colour `0` to `11`.
-    Series(u8),
-    /// The error colour.
-    Error,
-    /// The warning colour.
-    Warning,
-    /// The success colour.
-    Success,
-}
-
-impl Token {
-    /// Returns the rank of the token, from 0 for `Bg` to 21 for `Success`.
-    pub fn rank(self) -> u8 {
-        match self {
-            Token::Bg => 0,
-            Token::Fg => 1,
-            Token::Line => 2,
-            Token::Accent => 3,
-            Token::Muted => 4,
-            Token::Surface => 5,
-            Token::Border => 6,
-            Token::Series(index) => 7 + index.min(11),
-            Token::Error => 19,
-            Token::Warning => 20,
-            Token::Success => 21,
-        }
-    }
-
-    /// Returns the token name of the theme table.
-    pub fn name(self) -> &'static str {
-        match self {
-            Token::Bg => "bg",
-            Token::Fg => "fg",
-            Token::Line => "line",
-            Token::Accent => "accent",
-            Token::Muted => "muted",
-            Token::Surface => "surface",
-            Token::Border => "border",
-            Token::Error => "error",
-            Token::Warning => "warning",
-            Token::Success => "success",
-            Token::Series(0) => "series0",
-            Token::Series(1) => "series1",
-            Token::Series(2) => "series2",
-            Token::Series(3) => "series3",
-            Token::Series(4) => "series4",
-            Token::Series(5) => "series5",
-            Token::Series(6) => "series6",
-            Token::Series(7) => "series7",
-            Token::Series(8) => "series8",
-            Token::Series(9) => "series9",
-            Token::Series(10) => "series10",
-            Token::Series(_) => "series11",
-        }
-    }
-}
 
 /// A colour mode of the text back end.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,17 +17,6 @@ pub enum ColorMode {
     Ansi256,
     /// 24-bit colour.
     Truecolor,
-}
-
-/// An sRGB colour with 8-bit channels.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Rgb {
-    /// The red channel.
-    pub r: u8,
-    /// The green channel.
-    pub g: u8,
-    /// The blue channel.
-    pub b: u8,
 }
 
 /// One printed character and the colour token of its cell.
@@ -129,7 +45,7 @@ pub fn hex(text: &str) -> Option<Rgb> {
 /// Returns the colour that a theme gives a token.
 pub fn theme_rgb(theme: &str, token: Token) -> Option<Rgb> {
     let entry = THEMES.iter().find(|candidate| candidate.name == theme)?;
-    let key = token.name();
+    let key = token.id();
     let row = entry
         .tokens
         .iter()
@@ -140,7 +56,7 @@ pub fn theme_rgb(theme: &str, token: Token) -> Option<Rgb> {
 /// Replaces a status or series token by `line` when its theme stroke fails
 /// the 3:1 contrast gate.
 pub fn stroke_token(theme: &str, token: Token) -> Token {
-    let key = token.name();
+    let key = token.id();
     let row = STROKE_OK
         .iter()
         .find(|candidate| candidate.theme == theme && candidate.token == key);
@@ -158,12 +74,12 @@ pub fn text_token(theme: &str, style: &str, series: u8) -> Token {
         .find(|candidate| candidate.class == 1 && candidate.name == style);
     match row.map(|candidate| candidate.fill) {
         Some("muted") => Token::Muted,
-        Some("bg") => Token::Bg,
+        Some("bg") => Token::Background,
         Some("on-series") => match series_choice(theme, series) {
-            1 => Token::Bg,
-            _ => Token::Fg,
+            1 => Token::Background,
+            _ => Token::Foreground,
         },
-        _ => Token::Fg,
+        _ => Token::Foreground,
     }
 }
 
@@ -275,7 +191,7 @@ pub fn xterm_16(colour: Rgb) -> u8 {
 /// Returns the SGR sequence that selects a colour. `Fg` and `Bg` both select
 /// the terminal default foreground.
 pub fn sgr(colour: Rgb, token: Token, mode: ColorMode) -> String {
-    if matches!(token, Token::Fg | Token::Bg) {
+    if matches!(token, Token::Foreground | Token::Background) {
         return DEFAULT_FG.to_owned();
     }
     match mode {
@@ -307,7 +223,7 @@ pub fn write_row(out: &mut String, cells: &[Painted], mode: ColorMode, theme: &s
         out.push('\n');
         return;
     }
-    let mut current = Token::Fg;
+    let mut current = Token::Foreground;
     for painted in cells {
         let token = normalise(painted.token);
         if painted.ch != ' '
@@ -319,7 +235,7 @@ pub fn write_row(out: &mut String, cells: &[Painted], mode: ColorMode, theme: &s
         }
         out.push(painted.ch);
     }
-    if current != Token::Fg {
+    if current != Token::Foreground {
         out.push_str(DEFAULT_FG);
     }
     out.push('\n');
@@ -327,7 +243,7 @@ pub fn write_row(out: &mut String, cells: &[Painted], mode: ColorMode, theme: &s
 
 fn normalise(token: Token) -> Token {
     match token {
-        Token::Bg => Token::Fg,
+        Token::Background => Token::Foreground,
         other => other,
     }
 }
@@ -341,18 +257,18 @@ mod tests {
 
     #[test]
     fn ranks_follow_the_token_list() {
-        assert_eq!(Token::Bg.rank(), 0);
-        assert_eq!(Token::Fg.rank(), 1);
-        assert_eq!(Token::Line.rank(), 2);
-        assert_eq!(Token::Accent.rank(), 3);
-        assert_eq!(Token::Muted.rank(), 4);
-        assert_eq!(Token::Surface.rank(), 5);
-        assert_eq!(Token::Border.rank(), 6);
-        assert_eq!(Token::Series(0).rank(), 7);
-        assert_eq!(Token::Series(11).rank(), 18);
-        assert_eq!(Token::Error.rank(), 19);
-        assert_eq!(Token::Warning.rank(), 20);
-        assert_eq!(Token::Success.rank(), 21);
+        assert_eq!(Token::Background as u8, 0);
+        assert_eq!(Token::Foreground as u8, 1);
+        assert_eq!(Token::Line as u8, 2);
+        assert_eq!(Token::Accent as u8, 3);
+        assert_eq!(Token::Muted as u8, 4);
+        assert_eq!(Token::Surface as u8, 5);
+        assert_eq!(Token::Border as u8, 6);
+        assert_eq!(Token::Series0 as u8, 7);
+        assert_eq!(Token::Series11 as u8, 18);
+        assert_eq!(Token::Error as u8, 19);
+        assert_eq!(Token::Warning as u8, 20);
+        assert_eq!(Token::Success as u8, 21);
     }
 
     #[test]
@@ -389,14 +305,14 @@ mod tests {
             })
         );
         assert_eq!(
-            theme_rgb("elegant-dark", Token::Bg),
+            theme_rgb("elegant-dark", Token::Background),
             Some(Rgb {
                 r: 17,
                 g: 17,
                 b: 19
             })
         );
-        assert!(theme_rgb("no-such-theme", Token::Bg).is_none());
+        assert!(theme_rgb("no-such-theme", Token::Background).is_none());
     }
 
     #[test]
@@ -493,7 +409,7 @@ mod tests {
         assert_eq!(to_one, to_nine);
         assert_eq!(xterm_16(midpoint), 1);
         assert_eq!(
-            sgr(midpoint, Token::Series(1), ColorMode::Ansi16),
+            sgr(midpoint, Token::Series1, ColorMode::Ansi16),
             "\u{1b}[31m"
         );
     }
@@ -516,19 +432,19 @@ mod tests {
             },
             Painted {
                 ch: 'H',
-                token: Token::Fg,
+                token: Token::Foreground,
             },
             Painted {
                 ch: 'i',
-                token: Token::Fg,
+                token: Token::Foreground,
             },
             Painted {
                 ch: ' ',
-                token: Token::Fg,
+                token: Token::Foreground,
             },
             Painted {
                 ch: ' ',
-                token: Token::Fg,
+                token: Token::Foreground,
             },
             Painted {
                 ch: '│',
@@ -565,7 +481,7 @@ mod tests {
     fn background_counts_as_the_default_foreground() {
         let row = [Painted {
             ch: 'x',
-            token: Token::Bg,
+            token: Token::Background,
         }];
         let mut out = String::new();
         write_row(&mut out, &row, ColorMode::Truecolor, "elegant-light");
@@ -593,32 +509,49 @@ mod tests {
     #[test]
     fn stroke_fallback_replaces_low_contrast_tokens_by_line() {
         assert_eq!(stroke_token("elegant-light", Token::Error), Token::Error);
-        assert_eq!(stroke_token("elegant-light", Token::Series(0)), Token::Line);
+        assert_eq!(stroke_token("elegant-light", Token::Series0), Token::Line);
         assert_eq!(
-            stroke_token("elegant-light", Token::Series(1)),
-            Token::Series(1)
+            stroke_token("elegant-light", Token::Series1),
+            Token::Series1
         );
         assert_eq!(stroke_token("elegant-light", Token::Border), Token::Border);
     }
 
     #[test]
     fn text_style_tokens_resolve_through_the_styles_table() {
-        assert_eq!(text_token("elegant-light", "text", 0), Token::Fg);
+        assert_eq!(text_token("elegant-light", "text", 0), Token::Foreground);
         assert_eq!(text_token("elegant-light", "text-muted", 0), Token::Muted);
-        assert_eq!(text_token("elegant-light", "text-inverse", 0), Token::Bg);
-        assert_eq!(text_token("elegant-light", "text-on-series", 1), Token::Bg);
-        assert_eq!(text_token("elegant-light", "no-such-style", 3), Token::Fg);
+        assert_eq!(
+            text_token("elegant-light", "text-inverse", 0),
+            Token::Background
+        );
+        assert_eq!(
+            text_token("elegant-light", "text-on-series", 1),
+            Token::Background
+        );
+        assert_eq!(
+            text_token("elegant-light", "no-such-style", 3),
+            Token::Foreground
+        );
     }
 
     #[test]
     fn the_default_foreground_sequence_is_esc_39_m() {
         assert_eq!(super::DEFAULT_FG, "\u{1b}[39m");
         assert_eq!(
-            sgr(Rgb { r: 1, g: 2, b: 3 }, Token::Fg, ColorMode::Truecolor),
+            sgr(
+                Rgb { r: 1, g: 2, b: 3 },
+                Token::Foreground,
+                ColorMode::Truecolor
+            ),
             "\u{1b}[39m"
         );
         assert_eq!(
-            sgr(Rgb { r: 1, g: 2, b: 3 }, Token::Bg, ColorMode::Ansi16),
+            sgr(
+                Rgb { r: 1, g: 2, b: 3 },
+                Token::Background,
+                ColorMode::Ansi16
+            ),
             "\u{1b}[39m"
         );
     }

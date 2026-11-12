@@ -60,9 +60,9 @@ fn rectangles_and_labels() {
             }),
             a
         );
-        assert!(c.put_label(1, 1, "界", 2, Token::Fg));
-        assert!(!c.put_label(0, 1, "x", 1, Token::Fg));
-        assert!(!c.put_label(2, 1, "x", 1, Token::Fg));
+        assert!(c.put_label(1, 1, "界", 2, Token::Foreground));
+        assert!(!c.put_label(0, 1, "x", 1, Token::Foreground));
+        assert!(!c.put_label(2, 1, "x", 1, Token::Foreground));
     }
 }
 fn dots(c: &Canvas) -> Vec<Point> {
@@ -122,8 +122,8 @@ fn colour_goldens() {
     let mut c = Canvas::new(8, 1).unwrap();
     c.attach(0, 0, 5, Style::Light, Token::Border);
     c.attach(7, 0, 5, Style::Light, Token::Border);
-    c.put_label(3, 0, "H", 1, Token::Fg);
-    c.put_label(4, 0, "i", 1, Token::Fg);
+    c.put_label(3, 0, "H", 1, Token::Foreground);
+    c.put_label(4, 0, "i", 1, Token::Foreground);
     for (mode, want) in [
         (
             ColorMode::None,
@@ -251,7 +251,7 @@ fn junctions_and_bounds() {
             }),
         ""
     );
-    assert!(!c.put_label(4, 1, "界", 2, Token::Fg));
+    assert!(!c.put_label(4, 1, "界", 2, Token::Foreground));
 }
 
 #[test]
@@ -261,7 +261,7 @@ fn merge_order_permutations() {
         c.mask = 1 << i;
         c.dots = 1 << (2 * i);
         c.symbol = u32::try_from(i + 63).unwrap();
-        c.token = Some(Token::Series(u8::try_from(i).unwrap()));
+        c.token = Some(Token::ALL[7 + i]);
     }
     let want = writes.iter().fold(Cell::empty(), |a, b| merge_cell(&a, b));
     let mut seed = 1u32;
@@ -283,7 +283,7 @@ fn merge_order_permutations() {
 fn stripping_sgr_preserves_text() {
     let mut c = Canvas::new(8, 1).unwrap();
     c.attach(0, 0, 5, Style::Light, Token::Border);
-    c.put_label(2, 0, "界", 2, Token::Fg);
+    c.put_label(2, 0, "界", 2, Token::Foreground);
     let lookup = |_| Rgb {
         r: 139,
         g: 141,

@@ -30,7 +30,7 @@ impl Cell {
     }
 }
 pub fn max_token(a: Option<Token>, b: Option<Token>) -> Option<Token> {
-    a.into_iter().chain(b).max_by_key(|t| t.rank())
+    a.into_iter().chain(b).max_by_key(|t| *t as u8)
 }
 pub fn merge_cell(a: &Cell, b: &Cell) -> Cell {
     Cell {
