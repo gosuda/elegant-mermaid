@@ -276,6 +276,9 @@ mod tests {
             params: Params {
                 slot: 768,
                 pivot_factor: 50,
+                node_gap: 1536,
+                rank_gap: 3072,
+                port_gap: 512,
             },
         }
     }

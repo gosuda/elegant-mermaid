@@ -29,6 +29,7 @@ pub fn normalize(g: &Graph, rank: &[i32]) -> Result<Proper, LayoutError> {
         chains: vec![Vec::new(); g.edges.len()],
         out: Vec::new(),
         r#in: Vec::new(),
+        params: g.params,
     };
     for (index, e) in g.edges.iter().enumerate().filter(|(_, e)| !e.self_loop()) {
         let (tail, head) = e.chain();

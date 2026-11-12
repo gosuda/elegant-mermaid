@@ -34,6 +34,9 @@ impl Edge {
 pub struct Params {
     pub slot: i32,
     pub pivot_factor: i32,
+    pub node_gap: i32,
+    pub rank_gap: i32,
+    pub port_gap: i32,
 }
 
 impl Params {
@@ -53,6 +56,9 @@ impl Params {
         Ok(Self {
             slot: lookup("slot")?,
             pivot_factor: lookup("pivot_factor")?,
+            node_gap: lookup("node_gap")?,
+            rank_gap: lookup("rank_gap")?,
+            port_gap: lookup("port_gap")?,
         })
     }
 }
@@ -124,6 +130,7 @@ pub struct Proper {
     pub chains: Vec<Vec<usize>>,
     pub out: Vec<Vec<usize>>,
     pub r#in: Vec<Vec<usize>>,
+    pub params: Params,
 }
 
 #[cfg(test)]
@@ -135,7 +142,10 @@ mod tests {
             Params::for_profile("vector"),
             Ok(Params {
                 slot: 768,
-                pivot_factor: 50
+                pivot_factor: 50,
+                node_gap: 1536,
+                rank_gap: 3072,
+                port_gap: 512,
             })
         );
     }
