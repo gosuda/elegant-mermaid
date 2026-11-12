@@ -395,3 +395,40 @@ fn binary_explicit_format_cli_23() -> TestResult {
     std::fs::remove_file(path)?;
     Ok(())
 }
+
+#[test]
+fn svg_accessibility_metadata() -> TestResult {
+    for (metadata, title, description) in [
+        ("", "Mermaid flowchart diagram", None),
+        (
+            "accTitle: Café & <route>\n",
+            "Café &amp; &lt;route&gt;",
+            None,
+        ),
+        (
+            "accTitle: Route\naccDescr: A & <B>\n",
+            "Route",
+            Some("A &amp; &lt;B&gt;"),
+        ),
+        (
+            "accDescr {\nFirst & <second>\nThird line\n}\n",
+            "Mermaid flowchart diagram",
+            Some("First &amp; &lt;second&gt;\nThird line"),
+        ),
+    ] {
+        let source = format!("flowchart LR\n{metadata}  A --> B\n");
+        let output = invoke(&["render", "-e", "svg"], &source)?;
+        assert_eq!(output.status.code(), Some(0));
+        let svg = String::from_utf8(output.stdout)?;
+        assert!(svg.contains("aria-labelledby='title'"));
+        assert!(svg.contains(&format!("<title id='title'>{title}</title>")));
+        if let Some(description) = description {
+            assert!(svg.contains("aria-describedby='desc'"));
+            assert!(svg.contains(&format!("<desc id='desc'>{description}</desc>")));
+        } else {
+            assert!(!svg.contains("aria-describedby="));
+            assert!(!svg.contains("<desc"));
+        }
+    }
+    Ok(())
+}

@@ -50,7 +50,7 @@ fn prepare(args: &[String]) -> Result<(String, String, i32), String> {
         }
     };
     stderr.push_str(&diagnostics::text(path, &parsed.source, &ds, false));
-    let output = match serialize(&scene, &o) {
+    let output = match serialize(&scene, &o, &parsed.model.acc_title, &parsed.model.acc_descr) {
         Ok(value) => value,
         Err(error) => {
             stderr.push_str(&format!("{error}\n"));
@@ -63,7 +63,12 @@ fn prepare(args: &[String]) -> Result<(String, String, i32), String> {
     atomic_output(&o.output, output.as_bytes()).map_err(|e| e.to_string())?;
     Ok((String::new(), stderr, 0))
 }
-fn serialize(scene: &scene::Scene, o: &options::Options) -> Result<String, String> {
+fn serialize(
+    scene: &scene::Scene,
+    o: &options::Options,
+    title: &str,
+    description: &str,
+) -> Result<String, String> {
     if o.format == "svg" {
         let mut output = String::new();
         svg::write(
@@ -73,6 +78,8 @@ fn serialize(scene: &scene::Scene, o: &options::Options) -> Result<String, Strin
                 theme: &o.theme,
                 background: &o.background,
                 kind: "flowchart",
+                title,
+                description,
                 ..svg::Options::default()
             },
         )

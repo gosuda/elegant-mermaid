@@ -153,14 +153,14 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	if err = diag.RenderText(cfg.Stderr, path, src, ds, diag.FrameOptions{}); err != nil {
 		return err
 	}
-	return serializeScene(cfg, o, s)
+	return serializeScene(cfg, o, s, svg.Options{Theme: o.theme, Background: o.background, Kind: "flowchart", Title: m.AccTitle, Description: m.AccDescr})
 }
 
-func serializeScene(cfg Config, o commandOptions, s scene.Scene) error {
+func serializeScene(cfg Config, o commandOptions, s scene.Scene, svgOptions svg.Options) error {
 	var err error
 	var out bytes.Buffer
 	if o.format == "svg" {
-		err = svg.Write(&out, s, svg.Options{Theme: o.theme, Background: o.background, Kind: "flowchart"})
+		err = svg.Write(&out, s, svgOptions)
 	} else {
 		var r cells.Result
 		r, err = cells.Render(s, cells.Options{Charset: renderCharset(o.charset), Color: renderColour(o.color, cfg), Theme: o.theme})
