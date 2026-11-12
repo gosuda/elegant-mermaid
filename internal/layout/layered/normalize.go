@@ -12,14 +12,17 @@ type ProperNode struct {
 	Node
 	Dummy bool
 	Edge  int32
+	Label *EdgeLabel
 }
 type ProperEdge struct{ Tail, Head, Decl, Original int32 }
 type Proper struct {
-	Nodes   []ProperNode
-	Edges   []ProperEdge
-	Rank    []int32
-	Chains  [][]int32
-	Out, In [][]int32
+	Nodes    []ProperNode
+	Edges    []ProperEdge
+	Rank     []int32
+	Chains   [][]int32
+	Out, In  [][]int32
+	Original []Edge
+	Clusters []Cluster
 	Params
 }
 
@@ -35,24 +38,42 @@ func Normalize(g *Graph, rank []int32) (*Proper, error) {
 		return nil, err
 	}
 	p := &Proper{Rank: slices.Clone(rank), Chains: make([][]int32, len(g.Edges)), Params: g.Params}
+	p.Original = slices.Clone(g.Edges)
+	p.Clusters = slices.Clone(g.Clusters)
 	for _, n := range g.Nodes {
 		p.Nodes = append(p.Nodes, ProperNode{Node: n, Edge: -1})
 	}
-	for i, e := range g.Edges {
-		if e.SelfLoop() {
+	if err := normalizeSemanticEdges(p, g.Edges, slot); err != nil {
+		return nil, err
+	}
+	if err := AddLabelNodes(p); err != nil {
+		return nil, err
+	}
+	if err := addOrderingBorders(p); err != nil {
+		return nil, err
+	}
+	p.rebuildAdjacency()
+	return p, nil
+}
+
+func normalizeSemanticEdges(p *Proper, edges []Edge, slot int32) error {
+	for i, e := range edges {
+		if e.SelfLoop() || e.Synthetic {
 			continue
 		}
 		if err := normalizeEdge(p, e, int32(i), slot); err != nil {
-			return nil, err
+			return err
 		}
 	}
+	return nil
+}
+func (p *Proper) rebuildAdjacency() {
 	p.Out = make([][]int32, len(p.Nodes))
 	p.In = make([][]int32, len(p.Nodes))
 	for i, e := range p.Edges {
 		p.Out[e.Tail] = append(p.Out[e.Tail], int32(i))
 		p.In[e.Head] = append(p.In[e.Head], int32(i))
 	}
-	return p, nil
 }
 
 func normalizationSlot(g *Graph) (int32, error) {
@@ -80,7 +101,8 @@ func normalizeEdge(p *Proper, e Edge, index, slot int32) error {
 	for k := int64(1); k < span; k++ {
 		v := int32(len(p.Nodes))
 		r := int32(int64(p.Rank[a]) + k)
-		p.Nodes = append(p.Nodes, ProperNode{Node: Node{Decl: e.Decl, W: slot}, Dummy: true, Edge: index})
+		parent := commonParent(p, a, b)
+		p.Nodes = append(p.Nodes, ProperNode{Node: Node{Decl: e.Decl, W: slot, Parent: parent}, Dummy: true, Edge: index})
 		p.Rank = append(p.Rank, r)
 		chain = append(chain, v)
 	}

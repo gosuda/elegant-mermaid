@@ -58,17 +58,22 @@ This file defines the layered layout family: its conventions, its pipeline phase
     `w0 = textW + 2 * node_pad_x + 2 * node_border` and `h0 = lines * line_h + 2 * node_pad_y + 2 * node_border`. `textW` and `lines` come from measurement.
     `k` is the larger of the number of distinct top neighbours and the number of distinct bottom neighbours; it is the port count of spec/layout/routing.md.
     `w = max(w0, (k + 1) * port_gap, node_min_w)` and `h = max(h0, node_min_h)`.
+    Each candidate MUST first measure intrinsic text and minimum sizes, apply the direction's size swap, and reserve loops. After semantic-edge normalization, it MUST compute `k` from distinct proper-chain neighbours on each side and apply the port-width term to the internal cross-axis width. It MUST exclude ranking-only constraints and self-loops from this count. Fixed independent group frames MUST retain their fixed sizes. Final rectangles and routing MUST use the resulting proper-node dimensions, not stale intrinsic widths.
 - layered-10: A dummy node MUST have `w = slot` and `h = 0`. [just lean-parity]
     Left and right border nodes have `w = cluster_border_w` and `h = 0`. Top and bottom border nodes have `w = 0` and `h = 0`.
-- layered-11: A label node MUST have `w = textW` and `h = lines * line_h`, with no padding, no border, no port term, and no minimum size. [just lean-parity]
-    Its `w` is the label width `lw` of the size phase, and its `wsep` is `w`, because a label node has no loops.
+    Each cluster MUST reserve its measured title at rank `rank[T_C]` with a routing-free synthetic item. Its width MUST be the measured title width. Its height MUST be `max(1, title_lines) * line_h + cluster_pad`. It MUST NOT appear as a model box or dump label. The title text MUST start at `frame_top + cluster_pad` and MUST retain every measured line.
+    The title rectangle MUST remain private layout metadata until scene assembly. `LR` and `RL` MUST swap its measured dimensions before layout. Direction and origin maps MUST transform it with the other label rectangles. The scene MUST emit upright text in that mapped rectangle, on the leading-side reservation rather than moving it to the output top.
+- layered-11: A label node MUST reserve its measured text and a route gutter, with no border, port term, or minimum size. [just lean-parity]
+    After the direction's size swap, let `textW` and `textH` be the internal cross-axis and rank-axis text extents. `gutter` MUST be `slot` in the cell profile and 0 in the vector profile. The node MUST have `w = textW + gutter`, `h = textH`, and `wsep = w`. Its actual text rectangle MUST start at `node_left + gutter`, with width `textW` and height `textH`. The label width `lw` used by loop and lane placement MUST remain the measured text width, without this graph reservation.
+    Distinct labels owned by one route MUST share one reservation node. In original label order, its internal text width MUST be the largest individual cross-axis width, and its internal text height MUST be the sum of individual rank-axis heights plus `slot` between consecutive labels. Actual label rectangles MUST start at the shared text left edge and successive prefix heights plus slot gaps. Every original label ID, text, and global dump position MUST remain unchanged. Loop and reversed-edge side labels MUST use the same aggregate stack without the midpoint gutter.
 - layered-12: The separation width of a node MUST be `wsep = w + 2 * E`, where `E` is the loop extent of spec/layout/routing.md (0 without loops). [just lean-parity]
     Only the cross-axis coordinate phase reads `wsep`.
 
 ## Cycle breaking
 
-- layered-13: The cycle phase MUST set self-loops aside and break cycles with a depth-first search. [just lean-parity]
-    The search starts roots in declaration order and visits out-edges in declaration order. It reverses an edge when its target is on the DFS stack. A reversed edge keeps its original source and target for drawing. The routing phase places the self-loops (spec/layout/routing.md).
+- layered-13: The cycle phase MUST set self-loops aside. A graph without protected cluster constraints MUST use depth-first search, with roots and out-edges in declaration order, and reverse an edge when its target is on the DFS stack. [just lean-parity]
+    For a compound graph, the phase MUST start with the immutable synthetic constraint DAG and insert semantic edges once in declaration order. It MUST reverse `u -> v` exactly when the current graph has a path `v -> u`. An inserted edge MUST NOT change direction again. Synthetic constraints MUST NOT reverse. The same protected insertion rule MUST constrain the greedy portfolio candidate. This bounded compound case takes `O(edges * (nodes + edges))`; the model limits MUST apply before it runs.
+    A reversed edge MUST retain its original endpoints for drawing. The routing phase MUST place self-loops under spec/layout/routing.md.
 
 ## Ranking
 
@@ -77,7 +82,8 @@ This file defines the layered layout family: its conventions, its pipeline phase
 - layered-15: The minimum length of an edge MUST be 2 when the edge carries a label, else 1. [just lean-parity]
     Every edge has weight 1. The cost is `sum over edges (rank[head] - rank[tail])`.
 - layered-16: Each cluster MUST contribute a top border node `T_C` and a bottom border node `B_C` to the ranking graph. [just lean-parity]
-    For each real node `v` in `C`, including nodes of descendant clusters, the phase adds `T_C -> v` and `v -> B_C`, each with minimum length 1. These edges add no cycle, because `T_C` has only out-edges and `B_C` has only in-edges. A cluster therefore spans a contiguous rank range.
+    For each real node `v` in `C`, including nodes of descendant clusters, the phase MUST add `T_C -> v` and `v -> B_C`, each with minimum length 1. For each direct child cluster `D`, it MUST add `T_C -> T_D` and `B_D -> B_C`, each with minimum length 1. An empty cluster MUST add `T_C -> B_C` with minimum length 1. These structural constraints MUST remain directed and MUST preserve nested title bands and bottom padding.
+    A group endpoint MUST use a per-route-end proxy that aliases `T_C` or `B_C` without adding a model or output box. A source group containing its distinct target MUST use `T_C`; every other source group MUST use `B_C`. A target group containing its distinct source MUST use `B_C`; every other target group MUST use `T_C`. Containment MUST include every descendant depth. A same-group route MUST use a frame self-loop, not a rank constraint between its borders.
 - layered-17: The rank phase MUST start from the longest-path ranks, pivot by the network simplex rules, and restart the scan after each pivot. [just lean-parity]
     The tie-break table below fixes the initial ranking, the feasible tree, the leaving edge, and the entering edge.
 - layered-18: Pivoting MUST stop when no cut value is negative, or after `pivot_factor * nodes` pivots. [just lean-parity]
@@ -87,12 +93,12 @@ This file defines the layered layout family: its conventions, its pipeline phase
 
 ## Dummy and label nodes
 
-- layered-21: An edge with span `s = rank[head] - rank[tail] >= 1` MUST get one dummy node at each of its `s - 1` intermediate ranks. [just lean-parity]
-    The phase uses the edge's tail and head after the cycle phase.
+- layered-21: A semantic edge with span `s = rank[head] - rank[tail] >= 1` MUST get one dummy node at each of its `s - 1` intermediate ranks. [just lean-parity]
+    The phase MUST use the semantic edge's endpoints after cycle breaking. Ranking-only hierarchy and containment constraints MUST disappear after ranking and MUST NOT produce normalized dummy chains. Left and right ordering-border chains MUST be constructed separately for ordering and alignment, and MUST NOT consume routing ports or channel slots or appear as drawn routes or metric items.
 - layered-22: A labelled edge MUST get one label node at rank `rank[tail] + floor_div(s, 2)`, which replaces the dummy at that rank. [just lean-parity]
     The rule is the same for every span. For `s = 2` it is the middle rank.
 - layered-23: A label node MUST take part in ordering and crossing counts like any other node. [just lean-parity]
-    The label box is centred on the node's `x`. The chain route runs along the box's left border (spec/layout/routing.md), so it does not cross the label text.
+    The reserved label node MUST be centred on its `x`. The actual text rectangle MUST follow layered-11. The chain route MUST run along the reservation's left boundary, so its cell column remains outside the text.
 
 ## Ordering
 
@@ -122,7 +128,7 @@ This file defines the layered layout family: its conventions, its pipeline phase
 ## Cross-axis coordinates
 
 - layered-37: The separation between neighbours `L` and `R` in one rank MUST be `sep = floor_div(wsep_L, 2) + floor_div(wsep_R, 2) + gap`. [just lean-parity]
-    `gap = node_gap`, except `gap = cluster_pad` between a border node and a member of the same cluster block (the ordering phase). The actual gap between boxes is at least `gap - 1`, and every `gap` is at least 1, so boxes never overlap.
+    `gap` MUST be `cluster_pad` between a left or right border node and a member of the same cluster block. Otherwise it MUST be 0 between a zero-width top or bottom anchor and its own title reservation, and `node_gap` for every other pair. This zero-gap exception MUST NOT apply to arbitrary real-node neighbours. The ordinary box gap is at least `gap - 1`; a zero-width anchor has no interior.
 - layered-38: The coordinate phase MUST mark type-1 conflicts before the four passes. [just lean-parity]
     An inner segment joins two chain nodes (dummy or label). A non-inner segment is any segment that is not inner, so at least one of its endpoints is an original node. Let `e = (a, b)` be a non-inner segment and `f = (c, d)` an inner segment between the same two adjacent ranks, with `a` and `c` in the upper rank and `b` and `d` in the lower rank. Then `e` crosses `f` iff `(pos[a] - pos[c]) * (pos[b] - pos[d]) < 0`. This is the crossing rule of the ordering phase, applied to one non-inner and one inner segment. Equal positions never cross, so segments that share an endpoint are never marked. The marks use the positions after the ordering phase, and the passes do not change them. An alignment that uses a marked segment is rejected.
 - layered-39: The coordinate phase MUST run four passes in this fixed order: up-left, up-right, down-left, down-right. [just lean-parity]
@@ -153,6 +159,7 @@ This file defines the layered layout family: its conventions, its pipeline phase
 - layered-51: The gap below rank `r` MUST be `G_r = rank_gap + slot * S_r`, where `S_r` is the slot count of spec/layout/routing.md. [just lean-parity]
     `rank_top[0] = 0` and `rank_top[r + 1] = rank_top[r] + H_r + G_r`.
 - layered-52: A node's top MUST be `y = rank_top[r] + floor_div(H_r - h, 2)`, so its bottom is `y + h`. [just lean-parity]
+    Structural cluster anchors MUST be exceptions to node centering: `T_C.y = rank_top[rank[T_C]]` and `B_C.y = rank_top[rank[B_C]] + H_rank[B_C]`. These anchors MUST be the frame's top and bottom. The strict hierarchy ranks and the existing rank gap MUST preserve title and bottom clearance without a separate title stack.
 
 ## Ports and routes
 
@@ -161,9 +168,9 @@ This file defines the layered layout family: its conventions, its pipeline phase
 ## Subgraph direction
 
 - layered-54: The pipeline MUST lay out a subgraph `S` with its own `direction` before its parent is ranked. [just lean-parity]
-    `S` has crossing edges when some edge has exactly one endpoint inside `S` or inside a descendant subgraph of `S`.
+    `S` has crossing edges when some edge has exactly one endpoint among its proper descendants. The boundary identity `S` MUST NOT count as inside. A route from `S` to its descendant therefore crosses its boundary. A route from `S` to an external box MUST stay parent-owned, as MUST a self-loop on `S`. Recursive child layout MUST NOT emit the root frame or these parent-owned routes a second time.
 - layered-55: A subgraph with no crossing edges MUST be laid out with its own direction, using the whole pipeline, and the parent MUST see it as a fixed-size node. [just lean-parity]
-    Its size is the output bounding box of that layout, plus `cluster_pad` on the left, right, and bottom, plus `line_h` on top for the title. The size is taken in the parent's internal orientation, so it is swapped when the parent is `LR` or `RL`.
+    Its size is the output bounding box of that layout, plus `cluster_pad` on the left, right, and bottom, plus `cluster_pad + max(1, title_lines) * line_h` on top for the title. The size is taken in the parent's internal orientation, so it is swapped when the parent is `LR` or `RL`.
 - layered-56: A subgraph with crossing edges MUST ignore the `direction` and become an ordinary cluster in the parent's orientation. [just lean-parity]
 - layered-57: An ignored subgraph direction MUST emit `flowchart/subgraph-direction-ignored` (warning, no fix). [just go-check]
     The span is the `direction` statement. The message is `subgraph direction is ignored because an edge crosses its boundary`. The registry row is in `spec/data/diagnostics/flowchart.json`. Only `render` and `layout` run layout, so only they print this code, to stderr.
@@ -176,6 +183,7 @@ This file defines the layered layout family: its conventions, its pipeline phase
 - layered-60: The components MUST be ordered by the lowest `decl` of their members. [just lean-parity]
 - layered-61: The target width MUST be `T = max_width` when `max_width > 0`, else `T = isqrt(floor_div(S * component_aspect_num, component_aspect_den))`. [just lean-parity]
     `S` is the sum of `width * height` over every item box of every component (`int64`). Each item box counts once: each node box, cluster frame, label box, loop extent, and the bounding box of each route (a reversed route's box covers its lane). The component box does not count. `isqrt(n)` is the largest `r` with `r * r <= n`.
+    A forward route-label stack MUST contribute its full reservation envelope once, including the cell gutter, instead of its individual text rectangles. A reversed or loop label stack MUST contribute its aggregate side envelope once, without counting hidden normalized nodes. Each owning node or frame MUST contribute one loop reservation of width `E_v` and height `K * loop_band`. Embedded fixed-child geometry MUST be expanded before this accounting, with every model item and semantic title counted once.
 - layered-62: The pack phase MUST place components left to right with `node_gap` between them. [just lean-parity]
     `row_w` is the total width of the components in the current row, with the gaps between them. A component starts a new row when the row is not empty and `row_w + node_gap + comp_w > T`. Rows stack top to bottom with `node_gap` between them.
 - layered-63: The origin phase MUST translate so that the smallest `x` and the smallest `y` over all boxes, routes, labels, and lanes are 0. [just lean-parity]
@@ -223,12 +231,14 @@ This file defines the layered layout family: its conventions, its pipeline phase
 - layered-73: With thoroughness `t` (1 to 5, default 3), the portfolio MUST lay out `min(t, portfolio_max)` candidates for each component and keep the best. [just lean-parity]
 - layered-74: The candidates MUST run in this fixed order with these rules. [just lean-parity]
     1. Declaration order start, with the depth-first cycle breaking of the cycle phase.
-    2. Breadth-first start order, with the same cycle breaking as candidate 1. The root is the lowest-`decl` node with no incoming edge (the lowest-`decl` node overall when none exists). A queue visits out-edges in declaration order. Each rank's initial order is the discovery order of the search. When the queue empties, the next root is the lowest-`decl` unvisited node.
-    3. Greedy feedback-arc cycle breaking (Eades, Lin, Smyth 1993, integer form). Repeatedly remove a sink into the right list, or a source into the left list. When neither exists, remove the node with the largest `outdeg - indeg` among the remaining nodes, lowest `decl` on ties. The order is the left list followed by the reversed right list. An edge is reversed when its tail follows its head in this order. The rank phase runs again on the new graph, and the rest of the pipeline follows.
+    2. Breadth-first start order on the normalized proper graph, including real, dummy, label, and border nodes, with the same cycle breaking as candidate 1. The root MUST be the lowest-`decl` node with no incoming edge, or the lowest-`decl` node overall when none exists. A queue MUST visit out-edges in declaration order. Each rank's initial order MUST be the search discovery order. When the queue empties, the next root MUST be the lowest-`decl` unvisited proper node. Equal declarations MUST retain stable proper-node construction order.
+    3. Greedy feedback-arc cycle breaking (Eades, Lin, Smyth 1993, integer form). Repeatedly remove the lowest-`decl` remaining sink into the right list, or, when no sink exists, the lowest-`decl` remaining source into the left list. When neither exists, remove the node with the largest `outdeg - indeg` among the remaining nodes, lowest `decl` on ties. The order is the left list followed by the reversed right list. An edge is reversed when its tail follows its head in this order. The rank phase runs again on the new graph, and the rest of the pipeline follows.
     4. Median weights (the median key of the ordering phase) in place of barycentre, from the declaration order start.
     5. Reversed start order: each rank's initial order is reversed.
+    For candidates 2 and 5, ordering MUST first constrain both the declaration seed and the requested seed into cluster blocks. The declaration seed MUST remain the ordering incumbent unless the requested seed has strictly fewer crossings. Sweeps MUST start from that incumbent. This rule preserves the declaration-order bound of `order_crossings_le_init`.
 - layered-75: Candidate 1 MUST be the incumbent, and a later candidate MUST replace it only when `portfolio_replace_den * cost_new < portfolio_replace_num * cost_incumbent`. [just lean-parity]
     The composite score is the soft cost of the candidate's component layout, as spec/quality-metrics.md defines it. The comparison is `100 * cost_new < 97 * cost_incumbent`. Ties keep the incumbent.
+    Scoring MUST use the fully expanded candidate component, including independent child nodes, routes, labels, and groups. Synthetic graph items MUST NOT count as model items. Child contributions MUST remain in every cost term and denominator even when unchanged across candidates, because the replacement threshold applies to total cost.
 - layered-76: Both profiles MUST use this pipeline. [just lean-parity]
     Under the cell profile the spacing constants are in cells, every slot is one cell wide, and every route is drawn with box-drawing glyphs. Under the vector profile the SVG back end draws the orthogonal route with rounded corners by default and maps upstream `curve` values to path commands over the same points. The corner rule is in spec/layout/routing.md.
 
@@ -244,7 +254,7 @@ This file defines the layered layout family: its conventions, its pipeline phase
     - `order.go`: `func Order(p *Proper, opts OrderOptions) ([][]int32, error)` (the ordering phase)
     - `coords.go`: `func CrossCoords(p *Proper, layers [][]int32) ([]int32, error)` and `func RankCoords(p *Proper, layers [][]int32, r *Routing) (y []int32, rankTop []int32, err error)`, where `y[v]` is the top of node `v` and `rankTop[r]` is the top of rank `r` (the coordinate phases; the rank-axis phase needs the slot counts of the routing phase, so this file holds two entry functions)
     - `route.go`: `func Route(p *Proper, layers [][]int32, x []int32) (*Routing, error)` numbers the channel segments of the routing phase, including the reversed runs, and sets each lane `x` and `R`; it needs no `y`. Its second entry is `func RoutePoints(p *Proper, layers [][]int32, x []int32, y []int32, rankTop []int32, r *Routing) (routes []EdgeRoute, labels []Box, err error)`, where `EdgeRoute` holds the original edge index and its points (Go cannot name a type and a function `Route` in one package); it turns the routing into the points of every route, using `x`, `y`, and `rankTop` from `RankCoords`; it returns the stub-run-stub routes, the six-point routes, and the label boxes of labelled reversed edges; the rank heights `H_r` come from `p` and `layers`
-    - `loops.go`: `func Loops(g *Graph, boxes []Box) ([]Route, error)` (the self-loop phase)
+    - `loops.go`: `func Loops(g *Graph, boxes []Box) ([]EdgeRoute, error)` (the self-loop phase)
     - `pack.go`: `func Pack(parts []Layout, opts PackOptions) (Layout, error)` (the packing phase)
     - `portfolio.go`: `func Portfolio(g *Graph, thoroughness int) (Layout, error)` (the portfolio)
     - `pipeline.go`: `func LayoutFamily(in Input, opts Options) (Scene, error)` (the size, subgraph, and origin phases)

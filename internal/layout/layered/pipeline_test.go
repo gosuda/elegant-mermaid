@@ -1,6 +1,7 @@
 package layered
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/gosuda/elegant-mermaid/internal/scene"
@@ -35,8 +36,8 @@ func TestPipelineComponents(t *testing.T) {
 		t.Fatal(err)
 	}
 	a, b := s.Boxes[0].Rect, s.Boxes[1].Rect
-	if b.X-a.X-a.W != constant(o.Profile, "node_gap") {
-		t.Fatalf("component gap: %v %v", a, b)
+	if b.Y-a.Y-a.H != constant(o.Profile, "node_gap") || b.X != a.X {
+		t.Fatalf("area-derived target stacks these components with one node gap: %v %v", a, b)
 	}
 }
 
@@ -94,16 +95,16 @@ func assertRouteDirectionTransforms(t *testing.T, views []scene.Scene) {
 }
 
 func TestDistinctNeighbourSizing(t *testing.T) {
-	in := Input{Kind: "flowchart", Boxes: []scene.Box{{ID: "A"}, {ID: "B"}, {ID: "C"}, {ID: "D"}}}
-	for _, id := range []string{"B", "C", "D", "D"} {
-		in.Routes = append(in.Routes, scene.Route{From: "A", To: id})
+	in := Input{Kind: "flowchart", Boxes: []scene.Box{{ID: "A"}, {ID: "B"}, {ID: "C"}, {ID: "D"}, {ID: "E"}, {ID: "F"}}}
+	for i, id := range []string{"B", "C", "D", "E", "F", "F"} {
+		in.Routes = append(in.Routes, scene.Route{ID: "e" + strconv.Itoa(i), From: "A", To: id, Orthogonal: true})
 	}
 	o := scene.DefaultOptions()
-	g, _, err := measuredGraph(in, o)
+	s, err := LayoutFamily(in, Options{Scene: o})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if g.Nodes[0].W < 4*g.PortGap {
-		t.Fatal("three distinct bottom neighbours require four port gaps")
+	if s.Boxes[0].Rect.W != 6*constant(o.Profile, "port_gap") {
+		t.Fatal("five distinct proper neighbours require six port gaps; parallel direct edges share one neighbour")
 	}
 }

@@ -13,12 +13,15 @@ type OrderStart uint8
 
 const (
 	OrderStartDeclaration OrderStart = iota
+	OrderStartBreadthFirst
+	OrderStartReverse
 )
 
 type OrderKey uint8
 
 const (
 	OrderKeyBarycentre OrderKey = iota
+	OrderKeyMedian
 )
 
 type OrderOptions struct {
@@ -33,6 +36,7 @@ type orderFraction struct{ sum, count int64 }
 type orderGraph struct {
 	p            *Proper
 	above, below [][]int32
+	key          OrderKey
 }
 
 func Order(p *Proper, opts OrderOptions) ([][]int32, error) {
@@ -41,12 +45,22 @@ func Order(p *Proper, opts OrderOptions) ([][]int32, error) {
 }
 
 func OrderWithBudget(p *Proper, opts OrderOptions) (OrderResult, error) {
-	if opts.Start != OrderStartDeclaration || opts.Key != OrderKeyBarycentre {
+	if opts.Start > OrderStartReverse || opts.Key > OrderKeyMedian {
 		return OrderResult{}, ErrGraph
 	}
 	g, layers, err := orderPrepare(p)
 	if err != nil {
 		return OrderResult{}, err
+	}
+	g.key = opts.Key
+	seed := orderClone(layers)
+	startLayers(p, seed, opts.Start)
+	for i := range layers {
+		layers[i] = g.clusterLayer(layers[i], "", nil)
+		seed[i] = g.clusterLayer(seed[i], "", nil)
+	}
+	if g.crossCount(seed) < g.crossCount(layers) {
+		layers = seed
 	}
 	return g.orderRun(layers, orderConstant("vector.sweep_max"), orderConstant("vector.sweep_stall"))
 }
@@ -62,8 +76,8 @@ func orderConstant(name string) int {
 
 func orderPrepare(p *Proper) (orderGraph, [][]int32, error) {
 	g := orderGraph{p: p}
-	if p == nil || len(p.Nodes) != len(p.Rank) || len(p.Nodes) > math.MaxInt32 || len(p.Edges) > math.MaxInt32 {
-		return g, nil, ErrGraph
+	if err := validateOrderGraph(p); err != nil {
+		return g, nil, err
 	}
 	maxRank, err := orderMaxRank(p)
 	if err != nil {
@@ -86,6 +100,12 @@ func orderPrepare(p *Proper) (orderGraph, [][]int32, error) {
 		}
 	}
 	return g, layers, nil
+}
+func validateOrderGraph(p *Proper) error {
+	if p == nil || len(p.Nodes) != len(p.Rank) || len(p.Nodes) > math.MaxInt32 || len(p.Edges) > math.MaxInt32 {
+		return ErrGraph
+	}
+	return nil
 }
 
 func orderDeclarationCompare(p *Proper, a, b int32) int {
@@ -177,7 +197,7 @@ func (g orderGraph) orderSweep(layers [][]int32, sweep int) error {
 	pos := orderPositions(layers, len(g.p.Nodes))
 	for k := range max(0, len(layers)-1) {
 		r := start + k*step
-		if err := orderSort(layers[r], neighbours, pos); err != nil {
+		if err := g.sortLayer(layers[r], neighbours, pos); err != nil {
 			return err
 		}
 		for i, v := range layers[r] {
@@ -278,6 +298,9 @@ func (g orderGraph) orderTransposePass(layers [][]int32) bool {
 	for _, layer := range layers {
 		for i := 1; i < len(layer); i++ {
 			a, b := layer[i-1], layer[i]
+			if !transposePeers(g.p.Nodes[a], g.p.Nodes[b]) {
+				continue
+			}
 			delta := crossSwapDelta(g.above[a], g.above[b], pos) + crossSwapDelta(g.below[a], g.below[b], pos)
 			if delta < 0 {
 				layer[i-1], layer[i] = b, a

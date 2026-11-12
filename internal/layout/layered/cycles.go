@@ -15,6 +15,9 @@ func BreakCycles(g *Graph) ([]bool, error) {
 	if err := validateGraph(g); err != nil {
 		return nil, err
 	}
+	if protectedGraph(g) {
+		return protectedCycles(g, nil)
+	}
 	for i := range g.Edges {
 		g.Edges[i].Reversed = false
 	}
@@ -22,7 +25,7 @@ func BreakCycles(g *Graph) ([]bool, error) {
 	state := make([]uint8, len(g.Nodes))
 	out := declaredOut(g)
 	stack := make([]dfsFrame, 0, len(g.Nodes))
-	for start := range g.Nodes {
+	for _, start := range declaredNodes(g) {
 		if state[start] != unvisited {
 			continue
 		}

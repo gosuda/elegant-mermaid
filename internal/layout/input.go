@@ -1,6 +1,9 @@
 package layout
 
-import "github.com/gosuda/elegant-mermaid/internal/scene"
+import (
+	"github.com/gosuda/elegant-mermaid/internal/scene"
+	"github.com/gosuda/elegant-mermaid/internal/source"
+)
 
 type Input struct {
 	Kind      string
@@ -19,6 +22,7 @@ type Box struct {
 	Shape     string
 	Parent    string
 	Exclusive bool
+	Direction string
 	Text      string
 }
 
@@ -41,8 +45,6 @@ type Label struct {
 }
 
 type Group struct {
-	ID        string
-	Parent    string
-	Direction string
-	Text      string
+	ID            string
+	DirectionSpan source.Span
 }

@@ -54,6 +54,37 @@ func TestModelGolden(t *testing.T) {
 	}
 }
 
+func TestFallbackGroupTitleTransport(t *testing.T) {
+	in, ok := inputSource(t, []byte("graph TB\nsubgraph one\nA --> B\nend\n"))
+	if !ok {
+		t.Fatal("group fixture rejected")
+	}
+	if len(in.Labels) != 0 {
+		t.Fatalf("fallback title invented model labels: %v", in.Labels)
+	}
+	s := step14Scene(t, in)
+	if len(s.Labels) != 0 {
+		t.Fatalf("fallback title invented layout labels: %v", s.Labels)
+	}
+	assertSceneGroupTitle(t, s, "one", "one")
+}
+
+func assertSceneGroupTitle(t *testing.T, s scene.Scene, owner, title string) {
+	t.Helper()
+	for _, group := range s.Groups {
+		if group.Owner != owner || group.Role != scene.GroupRoleGroup {
+			continue
+		}
+		for _, item := range group.Items {
+			text, ok := item.(*scene.Text)
+			if ok && len(text.Lines) == 1 && len(text.Lines[0]) == 1 && text.Lines[0][0].Text == title {
+				return
+			}
+		}
+	}
+	t.Fatalf("group %q title %q missing from scene", owner, title)
+}
+
 func TestCorpusModelRelations(t *testing.T) {
 	err := filepath.WalkDir("../../corpus/flowchart", func(path string, d os.DirEntry, err error) error {
 		if err != nil {

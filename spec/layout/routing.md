@@ -11,6 +11,8 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
     `L` is the left border and `w` the width of the node.
 - routing-04: The port count `k` MUST be known after the ordering phase, so the size phase can size the node, and port positions MUST be set after the cross-axis coordinate phase. [just lean-parity]
 - routing-05: Port order on a side MUST be the neighbour's `x`, then the neighbour's `decl`. [just lean-parity]
+    Group proxy ports MUST use the group's horizontal frame bounds from its ordering borders and the same distinct-neighbour spacing rule. The phase MUST set these boundary ports before slot assignment, and MUST NOT clip completed routes to a frame afterward. Equal proxy keys MUST sort by cluster declaration index, top before bottom, route declaration index, then source before target. A group self-loop MUST use the loop-band rule on the final frame. Proxy routing MUST NOT change authored endpoint IDs, ancestry, or clearance exemptions.
+    When a top proxy's adjacent route segment enters the frame interior, the route MUST first follow the top frame boundary from its unchanged port to the leading frame boundary, then follow that boundary to the ordinary channel. A source uses `(port_x, frame_top)`, `(frame_left, frame_top)`, `(frame_left, channel_y)` before the channel continuation; a target MUST use the reverse sequence. Consecutive duplicates MUST be omitted. A top port approached from outside the frame MUST keep its ordinary stub. Title text MUST stay inside the horizontal padding, clear of this boundary gutter.
 - routing-06: A label node MUST have one top port and one bottom port, both at its left border `x - floor_div(w, 2)`. [just lean-parity]
 - routing-07: Edges that share a triple MUST share a trunk: they use one segment in the routing phase. [just lean-parity]
 - routing-08: A layered kind MUST use top and bottom ports only. [just lean-parity]
@@ -32,6 +34,7 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
 - routing-14: Two non-straight segments in one channel MUST count as conflicting exactly when their closed intervals intersect and they do not share a trunk (same source triple and same target triple). [just lean-parity]
 - routing-15: A conflict arc MUST point from `a` to `b` when `(x_src(a), decl(a))` is lexicographically lower than `(x_src(b), decl(b))`, and the arc means `slot(a) < slot(b)`. [just lean-parity]
     No cycle guard runs. A segment's `decl` is the lowest `decl` of its edges. Arcs run in the total order `(x_src, decl)` on segments, so they form no cycle.
+    The source-end run MUST precede the target-end run when both reversed-edge runs have the same `x_src` and `decl` in one channel. This final tie MUST also apply to the ready queue.
 - routing-16: Slot numbering MUST use Kahn's algorithm, taking the ready segment with the lowest `decl` first. [just lean-parity]
     A segment with no predecessor gets slot 0. Any other segment gets `1 + max slot(predecessor)`.
 - routing-17: `S_r` MUST be `max slot + 1` over the non-straight segments of the channel, or 0 when there are none. [just lean-parity]
@@ -63,7 +66,7 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
 
 - routing-31: For node `v` with `K` loops, loop `k` (0-based, in declaration order at `v`) MUST use `loop_band = max(2 * slot, tallest label height among the loops of v)`. [just lean-parity]
 - routing-32: Loop `k` MUST have `b_k = y_v + k * loop_band`, ports `ya_k = b_k + floor_div(loop_band, 2) - slot` and `yb_k = b_k + floor_div(loop_band, 2) + slot`, and the four points `(xr_v, ya_k)`, `(xr_v + slot * (k + 1), ya_k)`, `(xr_v + slot * (k + 1), yb_k)`, and `(xr_v, yb_k)`. [just lean-parity]
-- routing-33: If the loop has a label, its left border MUST be at `xr_v + slot * (k + 2)` and its vertical centre MUST be at `b_k + floor_div(loop_band, 2)`. [just lean-parity]
+- routing-33: If the loop has a label, its left border MUST be at `xr_v + slot * (K + 1)` and its vertical centre MUST be at `b_k + floor_div(loop_band, 2)`. All loop labels of one node or frame MUST use this common column beyond its outermost loop lane. [just lean-parity]
 - routing-34: The loop extent MUST be `E_v = sum over k of (slot * (k + 2) + lw_k)`, where `lw_k` is the label width of loop `k` (0 without a label). [just lean-parity]
     The size phase uses `E_v` in `wsep` (spec/layout/layered.md).
 - routing-35: A node with `K` self-loops MUST satisfy `h = max(h, 2 * K * loop_band)`. [just lean-parity]

@@ -42,7 +42,7 @@ func rankComponentGraph(g *Graph, members []int32) (*Graph, []int32) {
 	for _, v := range members {
 		included[v] = true
 	}
-	component := &Graph{Params: g.Params}
+	component := &Graph{Params: g.Params, Direction: g.Direction}
 	indices := make([]int32, 0, len(members))
 	local := make([]int32, len(g.Nodes))
 	for v, n := range g.Nodes {
@@ -60,7 +60,30 @@ func rankComponentGraph(g *Graph, members []int32) (*Graph, []int32) {
 		e.Tail, e.Head = local[e.Tail], local[e.Head]
 		component.Edges = append(component.Edges, e)
 	}
+	component.Clusters = componentClusters(g, included, local)
+	component.Fixed = componentFixed(g, included)
 	return component, indices
+}
+func componentClusters(g *Graph, included []bool, local []int32) []Cluster {
+	var clusters []Cluster
+	for _, c := range g.Clusters {
+		if !included[c.Top] || !included[c.Bottom] {
+			continue
+		}
+		c.Top, c.Bottom = local[c.Top], local[c.Bottom]
+		clusters = append(clusters, c)
+	}
+	return clusters
+}
+func componentFixed(g *Graph, included []bool) []FixedGroup {
+	var fixed []FixedGroup
+	for _, f := range g.Fixed {
+		index := nodeIndex(g, f.ID)
+		if index >= 0 && included[index] {
+			fixed = append(fixed, f)
+		}
+	}
+	return fixed
 }
 
 func rankComponent(g *Graph) (RankResult, error) {
@@ -120,7 +143,7 @@ func initialRanks(g *Graph) ([]int64, error) {
 	}
 	done := make([]bool, len(r))
 	for range r {
-		v := firstReady(degree, done)
+		v := declaredReady(g, degree, done)
 		if v < 0 {
 			return nil, ErrCycle
 		}
@@ -139,22 +162,13 @@ func initialRanks(g *Graph) ([]int64, error) {
 	return r, nil
 }
 
-func firstReady(degree []int, done []bool) int {
-	for i, d := range degree {
-		if d == 0 && !done[i] {
-			return i
-		}
-	}
-	return -1
-}
-
 func tightTree(g *Graph, r []int64) ([]bool, error) {
 	tree := make([]bool, len(g.Edges))
 	if len(r) == 0 {
 		return tree, nil
 	}
 	side := make([]bool, len(r))
-	side[0] = true
+	side[declaredNodes(g)[0]] = true
 	incident := incidentEdges(g)
 	for count := 1; count < len(r); count++ {
 		edge := firstTight(g, r, side, incident)
@@ -177,7 +191,7 @@ func tightTree(g *Graph, r []int64) ([]bool, error) {
 }
 
 func firstTight(g *Graph, r []int64, side []bool, incident [][]int32) int {
-	for v := range side {
+	for _, v := range declaredNodes(g) {
 		if !side[v] {
 			continue
 		}
@@ -317,7 +331,7 @@ func Components(g *Graph) ([][]int32, error) {
 	seen := make([]bool, len(g.Nodes))
 	incident := incidentEdges(g)
 	var parts [][]int32
-	for root := range g.Nodes {
+	for _, root := range declaredNodes(g) {
 		if seen[root] {
 			continue
 		}

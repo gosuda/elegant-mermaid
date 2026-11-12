@@ -103,6 +103,25 @@ func TestOrderRandomGraphs(t *testing.T) {
 	}
 }
 
+func TestOrderAlternativeSeedsDoNotWorsenDeclaration(t *testing.T) {
+	for index := range 200 {
+		p := orderCase(t, index)
+		_, initial, err := orderPrepare(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, start := range []OrderStart{OrderStartBreadthFirst, OrderStartReverse} {
+			got, err := Order(p, OrderOptions{Start: start})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if orderNaive(p, got) > orderNaive(p, initial) {
+				t.Fatalf("case %d start %d worsens declaration crossings", index, start)
+			}
+		}
+	}
+}
+
 func orderAssertTranspose(t *testing.T, g orderGraph, initial [][]int32) {
 	t.Helper()
 	trial := orderClone(initial)

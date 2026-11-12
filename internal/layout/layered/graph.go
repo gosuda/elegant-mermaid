@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/gosuda/elegant-mermaid/internal/gen"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
@@ -16,23 +17,32 @@ var (
 )
 
 type Node struct {
-	ID   string
-	Decl int32
-	W    int32
-	H    int32
+	ID     string
+	Decl   int32
+	W      int32
+	H      int32
+	Parent string
+	Border Border
+	Extent int32
+	Role   scene.BoxRole
 }
 
 type Edge struct {
-	Tail     int32
-	Head     int32
-	MinLen   int32
-	Decl     int32
-	Reversed bool
+	Tail                                int32
+	Head                                int32
+	MinLen                              int32
+	Decl                                int32
+	Reversed                            bool
+	Label                               *EdgeLabel
+	Synthetic                           bool
+	ID                                  string
+	SourceGroup, TargetGroup, FrameLoop string
 }
 
 func (e Edge) SelfLoop() bool {
 	return e.Tail == e.Head
 }
+func (e Edge) NodeLoop() bool { return e.SelfLoop() && e.FrameLoop == "" }
 
 func (e Edge) Chain() (tail, head int32) {
 	if e.Reversed {
@@ -42,43 +52,78 @@ func (e Edge) Chain() (tail, head int32) {
 }
 
 type Params struct {
-	Slot        int32
-	PivotFactor int32
-	NodeGap     int32
-	RankGap     int32
-	PortGap     int32
+	Slot          int32
+	PivotFactor   int32
+	NodeGap       int32
+	RankGap       int32
+	PortGap       int32
+	ClusterPad    int32
+	ClusterBorder int32
+	AspectNum     int32
+	AspectDen     int32
+	MaxWidth      int32
+	LabelGutter   int32
 }
 
 type Graph struct {
-	Nodes   []Node
-	Edges   []Edge
-	Out, In [][]int32
+	Nodes     []Node
+	Edges     []Edge
+	Out, In   [][]int32
+	Clusters  []Cluster
+	Fixed     []FixedGroup
+	Direction scene.Direction
 	Params
 }
 
 func DefaultParams(profile scene.Profile) (Params, error) {
-	slotName := profile.String() + ".slot"
-	pivotName := profile.String() + ".pivot_factor"
+	prefix := profile.String() + "."
 	var p Params
-	var haveSlot, havePivot bool
-	for _, c := range gen.LayoutConst {
-		switch c.Name {
-		case slotName:
-			p.Slot, haveSlot = c.Value, true
-		case pivotName:
-			p.PivotFactor, havePivot = c.Value, true
-		case profile.String() + ".node_gap":
-			p.NodeGap = c.Value
-		case profile.String() + ".rank_gap":
-			p.RankGap = c.Value
-		case profile.String() + ".port_gap":
-			p.PortGap = c.Value
+	for _, row := range gen.LayoutConst {
+		name, ok := strings.CutPrefix(row.Name, prefix)
+		if !ok {
+			continue
 		}
+		if nodeParameter(&p, name, row.Value) {
+			continue
+		}
+		compoundParameter(&p, name, row.Value)
 	}
-	if !haveSlot || !havePivot {
+	if p.Slot <= 0 || p.PivotFactor <= 0 {
 		return Params{}, fmt.Errorf("layered: constants of profile %q are missing: %w", profile, ErrGraph)
 	}
+	if profile == scene.ProfileCell {
+		p.LabelGutter = p.Slot
+	}
 	return p, nil
+}
+func nodeParameter(p *Params, name string, value int32) bool {
+	switch name {
+	case "slot":
+		p.Slot = value
+	case "pivot_factor":
+		p.PivotFactor = value
+	case "node_gap":
+		p.NodeGap = value
+	case "rank_gap":
+		p.RankGap = value
+	case "port_gap":
+		p.PortGap = value
+	default:
+		return false
+	}
+	return true
+}
+func compoundParameter(p *Params, name string, value int32) {
+	switch name {
+	case "cluster_pad":
+		p.ClusterPad = value
+	case "cluster_border_w":
+		p.ClusterBorder = value
+	case "component_aspect_num":
+		p.AspectNum = value
+	case "component_aspect_den":
+		p.AspectDen = value
+	}
 }
 
 func validateGraph(g *Graph) error {
@@ -135,10 +180,7 @@ func incidentEdges(g *Graph) [][]int32 {
 }
 
 func validateNodes(nodes []Node) error {
-	for i, n := range nodes {
-		if i > 0 && n.Decl < nodes[i-1].Decl {
-			return ErrGraph
-		}
+	for _, n := range nodes {
 		if n.W < 0 || n.H < 0 {
 			return ErrGraph
 		}

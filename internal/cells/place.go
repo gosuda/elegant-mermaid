@@ -50,6 +50,7 @@ func (c *Canvas) placeAll(labels []*scene.Text, t theme.Theme) (int, error) {
 	return refused, nil
 }
 func (c *Canvas) placeLine(p *scene.Text, text string, row int, ink Token) (int, error) {
+	text = terminalText(text)
 	width, err := measure.CellWidth(text)
 	if err != nil {
 		return 0, err

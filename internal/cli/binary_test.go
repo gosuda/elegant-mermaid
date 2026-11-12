@@ -50,7 +50,7 @@ func binaryOutput(t *testing.T, cmd *exec.Cmd, input, stdout, stderr string, cod
 
 func TestBinaryPipe(t *testing.T) {
 	t.Run("cli-07", func(t *testing.T) {
-		binaryOutput(t, binaryCommand(t, "render", "-e", "text", "--color", "never"), "flowchart LR\n A\n", "┌───┐\n│ A │\n└───┘\n", "", 0)
+		binaryOutput(t, binaryCommand(t, "render", "-e", "text", "--color", "never"), "flowchart LR\n A\n", "\n ┌───┐\n │ A │\n └───┘\n\n", "", 0)
 	})
 }
 
@@ -66,8 +66,16 @@ func TestBinaryTerminal(t *testing.T) {
 
 func TestBinaryArgumentOrder(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "-name"), []byte("flowchart LR\n A\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "-name"), []byte("flowchart LR\n A[argument order]\n"), 0600); err != nil {
 		t.Fatal(err)
+	}
+	canonical := binaryCommand(t, "render", "-e", "text", "--color", "never", "./-name")
+	canonical.Dir = dir
+	var stderr bytes.Buffer
+	canonical.Stderr = &stderr
+	want, err := canonical.Output()
+	if err != nil || stderr.Len() != 0 || !bytes.Contains(want, []byte("argument order")) {
+		t.Fatalf("canonical invocation: err=%v stdout=%q stderr=%q", err, want, stderr.String())
 	}
 	for _, args := range [][]string{
 		{"render", "-e", "text", "./-name"},
@@ -77,7 +85,7 @@ func TestBinaryArgumentOrder(t *testing.T) {
 		t.Run("cli-05/"+strings.Join(args, "_"), func(t *testing.T) {
 			cmd := binaryCommand(t, args...)
 			cmd.Dir = dir
-			binaryOutput(t, cmd, "", "┌───┐\n│ A │\n└───┘\n", "", 0)
+			binaryOutput(t, cmd, "", string(want), "", 0)
 		})
 	}
 }
@@ -106,7 +114,7 @@ func binaryFile(t *testing.T, path, ext string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ext == "txt" && string(content) != "┌───┐\n│ A │\n└───┘\n" {
+	if ext == "txt" && string(content) != "\n ┌───┐\n │ A │\n └───┘\n\n" {
 		t.Fatalf("text=%q", content)
 	}
 	if ext == "svg" && !bytes.Contains(content, []byte("<svg")) {
@@ -116,13 +124,13 @@ func binaryFile(t *testing.T, path, ext string) {
 
 func TestBinaryWidth(t *testing.T) {
 	t.Run("cli-25", func(t *testing.T) {
-		binaryOutput(t, binaryCommand(t, "render", "-e", "text", "--color", "never", "--width", "1"), "flowchart LR\n A\n", "┌───┐\n│ A │\n└───┘\n", "", 0)
+		binaryOutput(t, binaryCommand(t, "render", "-e", "text", "--color", "never", "--width", "1"), "flowchart LR\n A\n", "\n ┌───┐\n │ A │\n └───┘\n\n", "", 0)
 	})
 }
 
 func TestBinaryColour(t *testing.T) {
-	plain := "┌───┐\n│ A │\n└───┘\n"
-	coloured := "\x1b[90m┌───┐\x1b[39m\n\x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\n\x1b[90m└───┘\x1b[39m\n"
+	plain := "\n ┌───┐\n │ A │\n └───┘\n\n"
+	coloured := "\n \x1b[90m┌───┐\x1b[39m\n \x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\n \x1b[90m└───┘\x1b[39m\n\n"
 	for _, tc := range []struct {
 		name, flag string
 		env        []string
@@ -155,7 +163,8 @@ func TestBinaryColourTerminal(t *testing.T) {
 			t.Fatal(err)
 		}
 		cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "TERM=xterm", "EMD_BIN=" + binaryPath(t), "SOURCE=" + path}
-		binaryOutput(t, cmd, "", "\x1b[90m┌───┐\x1b[39m\r\n\x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\r\n\x1b[90m└───┘\x1b[39m\r\n", "", 0)
+		want := "\n \x1b[90m┌───┐\x1b[39m\n \x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\n \x1b[90m└───┘\x1b[39m\n\n"
+		binaryOutput(t, cmd, "", strings.ReplaceAll(want, "\n", "\r\n"), "", 0)
 	})
 }
 

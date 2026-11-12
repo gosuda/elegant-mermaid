@@ -191,8 +191,8 @@ func assertEdgeMarkers(t *testing.T, s scene.Scene, names []string) {
 
 func TestFlowchartExtraDashRank(t *testing.T) {
 	short, long := edgeScene(t, "A --> B"), edgeScene(t, "A ---> B")
-	if long.Boxes[1].Rect.X-short.Boxes[1].Rect.X != 3072 {
-		t.Fatalf("extra dash must add one empty rank: %v %v", short.Boxes, long.Boxes)
+	if long.Boxes[1].Rect != short.Boxes[1].Rect {
+		t.Fatalf("dash count must not change ranks: %v %v", short.Boxes, long.Boxes)
 	}
 }
 
@@ -231,8 +231,8 @@ func handPipeline(in Input) (scene.Scene, error) {
 	return layered.LayoutFamily(input, layered.Options{Scene: options})
 }
 
-func TestWalkingSkeletonRanksIgnoreSyntaxAndLabels(t *testing.T) {
-	sources := []string{"A --- B", "A <--> B", "A o--x B", "A -.-> B", "A ==> B", "A ---> B", "A -->|yes| B"}
+func TestUnlabelledRanksIgnoreSyntax(t *testing.T) {
+	sources := []string{"A --- B", "A <--> B", "A o--x B", "A -.-> B", "A ==> B", "A ---> B"}
 	for _, source := range sources {
 		t.Run(source, func(t *testing.T) {
 			in, ok := inputSource(t, []byte("flowchart LR\n"+source+"\n"))
@@ -244,7 +244,7 @@ func TestWalkingSkeletonRanksIgnoreSyntaxAndLabels(t *testing.T) {
 				t.Fatal(err)
 			}
 			if s.Boxes[1].Rect.X-s.Boxes[0].Rect.X-s.Boxes[0].Rect.W != 3072 {
-				t.Fatal("walking skeleton ranks every edge with minimum length one")
+				t.Fatal("unlabelled edges must have minimum length one")
 			}
 		})
 	}

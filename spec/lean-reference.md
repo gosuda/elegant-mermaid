@@ -19,6 +19,7 @@ This file fixes the scope, project layout, gates, proof hygiene, fuel scheme, wo
 - lean-reference-10: Arithmetic MUST be on `Int`, and `floor_div` and `floor_mod` MUST be `Int.fdiv` and `Int.fmod`, so the code uses no `/` or `%` on `Int`. [just proofs]
 - lean-reference-11: Every operation that Go and Rust check for overflow MUST return `Except LayoutError` with the same int32 result range and the same int64 intermediate range, so an overflow is `LayoutError.overflow` in Lean, `geom.ErrOverflow` in Go, and `GeomError::Overflow` in Rust. [just kernel-diff]
 - lean-reference-12: The domain error MUST be `LayoutError.domain` in Lean, `geom.ErrDomain` in Go, and `GeomError::Domain` in Rust, and `LayoutError` MUST be defined in `ElegantGeometry/Basic.lean` with the constructors `overflow` and `domain`. [just kernel-diff]
+    Family layout boundaries MUST return `Except Elegant.LayoutFailure`, with `geometry (error : LayoutError)` for internal checked failures and `tooLarge (limit actual : Nat)` for a model limit. Kernel operations and text-rendering primitives MUST keep their two-constructor `LayoutError`. The command layer MUST report either family case with exit 1.
 
 ## Project layout
 

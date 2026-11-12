@@ -6,29 +6,44 @@ import (
 	"slices"
 
 	"github.com/gosuda/elegant-mermaid/internal/geom"
+	"github.com/gosuda/elegant-mermaid/internal/scene"
 )
 
 type RoutingSegment struct {
 	Tail, Head, Decl, Slot int32
 	SourceX, TargetX       int32
 	Edges                  []int32
+	Order                  int32
 }
 type RoutingGap struct {
 	Segments []RoutingSegment
 	Slots    int32
 }
 type Routing struct {
-	Gaps             []RoutingGap
-	SourceX, TargetX []int32
-	Segment          []int32
+	Gaps              []RoutingGap
+	SourceX, TargetX  []int32
+	Segment           []int32
+	Reversed          []ReversedRun
+	SourceRunX        []int32
+	ClusterBounds     []horizontalSpan
+	LabelReservations []LabelReservation
 }
 type EdgeRoute struct {
 	Original int32
+	ID       string
 	Points   []geom.Point
 }
 type Box struct {
 	ID   string
 	Rect geom.Rect
+	Role scene.BoxRole
+}
+type routeGeometry struct {
+	p                  *Proper
+	r                  *Routing
+	x, y, top, heights []int32
+	layers             [][]int32
+	slot               int32
 }
 
 func portNeighbours(p *Proper, v int32, edges []int32, x []int32) []int32 {
@@ -66,6 +81,9 @@ func assignPorts(p *Proper, v int32, edges []int32, x, out []int32) error {
 		}
 		j := slices.Index(ns, other)
 		a := left + int64(j+1)*w/int64(len(ns)+1)
+		if p.Nodes[v].Label != nil {
+			a = left
+		}
 		if a < math.MinInt32 || a > math.MaxInt32 {
 			return geom.ErrOverflow
 		}
@@ -76,6 +94,9 @@ func assignPorts(p *Proper, v int32, edges []int32, x, out []int32) error {
 func routingPorts(p *Proper, x []int32, r *Routing) error {
 	incoming, outgoing := make([][]int32, len(p.Nodes)), make([][]int32, len(p.Nodes))
 	for i, e := range p.Edges {
+		if e.Original < 0 {
+			continue
+		}
 		incoming[e.Head] = append(incoming[e.Head], int32(i))
 		outgoing[e.Tail] = append(outgoing[e.Tail], int32(i))
 	}
@@ -102,7 +123,7 @@ func addRoutingSegment(p *Proper, r *Routing, i int) {
 		}
 	}
 	r.Segment[i] = int32(len(gap.Segments))
-	gap.Segments = append(gap.Segments, RoutingSegment{Tail: e.Tail, Head: e.Head, Decl: e.Decl, Slot: -1, SourceX: r.SourceX[i], TargetX: r.TargetX[i], Edges: []int32{int32(i)}})
+	gap.Segments = append(gap.Segments, RoutingSegment{Tail: e.Tail, Head: e.Head, Decl: e.Decl, Slot: -1, SourceX: r.sourceRun(i), TargetX: r.TargetX[i], Edges: []int32{int32(i)}})
 }
 func routingConflict(a, b RoutingSegment) bool {
 	if a.SourceX == a.TargetX || b.SourceX == b.TargetX {
@@ -114,7 +135,10 @@ func segmentOrder(a, b RoutingSegment) int {
 	if d := cmp.Compare(a.SourceX, b.SourceX); d != 0 {
 		return d
 	}
-	return cmp.Compare(a.Decl, b.Decl)
+	if d := cmp.Compare(a.Decl, b.Decl); d != 0 {
+		return d
+	}
+	return cmp.Compare(a.Order, b.Order)
 }
 func numberRoutingGap(gap *RoutingGap) {
 	n := len(gap.Segments)
@@ -172,15 +196,25 @@ func Route(p *Proper, layers [][]int32, x []int32) (*Routing, error) {
 	if err := routingPorts(p, x, r); err != nil {
 		return nil, err
 	}
+	if err := groupProxyPorts(p, x, r); err != nil {
+		return nil, err
+	}
 	for i := range p.Edges {
+		if !drawChain(p, p.Edges[i]) {
+			continue
+		}
 		addRoutingSegment(p, r, i)
+	}
+	if err := reversedRuns(p, x, r); err != nil {
+		return nil, err
 	}
 	for i := range r.Gaps {
 		numberRoutingGap(&r.Gaps[i])
 	}
 	return r, nil
 }
-func chainPoints(p *Proper, e ProperEdge, i int, y, top, h []int32, r *Routing, slot int32) ([]geom.Point, error) {
+func (g routeGeometry) chainPoints(e ProperEdge, i int, slot int32) ([]geom.Point, error) {
+	p, r, y, top, h := g.p, g.r, g.y, g.top, g.heights
 	a := geom.Point{X: r.SourceX[i], Y: y[e.Tail]}
 	n := int64(a.Y) + int64(p.Nodes[e.Tail].H)
 	if n > math.MaxInt32 {
@@ -188,8 +222,10 @@ func chainPoints(p *Proper, e ProperEdge, i int, y, top, h []int32, r *Routing, 
 	}
 	a.Y = int32(n)
 	b := geom.Point{X: r.TargetX[i], Y: y[e.Head]}
-	if a.X == b.X {
-		return []geom.Point{a, b}, nil
+	run := r.sourceRun(i)
+	points := appendRoutePoints(nil, []geom.Point{a, {X: run, Y: a.Y}})
+	if run == b.X {
+		return appendRoutePoints(points, []geom.Point{b}), nil
 	}
 	rank := p.Rank[e.Tail]
 	s := r.Gaps[rank].Segments[r.Segment[i]]
@@ -197,33 +233,61 @@ func chainPoints(p *Proper, e ProperEdge, i int, y, top, h []int32, r *Routing, 
 	if mid > math.MaxInt32 {
 		return nil, geom.ErrOverflow
 	}
-	return []geom.Point{a, {X: a.X, Y: int32(mid)}, {X: b.X, Y: int32(mid)}, b}, nil
+	return appendRoutePoints(points, []geom.Point{{X: run, Y: int32(mid)}, {X: b.X, Y: int32(mid)}, b}), nil
 }
 func RoutePoints(p *Proper, layers [][]int32, x, y, rankTop []int32, r *Routing) ([]EdgeRoute, []Box, error) {
-	if _, err := coordinateLayers(p, layers); err != nil {
+	geometry := routeGeometry{p: p, r: r, x: x, y: y, top: rankTop, layers: layers}
+	if err := geometry.prepare(); err != nil {
 		return nil, nil, err
 	}
-	if len(x) != len(p.Nodes) || len(y) != len(p.Nodes) || len(rankTop) != len(layers) || r == nil {
-		return nil, nil, ErrGraph
+	return geometry.points()
+}
+func (g *routeGeometry) prepare() error {
+	if _, err := coordinateLayers(g.p, g.layers); err != nil {
+		return err
 	}
-	params, err := coordinateParams(p)
+	if len(g.x) != len(g.p.Nodes) || len(g.y) != len(g.p.Nodes) || len(g.top) != len(g.layers) || g.r == nil {
+		return ErrGraph
+	}
+	params, err := coordinateParams(g.p)
+	if err != nil {
+		return err
+	}
+	g.slot = params.Slot
+	g.heights = rankHeights(g.p, g.layers)
+	return nil
+}
+func (g routeGeometry) points() ([]EdgeRoute, []Box, error) {
+	routes, err := g.chains()
 	if err != nil {
 		return nil, nil, err
 	}
-	h := rankHeights(p, layers)
-	routes := make([]EdgeRoute, len(p.Chains))
+	labels, err := placedLabels(g.p, g.x, g.y)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := g.reversedPoints(routes, &labels); err != nil {
+		return nil, nil, err
+	}
+	g.r.LabelReservations = labels.reservations
+	return routes, labels.boxes, nil
+}
+func (g routeGeometry) chains() ([]EdgeRoute, error) {
+	routes := make([]EdgeRoute, len(g.p.Chains))
 	for i := range routes {
 		routes[i].Original = int32(i)
 	}
-	for i, e := range p.Edges {
-		points, err := chainPoints(p, e, i, y, rankTop, h, r, params.Slot)
-		if err != nil {
-			return nil, nil, err
+	for i, e := range g.p.Edges {
+		if !drawChain(g.p, e) {
+			continue
 		}
-		route := &routes[e.Original]
-		route.Points = appendRoutePoints(route.Points, points)
+		points, err := g.chainPoints(e, i, g.slot)
+		if err != nil {
+			return nil, err
+		}
+		routes[e.Original].Points = appendRoutePoints(routes[e.Original].Points, points)
 	}
-	return routes, []Box{}, nil
+	return routes, nil
 }
 func appendRoutePoints(out, points []geom.Point) []geom.Point {
 	for _, point := range points {
@@ -232,4 +296,42 @@ func appendRoutePoints(out, points []geom.Point) []geom.Point {
 		}
 	}
 	return out
+}
+
+func (r *Routing) sourceRun(index int) int32 {
+	if len(r.SourceRunX) > 0 {
+		return r.SourceRunX[index]
+	}
+	return r.SourceX[index]
+}
+
+func sizeProperPorts(g *Graph, p *Proper) error {
+	for i, node := range g.Nodes {
+		if node.Border != BorderNone || node.Role == scene.RoleGroup {
+			continue
+		}
+		count := max(properNeighbourCount(p, int32(i), p.In[i]), properNeighbourCount(p, int32(i), p.Out[i]))
+		width, err := coordinate((int64(count) + 1) * int64(g.PortGap))
+		if err != nil {
+			return err
+		}
+		g.Nodes[i].W = max(g.Nodes[i].W, width)
+		p.Nodes[i].W = g.Nodes[i].W
+	}
+	return nil
+}
+func properNeighbourCount(p *Proper, node int32, edges []int32) int {
+	neighbours := make(map[int32]struct{}, len(edges))
+	for _, index := range edges {
+		edge := p.Edges[index]
+		if edge.Original < 0 {
+			continue
+		}
+		neighbour := edge.Tail
+		if neighbour == node {
+			neighbour = edge.Head
+		}
+		neighbours[neighbour] = struct{}{}
+	}
+	return len(neighbours)
 }

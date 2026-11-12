@@ -3,7 +3,6 @@ package layout
 import (
 	"cmp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/gosuda/elegant-mermaid/internal/diag"
@@ -22,20 +21,23 @@ func FromFlowchart(m *flowchart.Model, profile scene.Profile, options scene.Opti
 		in.Boxes = append(in.Boxes, Box{ID: n.ID, Role: scene.RoleNode, Shape: n.Shape, Parent: nodeParent(m, n.ID), Exclusive: true, Text: nodeText(n)})
 	}
 	for _, g := range m.Groups {
-		in.Boxes = append(in.Boxes, Box{ID: g.ID, Role: scene.RoleGroup, Parent: g.Parent})
-		in.Groups = append(in.Groups, Group{ID: g.ID, Parent: g.Parent, Direction: g.Direction, Text: g.Title})
+		in.Boxes = append(in.Boxes, Box{ID: g.ID, Role: scene.RoleGroup, Parent: g.Parent, Text: g.Title, Direction: g.Direction})
+		in.Groups = append(in.Groups, Group{ID: g.ID, DirectionSpan: g.DirSpan})
 	}
 	slices.SortStableFunc(in.Boxes, func(a, b Box) int {
 		return cmp.Compare(boxDeclaration(m, a.ID), boxDeclaration(m, b.ID))
 	})
 	in.Labels = boxLabels(in.Boxes)
-	for i, e := range m.Edges {
-		id := "e" + strconv.Itoa(i)
-		length := e.Length
-		if length < 1 {
-			length = 1
+	for i := range in.Boxes {
+		if in.Boxes[i].Role == scene.RoleGroup {
+			in.Boxes[i].Text = ""
 		}
-		if e.LabelOK && length < 2 {
+	}
+	routeIDs := allocateRouteIDs(in.Boxes, len(m.Edges))
+	for i, e := range m.Edges {
+		id := routeIDs[i]
+		length := 1
+		if e.LabelOK {
 			length = 2
 		}
 		in.Routes = append(in.Routes, Route{ID: id, From: e.From, To: e.To, Orthogonal: true, MarkerStart: e.Start, MarkerEnd: e.Marker, Line: e.Stroke, MinLength: length})
@@ -49,7 +51,7 @@ func FromFlowchart(m *flowchart.Model, profile scene.Profile, options scene.Opti
 func boxLabels(boxes []Box) []Label {
 	var labels []Label
 	for _, b := range boxes {
-		if b.Text != b.ID && b.Role == scene.RoleNode {
+		if b.Text != b.ID {
 			labels = append(labels, Label{ID: b.ID + ".label", Owner: b.ID, Role: scene.TextRoleLabel, Text: b.Text})
 		}
 	}

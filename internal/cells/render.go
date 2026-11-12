@@ -33,23 +33,41 @@ func Render(s scene.Scene, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	var labels []*scene.Text
-	for _, g := range s.Groups {
-		for _, p := range g.Items {
-			if text, ok := p.(*scene.Text); ok {
-				labels = append(labels, text)
-				continue
-			}
-			if err = c.draw(p, opts.Charset, t); err != nil {
-				return Result{}, err
-			}
-		}
+	labels, err := c.drawGroups(s, opts.Charset, t)
+	if err != nil {
+		return Result{}, err
 	}
 	refused, err := c.placeAll(labels, t)
 	if err != nil {
 		return Result{}, err
 	}
 	return Result{Text: c.Serialise(opts.Charset, opts.Color, func(token Token) RGB { return RGB(t.Colour(theme.Token(token))) }), RefusedClusters: refused}, nil
+}
+
+func (c *Canvas) drawGroups(s scene.Scene, charset Charset, t theme.Theme) ([]*scene.Text, error) {
+	var labels []*scene.Text
+	for _, g := range s.Groups {
+		groupLabels, err := c.drawGroup(g, charset, t)
+		if err != nil {
+			return nil, err
+		}
+		labels = append(labels, groupLabels...)
+	}
+	return labels, nil
+}
+
+func (c *Canvas) drawGroup(g *scene.Group, charset Charset, t theme.Theme) ([]*scene.Text, error) {
+	var labels []*scene.Text
+	for _, p := range g.Items {
+		if text, ok := p.(*scene.Text); ok {
+			labels = append(labels, text)
+			continue
+		}
+		if err := c.draw(p, charset, t); err != nil {
+			return nil, err
+		}
+	}
+	return labels, nil
 }
 func lineStyle(s scene.Shape, base Style) Style {
 	switch {

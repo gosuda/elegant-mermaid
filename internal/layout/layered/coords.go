@@ -38,6 +38,13 @@ func (a *coordinateArithmetic) subtract(x, y int64) int64 {
 	}
 	return a.add(x, -y)
 }
+func (a *coordinateArithmetic) multiply(x, y int64) int64 {
+	n, err := product(x, y)
+	if err != nil {
+		a.err = err
+	}
+	return n
+}
 
 func coordinateParams(p *Proper) (Params, error) {
 	d, err := DefaultParams(scene.ProfileVector)
@@ -189,27 +196,41 @@ func (c *coordinatePass) other(e, v int32) int32 {
 }
 func (c *coordinatePass) alignment() {
 	for _, layer := range c.layers {
-		last := int32(-1)
-		for _, v := range layer {
-			es := c.neighbours(v)
-			if len(es) == 0 {
-				continue
-			}
-			for _, k := range []int{(len(es) - 1) / 2, len(es) / 2} {
-				e := es[k]
-				w := c.other(e, v)
-				if c.align[v] == v && !c.marked[e] && c.pos[w] > last {
-					c.align[w] = v
-					c.align[v] = c.root[w]
-					c.root[v] = c.root[w]
-					last = c.pos[w]
-				}
-			}
-		}
+		c.alignLayer(layer)
 	}
 }
+func (c *coordinatePass) alignLayer(layer []int32) {
+	last := int32(-1)
+	for _, v := range layer {
+		last = c.alignNode(v, last)
+	}
+}
+func (c *coordinatePass) alignNode(v, last int32) int32 {
+	neighbours := c.neighbours(v)
+	if len(neighbours) == 0 {
+		return last
+	}
+	for _, index := range [2]int{(len(neighbours) - 1) / 2, len(neighbours) / 2} {
+		edge := neighbours[index]
+		other := c.other(edge, v)
+		if c.align[v] == v && !c.marked[edge] && c.pos[other] > last {
+			c.align[other] = v
+			c.align[v] = c.root[other]
+			c.root[v] = c.root[other]
+			last = c.pos[other]
+		}
+	}
+	return last
+}
 func (c *coordinatePass) separation(a, b int32) int64 {
-	return int64(c.p.Nodes[a].W)/2 + int64(c.p.Nodes[b].W)/2 + c.gap
+	left, right := c.p.Nodes[a], c.p.Nodes[b]
+	gap := c.gap
+	if borderMember(c.p, left, right) && c.p.ClusterPad > 0 {
+		gap = int64(c.p.ClusterPad)
+	} else if ownTitleAnchor(left, right) {
+		gap = 0
+	}
+	return int64(left.W)/2 + int64(left.Extent) + int64(right.W)/2 + int64(right.Extent) + gap
 }
 func (c *coordinatePass) predecessor(w int32) (int32, bool) {
 	if c.pos[w] == 0 {
@@ -410,22 +431,36 @@ func RankCoords(p *Proper, layers [][]int32, r *Routing) ([]int32, []int32, erro
 		return nil, nil, ErrGraph
 	}
 	h := rankHeights(p, layers)
-	top := make([]int32, len(layers))
-	for i := 1; i < len(top); i++ {
-		n := int64(top[i-1]) + int64(h[i-1]) + int64(params.RankGap) + int64(params.Slot)*int64(r.Gaps[i-1].Slots)
-		if n > math.MaxInt32 {
-			return nil, nil, geom.ErrOverflow
-		}
-		top[i] = int32(n)
+	top, err := rankBandTops(h, r, params)
+	if err != nil {
+		return nil, nil, err
 	}
 	y := make([]int32, len(p.Nodes))
 	for v, n := range p.Nodes {
 		rank := p.Rank[v]
 		a := int64(top[rank]) + int64(h[rank]-n.H)/2
+		switch n.Border {
+		case BorderTop:
+			a = int64(top[rank])
+		case BorderBottom:
+			a = int64(top[rank]) + int64(h[rank])
+		}
 		if a > math.MaxInt32 {
 			return nil, nil, geom.ErrOverflow
 		}
 		y[v] = int32(a)
 	}
 	return y, top, nil
+}
+
+func rankBandTops(h []int32, r *Routing, params Params) ([]int32, error) {
+	top := make([]int32, len(h))
+	for i := 1; i < len(top); i++ {
+		n := int64(top[i-1]) + int64(h[i-1]) + int64(params.RankGap) + int64(params.Slot)*int64(r.Gaps[i-1].Slots)
+		if n > math.MaxInt32 {
+			return nil, geom.ErrOverflow
+		}
+		top[i] = int32(n)
+	}
+	return top, nil
 }

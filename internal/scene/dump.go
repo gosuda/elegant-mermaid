@@ -190,6 +190,10 @@ func (d *Dump) appendBox(dst []byte, b Box) []byte {
 	dst = diag.AppendString(dst, b.Parent)
 	dst = append(dst, `,"exclusive":`...)
 	dst = appendBool(dst, b.Exclusive)
+	if d.Stage == StageModel && b.Role == RoleGroup {
+		dst = append(dst, `,"direction":`...)
+		dst = diag.AppendString(dst, b.Direction)
+	}
 	return append(dst, '}')
 }
 

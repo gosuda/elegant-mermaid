@@ -7,9 +7,9 @@ func cellText(v Cell, charset Charset) string {
 	case v.Cont:
 		return ""
 	case v.Label != "":
-		return v.Label
+		return terminalText(v.Label)
 	case v.Symbol != 0:
-		return string(v.Symbol)
+		return terminalText(string(v.Symbol))
 	case v.Mask != 0:
 		return string(Glyph(charset, v.Style, v.Mask))
 	default:
@@ -54,4 +54,25 @@ func (v Cell) colourToken() Token {
 		return TokenFG
 	}
 	return token
+}
+
+func terminalText(text string) string {
+	first := strings.IndexFunc(text, terminalControl)
+	if first < 0 {
+		return text
+	}
+	var out strings.Builder
+	out.Grow(len(text))
+	out.WriteString(text[:first])
+	for _, r := range text[first:] {
+		if terminalControl(r) {
+			r = '\uFFFD'
+		}
+		out.WriteRune(r)
+	}
+	return out.String()
+}
+
+func terminalControl(r rune) bool {
+	return r < 0x20 || (r >= 0x7F && r <= 0x9F)
 }

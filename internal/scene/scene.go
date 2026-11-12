@@ -205,6 +205,7 @@ type Box struct {
 	Rect      geom.Rect
 	Parent    string
 	Exclusive bool
+	Direction string
 }
 
 type Route struct {

@@ -14,19 +14,38 @@ type Input struct {
 	Kind   string
 	Boxes  []scene.Box
 	Routes []scene.Route
+	Labels []scene.Label
 	Text   []string
 	Edges  []EdgeOptions
+	Fixed  []FixedGroup
 }
-
+type GroupOptions struct{ ID, Direction string }
+type FixedGroup struct {
+	ID      string
+	Scene   scene.Scene
+	W, H    int32
+	Title   geom.Rect
+	Titles  []Box
+	packing packingReservations
+}
 type EdgeOptions struct {
-	MarkerStart string
-	MarkerEnd   string
-	Stroke      string
-	MinLength   int32
+	MarkerStart, MarkerEnd, Stroke string
+	MinLength                      int32
 }
 type Options struct {
-	Scene           scene.Options
-	BudgetExhausted *bool
+	Scene             scene.Options
+	BudgetExhausted   *bool
+	IgnoredDirections *[]string
+	capturePacking    *packingReservations
+}
+type scenePreparation struct {
+	input  Input
+	layout Layout
+	lines  [][]measure.Line
+}
+type packingReservations struct {
+	loops  []Box
+	labels []LabelReservation
 }
 
 func constant(profile scene.Profile, name string) int32 {
@@ -39,100 +58,252 @@ func constant(profile scene.Profile, name string) int32 {
 }
 func LayoutFamily(in Input, opts Options) (scene.Scene, error) {
 	s := scene.Scene{Dump: scene.Dump{Kind: in.Kind, Options: opts.Scene}}
-	g, lines, err := measuredGraph(in, opts.Scene)
+	if err := enforceLimits(in, opts.Scene); err != nil {
+		return s, err
+	}
+	prepared, err := prepareSubgraphs(in, opts)
 	if err != nil {
 		return s, err
 	}
-	if _, err = BreakCycles(g); err != nil {
-		return s, err
-	}
-	parts, err := Components(g)
+	g, lines, err := measuredGraph(prepared, opts.Scene)
 	if err != nil {
 		return s, err
 	}
+	part, err := layoutComponents(g, int(opts.Scene.Thoroughness))
+	if err != nil {
+		return s, err
+	}
+	if opts.capturePacking != nil {
+		*opts.capturePacking = packingReservations{loops: part.Extents, labels: part.LabelReservations}
+	}
+	s, err = layoutScene(in, opts.Scene, scenePreparation{input: prepared, layout: part, lines: lines})
+	projectFinalScene(&s, opts, err)
+	if part.BudgetExhausted && opts.BudgetExhausted != nil {
+		*opts.BudgetExhausted = true
+	}
+	return s, err
+}
+func layoutScene(in Input, o scene.Options, prepared scenePreparation) (scene.Scene, error) {
+	s := scene.Scene{Dump: scene.Dump{Kind: in.Kind, Options: o}}
 	s.Boxes = slices.Clone(in.Boxes)
 	s.Routes = slices.Clone(in.Routes)
-	var cursor int32
-	for _, members := range parts {
-		cg, indices := rankComponentGraph(g, members)
-		boxes, routes, budget, e := componentLayout(cg)
-		if e != nil {
-			return s, e
-		}
-		if budget && opts.BudgetExhausted != nil {
-			*opts.BudgetExhausted = true
-		}
-		width, height := placeComponent(&s, in, indices, cg, boxes, routes, cursor)
-		if int64(cursor)+int64(width)+int64(g.NodeGap) > math.MaxInt32 {
-			return s, geom.ErrOverflow
-		}
-		cursor += width + g.NodeGap
-		s.Canvas.W = cursor - g.NodeGap
-		s.Canvas.H = max(s.Canvas.H, height)
-	}
+	s.Labels = slices.Clone(in.Labels)
+	applyLayout(&s, prepared.layout)
 	orientScene(&s)
-	assembleScene(&s, lines, in.Edges)
+	if err := addMargin(&s, constant(o.Profile, "canvas_margin")); err != nil {
+		return s, err
+	}
+	lines := prepared.lines
+	if len(prepared.input.Fixed) > 0 {
+		var err error
+		lines, err = allBoxLines(in, o)
+		if err != nil {
+			return s, err
+		}
+	}
+	if err := fillLabelLines(&s, o); err != nil {
+		return s, err
+	}
+	titles, err := sceneTitles(prepared.layout, o)
+	if err != nil {
+		return s, err
+	}
+	assembleScene(&s, lines, in.Edges, titles)
 	return s, nil
 }
+func layoutComponents(g *Graph, thoroughness int) (Layout, error) {
+	parts, err := Components(g)
+	if err != nil {
+		return Layout{}, err
+	}
+	layouts := make([]Layout, 0, len(parts))
+	for _, members := range parts {
+		cg, _ := rankComponentGraph(g, members)
+		part, err := Portfolio(cg, thoroughness)
+		if err != nil {
+			return Layout{}, err
+		}
+		layouts = append(layouts, part)
+	}
+	return Pack(layouts, PackOptions{MaxWidth: g.MaxWidth, Gap: g.NodeGap, AspectNum: g.AspectNum, AspectDen: g.AspectDen})
+}
+func applyLayout(s *scene.Scene, part Layout) {
+	s.Canvas = geom.Size{W: part.Width, H: part.Height}
+	for i := range s.Boxes {
+		s.Boxes[i].Rect = findBox(part.Boxes, s.Boxes[i].ID)
+	}
+	for _, r := range part.Routes {
+		for i := range s.Routes {
+			if s.Routes[i].ID == r.ID {
+				s.Routes[i].Points = r.Points
+			}
+		}
+	}
+	for i := range s.Labels {
+		s.Labels[i].Rect = findBox(part.Labels, s.Labels[i].ID)
+		for _, b := range s.Boxes {
+			if b.ID == s.Labels[i].Owner && b.Role == scene.RoleGroup {
+				s.Labels[i].Rect = findBox(part.Titles, b.ID)
+			}
+		}
+	}
+}
+func metricFor(profile scene.Profile) measure.Metric {
+	if profile == scene.ProfileCell {
+		return measure.CellMetric()
+	}
+	return measure.ForRole(measure.RoleLabel)
+}
+func allBoxLines(in Input, o scene.Options) ([][]measure.Line, error) {
+	lines := make([][]measure.Line, len(in.Boxes))
+	for i := range in.Boxes {
+		text := inputBoxText(in, i)
+		ls, err := wrapLabel(text, o)
+		if err != nil {
+			return nil, err
+		}
+		lines[i] = ls
+	}
+	return lines, nil
+}
 func measuredGraph(in Input, o scene.Options) (*Graph, [][]measure.Line, error) {
+	if err := enforceLimits(in, o); err != nil {
+		return nil, nil, err
+	}
 	p, err := DefaultParams(o.Profile)
 	if err != nil {
 		return nil, nil, err
 	}
-	g := &Graph{Params: p}
-	lines := make([][]measure.Line, len(in.Boxes))
-	metric := measure.ForRole(measure.RoleLabel)
 	if o.Profile == scene.ProfileCell {
-		metric = measure.CellMetric()
+		p.MaxWidth = o.MaxWidth
 	}
-	for i, b := range in.Boxes {
-		text := b.ID
-		if i < len(in.Text) {
-			text = in.Text[i]
-		}
-		ls, e := measure.Wrap(text, measure.WrapTarget(metric.Profile, 0, o.MaxWidth), metric)
-		if e != nil {
-			return nil, nil, e
-		}
-		lines[i] = ls
-		n, err := measuredNode(b.ID, int32(i), ls, o.Profile)
-		if err != nil {
-			return nil, nil, err
-		}
-		g.Nodes = append(g.Nodes, n)
-	}
-	if err := graphEdges(g, in); err != nil {
+	g := &Graph{Params: p, Fixed: in.Fixed, Direction: o.Direction}
+	lines, err := allBoxLines(in, o)
+	if err != nil {
 		return nil, nil, err
 	}
-	sizePorts(g)
+	if err := populateNodes(g, in, o, lines); err != nil {
+		return nil, nil, err
+	}
+	clusterRankNodes(g)
+	if err := graphEdges(g, in, o); err != nil {
+		return nil, nil, err
+	}
 	orientSizes(g, o.Direction)
+	if err := sizeLoops(g); err != nil {
+		return nil, nil, err
+	}
+	if err := sizeFrameLoops(g); err != nil {
+		return nil, nil, err
+	}
+	clusterRankEdges(g)
 	return g, lines, nil
 }
-
-func graphEdges(g *Graph, in Input) error {
-	for i, route := range in.Routes {
-		a, b := nodeIndex(g, route.From), nodeIndex(g, route.To)
-		if a < 0 || b < 0 {
-			return ErrGraph
+func populateNodes(g *Graph, in Input, o scene.Options, lines [][]measure.Line) error {
+	for i, b := range in.Boxes {
+		if b.Role == scene.RoleGroup && fixedGroup(in.Fixed, b.ID) == nil {
+			title, err := measuredTitle(lines[i], o)
+			if err != nil {
+				return err
+			}
+			g.Clusters = append(g.Clusters, Cluster{ID: b.ID, Parent: b.Parent, Decl: int32(i), Lines: lines[i], TitleSize: title})
+			continue
 		}
-		length := int32(1)
-		if i < len(in.Edges) {
-			length = max(length, in.Edges[i].MinLength)
+		node, err := measuredNode(b.ID, int32(i), lines[i], o.Profile)
+		if err != nil {
+			return err
 		}
-		g.Edges = append(g.Edges, Edge{Tail: a, Head: b, MinLen: length, Decl: int32(i)})
+		node.Parent = b.Parent
+		node.Role = b.Role
+		if fixed := fixedGroup(in.Fixed, b.ID); fixed != nil {
+			node.W = fixed.W
+			node.H = fixed.H
+		}
+		g.Nodes = append(g.Nodes, node)
 	}
 	return nil
 }
-
-func orientSizes(g *Graph, direction scene.Direction) {
-	if direction != scene.DirectionLR && direction != scene.DirectionRL {
+func graphEdges(g *Graph, in Input, o scene.Options) error {
+	for i, r := range in.Routes {
+		edge, err := modelEdge(g, in, r)
+		if err != nil {
+			return err
+		}
+		label, err := measureEdgeLabel(in, r.ID, o)
+		if err != nil {
+			return err
+		}
+		length := int32(1)
+		if label != nil {
+			length = 2
+		}
+		edge.ID = r.ID
+		edge.MinLen = length
+		edge.Decl = int32(i)
+		edge.Label = label
+		g.Edges = append(g.Edges, edge)
+	}
+	return nil
+}
+func measureEdgeLabel(in Input, owner string, o scene.Options) (*EdgeLabel, error) {
+	var aggregate EdgeLabel
+	for _, label := range in.Labels {
+		if label.Owner != owner {
+			continue
+		}
+		item, err := measureLabel(label, o)
+		if err != nil {
+			return nil, err
+		}
+		if err := aggregate.append(item, constant(o.Profile, "slot")); err != nil {
+			return nil, err
+		}
+	}
+	if len(aggregate.Items) == 0 {
+		return nil, nil
+	}
+	return &aggregate, nil
+}
+func measureLabel(label scene.Label, o scene.Options) (MeasuredLabel, error) {
+	lines, err := wrapLabel(label.Text, o)
+	if err != nil {
+		return MeasuredLabel{}, err
+	}
+	height, err := coordinate(int64(len(lines)) * int64(constant(o.Profile, "line_h")))
+	if err != nil {
+		return MeasuredLabel{}, err
+	}
+	item := MeasuredLabel{ID: label.ID, Text: label.Text, H: height, Lines: lines}
+	for _, line := range lines {
+		item.W = max(item.W, line.Width)
+	}
+	if o.Direction == scene.DirectionLR || o.Direction == scene.DirectionRL {
+		item.W, item.H = item.H, item.W
+	}
+	return item, nil
+}
+func (label *EdgeLabel) append(item MeasuredLabel, slot int32) error {
+	height := int64(label.H) + int64(item.H)
+	if len(label.Items) > 0 {
+		height += int64(slot)
+	}
+	h, err := coordinate(height)
+	if err != nil {
+		return err
+	}
+	label.W = max(label.W, item.W)
+	label.H = h
+	label.Items = append(label.Items, item)
+	return nil
+}
+func orientSizes(g *Graph, d scene.Direction) {
+	if d != scene.DirectionLR && d != scene.DirectionRL {
 		return
 	}
 	for i := range g.Nodes {
 		g.Nodes[i].W, g.Nodes[i].H = g.Nodes[i].H, g.Nodes[i].W
 	}
 }
-
 func measuredNode(id string, decl int32, lines []measure.Line, profile scene.Profile) (Node, error) {
 	var tw int32
 	for _, l := range lines {
@@ -153,90 +324,6 @@ func nodeIndex(g *Graph, id string) int32 {
 	}
 	return -1
 }
-func sizePorts(g *Graph) {
-	for i := range g.Nodes {
-		top, bottom := map[int32]bool{}, map[int32]bool{}
-		for _, e := range g.Edges {
-			if e.Head == int32(i) {
-				top[e.Tail] = true
-			}
-			if e.Tail == int32(i) {
-				bottom[e.Head] = true
-			}
-		}
-		g.Nodes[i].W = max(g.Nodes[i].W, int32(max(len(top), len(bottom))+1)*g.PortGap)
-	}
-}
-func componentLayout(g *Graph) ([]Box, []EdgeRoute, bool, error) {
-	rank, e := RankWithBudget(g)
-	if e != nil {
-		return nil, nil, false, e
-	}
-	p, e := Normalize(g, rank.Ranks)
-	if e != nil {
-		return nil, nil, false, e
-	}
-	order, e := OrderWithBudget(p, OrderOptions{})
-	if e != nil {
-		return nil, nil, false, e
-	}
-	x, e := CrossCoords(p, order.Layers)
-	if e != nil {
-		return nil, nil, false, e
-	}
-	routing, e := Route(p, order.Layers, x)
-	if e != nil {
-		return nil, nil, false, e
-	}
-	y, top, e := RankCoords(p, order.Layers, routing)
-	if e != nil {
-		return nil, nil, false, e
-	}
-	routes, _, e := RoutePoints(p, order.Layers, x, y, top, routing)
-	boxes := make([]Box, len(g.Nodes))
-	for i, n := range g.Nodes {
-		boxes[i] = Box{ID: n.ID, Rect: geom.Rect{X: x[i] - n.W/2, Y: y[i], W: n.W, H: n.H}}
-	}
-	return boxes, routes, rank.BudgetExhausted || order.BudgetExhausted, e
-}
-func placeComponent(s *scene.Scene, in Input, indices []int32, g *Graph, boxes []Box, routes []EdgeRoute, cursor int32) (int32, int32) {
-	var minX, minY int32
-	var right, bottom int32
-	for i, b := range boxes {
-		if i == 0 {
-			minX, minY = b.Rect.X, b.Rect.Y
-		}
-		minX = min(minX, b.Rect.X)
-		minY = min(minY, b.Rect.Y)
-		right = max(right, b.Rect.X+b.Rect.W)
-		bottom = max(bottom, b.Rect.Y+b.Rect.H)
-	}
-	for _, route := range routes {
-		for _, p := range route.Points {
-			minX, minY = min(minX, p.X), min(minY, p.Y)
-			right, bottom = max(right, p.X), max(bottom, p.Y)
-		}
-	}
-	for i, b := range boxes {
-		r := b.Rect
-		r.X += cursor - minX
-		r.Y -= minY
-		s.Boxes[indices[i]].Rect = r
-	}
-	for i, e := range g.Edges {
-		original := int(e.Decl)
-		points := slices.Clone(routes[i].Points)
-		if e.Reversed {
-			slices.Reverse(points)
-		}
-		for j := range points {
-			points[j].X += cursor - minX
-			points[j].Y -= minY
-		}
-		s.Routes[original].Points = points
-	}
-	return right - minX, bottom - minY
-}
 func orientPoint(p geom.Point, d scene.Direction, w, h int32) geom.Point {
 	switch d {
 	case scene.DirectionBT:
@@ -248,22 +335,28 @@ func orientPoint(p geom.Point, d scene.Direction, w, h int32) geom.Point {
 	}
 	return p
 }
+func orientRect(r geom.Rect, d scene.Direction, w, h int32) geom.Rect {
+	p := orientPoint(geom.Point{X: r.X, Y: r.Y}, d, w, h)
+	switch d {
+	case scene.DirectionBT:
+		p.Y -= r.H
+	case scene.DirectionLR:
+		r.W, r.H = r.H, r.W
+	case scene.DirectionRL:
+		r.W, r.H = r.H, r.W
+		p.X -= r.W
+	}
+	r.X, r.Y = p.X, p.Y
+	return r
+}
 func orientScene(s *scene.Scene) {
 	d := s.Options.Direction
 	w, h := s.Canvas.W, s.Canvas.H
 	for i := range s.Boxes {
-		r := &s.Boxes[i].Rect
-		p := orientPoint(geom.Point{X: r.X, Y: r.Y}, d, w, h)
-		switch d {
-		case scene.DirectionBT:
-			p.Y -= r.H
-		case scene.DirectionLR:
-			r.W, r.H = r.H, r.W
-		case scene.DirectionRL:
-			r.W, r.H = r.H, r.W
-			p.X -= r.W
-		}
-		r.X, r.Y = p.X, p.Y
+		s.Boxes[i].Rect = orientRect(s.Boxes[i].Rect, d, w, h)
+	}
+	for i := range s.Labels {
+		s.Labels[i].Rect = orientRect(s.Labels[i].Rect, d, w, h)
 	}
 	for i := range s.Routes {
 		for j, p := range s.Routes[i].Points {
@@ -274,27 +367,113 @@ func orientScene(s *scene.Scene) {
 		s.Canvas.W, s.Canvas.H = h, w
 	}
 }
-func assembleScene(s *scene.Scene, lines [][]measure.Line, edges []EdgeOptions) {
+func addMargin(s *scene.Scene, margin int32) error {
+	part := Layout{}
+	for _, b := range s.Boxes {
+		part.Boxes = append(part.Boxes, Box{ID: b.ID, Rect: b.Rect})
+	}
+	for _, l := range s.Labels {
+		part.Labels = append(part.Labels, Box{ID: l.ID, Rect: l.Rect})
+	}
 	for i, r := range s.Routes {
-		var options EdgeOptions
+		part.Routes = append(part.Routes, EdgeRoute{Original: int32(i), Points: r.Points})
+	}
+	if err := translateLayout(&part, int64(margin), int64(margin)); err != nil {
+		return err
+	}
+	w, err := coordinate(int64(s.Canvas.W) + 2*int64(margin))
+	if err != nil {
+		return err
+	}
+	h, err := coordinate(int64(s.Canvas.H) + 2*int64(margin))
+	if err != nil {
+		return err
+	}
+	for i := range s.Boxes {
+		s.Boxes[i].Rect = part.Boxes[i].Rect
+	}
+	for i := range s.Labels {
+		s.Labels[i].Rect = part.Labels[i].Rect
+	}
+	for i := range s.Routes {
+		s.Routes[i].Points = part.Routes[i].Points
+	}
+	s.Canvas = geom.Size{W: w, H: h}
+	return nil
+}
+func fillLabelLines(s *scene.Scene, o scene.Options) error {
+	for i := range s.Labels {
+		lines, err := wrapLabel(s.Labels[i].Text, o)
+		if err != nil {
+			return err
+		}
+		s.Labels[i].Lines = make([]string, 0, len(lines))
+		for _, l := range lines {
+			s.Labels[i].Lines = append(s.Labels[i].Lines, l.Text)
+		}
+	}
+	return nil
+}
+func assembleScene(s *scene.Scene, lines [][]measure.Line, edges []EdgeOptions, titles []Box) {
+	for i, b := range s.Boxes {
+		if b.Role == scene.RoleGroup {
+			s.Groups = append(s.Groups, clusterGroup(s, b, lines[i], titles))
+		}
+	}
+	for i, r := range s.Routes {
+		options := EdgeOptions{}
 		if i < len(edges) {
 			options = edges[i]
 		}
-		s.Groups = append(s.Groups, &scene.Group{Role: scene.GroupRoleEdge, Owner: r.ID, Items: edgeItems(r, options, s.Options.Profile)})
+		group := &scene.Group{Role: scene.GroupRoleEdge, Owner: r.ID, Items: edgeItems(r, options, s.Options.Profile)}
+		for _, l := range s.Labels {
+			if l.Owner == r.ID {
+				group.Items = append(group.Items, labelPrimitive(l, s.Options.Profile))
+			}
+		}
+		s.Groups = append(s.Groups, group)
 	}
 	for i, b := range s.Boxes {
-		lh := constant(s.Options.Profile, "line_h")
-		rect := b.Rect
-		rect.H = int32(len(lines[i])) * lh
-		rect.Y += (b.Rect.H - rect.H) / 2
-		runs := make([][]scene.Run, len(lines[i]))
-		for j, l := range lines[i] {
-			runs[j] = []scene.Run{{Text: l.Text}}
+		if b.Role == scene.RoleNode {
+			s.Groups = append(s.Groups, boxGroup(b, lines[i], s.Options.Profile))
 		}
-		s.Groups = append(s.Groups, &scene.Group{Role: scene.GroupRoleNode, Owner: b.ID, Items: []scene.Primitive{&scene.Rect{Shape: scene.Shape{Style: "node"}, Rect: b.Rect}, &scene.Text{Rect: rect, Role: scene.TextRoleLabel, Size: 14, Align: scene.AlignMiddle, Style: "text", Lines: runs}}})
 	}
 }
-
+func textRuns(lines []measure.Line) [][]scene.Run {
+	runs := make([][]scene.Run, len(lines))
+	for i, l := range lines {
+		runs[i] = []scene.Run{{Text: l.Text}}
+	}
+	return runs
+}
+func clusterGroup(s *scene.Scene, b scene.Box, lines []measure.Line, titles []Box) *scene.Group {
+	group := boxGroup(b, lines, s.Options.Profile)
+	text, ok := group.Items[1].(*scene.Text)
+	if ok {
+		text.Rect = findBox(titles, b.ID)
+	}
+	return group
+}
+func boxGroup(b scene.Box, lines []measure.Line, p scene.Profile) *scene.Group {
+	role, style := scene.GroupRoleNode, "node"
+	rect := b.Rect
+	rect.H = int32(len(lines)) * constant(p, "line_h")
+	if b.Role == scene.RoleGroup {
+		role = scene.GroupRoleGroup
+		style = "group"
+		rect.Y += constant(p, "cluster_pad")
+	} else {
+		rect.Y += (b.Rect.H - rect.H) / 2
+	}
+	return &scene.Group{Role: role, Owner: b.ID, Items: []scene.Primitive{&scene.Rect{Shape: scene.Shape{Style: style}, Rect: b.Rect}, &scene.Text{Rect: rect, Role: scene.TextRoleLabel, Size: 14, Align: scene.AlignMiddle, Style: "text", Lines: textRuns(lines)}}}
+}
+func labelPrimitive(l scene.Label, p scene.Profile) *scene.Text {
+	lines := make([][]scene.Run, len(l.Lines))
+	for i, text := range l.Lines {
+		lines[i] = []scene.Run{{Text: text}}
+	}
+	return &scene.Text{Rect: l.Rect, Role: scene.TextRoleLabel, Size: 14, Align: scene.AlignMiddle, Style: "text", Lines: lines}
+}
 func edgeItems(route scene.Route, options EdgeOptions, profile scene.Profile) []scene.Primitive {
 	if options.Stroke == "invisible" {
 		return nil
@@ -321,7 +500,6 @@ func edgeItems(route scene.Route, options EdgeOptions, profile scene.Profile) []
 	}
 	return items
 }
-
 func markerAxis(a, b geom.Point) scene.Axis {
 	dx, dy := int64(b.X)-int64(a.X), int64(b.Y)-int64(a.Y)
 	if abs64(dx) >= abs64(dy) {
