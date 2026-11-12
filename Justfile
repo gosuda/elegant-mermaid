@@ -8,20 +8,20 @@ gen:
 gen-check:
     go run ./tools/specgen -check
 
-# Go checks: gofmt, go vet, golangci-lint, race tests, govulncheck
+# Go checks: gofmt, go vet, golangci-lint, race tests, govulncheck; accepts `just go-check PKG='./x/...'`
 go-check PKG='./...':
-    {{ if PKG != './...' { "go test -list '.*' " + PKG + " | grep '^Test' >/dev/null" } else { "true" } }}
+    {{ if trim_start_match(PKG, 'PKG=') != './...' { "go test -list '.*' " + trim_start_match(PKG, 'PKG=') + " | grep '^Test' >/dev/null" } else { "true" } }}
     test -z "$(gofmt -l $(go list -f '{{{{.Dir}}' ./...))"
-    go vet {{PKG}}
+    go vet {{ trim_start_match(PKG, 'PKG=') }}
     go tool golangci-lint run
-    go test -race {{PKG}}
+    go test -race {{ trim_start_match(PKG, 'PKG=') }}
     go tool govulncheck ./...
 
-# Rust checks: fmt, clippy, nextest, cargo-deny, doc tests
+# Rust checks: fmt, clippy, nextest, cargo-deny, doc tests; accepts `just rust-check FILTER=name`
 rust-check FILTER='':
     cargo fmt --check
     cargo clippy --all-targets --all-features --locked -- -D warnings
-    cargo nextest run --all-features --locked {{FILTER}} {{ if FILTER == '' { '--no-tests=pass' } else { '--no-tests=fail' } }}
+    cargo nextest run --all-features --locked {{ trim_start_match(FILTER, 'FILTER=') }} {{ if trim_start_match(FILTER, 'FILTER=') == '' { '--no-tests=pass' } else { '--no-tests=fail' } }}
     cargo deny --locked check
     cargo test --doc --locked -p elegant-mermaid
 
