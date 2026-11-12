@@ -305,3 +305,8 @@ The requirements below fix the cases that the grammar above leaves open. Where o
 - preprocessing-152: The duplicate key rule MUST apply to block maps, flow maps, and JSON objects. [just parity]
 - preprocessing-153: A `%%` comment line MUST allow leading SP and HT, and a `#` comment line inside a config value MUST allow leading SP only. [just parity]
 - preprocessing-154: In a flow collection the reader MUST report the first byte that the current rule rejects, and MUST NOT read to the end of a token before it reports. [just parity]
+- preprocessing-155: A reader range that is empty, or that holds only blank lines and comment lines, MUST give an empty mapping and no diagnostic. [just parity]
+- preprocessing-156: Inside a flow collection a `#` that is not the first byte of a plain scalar MUST be text of that scalar, with or without SP or HT before it, so `[a #b]` MUST hold the one string `a #b`. [just parity]
+- preprocessing-157: A `|` or `>` that starts a line at the column of a block map MUST raise `config/malformed` at that byte, and MUST NOT be read as an empty block scalar. [just parity]
+- preprocessing-158: A `config/malformed` diagnostic at a byte that is not SP, HT, CR, or LF MUST have the token rule span, which runs from that byte to the next SP, HT, CR, LF, or the end of the reader's range; it MUST NOT be a zero-width span at the end of the range. [just parity]
+- preprocessing-159: When the next line of an open flow collection is not blank and does not start at a column greater than the continuation column, the reader MUST raise `config/malformed` at the first byte of that line that is not SP. [just parity]
