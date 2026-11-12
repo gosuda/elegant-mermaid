@@ -43,8 +43,8 @@ staged-format:
     #!/usr/bin/env bash
     set -euo pipefail
     index="$(mktemp -d)"
-    trap 'rip -f "$index"' EXIT
-    git checkout-index --all --prefix="$index/"
+    trap 'rm -rf -- "$index"' EXIT
+    git ls-files -z -- '*.go' '*.rs' | git checkout-index -z --stdin --prefix="$index/"
     cd "$index"
     mapfile -t go_files < <(git -C "{{justfile_directory()}}" diff --cached --name-only --diff-filter=ACMR -- '*.go')
     mapfile -t rs_files < <(git -C "{{justfile_directory()}}" diff --cached --name-only --diff-filter=ACMR -- '*.rs')
