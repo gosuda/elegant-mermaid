@@ -33,10 +33,18 @@ slop:
 model:
     java -cp .tools/tla2tools.jar tlc2.TLC -config models/PreviewScheduler.cfg -workers auto models/PreviewScheduler.tla
 
-# Format check on staged Go and Rust files; the pre-commit hook runs it
+# Format check on the staged content of Go and Rust files; the pre-commit hook runs it
 staged-format:
-    files="$(git diff --cached --name-only --diff-filter=ACMR -- '*.go')"; test -z "$files" || test -z "$(gofmt -l $files)"
-    files="$(git diff --cached --name-only --diff-filter=ACMR -- '*.rs')"; test -z "$files" || rustfmt --check --edition 2024 $files
+    #!/usr/bin/env bash
+    set -euo pipefail
+    index="$(mktemp -d)"
+    trap 'rip -f "$index"' EXIT
+    git checkout-index --all --prefix="$index/"
+    cd "$index"
+    mapfile -t go_files < <(git -C "{{justfile_directory()}}" diff --cached --name-only --diff-filter=ACMR -- '*.go')
+    mapfile -t rs_files < <(git -C "{{justfile_directory()}}" diff --cached --name-only --diff-filter=ACMR -- '*.rs')
+    test "${#go_files[@]}" -eq 0 || test -z "$(gofmt -l "${go_files[@]}")"
+    test "${#rs_files[@]}" -eq 0 || rustfmt --check --edition 2024 "${rs_files[@]}"
 
 # Run every gate whose subject exists, in order
 verify:
