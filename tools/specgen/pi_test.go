@@ -16,7 +16,6 @@ func TestPiConstantHasSixtyDecimals(t *testing.T) {
 	require.Equal(t, byte('3'), piSixtyDigits[0])
 }
 
-// machinPi computes pi at twenty guard digits and truncates to digits decimals.
 func machinPi(digits int) string {
 	one := pow10(digits + 20)
 	pi := new(big.Int).Mul(atanInverse(5, one), big.NewInt(16))

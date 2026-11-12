@@ -55,7 +55,6 @@ func powTwelveFifths(t *big.Int) *big.Int {
 	return root.Quo(root, pow10(gammaResultDigits))
 }
 
-// integerRoot returns floor(n^(1/k)) for n >= 0 and k >= 1.
 func integerRoot(n *big.Int, k int) *big.Int {
 	if n.Sign() == 0 {
 		return big.NewInt(0)
@@ -122,7 +121,6 @@ func contrastReaches(a, b, tenths int64) bool {
 	return 10*(hi+3277) >= tenths*(lo+3277)
 }
 
-// contrastCompare orders contrast(a, fill) against contrast(b, fill).
 func contrastCompare(a, b, fill int64) int {
 	numA, denA := ratioAround(a, fill)
 	numB, denB := ratioAround(b, fill)

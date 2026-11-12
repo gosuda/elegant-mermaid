@@ -78,6 +78,7 @@ var (
 		{goName: "Ascii", rsName: "ascii", leanName: "ascii", kind: colU32List},
 		{goName: "Points", rsName: "points", leanName: "points", kind: colPointList},
 		{goName: "Ref", rsName: "anchor", leanName: "ref", kind: colPoint},
+		{goName: "Breaks", rsName: "breaks", leanName: "breaks", kind: colU32List},
 	}
 	styleCols = []col{
 		{goName: "Name", rsName: "name", leanName: "name", kind: colString},
@@ -430,6 +431,9 @@ func buildMarkersTable(markers []markerInput) (*table, error) {
 	slices.SortStableFunc(sorted, func(a, b markerInput) int { return cmp.Compare(a.Name, b.Name) })
 	rows := make([]rowValues, 0, len(sorted))
 	for _, m := range sorted {
+		if err := validateMarkerOutline(m); err != nil {
+			return nil, err
+		}
 		cell, err := parseUPlusList(m.Cell)
 		if err != nil {
 			return nil, fmt.Errorf("marker %q cell: %w", m.Name, err)
@@ -438,7 +442,7 @@ func buildMarkersTable(markers []markerInput) (*table, error) {
 		if err != nil {
 			return nil, fmt.Errorf("marker %q ascii: %w", m.Name, err)
 		}
-		rows = append(rows, rowValues{m.Name, m.Paint, cell, ascii, m.Points, m.Ref})
+		rows = append(rows, rowValues{m.Name, m.Paint, cell, ascii, m.Points, m.Ref, m.Breaks})
 	}
 	return &table{name: "markers", goName: "Markers", rsName: "MARKERS", leanName: "markers", goType: "Marker", rsType: "Marker", leanType: "Marker", cols: markerCols, rows: rows}, nil
 }

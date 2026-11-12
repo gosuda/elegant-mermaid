@@ -78,6 +78,7 @@ type markerInput struct {
 	Ascii  []string   `json:"ascii"`
 	Points [][2]int32 `json:"points"`
 	Ref    [2]int32   `json:"ref"`
+	Breaks []uint32   `json:"breaks"`
 }
 
 type themeInput struct {
