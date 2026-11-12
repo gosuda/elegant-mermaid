@@ -268,6 +268,32 @@ mod tests {
     }
 
     #[test]
+    fn fallback_title_measurement_matches_id() -> Result<(), std::boxed::Box<dyn std::error::Error>>
+    {
+        for direction in ["LR", "TD"] {
+            let mut input = build(&format!(
+                "flowchart {direction}\nsubgraph one\nA --> B\nend\n"
+            ));
+            input.profile = crate::scene::Profile::Cell;
+            let scene = crate::layout::families::layout(&input)?.0;
+            let title = scene
+                .items()
+                .iter()
+                .find(|group| group.owner == "one")
+                .and_then(|group| {
+                    group.items.iter().find_map(|item| match item {
+                        crate::scene::Item::Text(text) => Some(text),
+                        _ => None,
+                    })
+                })
+                .ok_or("missing group title")?;
+            assert_eq!((title.rect.w, title.rect.h), (3, 1));
+            assert_eq!(title.lines[0][0].text, "one");
+        }
+        Ok(())
+    }
+
+    #[test]
     fn fallback_group_title_keeps_independent_content_geometry()
     -> Result<(), std::boxed::Box<dyn std::error::Error>> {
         for direction in [Direction::Tb, Direction::Bt, Direction::Lr, Direction::Rl] {

@@ -28,11 +28,6 @@ func FromFlowchart(m *flowchart.Model, profile scene.Profile, options scene.Opti
 		return cmp.Compare(boxDeclaration(m, a.ID), boxDeclaration(m, b.ID))
 	})
 	in.Labels = boxLabels(in.Boxes)
-	for i := range in.Boxes {
-		if in.Boxes[i].Role == scene.RoleGroup {
-			in.Boxes[i].Text = ""
-		}
-	}
 	routeIDs := allocateRouteIDs(in.Boxes, len(m.Edges))
 	for i, e := range m.Edges {
 		id := routeIDs[i]

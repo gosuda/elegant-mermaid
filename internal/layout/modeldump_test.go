@@ -55,21 +55,27 @@ func TestModelGolden(t *testing.T) {
 }
 
 func TestFallbackGroupTitleTransport(t *testing.T) {
-	in, ok := inputSource(t, []byte("graph TB\nsubgraph one\nA --> B\nend\n"))
-	if !ok {
-		t.Fatal("group fixture rejected")
+	for _, direction := range []string{"LR", "TD"} {
+		in, ok := inputSource(t, []byte("graph "+direction+"\nsubgraph one\nA --> B\nend\n"))
+		if !ok {
+			t.Fatal("group fixture rejected")
+		}
+		in.Profile = scene.ProfileCell
+		if len(in.Labels) != 0 {
+			t.Fatalf("fallback title invented model labels: %v", in.Labels)
+		}
+		s := step14Scene(t, in)
+		if len(s.Labels) != 0 {
+			t.Fatalf("fallback title invented layout labels: %v", s.Labels)
+		}
+		title := sceneGroupTitle(t, s, "one", "one")
+		if title.Rect.W != 3 || title.Rect.H != 1 {
+			t.Fatalf("group title has incorrect measured rectangle: %+v", title.Rect)
+		}
 	}
-	if len(in.Labels) != 0 {
-		t.Fatalf("fallback title invented model labels: %v", in.Labels)
-	}
-	s := step14Scene(t, in)
-	if len(s.Labels) != 0 {
-		t.Fatalf("fallback title invented layout labels: %v", s.Labels)
-	}
-	assertSceneGroupTitle(t, s, "one", "one")
 }
 
-func assertSceneGroupTitle(t *testing.T, s scene.Scene, owner, title string) {
+func sceneGroupTitle(t *testing.T, s scene.Scene, owner, title string) *scene.Text {
 	t.Helper()
 	for _, group := range s.Groups {
 		if group.Owner != owner || group.Role != scene.GroupRoleGroup {
@@ -78,11 +84,12 @@ func assertSceneGroupTitle(t *testing.T, s scene.Scene, owner, title string) {
 		for _, item := range group.Items {
 			text, ok := item.(*scene.Text)
 			if ok && len(text.Lines) == 1 && len(text.Lines[0]) == 1 && text.Lines[0][0].Text == title {
-				return
+				return text
 			}
 		}
 	}
 	t.Fatalf("group %q title %q missing from scene", owner, title)
+	return nil
 }
 
 func TestCorpusModelRelations(t *testing.T) {
