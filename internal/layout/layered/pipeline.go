@@ -11,11 +11,18 @@ import (
 )
 
 type Input struct {
-	Kind    string
-	Boxes   []scene.Box
-	Routes  []scene.Route
-	Text    []string
-	Markers []string
+	Kind   string
+	Boxes  []scene.Box
+	Routes []scene.Route
+	Text   []string
+	Edges  []EdgeOptions
+}
+
+type EdgeOptions struct {
+	MarkerStart string
+	MarkerEnd   string
+	Stroke      string
+	MinLength   int32
 }
 type Options struct {
 	Scene           scene.Options
@@ -64,7 +71,7 @@ func LayoutFamily(in Input, opts Options) (scene.Scene, error) {
 		s.Canvas.H = max(s.Canvas.H, height)
 	}
 	orientScene(&s)
-	assembleScene(&s, lines, in.Markers)
+	assembleScene(&s, lines, in.Edges)
 	return s, nil
 }
 func measuredGraph(in Input, o scene.Options) (*Graph, [][]measure.Line, error) {
@@ -94,16 +101,27 @@ func measuredGraph(in Input, o scene.Options) (*Graph, [][]measure.Line, error) 
 		}
 		g.Nodes = append(g.Nodes, n)
 	}
-	for i, r := range in.Routes {
-		a, b := nodeIndex(g, r.From), nodeIndex(g, r.To)
-		if a < 0 || b < 0 {
-			return nil, nil, ErrGraph
-		}
-		g.Edges = append(g.Edges, Edge{Tail: a, Head: b, MinLen: 1, Decl: int32(i)})
+	if err := graphEdges(g, in); err != nil {
+		return nil, nil, err
 	}
 	sizePorts(g)
 	orientSizes(g, o.Direction)
 	return g, lines, nil
+}
+
+func graphEdges(g *Graph, in Input) error {
+	for i, route := range in.Routes {
+		a, b := nodeIndex(g, route.From), nodeIndex(g, route.To)
+		if a < 0 || b < 0 {
+			return ErrGraph
+		}
+		length := int32(1)
+		if i < len(in.Edges) {
+			length = max(length, in.Edges[i].MinLength)
+		}
+		g.Edges = append(g.Edges, Edge{Tail: a, Head: b, MinLen: length, Decl: int32(i)})
+	}
+	return nil
 }
 
 func orientSizes(g *Graph, direction scene.Direction) {
@@ -256,14 +274,13 @@ func orientScene(s *scene.Scene) {
 		s.Canvas.W, s.Canvas.H = h, w
 	}
 }
-func assembleScene(s *scene.Scene, lines [][]measure.Line, markers []string) {
+func assembleScene(s *scene.Scene, lines [][]measure.Line, edges []EdgeOptions) {
 	for i, r := range s.Routes {
-		items := []scene.Primitive{&scene.Polyline{Shape: scene.Shape{Style: "edge"}, Points: r.Points, Corner: constant(s.Options.Profile, "corner_radius")}}
-		if i < len(markers) && markers[i] != "" && len(r.Points) > 1 {
-			end := len(r.Points) - 1
-			items = append(items, &scene.MarkerRef{Marker: markers[i], At: r.Points[end], Axis: markerAxis(r.Points[end-1], r.Points[end])})
+		var options EdgeOptions
+		if i < len(edges) {
+			options = edges[i]
 		}
-		s.Groups = append(s.Groups, &scene.Group{Role: scene.GroupRoleEdge, Owner: r.ID, Items: items})
+		s.Groups = append(s.Groups, &scene.Group{Role: scene.GroupRoleEdge, Owner: r.ID, Items: edgeItems(r, options, s.Options.Profile)})
 	}
 	for i, b := range s.Boxes {
 		lh := constant(s.Options.Profile, "line_h")
@@ -276,6 +293,33 @@ func assembleScene(s *scene.Scene, lines [][]measure.Line, markers []string) {
 		}
 		s.Groups = append(s.Groups, &scene.Group{Role: scene.GroupRoleNode, Owner: b.ID, Items: []scene.Primitive{&scene.Rect{Shape: scene.Shape{Style: "node"}, Rect: b.Rect}, &scene.Text{Rect: rect, Role: scene.TextRoleLabel, Size: 14, Align: scene.AlignMiddle, Style: "text", Lines: runs}}})
 	}
+}
+
+func edgeItems(route scene.Route, options EdgeOptions, profile scene.Profile) []scene.Primitive {
+	if options.Stroke == "invisible" {
+		return nil
+	}
+	shape := scene.Shape{Style: "edge"}
+	switch options.Stroke {
+	case "thick":
+		shape.Width.Kind = scene.WidthEmphasis
+	case "dotted":
+		shape.Line = scene.LineDotted
+	case "dashed":
+		shape.Line = scene.LineDashed
+	}
+	items := []scene.Primitive{&scene.Polyline{Shape: shape, Points: route.Points, Corner: constant(profile, "corner_radius")}}
+	if len(route.Points) < 2 {
+		return items
+	}
+	end := len(route.Points) - 1
+	if options.MarkerStart != "" {
+		items = append(items, &scene.MarkerRef{Marker: options.MarkerStart, At: route.Points[0], Axis: markerAxis(route.Points[1], route.Points[0])})
+	}
+	if options.MarkerEnd != "" {
+		items = append(items, &scene.MarkerRef{Marker: options.MarkerEnd, At: route.Points[end], Axis: markerAxis(route.Points[end-1], route.Points[end])})
+	}
+	return items
 }
 
 func markerAxis(a, b geom.Point) scene.Axis {

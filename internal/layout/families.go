@@ -38,7 +38,7 @@ func layoutFlowchart(in Input) (scene.Scene, []diag.Diagnostic, error) {
 	}
 	for _, r := range in.Routes {
 		input.Routes = append(input.Routes, scene.Route{ID: r.ID, From: r.From, To: r.To, Orthogonal: true})
-		input.Markers = append(input.Markers, r.MarkerEnd)
+		input.Edges = append(input.Edges, layered.EdgeOptions{MarkerStart: sceneMarker(r.MarkerStart), MarkerEnd: sceneMarker(r.MarkerEnd), Stroke: r.Line, MinLength: int32(r.MinLength)})
 	}
 	options := in.Options
 	options.Profile = in.Profile
@@ -50,4 +50,11 @@ func layoutFlowchart(in Input) (scene.Scene, []diag.Diagnostic, error) {
 		ds = append(ds, diag.Diagnostic{Code: "layout/budget-exhausted", Severity: diag.SeverityInfo, Message: "layout stopped at its iteration cap"})
 	}
 	return s, ds, err
+}
+
+func sceneMarker(marker string) string {
+	if marker == "none" {
+		return ""
+	}
+	return marker
 }

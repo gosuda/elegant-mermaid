@@ -107,3 +107,104 @@ func TestExclusiveNodeTextIsNotSeparateLabel(t *testing.T) {
 		t.Fatal("node text must be inside its owner")
 	}
 }
+
+func TestFlowchartEdgeScene(t *testing.T) {
+	cases := []struct {
+		source  string
+		markers []string
+		line    scene.LineStyle
+		width   scene.WidthKind
+	}{
+		{"A --- B", nil, scene.LineSolid, scene.WidthNormal},
+		{"A <--> B", []string{"point", "point"}, scene.LineSolid, scene.WidthNormal},
+		{"A o--x B", nil, scene.LineSolid, scene.WidthNormal},
+		{"A o--o B", []string{"circle", "circle"}, scene.LineSolid, scene.WidthNormal},
+		{"A x--x B", []string{"cross", "cross"}, scene.LineSolid, scene.WidthNormal},
+		{"A -.-> B", []string{"point"}, scene.LineDotted, scene.WidthNormal},
+		{"A ==> B", []string{"point"}, scene.LineSolid, scene.WidthEmphasis},
+	}
+	for _, c := range cases {
+		t.Run(c.source, func(t *testing.T) {
+			s := edgeScene(t, c.source)
+			items := s.Groups[0].Items
+			if len(items) != 1+len(c.markers) {
+				t.Fatalf("items: %#v", items)
+			}
+			line, ok := items[0].(*scene.Polyline)
+			if !ok || line.Line != c.line || line.Width.Kind != c.width {
+				t.Fatalf("stroke: %#v", items[0])
+			}
+			assertEdgeMarkers(t, s, c.markers)
+		})
+	}
+}
+
+func edgeScene(t *testing.T, source string) scene.Scene {
+	t.Helper()
+	in := Input{Kind: "flowchart", Direction: scene.DirectionLR, Options: scene.DefaultOptions(), Boxes: []Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}, Routes: []Route{handEdge(source)}}
+	s, _, err := Layout(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func handEdge(source string) Route {
+	r := Route{ID: "e0", From: "A", To: "B", MarkerStart: "none", MarkerEnd: "none", Line: "normal", MinLength: 1}
+	switch source {
+	case "A --> B":
+		r.MarkerEnd = "point"
+	case "A <--> B":
+		r.MarkerStart, r.MarkerEnd = "point", "point"
+	case "A o--o B":
+		r.MarkerStart, r.MarkerEnd = "circle", "circle"
+	case "A x--x B":
+		r.MarkerStart, r.MarkerEnd = "cross", "cross"
+	case "A -.-> B":
+		r.MarkerEnd, r.Line = "point", "dotted"
+	case "A ==> B":
+		r.MarkerEnd, r.Line = "point", "thick"
+	case "A ---> B":
+		r.MarkerEnd, r.MinLength = "point", 2
+	}
+	return r
+}
+
+func assertEdgeMarkers(t *testing.T, s scene.Scene, names []string) {
+	t.Helper()
+	points := s.Routes[0].Points
+	for i, name := range names {
+		m, ok := s.Groups[0].Items[i+1].(*scene.MarkerRef)
+		if !ok || m.Marker != name {
+			t.Fatalf("marker %d: %#v", i, s.Groups[0].Items[i+1])
+		}
+		want, axis := points[len(points)-1], scene.AxisPlusX
+		if len(names) == 2 && i == 0 {
+			want, axis = points[0], scene.AxisMinusX
+		}
+		if m.At != want || m.Axis != axis {
+			t.Fatalf("marker placement: %#v", m)
+		}
+	}
+}
+
+func TestFlowchartExtraDashRank(t *testing.T) {
+	short, long := edgeScene(t, "A --> B"), edgeScene(t, "A ---> B")
+	if long.Boxes[1].Rect.X-short.Boxes[1].Rect.X != 3072 {
+		t.Fatalf("extra dash must add one empty rank: %v %v", short.Boxes, long.Boxes)
+	}
+}
+
+func TestReversedEdgeMarkers(t *testing.T) {
+	in := Input{Kind: "flowchart", Direction: scene.DirectionLR, Options: scene.DefaultOptions(), Boxes: []Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}, Routes: []Route{handEdge("A --> B"), {ID: "e1", From: "B", To: "A", MarkerStart: "circle", MarkerEnd: "circle", MinLength: 1}}}
+	s, _, err := Layout(in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	points := s.Routes[1].Points
+	start := s.Groups[1].Items[1].(*scene.MarkerRef)
+	end := s.Groups[1].Items[2].(*scene.MarkerRef)
+	if start.At != points[0] || start.Axis != scene.AxisPlusX || end.At != points[len(points)-1] || end.Axis != scene.AxisMinusX {
+		t.Fatalf("reversed markers: %#v %#v", start, end)
+	}
+}
