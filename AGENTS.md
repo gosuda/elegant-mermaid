@@ -60,6 +60,4 @@ Workers MUST NOT run repository-wide gates. The parent runs the `verify` recipe 
 
 Only the parent writes `corpus/divergences.json`.
 
-You MUST NOT copy text from `.references/mermaid-linter`.
-
 Only `tools/specgen` writes generated files.
