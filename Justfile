@@ -21,6 +21,11 @@ rust-check FILTER='':
 slop:
     sloplint check . --format agent --strictness standard --mode threshold --fail-on deny
 
+# Format check on staged Go and Rust files; the pre-commit hook runs it
+staged-format:
+    files="$(git diff --cached --name-only --diff-filter=ACMR -- '*.go')"; test -z "$files" || test -z "$(gofmt -l $files)"
+    files="$(git diff --cached --name-only --diff-filter=ACMR -- '*.rs')"; test -z "$files" || rustfmt --check --edition 2024 $files
+
 # Run every gate whose subject exists, in order
 verify:
     just go-check
