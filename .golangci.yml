@@ -1,0 +1,72 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - unused
+    - gocyclo
+    - gocognit
+    - nestif
+    - depguard
+    - forbidigo
+  settings:
+    gocyclo:
+      min-complexity: 10
+    gocognit:
+      min-complexity: 15
+    nestif:
+      min-complexity: 3
+    depguard:
+      rules:
+        standard-library-only:
+          list-mode: strict
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/tools/**"
+            - "!**/raster/**"
+            - "!**/internal/tui/**"
+            - "!**/internal/termgfx/**"
+            - "!**/internal/cli/**"
+            - "!**/cmd/emd/**"
+          allow:
+            - "$gostd"
+            - "github.com/gosuda/elegant-mermaid"
+        no-network-or-process:
+          list-mode: lax
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/tools/**"
+            - "!**/internal/tui/**"
+            - "!**/internal/termgfx/**"
+            - "!**/internal/cli/**"
+            - "!**/cmd/emd/**"
+          deny:
+            - pkg: "net"
+              desc: "the core reads no network"
+            - pkg: "net/http"
+              desc: "the core reads no network"
+            - pkg: "os/exec"
+              desc: "the core starts no process"
+    forbidigo:
+      forbid:
+        - pattern: '^time\.Now$'
+          msg: "the core reads no clock"
+  exclusions:
+    rules:
+      - path: '(^|/)(cmd/emd|internal/cli|internal/tui|internal/termgfx|tools)/'
+        linters:
+          - forbidigo
+      - path: '_test\.go$'
+        linters:
+          - forbidigo
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
