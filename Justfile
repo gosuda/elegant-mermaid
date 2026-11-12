@@ -21,6 +21,10 @@ rust-check FILTER='':
 slop:
     sloplint check . --format agent --strictness standard --mode threshold --fail-on deny
 
+# TLC model check of the preview scheduler
+model:
+    java -cp .tools/tla2tools.jar tlc2.TLC -config models/PreviewScheduler.cfg -workers auto models/PreviewScheduler.tla
+
 # Format check on staged Go and Rust files; the pre-commit hook runs it
 staged-format:
     files="$(git diff --cached --name-only --diff-filter=ACMR -- '*.go')"; test -z "$files" || test -z "$(gofmt -l $files)"
@@ -31,3 +35,4 @@ verify:
     just go-check
     just rust-check
     just slop
+    just model
