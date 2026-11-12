@@ -272,7 +272,7 @@ This file defines the layered layout family: its conventions, its pipeline phase
     Statement: `Layered.rank g = .ok r -> forall e in g.edges, r e.head - r e.tail >= minLen e`.
     Proof approach: invariant; the longest-path start is feasible, and each pivot keeps tree edges tight and all edges feasible.
 - layered-86: The proof `simplex_cost_le_init` in `proofs/Elegant/Layered/Rank.lean` MUST hold. [just proofs]
-    Statement: `Layered.rank g = .ok r -> cost r <= cost (Layered.initRank g)`.
+    Statement: `Layered.rank g = .ok r -> cost r <= cost (Layered.feasibleRank g)`, where `feasibleRank` is the ranking after the feasible tree is built and `initRank` stays the longest-path ranking; the bound against `initRank` does not hold after feasible-tree construction when an edge has minimum length 2.
     Proof approach: each applied pivot has a negative cut value and lowers the cost; the pivot fuel bounds the loop.
 - layered-87: The proof `normalize_proper` in `proofs/Elegant/Layered/Normalize.lean` MUST hold. [just proofs]
     Statement: `forall e in (Layered.normalize g).edges, span e = 1`.

@@ -28,3 +28,6 @@ import Elegant.Measure
 import Elegant.Text.Canvas
 import Elegant.Text.Join
 import Elegant.Text.Braille
+import Elegant.Layered.Cycles
+import Elegant.Layered.Rank
+import Elegant.Layered.Normalize

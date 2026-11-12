@@ -24,3 +24,8 @@ Elegant.Text.Join.join_glyph_matches_mask
 Elegant.Text.Braille.braille_bit_roundtrip
 Elegant.Text.Braille.line_raster_connected
 Elegant.Text.Braille.fill_raster_inside
+Elegant.Layered.breakCycles_acyclic
+Elegant.Layered.breakCycles_edges_perm
+Elegant.Layered.rank_feasible
+Elegant.Layered.simplex_cost_le_init
+Elegant.Layered.normalize_proper
