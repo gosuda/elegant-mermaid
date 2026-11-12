@@ -4,10 +4,10 @@ This file defines the hard constraints beyond the validator, the metric formulas
 
 ## Hard constraints
 
-- quality-metrics-01: Every layout MUST satisfy the seven `HardConstraints` clauses of spec/geometry-kernel.md. [just validate]
+- quality-metrics-01: Every layout MUST satisfy the seven `HardConstraints` clauses of `spec/layout-dump.md`. [just validate]
     The cell-profile rules of this file are outside `HardConstraints`.
 - quality-metrics-02: No label MUST be truncated. [just quality]
-    A label is truncated when a back end cannot write all of its grapheme clusters. The vector profile never truncates a label, because vector labels are never clipped. In the cell profile, a label is truncated when the label placement rule of spec/lean-reference.md cannot write one of its clusters.
+    A label is truncated when a back end cannot write all of its grapheme clusters. The vector profile never truncates a label, because vector labels are never clipped. In the cell profile, a label is truncated when the label placement rule of `spec/render-cells.md` cannot write one of its clusters.
 - quality-metrics-03: Under the cell profile, no two routes MUST share a cell except at a declared junction, along a shared trunk segment (the trunk rule of spec/layout/routing.md, and grid routes that run on one gutter line), or at a crossing drawn as `┼`. [just quality]
 - quality-metrics-04: `hard_ok` MUST be true exactly when a scene passes `HardConstraints`, both rules above, and the unwritten-cluster count is 0. [just quality]
     The cell renderer returns the count of unwritten clusters. For a model input, `--metrics` runs the cell renderer on the same model and takes that count.

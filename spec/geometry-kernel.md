@@ -175,4 +175,4 @@ The geometry kernel is the integer geometry library that the Go implementation, 
 - geometry-kernel-64: `just kernel-diff` MUST run `go run ./tools/kernelgen > corpus/.cache/kernel/cases.txt`, then run `geomcheck eval`, `bin/emd-go kernel-eval`, and `bin/emd-rs kernel-eval` on that file, and MUST fail on any byte difference (`cmp`). [just kernel-diff]
 - geometry-kernel-65: Go unit tests MUST NOT call Lean and MUST use naive in-language oracles. [just go-check]
 - geometry-kernel-66: Rust unit tests MUST NOT call Lean and MUST use naive in-language oracles. [just rust-check]
-- geometry-kernel-67: `just validate` MUST pipe every corpus layout dump from both implementations through `geomcheck validate`; the validator clauses and `HardConstraints` are in `spec/quality-metrics.md`. [just validate]
+- geometry-kernel-67: `just validate` MUST pipe every corpus layout dump from both implementations through `geomcheck validate`; the validator clauses and `HardConstraints` are in `spec/layout-dump.md`. [just validate]
