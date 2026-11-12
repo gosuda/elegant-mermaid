@@ -74,7 +74,7 @@ func randomInput(source string) Input {
 }
 
 func TestTwoNodeGolden(t *testing.T) {
-	in := Input{Kind: "flowchart", Options: scene.DefaultOptions(), Boxes: []Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}, Routes: []Route{{ID: "e0", From: "A", To: "B", Orthogonal: true}}, Labels: []Label{{ID: "e0.label", Owner: "e0", Text: "yes"}}}
+	in := Input{Kind: "flowchart", Options: scene.DefaultOptions(), Boxes: []Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}, Routes: []Route{{ID: "e0", From: "A", To: "B", Orthogonal: true, MinLength: 2}}, Labels: []Label{{ID: "e0.label", Owner: "e0", Text: "yes"}}}
 	s, _, err := Layout(in)
 	if err != nil {
 		t.Fatal(err)
