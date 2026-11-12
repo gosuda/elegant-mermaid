@@ -123,14 +123,11 @@ fn kernel_eval_reports_an_unreadable_file() -> io::Result<()> {
 }
 
 #[test]
-fn kernel_eval_requires_a_file_argument() -> io::Result<()> {
+fn kernel_eval_accepts_empty_stdin() -> io::Result<()> {
     let outcome = run(&["kernel-eval"])?;
-    assert_eq!(outcome.code, Some(2));
+    assert_eq!(outcome.code, Some(0));
     assert_eq!(outcome.stdout, "");
-    assert_eq!(
-        outcome.stderr,
-        "missing FILE; pass a kernel case file path\n"
-    );
+    assert_eq!(outcome.stderr, "");
     Ok(())
 }
 
