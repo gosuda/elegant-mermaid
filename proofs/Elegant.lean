@@ -36,3 +36,5 @@ import Elegant.Layered.Order
 import Elegant.Layered.Route
 import Elegant.Text.Place
 import Elegant.Text.Render
+import Elegant.Layered.Pipeline
+import Elegant.Kinds.Flowchart

@@ -47,3 +47,7 @@ Elegant.Text.Place.place_labels_disjoint
 Elegant.Text.canvas_size_eq_scene_extent
 Elegant.Text.text_valid
 Elegant.Layered.rawPass_separated
+Elegant.Layered.normalize_gapDeclsDistinct
+Elegant.Layered.coordPhases_coordFacts
+Elegant.Layered.layoutFamily_component_facts
+Elegant.Layered.layoutFamily_ids
