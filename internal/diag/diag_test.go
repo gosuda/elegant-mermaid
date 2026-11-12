@@ -203,6 +203,21 @@ func TestAppendDiagnosticJSONEmptyCollections(t *testing.T) {
 	}
 }
 
+func TestRenderTextKeepsEmptyNoteLine(t *testing.T) {
+	ds := []Diagnostic{{
+		Code:     "c/x",
+		Severity: SeverityError,
+		Message:  "m",
+		Span:     source.Span{Start: 0, End: 0},
+		Related:  []Related{{Span: source.Span{Start: 0, End: 0}, Message: ""}},
+	}}
+	want := "a.mmd:1:1: error[c/x]: m\n  |\n1 | x\n  | ^\n" +
+		"  = note:  at a.mmd:1:1\n"
+	if got := render(t, "x", ds, FrameOptions{}); got != want {
+		t.Fatalf("got\n%q\nwant\n%q", got, want)
+	}
+}
+
 func TestSortOrdersByStartThenCode(t *testing.T) {
 	ds := []Diagnostic{
 		{Code: "b/one", Span: source.Span{Start: 4, End: 5}},

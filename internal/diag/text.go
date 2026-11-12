@@ -89,9 +89,9 @@ func (fw *frameWriter) underline(dst []byte, line, at, cells int, s Severity) []
 }
 
 func (fw *frameWriter) notes(dst []byte, d *Diagnostic) []byte {
-	dst = appendText(dst, "  = help: ", d.Help)
+	dst = appendLine(dst, "  = help: ", d.Help)
 	for i := range d.Fixes {
-		dst = appendText(dst, "  = fix: ", d.Fixes[i].Title)
+		dst = appendLine(dst, "  = fix: ", d.Fixes[i].Title)
 	}
 	for i := range d.Related {
 		dst = fw.note(dst, &d.Related[i])
@@ -101,12 +101,18 @@ func (fw *frameWriter) notes(dst []byte, d *Diagnostic) []byte {
 
 func (fw *frameWriter) note(dst []byte, rel *Related) []byte {
 	pos := fw.index.Position(rel.Span.Start)
-	head := rel.Message + " at " + fw.path + ":" +
-		strconv.Itoa(pos.Line) + ":" + strconv.Itoa(pos.Column)
-	return appendText(dst, "  = note: ", head)
+	dst = append(dst, "  = note: "...)
+	dst = append(dst, rel.Message...)
+	dst = append(dst, " at "...)
+	dst = append(dst, fw.path...)
+	dst = append(dst, ':')
+	dst = strconv.AppendInt(dst, int64(pos.Line), 10)
+	dst = append(dst, ':')
+	dst = strconv.AppendInt(dst, int64(pos.Column), 10)
+	return append(dst, '\n')
 }
 
-func appendText(dst []byte, prefix, body string) []byte {
+func appendLine(dst []byte, prefix, body string) []byte {
 	if body == "" {
 		return dst
 	}
