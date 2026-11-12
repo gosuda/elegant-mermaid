@@ -354,6 +354,31 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "honoured",
     },
     ConfigKey {
+        kind: "block",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "block",
+        key: "padding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "block",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "block",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "block",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "c4",
         key: "boundaryFont",
         class: "accepted-ignored",
@@ -1392,6 +1417,206 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         kind: "requirement",
         key: "useWidth",
         class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "activationWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "actorFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "actorFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "actorFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "actorFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "actorMargin",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "arrowMarkerAbsolute",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "bottomMarginAdj",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "boxMargin",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "boxTextMargin",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "diagramMarginX",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "diagramMarginY",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "forceMenus",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "height",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "hideUnusedParticipants",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "labelBoxHeight",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "labelBoxWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "messageAlign",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "messageFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "messageFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "messageFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "messageFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "messageMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "mirrorActors",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "noteAlign",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "noteFont",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "noteFontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "noteFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "noteFontWeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "noteMargin",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "rightAngles",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "showSequenceNumbers",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "width",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "wrap",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "sequence",
+        key: "wrapPadding",
+        class: "honoured",
     },
     ConfigKey {
         kind: "state",

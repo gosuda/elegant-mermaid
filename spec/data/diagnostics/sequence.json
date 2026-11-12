@@ -1,0 +1,74 @@
+[
+  {
+    "code": "sequence/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "A token must fit the current production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "sequence/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "A rejected statement must not create model objects.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "sequence/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "An open construct needs a closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "sequence/inactive-participant",
+    "severity": "error",
+    "summary": "participant ID is not active",
+    "help": "",
+    "rationale": "Deactivation needs an open activation.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "sequence/participant-box-conflict",
+    "severity": "error",
+    "summary": "participant ID belongs to more than one box",
+    "help": "",
+    "rationale": "A participant can belong to only one box.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "sequence/create-existing-participant",
+    "severity": "error",
+    "summary": "cannot create existing participant ID",
+    "help": "",
+    "rationale": "Creation needs an unused participant id.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "sequence/creating-message-missing",
+    "severity": "error",
+    "summary": "next message must target created participant ID",
+    "help": "",
+    "rationale": "The creation event needs its associated message.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "sequence/destroying-message-missing",
+    "severity": "error",
+    "summary": "next message must involve destroyed participant ID",
+    "help": "",
+    "rationale": "The destruction event needs its associated message.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]
