@@ -137,7 +137,9 @@ func (g orderGraph) orderRun(best [][]int32, limit, stallLimit int) (OrderResult
 		if err := g.orderSweep(trial, sweep); err != nil {
 			return OrderResult{}, err
 		}
-		g.orderTranspose(trial)
+		if err := g.orderTranspose(trial); err != nil {
+			return OrderResult{}, err
+		}
 		next := g.crossCount(trial)
 		stall++
 		if next < score {
@@ -257,9 +259,18 @@ func crossAdd(tree []int64, i int) {
 	}
 }
 
-func (g orderGraph) orderTranspose(layers [][]int32) {
-	for g.orderTransposePass(layers) {
+func (g orderGraph) orderTranspose(layers [][]int32) error {
+	c0 := g.crossCount(layers)
+	if c0 == math.MaxInt64 {
+		return geom.ErrOverflow
 	}
+	fuel := c0 + 1
+	for range fuel {
+		if !g.orderTransposePass(layers) {
+			break
+		}
+	}
+	return nil
 }
 func (g orderGraph) orderTransposePass(layers [][]int32) bool {
 	pos := orderPositions(layers, len(g.p.Nodes))

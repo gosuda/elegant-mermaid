@@ -171,3 +171,29 @@ func TestOrderBudgetAndGuards(t *testing.T) {
 		t.Fatal("unknown start accepted")
 	}
 }
+
+func TestOrderTransposeFuel(t *testing.T) {
+	p := &Proper{Nodes: make([]ProperNode, 16), Rank: make([]int32, 16)}
+	for i := range int32(8) {
+		p.Rank[8+i] = 1
+		p.Edges = append(p.Edges, ProperEdge{Tail: i, Head: 15 - i})
+	}
+	g, initial, err := orderPrepare(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	onePass := orderClone(initial)
+	if !g.orderTransposePass(onePass) || orderNaive(p, onePass) == 0 {
+		t.Fatal("fixture must need multiple swapping passes")
+	}
+	got := orderClone(initial)
+	if err := g.orderTranspose(got); err != nil {
+		t.Fatal(err)
+	}
+	if count := orderNaive(p, got); count != 0 {
+		t.Fatalf("transpose fuel stopped before convergence: %d crossings", count)
+	}
+	if g.orderTransposePass(got) {
+		t.Fatal("transpose returned before its clean pass")
+	}
+}
