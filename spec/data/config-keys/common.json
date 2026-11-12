@@ -1,0 +1,292 @@
+[
+  {
+    "kind": "",
+    "key": "agentflow",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "altFontFamily",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "architecture",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "arrowMarkerAbsolute",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "block",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "c4",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "class",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "cynefin",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "darkMode",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "deterministicIDSeed",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "deterministicIds",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "dompurifyConfig",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "elk",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "er",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "eventmodeling",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "flowchart",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "fontFamily",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "fontSize",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "forceLegacyMathML",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "gantt",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "gitGraph",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "handDrawnSeed",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "htmlLabels",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "ishikawa",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "journey",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "kanban",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "legacyMathML",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "logLevel",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "markdownAutoWrap",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "maxEdges",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "maxTextSize",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "mindmap",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "packet",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "pie",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "quadrantChart",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "radar",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "railroad",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "requirement",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "sankey",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "secure",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "securityLevel",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "sequence",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "startOnLoad",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "state",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "suppressErrorRendering",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "swimlane",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "themeCSS",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "themeVariables",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "timeline",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "treeView",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "usecase",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "venn",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "wardley-beta",
+    "class": "honoured"
+  },
+  {
+    "kind": "",
+    "key": "wrap",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "",
+    "key": "xyChart",
+    "class": "honoured"
+  }
+]
