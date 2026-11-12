@@ -1,0 +1,29 @@
+[
+  {
+    "code": "c4/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "A token must fit the active grammar production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "c4/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "An unrecognized statement cannot introduce model objects.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "c4/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "An open construct requires its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]
