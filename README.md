@@ -5,6 +5,39 @@ elegant-mermaid is a Mermaid renderer, an ASCII and terminal renderer, a checker
 ## Diagram kinds
 
 <!-- kinds:start -->
+- `flowchart`
+- `swimlane`
+- `agentflow`
+- `class`
+- `state`
+- `er`
+- `requirement`
+- `usecase`
+- `c4`
+- `sequence`
+- `block`
+- `architecture`
+- `kanban`
+- `packet`
+- `mindmap`
+- `treeview`
+- `ishikawa`
+- `gitgraph`
+- `eventmodeling`
+- `timeline`
+- `journey`
+- `gantt`
+- `xychart`
+- `quadrant`
+- `treemap`
+- `wardley`
+- `pie`
+- `radar`
+- `sankey`
+- `venn`
+- `cynefin`
+- `railroad`
+- `info`
 <!-- kinds:end -->
 
 Licence: Apache-2.0

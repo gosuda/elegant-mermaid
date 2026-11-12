@@ -29,5 +29,6 @@
 #![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
 pub mod diag;
+pub(crate) mod r#gen;
 pub mod source;
 pub mod syntax;
