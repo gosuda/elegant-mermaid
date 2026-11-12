@@ -30,3 +30,4 @@
 
 pub mod diag;
 pub mod source;
+pub mod syntax;
