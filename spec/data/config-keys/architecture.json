@@ -1,0 +1,16 @@
+[
+  {"kind":"architecture","key":"edgeElasticity","class":"accepted-ignored"},
+  {"kind":"architecture","key":"fontSize","class":"honoured"},
+  {"kind":"architecture","key":"iconSize","class":"honoured"},
+  {"kind":"architecture","key":"idealEdgeLengthMultiplier","class":"accepted-ignored"},
+  {"kind":"architecture","key":"layout","class":"accepted-ignored"},
+  {"kind":"architecture","key":"look","class":"honoured"},
+  {"kind":"architecture","key":"nodeSeparation","class":"accepted-ignored"},
+  {"kind":"architecture","key":"numIter","class":"accepted-ignored"},
+  {"kind":"architecture","key":"padding","class":"honoured"},
+  {"kind":"architecture","key":"randomize","class":"accepted-ignored"},
+  {"kind":"architecture","key":"seed","class":"accepted-ignored"},
+  {"kind":"architecture","key":"theme","class":"honoured"},
+  {"kind":"architecture","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"architecture","key":"useWidth","class":"accepted-ignored"}
+]

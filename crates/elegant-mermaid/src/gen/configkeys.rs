@@ -354,6 +354,76 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "honoured",
     },
     ConfigKey {
+        kind: "architecture",
+        key: "edgeElasticity",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "fontSize",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "iconSize",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "idealEdgeLengthMultiplier",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "nodeSeparation",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "numIter",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "padding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "randomize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "seed",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "architecture",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "block",
         key: "look",
         class: "honoured",
@@ -1449,6 +1519,46 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "kanban",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "kanban",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "kanban",
+        key: "padding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "kanban",
+        key: "sectionWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "kanban",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "kanban",
+        key: "ticketBaseUrl",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "kanban",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "kanban",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "mindmap",
         key: "colorBy",
         class: "accepted-ignored",
@@ -1490,6 +1600,66 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
     },
     ConfigKey {
         kind: "mindmap",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "bitOrder",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "bitWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "bitsPerRow",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "paddingX",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "paddingY",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "rowHeight",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "showBits",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "packet",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "packet",
         key: "useWidth",
         class: "accepted-ignored",
     },
