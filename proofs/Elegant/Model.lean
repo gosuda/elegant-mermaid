@@ -57,6 +57,9 @@ structure ModelRoute where
   fromId : String
   toId : String
   orthogonal : Bool := true
+  markerStart : String := "none"
+  markerEnd : String := "point"
+  stroke : String := "normal"
   deriving DecidableEq, Repr
 
 structure ModelLabel where

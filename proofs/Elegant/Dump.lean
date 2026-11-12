@@ -1,4 +1,5 @@
 import Elegant.Scene
+import Elegant.Gen.Markers
 import Lean
 
 namespace Elegant
@@ -51,9 +52,25 @@ private def readBox (j : Lean.Json) : Except String ModelBox := do
     | _ => throw "invalid box role"
   return ⟨← str j "id", role, ← str j "parent", ← bool j "exclusive"⟩
 
+private def optStr (j : Lean.Json) (k dflt : String) : Except String String :=
+  match j.getObjVal? k with
+  | .ok v => v.getStr?
+  | .error _ => .ok dflt
+
+private def markerName (s : String) : Except String String :=
+  if s == "none" || markers.any (fun m => m.name == s) then .ok s else .error "invalid marker"
+
+private def strokeName (s : String) : Except String String :=
+  if ["normal", "thick", "dotted", "dashed", "invisible"].contains s then .ok s
+  else .error "invalid stroke"
+
 private def readRoute (j : Lean.Json) : Except String ModelRoute := do
   exclude j ["points"]
-  return ⟨← str j "id", ← str j "from", ← str j "to", ← bool j "orthogonal"⟩
+  let markerStart ← markerName (← optStr j "marker_start" "none")
+  let markerEnd ← markerName (← optStr j "marker_end" "point")
+  let stroke ← strokeName (← optStr j "stroke" "normal")
+  return ⟨← str j "id", ← str j "from", ← str j "to", ← bool j "orthogonal", markerStart,
+    markerEnd, stroke⟩
 
 private def readLabel (j : Lean.Json) : Except String ModelLabel := do
   exclude j ["x", "y", "w", "h"]
