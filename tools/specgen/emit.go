@@ -757,7 +757,7 @@ func renderLeanRecordList(c col, v any) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		text = append(text, c.subName+" { "+strings.Join(fields, ", ")+" }")
+		text = append(text, "{ "+strings.Join(fields, ", ")+" }")
 	}
 	return "[" + strings.Join(text, ", ") + "]", nil
 }
