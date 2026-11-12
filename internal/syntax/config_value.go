@@ -521,6 +521,39 @@ func (r *configReader) readQuotedByte(b *strings.Builder, c byte) bool {
 	return true
 }
 
+func (r *configReader) parseSingleQuoted() (ConfigValue, bool) {
+	start := r.pos
+	r.pos++
+	var b strings.Builder
+	for r.pos < r.end {
+		c := r.src[r.pos]
+		if c < 0x20 {
+			r.failMalformed(r.pos)
+			return ConfigValue{}, false
+		}
+		if r.readSingleByte(&b, c) {
+			return ConfigValue{Kind: ValueString, Text: b.String(), Span: r.span(start, r.pos)}, true
+		}
+	}
+	r.failMalformed(r.end)
+	return ConfigValue{}, false
+}
+
+func (r *configReader) readSingleByte(b *strings.Builder, c byte) bool {
+	if c != '\'' {
+		b.WriteByte(c)
+		r.pos++
+		return false
+	}
+	if r.pos+1 < r.end && r.src[r.pos+1] == '\'' {
+		b.WriteByte('\'')
+		r.pos += 2
+		return false
+	}
+	r.pos++
+	return true
+}
+
 func findEntry(m ConfigValue, key string) int {
 	for i := range m.Entries {
 		if m.Entries[i].Key == key {

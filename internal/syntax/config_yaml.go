@@ -110,9 +110,6 @@ func (r *configReader) parseYAMLBlockMap(col int) (ConfigValue, bool) {
 		return ConfigValue{}, false
 	}
 	out := ConfigValue{Kind: ValueMapping}
-	if !r.parseBlockMapEntry(col, &out) {
-		return ConfigValue{}, false
-	}
 	for {
 		more, ok := r.nextMapEntry(col)
 		if !ok {
@@ -185,11 +182,8 @@ func (r *configReader) nestedMapOrNull(col, valuePos int) (ConfigValue, bool) {
 		return null, true
 	}
 	indent := r.lineIndentAt(r.pos)
-	if indent < col || (indent == col && !r.blockSequenceAt(r.pos)) {
+	if indent <= col {
 		return null, true
-	}
-	if r.blockSequenceAt(r.pos) {
-		return r.parseBlockSequence(indent)
 	}
 	if r.nodePrefixFails(r.pos) {
 		return ConfigValue{}, false
@@ -199,57 +193,6 @@ func (r *configReader) nestedMapOrNull(col, valuePos int) (ConfigValue, bool) {
 		return r.parseInlineValue(col)
 	}
 	return r.parseYAMLBlockMap(indent)
-}
-
-func (r *configReader) blockSequenceAt(at int) bool {
-	return at < r.end && r.src[at] == '-' && (at+1 == r.end || isConfigSpace(r.src[at+1]))
-}
-
-func (r *configReader) parseBlockSequence(col int) (ConfigValue, bool) {
-	start := r.pos
-	if !r.enter(start) {
-		return ConfigValue{}, false
-	}
-	out := ConfigValue{Kind: ValueSequence}
-	for {
-		item, ok := r.parseSequenceItem(col)
-		if !ok {
-			return ConfigValue{}, false
-		}
-		out.Items = append(out.Items, item)
-		more, ok := r.nextMapEntry(col)
-		if !ok {
-			return ConfigValue{}, false
-		}
-		if !more || !r.blockSequenceAt(r.pos) {
-			break
-		}
-	}
-	r.leave()
-	out.Span = r.span(start, r.pos)
-	return out, true
-}
-
-func (r *configReader) parseSequenceItem(col int) (ConfigValue, bool) {
-	if !r.blockSequenceAt(r.pos) {
-		r.failMalformed(r.pos)
-		return ConfigValue{}, false
-	}
-	dash := r.pos
-	r.pos++
-	r.skipInlineSpace()
-	if !r.inlineValueStart() {
-		return r.parseEntryValue(col, r.pos)
-	}
-	content, _ := splitLine(r.src, r.pos, r.end)
-	itemCol := col + r.pos - dash
-	if r.blockSequenceAt(r.pos) {
-		return r.parseBlockSequence(itemCol)
-	}
-	if keyColonAt(r.src, r.pos, content) >= 0 {
-		return r.parseYAMLBlockMap(itemCol)
-	}
-	return r.parseInlineValue(col)
 }
 
 func (r *configReader) inlineValueStart() bool {
@@ -354,90 +297,13 @@ func (r *configReader) parseScalarValue() (ConfigValue, bool) {
 		r.failMalformed(r.end)
 		return ConfigValue{}, false
 	}
-	if r.src[r.pos] == '"' || r.src[r.pos] == '\'' {
-		return r.parseYAMLQuoted()
+	switch r.src[r.pos] {
+	case '"':
+		return r.parseDoubleQuoted()
+	case '\'':
+		return r.parseSingleQuoted()
 	}
 	return r.parsePlainBlockScalar()
-}
-
-func (r *configReader) parseYAMLQuoted() (ConfigValue, bool) {
-	start := r.pos
-	quote := r.src[r.pos]
-	r.pos++
-	var text strings.Builder
-	for r.pos < r.end {
-		if r.src[r.pos] == quote {
-			r.pos++
-			if quote != '\'' || r.pos == r.end || r.src[r.pos] != '\'' {
-				return ConfigValue{Kind: ValueString, Text: text.String(), Span: r.span(start, r.pos)}, true
-			}
-			text.WriteByte(quote)
-			r.pos++
-			continue
-		}
-		if !r.yamlQuotedContent(&text, quote) {
-			return ConfigValue{}, false
-		}
-	}
-	r.failMalformed(r.end)
-	return ConfigValue{}, false
-}
-
-func (r *configReader) yamlQuotedContent(text *strings.Builder, quote byte) bool {
-	c := r.src[r.pos]
-	switch c {
-	case '\r', '\n':
-		breaks := r.quotedLineBreaks()
-		text.WriteString(quotedFold(breaks))
-		return !r.failed
-	case ' ', '\t':
-		start := r.pos
-		r.skipInlineSpace()
-		if r.pos == r.end || !isLineBreak(r.src[r.pos]) {
-			text.Write(r.src[start:r.pos])
-		}
-		return true
-	case '\\':
-		if quote == '"' {
-			return r.yamlQuotedEscape(text)
-		}
-	}
-	if c < 0x20 {
-		r.failMalformed(r.pos)
-		return false
-	}
-	text.WriteByte(c)
-	r.pos++
-	return true
-}
-
-func (r *configReader) yamlQuotedEscape(text *strings.Builder) bool {
-	if r.pos+1 < r.end && isLineBreak(r.src[r.pos+1]) {
-		r.pos++
-		r.quotedLineBreaks()
-		return !r.failed
-	}
-	return r.readEscape(text)
-}
-
-func (r *configReader) quotedLineBreaks() int {
-	count := 0
-	for r.pos < r.end && isLineBreak(r.src[r.pos]) {
-		_, r.pos = splitLine(r.src, r.pos, r.end)
-		r.skipInlineSpace()
-		count++
-	}
-	if r.markerAt(r.pos) {
-		r.fail(codeMalformed, msgMultiDocument, r.span(r.pos, r.pos+3))
-	}
-	return count
-}
-
-func quotedFold(breaks int) string {
-	if breaks == 1 {
-		return " "
-	}
-	return strings.Repeat("\n", breaks-1)
 }
 
 func (r *configReader) finishLineValue() bool {

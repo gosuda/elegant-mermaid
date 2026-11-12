@@ -76,9 +76,9 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 - preprocessing-035: The first entry of a block map MUST set its column `n`. [just go-check]
 - preprocessing-036: A line at a column smaller than `n` MUST end the map. [just go-check]
 - preprocessing-037: The root column MAY be greater than 0. [just go-check]
-- preprocessing-038: With no value on the key line, the value MUST be the next node whose column is greater than `n`: a nested block map, a block sequence, or a plain scalar that continues over the following lines indented more than the key; a block sequence used as a mapping value MAY place its markers at the column of the owning key. [just go-check]
+- preprocessing-038: With no value on the key line, the value MUST be the next node whose column is greater than `n`: a nested block map, or a plain scalar that continues over the following lines indented more than the key. [just go-check]
 - preprocessing-039: When no such nested line follows, the value MUST be `Null`. [just go-check]
-- preprocessing-040: Where a mapping value or a sequence item starts a node, a `-` followed by SP, HT, a line end, or the end of the reader's range MUST start a block sequence entry; entries MUST keep declaration order; each entry MUST hold a scalar, a flow collection, a nested block sequence, a nested block map, or `Null` when no value follows; an inline map after the marker MUST start at the column of its first key and its later keys MUST align with that column; a line that is not a sequence entry at the column of the sequence MUST end the sequence; each block sequence MUST count as one nesting level under the limit of 64; and a sequence marker directly after a mapping colon on the same line MUST raise `config/malformed`. [just go-check]
+- preprocessing-040: A `-` followed by SP, HT, or a line end where a node starts MUST raise `config/malformed`. [just go-check]
 - preprocessing-041: A `?` followed by SP, HT, or a line end MUST raise `config/malformed`. [just go-check]
 - preprocessing-042: A line that starts at column 0 with `---` or `...`, followed by SP, HT, a line end, or the end of the reader's range, MUST raise `config/malformed`. [just go-check]
 
@@ -99,10 +99,10 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 ## Quoted scalars
 
 - preprocessing-054: In a single-quoted scalar `''` MUST stand for one `'`, and no other escape MUST exist. [just go-check]
-- preprocessing-055: A single-quoted scalar MAY span lines: a line break MUST fold to one SP, a run of `k` blank lines between non-empty lines MUST fold to `k` LF, and SP and HT before a line break and at the start of a continuation line MUST be removed. [just go-check]
+- preprocessing-055: A single-quoted scalar MUST be one line. [just go-check]
 - preprocessing-056: A double-quoted scalar MUST use the escape table under Escapes. [just go-check]
-- preprocessing-057: A double-quoted scalar MAY span lines with the folding of preprocessing-055, and a backslash directly before a line break MUST remove that break and the white space that follows it, blank lines included, and insert nothing; a column-0 document marker inside an open quoted scalar MUST raise `config/malformed`; the scalar span MUST run from the opening quote to the closing quote; these rules MUST NOT apply to JSON directive strings. [just go-check]
-- preprocessing-058: Raw bytes U+0000 to U+001F MUST be malformed inside a quoted scalar, except the HT, CR, and LF that take part in the folding of preprocessing-055 and preprocessing-057. [just go-check]
+- preprocessing-057: A double-quoted scalar MUST be one line. [just go-check]
+- preprocessing-058: Raw bytes U+0000 to U+001F MUST be malformed inside a quoted scalar, TAB included. [just go-check]
 - preprocessing-059: `&` or `*` at the start of a node MUST raise `config/unsupported-anchor`. [just go-check]
 - preprocessing-060: `!` at the start of a node MUST raise `config/unsupported-tag`. [just go-check]
 - preprocessing-061: Inside plain text, `&`, `*`, and `!` MUST be ordinary characters. [just go-check]
