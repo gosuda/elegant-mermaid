@@ -12,6 +12,8 @@ import (
 
 	"github.com/gosuda/elegant-mermaid/internal/cells"
 	"github.com/gosuda/elegant-mermaid/internal/diag"
+	"github.com/gosuda/elegant-mermaid/internal/markdown"
+	"github.com/gosuda/elegant-mermaid/internal/source"
 )
 
 func terminalWriter(v any) bool {
@@ -106,7 +108,7 @@ func checkInputs(cfg Config, o commandOptions, inputs []string) error {
 		if path == "-" {
 			path = "<stdin>"
 		}
-		f, _, e := parseInput(path, src)
+		f, e := checkInput(path, src)
 		if e != nil {
 			return e
 		}
@@ -125,6 +127,56 @@ func checkInputs(cfg Config, o commandOptions, inputs []string) error {
 		return &ExitError{Code: 1}
 	}
 	return nil
+}
+
+func markdownHost(path string) bool {
+	return slices.Contains([]string{".md", ".markdown", ".mdx"}, filepath.Ext(path))
+}
+
+func checkInput(path string, src []byte) (diag.FileDiagnostics, error) {
+	if !markdownHost(path) {
+		f, _, err := parseInput(path, src)
+		return f, err
+	}
+	src, firstBad := source.RepairUTF8(src)
+	host := diag.FileDiagnostics{Path: path, Source: src}
+	if firstBad >= 0 {
+		host.Diagnostics = append(host.Diagnostics, diag.Diagnostic{
+			Code: "source/invalid-utf8", Severity: diag.SeverityError,
+			Message: "invalid UTF-8 at byte " + strconv.Itoa(firstBad),
+			Span:    source.Span{Start: firstBad, End: firstBad + len("\uFFFD")},
+			Help:    "Save the source as UTF-8.",
+		})
+	}
+	for _, block := range markdown.Blocks(src) {
+		f, _, err := parseInput(path, block.Source)
+		if err != nil {
+			return host, err
+		}
+		for _, d := range f.Diagnostics {
+			host.Diagnostics = append(host.Diagnostics, hostDiagnostic(block, d))
+		}
+	}
+	diag.Sort(host.Diagnostics)
+	return host, nil
+}
+
+func hostDiagnostic(block markdown.Block, d diag.Diagnostic) diag.Diagnostic {
+	d.Span = hostSpan(block, d.Span)
+	for i := range d.Related {
+		d.Related[i].Span = hostSpan(block, d.Related[i].Span)
+	}
+	for i := range d.Fixes {
+		for j := range d.Fixes[i].Edits {
+			edit := &d.Fixes[i].Edits[j]
+			edit.Span = hostSpan(block, edit.Span)
+		}
+	}
+	return d
+}
+
+func hostSpan(block markdown.Block, span source.Span) source.Span {
+	return source.Span{Start: block.HostOffset(span.Start), End: block.HostOffset(span.End)}
 }
 func writeCheckText(cfg Config, files []diag.FileDiagnostics, color string) error {
 	for _, f := range files {
@@ -152,7 +204,7 @@ func checkPaths(path string) ([]string, error) {
 			}
 			return nil
 		}
-		if slices.Contains([]string{".mmd", ".mermaid"}, filepath.Ext(p)) {
+		if slices.Contains([]string{".mmd", ".mermaid", ".md", ".markdown", ".mdx"}, filepath.Ext(p)) {
 			paths = append(paths, p)
 		}
 		return nil
