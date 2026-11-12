@@ -28,6 +28,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
+pub mod cells;
 pub mod diag;
 pub mod error;
 pub(crate) mod r#gen;
