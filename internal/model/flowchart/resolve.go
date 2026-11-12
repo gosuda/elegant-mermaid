@@ -1,6 +1,7 @@
 package flowchart
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -10,7 +11,7 @@ import (
 )
 
 func Resolve(src []byte, file *syn.File) (*Model, []evdiag.Diagnostic) {
-	r := &resolver{src: src, model: &Model{Direction: "TB"}, index: map[string]int{}}
+	r := &resolver{src: src, model: &Model{Direction: "TB"}, index: map[string]int{}, owners: map[string]string{}}
 	if file != nil {
 		r.walk(file)
 	}
@@ -29,6 +30,7 @@ type resolver struct {
 	diags  []evdiag.Diagnostic
 	scope  []string
 	subCnt int
+	owners map[string]string
 }
 
 func (r *resolver) walk(file *syn.File) {
@@ -146,14 +148,14 @@ func (r *resolver) styledVertex(sv *syn.StyledVertex) string {
 }
 
 func (r *resolver) joinGroup(id, group string) {
+	for _, existing := range r.model.Groups {
+		if existing.ID == group && slices.Contains(existing.Members, id) {
+			return
+		}
+	}
 	for i := range r.model.Groups {
 		if r.model.Groups[i].ID != group {
 			continue
-		}
-		for _, member := range r.model.Groups[i].Members {
-			if member == id {
-				return
-			}
 		}
 		r.model.Groups[i].Members = append(r.model.Groups[i].Members, id)
 		return
@@ -172,11 +174,7 @@ func (r *resolver) subgraph(s *syn.Subgraph) {
 		group.Direction = directionOf(s.Direction.Value.Kind)
 		group.DirSpan = s.Direction.Bounds()
 	}
-	if existing, ok := r.groupIndex(id); ok {
-		r.model.Groups[existing].Title = group.Title
-		r.model.Groups[existing].Direction = group.Direction
-		r.model.Groups[existing].DirSpan = group.DirSpan
-	} else {
+	if _, ok := r.groupIndex(id); !ok {
 		r.model.Groups = append(r.model.Groups, group)
 	}
 	r.scope = append(r.scope, id)
@@ -184,6 +182,7 @@ func (r *resolver) subgraph(s *syn.Subgraph) {
 		r.statement(line.Stmt)
 	}
 	r.scope = r.scope[:len(r.scope)-1]
+	r.finishGroup(id)
 }
 
 func (r *resolver) groupIndex(id string) (int, bool) {
@@ -195,6 +194,20 @@ func (r *resolver) groupIndex(id string) (int, bool) {
 	return 0, false
 }
 
+func (r *resolver) finishGroup(id string) {
+	index, ok := r.groupIndex(id)
+	if !ok {
+		return
+	}
+	r.model.Groups[index].Members = slices.DeleteFunc(r.model.Groups[index].Members, func(member string) bool {
+		if owner, exists := r.owners[member]; exists && owner != id {
+			return true
+		}
+		r.owners[member] = id
+		return member == id
+	})
+}
+
 func subgraphIDTitle(s *syn.Subgraph, index int) (string, string) {
 	if s.ID == nil {
 		return "subGraph" + strconv.Itoa(index), ""
@@ -202,6 +215,9 @@ func subgraphIDTitle(s *syn.Subgraph, index int) (string, string) {
 	text := strings.TrimSpace(s.ID.String())
 	if s.Title != nil {
 		return text, s.Title.String()
+	}
+	if strings.ContainsAny(text, " \t\r\n\v\f") {
+		return "subGraph" + strconv.Itoa(index), text
 	}
 	return text, text
 }
@@ -381,7 +397,17 @@ func edgeLength(body string) int {
 }
 
 func plainDiag(code string, span source.Span) evdiag.Diagnostic {
-	return evdiag.Diagnostic{Code: code, Severity: evdiag.SeverityError, Message: modelMessage(code), Span: span}
+	return evdiag.Diagnostic{Code: code, Severity: evdiag.SeverityError, Message: modelMessage(code), Span: span, Help: modelHelp(code)}
+}
+
+func modelHelp(code string) string {
+	switch code {
+	case codeLinkStyleIDUnknown:
+		return "Attach the id to a link first, as in e1@-->, before styling it."
+	case codeTypedShapeUnsupported:
+		return "Use one of the supported shape names such as rect, rounded, diamond, or circle."
+	}
+	return ""
 }
 
 func modelMessage(code string) string {

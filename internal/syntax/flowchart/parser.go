@@ -12,6 +12,7 @@ func Parse(src []byte, removed []source.Span) (*File, []diag.Diagnostic) {
 	file := p.parse()
 	diags := append(lx.diags, p.diags...)
 	diags = append(diags, eofDiagnostics(lx, p, len(src))...)
+	attachFixes(src, diags)
 	diag.Sort(diags)
 	if diags == nil {
 		return file, []diag.Diagnostic{}

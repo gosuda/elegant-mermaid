@@ -224,7 +224,7 @@ func (l *lexer) emit(r *lexRule, end int) {
 		l.push(modeShapeData, tok.Span)
 	case actShapeRun:
 		tok.Text, tok.BRs = replaceLineEnds(l.src[start:end])
-		l.contentToken(tok)
+		l.keep(tok)
 		return
 	case actGraph:
 		if !l.graphSeen {

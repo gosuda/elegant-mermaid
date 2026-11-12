@@ -1,6 +1,8 @@
 package flowchart
 
 import (
+	"strings"
+
 	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/source"
 )
@@ -251,6 +253,9 @@ func (p *parser) reportLabelRules(text Text, opener Token) {
 }
 
 func openingQuote(tok Token) source.Span {
+	if tok.StringOpen < 0 {
+		return source.Span{Start: tok.Span.Start, End: tok.Span.Start + 1}
+	}
 	return source.Span{Start: tok.StringOpen, End: tok.StringOpen + 1}
 }
 func labelRuleFor(first TokenKind) string {
@@ -311,6 +316,7 @@ func (p *parser) parseText(closers ...TokenKind) Text {
 			return finishText(text)
 		}
 		if len(text.Tokens) > 0 && isQuotedToken(tok.Kind) {
+			p.report(plainDiagnostic(labelRuleFor(text.Tokens[0].Kind), openingQuote(tok)))
 			return finishText(text)
 		}
 		tok = p.next()
@@ -408,11 +414,8 @@ func (p *parser) tryParseLink() (Link, linkOutcome) {
 }
 
 func (p *parser) reportArrowInvalid(open Token) {
-	if open.Text != "" {
-		return
-	}
-	if tok := p.peek(); tok.Kind == TokTagEnd || tok.Kind == TokNodeString {
-		p.report(plainDiagnostic(codeArrowInvalid, source.Span{Start: open.Span.Start, End: tok.Span.End}))
+	if strings.TrimSpace(open.Text) == "->" {
+		p.report(plainDiagnostic(codeArrowInvalid, open.Span))
 	}
 }
 

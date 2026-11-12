@@ -18,6 +18,8 @@ var everyMode = modeBits(
 	modeDottedEdgeText, modeClick, modeCallbackName, modeCallbackArgs, modeShapeData, modeShapeDataStr,
 )
 
+var unquotedModes = everyMode &^ modeBits(modeString, modeMDString, modeShapeDataStr)
+
 type lexRule struct {
 	match      func(l *lexer, limit int) int
 	kind       TokenKind
@@ -51,10 +53,10 @@ var globalRules = []lexRule{
 	{match: callbackArgsRun, kind: TokCallbackArgs, modes: modeBits(modeCallbackArgs)},
 	{match: mdStringRun, kind: TokMDStr, modes: modeBits(modeMDString)},
 	{match: lit("`\""), act: actCloseMDString, modes: modeBits(modeMDString)},
-	{match: lit("\"`"), act: actOpenMDString, modes: everyMode},
+	{match: lit("\"`"), act: actOpenMDString, modes: unquotedModes},
 	{match: stringRun, kind: TokStr, modes: modeBits(modeString)},
 	{match: lit("\""), act: actCloseString, modes: modeBits(modeString)},
-	{match: lit("\""), act: actOpenString, modes: everyMode},
+	{match: lit("\""), act: actOpenString, modes: unquotedModes},
 	{match: lit("style"), kind: TokStyle, modes: modeBits(modeInitial)},
 	{match: lit("default"), kind: TokDefault, modes: modeBits(modeInitial)},
 	{match: lit("linkStyle"), kind: TokLinkStyle, modes: modeBits(modeInitial)},
@@ -85,6 +87,8 @@ var globalRules = []lexRule{
 	{match: dirKeywordRule(">"), kind: TokDir, pop: true, modes: modeBits(modeDir)},
 	{match: dirKeywordRule("^"), kind: TokDir, pop: true, modes: modeBits(modeDir)},
 	{match: dirKeywordRule("v"), kind: TokDir, pop: true, modes: modeBits(modeDir)},
+	{match: spaceRule, kind: TokSpace, modes: modeBits(modeDir)},
+	{match: nodeStringRule, kind: TokNodeString, pop: true, modes: modeBits(modeDir)},
 	{match: directionStatement("TB"), kind: TokDirectionTB, modes: modeBits(modeInitial)},
 	{match: directionStatement("BT"), kind: TokDirectionBT, modes: modeBits(modeInitial)},
 	{match: directionStatement("RL"), kind: TokDirectionRL, modes: modeBits(modeInitial)},
@@ -100,6 +104,7 @@ var globalRules = []lexRule{
 	{match: lit(","), kind: TokComma, modes: modeBits(modeInitial)},
 	{match: lit("*"), kind: TokMult, modes: modeBits(modeInitial)},
 	{match: linkRule, kind: TokLink, pop: true, modes: modeBits(modeInitial, modeEdgeText)},
+	{match: lit("->"), kind: TokLink, modes: modeBits(modeInitial)},
 	{match: startLinkRule, kind: TokStartLink, pushOnPush: true, push: modeEdgeText, modes: modeBits(modeInitial)},
 	{match: oneByteUnless('-'), kind: TokEdgeText, modes: modeBits(modeEdgeText)},
 	{match: thickLinkRule, kind: TokLink, pop: true, modes: modeBits(modeInitial, modeThickEdgeText)},

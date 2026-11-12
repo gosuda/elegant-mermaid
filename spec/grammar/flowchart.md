@@ -447,9 +447,9 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 - flowchart-074: A start half whose stroke differs from the end half, or whose marker type differs from the end type while it is not open, MUST give an edge with no start marker and no end marker, and the stroke and the length MUST come from the end half. [just parity]
 - flowchart-075: The dump id of a route MUST be `e` and its decimal declaration index, and the dump id of its label MUST be that id followed by `.label`, which the golden dump fixes. [just validate]
 - flowchart-076: A link id of the source MUST be kept in the model beside the dump id, and of a `&` group only the pair of the last start node and the first end node MUST keep it. [just parity]
-- flowchart-077: A subgraph MUST become a group box, its members MUST be the distinct node ids of its body, and a member that an earlier subgraph holds MUST be dropped from the later one. [just oracle]
+- flowchart-077: A subgraph MUST become a group box and MUST keep the distinct node ids of its body in body order; a member that a subgraph completed earlier already holds MUST be dropped from the subgraph that completes later, so a nested subgraph claims its members before its enclosing subgraph; upstream `addSubGraph` and `makeUniq` decide this by completion order. [just oracle]
 - flowchart-078: A repeated subgraph id MUST merge its members into the first declaration, which keeps the title and the direction of that first one. [just parity]
-- flowchart-079: A subgraph id MUST be the `text-no-tags` of its header when that text holds no space, and otherwise `subGraph` and the 0-based index of the declaration among all subgraph declarations. [just parity]
+- flowchart-079: A subgraph id MUST be the `text-no-tags` of its header when that text holds no space, and otherwise `subGraph` and the 0-based index of the declaration among all subgraph declarations, repeated ids counted; quotes delimit the text and MUST NOT stay in the id or the title. [just parity]
 - flowchart-080: A subgraph title MUST be the bracketed text when the header holds brackets, otherwise the `text-no-tags` of the header, and it MUST be empty for the form with no text. [just parity]
 - flowchart-081: The direction of a subgraph MUST be the last `direction` statement of its body, and it MUST be absent when the body holds none. [just parity]
 - flowchart-082: `style` MUST append its declarations to the styles of every named node, and a name that no node declares MUST still create the node. [just parity]
@@ -531,6 +531,8 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 - flowchart-103: The Go parser MUST be `internal/syntax/flowchart`, with the fuzz target `FuzzFlowchart` beside the package. [just go-check]
 - flowchart-104: The Go and Rust models MUST hold the same node list, edge list, and group list, in the same order, for the same source. [just parity]
 - flowchart-105: The lexer MUST take the first matching rule of the current mode at the current byte, in the order of the rule tables of this file; jison without `%options flex` does the same. [just parity]
+- flowchart-106: A rule that opens a quoted run MUST NOT apply inside the modes `string`, `md_string`, and `shapeDataStr`; each of those modes MUST apply its own closing rule first, and shape-data content MUST NOT change the state that joins string tokens. [just go-check]
+- flowchart-107: Every flowchart diagnostic whose registry row has a `fix_safety` other than `none` MUST carry one fix with the title, safety, edit span, and replacement text that `TestDiagnosticFixContracts` and `flowchart_diagnostic_fix_contracts` state, equal in Go and Rust; a row with `fix_safety` `none` MUST carry no fix. [just parity]
 
 ## Upstream readings
 
