@@ -225,7 +225,7 @@ This file fixes the scope, project layout, gates, proof hygiene, fuel scheme, wo
     |`compact_respects_gaps`|`ElegantGeometry/Compaction.lean`|`compact axis gap items = .ok out -> forall i, p_i(items) <= p_i(out)` and `p_{i+1}(out) >= p_i(out) + len_i(out) + gap`|
     |`Segment.cross_comm`|`ElegantGeometry/Crossings.lean`|`Segment.cross s t = Segment.cross t s`|
     |`Segment.cross_iff_common_interior_point`|`ElegantGeometry/Crossings.lean`|`Segment.cross s t = true <-> exists p with rational coordinates, p in interior s and p in interior t`|
-    |`inversions_eq_crossings`|`ElegantGeometry/Crossings.lean`|for edges `e_k = (top_k, bot_k)` between two layers with position maps `P` and `Q`: `countInversions` of the bottom positions, taken in the order sorted by `(P top, Q bot)`, is `.ok n` where `n` is the number of unordered edge pairs `{e, f}` with `(P e.top - P f.top) * (Q e.bot - Q f.bot) < 0`|
+    |`inversions_eq_crossings`|`ElegantGeometry/Crossings.lean`|for edges `e_k = (top_k, bot_k)` between two layers with position maps `P` and `Q`: let `n` be the number of unordered edge pairs `{e, f}` with `(P e.top - P f.top) * (Q e.bot - Q f.bot) < 0`; `countInversions` of the bottom positions, taken in the order sorted by `(P top, Q bot)`, is `.ok n` when `n <= I32_MAX` and `.error LayoutError.overflow` otherwise; the statement has no side hypothesis|
     |`Validator.sound`|`ElegantGeometry/Validator.lean`|`WellFormed d -> Validator.check d = true -> HardConstraints d`|
 
 - lean-reference-82: `Validator.sound` MUST be proved by unfolding `check`, rewriting each Boolean test to its predicate, and closing the conjunction with `simp` over `Int`, using only the Lean core library. [just proofs]
