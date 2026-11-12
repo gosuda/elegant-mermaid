@@ -32,3 +32,4 @@ import Elegant.Layered.Cycles
 import Elegant.Layered.Rank
 import Elegant.Layered.Normalize
 import Elegant.Layered.Coords
+import Elegant.Layered.Order

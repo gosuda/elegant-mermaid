@@ -33,4 +33,8 @@ Elegant.Layered.coords_order_preserved
 Elegant.Layered.coords_separated
 Elegant.Layered.balance_separated
 Elegant.Layered.rankAxis_bands_disjoint
+Elegant.Layered.order_perm
+Elegant.Layered.order_crossings_le_init
+Elegant.Layered.transpose_crossings_le
+Elegant.Layered.crossCount_eq_naive
 Elegant.Layered.rawPass_separated
