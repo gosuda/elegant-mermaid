@@ -118,7 +118,7 @@ The geometry kernel is the integer geometry library that the Go implementation, 
 
     ```
     case-line = op *( SP operand ) SP "->" SP result LF
-    op        = 1*( %x61-7A / "_" )          ; one of the 14 names in the operations table
+    op        = 1*( %x61-7A / "_" / DIGIT )  ; one of the 14 names in the operations table, for example sin_q15
     operand   = int / axis / tuple / list
     axis      = "X" / "Y"
     tuple     = "(" int *( "," int ) ")"     ; arity fixed by the operation: 2 or 4
