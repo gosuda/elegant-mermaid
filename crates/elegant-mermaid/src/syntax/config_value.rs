@@ -243,6 +243,10 @@ impl<'a> Cfg<'a> {
         )
     }
 
+    fn map_boundary(&self, i: usize) -> bool {
+        i >= self.end || self.boundary(i)
+    }
+
     fn line_scan(&self, from: usize) -> Line {
         let mut i = from;
         let mut col = 0usize;
@@ -296,6 +300,9 @@ impl<'a> Cfg<'a> {
     }
 
     fn marker_check(&mut self) -> bool {
+        if self.end - self.pos < 3 || self.pos != self.line_start(self.pos) {
+            return false;
+        }
         let tri = (
             self.raw(self.pos),
             self.raw(self.pos + 1),
@@ -324,6 +331,14 @@ impl<'a> Cfg<'a> {
             self.stop = true;
         }
         bounded
+    }
+
+    fn line_start(&self, at: usize) -> usize {
+        let mut i = at.min(self.end);
+        while i > self.start && !matches!(self.raw(i - 1), Some(b'\r') | Some(b'\n')) {
+            i -= 1;
+        }
+        i
     }
 
     fn node_guard(&mut self) -> bool {
@@ -390,12 +405,33 @@ impl<'a> Cfg<'a> {
             None => false,
         }
     }
-
     fn plain_first_rejected(&self) -> bool {
         matches!(
             self.raw(self.pos),
-            Some(b'%') | Some(b'@') | Some(b'`') | Some(b',') | Some(b']') | Some(b'}')
+            Some(b'[')
+                | Some(b']')
+                | Some(b'{')
+                | Some(b'}')
+                | Some(b'#')
+                | Some(b'|')
+                | Some(b'>')
+                | Some(b'\'')
+                | Some(b'"')
+                | Some(b',')
+                | Some(b'%')
+                | Some(b'@')
+                | Some(b'`')
         )
+    }
+
+    fn plain_start_fails(&self) -> bool {
+        let Some(c) = self.raw(self.pos) else {
+            return true;
+        };
+        if self.plain_first_rejected() {
+            return true;
+        }
+        matches!(c, b'-' | b'?' | b':') && self.boundary(self.pos + 1)
     }
 
     fn plain_line_kind(&self) -> LineKind {
@@ -404,7 +440,7 @@ impl<'a> Cfg<'a> {
         let mut j = from;
         while j < to {
             let c = self.raw(j);
-            if c == Some(b':') && self.boundary(j + 1) {
+            if c == Some(b':') && self.map_boundary(j + 1) {
                 return LineKind::Entry;
             }
             if matches!(c, Some(b' ') | Some(b'\t')) && self.raw(j + 1) == Some(b'#') {
@@ -417,13 +453,18 @@ impl<'a> Cfg<'a> {
 
     fn yaml_document(&mut self) -> ConfigValue {
         self.skip_lines();
-        if self.stop || self.at_end() || self.marker_check() {
+        if self.stop || self.marker_check() {
             return ConfigValue::Null;
         }
+        if self.at_end() {
+            return ConfigValue::Mapping(Vec::new());
+        }
+
         let l = self.take_line(self.pos);
         if self.stop {
             return ConfigValue::Null;
         }
+        self.pos = l.content;
         let v = self.root_value(l.col);
         if !self.stop {
             self.tail();
@@ -433,10 +474,16 @@ impl<'a> Cfg<'a> {
 
     fn root_value(&mut self, col: usize) -> ConfigValue {
         match self.raw(self.pos) {
-            Some(b'[') => self.flow_seq_value(col),
-            Some(b'{') => self.flow_map_value(col),
-            Some(b'"') => self.root_quoted_double(),
-            Some(b'\'') => self.root_quoted_single(),
+            Some(b'[') => {
+                let value = self.flow_seq_value(col);
+                self.finish_line();
+                value
+            }
+            Some(b'{') => {
+                let value = self.flow_map_value(col);
+                self.finish_line();
+                value
+            }
             Some(b'|') | Some(b'>') => {
                 self.fail(self.pos);
                 ConfigValue::Null
@@ -467,21 +514,27 @@ impl<'a> Cfg<'a> {
         if self.node_guard() {
             return ConfigValue::Null;
         }
+        if self.raw(self.pos) == Some(b':') && self.map_boundary(self.pos + 1) {
+            self.fail(self.pos);
+            return ConfigValue::Null;
+        }
         if self.plain_line_kind() == LineKind::Entry {
             return self.block_map(col, self.pos);
         }
-        if self.raw(self.pos) == Some(b':') && self.boundary(self.pos + 1) {
-            self.fail(self.pos);
-            return ConfigValue::Null;
+        match self.raw(self.pos) {
+            Some(b'"') => self.root_quoted_double(),
+            Some(b'\'') => self.root_quoted_single(),
+            _ => {
+                if self.plain_first_rejected() {
+                    self.fail(self.pos);
+                    return ConfigValue::Null;
+                }
+                let text = self.plain_value_text();
+                let v = resolve_plain(&text);
+                self.finish_line();
+                v
+            }
         }
-        if self.plain_first_rejected() {
-            self.fail(self.pos);
-            return ConfigValue::Null;
-        }
-        let text = self.plain_value_text();
-        let v = resolve_plain(&text);
-        self.finish_line();
-        v
     }
 
     fn tail(&mut self) {
@@ -653,7 +706,7 @@ impl<'a> Cfg<'a> {
             }
             return None;
         }
-        if self.raw(self.pos) == Some(b':') && self.boundary(self.pos + 1) {
+        if self.raw(self.pos) == Some(b':') && self.map_boundary(self.pos + 1) {
             self.fail(self.pos);
             return None;
         }
@@ -662,6 +715,10 @@ impl<'a> Cfg<'a> {
     }
 
     fn entry_key(&mut self) -> Option<(String, Span, usize)> {
+        if self.raw(self.pos) == Some(b':') && self.map_boundary(self.pos + 1) {
+            self.fail(self.pos);
+            return None;
+        }
         match self.raw(self.pos) {
             Some(b'"') => {
                 let (t, sp) = self.quoted_double()?;
@@ -671,14 +728,20 @@ impl<'a> Cfg<'a> {
                 let (t, sp) = self.quoted_single()?;
                 self.entry_colon(t, sp)
             }
-            _ => self.plain_key(),
+            _ => {
+                if self.plain_first_rejected() {
+                    self.fail(self.pos);
+                    return None;
+                }
+                self.plain_key()
+            }
         }
     }
 
     fn entry_colon(&mut self, t: String, sp: Span) -> Option<(String, Span, usize)> {
         self.skip_inline_ws();
         let cp = self.pos;
-        if self.raw(cp) != Some(b':') {
+        if self.raw(cp) != Some(b':') || !self.map_boundary(cp + 1) {
             self.fail(cp);
             return None;
         }
@@ -713,7 +776,7 @@ impl<'a> Cfg<'a> {
         let mut j = from;
         while j < to {
             let c = self.raw(j);
-            if c == Some(b':') && self.boundary(j + 1) {
+            if c == Some(b':') && self.map_boundary(j + 1) {
                 return Some(j);
             }
             if matches!(c, Some(b' ') | Some(b'\t')) && self.raw(j + 1) == Some(b'#') {
@@ -742,6 +805,9 @@ impl<'a> Cfg<'a> {
     }
 
     fn finish_line(&mut self) -> Option<()> {
+        if self.stop {
+            return None;
+        }
         self.skip_inline_ws();
         let e = self.content_end(self.pos);
         if self.pos < e {
@@ -850,24 +916,26 @@ impl<'a> Cfg<'a> {
     }
 
     fn flow_skip_ws(&mut self, n: usize) {
-        loop {
-            self.skip_inline_ws();
-            if !matches!(self.raw(self.pos), Some(b'\r') | Some(b'\n')) {
-                return;
-            }
-            let e = self.content_end(self.pos);
-            self.pos = e + self.eol(e);
-            if self.stop || self.at_end() {
-                return;
-            }
+        self.skip_inline_ws();
+        if !matches!(self.raw(self.pos), Some(b'\r') | Some(b'\n')) {
+            return;
+        }
+        let e = self.content_end(self.pos);
+        self.pos = e + self.eol(e);
+        while !self.stop && !self.at_end() {
             let l = self.take_line(self.pos);
             if self.stop {
                 return;
             }
-            if l.col <= n {
-                self.fail(l.content);
+            if !self.line_blank(&l) {
+                if l.col <= n {
+                    self.fail(l.content);
+                } else {
+                    self.pos = l.content;
+                }
                 return;
             }
+            self.pos = l.next;
         }
     }
 
@@ -939,7 +1007,11 @@ impl<'a> Cfg<'a> {
         if self.stop {
             return false;
         }
-        let v = self.flow_item(n);
+        let v = if self.flow_value_absent() {
+            ConfigValue::Null
+        } else {
+            self.flow_item(n)
+        };
         if self.stop {
             return false;
         }
@@ -955,6 +1027,10 @@ impl<'a> Cfg<'a> {
             }),
         }
         self.flow_tail(n, b'}') == Step::Next
+    }
+
+    fn flow_value_absent(&self) -> bool {
+        matches!(self.cur(), None | Some(b',') | Some(b'}'))
     }
 
     fn flow_tail(&mut self, n: usize, closer: u8) -> Step {
@@ -1035,10 +1111,9 @@ impl<'a> Cfg<'a> {
             None => ConfigValue::Null,
         }
     }
-
     fn plain_flow_text(&mut self) -> Option<(String, Span)> {
         let from = self.pos;
-        if self.raw(from) == Some(b':') && self.boundary(from + 1) {
+        if self.plain_start_fails() {
             self.fail(from);
             return None;
         }
@@ -1047,12 +1122,6 @@ impl<'a> Cfg<'a> {
             match self.raw(j) {
                 Some(b',') | Some(b'[') | Some(b']') | Some(b'{') | Some(b'}') | Some(b':')
                 | Some(b'\r') | Some(b'\n') => break,
-                Some(b' ') | Some(b'\t') => {
-                    if self.raw(j + 1) == Some(b'#') {
-                        break;
-                    }
-                    j += 1;
-                }
                 _ => j += 1,
             }
         }
@@ -1805,7 +1874,8 @@ mod tests {
     use super::*;
 
     fn check(ds: &[Diagnostic], code: &str, msg: &str, span: Span) {
-        let [d] = ds else { unreachable!() };
+        assert!(!ds.is_empty(), "no diagnostic; want {code} {msg} {span:?}");
+        let d = &ds[0];
         assert_eq!(d.code, code);
         assert_eq!(d.message, msg);
         assert_eq!(d.span, span);
@@ -2072,8 +2142,7 @@ mod tests {
             ("a: @x\n", 3, 5),
             ("a: [1,]\n", 6, 7),
             ("a: {b 1}\n", 7, 8),
-            ("a: \"xy\n", 6, 7),
-            ("a: [1 #x]\n", 6, 9),
+            ("a: [1,,2]\n", 6, 9),
             ("a: 1\n    b: 2\n", 9, 11),
             ("a: [\n1]\n", 5, 7),
         ];
@@ -2241,7 +2310,7 @@ mod tests {
         assert_eq!(v, ConfigValue::Bool(true));
         let (v, ds) = parse_config_yaml("abc", 2, 2);
         assert!(ds.is_empty());
-        assert_eq!(v, ConfigValue::Null);
+        assert_eq!(v, ConfigValue::Mapping(Vec::new()));
         let (_, ds) = parse_config_yaml("hello # c\n", 0, 10);
         assert!(ds.is_empty());
     }
@@ -2330,10 +2399,253 @@ mod tests {
         assert_eq!(int_text(&entry_of(&mapping(v), "a").value), "1");
         let (v, ds) = parse_config_yaml("abc", 2, 2);
         assert!(ds.is_empty());
-        assert_eq!(v, ConfigValue::Null);
+        assert_eq!(v, ConfigValue::Mapping(Vec::new()));
         let (v, ds) = parse_config_json("", 0, 0);
         assert!(!ds.is_empty());
         assert_eq!(v, ConfigValue::Null);
+    }
+
+    #[test]
+    fn config_root_flow_trailing_tab_is_not_indentation() {
+        let (value, diagnostics) = parse_config_yaml("{}\t", 0, 3);
+        assert_eq!(value, ConfigValue::Mapping(Vec::new()));
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn config_root_flow_stop_reports_only_first_error() {
+        let (_, diagnostics) = parse_config_yaml("[:", 0, 2);
+        check(
+            &diagnostics,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 1, end: 2 },
+        );
+    }
+
+    #[test]
+    fn settled_root_forms() {
+        let (_, ds) = parse_config_yaml("|", 0, 1);
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 0, end: 1 },
+        );
+        let src = "  >\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 2, end: 3 },
+        );
+        let (v, ds) = parse_config_yaml("  c0\n", 0, 5);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::String(String::from("c0")));
+        let (v, ds) = parse_config_yaml("  ---\n", 0, 6);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::String(String::from("---")));
+        let (v, ds) = parse_config_yaml("a:b\n", 0, 4);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::String(String::from("a:b")));
+        let (v, ds) = parse_config_yaml("a :b\n", 0, 5);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::String(String::from("a :b")));
+        let (v, ds) = parse_config_yaml("-", 0, 1);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::String(String::from("-")));
+        let (v, ds) = parse_config_yaml("?", 0, 1);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::String(String::from("?")));
+        let (v, ds) = parse_config_yaml("  --- x\n", 0, 8);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::String(String::from("--- x")));
+    }
+
+    #[test]
+    fn settled_marker_column_zero_only() {
+        let src = "---\na: 1\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "multi-document streams are not supported",
+            Span { start: 0, end: 3 },
+        );
+        let src = "...\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "multi-document streams are not supported",
+            Span { start: 0, end: 3 },
+        );
+    }
+
+    #[test]
+    fn settled_map_colon_rules() {
+        let (v, ds) = parse_config_yaml("a:", 0, 2);
+        assert!(ds.is_empty());
+        let m = mapping(v);
+        let [a] = m.as_slice() else { unreachable!() };
+        assert_eq!(a.key, "a");
+        assert_eq!(a.value, ConfigValue::Null);
+
+        let m = mapping(parse_top("k :\tv\n"));
+        let [k] = m.as_slice() else { unreachable!() };
+        assert_eq!(k.key, "k");
+        assert_eq!(text(k.value.clone()), "v");
+
+        let m = mapping(parse_top("-x:\n"));
+        let [x] = m.as_slice() else { unreachable!() };
+        assert_eq!(x.key, "-x");
+
+        let m = mapping(parse_top("-c0>\t0[#}20:"));
+        let [w] = m.as_slice() else { unreachable!() };
+        assert_eq!(w.key, "-c0>\t0[#}20");
+
+        let m = mapping(parse_top("\"a: b\": 1\n"));
+        let [q] = m.as_slice() else { unreachable!() };
+        assert_eq!(q.key, "a: b");
+        assert_eq!(int_text(&q.value), "1");
+
+        let src = ": v\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 0, end: 1 },
+        );
+
+        let src = "\"k\":v\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 3, end: 5 },
+        );
+
+        let src = "k: :\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 3, end: 4 },
+        );
+
+        let m = mapping(parse_top("a{b: 1\n"));
+        let [k] = m.as_slice() else { unreachable!() };
+        assert_eq!(k.key, "a{b");
+        assert_eq!(int_text(&k.value), "1");
+
+        let m = mapping(parse_top("a\"b: 1\n"));
+        let [k2] = m.as_slice() else { unreachable!() };
+        assert_eq!(k2.key, "a\"b");
+
+        let src = "|x: 1\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 0, end: 3 },
+        );
+
+        let src = "#x: 1\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        assert!(ds.is_empty());
+    }
+
+    #[test]
+    fn settled_flow_reports_first_rejected_byte() {
+        let src = "a: [1, @]\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 7, end: 9 },
+        );
+
+        let src = "{#x: 1}";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 1, end: 4 },
+        );
+
+        let src = "a: [\n\t1]\n";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "tab in indentation",
+            Span { start: 5, end: 6 },
+        );
+    }
+    #[test]
+    fn settled_blank_range_is_empty_mapping() {
+        let (v, ds) = parse_config_yaml("", 0, 0);
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::Mapping(Vec::new()));
+
+        let src = "\n  \n# c\n";
+        let (v, ds) = parse_config_yaml(src, 0, src.len());
+        assert!(ds.is_empty());
+        assert_eq!(v, ConfigValue::Mapping(Vec::new()));
+    }
+
+    #[test]
+    fn settled_flow_hash_is_text() {
+        let (v, ds) = parse_config_yaml("[a #b]", 0, 6);
+        assert!(ds.is_empty());
+        assert_eq!(sequence(v), vec![ConfigValue::String("a #b".to_string())]);
+
+        let (v, ds) = parse_config_yaml("[a\t#b]", 0, 6);
+        assert!(ds.is_empty());
+        assert_eq!(sequence(v), vec![ConfigValue::String("a\t#b".to_string())]);
+    }
+
+    #[test]
+    fn settled_header_line_in_block_map_fails() {
+        let src = "2|200-:\n>";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 8, end: 9 },
+        );
+    }
+
+    #[test]
+    fn settled_malformed_uses_token_span() {
+        let src = "-|\\}!\"]:\n[{b:{b!{0\"\\} \t|\\0- !";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 9, end: 21 },
+        );
+    }
+
+    #[test]
+    fn settled_flow_continuation_column() {
+        let src = "{\\\n\nc:0b'\t'\n!#\"# \\#!{->':*{1,-, \t&\t-";
+        let (_, ds) = parse_config_yaml(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: 4, end: 9 },
+        );
     }
 
     #[test]

@@ -434,6 +434,9 @@ func (r *configReader) readBlockScalar(col int, style blockStyle, chomp chompMod
 		return ConfigValue{}, false
 	}
 	text := r.blockScalarText(content, prefixLen, style, chomp)
+	if r.failed {
+		return ConfigValue{}, false
+	}
 	return r.blockScalarValue(text, headerStart), true
 }
 

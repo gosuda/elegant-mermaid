@@ -146,13 +146,17 @@ impl<'a> Prep<'a> {
 
     fn directive(&mut self, p: usize) -> usize {
         let Some(cj) = self.dir_close(p) else {
-            self.push_malformed(
-                "malformed directive",
-                Span {
-                    start: p,
-                    end: p + 3,
-                },
-            );
+            let after = self.dir_ws(p + 3, self.b.len());
+            let (name, _) = self.dir_word(after, self.b.len());
+            if matches!(name.as_str(), "init" | "initialize" | "wrap") {
+                self.push_malformed(
+                    "malformed directive",
+                    Span {
+                        start: p,
+                        end: p + 3,
+                    },
+                );
+            }
             return self.b.len();
         };
         let after = self.dir_ws(p + 3, cj);
@@ -608,7 +612,7 @@ mod tests {
             unreachable!()
         };
         assert_eq!(f.body, Span { start: 4, end: 4 });
-        assert_eq!(f.value, ConfigValue::Null);
+        assert_eq!(f.value, ConfigValue::Mapping(Vec::new()));
         assert!(f.config.is_none());
         assert_eq!(p.removed, vec![Span { start: 0, end: 8 }]);
     }
@@ -790,12 +794,42 @@ mod tests {
 
     #[test]
     fn frontmatter_removed_before_directive_scan() {
-        let src = "---\n%%{init: 1}%%\n---\n%%{wrap}%%\nA\n";
+        let src = "---\n# not scanned: %%{init: 1}%%\n---\n%%{wrap}%%\nA\n";
         let p = preprocess(src);
         assert!(p.wrap);
-        assert_eq!(p.directives.len(), 1);
         assert!(p.diagnostics.is_empty());
+        assert_eq!(p.directives.len(), 1);
         assert!(!p.removed.iter().any(|s| s.start == 4));
+    }
+
+    #[test]
+    fn preprocess_unclosed_unknown_directives_are_ignored() {
+        for src in ["%%{", "%%{\n", "%%{ini\tt"] {
+            let p = preprocess(src);
+            assert!(p.diagnostics.is_empty());
+            assert_eq!(
+                p.removed,
+                vec![Span {
+                    start: 0,
+                    end: src.len()
+                }]
+            );
+        }
+    }
+
+    #[test]
+    fn preprocess_frontmatter_closing_newline_at_source_end() {
+        let src = "---\nconfig: {}\n---\n";
+        let p = preprocess(src);
+        assert!(p.frontmatter.is_some());
+        assert!(p.diagnostics.is_empty());
+        assert_eq!(
+            p.removed,
+            vec![Span {
+                start: 0,
+                end: src.len()
+            }]
+        );
     }
 
     #[test]

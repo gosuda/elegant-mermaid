@@ -31,6 +31,20 @@ func span(start, end int) source.Span {
 	return source.Span{Start: start, End: end}
 }
 
+func TestConfigBlockScalarIndentationTabReportedOnce(t *testing.T) {
+	src := []byte("a: |\n  x\n\t")
+	_, diagnostics := ParseConfigYAML(src, 0, len(src))
+	requireDiags(t, diagnostics, []diagWant{{codeMalformed, msgTabIndent, span(9, 10)}})
+}
+
+func TestConfigRootFlowTrailingTab(t *testing.T) {
+	src := []byte("{}\t")
+	value, diagnostics := ParseConfigYAML(src, 0, len(src))
+	require.Empty(t, diagnostics)
+	require.Equal(t, ValueMapping, value.Kind)
+	require.Empty(t, value.Entries)
+}
+
 func TestConfigTabInIndentation(t *testing.T) {
 	src := []byte("a: 1\n\tb: 2\n")
 	_, ds := ParseConfigYAML(src, 0, len(src))
