@@ -114,7 +114,7 @@ The geometry kernel is the integer geometry library that the Go implementation, 
 
 ## Kernel evaluation format
 
-- geometry-kernel-52: `geomcheck eval FILE` and `emd kernel-eval FILE` MUST read the case file `FILE` and write one result line per case to stdout; a case line MUST match this grammar: [just kernel-diff]
+- geometry-kernel-52: `geomcheck eval FILE` and `emd kernel-eval FILE` MUST read the case file `FILE`, `emd kernel-eval` with no operand or with the operand `-` MUST read the cases from standard input, and each MUST write one result line per case to stdout; a case line MUST match this grammar: [just kernel-diff]
 
     ```
     case-line = op *( SP operand ) SP "->" SP result LF
