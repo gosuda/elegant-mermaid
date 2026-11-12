@@ -1,4 +1,5 @@
 mod kernel_eval;
+mod layout;
 
 use std::ffi::OsString;
 use std::io::Write;
@@ -12,6 +13,9 @@ fn main() {
 }
 
 fn dispatch(args: &[OsString]) -> (String, String, i32) {
+    if args.first().is_some_and(|arg| arg == "layout") {
+        return layout::run(&args[1..]);
+    }
     if args.first().is_none_or(|arg| arg != "kernel-eval") {
         return (
             String::new(),
