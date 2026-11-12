@@ -29,6 +29,12 @@ rust-check FILTER='':
 slop:
     sloplint check . --format agent --strictness standard --mode threshold --fail-on deny
 
+# Build both binaries: bin/emd-go and bin/emd-rs
+build:
+    go build -trimpath -o bin/emd-go ./cmd/emd
+    cargo build --release --locked -p elegant-mermaid-cli
+    cp "${CARGO_TARGET_DIR:-target}/release/emd" bin/emd-rs
+
 # Lean build with warnings as errors, then the proof hygiene audit
 proofs:
     cd proofs && lake build --wfail
@@ -37,6 +43,16 @@ proofs:
 # TLC model check of the preview scheduler
 model:
     java -cp .tools/tla2tools.jar tlc2.TLC -config models/PreviewScheduler.cfg -workers auto models/PreviewScheduler.tla
+
+# Go, Rust, and Lean kernels agree on the generated cases
+kernel-diff: build proofs
+    mkdir -p corpus/.cache/kernel
+    go run ./tools/kernelgen > corpus/.cache/kernel/cases.txt
+    proofs/.lake/build/bin/geomcheck eval corpus/.cache/kernel/cases.txt > corpus/.cache/kernel/lean.out
+    bin/emd-go kernel-eval corpus/.cache/kernel/cases.txt > corpus/.cache/kernel/go.out
+    bin/emd-rs kernel-eval corpus/.cache/kernel/cases.txt > corpus/.cache/kernel/rust.out
+    cmp corpus/.cache/kernel/lean.out corpus/.cache/kernel/go.out
+    cmp corpus/.cache/kernel/lean.out corpus/.cache/kernel/rust.out
 
 # Format check on the staged content of Go and Rust files; the pre-commit hook runs it
 staged-format:
@@ -57,5 +73,7 @@ verify:
     just go-check
     just rust-check
     just slop
+    just build
     just proofs
     just model
+    just kernel-diff
