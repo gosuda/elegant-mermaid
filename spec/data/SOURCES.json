@@ -40,6 +40,36 @@
     "sha256": "262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a"
   },
   {
+    "path": "spec/data/palettes/catppuccin.json",
+    "url": "https://unpkg.com/@catppuccin/palette@1.8.0/css/catppuccin.css",
+    "sha256": "914845f685de885c088ec0bebb2d073b6a61de4f90f51c4eb66c2c2a1fb03d95"
+  },
+  {
+    "path": "spec/data/palettes/colorbrewer-paired.json",
+    "url": "https://unpkg.com/colorbrewer@1.7.0/index.js",
+    "sha256": "eb1f99282f26fd14c107b6eb99c55de30b247403f2e03d76902edfe2467cb69a"
+  },
+  {
+    "path": "spec/data/palettes/nord.json",
+    "url": "https://raw.githubusercontent.com/nordtheme/nord/1cef71605416a222e57225b544540ce0fcec18d4/src/nord.css",
+    "sha256": "62721d383a9da3f73c20ca2cd9398f30a89965c52b7c4e89b8dc68fc641b257d"
+  },
+  {
+    "path": "spec/data/palettes/primer.json",
+    "url": "https://unpkg.com/@primer/primitives@11.10.0/dist/css/functional/themes/",
+    "sha256": "cfc1f67274d8bf8c40ec61d8e6253d3a4ab7c161404625e3456fc25a334876e6"
+  },
+  {
+    "path": "spec/data/palettes/radix.json",
+    "url": "https://unpkg.com/@radix-ui/colors@3.0.0/",
+    "sha256": "d3b94ae42d7b2b97beff6c8ec50172b40e58f35d9407d2b944835326973b957d"
+  },
+  {
+    "path": "spec/data/palettes/solarized.json",
+    "url": "https://raw.githubusercontent.com/altercation/solarized/62f656a02f93c5190a8753159e34b385588d5ff3/README.md",
+    "sha256": "eb69eaa6c864f7ca83a14d1afd31d785272d2ef8d7b00f91e2a6c96929915313"
+  },
+  {
     "path": "spec/data/unicode/DerivedCoreProperties.txt",
     "url": "https://www.unicode.org/Public/18.0.0/ucd/DerivedCoreProperties.txt",
     "sha256": "09c928886a178fcafd93c29e4bd59073a058e5a100b716d425cb563ab50f68c9"

@@ -1,0 +1,19 @@
+{
+  "palette": "colorbrewer-paired",
+  "source": "colorbrewer 1.7.0",
+  "license": "Apache-2.0",
+  "colours": {
+    "paired1": "#a6cee3",
+    "paired10": "#6a3d9a",
+    "paired11": "#ffff99",
+    "paired12": "#b15928",
+    "paired2": "#1f78b4",
+    "paired3": "#b2df8a",
+    "paired4": "#33a02c",
+    "paired5": "#fb9a99",
+    "paired6": "#e31a1c",
+    "paired7": "#fdbf6f",
+    "paired8": "#ff7f00",
+    "paired9": "#cab2d6"
+  }
+}

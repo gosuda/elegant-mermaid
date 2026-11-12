@@ -1,0 +1,25 @@
+{
+  "palette": "primer",
+  "source": "@primer/primitives 11.10.0",
+  "license": "MIT",
+  "colours": {
+    "dark.bgColor-default": "#0d1117",
+    "dark.bgColor-muted": "#151b23",
+    "dark.borderColor-emphasis": "#656c76",
+    "dark.fgColor-accent": "#4493f8",
+    "dark.fgColor-attention": "#d29922",
+    "dark.fgColor-danger": "#f85149",
+    "dark.fgColor-default": "#f0f6fc",
+    "dark.fgColor-muted": "#9198a1",
+    "dark.fgColor-success": "#3fb950",
+    "light.bgColor-default": "#ffffff",
+    "light.bgColor-muted": "#f6f8fa",
+    "light.borderColor-emphasis": "#818b98",
+    "light.fgColor-accent": "#0969da",
+    "light.fgColor-attention": "#9a6700",
+    "light.fgColor-danger": "#d1242f",
+    "light.fgColor-default": "#1f2328",
+    "light.fgColor-muted": "#59636e",
+    "light.fgColor-success": "#1a7f37"
+  }
+}
