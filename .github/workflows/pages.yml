@@ -1,0 +1,75 @@
+name: "pages"
+
+"on":
+  push:
+    branches:
+      - "main"
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: "read"
+  pages: "write"
+  id-token: "write"
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: "ubuntu-26.04"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+      - name: "Set up Go"
+        uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: "Install the Rust toolchain"
+        run: "rustup toolchain install"
+      - name: "Add the WebAssembly target"
+        run: "rustup target add wasm32-unknown-unknown"
+      - name: "Install gate tools"
+        uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
+        with:
+          tool: "just@1.59.0,wasm-bindgen@0.2.130"
+      - name: "Install binaryen"
+        run: |
+          curl -fsSL -o binaryen-version_133-x86_64-linux.tar.gz \
+            "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-linux.tar.gz"
+          echo "2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489  binaryen-version_133-x86_64-linux.tar.gz" | sha256sum -c
+          mkdir -p .tools/binaryen
+          tar -xzf binaryen-version_133-x86_64-linux.tar.gz --strip-components=1 -C .tools/binaryen
+      - name: "Set up pnpm"
+        uses: "pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115" # v6.1.1
+        with:
+          version: "12.18.0"
+      - name: "Set up Node"
+        uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1" # v7.1.0
+        with:
+          node-version: "26.13.1"
+          cache: "pnpm"
+          cache-dependency-path: "playground/pnpm-lock.yaml"
+      - name: "Install playground packages"
+        run: "pnpm --dir playground install --frozen-lockfile"
+      - name: "Build the WebAssembly engines"
+        run: "just playground-wasm"
+      - name: "Build the site"
+        run: "BASE_PATH=/elegant-mermaid pnpm --dir playground build"
+      - name: "Configure Pages"
+        uses: "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d" # v6.0.0
+      - name: "Upload the site artifact"
+        uses: "actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9" # v5.0.0
+        with:
+          path: "playground/build"
+
+  deploy:
+    runs-on: "ubuntu-26.04"
+    needs: "build"
+    environment:
+      name: "github-pages"
+    steps:
+      - name: "Deploy to Pages"
+        uses: "actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346" # v5.0.1
