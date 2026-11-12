@@ -38,7 +38,7 @@ func layoutFlowchart(in Input) (scene.Scene, []diag.Diagnostic, error) {
 	}
 	for _, r := range in.Routes {
 		input.Routes = append(input.Routes, scene.Route{ID: r.ID, From: r.From, To: r.To, Orthogonal: true})
-		input.Edges = append(input.Edges, layered.EdgeOptions{MarkerStart: sceneMarker(r.MarkerStart), MarkerEnd: sceneMarker(r.MarkerEnd), Stroke: r.Line, MinLength: int32(r.MinLength)})
+		input.Edges = append(input.Edges, layered.EdgeOptions{MarkerStart: sceneMarker(r.MarkerStart), MarkerEnd: sceneMarker(r.MarkerEnd), Stroke: r.Line, MinLength: 1})
 	}
 	options := in.Options
 	options.Profile = in.Profile

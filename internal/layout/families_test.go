@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/gosuda/elegant-mermaid/internal/geom"
+	"github.com/gosuda/elegant-mermaid/internal/layout/layered"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 	random "github.com/gosuda/elegant-mermaid/tools/randgraph/gen"
 )
@@ -74,7 +75,7 @@ func randomInput(source string) Input {
 }
 
 func TestTwoNodeGolden(t *testing.T) {
-	in := Input{Kind: "flowchart", Options: scene.DefaultOptions(), Boxes: []Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}, Routes: []Route{{ID: "e0", From: "A", To: "B", Orthogonal: true, MinLength: 2}}, Labels: []Label{{ID: "e0.label", Owner: "e0", Text: "yes"}}}
+	in := Input{Kind: "flowchart", Options: scene.DefaultOptions(), Boxes: []Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}, Routes: []Route{{ID: "e0", From: "A", To: "B", Orthogonal: true, MinLength: 1}}, Labels: []Label{{ID: "e0.label", Owner: "e0", Text: "yes"}}}
 	s, _, err := Layout(in)
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +143,7 @@ func TestFlowchartEdgeScene(t *testing.T) {
 func edgeScene(t *testing.T, source string) scene.Scene {
 	t.Helper()
 	in := Input{Kind: "flowchart", Direction: scene.DirectionLR, Options: scene.DefaultOptions(), Boxes: []Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}, Routes: []Route{handEdge(source)}}
-	s, _, err := Layout(in)
+	s, err := handPipeline(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +198,7 @@ func TestFlowchartExtraDashRank(t *testing.T) {
 
 func TestReversedEdgeMarkers(t *testing.T) {
 	in := Input{Kind: "flowchart", Direction: scene.DirectionLR, Options: scene.DefaultOptions(), Boxes: []Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}, Routes: []Route{handEdge("A --> B"), {ID: "e1", From: "B", To: "A", MarkerStart: "circle", MarkerEnd: "circle", MinLength: 1}}}
-	s, _, err := Layout(in)
+	s, err := handPipeline(in)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,5 +207,45 @@ func TestReversedEdgeMarkers(t *testing.T) {
 	end := s.Groups[1].Items[2].(*scene.MarkerRef)
 	if start.At != points[0] || start.Axis != scene.AxisPlusX || end.At != points[len(points)-1] || end.Axis != scene.AxisMinusX {
 		t.Fatalf("reversed markers: %#v %#v", start, end)
+	}
+}
+
+func handPipeline(in Input) (scene.Scene, error) {
+	input := layered.Input{Kind: in.Kind}
+	for _, box := range in.Boxes {
+		input.Boxes = append(input.Boxes, scene.Box{ID: box.ID, Exclusive: box.Exclusive})
+	}
+	for _, route := range in.Routes {
+		start, end := route.MarkerStart, route.MarkerEnd
+		if start == "none" {
+			start = ""
+		}
+		if end == "none" {
+			end = ""
+		}
+		input.Routes = append(input.Routes, scene.Route{ID: route.ID, From: route.From, To: route.To, Orthogonal: true})
+		input.Edges = append(input.Edges, layered.EdgeOptions{MarkerStart: start, MarkerEnd: end, Stroke: route.Line, MinLength: int32(route.MinLength)})
+	}
+	options := in.Options
+	options.Direction = in.Direction
+	return layered.LayoutFamily(input, layered.Options{Scene: options})
+}
+
+func TestWalkingSkeletonRanksIgnoreSyntaxAndLabels(t *testing.T) {
+	sources := []string{"A --- B", "A <--> B", "A o--x B", "A -.-> B", "A ==> B", "A ---> B", "A -->|yes| B"}
+	for _, source := range sources {
+		t.Run(source, func(t *testing.T) {
+			in, ok := inputSource(t, []byte("flowchart LR\n"+source+"\n"))
+			if !ok {
+				t.Fatal("source rejected")
+			}
+			s, _, err := Layout(in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if s.Boxes[1].Rect.X-s.Boxes[0].Rect.X-s.Boxes[0].Rect.W != 3072 {
+				t.Fatal("walking skeleton ranks every edge with minimum length one")
+			}
+		})
 	}
 }

@@ -14,7 +14,7 @@ func WriteModelDump(w io.Writer, in Input) error {
 		d.Boxes = append(d.Boxes, scene.Box{ID: b.ID, Role: b.Role, Parent: b.Parent, Exclusive: b.Exclusive})
 	}
 	for _, r := range in.Routes {
-		d.Routes = append(d.Routes, scene.Route{ID: r.ID, From: r.From, To: r.To, Orthogonal: r.Orthogonal})
+		d.Routes = append(d.Routes, scene.Route{ID: r.ID, From: r.From, To: r.To, Orthogonal: r.Orthogonal, MarkerStart: sceneMarker(r.MarkerStart), MarkerEnd: r.MarkerEnd, Stroke: r.Line})
 	}
 	for _, l := range in.Labels {
 		d.Labels = append(d.Labels, scene.Label{ID: l.ID, Owner: l.Owner, Text: l.Text})

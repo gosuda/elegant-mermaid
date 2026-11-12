@@ -218,8 +218,26 @@ func (d *Dump) appendRoute(dst []byte, r Route) []byte {
 	if d.Stage == StageLayout {
 		dst = append(dst, `,"points":`...)
 		dst = appendPoints(dst, r.Points)
+	} else {
+		dst = appendModelRouteStyle(dst, r)
 	}
 	return append(dst, '}')
+}
+
+func appendModelRouteStyle(dst []byte, route Route) []byte {
+	if route.MarkerStart != "" && route.MarkerStart != "none" {
+		dst = append(dst, `,"marker_start":`...)
+		dst = diag.AppendString(dst, route.MarkerStart)
+	}
+	if route.MarkerEnd != "" && route.MarkerEnd != "point" {
+		dst = append(dst, `,"marker_end":`...)
+		dst = diag.AppendString(dst, route.MarkerEnd)
+	}
+	if route.Stroke != "" && route.Stroke != "normal" {
+		dst = append(dst, `,"stroke":`...)
+		dst = diag.AppendString(dst, route.Stroke)
+	}
+	return dst
 }
 
 func (d *Dump) appendLabels(dst []byte) []byte {

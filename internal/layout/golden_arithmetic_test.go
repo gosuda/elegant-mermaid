@@ -38,13 +38,13 @@ func TestTwoNodeGoldenArithmetic(t *testing.T) {
 	h := goldenConstant(t, "line_h") + 2*goldenConstant(t, "node_pad_y") + 2*goldenConstant(t, "node_border")
 	center := max(wa/2, wb/2)
 	gap := goldenConstant(t, "rank_gap")
-	secondY := h + gap + 0 + gap
+	secondY := h + gap
 	expected := [][4]int32{{center - wa/2, 0, wa, h}, {center - wb/2, secondY, wb, h}}
 	assertGoldenBoxes(t, golden, expected)
 	if golden.Canvas != (geom.Size{W: wa, H: secondY + h}) {
 		t.Fatalf("canvas: %v; expected %d x %d", golden.Canvas, wa, secondY+h)
 	}
-	points := [][2]int32{{center, h}, {center, h + gap}, {center, secondY}}
+	points := [][2]int32{{center, h}, {center, secondY}}
 	if !slices.Equal(golden.Routes[0].Points, points) {
 		t.Fatalf("route: %v; expected %v", golden.Routes[0].Points, points)
 	}

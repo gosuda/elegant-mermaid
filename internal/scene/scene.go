@@ -208,11 +208,14 @@ type Box struct {
 }
 
 type Route struct {
-	ID         string
-	From       string
-	To         string
-	Orthogonal bool
-	Points     []geom.Point
+	ID          string
+	From        string
+	To          string
+	Orthogonal  bool
+	Points      []geom.Point
+	MarkerStart string
+	MarkerEnd   string
+	Stroke      string
 }
 
 type Label struct {
