@@ -1,9 +1,15 @@
 use std::io::Write;
 use std::process::{Command, Stdio};
 
+fn binary() -> std::ffi::OsString {
+    let path = std::env::var_os("EMD_BIN").unwrap_or_default();
+    assert!(!path.is_empty(), "EMD_BIN is not set; run just rust-check");
+    path
+}
+
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 fn invoke(args: &[&str], source: &str) -> Result<std::process::Output, Box<dyn std::error::Error>> {
-    let mut child = Command::new(env!("CARGO_BIN_EXE_emd"))
+    let mut child = Command::new(binary())
         .args(args)
         .env_remove("NO_COLOR")
         .env_remove("FORCE_COLOR")
@@ -128,7 +134,7 @@ fn files_order_outputs_and_empty_scan() -> TestResult {
         String::from_utf8(empty.stderr)?,
         format!("no Mermaid files found in {path}\n")
     );
-    let implicit = Command::new(env!("CARGO_BIN_EXE_emd"))
+    let implicit = Command::new(binary())
         .arg("check")
         .current_dir(&dir)
         .output()?;
@@ -194,14 +200,198 @@ fn render_argument_order_and_output_files() -> TestResult {
 }
 
 #[test]
-fn terminal_stdin_requires_path() -> TestResult {
+fn binary_terminal_cli_07() -> TestResult {
     let output = Command::new("script")
         .args(["-qec", "\"$EMD_BIN\" render", "/dev/null"])
-        .env("EMD_BIN", env!("CARGO_BIN_EXE_emd"))
+        .env("EMD_BIN", binary())
         .stdin(Stdio::null())
         .output()?;
     assert_eq!(output.status.code(), Some(2));
-    let text = String::from_utf8(output.stdout)?;
-    assert!(text.contains("missing INPUT; pass a path or pipe Mermaid source"));
+    assert_eq!(
+        output.stdout,
+        b"missing INPUT; pass a path or pipe Mermaid source\r\n"
+    );
+    assert_eq!(output.stderr, b"");
+    Ok(())
+}
+
+#[test]
+fn binary_pipe_cli_07() -> TestResult {
+    let output = invoke(
+        &["render", "-e", "text", "--color", "never"],
+        "flowchart LR\n A\n",
+    )?;
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.stdout, "┌───┐\n│ A │\n└───┘\n".as_bytes());
+    assert_eq!(output.stderr, b"");
+    Ok(())
+}
+
+#[test]
+fn binary_width_cli_25() -> TestResult {
+    let output = invoke(
+        &["render", "-e", "text", "--color", "never", "--width", "1"],
+        "flowchart LR\n A\n",
+    )?;
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.stdout, "┌───┐\n│ A │\n└───┘\n".as_bytes());
+    assert_eq!(output.stderr, b"");
+    Ok(())
+}
+
+#[test]
+fn binary_colour_cli_36() -> TestResult {
+    let plain = "┌───┐\n│ A │\n└───┘\n";
+    let coloured =
+        "\x1b[90m┌───┐\x1b[39m\n\x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\n\x1b[90m└───┘\x1b[39m\n";
+    for (name, flag, env, want) in [
+        ("always", "always", vec![("NO_COLOR", "1")], coloured),
+        ("never", "never", vec![("FORCE_COLOR", "1")], plain),
+        (
+            "no_color",
+            "auto",
+            vec![("NO_COLOR", "1"), ("FORCE_COLOR", "1")],
+            plain,
+        ),
+        (
+            "clicolor_force",
+            "auto",
+            vec![("CLICOLOR_FORCE", "1"), ("CLICOLOR", "0")],
+            coloured,
+        ),
+        (
+            "force_color",
+            "auto",
+            vec![("FORCE_COLOR", "1"), ("TERM", "dumb")],
+            coloured,
+        ),
+        ("clicolor", "auto", vec![("CLICOLOR", "0")], plain),
+        ("dumb", "auto", vec![("TERM", "dumb")], plain),
+        ("pipe", "auto", vec![], plain),
+    ] {
+        let mut child = Command::new(binary())
+            .args(["render", "-e", "text", "--color", flag])
+            .env_clear()
+            .env("PATH", std::env::var_os("PATH").unwrap_or_default())
+            .env("TERM", "xterm")
+            .envs(env)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        child
+            .stdin
+            .take()
+            .ok_or("missing stdin")?
+            .write_all(b"flowchart LR\n A\n")?;
+        let output = child.wait_with_output()?;
+        assert_eq!(output.status.code(), Some(0), "{name}");
+        assert_eq!(output.stdout, want.as_bytes(), "{name}");
+        assert_eq!(output.stderr, b"", "{name}");
+    }
+    Ok(())
+}
+
+#[test]
+fn binary_argument_order_cli_05() -> TestResult {
+    let dir = std::env::temp_dir().join(format!("emd-binary-order-{}", std::process::id()));
+    std::fs::create_dir_all(&dir)?;
+    std::fs::write(dir.join("-name"), "flowchart LR\n A\n")?;
+    for args in [
+        vec!["render", "-e", "text", "--", "-name"],
+        vec!["render", "-e", "text", "./-name"],
+        vec!["render", "./-name", "-e", "text"],
+    ] {
+        let output = Command::new(binary())
+            .args(args)
+            .current_dir(&dir)
+            .env("NO_COLOR", "1")
+            .output()?;
+        assert_eq!(output.status.code(), Some(0));
+        assert_eq!(output.stdout, "┌───┐\n│ A │\n└───┘\n".as_bytes());
+        assert_eq!(output.stderr, b"");
+    }
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
+#[test]
+fn binary_inference_cli_23_cli_24() -> TestResult {
+    let dir = std::env::temp_dir().join(format!("emd-binary-infer-{}", std::process::id()));
+    std::fs::create_dir_all(&dir)?;
+    for ext in ["txt", "svg", "unknown", ""] {
+        let name = if ext.is_empty() {
+            "output".to_owned()
+        } else {
+            format!("output.{ext}")
+        };
+        let path = dir.join(name);
+        let name = path.to_str().ok_or("non UTF-8 path")?;
+        let output = invoke(&["render", "-o", name], "flowchart LR\n A\n")?;
+        if ext == "unknown" || ext.is_empty() {
+            assert_eq!(output.status.code(), Some(2));
+            assert_eq!(output.stdout, b"");
+            assert_eq!(
+                output.stderr,
+                format!("cannot infer the output format from {name}; pass -e\n").as_bytes()
+            );
+        } else {
+            assert_eq!(output.status.code(), Some(0));
+            assert_eq!(output.stdout, b"");
+            assert_eq!(output.stderr, b"");
+            let bytes = std::fs::read(path)?;
+            if ext == "txt" {
+                assert_eq!(bytes, "┌───┐\n│ A │\n└───┘\n".as_bytes());
+            } else {
+                assert!(String::from_utf8(bytes)?.contains("<svg"));
+            }
+        }
+    }
+    std::fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
+#[test]
+fn binary_colour_terminal_cli_36() -> TestResult {
+    let path = std::env::temp_dir().join(format!("emd-terminal-{}.mmd", std::process::id()));
+    std::fs::write(&path, "flowchart LR\n A\n")?;
+    let output = Command::new("script")
+        .args([
+            "-qec",
+            "\"$EMD_BIN\" render -e text --color auto \"$SOURCE\"",
+            "/dev/null",
+        ])
+        .env_clear()
+        .env("PATH", std::env::var_os("PATH").unwrap_or_default())
+        .env("TERM", "xterm")
+        .env("EMD_BIN", binary())
+        .env("SOURCE", &path)
+        .stdin(Stdio::null())
+        .output()?;
+    std::fs::remove_file(path)?;
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.stdout,"\x1b[90m┌───┐\x1b[39m\r\n\x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\r\n\x1b[90m└───┘\x1b[39m\r\n".as_bytes());
+    assert_eq!(output.stderr, b"");
+    Ok(())
+}
+
+#[test]
+fn binary_explicit_format_cli_23() -> TestResult {
+    let path = std::env::temp_dir().join(format!("emd-explicit-{}.txt", std::process::id()));
+    let output = invoke(
+        &[
+            "render",
+            "-e",
+            "svg",
+            "-o",
+            path.to_str().ok_or("non UTF-8")?,
+        ],
+        "flowchart LR\n A\n",
+    )?;
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(output.stdout, b"");
+    assert_eq!(output.stderr, b"");
+    assert!(std::fs::read_to_string(&path)?.contains("<svg"));
+    std::fs::remove_file(path)?;
     Ok(())
 }

@@ -9,19 +9,19 @@ gen-check:
     go run ./tools/specgen -check
 
 # Go checks: gofmt, go vet, golangci-lint, race tests, govulncheck; accepts `just go-check PKG='./x/...'`
-go-check PKG='./...':
+go-check PKG='./...': build
     {{ if trim_start_match(PKG, 'PKG=') != './...' { "go test -list '.*' " + trim_start_match(PKG, 'PKG=') + " | grep '^Test' >/dev/null" } else { "true" } }}
     test -z "$(gofmt -l $(go list -f '{{{{.Dir}}' ./...))"
     go vet {{ trim_start_match(PKG, 'PKG=') }}
     go tool golangci-lint run
-    go test -race {{ trim_start_match(PKG, 'PKG=') }}
+    EMD_BIN="{{ justfile_directory() }}/bin/emd-go" go test -race {{ trim_start_match(PKG, 'PKG=') }}
     go tool govulncheck ./...
 
 # Rust checks: fmt, clippy, nextest, cargo-deny, doc tests; accepts `just rust-check FILTER=name`
-rust-check FILTER='':
+rust-check FILTER='': build
     cargo fmt --check
     cargo clippy --all-targets --all-features --locked -- -D warnings
-    cargo nextest run --all-features --locked {{ trim_start_match(FILTER, 'FILTER=') }} {{ if trim_start_match(FILTER, 'FILTER=') == '' { '--no-tests=pass' } else { '--no-tests=fail' } }}
+    EMD_BIN="{{ justfile_directory() }}/bin/emd-rs" cargo nextest run --all-features --locked {{ trim_start_match(FILTER, 'FILTER=') }} {{ if trim_start_match(FILTER, 'FILTER=') == '' { '--no-tests=pass' } else { '--no-tests=fail' } }}
     cargo deny --locked check
     cargo test --doc --locked -p elegant-mermaid
 
