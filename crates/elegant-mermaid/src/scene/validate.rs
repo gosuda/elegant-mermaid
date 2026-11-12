@@ -495,6 +495,9 @@ mod tests {
             to: to.to_owned(),
             orthogonal: true,
             points,
+            marker_start: String::new(),
+            marker_end: String::new(),
+            stroke: String::new(),
         }
     }
 

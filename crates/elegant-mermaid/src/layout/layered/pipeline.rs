@@ -240,6 +240,9 @@ pub fn layout_family(
             to: r.to.clone(),
             orthogonal: true,
             points: Vec::new(),
+            marker_start: String::new(),
+            marker_end: String::new(),
+            stroke: String::new(),
         })
         .collect();
     let mut canvas = Size { w: 0, h: 0 };

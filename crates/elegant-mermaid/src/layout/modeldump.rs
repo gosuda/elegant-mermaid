@@ -32,6 +32,13 @@ pub fn model_dump(input: &Input) -> String {
             to: r.to.clone(),
             orthogonal: r.orthogonal,
             points: Vec::new(),
+            marker_start: if r.marker_start == "none" {
+                String::new()
+            } else {
+                r.marker_start.clone()
+            },
+            marker_end: r.marker_end.clone(),
+            stroke: r.line.clone(),
         })
         .collect();
     dump.labels = input

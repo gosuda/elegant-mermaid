@@ -6,7 +6,6 @@ fn pipeline_demo_exact_go_bytes() -> Result<(), Box<dyn std::error::Error>> {
     let parsed = syntax::flowchart::parse(source, &[]);
     let (model, _) = model::flowchart::resolve(source, &parsed.document);
     let input = layout::flowchart::from_flowchart(
-        &parsed.document,
         &model,
         scene::Profile::Vector,
         scene::DumpOptions::default(),
@@ -14,18 +13,17 @@ fn pipeline_demo_exact_go_bytes() -> Result<(), Box<dyn std::error::Error>> {
     let actual = layout::families::layout(&input)?.0.dump();
     assert_eq!(
         actual,
-        r#"{"version":1,"stage":"layout","kind":"flowchart","profile":"vector","options":{"profile":"vector","thoroughness":3,"max_width":0,"direction":"LR","limits":{"max_nodes":2000,"max_edges":5000,"max_text_bytes":1048576}},"canvas":{"w":25830,"h":2304},
+        r#"{"version":1,"stage":"layout","kind":"flowchart","profile":"vector","options":{"profile":"vector","thoroughness":3,"max_width":0,"direction":"LR","limits":{"max_nodes":2000,"max_edges":5000,"max_text_bytes":1048576}},"canvas":{"w":18150,"h":2304},
 "boxes":[{"id":"A","role":"node","x":0,"y":0,"w":3622,"h":2304,"parent":"","exclusive":true},
-{"id":"B","role":"node","x":11302,"y":0,"w":4577,"h":2304,"parent":"","exclusive":true},
-{"id":"C","role":"node","x":22023,"y":0,"w":3807,"h":2304,"parent":"","exclusive":true}],
-"routes":[{"id":"e0","from":"A","to":"B","orthogonal":true,"points":[[3622,768],[4774,768],[4774,0],[7462,0],[8614,0],[8614,768],[11302,768]]},
-{"id":"e1","from":"B","to":"C","orthogonal":true,"points":[[15879,1152],[18951,1152],[22023,1152]]},
-{"id":"e2","from":"B","to":"A","orthogonal":true,"points":[[11302,1536],[8614,1536],[8614,2304],[7462,2304],[4774,2304],[4774,1536],[3622,1536]]}],
+{"id":"B","role":"node","x":6694,"y":0,"w":4577,"h":2304,"parent":"","exclusive":true},
+{"id":"C","role":"node","x":14343,"y":0,"w":3807,"h":2304,"parent":"","exclusive":true}],
+"routes":[{"id":"e0","from":"A","to":"B","orthogonal":true,"points":[[3622,1152],[6694,1152]]},
+{"id":"e1","from":"B","to":"C","orthogonal":true,"points":[[11271,1152],[14343,1152]]},
+{"id":"e2","from":"B","to":"A","orthogonal":true,"points":[[6694,1152],[3622,1152]]}],
 "labels":[]}
 "#
     );
     let input = layout::flowchart::from_flowchart(
-        &parsed.document,
         &model,
         scene::Profile::Cell,
         scene::DumpOptions::default(),
@@ -33,13 +31,13 @@ fn pipeline_demo_exact_go_bytes() -> Result<(), Box<dyn std::error::Error>> {
     let actual = layout::families::layout(&input)?.0.dump();
     assert_eq!(
         actual,
-        r#"{"version":1,"stage":"layout","kind":"flowchart","profile":"cell","options":{"profile":"cell","thoroughness":3,"max_width":0,"direction":"LR","limits":{"max_nodes":2000,"max_edges":5000,"max_text_bytes":1048576}},"canvas":{"w":41,"h":3},
+        r#"{"version":1,"stage":"layout","kind":"flowchart","profile":"cell","options":{"profile":"cell","thoroughness":3,"max_width":0,"direction":"LR","limits":{"max_nodes":2000,"max_edges":5000,"max_text_bytes":1048576}},"canvas":{"w":33,"h":3},
 "boxes":[{"id":"A","role":"node","x":0,"y":0,"w":9,"h":3,"parent":"","exclusive":true},
-{"id":"B","role":"node","x":17,"y":0,"w":10,"h":3,"parent":"","exclusive":true},
-{"id":"C","role":"node","x":33,"y":0,"w":8,"h":3,"parent":"","exclusive":true}],
-"routes":[{"id":"e0","from":"A","to":"B","orthogonal":true,"points":[[9,1],[10,1],[10,0],[13,0],[14,0],[14,1],[17,1]]},
-{"id":"e1","from":"B","to":"C","orthogonal":true,"points":[[27,1],[30,1],[33,1]]},
-{"id":"e2","from":"B","to":"A","orthogonal":true,"points":[[17,2],[13,2],[9,2]]}],
+{"id":"B","role":"node","x":12,"y":0,"w":10,"h":3,"parent":"","exclusive":true},
+{"id":"C","role":"node","x":25,"y":0,"w":8,"h":3,"parent":"","exclusive":true}],
+"routes":[{"id":"e0","from":"A","to":"B","orthogonal":true,"points":[[9,1],[12,1]]},
+{"id":"e1","from":"B","to":"C","orthogonal":true,"points":[[22,1],[25,1]]},
+{"id":"e2","from":"B","to":"A","orthogonal":true,"points":[[12,1],[9,1]]}],
 "labels":[]}
 "#
     );
@@ -51,7 +49,6 @@ fn edge_input() -> layout::input::Input {
     let parsed = syntax::flowchart::parse(source, &[]);
     let (model, _) = model::flowchart::resolve(source, &parsed.document);
     layout::flowchart::from_flowchart(
-        &parsed.document,
         &model,
         scene::Profile::Vector,
         scene::DumpOptions::default(),
@@ -154,11 +151,16 @@ fn pipeline_flowchart_edge_scene() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 fn pipeline_flowchart_extra_dash_rank() -> Result<(), Box<dyn std::error::Error>> {
-    let mut input = edge_input();
-    input.routes[0].min_length = 1;
-    let short = layout::families::layout(&input)?.0;
-    input.routes[0].min_length = 2;
-    let long = layout::families::layout(&input)?.0;
+    let input = edge_input();
+    let mut edges = [layout::layered::pipeline::EdgeOptions {
+        marker_start: None,
+        marker_end: None,
+        stroke: "normal",
+        min_length: 1,
+    }];
+    let short = layout::layered::pipeline::layout_family(&input, &edges)?.0;
+    edges[0].min_length = 2;
+    let long = layout::layered::pipeline::layout_family(&input, &edges)?.0;
     assert_eq!(long.boxes()[1].rect.x - short.boxes()[1].rect.x, 3072);
     Ok(())
 }
@@ -191,4 +193,87 @@ fn pipeline_reversed_edge_markers() -> Result<(), Box<dyn std::error::Error>> {
         (points[points.len() - 1], scene::MarkerAxis::MinusX)
     );
     Ok(())
+}
+
+#[test]
+fn walking_skeleton_ranks_ignore_syntax_and_labels() -> Result<(), Box<dyn std::error::Error>> {
+    for edge in [
+        "A --- B",
+        "A <--> B",
+        "A o--x B",
+        "A -.-> B",
+        "A ==> B",
+        "A ---> B",
+        "A -->|yes| B",
+    ] {
+        let source = format!("flowchart LR\n{edge}\n");
+        let parsed = syntax::flowchart::parse(&source, &[]);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "{edge}: {:?}",
+            parsed.diagnostics
+        );
+        let (model, diagnostics) = model::flowchart::resolve(&source, &parsed.document);
+        assert!(diagnostics.is_empty());
+        let input = layout::flowchart::from_flowchart(
+            &model,
+            scene::Profile::Vector,
+            scene::DumpOptions::default(),
+        );
+        let s = layout::families::layout(&input)?.0;
+        assert_eq!(
+            s.boxes()[1].rect.x - s.boxes()[0].rect.x - s.boxes()[0].rect.w,
+            3072,
+            "{edge}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn model_route_styles() {
+    for (edge, record) in [
+        (
+            "A --- B",
+            r#"{"id":"e0","from":"A","to":"B","orthogonal":true,"marker_end":"none"}"#,
+        ),
+        (
+            "A <--> B",
+            r#"{"id":"e0","from":"A","to":"B","orthogonal":true,"marker_start":"point"}"#,
+        ),
+        (
+            "A o--o B",
+            r#"{"id":"e0","from":"A","to":"B","orthogonal":true,"marker_start":"circle","marker_end":"circle"}"#,
+        ),
+        (
+            "A x--x B",
+            r#"{"id":"e0","from":"A","to":"B","orthogonal":true,"marker_start":"cross","marker_end":"cross"}"#,
+        ),
+        (
+            "A -.-> B",
+            r#"{"id":"e0","from":"A","to":"B","orthogonal":true,"stroke":"dotted"}"#,
+        ),
+        (
+            "A ==> B",
+            r#"{"id":"e0","from":"A","to":"B","orthogonal":true,"stroke":"thick"}"#,
+        ),
+        (
+            "A --> B",
+            r#"{"id":"e0","from":"A","to":"B","orthogonal":true}"#,
+        ),
+    ] {
+        let source = format!("flowchart\n{edge}\n");
+        let parsed = syntax::flowchart::parse(&source, &[]);
+        let (model, _) = model::flowchart::resolve(&source, &parsed.document);
+        let input = layout::flowchart::from_flowchart(
+            &model,
+            scene::Profile::Vector,
+            scene::DumpOptions::default(),
+        );
+        let dump = layout::modeldump::model_dump(&input);
+        assert!(
+            dump.contains(&format!("\"routes\":[{record}]")),
+            "{edge}: {dump}"
+        );
+    }
 }

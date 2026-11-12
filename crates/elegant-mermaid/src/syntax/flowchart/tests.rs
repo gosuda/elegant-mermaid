@@ -50,6 +50,16 @@ fn flowchart_unclosed_bracket() {
     );
     assert_eq!(parsed.diagnostics[0].span.start, 16);
     assert_eq!(parsed.diagnostics[0].span.end, source.len());
+    assert_eq!(parsed.diagnostics[0].fixes.len(), 1);
+    assert_eq!(
+        parsed.diagnostics[0].fixes[0].title,
+        "Add the closing bracket"
+    );
+    assert_eq!(
+        parsed.diagnostics[0].fixes[0].edits[0].span.start,
+        source.len()
+    );
+    assert_eq!(parsed.diagnostics[0].fixes[0].edits[0].new_text, "]");
     let (model, diagnostics) = resolve(source, &parsed.document);
     assert!(diagnostics.is_empty());
     assert_eq!(
@@ -60,7 +70,7 @@ fn flowchart_unclosed_bracket() {
             .collect::<Vec<_>>(),
         ["A"]
     );
-    assert_eq!(model.nodes[0].label, "");
+    assert_eq!(model.nodes[0].label, "Start --> B");
     assert!(model.edges.is_empty());
 }
 
@@ -215,4 +225,75 @@ fn flowchart_edge_attribute_reference() {
         model.edges[0].attrs.get("curve").map(String::as_str),
         Some("basis")
     );
+}
+
+#[test]
+fn flowchart_quote_span_regressions() {
+    for source in ["0\"0\"`0\"\"0", "\"\"", "\"00000\"0"] {
+        let parsed = parse(source, &[]);
+        assert!(!parsed.diagnostics.is_empty(), "{source:?}");
+        for diagnostic in parsed.diagnostics {
+            assert!(
+                diagnostic.span.start <= diagnostic.span.end && diagnostic.span.end <= source.len(),
+                "{diagnostic:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn flowchart_first_subgraph_membership() {
+    let source = "flowchart\nsubgraph Frontend\nAPI --> UI\nend\nsubgraph Backend\nAPI --> DB\nend\nsubgraph Frontend[Replacement]\nNEW\nend\n";
+    let parsed = parse(source, &[]);
+    let (model, diagnostics) = resolve(source, &parsed.document);
+    assert!(parsed.diagnostics.is_empty() && diagnostics.is_empty());
+    assert_eq!(model.groups.len(), 2);
+    assert_eq!(model.groups[0].title, "Frontend");
+    assert_eq!(model.groups[0].members, ["API", "UI", "NEW"]);
+    assert_eq!(model.groups[1].members, ["DB"]);
+}
+
+#[test]
+fn flowchart_explicit_label_and_dotted_text() {
+    let source = "flowchart\nA --> B[B]\nC[\"\"] -. retry .-> D\n";
+    let parsed = parse(source, &[]);
+    let (model, diagnostics) = resolve(source, &parsed.document);
+    assert!(parsed.diagnostics.is_empty() && diagnostics.is_empty());
+    assert!(model.nodes[0].label_kind.is_none());
+    assert!(model.nodes[1].label_kind.is_some());
+    assert!(model.nodes[2].label_kind.is_some());
+    assert_eq!(model.edges[1].label.as_deref(), Some("retry"));
+}
+
+#[test]
+fn flowchart_nested_subgraph_completes_first() {
+    let source = "flowchart\nsubgraph Outer\nA\nsubgraph Inner\nA\nend\nB\nend\n";
+    let parsed = parse(source, &[]);
+    let (model, diagnostics) = resolve(source, &parsed.document);
+    assert!(parsed.diagnostics.is_empty() && diagnostics.is_empty());
+    assert_eq!(model.groups[0].members, ["B"]);
+    assert_eq!(model.groups[1].members, ["A"]);
+}
+
+#[test]
+fn flowchart_invalid_direction_span() {
+    let parsed = parse("flowchart XY\n A --> B\n", &[]);
+    assert_eq!(parsed.diagnostics.len(), 1);
+    let diagnostic = &parsed.diagnostics[0];
+    assert_eq!(diagnostic.code, "flowchart/dir-invalid");
+    assert_eq!(diagnostic.span.start, 10);
+    assert_eq!(diagnostic.span.end, 12);
+    assert!(diagnostic.fixes.is_empty());
+}
+
+#[test]
+fn flowchart_title_only_subgraph_ids() {
+    let source =
+        "flowchart\nsubgraph S\nA\nend\nsubgraph S\nB\nend\nsubgraph \"Quoted group\"\nC\nend\n";
+    let parsed = parse(source, &[]);
+    let (model, diagnostics) = resolve(source, &parsed.document);
+    assert!(parsed.diagnostics.is_empty() && diagnostics.is_empty());
+    assert_eq!(model.groups.len(), 2);
+    assert_eq!(model.groups[1].id, "subGraph2");
+    assert_eq!(model.groups[1].title, "Quoted group");
 }

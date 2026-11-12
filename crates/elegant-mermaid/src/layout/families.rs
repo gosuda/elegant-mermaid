@@ -38,15 +38,13 @@ fn flowchart(input: &Input) -> Result<(Scene, bool), LayoutError> {
     let edges = input
         .routes
         .iter()
-        .map(|r| {
-            Ok(pipeline::EdgeOptions {
-                marker_start: scene_marker(&r.marker_start),
-                marker_end: scene_marker(&r.marker_end),
-                stroke: &r.line,
-                min_length: i32::try_from(r.min_length).map_err(|_| LayoutError::Overflow)?,
-            })
+        .map(|r| pipeline::EdgeOptions {
+            marker_start: scene_marker(&r.marker_start),
+            marker_end: scene_marker(&r.marker_end),
+            stroke: &r.line,
+            min_length: 1,
         })
-        .collect::<Result<Vec<_>, LayoutError>>()?;
+        .collect::<Vec<_>>();
     pipeline::layout_family(input, &edges)
 }
 
@@ -72,12 +70,7 @@ mod tests {
     fn input(source: &str, profile: Profile) -> Input {
         let parsed = syntax::flowchart::parse(source, &[]);
         let (model, _) = model::flowchart::resolve(source, &parsed.document);
-        super::super::flowchart::from_flowchart(
-            &parsed.document,
-            &model,
-            profile,
-            DumpOptions::default(),
-        )
+        super::super::flowchart::from_flowchart(&model, profile, DumpOptions::default())
     }
     #[test]
     fn pipeline_two_node_golden() {
@@ -112,7 +105,7 @@ mod tests {
     fn pipeline_demo_and_directions() {
         let source =
             "flowchart LR\n  A[Start] --> B{Choice}\n  B -->|yes| C[Done]\n  B -->|no| A\n";
-        for (profile, width, height) in [(Profile::Vector, 25830, 2304), (Profile::Cell, 41, 3)] {
+        for (profile, width, height) in [(Profile::Vector, 18150, 2304), (Profile::Cell, 33, 3)] {
             let mut model = input(source, profile);
             let s = layout(&model).unwrap().0;
             assert_eq!(

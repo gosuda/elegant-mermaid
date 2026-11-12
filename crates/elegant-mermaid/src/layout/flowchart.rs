@@ -1,14 +1,8 @@
 use super::input::{Box, Group, Input, Label, Route};
 use crate::model::flowchart::Model;
 use crate::scene::{BoxRole, Direction, DumpOptions, Profile};
-use crate::syntax::flowchart::ast::{Document, Line, Statement};
 
-pub fn from_flowchart(
-    document: &Document,
-    model: &Model,
-    profile: Profile,
-    options: DumpOptions,
-) -> Input {
+pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> Input {
     let direction = Direction::from_token(&model.direction).unwrap_or_default();
     let mut input = Input {
         kind: "flowchart",
@@ -30,7 +24,11 @@ pub fn from_flowchart(
             .rev()
             .find(|g| g.members.contains(&node.id))
             .map_or_else(String::new, |g| g.id.clone());
-        let text = effective_text(document, node);
+        let text = if node.label_kind.is_some() {
+            node.label.clone()
+        } else {
+            node.id.clone()
+        };
         input.boxes.push(Box {
             id: node.id.clone(),
             role: BoxRole::Node,
@@ -92,28 +90,6 @@ pub fn from_flowchart(
     input
 }
 
-fn effective_text(document: &Document, node: &crate::model::flowchart::Node) -> String {
-    if node.attrs.contains_key("label")
-        || !node.label.is_empty()
-        || has_label(&document.lines, &node.id)
-    {
-        node.label.clone()
-    } else {
-        node.id.clone()
-    }
-}
-
-fn has_label(lines: &[Line], id: &str) -> bool {
-    lines.iter().any(|line| match &line.kind {
-        Statement::Subgraph(group) => has_label(&group.body, id),
-        Statement::Vertex(statement) => std::iter::once(&statement.first)
-            .chain(statement.rest.iter().map(|(_, group)| group))
-            .flat_map(|group| &group.nodes)
-            .any(|node| node.vertex.id.text == id && node.vertex.label.is_some()),
-        _ => false,
-    })
-}
-
 fn declaration(model: &Model, id: &str) -> usize {
     model
         .groups
@@ -140,12 +116,7 @@ mod tests {
         assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
         let (model, diagnostics) = crate::model::flowchart::resolve(source, &parsed.document);
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
-        from_flowchart(
-            &parsed.document,
-            &model,
-            Profile::Vector,
-            DumpOptions::default(),
-        )
+        from_flowchart(&model, Profile::Vector, DumpOptions::default())
     }
 
     #[test]
@@ -169,12 +140,7 @@ mod tests {
         let parsed = crate::syntax::flowchart::parse(source, &[]);
         let (mut model, _) = crate::model::flowchart::resolve(source, &parsed.document);
         model.nodes[0].label.clear();
-        let input = from_flowchart(
-            &parsed.document,
-            &model,
-            Profile::Vector,
-            DumpOptions::default(),
-        );
+        let input = from_flowchart(&model, Profile::Vector, DumpOptions::default());
         assert_eq!(input.labels.len(), 1);
         assert_eq!(input.labels[0].text, "");
         assert_eq!(input.labels[0].owner, "A");
@@ -260,12 +226,7 @@ mod tests {
             {
                 continue;
             }
-            let input = from_flowchart(
-                &parsed.document,
-                &model,
-                Profile::Vector,
-                DumpOptions::default(),
-            );
+            let input = from_flowchart(&model, Profile::Vector, DumpOptions::default());
             check_relations(&input);
         }
         Ok(())

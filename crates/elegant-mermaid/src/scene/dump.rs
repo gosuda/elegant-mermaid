@@ -140,10 +140,27 @@ fn push_routes(out: &mut String, routes: &[SceneRoute], stage: Stage) {
         out.push_str(if item.orthogonal { "true" } else { "false" });
         if stage == Stage::Layout {
             push_points(out, &item.points);
+        } else {
+            push_route_style(out, item);
         }
         out.push('}');
     }
     out.push(']');
+}
+
+fn push_route_style(out: &mut String, route: &SceneRoute) {
+    if !route.marker_start.is_empty() && route.marker_start != "none" {
+        out.push_str(",\"marker_start\":");
+        push_json_string(out, &route.marker_start);
+    }
+    if !route.marker_end.is_empty() && route.marker_end != "point" {
+        out.push_str(",\"marker_end\":");
+        push_json_string(out, &route.marker_end);
+    }
+    if !route.stroke.is_empty() && route.stroke != "normal" {
+        out.push_str(",\"stroke\":");
+        push_json_string(out, &route.stroke);
+    }
 }
 
 fn push_points(out: &mut String, points: &[Point]) {
@@ -254,6 +271,9 @@ mod tests {
             to: String::from("B"),
             orthogonal: true,
             points: Vec::new(),
+            marker_start: String::new(),
+            marker_end: String::new(),
+            stroke: String::new(),
         }
     }
 
@@ -480,5 +500,18 @@ mod tests {
         assert!(
             out.contains("{\"id\":\"A\",\"role\":\"group\",\"parent\":\"A\",\"exclusive\":false}")
         );
+    }
+    #[test]
+    fn route_styles_are_model_stage_only() {
+        let mut dump = two_node_model();
+        let route = &mut dump.routes[0];
+        route.marker_start = "circle".into();
+        route.marker_end = "cross".into();
+        route.stroke = "dotted".into();
+        let layout = dump.dump_layout(Size { w: 20, h: 20 });
+        for key in ["\"marker_start\"", "\"marker_end\"", "\"stroke\""] {
+            assert!(!layout.contains(key));
+        }
+        assert!(dump.dump_model().contains("\"orthogonal\":true,\"marker_start\":\"circle\",\"marker_end\":\"cross\",\"stroke\":\"dotted\""));
     }
 }

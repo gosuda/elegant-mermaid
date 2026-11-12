@@ -1,1735 +1,2139 @@
-//! The mode-driven lexer of the flowchart grammar, `flowchart-015` to `flowchart-029`.
-//!
-//! Rules run in the order of the tables of `spec/grammar/flowchart.md`, and the first
-//! rule that matches at the current byte wins (`flowchart-017`, `flowchart-105`). A
-//! rule that produces no token consumes its bytes and returns `None`.
-
-use crate::diag::{Diagnostic, Edit, Fix, FixSafety, Severity};
+use super::diagnostic;
+use super::tokens::{BRPoint, Mode, TextVal, Token, TokenKind};
+use crate::diag::{Diagnostic, Severity};
 use crate::source::Span;
-use crate::syntax::flowchart::diagnostic;
-use crate::syntax::flowchart::tokens::{Mode, TextVal, Token, TokenKind};
 
 pub(crate) const C_UNEXPECTED_TOKEN: &str = "flowchart/unexpected-token";
-const C_DIR_INVALID: &str = "flowchart/dir-invalid";
-const C_DIR_KW_INVALID: &str = "flowchart/dir-kw-invalid";
-const C_LABEL_ESCAPED_QUOTE: &str = "flowchart/label-escaped-quote";
-const C_LABEL_DOUBLE_IN_SINGLE: &str = "flowchart/label-double-in-single";
-const C_UNCLOSED_BRACKET: &str = "flowchart/unclosed-node-bracket";
-const C_QUOTE_UNCLOSED: &str = "flowchart/quote-unclosed";
-const C_UNTERMINATED: &str = "flowchart/unterminated";
-
-/// One frame of the mode stack; `opener` is the span of the token that pushed it.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct OpenMode {
-    pub mode: Mode,
-    pub opener: Span,
-    pub label: bool,
+pub(crate) struct Lexed {
+    pub tokens: Vec<Token>,
+    pub diagnostics: Vec<Diagnostic>,
+    pub eof_quote: Option<usize>,
+    pub eof_label: Option<Span>,
+    pub eof_shape: Option<Span>,
+    pub eof_acc: Option<Span>,
 }
-
-/// The lexer with its mode stack, skipped-span table and diagnostics.
+#[derive(Clone, Copy)]
+struct Frame {
+    mode: Mode,
+    open: Span,
+}
+#[derive(Clone, Copy)]
+enum Act {
+    None,
+    OpenString,
+    OpenMDString,
+    CloseString,
+    CloseMDString,
+    ShapeOpen,
+    ShapeRun,
+    Graph,
+    AccBlockOpen,
+    AccBlockClose,
+    LeaveOnly,
+    BeginCallbackArgs,
+}
+struct Rule {
+    matcher: fn(&Lexer<'_>, usize) -> Option<usize>,
+    kind: Option<TokenKind>,
+    act: Act,
+    push: Option<Mode>,
+    pop: bool,
+    empty: bool,
+    modes: u32,
+}
 pub(crate) struct Lexer<'a> {
     src: &'a str,
     removed: &'a [Span],
     pos: usize,
-    stack: Vec<OpenMode>,
-    stmt_start: bool,
-    first_graph: bool,
-    diags: Vec<Diagnostic>,
-    blocks: Vec<Span>,
+    rm: usize,
+    frames: Vec<Frame>,
+    tokens: Vec<Token>,
+    diagnostics: Vec<Diagnostic>,
+    graph_seen: bool,
+    silent: bool,
+    open_quote: Option<usize>,
+    first_cont: Option<usize>,
+    last_cont: Option<usize>,
 }
-
+pub(crate) fn lex_all(src: &str, removed: &[Span]) -> Lexed {
+    Lexer::new(src, removed).collect()
+}
 impl<'a> Lexer<'a> {
-    pub(crate) fn new(src: &'a str, removed: &'a [Span]) -> Lexer<'a> {
-        Lexer {
+    pub(crate) fn new(src: &'a str, removed: &'a [Span]) -> Self {
+        Self {
             src,
             removed,
             pos: 0,
-            stack: Vec::new(),
-            stmt_start: true,
-            first_graph: true,
-            diags: Vec::new(),
-            blocks: Vec::new(),
+            rm: 0,
+            frames: vec![Frame {
+                mode: Mode::Initial,
+                open: Span { start: 0, end: 0 },
+            }],
+            tokens: Vec::new(),
+            diagnostics: Vec::new(),
+            graph_seen: false,
+            silent: false,
+            open_quote: None,
+            first_cont: None,
+            last_cont: None,
         }
     }
-
-    pub(crate) fn into_diags(self) -> Vec<Diagnostic> {
-        self.diags
-    }
-
-    pub(crate) fn raw(&self, span: Span) -> &'a str {
-        self.src.get(span.start..span.end).unwrap_or("")
-    }
-
-    /// The single diagnostic for anything still open when the input ends.
-    pub(crate) fn end_state(&self) -> Option<Diagnostic> {
-        let eof = self.src.len();
-        if let Some(frame) = self
-            .stack
-            .iter()
-            .find(|frame| matches!(frame.mode, Mode::Text | Mode::EllipseText | Mode::TrapText))
-        {
-            let opener = self.raw(frame.opener);
-            let mut diagnostic = diagnostic(
-                C_UNCLOSED_BRACKET,
-                Severity::Error,
-                format!("node bracket {opener} is never closed"),
-                Span {
-                    start: frame.opener.start,
-                    end: eof,
-                },
-            );
-            diagnostic.fixes.push(Fix {
-                title: String::from("Add the closing bracket"),
-                safety: FixSafety::Unsafe,
-                edits: vec![Edit {
-                    span: Span {
-                        start: eof,
-                        end: eof,
-                    },
-                    new_text: String::from(closer_for(opener)),
-                }],
-            });
-            return Some(diagnostic);
-        }
-        if let Some(frame) = self
-            .stack
-            .iter()
-            .find(|frame| matches!(frame.mode, Mode::Stringlit | Mode::MdString))
-        {
-            return Some(diagnostic(
-                C_QUOTE_UNCLOSED,
-                Severity::Error,
-                String::from("A node label opens a quote but never closes it"),
-                Span {
-                    start: frame.opener.start,
-                    end: eof,
-                },
-            ));
-        }
-        if let Some(frame) = self
-            .stack
-            .iter()
-            .find(|frame| frame.mode == Mode::ShapeData)
-        {
-            return Some(diagnostic(
-                C_UNTERMINATED,
-                Severity::Error,
-                String::from("unterminated @{"),
-                Span {
-                    start: frame.opener.start,
-                    end: eof,
-                },
-            ));
-        }
-        let block = *self.blocks.last()?;
-        Some(diagnostic(
-            C_UNTERMINATED,
-            Severity::Error,
-            String::from("unterminated accDescr {"),
-            Span {
-                start: block.start,
-                end: eof,
-            },
-        ))
-    }
-
-    fn skip_gaps(&self, mut pos: usize) -> usize {
-        loop {
-            let i = self.removed.partition_point(|s| s.end <= pos);
-            match self.removed.get(i) {
-                Some(span) if span.start <= pos && pos < span.end => pos = span.end,
-                _ => return pos.min(self.src.len()),
-            }
-        }
-    }
-
-    fn at(&self, pos: usize) -> Option<u8> {
-        self.src.as_bytes().get(pos).copied()
-    }
-
-    fn char_at(&self, pos: usize) -> Option<char> {
-        self.src.get(pos..).and_then(|s| s.chars().next())
-    }
-
-    fn next_visible(&self, pos: usize) -> usize {
-        let len = self.char_at(pos).map_or(1, char::len_utf8);
-        self.skip_gaps(pos + len)
-    }
-
-    fn next_char(&self, pos: usize) -> Option<char> {
-        self.char_at(self.next_visible(pos))
-    }
-
-    fn match_lit(&self, mut pos: usize, literal: &str) -> Option<usize> {
-        for byte in literal.bytes() {
-            if self.at(pos) != Some(byte) {
-                return None;
-            }
-            pos = self.next_visible(pos);
-        }
-        Some(pos)
-    }
-
-    fn ws_star(&self, mut pos: usize) -> usize {
-        while let Some(c) = self.char_at(pos) {
-            if !is_ws(c) {
-                break;
-            }
-            pos = self.next_visible(pos);
-        }
-        pos
-    }
-
-    fn ws_plus(&self, pos: usize) -> Option<usize> {
-        let end = self.ws_star(pos);
-        (end > pos).then_some(end)
-    }
-
-    fn line_end(&self, pos: usize) -> Option<usize> {
-        match self.at(pos) {
-            Some(b'\r') => {
-                let after = self.next_visible(pos);
-                if self.at(after) == Some(b'\n') {
-                    Some(self.next_visible(after))
-                } else {
-                    Some(after)
-                }
-            }
-            Some(b'\n') => Some(self.next_visible(pos)),
-            _ => None,
-        }
-    }
-
-    fn push(&mut self, mode: Mode, opener: Span, label: bool) {
-        self.stack.push(OpenMode {
-            mode,
-            opener,
-            label,
-        });
-    }
-
-    fn pop(&mut self) {
-        self.stack.pop();
-    }
-
     fn mode(&self) -> Mode {
-        self.stack.last().map_or(Mode::Initial, |frame| frame.mode)
+        self.frames.last().map_or(Mode::Initial, |f| f.mode)
     }
-
-    fn top_label(&self) -> bool {
-        self.stack.last().is_some_and(|frame| frame.label)
+    fn push(&mut self, mode: Mode, open: Span) {
+        self.frames.push(Frame { mode, open });
     }
-
-    fn opener_start(&self, fallback: usize) -> usize {
-        self.stack
-            .last()
-            .map_or(fallback, |frame| frame.opener.start)
+    fn pop(&mut self) {
+        if self.frames.len() > 1 {
+            self.frames.pop();
+        }
     }
-
-    fn run_while<F>(&self, from: usize, mut pred: F) -> (String, bool, usize)
-    where
-        F: FnMut(char) -> bool,
-    {
-        let mut out = String::new();
-        let mut pos = from;
-        let mut end = from;
-        let mut bridged = false;
-        while let Some(c) = self.char_at(pos) {
-            if !pred(c) {
+    fn skip_removed(&mut self) {
+        loop {
+            while self.rm < self.removed.len() && self.removed[self.rm].end <= self.pos {
+                self.rm += 1;
+            }
+            let Some(s) = self.removed.get(self.rm) else {
+                return;
+            };
+            if self.pos < s.start {
+                return;
+            }
+            self.pos = s.end;
+        }
+    }
+    fn limit(&self) -> usize {
+        self.removed
+            .get(self.rm)
+            .filter(|s| self.pos < s.start)
+            .map_or(self.src.len(), |s| s.start)
+    }
+    fn collect(mut self) -> Lexed {
+        loop {
+            self.skip_removed();
+            if self.pos >= self.src.len() {
                 break;
             }
-            if self.next_visible(pos) > pos + c.len_utf8() {
-                bridged = true;
+            if self.step().is_none() {
+                self.unexpected();
             }
-            out.push(c);
-            end = pos + c.len_utf8();
-            pos = self.next_visible(pos);
         }
-        (out, bridged, end)
-    }
-
-    fn value(start: usize, end: usize, text: String, bridged: bool) -> TextVal {
-        if bridged {
-            TextVal::Owned(text)
-        } else {
-            TextVal::Slice(Span { start, end })
-        }
-    }
-
-    fn finish(&mut self, kind: TokenKind, start: usize, end: usize, text: TextVal) -> Token {
-        self.pos = self.skip_gaps(end);
-        match kind {
-            TokenKind::Newline | TokenKind::Semi | TokenKind::Nodir | TokenKind::End => {
-                self.stmt_start = true;
-            }
-            TokenKind::Space => {}
-            _ => self.stmt_start = false,
-        }
-        Token::new(kind, Span { start, end }, text)
-    }
-
-    /// Consumes `end` for a rule that produces no token, as `flowchart-023` states.
-    fn consumed(&mut self, end: usize) {
-        self.pos = self.skip_gaps(end);
-        self.stmt_start = false;
-    }
-
-    fn record(&mut self, code: &'static str, span: Span, message: String) {
-        self.diags
-            .push(diagnostic(code, Severity::Error, message, span));
-    }
-
-    /// Drops every open mode, jumps to the statement boundary after `from`, and returns it.
-    pub(crate) fn abort_to_boundary(&mut self, from: usize) -> usize {
-        let end = self.statement_boundary(from);
-        self.stack.clear();
-        self.stmt_start = true;
-        self.pos = if end < self.src.len() {
-            self.next_visible(end)
-        } else {
-            end
+        let mut out = Lexed {
+            tokens: Vec::new(),
+            diagnostics: Vec::new(),
+            eof_quote: self.open_quote,
+            eof_label: None,
+            eof_shape: None,
+            eof_acc: None,
         };
-        end
-    }
-
-    /// The first `;` or line end outside a string, a bracket pair, a label and shape data.
-    pub(crate) fn statement_boundary(&self, from: usize) -> usize {
-        let mut pos = from;
-        let mut in_string = false;
-        let mut in_shape = false;
-        let mut shape_string = false;
-        let mut pipe = false;
-        let mut brackets: Vec<&'static str> = Vec::new();
-        while let Some(c) = self.char_at(pos) {
-            let after = self.next_visible(pos);
-            if in_shape {
-                match c {
-                    '"' => shape_string = !shape_string,
-                    '}' if !shape_string => in_shape = false,
-                    _ => {}
-                }
-                pos = after;
-                continue;
-            }
-            if in_string {
-                if c == '"' {
-                    in_string = false;
-                }
-                pos = after;
-                continue;
-            }
-            match c {
-                '"' => in_string = true,
-                '@' if self.at(after) == Some(b'{') => {
-                    in_shape = true;
-                    shape_string = false;
-                    pos = self.next_visible(after);
-                    continue;
-                }
-                '|' => pipe = !pipe,
-                '[' | '(' | '{' => {
-                    let (closer, end) = self.opener_closer(pos, c);
-                    brackets.push(closer);
-                    pos = end;
-                    continue;
-                }
-                ']' | ')' | '}' => {
-                    if let Some(closer) = brackets.last().copied()
-                        && closer.starts_with(c)
-                        && self.closer_at(pos, closer)
-                    {
-                        brackets.pop();
-                        if closer.len() == 2 {
-                            pos = self.next_visible(after);
-                            continue;
-                        }
+        for f in &self.frames {
+            match f.mode {
+                Mode::Text | Mode::EllipseText | Mode::TrapText => {
+                    if out.eof_label.is_none() {
+                        out.eof_label = Some(f.open);
                     }
                 }
-                ';' | '\n' | '\r' if !pipe && brackets.is_empty() => return pos,
+                Mode::ShapeData => out.eof_shape = Some(f.open),
+                Mode::AccDescrMultiline => out.eof_acc = Some(f.open),
                 _ => {}
             }
-            pos = after;
         }
-        self.src.len()
-    }
-
-    fn opener_closer(&self, pos: usize, first: char) -> (&'static str, usize) {
-        let after = self.next_visible(pos);
-        let second = self.char_at(after);
-        match (first, second) {
-            ('[', Some('[')) => ("]]", self.next_visible(after)),
-            ('[', Some('(')) => (")]", self.next_visible(after)),
-            ('[', Some('|')) => ("]", after),
-            ('(', Some('(')) => ("))", self.next_visible(after)),
-            ('{', Some('{')) => ("}}", self.next_visible(after)),
-            ('[', _) => ("]", after),
-            ('(', _) => (")", after),
-            _ => ("}", after),
-        }
-    }
-
-    fn closer_at(&self, pos: usize, closer: &str) -> bool {
-        let mut q = pos;
-        for byte in closer.bytes() {
-            if self.at(q) != Some(byte) {
-                return false;
-            }
-            q = self.next_visible(q);
-        }
-        true
-    }
-
-    fn eof(&self) -> Token {
-        let pos = self.src.len();
-        Token::new(
+        self.keep(Token::new(
             TokenKind::Eof,
             Span {
-                start: pos,
-                end: pos,
+                start: self.pos,
+                end: self.pos,
             },
             TextVal::None,
-        )
+        ));
+        out.tokens = self.tokens;
+        out.diagnostics = self.diagnostics;
+        out
     }
-
-    pub(crate) fn next_token(&mut self) -> Token {
-        loop {
-            self.pos = self.skip_gaps(self.pos);
-            if self.pos >= self.src.len() {
-                return self.eof();
+    fn step(&mut self) -> Option<Option<TokenKind>> {
+        let n = self.limit();
+        for r in RULES {
+            if r.modes & (1 << self.mode() as u32) == 0 {
+                continue;
             }
-            let before = self.pos;
-            let produced = match self.mode() {
-                Mode::Initial => self.lex_initial(before),
-                Mode::Dir => self.lex_dir(before),
-                Mode::AccTitle | Mode::AccDescr => self.lex_acc_value(before),
-                Mode::AccDescrMultiline => self.lex_acc_multiline(before),
-                Mode::Stringlit => self.lex_string(before),
-                Mode::MdString => self.lex_md_string(before),
-                Mode::Click => self.lex_click(before),
-                Mode::CallbackName => self.lex_callback_name(before),
-                Mode::CallbackArgs => self.lex_callback_args(before),
-                Mode::Text => self.lex_text(before),
-                Mode::EllipseText => self.lex_ellipse_text(before),
-                Mode::TrapText => self.lex_trap_text(before),
-                Mode::EdgeText | Mode::ThickEdgeText | Mode::DottedEdgeText => {
-                    self.lex_edge_text(before)
-                }
-                Mode::ShapeData => self.lex_shape_data(before),
-                Mode::ShapeDataStr => self.lex_shape_data_str(before),
+            let Some(end) = (r.matcher)(self, n) else {
+                continue;
             };
-            if let Some(token) = produced {
-                return token;
+            if end > n || end == self.pos && !r.empty {
+                continue;
             }
-            if self.pos == before {
-                self.pos = self.next_visible(before);
-            }
+            self.emit(r, end);
+            return Some(r.kind);
+        }
+        None
+    }
+    fn keep(&mut self, t: Token) {
+        if !self.silent {
+            self.tokens.push(t);
         }
     }
+    fn report(&mut self, span: Span, raw: &str, names: &[&str]) {
+        if self.silent {
+            return;
+        }
+        self.diagnostics.push(diagnostic(
+            C_UNEXPECTED_TOKEN,
+            Severity::Error,
+            format!("unexpected {raw}, expected one of: {}", names.join(", ")),
+            span,
+        ));
+    }
+    fn emit(&mut self, r: &Rule, end: usize) {
+        let start = self.pos;
+        self.pos = end;
+        let span = Span { start, end };
+        match r.act {
+            Act::OpenString | Act::OpenMDString => {
+                if self.mode() == Mode::CallbackName && matches!(r.act, Act::OpenString) {
+                    self.report(
+                        span,
+                        self.src.get(start..end).unwrap_or(""),
+                        &["CALLBACKNAME"],
+                    );
+                }
+                self.open_quote = Some(start);
+                self.push(
+                    if matches!(r.act, Act::OpenString) {
+                        Mode::Stringlit
+                    } else {
+                        Mode::MdString
+                    },
+                    span,
+                );
+                return;
+            }
+            Act::CloseString | Act::CloseMDString => {
+                self.end_string(end);
+                return;
+            }
+            Act::AccBlockOpen => {
+                self.push(Mode::AccDescrMultiline, span);
+                return;
+            }
+            Act::AccBlockClose | Act::LeaveOnly => {
+                self.pop();
+                return;
+            }
+            Act::BeginCallbackArgs => {
+                self.pop();
+                self.push(Mode::CallbackArgs, span);
+                return;
+            }
+            _ => {}
+        }
+        if matches!(r.act, Act::ShapeOpen) {
+            self.push(Mode::ShapeData, span);
+        }
+        if matches!(r.act, Act::Graph) && !self.graph_seen {
+            self.graph_seen = true;
+            self.push(Mode::Dir, span);
+        }
+        if let Some(mode) = r.push {
+            self.push(mode, span);
+        }
+        if r.pop {
+            self.pop();
+        }
+        self.finish_emit(r, span);
+    }
 
-    fn unmatched(&mut self, mode: Mode, start: usize) -> Option<Token> {
-        let end = self.next_visible(start);
-        let raw = self.raw(Span { start, end });
-        let mut names: Vec<&'static str> = mode_kinds(mode).iter().map(|k| k.as_str()).collect();
+    fn finish_emit(&mut self, r: &Rule, span: Span) {
+        let Span { start, end } = span;
+        let Some(kind) = r.kind else { return };
+        let text = if matches!(r.act, Act::ShapeOpen) {
+            TextVal::None
+        } else {
+            self.text_value(span)
+        };
+        let mut token = Token::new(kind, span, text);
+        if matches!(r.act, Act::ShapeRun) {
+            let (text, brs) = replace_line_ends(&self.src.as_bytes()[start..end]);
+            token.text = TextVal::Owned(text);
+            token.brs = brs;
+            self.keep(token);
+            return;
+        }
+        token.string_open = self.open_quote;
+        if matches!(kind, TokenKind::Str | TokenKind::MdStr) {
+            if self.first_cont.is_some() {
+                token.split_continuation = true;
+            } else {
+                self.first_cont = Some(self.tokens.len());
+            }
+            self.last_cont = Some(self.tokens.len());
+        }
+        self.keep(token);
+    }
+    fn text_value(&self, span: Span) -> TextVal {
+        if self.src.get(span.start..span.end).is_some() {
+            TextVal::Slice(span)
+        } else {
+            TextVal::Owned(
+                String::from_utf8_lossy(&self.src.as_bytes()[span.start..span.end]).into_owned(),
+            )
+        }
+    }
+    fn end_string(&mut self, end: usize) {
+        let open = self.open_quote;
+        self.pop();
+        self.open_quote = None;
+        if let (Some(first), Some(last)) = (self.first_cont, self.last_cont)
+            && !self.silent
+        {
+            self.tokens[first].span.start = open.unwrap_or(0);
+            self.tokens[last].span.end = end;
+            self.first_cont = None;
+            self.last_cont = None;
+            return;
+        }
+        self.first_cont = None;
+        self.last_cont = None;
+        self.keep(Token::new(
+            TokenKind::Str,
+            Span {
+                start: open.unwrap_or(0),
+                end,
+            },
+            TextVal::None,
+        ));
+    }
+    fn unexpected(&mut self) {
+        let start = self.pos;
+        let n = self.limit();
+        let size = self
+            .src
+            .get(start..n)
+            .and_then(|s| s.chars().next())
+            .map_or(1, char::len_utf8);
+        let mut names: Vec<&str> = RULES
+            .iter()
+            .filter(|r| r.modes & (1 << self.mode() as u32) != 0)
+            .filter_map(|r| r.kind.map(TokenKind::as_str))
+            .collect();
         names.sort_unstable();
         names.dedup();
-        self.record(
-            C_UNEXPECTED_TOKEN,
-            Span { start, end },
-            format!("unexpected {raw}, expected one of: {}", names.join(", ")),
-        );
-        let boundary = self.abort_to_boundary(start);
-        Some(Token::new(
-            TokenKind::Newline,
-            Span {
-                start: boundary,
-                end: boundary,
-            },
-            TextVal::None,
-        ))
-    }
-
-    fn lex_initial(&mut self, p: usize) -> Option<Token> {
-        let rules: [fn(&mut Self, usize) -> Option<Token>; 20] = [
-            Self::try_acc,
-            Self::try_shape_data_open,
-            Self::try_call,
-            Self::try_quote,
-            Self::try_keyword,
-            Self::try_href,
-            Self::try_click,
-            Self::try_header,
-            Self::try_block_keyword,
-            Self::try_direction_stmt,
-            Self::try_link_id,
-            Self::try_punct,
-            Self::try_link,
-            Self::try_opener,
-            Self::try_angle,
-            Self::try_node_string,
-            Self::try_minus,
-            Self::try_unicode_text,
-            Self::try_loose_opener,
-            Self::whitespace,
-        ];
-        for rule in rules {
-            let token = rule(self, p);
-            if token.is_some() || self.pos != p {
-                return token;
-            }
-        }
-        self.unmatched(Mode::Initial, p)
-    }
-
-    fn simple_token(&mut self, kind: TokenKind, p: usize) -> Option<Token> {
-        let end = self.next_visible(p);
-        Some(self.finish(kind, p, end, TextVal::Slice(Span { start: p, end })))
-    }
-
-    fn try_acc(&mut self, p: usize) -> Option<Token> {
-        if let Some(end) = self.title_rule(p) {
-            let span = Span { start: p, end };
-            let token = self.finish(TokenKind::AccTitle, p, end, TextVal::Slice(span));
-            self.push(Mode::AccTitle, span, false);
-            return Some(token);
-        }
-        let kw_end = self.match_lit(p, "accDescr")?;
-        let colon = self.ws_star(kw_end);
-        if self.at(colon) == Some(b':') {
-            let end = self.ws_star(self.next_visible(colon));
-            let span = Span { start: p, end };
-            let token = self.finish(TokenKind::AccDescr, p, end, TextVal::Slice(span));
-            self.push(Mode::AccDescr, span, false);
-            return Some(token);
-        }
-        let brace = self.ws_star(kw_end);
-        if self.at(brace) != Some(b'{') {
-            return None;
-        }
-        let end = self.ws_star(self.next_visible(brace));
-        let span = Span { start: p, end };
-        self.push(Mode::AccDescrMultiline, span, false);
-        self.blocks.push(span);
-        self.consumed(end);
-        None
-    }
-
-    fn title_rule(&self, p: usize) -> Option<usize> {
-        let kw_end = self.match_lit(p, "accTitle")?;
-        let colon = self.ws_star(kw_end);
-        if self.at(colon) != Some(b':') {
-            return None;
-        }
-        Some(self.ws_star(self.next_visible(colon)))
-    }
-
-    fn try_shape_data_open(&mut self, p: usize) -> Option<Token> {
-        let end = self.match_lit(p, "@{")?;
-        let token = self.finish(TokenKind::ShapeData, p, end, TextVal::None);
-        self.push(Mode::ShapeData, Span { start: p, end }, false);
-        Some(token)
-    }
-
-    fn try_call(&mut self, p: usize) -> Option<Token> {
-        let kw = self.match_lit(p, "call")?;
-        let end = self.ws_plus(kw)?;
-        self.push(Mode::CallbackName, Span { start: p, end }, false);
-        self.consumed(end);
-        None
-    }
-
-    fn try_quote(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) != Some(b'"') {
-            return None;
-        }
-        let after = self.next_visible(p);
-        let (mode, end) = if self.at(after) == Some(b'`') {
-            (Mode::MdString, self.next_visible(after))
-        } else {
-            (Mode::Stringlit, after)
-        };
-        let label = self.top_label();
-        self.push(mode, Span { start: p, end }, label);
-        self.consumed(end);
-        None
-    }
-
-    fn try_keyword(&mut self, p: usize) -> Option<Token> {
-        for (lit, kind) in [
-            ("style", TokenKind::Style),
-            ("default", TokenKind::Default),
-            ("linkStyle", TokenKind::LinkStyle),
-            ("interpolate", TokenKind::Interpolate),
-            ("classDef", TokenKind::ClassDef),
-            ("class", TokenKind::Class),
-        ] {
-            if let Some(end) = self.match_lit(p, lit) {
-                if self
-                    .at(end)
-                    .is_some_and(|b| b.is_ascii_alphanumeric() || b == b'_')
-                {
-                    continue;
-                }
-                let span = Span { start: p, end };
-                return Some(self.finish(kind, p, end, TextVal::Slice(span)));
-            }
-        }
-        None
-    }
-
-    fn try_href(&mut self, p: usize) -> Option<Token> {
-        let kw = self.match_lit(p, "href")?;
-        let end = self.ws_plus(kw)?;
-        let span = Span { start: p, end };
-        Some(self.finish(TokenKind::Href, p, end, TextVal::Slice(span)))
-    }
-
-    fn try_click(&mut self, p: usize) -> Option<Token> {
-        let kw = self.match_lit(p, "click")?;
-        let end = self.ws_plus(kw)?;
-        self.push(Mode::Click, Span { start: p, end }, false);
-        self.consumed(end);
-        None
-    }
-
-    fn try_header(&mut self, p: usize) -> Option<Token> {
-        for lit in ["flowchart-elk", "graph", "flowchart"] {
-            if let Some(end) = self.match_lit(p, lit) {
-                let span = Span { start: p, end };
-                let token = self.finish(TokenKind::Graph, p, end, TextVal::Slice(span));
-                if self.first_graph {
-                    self.first_graph = false;
-                    self.push(Mode::Dir, span, false);
-                }
-                return Some(token);
-            }
-        }
-        None
-    }
-
-    fn try_block_keyword(&mut self, p: usize) -> Option<Token> {
-        if let Some(end) = self.match_lit(p, "subgraph")
-            && !self
-                .at(end)
-                .is_some_and(|b| b.is_ascii_alphanumeric() || b == b'_')
-        {
-            let span = Span { start: p, end };
-            return Some(self.finish(TokenKind::Subgraph, p, end, TextVal::Slice(span)));
-        }
-        if let Some(tok) = self.try_end(p) {
-            return Some(tok);
-        }
-        for lit in ["_self", "_blank", "_parent", "_top"] {
-            if let Some(end) = self.match_lit(p, lit) {
-                let span = Span { start: p, end };
-                return Some(self.finish(TokenKind::LinkTarget, p, end, TextVal::Slice(span)));
-            }
-        }
-        None
-    }
-
-    fn try_end(&mut self, p: usize) -> Option<Token> {
-        let kw = self.match_lit(p, "end")?;
-        if let Some(c) = self.char_at(kw)
-            && (c.is_ascii_alphanumeric() || c == '_')
-        {
-            return None;
-        }
-        let mut end = kw;
-        while matches!(self.at(end), Some(b' ' | b'\t')) {
-            end += 1;
-        }
-        let span = Span { start: p, end };
-        Some(self.finish(TokenKind::End, p, end, TextVal::Slice(span)))
-    }
-
-    fn try_direction_stmt(&mut self, p: usize) -> Option<Token> {
-        let (kind, end) = self.direction_stmt(p)?;
-        let span = Span { start: p, end };
-        Some(self.finish(kind, p, end, TextVal::Slice(span)))
-    }
-
-    fn direction_stmt(&self, p: usize) -> Option<(TokenKind, usize)> {
-        if !self.stmt_start {
-            return None;
-        }
-        let mut found = None;
-        let mut q = p;
-        while let Some(c) = self.char_at(q) {
-            if matches!(c, '\n' | '\r' | '\u{2028}' | '\u{2029}') {
-                break;
-            }
-            if let Some(end) = self.direction_at(q) {
-                found = Some(end);
-            }
-            q = self.next_visible(q);
-        }
-        found
-    }
-
-    fn direction_at(&self, p: usize) -> Option<(TokenKind, usize)> {
-        let kw = self.match_lit(p, "direction")?;
-        let after = self.ws_plus(kw)?;
-        for (code, kind) in [
-            ("TB", TokenKind::DirectionTb),
-            ("BT", TokenKind::DirectionBt),
-            ("RL", TokenKind::DirectionRl),
-            ("LR", TokenKind::DirectionLr),
-            ("TD", TokenKind::DirectionTd),
-        ] {
-            if let Some(end) = self.match_lit(after, code) {
-                return Some((kind, self.to_line_feed(end)));
-            }
-        }
-        None
-    }
-
-    fn to_line_feed(&self, from: usize) -> usize {
-        let mut q = from;
-        while let Some(c) = self.char_at(q) {
-            if c == '\n' {
-                break;
-            }
-            q = self.next_visible(q);
-        }
-        q
-    }
-
-    fn try_link_id(&mut self, p: usize) -> Option<Token> {
-        let end = self.link_id(p)?;
-        let span = Span { start: p, end };
-        Some(self.finish(TokenKind::LinkId, p, end, TextVal::Slice(span)))
-    }
-
-    fn link_id(&self, p: usize) -> Option<usize> {
-        let mut ats = Vec::new();
-        let mut q = p;
-        while let Some(c) = self.char_at(q) {
-            if !link_id_char(c) {
-                break;
-            }
-            if c == '@' {
-                ats.push(q);
-            }
-            q = self.next_visible(q);
-        }
-        for at in ats.into_iter().rev() {
-            let after = self.next_visible(at);
-            if !matches!(self.at(after), Some(b'{') | Some(b'"')) {
-                return Some(after);
-            }
-        }
-        None
-    }
-
-    fn try_punct(&mut self, p: usize) -> Option<Token> {
-        if let Some(end) = self.digits(p) {
-            let span = Span { start: p, end };
-            return Some(self.finish(TokenKind::Num, p, end, TextVal::Slice(span)));
-        }
-        if let Some(end) = self.match_lit(p, ":::") {
-            let span = Span { start: p, end };
-            return Some(self.finish(TokenKind::StyleSeparator, p, end, TextVal::Slice(span)));
-        }
-        let kind = match self.at(p)? {
-            b'#' => TokenKind::Brkt,
-            b':' => TokenKind::Colon,
-            b'&' => TokenKind::Amp,
-            b';' => TokenKind::Semi,
-            b',' => TokenKind::Comma,
-            b'*' => TokenKind::Mult,
-            _ => return None,
-        };
-        self.simple_token(kind, p)
-    }
-
-    fn digits(&self, p: usize) -> Option<usize> {
-        let (_, _, end) = self.run_while(p, |c| c.is_ascii_digit());
-        (end > p).then_some(end)
-    }
-
-    fn try_link(&mut self, p: usize) -> Option<Token> {
-        if let Some(end) = [self.normal_link(p), self.thick_link(p), self.dotted_link(p)]
-            .into_iter()
-            .flatten()
-            .next()
-        {
-            let span = Span { start: p, end };
-            return Some(self.finish(TokenKind::Link, p, end, TextVal::Slice(span)));
-        }
-        if let Some(end) = self.tilde_link(p) {
-            let span = Span { start: p, end };
-            return Some(self.finish(TokenKind::Link, p, end, TextVal::Slice(span)));
-        }
-        for mode in [Mode::EdgeText, Mode::ThickEdgeText, Mode::DottedEdgeText] {
-            if let Some(end) = self.start_link(p, mode) {
-                let span = Span { start: p, end };
-                let token = self.finish(TokenKind::StartLink, p, end, TextVal::Slice(span));
-                self.push(mode, span, false);
-                return Some(token);
-            }
-        }
-        None
-    }
-
-    fn edge_prefix(&self, pos: usize) -> usize {
-        let p = self.ws_star(pos);
-        match self.at(p) {
-            Some(b'x') | Some(b'o') | Some(b'<') => self.next_visible(p),
-            _ => p,
-        }
-    }
-
-    fn normal_link(&self, pos: usize) -> Option<usize> {
-        let body = self.edge_prefix(pos);
-        let dashes = self.count_run(body, '-');
-        if dashes < 2 {
-            return None;
-        }
-        let p = self.advance(body, dashes);
-        match self.at(p) {
-            Some(b'-') | Some(b'x') | Some(b'o') | Some(b'>') => {
-                Some(self.ws_star(self.next_visible(p)))
-            }
-            _ if dashes >= 3 => Some(self.ws_star(p)),
-            _ => None,
-        }
-    }
-
-    fn thick_link(&self, pos: usize) -> Option<usize> {
-        let body = self.edge_prefix(pos);
-        let run = self.count_run(body, '=');
-        if run < 2 {
-            return None;
-        }
-        let p = self.advance(body, run);
-        match self.at(p) {
-            Some(b'=') | Some(b'x') | Some(b'o') | Some(b'>') => {
-                Some(self.ws_star(self.next_visible(p)))
-            }
-            _ if run >= 3 => Some(self.ws_star(p)),
-            _ => None,
-        }
-    }
-
-    fn dotted_link(&self, pos: usize) -> Option<usize> {
-        let body = self.edge_prefix(pos);
-        let mut p = body;
-        if self.at(p) == Some(b'-') {
-            p = self.next_visible(p);
-        }
-        let dots = self.count_run(p, '.');
-        if dots < 1 {
-            return None;
-        }
-        p = self.advance(p, dots);
-        if self.at(p) != Some(b'-') {
-            return None;
-        }
-        p = self.next_visible(p);
-        if matches!(self.at(p), Some(b'x') | Some(b'o') | Some(b'>')) {
-            p = self.next_visible(p);
-        }
-        Some(self.ws_star(p))
-    }
-
-    fn tilde_link(&self, pos: usize) -> Option<usize> {
-        let body = self.ws_star(pos);
-        let run = self.count_run(body, '~');
-        if run < 3 {
-            return None;
-        }
-        Some(self.ws_star(self.advance(body, run)))
-    }
-
-    fn start_link(&self, pos: usize, mode: Mode) -> Option<usize> {
-        let body = self.edge_prefix(self.ws_star(pos));
-        match mode {
-            Mode::ThickEdgeText => {
-                (self.count_run(body, '=') == 2).then(|| self.ws_star(self.advance(body, 2)))
-            }
-            Mode::DottedEdgeText => {
-                if self.at(body) == Some(b'-') {
-                    let dot = self.next_visible(body);
-                    if self.at(dot) == Some(b'.') {
-                        return Some(self.ws_star(dot));
-                    }
-                }
-                None
-            }
-            _ => (self.count_run(body, '-') == 2).then(|| self.ws_star(self.advance(body, 2))),
-        }
-    }
-
-    fn advance(&self, from: usize, count: usize) -> usize {
-        let mut q = from;
-        for _ in 0..count {
-            q = self.next_visible(q);
-        }
-        q
-    }
-
-    fn count_run(&self, from: usize, byte: char) -> usize {
-        let mut count = 0;
-        let mut p = from;
-        while self.char_at(p) == Some(byte) {
-            count += 1;
-            p = self.next_visible(p);
-        }
-        count
-    }
-
-    fn try_opener(&mut self, p: usize) -> Option<Token> {
-        const OPENERS: [(&str, TokenKind, Mode); 8] = [
-            ("(-", TokenKind::EllipseStart, Mode::EllipseText),
-            ("([", TokenKind::StadiumStart, Mode::Text),
-            ("[[", TokenKind::SubroutineStart, Mode::Text),
-            ("[(", TokenKind::CylinderStart, Mode::Text),
-            ("(((", TokenKind::DoubleCircleStart, Mode::Text),
-            ("[/", TokenKind::TrapStart, Mode::TrapText),
-            ("[\\", TokenKind::InvTrapStart, Mode::TrapText),
-            ("[|", TokenKind::VertexWithPropsStart, Mode::Text),
-        ];
-        for (lit, kind, mode) in OPENERS {
-            if let Some(end) = self.match_lit(p, lit) {
-                let span = Span { start: p, end };
-                let token = self.finish(kind, p, end, TextVal::Slice(span));
-                self.push(mode, span, true);
-                return Some(token);
-            }
-        }
-        if let Some(end) = self.match_lit(p, ">") {
-            let span = Span { start: p, end };
-            let token = self.finish(TokenKind::TagEnd, p, end, TextVal::Slice(span));
-            self.push(Mode::Text, span, true);
-            return Some(token);
-        }
-        None
-    }
-
-    fn try_angle(&mut self, p: usize) -> Option<Token> {
-        let kind = match self.at(p)? {
-            b'<' => TokenKind::TagStart,
-            b'^' => TokenKind::Up,
-            b'v' => TokenKind::Down,
-            _ => return None,
-        };
-        self.simple_token(kind, p)
-    }
-
-    fn try_node_string(&mut self, p: usize) -> Option<Token> {
-        let mut q = p;
-        let mut end = p;
-        while let Some(c) = self.char_at(q) {
-            if !word_char(self, q, c) {
-                break;
-            }
-            end = q + c.len_utf8();
-            q = self.next_visible(q);
-        }
-        if end == p {
-            return None;
-        }
-        let span = Span { start: p, end };
-        Some(self.finish(TokenKind::NodeString, p, end, TextVal::Slice(span)))
-    }
-
-    fn try_minus(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) != Some(b'-') {
-            return None;
-        }
-        self.simple_token(TokenKind::Minus, p)
-    }
-
-    fn try_unicode_text(&mut self, p: usize) -> Option<Token> {
-        let c = self.char_at(p)?;
-        if !unicode_text(c) {
-            return None;
-        }
-        self.simple_token(TokenKind::UnicodeText, p)
-    }
-
-    fn try_loose_opener(&mut self, p: usize) -> Option<Token> {
-        let kind = match self.at(p)? {
-            b'|' => TokenKind::Pipe,
-            b'(' => TokenKind::Ps,
-            b'[' => TokenKind::Sqs,
-            b'{' => TokenKind::DiamondStart,
-            _ => return None,
-        };
-        let end = self.next_visible(p);
-        let span = Span { start: p, end };
-        let token = self.finish(kind, p, end, TextVal::Slice(span));
-        self.push(Mode::Text, span, false);
-        Some(token)
-    }
-
-    fn whitespace(&mut self, p: usize) -> Option<Token> {
-        if self.line_end(p).is_some() {
-            let mut q = p;
-            while let Some(end) = self.line_end(q) {
-                q = end;
-            }
-            let span = Span { start: p, end: q };
-            return Some(self.finish(TokenKind::Newline, p, q, TextVal::Slice(span)));
-        }
-        let (_, _, end) = self.run_while(p, |c| is_ws(c) && c != '\n' && c != '\r');
-        (end > p).then(|| {
-            let span = Span { start: p, end };
-            self.finish(TokenKind::Space, p, end, TextVal::Slice(span))
-        })
-    }
-
-    fn lex_dir(&mut self, p: usize) -> Option<Token> {
-        if let Some(end) = self.nodir_end(p) {
-            let span = Span { start: p, end };
-            self.pop();
-            return Some(self.finish(TokenKind::Nodir, p, end, TextVal::Slice(span)));
-        }
-        if let Some((_, end)) = self.direction_keyword(p) {
-            let span = Span { start: p, end };
-            let token = self.finish(TokenKind::Dir, p, end, TextVal::Slice(span));
-            self.pop();
-            return Some(token);
-        }
-        self.dir_failure(p)
-    }
-
-    fn nodir_end(&self, p: usize) -> Option<usize> {
-        if p >= self.src.len() {
-            return Some(p);
-        }
-        let mut q = p;
-        let mut last = None;
-        loop {
-            if let Some(end) = self.line_end(q) {
-                last = Some(end);
-                q = end;
-                continue;
-            }
-            match self.char_at(q) {
-                Some(c) if is_ws(c) && c != '\n' && c != '\r' => q = self.next_visible(q),
-                _ => break,
-            }
-        }
-        last
-    }
-
-    fn direction_keyword(&self, p: usize) -> Option<(char, usize)> {
-        let body = self.ws_star(p);
-        for (code, lit) in [
-            ('L', "LR"),
-            ('R', "RL"),
-            ('T', "TB"),
-            ('B', "BT"),
-            ('D', "TD"),
-            ('B', "BR"),
-            ('<', "<"),
-            ('>', ">"),
-            ('^', "^"),
-            ('v', "v"),
-        ] {
-            if let Some(end) = self.match_lit(body, lit) {
-                return Some((code, end));
-            }
-        }
-        None
-    }
-
-    fn dir_failure(&mut self, p: usize) -> Option<Token> {
-        let start = self.ws_star(p);
-        let (_, _, end) = self.run_while(start, |c| !is_ws(c) && c != ';');
-        let span = if end > start {
-            Span { start, end }
-        } else {
+        self.report(
             Span {
                 start,
-                end: self.next_visible(start),
-            }
-        };
-        let kw_later = self.later_direction_word(span.end);
-        let (code, message) = if kw_later {
-            (
-                C_DIR_KW_INVALID,
-                "An unknown keyword appears before the direction token",
-            )
-        } else {
-            (
-                C_DIR_INVALID,
-                "The direction token after the header is not one of TD, TB, BT, RL, LR",
-            )
-        };
-        let mut diagnostic = diagnostic(code, Severity::Error, message.to_owned(), span);
-        if kw_later {
-            let cut = self.trailing_space(span.end);
-            diagnostic.fixes.push(Fix {
-                title: String::from("Remove the unknown keyword"),
-                safety: FixSafety::Safe,
-                edits: vec![Edit {
-                    span: Span {
-                        start: span.start,
-                        end: cut,
-                    },
-                    new_text: String::new(),
-                }],
-            });
-        }
-        self.diags.push(diagnostic);
-        let boundary = self.abort_to_boundary(p);
-        Some(Token::new(
-            TokenKind::Newline,
-            Span {
-                start: boundary,
-                end: boundary,
+                end: start + size,
             },
-            TextVal::None,
-        ))
+            self.src.get(start..start + size).unwrap_or("�"),
+            &names,
+        );
+        self.frames.truncate(1);
+        self.open_quote = None;
+        self.first_cont = None;
+        self.last_cont = None;
+        self.pos = self.skip_to_boundary(start);
+        self.skip_removed();
     }
-
-    fn trailing_space(&self, from: usize) -> usize {
-        match self.char_at(from) {
-            Some(c) if is_ws(c) && c != '\n' && c != '\r' => self.next_visible(from),
-            _ => from,
-        }
-    }
-
-    fn later_direction_word(&self, from: usize) -> bool {
-        let mut q = from;
-        while let Some(c) = self.char_at(q) {
-            if matches!(c, '\n' | '\r' | ';') {
-                return false;
+    fn skip_to_boundary(&mut self, from: usize) -> usize {
+        let frames = std::mem::replace(
+            &mut self.frames,
+            vec![Frame {
+                mode: Mode::Initial,
+                open: Span { start: 0, end: 0 },
+            }],
+        );
+        self.pos = from;
+        self.silent = true;
+        let end = loop {
+            self.skip_removed();
+            if self.pos >= self.src.len() {
+                break self.src.len();
             }
-            if is_ws(c) {
-                q = self.next_visible(q);
-                continue;
+            let start = self.pos;
+            match self.step() {
+                None => self.pos = start + 1,
+                Some(kind)
+                    if self.frames.len() == 1
+                        && matches!(kind, Some(TokenKind::Newline | TokenKind::Semi)) =>
+                {
+                    break start;
+                }
+                _ => {}
             }
-            let (_, _, end) = self.run_while(q, |c| !is_ws(c) && c != ';');
-            if is_direction_word(self.raw(Span { start: q, end })) {
-                return true;
-            }
-            q = end;
-        }
-        false
-    }
-
-    fn lex_acc_value(&mut self, p: usize) -> Option<Token> {
-        let (_, _, end) = self.run_while(p, |c| !matches!(c, '\n' | '\r' | ';' | '#'));
-        let span = Span { start: p, end };
-        let kind = match self.mode() {
-            Mode::AccTitle => TokenKind::AccTitleValue,
-            _ => TokenKind::AccDescrValue,
         };
-        let token = self.finish(kind, p, end, TextVal::Slice(span));
-        self.pop();
-        Some(token)
+        self.silent = false;
+        self.frames = frames;
+        end
     }
-
-    fn lex_acc_multiline(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) == Some(b'}') {
-            let end = self.next_visible(p);
-            self.pop();
-            self.consumed(end);
+    fn bytes(&self) -> &[u8] {
+        self.src.as_bytes()
+    }
+    fn matches(&self, p: usize, n: usize, s: &str) -> bool {
+        p + s.len() <= n && self.bytes().get(p..p + s.len()) == Some(s.as_bytes())
+    }
+    fn run(&self, mut p: usize, n: usize, pred: impl Fn(u8) -> bool) -> usize {
+        while p < n && pred(self.bytes()[p]) {
+            p += 1;
+        }
+        p
+    }
+    fn nonempty(&self, p: usize) -> Option<usize> {
+        (p > self.pos).then_some(p)
+    }
+    fn lit(&self, n: usize, s: &str) -> Option<usize> {
+        if !self.matches(self.pos, n, s) {
             return None;
         }
-        let (_, _, end) = self.run_while(p, |c| c != '}');
-        let span = Span { start: p, end };
-        Some(self.finish(
-            TokenKind::AccDescrMultilineValue,
-            p,
-            end,
-            TextVal::Slice(span),
-        ))
-    }
-
-    fn lex_string(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) == Some(b'"') {
-            let after = self.next_visible(p);
-            self.pop();
-            self.consumed(after);
+        let end = self.pos + s.len();
+        let b = s.as_bytes();
+        if b.first().is_some_and(u8::is_ascii_alphanumeric)
+            && b.last().is_some_and(u8::is_ascii_alphanumeric)
+            && !self.boundary(end, n)
+        {
             return None;
         }
-        let (text, bridged, end) = self.run_while(p, |c| c != '"');
-        let open = self.opener_start(p);
-        if text.ends_with('\\') && self.top_label() {
-            let close = if self.at(end) == Some(b'"') {
-                self.next_visible(end)
-            } else {
-                end
-            };
-            self.record(
-                C_LABEL_ESCAPED_QUOTE,
-                Span {
-                    start: end.saturating_sub(1),
-                    end: close,
-                },
-                String::from(
-                    "A node label contains a backslash-escaped quote, which Mermaid does not support",
-                ),
-            );
-            let token = self.finish(TokenKind::Str, open, close, TextVal::Owned(text));
-            self.pop();
-            return Some(token);
-        }
-        let value = Lexer::value(p, end, text, bridged);
-        Some(self.finish(TokenKind::Str, open, end, value))
+        Some(end)
     }
-
-    fn lex_md_string(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) == Some(b'`') && self.at(self.next_visible(p)) == Some(b'"') {
-            let end = self.next_visible(self.next_visible(p));
-            self.pop();
-            self.consumed(end);
+    fn boundary(&self, p: usize, n: usize) -> bool {
+        p >= n || !(self.bytes()[p].is_ascii_alphanumeric() || self.bytes()[p] == b'_')
+    }
+    fn keyword_then_space(&self, n: usize, s: &str) -> Option<usize> {
+        if !self.matches(self.pos, n, s) {
             return None;
         }
-        if self.at(p) == Some(b'"') {
-            let after = self.next_visible(p);
-            self.record(
-                C_LABEL_DOUBLE_IN_SINGLE,
-                Span {
-                    start: p,
-                    end: after,
-                },
-                String::from("A single-quoted label contains an unescaped double quote"),
-            );
-            let owned = self
-                .raw(Span {
-                    start: p,
-                    end: after,
-                })
-                .to_owned();
-            return Some(self.finish(TokenKind::MdStr, p, after, TextVal::Owned(owned)));
-        }
-        let (text, bridged, end) = self.run_while(p, |c| c != '"' && c != '`');
-        if end == p {
-            return self.unmatched(Mode::MdString, p);
-        }
-        let open = self.opener_start(p);
-        let value = Lexer::value(p, end, text, bridged);
-        Some(self.finish(TokenKind::MdStr, open, end, value))
+        let p = self.pos + s.len();
+        let end = self.run(p, n, js_space);
+        (end > p).then_some(end)
     }
-
-    fn lex_click(&mut self, p: usize) -> Option<Token> {
-        if self.char_at(p).is_some_and(is_ws) {
-            let end = self.next_visible(p);
-            self.pop();
-            self.consumed(end);
+    fn keyword_delimiter(&self, n: usize, s: &str, b: u8) -> Option<usize> {
+        if !self.matches(self.pos, n, s) {
             return None;
         }
-        let (text, bridged, end) = self.run_while(p, |c| !is_ws(c));
-        if end == p {
-            return self.unmatched(Mode::Click, p);
+        let p = self.run(self.pos + s.len(), n, js_space);
+        if p >= n || self.bytes()[p] != b {
+            return None;
         }
-        let value = Lexer::value(p, end, text, bridged);
-        Some(self.finish(TokenKind::Click, p, end, value))
+        Some(self.run(p + 1, n, js_space))
     }
-
-    fn lex_callback_name(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) == Some(b'"') {
-            return self.unmatched(Mode::CallbackName, p);
+    fn keyword_spaces_colon_spaces(&self, n: usize, s: &str) -> Option<usize> {
+        self.keyword_delimiter(n, s, b':')
+    }
+    fn keyword_spaces_brace(&self, n: usize, s: &str) -> Option<usize> {
+        self.keyword_delimiter(n, s, b'{')
+    }
+    fn end_keyword(&self, n: usize) -> Option<usize> {
+        let p = self.pos + 3;
+        if !self.matches(self.pos, n, "end") || !self.boundary(p, n) {
+            return None;
         }
-        if self.at(p) == Some(b'(') {
-            let after = self.next_visible(p);
-            let close = self.ws_star(after);
-            if self.at(close) == Some(b')') {
-                let end = self.next_visible(close);
-                self.pop();
-                self.consumed(end);
-                return None;
+        Some(self.run(p, n, horizontal_space))
+    }
+    fn href_keyword(&self, n: usize) -> Option<usize> {
+        let p = self.pos + 4;
+        (self.matches(self.pos, n, "href") && p < n && js_space(self.bytes()[p])).then_some(p + 1)
+    }
+    fn dir_no_dir(&self, n: usize) -> Option<usize> {
+        let mut p = self.pos;
+        while p < n && js_space(self.bytes()[p]) {
+            if matches!(self.bytes()[p], b'\n' | b'\r') {
+                return Some(p + 1);
             }
-            self.pop();
-            self.push(
-                Mode::CallbackArgs,
-                Span {
-                    start: p,
-                    end: after,
-                },
-                false,
-            );
-            self.consumed(after);
+            p += 1;
+        }
+        (p > self.pos && p >= n).then_some(p)
+    }
+    fn dir_keyword_rule(&self, n: usize, s: &str) -> Option<usize> {
+        let p = self.run(self.pos, n, horizontal_space);
+        self.matches(p, n, s).then_some(p + s.len())
+    }
+    fn link_id_rule(&self, n: usize) -> Option<usize> {
+        let p = self.run(self.pos, n, |b| !js_space(b) && !b"@\"[](){}|".contains(&b));
+        if p == self.pos
+            || p + 1 >= n
+            || self.bytes()[p] != b'@'
+            || matches!(self.bytes()[p + 1], b'{' | b'"')
+        {
             return None;
         }
-        let (text, bridged, end) = self.run_while(p, |c| c != '(');
-        if end == p {
-            return self.unmatched(Mode::CallbackName, p);
-        }
-        let value = Lexer::value(p, end, text, bridged);
-        Some(self.finish(TokenKind::CallbackName, p, end, value))
+        Some(p + 1)
     }
-
-    fn lex_callback_args(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) == Some(b')') {
-            let end = self.next_visible(p);
-            self.pop();
-            self.consumed(end);
+    fn num_rule(&self, n: usize) -> Option<usize> {
+        self.nonempty(self.run(self.pos, n, |b| b.is_ascii_digit()))
+    }
+    fn link_start(&self, n: usize) -> usize {
+        let p = self.run(self.pos, n, js_space);
+        if p < n && marker_start(self.bytes()[p]) {
+            p + 1
+        } else {
+            p
+        }
+    }
+    fn solid_link(&self, n: usize, b: u8) -> Option<usize> {
+        let p = self.link_start(n);
+        let end = self.run(p, n, |c| c == b);
+        let count = end - p;
+        if count >= 2 && end < n && marker_end(self.bytes()[end]) {
+            return Some(self.run(end + 1, n, js_space));
+        }
+        (count >= 3).then(|| self.run(end, n, js_space))
+    }
+    fn solid_start(&self, n: usize, s: &str) -> Option<usize> {
+        let p = self.link_start(n);
+        self.matches(p, n, s)
+            .then(|| self.run(p + s.len(), n, js_space))
+    }
+    fn link_rule(&self, n: usize) -> Option<usize> {
+        self.solid_link(n, b'-')
+    }
+    fn thick_link_rule(&self, n: usize) -> Option<usize> {
+        self.solid_link(n, b'=')
+    }
+    fn start_link_rule(&self, n: usize) -> Option<usize> {
+        self.solid_start(n, "--")
+    }
+    fn thick_start_link_rule(&self, n: usize) -> Option<usize> {
+        self.solid_start(n, "==")
+    }
+    fn dotted_start_link_rule(&self, n: usize) -> Option<usize> {
+        self.solid_start(n, "-.")
+    }
+    fn dotted_link_rule(&self, n: usize) -> Option<usize> {
+        let mut p = self.link_start(n);
+        if p < n && self.bytes()[p] == b'-' {
+            p += 1;
+        }
+        let end = self.run(p, n, |b| b == b'.');
+        if end == p || end >= n || self.bytes()[end] != b'-' {
             return None;
         }
-        let (text, bridged, end) = self.run_while(p, |c| c != ')');
-        if end == p {
-            return self.unmatched(Mode::CallbackArgs, p);
+        p = end + 1;
+        if p < n && marker_end(self.bytes()[p]) {
+            p += 1;
         }
-        let value = Lexer::value(p, end, text, bridged);
-        Some(self.finish(TokenKind::CallbackArgs, p, end, value))
+        Some(self.run(p, n, js_space))
     }
-
-    fn lex_text(&mut self, p: usize) -> Option<Token> {
-        if let Some(tok) = self.text_closer(p) {
-            return Some(tok);
+    fn invisible_link_rule(&self, n: usize) -> Option<usize> {
+        let p = self.run(self.pos, n, js_space);
+        if !self.matches(p, n, "~~~") {
+            return None;
         }
-        let opener = self.shared_opener(p);
-        if opener.is_some() || self.pos != p {
-            return opener;
+        Some(self.run(self.run(p + 3, n, |b| b == b'~'), n, js_space))
+    }
+    fn node_string_rule(&self, n: usize) -> Option<usize> {
+        let mut p = self.pos;
+        while p < n && self.node_byte(p, n) {
+            p += 1;
         }
+        self.nonempty(p)
+    }
+    fn node_byte(&self, p: usize, n: usize) -> bool {
+        let b = self.bytes()[p];
+        if b.is_ascii_alphanumeric() || b"!\"#$%&'*+.`?\\_/".contains(&b) {
+            return true;
+        }
+        match b {
+            b'-' => p + 1 < n && !b">-.".contains(&self.bytes()[p + 1]),
+            b'=' => p + 1 >= n || self.bytes()[p + 1] != b'=',
+            _ => false,
+        }
+    }
+    fn unicode_text_rule(&self, n: usize) -> Option<usize> {
+        let c = self.src.get(self.pos..n)?.chars().next()?;
+        let r = c as u32;
+        let i = UNICODE_RANGES.partition_point(|&(_, hi)| hi < r);
+        UNICODE_RANGES
+            .get(i)
+            .filter(|&&(lo, _)| lo <= r)
+            .map(|_| self.pos + c.len_utf8())
+    }
+    fn newline_rule(&self, n: usize) -> Option<usize> {
+        let mut p = self.pos;
+        while let Some(end) = line_end(self.bytes(), p) {
+            if end > n {
+                break;
+            }
+            p = end;
+        }
+        self.nonempty(p)
+    }
+    fn space_rule(&self, n: usize) -> Option<usize> {
+        self.nonempty(self.run(self.pos, n, horizontal_space))
+    }
+    fn acc_value_run(&self, n: usize) -> Option<usize> {
+        Some(self.run(self.pos, n, |b| !b"\n\r;#".contains(&b)))
+    }
+    fn acc_block_run(&self, n: usize) -> Option<usize> {
+        self.nonempty(self.run(self.pos, n, |b| b != b'}'))
+    }
+    fn string_run(&self, n: usize) -> Option<usize> {
+        self.nonempty(self.run(self.pos, n, |b| b != b'"'))
+    }
+    fn md_string_run(&self, n: usize) -> Option<usize> {
+        self.nonempty(self.run(self.pos, n, |b| b != b'"' && b != b'`'))
+    }
+    fn one_byte_unless(&self, n: usize, b: u8) -> Option<usize> {
+        (!(self.bytes()[self.pos] == b && self.pos + 1 < n && self.bytes()[self.pos + 1] == b))
+            .then_some(self.pos + 1)
+    }
+    fn callback_name_run(&self, n: usize) -> Option<usize> {
+        if self.bytes()[self.pos] == b'"' {
+            return None;
+        }
+        self.nonempty(self.run(self.pos, n, |b| b != b'('))
+    }
+    fn callback_args_run(&self, n: usize) -> Option<usize> {
+        self.nonempty(self.run(self.pos, n, |b| b != b')'))
+    }
+    fn empty_call_args(&self, n: usize) -> Option<usize> {
+        if self.bytes()[self.pos] != b'(' {
+            return None;
+        }
+        let p = self.run(self.pos + 1, n, js_space);
+        (p < n && self.bytes()[p] == b')').then_some(p + 1)
+    }
+    fn shape_plain_run(&self, n: usize) -> Option<usize> {
+        self.nonempty(self.run(self.pos, n, |b| !b"}^\"".contains(&b)))
+    }
+    fn shape_quoted_run(&self, n: usize) -> Option<usize> {
+        self.string_run(n)
+    }
+    fn ellipse_text_run(&self, n: usize) -> Option<usize> {
+        if !b"()[]{}".contains(&self.bytes()[self.pos]) {
+            return Some(self.pos + 1);
+        }
+        let mut p = self.pos;
+        while self.matches(p, n, "-!)") {
+            p += 3;
+        }
+        self.nonempty(p)
+    }
+    fn ellipse_end_rule(&self, n: usize) -> Option<usize> {
+        let p = self.pos;
+        (p + 1 < n && b"-/)".contains(&self.bytes()[p]) && self.bytes()[p + 1] == b')')
+            .then_some(p + 2)
+    }
+    fn trap_end_rule(&self, n: usize) -> Option<usize> {
+        self.matches(self.pos, n, "\\]").then_some(self.pos + 2)
+    }
+    fn inv_trap_end_rule(&self, n: usize) -> Option<usize> {
+        self.matches(self.pos, n, "/]").then_some(self.pos + 2)
+    }
+    fn trap_text_run(&self, n: usize) -> Option<usize> {
+        let p = self.run(self.pos, n, |b| !b"\\[](){}/".contains(&b));
+        if p == self.pos
+            && p + 1 < n
+            && b"/\\".contains(&self.bytes()[p])
+            && self.bytes()[p + 1] != b']'
+        {
+            return Some(p + 1);
+        }
+        self.nonempty(p)
+    }
+    fn text_run(&self, n: usize) -> Option<usize> {
+        let mut p = self.pos;
         let mut in_tag = false;
-        let (text, bridged, end) = self.run_while(p, |c| {
-            let accepted = !"[](){}|".contains(c) && (c != '"' || in_tag);
-            if c == '<' {
+        while p < n {
+            let b = self.bytes()[p];
+            if b"[](){}|".contains(&b) || b == b'"' && !in_tag {
+                break;
+            }
+            if b == b'<' {
                 in_tag = true;
             }
-            if c == '>' {
+            if b == b'>' {
                 in_tag = false;
             }
-            accepted
-        });
-        if end == p {
-            return self.unmatched(Mode::Text, p);
+            p += 1;
         }
-        let value = Lexer::value(p, end, text, bridged);
-        Some(self.finish(TokenKind::Text, p, end, value))
+        self.nonempty(p)
     }
-
-    fn text_closer(&mut self, p: usize) -> Option<Token> {
-        for (lit, kind) in [
-            ("])", TokenKind::StadiumEnd),
-            ("]]", TokenKind::SubroutineEnd),
-            (")]", TokenKind::CylinderEnd),
-            (")))", TokenKind::DoubleCircleEnd),
-        ] {
-            if let Some(end) = self.match_lit(p, lit) {
-                let span = Span { start: p, end };
-                let token = self.finish(kind, p, end, TextVal::Slice(span));
-                self.pop();
-                return Some(token);
+    fn direction_statement(&self, n: usize, s: &str) -> Option<usize> {
+        let stop = self.run(self.pos, n, |b| b != b'\n');
+        for i in self.pos..stop {
+            if !self.matches(i, stop, "direction") {
+                continue;
             }
-        }
-        let kind = match self.at(p)? {
-            b'|' => TokenKind::Pipe,
-            b')' => TokenKind::Pe,
-            b']' => TokenKind::Sqe,
-            b'}' => TokenKind::DiamondStop,
-            _ => return None,
-        };
-        let end = self.next_visible(p);
-        let span = Span { start: p, end };
-        let token = self.finish(kind, p, end, TextVal::Slice(span));
-        self.pop();
-        Some(token)
-    }
-
-    fn shared_opener(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) == Some(b'"') {
-            let after = self.next_visible(p);
-            let (mode, end) = if self.at(after) == Some(b'`') {
-                (Mode::MdString, self.next_visible(after))
-            } else {
-                (Mode::Stringlit, after)
-            };
-            let label = self.top_label();
-            self.push(mode, Span { start: p, end }, label);
-            self.consumed(end);
-            return None;
-        }
-        for (lit, kind, label) in [
-            ("(-", TokenKind::EllipseStart, true),
-            ("([", TokenKind::StadiumStart, true),
-            ("[[", TokenKind::SubroutineStart, true),
-            ("[(", TokenKind::CylinderStart, true),
-            ("(((", TokenKind::DoubleCircleStart, true),
-            ("[/", TokenKind::TrapStart, true),
-            ("[\\", TokenKind::InvTrapStart, true),
-            ("(", TokenKind::Ps, true),
-            ("[|", TokenKind::VertexWithPropsStart, true),
-            ("|", TokenKind::Pipe, false),
-            ("[", TokenKind::Sqs, true),
-            ("{", TokenKind::DiamondStart, true),
-            (">", TokenKind::TagEnd, true),
-        ] {
-            if let Some(end) = self.match_lit(p, lit) {
-                let span = Span { start: p, end };
-                let token = self.finish(kind, p, end, TextVal::Slice(span));
-                self.push(opener_mode(kind), span, label);
-                return Some(token);
+            let p = self.run(i + 9, stop, js_space);
+            if p > i + 9 && self.matches(p, stop, s) {
+                return Some(self.run(p, n, |b| b != b'\n'));
             }
         }
         None
     }
-
-    fn lex_ellipse_text(&mut self, p: usize) -> Option<Token> {
-        if let Some(end) = self.ellipse_end(p) {
-            self.pop();
-            let span = Span { start: p, end };
-            return Some(self.finish(TokenKind::EllipseEnd, p, end, TextVal::Slice(span)));
-        }
-        let opener = self.shared_opener(p);
-        if opener.is_some() || self.pos != p {
-            return opener;
-        }
-        let (text, bridged, end) = self.run_while(p, |c| !"()[]{}".contains(c));
-        if end == p {
-            return self.unmatched(Mode::EllipseText, p);
-        }
-        let value = Lexer::value(p, end, text, bridged);
-        Some(self.finish(TokenKind::Text, p, end, value))
+    fn colon_run(&self, n: usize) -> Option<usize> {
+        self.matches(self.pos, n, ":::").then_some(self.pos + 3)
     }
-
-    fn ellipse_end(&self, p: usize) -> Option<usize> {
-        match self.at(p) {
-            Some(b'-') | Some(b'/') => {
-                let after = self.next_visible(p);
-                (self.at(after) == Some(b')')).then_some(self.next_visible(after))
-            }
-            _ => None,
-        }
+    fn any_space_byte(&self, n: usize) -> Option<usize> {
+        (self.pos < n && js_space(self.bytes()[self.pos])).then_some(self.pos + 1)
     }
-
-    fn lex_trap_text(&mut self, p: usize) -> Option<Token> {
-        if let Some(tok) = self.trap_end(p) {
-            return Some(tok);
-        }
-        if self.at(p) == Some(b'"') {
-            return self.try_quote(p);
-        }
-        let (text, bridged, end) = self.run_while(p, |c| !"\\[](){}\"".contains(c) && c != '/');
-        if end > p {
-            let value = Lexer::value(p, end, text, bridged);
-            return Some(self.finish(TokenKind::Text, p, end, value));
-        }
-        match self.char_at(p) {
-            Some('\\') | Some('/') => {
-                let next = self.next_visible(p);
-                let span = Span {
-                    start: p,
-                    end: next,
-                };
-                Some(self.finish(TokenKind::Text, p, next, TextVal::Slice(span)))
-            }
-            _ => self.unmatched(Mode::TrapText, p),
-        }
-    }
-
-    fn trap_end(&mut self, p: usize) -> Option<Token> {
-        for (first, kind) in [('/', TokenKind::InvTrapEnd), ('\\', TokenKind::TrapEnd)] {
-            if self.char_at(p) == Some(first) {
-                let after = self.next_visible(p);
-                if self.at(after) != Some(b']') {
-                    return None;
-                }
-                let end = self.next_visible(after);
-                let span = Span { start: p, end };
-                let token = self.finish(kind, p, end, TextVal::Slice(span));
-                self.pop();
-                return Some(token);
-            }
-        }
-        None
-    }
-
-    fn lex_edge_text(&mut self, p: usize) -> Option<Token> {
-        let mode = self.mode();
-        if let Some(end) = self.edge_link(p, mode) {
-            let span = Span { start: p, end };
-            let token = self.finish(TokenKind::Link, p, end, TextVal::Slice(span));
-            self.pop();
-            return Some(token);
-        }
-        if self.at(p) == Some(b'"') {
-            let after = self.next_visible(p);
-            let (next_mode, end) = if self.at(after) == Some(b'`') {
-                (Mode::MdString, self.next_visible(after))
-            } else {
-                (Mode::Stringlit, after)
-            };
-            self.push(next_mode, Span { start: p, end }, false);
-            self.consumed(end);
-            return None;
-        }
-        let blocked = match mode {
-            Mode::ThickEdgeText => '=',
-            Mode::DottedEdgeText => '.',
-            _ => '-',
-        };
-        let (text, bridged, end) = self.run_while(p, |c| c != blocked && c != '"' && !is_ws(c));
-        if end > p {
-            let value = Lexer::value(p, end, text, bridged);
-            return Some(self.finish(TokenKind::EdgeText, p, end, value));
-        }
-        let c = self.char_at(p)?;
-        if c == blocked && !self.escapable(p, mode) {
-            return self.unmatched(mode, p);
-        }
-        let next = self.next_visible(p);
-        let span = Span {
-            start: p,
-            end: next,
-        };
-        Some(self.finish(TokenKind::EdgeText, p, next, TextVal::Slice(span)))
-    }
-
-    fn edge_link(&self, p: usize, mode: Mode) -> Option<usize> {
-        match mode {
-            Mode::ThickEdgeText => self.thick_link(p),
-            Mode::DottedEdgeText => self.dotted_link(p),
-            _ => self.normal_link(p),
-        }
-    }
-
-    fn escapable(&self, p: usize, mode: Mode) -> bool {
-        match mode {
-            Mode::ThickEdgeText => self.next_char(p) != Some('='),
-            Mode::DottedEdgeText => self.next_char(p) != Some('-'),
-            _ => self.next_char(p) != Some('-'),
-        }
-    }
-
-    fn lex_shape_data(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) == Some(b'"') {
-            let end = self.next_visible(p);
-            let span = Span { start: p, end };
-            let token = self.finish(TokenKind::ShapeData, p, end, TextVal::Slice(span));
-            self.push(Mode::ShapeDataStr, span, false);
-            return Some(token);
-        }
-        if self.at(p) == Some(b'}') {
-            let end = self.next_visible(p);
-            let token = self.finish(TokenKind::ShapeData, p, end, TextVal::None);
-            self.pop();
-            return Some(token);
-        }
-        let (text, bridged, end) = self.run_while(p, |c| !matches!(c, '}' | '"' | '^'));
-        if end == p {
-            return self.unmatched(Mode::ShapeData, p);
-        }
-        let value = Lexer::value(p, end, text, bridged);
-        Some(self.finish(TokenKind::ShapeData, p, end, value))
-    }
-
-    fn lex_shape_data_str(&mut self, p: usize) -> Option<Token> {
-        if self.at(p) == Some(b'"') {
-            let end = self.next_visible(p);
-            let span = Span { start: p, end };
-            let token = self.finish(TokenKind::ShapeData, p, end, TextVal::Slice(span));
-            self.pop();
-            return Some(token);
-        }
-        let (text, bridged, end) = self.run_while(p, |c| c != '"');
-        if end == p {
-            return self.unmatched(Mode::ShapeDataStr, p);
-        }
-        let replaced = replace_line_breaks(&text);
-        let value = if bridged || replaced != text {
-            TextVal::Owned(replaced)
-        } else {
-            TextVal::Slice(Span { start: p, end })
-        };
-        Some(self.finish(TokenKind::ShapeData, p, end, value))
+    fn any_non_space(&self, n: usize) -> Option<usize> {
+        self.nonempty(self.run(self.pos, n, |b| !js_space(b)))
     }
 }
-
-fn closer_for(opener: &str) -> &'static str {
-    match opener {
-        "(" => ")",
-        "(-" => "-)",
-        "([" => "])",
-        "[[" => "]]",
-        "[(" => ")]",
-        "(((" => ")))",
-        "[/" => "\\]",
-        "[\\" => "/]",
-        "{" => "}",
-        _ => "]",
+fn js_space(b: u8) -> bool {
+    matches!(b, b' ' | b'\t' | b'\n' | b'\r' | b'\x0c' | b'\x0b')
+}
+fn horizontal_space(b: u8) -> bool {
+    matches!(b, b' ' | b'\t')
+}
+fn marker_start(b: u8) -> bool {
+    matches!(b, b'x' | b'o' | b'<')
+}
+fn marker_end(b: u8) -> bool {
+    matches!(b, b'x' | b'o' | b'>')
+}
+fn line_end(src: &[u8], p: usize) -> Option<usize> {
+    match src.get(p) {
+        Some(b'\n') => Some(p + 1),
+        Some(b'\r') => Some(p + 1 + usize::from(src.get(p + 1) == Some(&b'\n'))),
+        _ => None,
     }
 }
-
-fn word_char(lexer: &Lexer<'_>, q: usize, c: char) -> bool {
-    match c {
-        'A'..='Z' | 'a'..='z' | '0'..='9' => true,
-        '!' | '"' | '#' | '$' | '%' | '&' | '\'' | '*' | '+' | '.' | '`' | '?' | '\\' | '_'
-        | '/' => true,
-        '-' => matches!(lexer.next_char(q), Some(next)
-            if next != '>' && next != '-' && next != '.'),
-        '=' => lexer.next_char(q) != Some('='),
-        _ => false,
-    }
-}
-
-fn replace_line_breaks(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    let mut chars = text.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '\n' {
-            out.push_str("<br/>");
-            while chars.peek().is_some_and(|next| is_ws(*next)) {
-                chars.next();
+fn replace_line_ends(src: &[u8]) -> (String, Vec<BRPoint>) {
+    let mut bytes = Vec::with_capacity(src.len());
+    let mut brs = Vec::new();
+    let mut p = 0;
+    while p < src.len() {
+        if let Some(end) = line_end(src, p) {
+            brs.push(BRPoint {
+                text: bytes.len(),
+                src: p,
+            });
+            bytes.extend_from_slice(b"<br/>");
+            p = end;
+            while p < src.len() && horizontal_space(src[p]) {
+                p += 1;
             }
         } else {
-            out.push(c);
+            bytes.push(src[p]);
+            p += 1;
         }
     }
-    out
+    (String::from_utf8_lossy(&bytes).into_owned(), brs)
 }
 
-fn is_direction_word(word: &str) -> bool {
-    matches!(
-        word,
-        "LR" | "RL" | "TB" | "BT" | "TD" | "BR" | "<" | ">" | "^" | "v"
-    )
-}
+static RULES: &[Rule] = &[
+    Rule {
+        matcher: |l, n| l.keyword_spaces_colon_spaces(n, "accTitle"),
+        kind: Some(TokenKind::AccTitle),
+        act: Act::None,
+        push: Some(Mode::AccTitle),
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.acc_value_run(n),
+        kind: Some(TokenKind::AccTitleValue),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: true,
+        modes: 4,
+    },
+    Rule {
+        matcher: |l, n| l.keyword_spaces_colon_spaces(n, "accDescr"),
+        kind: Some(TokenKind::AccDescr),
+        act: Act::None,
+        push: Some(Mode::AccDescr),
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.acc_value_run(n),
+        kind: Some(TokenKind::AccDescrValue),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: true,
+        modes: 8,
+    },
+    Rule {
+        matcher: |l, n| l.keyword_spaces_brace(n, "accDescr"),
+        kind: None,
+        act: Act::AccBlockOpen,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "}"),
+        kind: None,
+        act: Act::AccBlockClose,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 16,
+    },
+    Rule {
+        matcher: |l, n| l.acc_block_run(n),
+        kind: Some(TokenKind::AccDescrMultilineValue),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 16,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "@{"),
+        kind: Some(TokenKind::ShapeData),
+        act: Act::ShapeOpen,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "\""),
+        kind: Some(TokenKind::ShapeData),
+        act: Act::None,
+        push: Some(Mode::ShapeDataStr),
+        pop: false,
+        empty: false,
+        modes: 65536,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "\""),
+        kind: Some(TokenKind::ShapeData),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 131072,
+    },
+    Rule {
+        matcher: |l, n| l.shape_quoted_run(n),
+        kind: Some(TokenKind::ShapeData),
+        act: Act::ShapeRun,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 131072,
+    },
+    Rule {
+        matcher: |l, n| l.shape_plain_run(n),
+        kind: Some(TokenKind::ShapeData),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 65536,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "}"),
+        kind: None,
+        act: Act::LeaveOnly,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 65536,
+    },
+    Rule {
+        matcher: |l, n| l.keyword_then_space(n, "call"),
+        kind: None,
+        act: Act::None,
+        push: Some(Mode::CallbackName),
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.empty_call_args(n),
+        kind: None,
+        act: Act::LeaveOnly,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 256,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "("),
+        kind: None,
+        act: Act::BeginCallbackArgs,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 256,
+    },
+    Rule {
+        matcher: |l, n| l.callback_name_run(n),
+        kind: Some(TokenKind::CallbackName),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 256,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, ")"),
+        kind: None,
+        act: Act::LeaveOnly,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 512,
+    },
+    Rule {
+        matcher: |l, n| l.callback_args_run(n),
+        kind: Some(TokenKind::CallbackArgs),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 512,
+    },
+    Rule {
+        matcher: |l, n| l.md_string_run(n),
+        kind: Some(TokenKind::MdStr),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 64,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "`\""),
+        kind: None,
+        act: Act::CloseMDString,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 64,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "\"`"),
+        kind: None,
+        act: Act::OpenMDString,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 130975,
+    },
+    Rule {
+        matcher: |l, n| l.string_run(n),
+        kind: Some(TokenKind::Str),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 32,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "\""),
+        kind: None,
+        act: Act::CloseString,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 32,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "\""),
+        kind: None,
+        act: Act::OpenString,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 130975,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "style"),
+        kind: Some(TokenKind::Style),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "default"),
+        kind: Some(TokenKind::Default),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "linkStyle"),
+        kind: Some(TokenKind::LinkStyle),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "interpolate"),
+        kind: Some(TokenKind::Interpolate),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "classDef"),
+        kind: Some(TokenKind::ClassDef),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "class"),
+        kind: Some(TokenKind::Class),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.href_keyword(n),
+        kind: Some(TokenKind::Href),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.keyword_then_space(n, "click"),
+        kind: None,
+        act: Act::None,
+        push: Some(Mode::Click),
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.any_space_byte(n),
+        kind: None,
+        act: Act::LeaveOnly,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 128,
+    },
+    Rule {
+        matcher: |l, n| l.any_non_space(n),
+        kind: Some(TokenKind::Click),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 128,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "flowchart-elk"),
+        kind: Some(TokenKind::Graph),
+        act: Act::Graph,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "graph"),
+        kind: Some(TokenKind::Graph),
+        act: Act::Graph,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "flowchart"),
+        kind: Some(TokenKind::Graph),
+        act: Act::Graph,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "subgraph"),
+        kind: Some(TokenKind::Subgraph),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.end_keyword(n),
+        kind: Some(TokenKind::End),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "_self"),
+        kind: Some(TokenKind::LinkTarget),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "_blank"),
+        kind: Some(TokenKind::LinkTarget),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "_parent"),
+        kind: Some(TokenKind::LinkTarget),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "_top"),
+        kind: Some(TokenKind::LinkTarget),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.dir_no_dir(n),
+        kind: Some(TokenKind::Nodir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, "LR"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, "RL"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, "TB"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, "BT"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, "TD"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, "BR"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, "<"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, ">"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, "^"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.dir_keyword_rule(n, "v"),
+        kind: Some(TokenKind::Dir),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.space_rule(n),
+        kind: Some(TokenKind::Space),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.node_string_rule(n),
+        kind: Some(TokenKind::NodeString),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2,
+    },
+    Rule {
+        matcher: |l, n| l.direction_statement(n, "TB"),
+        kind: Some(TokenKind::DirectionTb),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.direction_statement(n, "BT"),
+        kind: Some(TokenKind::DirectionBt),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.direction_statement(n, "RL"),
+        kind: Some(TokenKind::DirectionRl),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.direction_statement(n, "LR"),
+        kind: Some(TokenKind::DirectionLr),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.direction_statement(n, "TD"),
+        kind: Some(TokenKind::DirectionTd),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.link_id_rule(n),
+        kind: Some(TokenKind::LinkId),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.num_rule(n),
+        kind: Some(TokenKind::Num),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "#"),
+        kind: Some(TokenKind::Brkt),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.colon_run(n),
+        kind: Some(TokenKind::StyleSeparator),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, ":"),
+        kind: Some(TokenKind::Colon),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "&"),
+        kind: Some(TokenKind::Amp),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, ";"),
+        kind: Some(TokenKind::Semi),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, ","),
+        kind: Some(TokenKind::Comma),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "*"),
+        kind: Some(TokenKind::Mult),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.link_rule(n),
+        kind: Some(TokenKind::Link),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 8193,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "->"),
+        kind: Some(TokenKind::Link),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.start_link_rule(n),
+        kind: Some(TokenKind::StartLink),
+        act: Act::None,
+        push: Some(Mode::EdgeText),
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.one_byte_unless(n, b'-'),
+        kind: Some(TokenKind::EdgeText),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 8192,
+    },
+    Rule {
+        matcher: |l, n| l.thick_link_rule(n),
+        kind: Some(TokenKind::Link),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 16385,
+    },
+    Rule {
+        matcher: |l, n| l.thick_start_link_rule(n),
+        kind: Some(TokenKind::StartLink),
+        act: Act::None,
+        push: Some(Mode::ThickEdgeText),
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.one_byte_unless(n, b'='),
+        kind: Some(TokenKind::EdgeText),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 16384,
+    },
+    Rule {
+        matcher: |l, n| l.dotted_link_rule(n),
+        kind: Some(TokenKind::Link),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 32769,
+    },
+    Rule {
+        matcher: |l, n| l.dotted_start_link_rule(n),
+        kind: Some(TokenKind::StartLink),
+        act: Act::None,
+        push: Some(Mode::DottedEdgeText),
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.one_byte_unless(n, b'.'),
+        kind: Some(TokenKind::EdgeText),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 32768,
+    },
+    Rule {
+        matcher: |l, n| l.invisible_link_rule(n),
+        kind: Some(TokenKind::Link),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.ellipse_end_rule(n),
+        kind: Some(TokenKind::EllipseEnd),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 2048,
+    },
+    Rule {
+        matcher: |l, n| l.ellipse_text_run(n),
+        kind: Some(TokenKind::Text),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 2048,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "(-"),
+        kind: Some(TokenKind::EllipseStart),
+        act: Act::None,
+        push: Some(Mode::EllipseText),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "])"),
+        kind: Some(TokenKind::StadiumEnd),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 1024,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "(["),
+        kind: Some(TokenKind::StadiumStart),
+        act: Act::None,
+        push: Some(Mode::Text),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "]]"),
+        kind: Some(TokenKind::SubroutineEnd),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 1024,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "[["),
+        kind: Some(TokenKind::SubroutineStart),
+        act: Act::None,
+        push: Some(Mode::Text),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "[|"),
+        kind: Some(TokenKind::VertexWithPropsStart),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, ")]"),
+        kind: Some(TokenKind::CylinderEnd),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 1024,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "[("),
+        kind: Some(TokenKind::CylinderStart),
+        act: Act::None,
+        push: Some(Mode::Text),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, ")))"),
+        kind: Some(TokenKind::DoubleCircleEnd),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 1024,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "((("),
+        kind: Some(TokenKind::DoubleCircleStart),
+        act: Act::None,
+        push: Some(Mode::Text),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.trap_end_rule(n),
+        kind: Some(TokenKind::TrapEnd),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 4096,
+    },
+    Rule {
+        matcher: |l, n| l.inv_trap_end_rule(n),
+        kind: Some(TokenKind::InvTrapEnd),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 4096,
+    },
+    Rule {
+        matcher: |l, n| l.trap_text_run(n),
+        kind: Some(TokenKind::Text),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 4096,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "[/"),
+        kind: Some(TokenKind::TrapStart),
+        act: Act::None,
+        push: Some(Mode::TrapText),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "[\\"),
+        kind: Some(TokenKind::InvTrapStart),
+        act: Act::None,
+        push: Some(Mode::TrapText),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, ">"),
+        kind: Some(TokenKind::TagEnd),
+        act: Act::None,
+        push: Some(Mode::Text),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "<"),
+        kind: Some(TokenKind::TagStart),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "^"),
+        kind: Some(TokenKind::Up),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "v"),
+        kind: Some(TokenKind::Down),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.node_string_rule(n),
+        kind: Some(TokenKind::NodeString),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "-"),
+        kind: Some(TokenKind::Minus),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.unicode_text_rule(n),
+        kind: Some(TokenKind::UnicodeText),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "|"),
+        kind: Some(TokenKind::Pipe),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 1024,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "|"),
+        kind: Some(TokenKind::Pipe),
+        act: Act::None,
+        push: Some(Mode::Text),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, ")"),
+        kind: Some(TokenKind::Pe),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 1024,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "("),
+        kind: Some(TokenKind::Ps),
+        act: Act::None,
+        push: Some(Mode::Text),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "]"),
+        kind: Some(TokenKind::Sqe),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 1024,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "["),
+        kind: Some(TokenKind::Sqs),
+        act: Act::None,
+        push: Some(Mode::Text),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "}"),
+        kind: Some(TokenKind::DiamondStop),
+        act: Act::None,
+        push: None,
+        pop: true,
+        empty: false,
+        modes: 1024,
+    },
+    Rule {
+        matcher: |l, n| l.lit(n, "{"),
+        kind: Some(TokenKind::DiamondStart),
+        act: Act::None,
+        push: Some(Mode::Text),
+        pop: false,
+        empty: false,
+        modes: 262143,
+    },
+    Rule {
+        matcher: |l, n| l.text_run(n),
+        kind: Some(TokenKind::Text),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1024,
+    },
+    Rule {
+        matcher: |l, n| l.newline_rule(n),
+        kind: Some(TokenKind::Newline),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
+        matcher: |l, n| l.space_rule(n),
+        kind: Some(TokenKind::Space),
+        act: Act::None,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+];
 
-fn is_ws(c: char) -> bool {
-    c.is_whitespace()
-}
-
-fn link_id_char(c: char) -> bool {
-    !(is_ws(c) || matches!(c, '"' | '[' | ']' | '(' | ')' | '{' | '}' | '|'))
-}
-
-fn opener_mode(kind: TokenKind) -> Mode {
-    match kind {
-        TokenKind::EllipseStart => Mode::EllipseText,
-        TokenKind::TrapStart | TokenKind::InvTrapStart => Mode::TrapText,
-        _ => Mode::Text,
-    }
-}
-
-fn unicode_text(c: char) -> bool {
-    !c.is_ascii() && (c.is_alphabetic() || c.is_numeric())
-}
-
-fn mode_kinds(mode: Mode) -> &'static [TokenKind] {
-    use TokenKind::*;
-    match mode {
-        Mode::Initial => &[
-            AccTitle,
-            AccTitleValue,
-            AccDescr,
-            AccDescrValue,
-            AccDescrMultilineValue,
-            Amp,
-            Brkt,
-            Class,
-            ClassDef,
-            Click,
-            Colon,
-            Comma,
-            CylinderStart,
-            Default,
-            DiamondStart,
-            Dir,
-            DoubleCircleStart,
-            Down,
-            EllipseStart,
-            End,
-            Eof,
-            Graph,
-            Href,
-            InvTrapStart,
-            Interpolate,
-            Link,
-            LinkId,
-            LinkStyle,
-            LinkTarget,
-            Minus,
-            Mult,
-            Newline,
-            NodeString,
-            Nodir,
-            Num,
-            Pipe,
-            Ps,
-            Semi,
-            ShapeData,
-            Space,
-            Sqs,
-            StartLink,
-            Style,
-            StyleSeparator,
-            Subgraph,
-            TagEnd,
-            TagStart,
-            TrapStart,
-            UnicodeText,
-            Up,
-        ],
-        Mode::Dir => &[Dir, Eof, Newline, Nodir, Space],
-        Mode::AccTitle => &[AccTitleValue],
-        Mode::AccDescr => &[AccDescrValue],
-        Mode::AccDescrMultiline => &[AccDescrMultilineValue],
-        Mode::Stringlit => &[Str],
-        Mode::MdString => &[MdStr],
-        Mode::Click => &[Click],
-        Mode::CallbackName => &[CallbackName],
-        Mode::CallbackArgs => &[CallbackArgs],
-        Mode::Text => &[
-            CylinderEnd,
-            CylinderStart,
-            DiamondStart,
-            DiamondStop,
-            DoubleCircleEnd,
-            DoubleCircleStart,
-            EllipseStart,
-            InvTrapStart,
-            MdStr,
-            Pe,
-            Pipe,
-            Ps,
-            Sqe,
-            Sqs,
-            StadiumEnd,
-            StadiumStart,
-            Str,
-            SubroutineEnd,
-            SubroutineStart,
-            TagEnd,
-            Text,
-            TrapStart,
-        ],
-        Mode::EllipseText => &[
-            CylinderStart,
-            DiamondStart,
-            DoubleCircleStart,
-            EllipseEnd,
-            EllipseStart,
-            InvTrapStart,
-            MdStr,
-            Ps,
-            Sqs,
-            StadiumStart,
-            Str,
-            SubroutineStart,
-            TagEnd,
-            Text,
-            TrapStart,
-        ],
-        Mode::TrapText => &[
-            CylinderStart,
-            DiamondStart,
-            DoubleCircleStart,
-            EllipseStart,
-            InvTrapEnd,
-            InvTrapStart,
-            MdStr,
-            Ps,
-            Sqs,
-            StadiumStart,
-            Str,
-            SubroutineStart,
-            TagEnd,
-            Text,
-            TrapEnd,
-            TrapStart,
-        ],
-        Mode::EdgeText | Mode::ThickEdgeText | Mode::DottedEdgeText => {
-            &[EdgeText, Link, MdStr, Str]
-        }
-        Mode::ShapeData => &[ShapeData],
-        Mode::ShapeDataStr => &[ShapeData],
-    }
-}
+static UNICODE_RANGES: &[(u32, u32)] = &[
+    (0x00AA, 0x00AA),
+    (0x00B5, 0x00B5),
+    (0x00BA, 0x00BA),
+    (0x00C0, 0x00D6),
+    (0x00D8, 0x00F6),
+    (0x00F8, 0x02C1),
+    (0x02C6, 0x02D1),
+    (0x02E0, 0x02E4),
+    (0x02EC, 0x02EC),
+    (0x02EE, 0x02EE),
+    (0x0370, 0x0374),
+    (0x0376, 0x0377),
+    (0x037A, 0x037D),
+    (0x0386, 0x0386),
+    (0x0388, 0x038A),
+    (0x038C, 0x038C),
+    (0x038E, 0x03A1),
+    (0x03A3, 0x03F5),
+    (0x03F7, 0x0481),
+    (0x048A, 0x0527),
+    (0x0531, 0x0556),
+    (0x0559, 0x0559),
+    (0x0561, 0x0587),
+    (0x05D0, 0x05EA),
+    (0x05F0, 0x05F2),
+    (0x0620, 0x064A),
+    (0x066E, 0x066F),
+    (0x0671, 0x06D3),
+    (0x06D5, 0x06D5),
+    (0x06E5, 0x06E6),
+    (0x06EE, 0x06EF),
+    (0x06FA, 0x06FC),
+    (0x06FF, 0x06FF),
+    (0x0710, 0x0710),
+    (0x0712, 0x072F),
+    (0x074D, 0x07A5),
+    (0x07B1, 0x07B1),
+    (0x07CA, 0x07EA),
+    (0x07F4, 0x07F5),
+    (0x07FA, 0x07FA),
+    (0x0800, 0x0815),
+    (0x081A, 0x081A),
+    (0x0824, 0x0824),
+    (0x0828, 0x0828),
+    (0x0840, 0x0858),
+    (0x08A0, 0x08A0),
+    (0x08A2, 0x08AC),
+    (0x0904, 0x0939),
+    (0x093D, 0x093D),
+    (0x0950, 0x0950),
+    (0x0958, 0x0961),
+    (0x0971, 0x0977),
+    (0x0979, 0x097F),
+    (0x0985, 0x098C),
+    (0x098F, 0x0990),
+    (0x0993, 0x09A8),
+    (0x09AA, 0x09B0),
+    (0x09B2, 0x09B2),
+    (0x09B6, 0x09B9),
+    (0x09BD, 0x09BD),
+    (0x09CE, 0x09CE),
+    (0x09DC, 0x09DD),
+    (0x09DF, 0x09E1),
+    (0x09F0, 0x09F1),
+    (0x0A05, 0x0A0A),
+    (0x0A0F, 0x0A10),
+    (0x0A13, 0x0A28),
+    (0x0A2A, 0x0A30),
+    (0x0A32, 0x0A33),
+    (0x0A35, 0x0A36),
+    (0x0A38, 0x0A39),
+    (0x0A59, 0x0A5C),
+    (0x0A5E, 0x0A5E),
+    (0x0A72, 0x0A74),
+    (0x0A85, 0x0A8D),
+    (0x0A8F, 0x0A91),
+    (0x0A93, 0x0AA8),
+    (0x0AAA, 0x0AB0),
+    (0x0AB2, 0x0AB3),
+    (0x0AB5, 0x0AB9),
+    (0x0ABD, 0x0ABD),
+    (0x0AD0, 0x0AD0),
+    (0x0AE0, 0x0AE1),
+    (0x0B05, 0x0B0C),
+    (0x0B0F, 0x0B10),
+    (0x0B13, 0x0B28),
+    (0x0B2A, 0x0B30),
+    (0x0B32, 0x0B33),
+    (0x0B35, 0x0B39),
+    (0x0B3D, 0x0B3D),
+    (0x0B5C, 0x0B5D),
+    (0x0B5F, 0x0B61),
+    (0x0B71, 0x0B71),
+    (0x0B83, 0x0B83),
+    (0x0B85, 0x0B8A),
+    (0x0B8E, 0x0B90),
+    (0x0B92, 0x0B95),
+    (0x0B99, 0x0B9A),
+    (0x0B9C, 0x0B9C),
+    (0x0B9E, 0x0B9F),
+    (0x0BA3, 0x0BA4),
+    (0x0BA8, 0x0BAA),
+    (0x0BAE, 0x0BB9),
+    (0x0BD0, 0x0BD0),
+    (0x0C05, 0x0C0C),
+    (0x0C0E, 0x0C10),
+    (0x0C12, 0x0C28),
+    (0x0C2A, 0x0C33),
+    (0x0C35, 0x0C39),
+    (0x0C3D, 0x0C3D),
+    (0x0C58, 0x0C59),
+    (0x0C60, 0x0C61),
+    (0x0C85, 0x0C8C),
+    (0x0C8E, 0x0C90),
+    (0x0C92, 0x0CA8),
+    (0x0CAA, 0x0CB3),
+    (0x0CB5, 0x0CB9),
+    (0x0CBD, 0x0CBD),
+    (0x0CDE, 0x0CDE),
+    (0x0CE0, 0x0CE1),
+    (0x0CF1, 0x0CF2),
+    (0x0D05, 0x0D0C),
+    (0x0D0E, 0x0D10),
+    (0x0D12, 0x0D3A),
+    (0x0D3D, 0x0D3D),
+    (0x0D4E, 0x0D4E),
+    (0x0D60, 0x0D61),
+    (0x0D7A, 0x0D7F),
+    (0x0D85, 0x0D96),
+    (0x0D9A, 0x0DB1),
+    (0x0DB3, 0x0DBB),
+    (0x0DBD, 0x0DBD),
+    (0x0DC0, 0x0DC6),
+    (0x0E01, 0x0E30),
+    (0x0E32, 0x0E33),
+    (0x0E40, 0x0E46),
+    (0x0E81, 0x0E82),
+    (0x0E84, 0x0E84),
+    (0x0E87, 0x0E88),
+    (0x0E8A, 0x0E8A),
+    (0x0E8D, 0x0E8D),
+    (0x0E94, 0x0E97),
+    (0x0E99, 0x0E9F),
+    (0x0EA1, 0x0EA3),
+    (0x0EA5, 0x0EA5),
+    (0x0EA7, 0x0EA7),
+    (0x0EAA, 0x0EAB),
+    (0x0EAD, 0x0EB0),
+    (0x0EB2, 0x0EB3),
+    (0x0EBD, 0x0EBD),
+    (0x0EC0, 0x0EC4),
+    (0x0EC6, 0x0EC6),
+    (0x0EDC, 0x0EDF),
+    (0x0F00, 0x0F00),
+    (0x0F40, 0x0F47),
+    (0x0F49, 0x0F6C),
+    (0x0F88, 0x0F8C),
+    (0x1000, 0x102A),
+    (0x103F, 0x103F),
+    (0x1050, 0x1055),
+    (0x105A, 0x105D),
+    (0x1061, 0x1061),
+    (0x1065, 0x1066),
+    (0x106E, 0x1070),
+    (0x1075, 0x1081),
+    (0x108E, 0x108E),
+    (0x10A0, 0x10C5),
+    (0x10C7, 0x10C7),
+    (0x10CD, 0x10CD),
+    (0x10D0, 0x10FA),
+    (0x10FC, 0x1248),
+    (0x124A, 0x124D),
+    (0x1250, 0x1256),
+    (0x1258, 0x1258),
+    (0x125A, 0x125D),
+    (0x1260, 0x1288),
+    (0x128A, 0x128D),
+    (0x1290, 0x12B0),
+    (0x12B2, 0x12B5),
+    (0x12B8, 0x12BE),
+    (0x12C0, 0x12C0),
+    (0x12C2, 0x12C5),
+    (0x12C8, 0x12D6),
+    (0x12D8, 0x1310),
+    (0x1312, 0x1315),
+    (0x1318, 0x135A),
+    (0x1380, 0x138F),
+    (0x13A0, 0x13F4),
+    (0x1401, 0x166C),
+    (0x166F, 0x167F),
+    (0x1681, 0x169A),
+    (0x16A0, 0x16EA),
+    (0x1700, 0x170C),
+    (0x170E, 0x1711),
+    (0x1720, 0x1731),
+    (0x1740, 0x1751),
+    (0x1760, 0x176C),
+    (0x176E, 0x1770),
+    (0x1780, 0x17B3),
+    (0x17D7, 0x17D7),
+    (0x17DC, 0x17DC),
+    (0x1820, 0x1877),
+    (0x1880, 0x18A8),
+    (0x18AA, 0x18AA),
+    (0x18B0, 0x18F5),
+    (0x1900, 0x191C),
+    (0x1950, 0x196D),
+    (0x1970, 0x1974),
+    (0x1980, 0x19AB),
+    (0x19C1, 0x19C7),
+    (0x1A00, 0x1A16),
+    (0x1A20, 0x1A54),
+    (0x1AA7, 0x1AA7),
+    (0x1B05, 0x1B33),
+    (0x1B45, 0x1B4B),
+    (0x1B83, 0x1BA0),
+    (0x1BAE, 0x1BAF),
+    (0x1BBA, 0x1BE5),
+    (0x1C00, 0x1C23),
+    (0x1C4D, 0x1C4F),
+    (0x1C5A, 0x1C7D),
+    (0x1CE9, 0x1CEC),
+    (0x1CEE, 0x1CF1),
+    (0x1CF5, 0x1CF6),
+    (0x1D00, 0x1DBF),
+    (0x1E00, 0x1F15),
+    (0x1F18, 0x1F1D),
+    (0x1F20, 0x1F45),
+    (0x1F48, 0x1F4D),
+    (0x1F50, 0x1F57),
+    (0x1F59, 0x1F59),
+    (0x1F5B, 0x1F5B),
+    (0x1F5D, 0x1F5D),
+    (0x1F5F, 0x1F7D),
+    (0x1F80, 0x1FB4),
+    (0x1FB6, 0x1FBC),
+    (0x1FBE, 0x1FBE),
+    (0x1FC2, 0x1FC4),
+    (0x1FC6, 0x1FCC),
+    (0x1FD0, 0x1FD3),
+    (0x1FD6, 0x1FDB),
+    (0x1FE0, 0x1FEC),
+    (0x1FF2, 0x1FF4),
+    (0x1FF6, 0x1FFC),
+    (0x2071, 0x2071),
+    (0x207F, 0x207F),
+    (0x2090, 0x209C),
+    (0x2102, 0x2102),
+    (0x2107, 0x2107),
+    (0x210A, 0x2113),
+    (0x2115, 0x2115),
+    (0x2119, 0x211D),
+    (0x2124, 0x2124),
+    (0x2126, 0x2126),
+    (0x2128, 0x2128),
+    (0x212A, 0x212D),
+    (0x212F, 0x2139),
+    (0x213C, 0x213F),
+    (0x2145, 0x2149),
+    (0x214E, 0x214E),
+    (0x2183, 0x2184),
+    (0x2C00, 0x2C2E),
+    (0x2C30, 0x2C5E),
+    (0x2C60, 0x2CE4),
+    (0x2CEB, 0x2CEE),
+    (0x2CF2, 0x2CF3),
+    (0x2D00, 0x2D25),
+    (0x2D27, 0x2D27),
+    (0x2D2D, 0x2D2D),
+    (0x2D30, 0x2D67),
+    (0x2D6F, 0x2D6F),
+    (0x2D80, 0x2D96),
+    (0x2DA0, 0x2DA6),
+    (0x2DA8, 0x2DAE),
+    (0x2DB0, 0x2DB6),
+    (0x2DB8, 0x2DBE),
+    (0x2DC0, 0x2DC6),
+    (0x2DC8, 0x2DCE),
+    (0x2DD0, 0x2DD6),
+    (0x2DD8, 0x2DDE),
+    (0x2E2F, 0x2E2F),
+    (0x3005, 0x3006),
+    (0x3031, 0x3035),
+    (0x303B, 0x303C),
+    (0x3041, 0x3096),
+    (0x309D, 0x309F),
+    (0x30A1, 0x30FA),
+    (0x30FC, 0x30FF),
+    (0x3105, 0x312D),
+    (0x3131, 0x318E),
+    (0x31A0, 0x31BA),
+    (0x31F0, 0x31FF),
+    (0x3400, 0x4DB5),
+    (0x4E00, 0x9FCC),
+    (0xA000, 0xA48C),
+    (0xA4D0, 0xA4FD),
+    (0xA500, 0xA60C),
+    (0xA610, 0xA61F),
+    (0xA62A, 0xA62B),
+    (0xA640, 0xA66E),
+    (0xA67F, 0xA697),
+    (0xA6A0, 0xA6E5),
+    (0xA717, 0xA71F),
+    (0xA722, 0xA788),
+    (0xA78B, 0xA78E),
+    (0xA790, 0xA793),
+    (0xA7A0, 0xA7AA),
+    (0xA7F8, 0xA801),
+    (0xA803, 0xA805),
+    (0xA807, 0xA80A),
+    (0xA80C, 0xA822),
+    (0xA840, 0xA873),
+    (0xA882, 0xA8B3),
+    (0xA8F2, 0xA8F7),
+    (0xA8FB, 0xA8FB),
+    (0xA90A, 0xA925),
+    (0xA930, 0xA946),
+    (0xA960, 0xA97C),
+    (0xA984, 0xA9B2),
+    (0xA9CF, 0xA9CF),
+    (0xAA00, 0xAA28),
+    (0xAA40, 0xAA42),
+    (0xAA44, 0xAA4B),
+    (0xAA60, 0xAA76),
+    (0xAA7A, 0xAA7A),
+    (0xAA80, 0xAAAF),
+    (0xAAB1, 0xAAB1),
+    (0xAAB5, 0xAAB6),
+    (0xAAB9, 0xAABD),
+    (0xAAC0, 0xAAC0),
+    (0xAAC2, 0xAAC2),
+    (0xAADB, 0xAADD),
+    (0xAAE0, 0xAAEA),
+    (0xAAF2, 0xAAF4),
+    (0xAB01, 0xAB06),
+    (0xAB09, 0xAB0E),
+    (0xAB11, 0xAB16),
+    (0xAB20, 0xAB26),
+    (0xAB28, 0xAB2E),
+    (0xABC0, 0xABE2),
+    (0xAC00, 0xD7A3),
+    (0xD7B0, 0xD7C6),
+    (0xD7CB, 0xD7FB),
+    (0xF900, 0xFA6D),
+    (0xFA70, 0xFAD9),
+    (0xFB00, 0xFB06),
+    (0xFB13, 0xFB17),
+    (0xFB1D, 0xFB1D),
+    (0xFB1F, 0xFB28),
+    (0xFB2A, 0xFB36),
+    (0xFB38, 0xFB3C),
+    (0xFB3E, 0xFB3E),
+    (0xFB40, 0xFB41),
+    (0xFB43, 0xFB44),
+    (0xFB46, 0xFBB1),
+    (0xFBD3, 0xFD3D),
+    (0xFD50, 0xFD8F),
+    (0xFD92, 0xFDC7),
+    (0xFDF0, 0xFDFB),
+    (0xFE70, 0xFE74),
+    (0xFE76, 0xFEFC),
+    (0xFF21, 0xFF3A),
+    (0xFF41, 0xFF5A),
+    (0xFF66, 0xFFBE),
+    (0xFFC2, 0xFFC7),
+    (0xFFCA, 0xFFCF),
+    (0xFFD2, 0xFFD7),
+    (0xFFDA, 0xFFDC),
+];

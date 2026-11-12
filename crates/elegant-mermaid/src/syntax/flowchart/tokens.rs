@@ -192,16 +192,32 @@ pub enum TextVal {
     Owned(String),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BRPoint {
+    pub text: usize,
+    pub src: usize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
     pub text: TextVal,
+    pub string_open: Option<usize>,
+    pub split_continuation: bool,
+    pub brs: Vec<BRPoint>,
 }
 
 impl Token {
     pub(crate) const fn new(kind: TokenKind, span: Span, text: TextVal) -> Token {
-        Token { kind, span, text }
+        Token {
+            kind,
+            span,
+            text,
+            string_open: None,
+            split_continuation: false,
+            brs: Vec::new(),
+        }
     }
 
     pub fn text<'b>(&'b self, src: &'b str) -> &'b str {
@@ -211,22 +227,6 @@ impl Token {
             TextVal::Owned(owned) => owned.as_str(),
         }
     }
-}
-
-pub(crate) fn is_id_token(kind: TokenKind) -> bool {
-    matches!(
-        kind,
-        TokenKind::Num
-            | TokenKind::NodeString
-            | TokenKind::Down
-            | TokenKind::Minus
-            | TokenKind::Default
-            | TokenKind::Comma
-            | TokenKind::Colon
-            | TokenKind::Brkt
-            | TokenKind::Mult
-            | TokenKind::UnicodeText
-    )
 }
 
 pub(crate) fn is_alpha_num_token(kind: TokenKind) -> bool {
@@ -243,39 +243,5 @@ pub(crate) fn is_alpha_num_token(kind: TokenKind) -> bool {
             | TokenKind::Amp
             | TokenKind::Brkt
             | TokenKind::Mult
-    )
-}
-
-pub(crate) fn is_text_no_tags_token(kind: TokenKind) -> bool {
-    matches!(
-        kind,
-        TokenKind::Num
-            | TokenKind::NodeString
-            | TokenKind::Space
-            | TokenKind::Minus
-            | TokenKind::Amp
-            | TokenKind::UnicodeText
-            | TokenKind::Colon
-            | TokenKind::Mult
-            | TokenKind::Brkt
-            | TokenKind::Style
-            | TokenKind::LinkStyle
-            | TokenKind::ClassDef
-            | TokenKind::Class
-            | TokenKind::Click
-            | TokenKind::Down
-            | TokenKind::Up
-            | TokenKind::Subgraph
-            | TokenKind::End
-            | TokenKind::Graph
-            | TokenKind::Dir
-            | TokenKind::DirectionTb
-            | TokenKind::DirectionBt
-            | TokenKind::DirectionRl
-            | TokenKind::DirectionLr
-            | TokenKind::DirectionTd
-            | TokenKind::StartLink
-            | TokenKind::Str
-            | TokenKind::MdStr
     )
 }

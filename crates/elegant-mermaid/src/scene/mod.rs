@@ -203,6 +203,9 @@ pub struct SceneRoute {
     pub orthogonal: bool,
     /// The route points in profile units; the model stage leaves them unwritten.
     pub points: Vec<Point>,
+    pub marker_start: String,
+    pub marker_end: String,
+    pub stroke: String,
 }
 
 /// One label of the dump part.
@@ -1177,6 +1180,9 @@ mod tests {
             to: String::from("B"),
             orthogonal: true,
             points: vec![Point { x: 0, y: 10 }, Point { x: 0, y: 20 }],
+            marker_start: String::new(),
+            marker_end: String::new(),
+            stroke: String::new(),
         });
         dump
     }

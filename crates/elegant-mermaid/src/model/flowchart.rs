@@ -6,6 +6,7 @@ use crate::syntax::flowchart::ast::*;
 pub struct Node {
     pub id: String,
     pub label: String,
+    pub label_kind: Option<TextKind>,
     pub shape: String,
     pub classes: Vec<String>,
     pub styles: Vec<String>,
@@ -49,6 +50,8 @@ pub struct Model {
     pub acc_title: String,
     pub acc_descr: String,
     diagnostics: Vec<Diagnostic>,
+    member_owners: std::collections::BTreeMap<String, String>,
+    subgraph_count: usize,
 }
 
 impl Default for Node {
@@ -56,6 +59,7 @@ impl Default for Node {
         Self {
             id: String::new(),
             label: String::new(),
+            label_kind: None,
             shape: String::new(),
             classes: Vec::new(),
             styles: Vec::new(),
@@ -92,6 +96,8 @@ impl Default for Model {
             acc_title: String::new(),
             acc_descr: String::new(),
             diagnostics: Vec::new(),
+            member_owners: std::collections::BTreeMap::new(),
+            subgraph_count: 0,
         }
     }
 }
@@ -106,6 +112,7 @@ pub fn resolve(source: &str, document: &Document) -> (Model, Vec<Diagnostic>) {
         model.direction_span = span;
     }
     walk(source, &document.lines, &mut model, "");
+    model.member_owners.clear();
     let mut diagnostics = link_style_diagnostics(source, &model);
     diagnostics.append(&mut model.diagnostics);
     crate::diag::sort(&mut diagnostics);
@@ -201,6 +208,7 @@ fn group_nodes(group: &NodeGroup, model: &mut Model, parent: &str) -> Vec<String
             node.span = styled.span;
             if let Some(label) = &vertex.label {
                 node.label = resolve_label(&label.text.text);
+                node.label_kind = Some(label.text.kind);
                 node.shape = shape(&label.form).into();
             }
             if let Some(class) = &styled.class {
@@ -219,7 +227,7 @@ fn join_group(model: &mut Model, id: &str, parent: &str) {
     if model
         .groups
         .iter()
-        .any(|group| group.members.iter().any(|member| member == id))
+        .any(|group| group.id == parent && group.members.iter().any(|member| member == id))
     {
         return;
     }
@@ -387,11 +395,19 @@ fn shape(form: &LabelForm) -> &'static str {
     }
 }
 fn subgraph(source: &str, value: &Subgraph, model: &mut Model, parent: &str) {
+    let declaration = model.subgraph_count;
+    model.subgraph_count += 1;
     let id = value
         .id
         .as_ref()
-        .map(|id| id.text.trim().to_owned())
-        .unwrap_or_else(|| format!("subGraph{}", model.groups.len()));
+        .map(|id| resolve_label(&id.text))
+        .filter(|id| {
+            value.title.is_some()
+                || !id
+                    .bytes()
+                    .any(|b| matches!(b, b' ' | b'\t' | b'\r' | b'\n' | 0x0b | 0x0c))
+        })
+        .unwrap_or_else(|| format!("subGraph{declaration}"));
     let title = value
         .title
         .as_ref()
@@ -403,16 +419,43 @@ fn subgraph(source: &str, value: &Subgraph, model: &mut Model, parent: &str) {
                 .map(|id| id.text.clone())
                 .unwrap_or_default()
         });
-    if !model.groups.iter().any(|group| group.id == id) {
+    let previous_direction = model
+        .groups
+        .iter()
+        .position(|group| group.id == id)
+        .map(|index| (index, model.groups[index].direction.clone()));
+    if previous_direction.is_none() {
         model.groups.push(Group {
             id: id.clone(),
-            title,
+            title: resolve_label(&title),
             parent: parent.into(),
             span: value.span,
             ..Group::default()
         });
     }
     walk(source, &value.body, model, &id);
+    if let Some((index, direction)) = previous_direction {
+        model.groups[index].direction = direction;
+    }
+    finish_group(model, &id);
+}
+
+fn finish_group(model: &mut Model, id: &str) {
+    let Some(group) = model.groups.iter_mut().find(|group| group.id == id) else {
+        return;
+    };
+    group.members.retain(|member| {
+        if member == id
+            || model
+                .member_owners
+                .get(member)
+                .is_some_and(|owner| owner != id)
+        {
+            return false;
+        }
+        model.member_owners.insert(member.clone(), id.into());
+        true
+    });
 }
 fn apply_style(value: &StyleStatement, model: &mut Model) {
     for id in value.target.text.split(',').map(str::trim) {
@@ -606,6 +649,11 @@ fn shape_id(value: &str) -> Option<&'static str> {
 fn finish_shape_data(node: &mut Node) {
     if let Some(label) = node.attrs.get("label") {
         node.label = resolve_label(label);
+        node.label_kind = Some(match node.attrs.get("labelType").map(String::as_str) {
+            Some("markdown") => TextKind::Markdown,
+            Some("string") => TextKind::String,
+            _ => TextKind::Plain,
+        });
     }
     if node.attrs.get("img").is_some_and(|image| !image.is_empty()) {
         node.shape = "imageSquare".into();
