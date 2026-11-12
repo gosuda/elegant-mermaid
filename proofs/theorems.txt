@@ -33,3 +33,4 @@ Elegant.Layered.coords_order_preserved
 Elegant.Layered.coords_separated
 Elegant.Layered.balance_separated
 Elegant.Layered.rankAxis_bands_disjoint
+Elegant.Layered.rawPass_separated
