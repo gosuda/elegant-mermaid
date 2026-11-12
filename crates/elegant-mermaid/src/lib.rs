@@ -27,3 +27,6 @@
 //! 1.0, a minor version may change the public API.
 #![forbid(unsafe_code)]
 #![deny(clippy::disallowed_methods, clippy::disallowed_types)]
+
+pub mod diag;
+pub mod source;
