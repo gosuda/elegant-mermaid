@@ -49,3 +49,31 @@ func TestClassCompartments(t *testing.T) {
 		t.Fatal(result.RefusedClusters)
 	}
 }
+
+func TestClassMultilineHeadingRows(t *testing.T) {
+	rows := classRows(model.Class{Label: "First\nSecond"})
+	size, err := ClassSize(rows, scene.ProfileCell)
+	if err != nil || size.H != 8 || len(rows[0]) != 2 {
+		t.Fatal(rows, size, err)
+	}
+}
+
+func TestClassAbsentTargetMarkerDump(t *testing.T) {
+	src := []byte("classDiagram\nA -- B\nnote for A \"note\"\n")
+	f, ds := parser.Parse(src, nil)
+	if len(ds) != 0 {
+		t.Fatal(ds)
+	}
+	m, ds := model.Resolve(src, f)
+	if len(ds) != 0 {
+		t.Fatal(ds)
+	}
+	in, _ := FromClass(m, scene.ProfileVector, scene.Options{})
+	var dump strings.Builder
+	if err := WriteModelDump(&dump, in); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(dump.String(), "\"marker_end\":\"none\"") != 2 {
+		t.Fatal(dump.String())
+	}
+}

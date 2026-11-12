@@ -329,11 +329,12 @@ impl Class {
             .iter()
             .map(|annotation| format!("«{annotation}»"))
             .collect::<Vec<_>>();
-        heading.push(if self.generic.is_empty() {
+        let name = if self.generic.is_empty() {
             self.label.clone()
         } else {
             format!("{}<{}>", self.label, self.generic)
-        });
+        };
+        heading.extend(name.split('\n').map(String::from));
         vec![
             heading,
             self.attributes
@@ -365,8 +366,8 @@ impl Member {
         }
         let mut generic = String::new();
         let mut open = false;
-        for character in display.chars() {
-            if character == '~' {
+        for (index, character) in display.chars().enumerate() {
+            if character == '~' && index != 0 {
                 generic.push(if open { '>' } else { '<' });
                 open = !open;
             } else {
@@ -405,4 +406,25 @@ fn method_display(text: &str) -> Option<(String, Option<char>)> {
         display.push_str(returns);
     }
     Some((display, classifier))
+}
+
+#[cfg(test)]
+mod parity_tests {
+    use super::*;
+
+    #[test]
+    fn package_visibility_survives_generic_conversion() {
+        let member = Member::parse("~attribute **bold***", Span { start: 0, end: 19 });
+        assert_eq!(member.visibility, "~");
+        assert_eq!(member.text, "~attribute **bold");
+    }
+
+    #[test]
+    fn multiline_heading_has_distinct_rows() {
+        let source = "classDiagram\nclass A[\"First\nSecond\"]\n";
+        let parsed = crate::syntax::class::parse(source, &[]);
+        let (model, diagnostics) = resolve(source, &parsed.document);
+        assert!(diagnostics.is_empty());
+        assert_eq!(model.classes[0].rows()[0], ["First", "Second"]);
+    }
 }

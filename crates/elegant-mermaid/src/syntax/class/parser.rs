@@ -104,8 +104,13 @@ impl<'a> Parser<'a> {
                 continue;
             }
             let at = self.at;
+            let diagnostics = self.diagnostics.len();
             if let Some(statement) = self.statement(depth) {
                 statements.push(statement);
+            }
+            if self.diagnostics.len() != diagnostics {
+                self.recover();
+                continue;
             }
             if self.at == at {
                 self.at += 1;
@@ -188,7 +193,7 @@ impl<'a> Parser<'a> {
             return None;
         }
         if value.is_empty() {
-            self.unexpected("ALPHA, BQUOTE_STR");
+            self.unexpected("ALPHA, BQUOTE_STR, MINUS, NUM, UNICODE_TEXT");
             return None;
         }
         Some(ClassName {

@@ -238,7 +238,7 @@ func relationMarker(marker syn.RelationType) string {
 	case "()":
 		return "lollipop"
 	}
-	return ""
+	return "none"
 }
 
 func (r *resolver) relation(s *syn.RelationStatement) {

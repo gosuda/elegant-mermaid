@@ -54,7 +54,7 @@ func classRoutes(in *Input, m *model.Model) {
 	}
 	for i, n := range m.Notes {
 		if classExists(m, n.Target) {
-			in.Routes = append(in.Routes, Route{ID: ids[len(m.Relations)+i], From: n.ID, To: n.Target, Orthogonal: true, Line: "dashed"})
+			in.Routes = append(in.Routes, Route{ID: ids[len(m.Relations)+i], From: n.ID, To: n.Target, Orthogonal: true, MarkerEnd: "none", Line: "dashed"})
 		}
 	}
 }
@@ -77,7 +77,7 @@ func classRows(c model.Class) [][]string {
 	for _, a := range c.Annotations {
 		head = append(head, "«"+a+"»")
 	}
-	head = append(head, name)
+	head = append(head, strings.Split(name, "\n")...)
 	rows := [][]string{head, {}, {}}
 	for _, a := range c.Attributes {
 		rows[1] = append(rows[1], a.Text)

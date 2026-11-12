@@ -77,7 +77,7 @@ func (p *parser) unexpected(t Token, expected string) {
 		p.issue("class/unterminated", "unterminated "+t.Text, t.Span)
 		return
 	}
-	p.issue("class/unexpected-token", fmt.Sprintf("unexpected %s, expected one of: %s", t.Text, expected), t.Span)
+	p.issue("class/unexpected-token", fmt.Sprintf("unexpected %s, expected one of: %s", p.src[t.Span.Start:t.Span.End], expected), t.Span)
 }
 
 func (p *parser) recover() {
@@ -91,7 +91,9 @@ func (p *parser) statements(depth int) Statements {
 	for !p.end() && p.peek().Kind != "}" {
 		before, diagnostics := p.at, len(p.diags)
 		s := p.statement(depth)
-		p.finishStatement(&s)
+		if len(p.diags) == diagnostics {
+			p.finishStatement(&s)
+		}
 		if !allowedChild(s, depth) {
 			p.unexpected(Token{Text: s.Kind, Span: s.Span}, "CLASS, NAMESPACE, NOTE, NOTE_FOR")
 		}
@@ -282,6 +284,9 @@ func (p *parser) skipMemberBlock() {
 func (p *parser) namespace(depth int) *NamespaceStatement {
 	id := p.identifier()
 	n := &NamespaceStatement{Identifier: id, Span: id.Span}
+	if id.Name.Value == "" {
+		return n
+	}
 	if depth >= 64 {
 		p.issue("limit/nesting-depth", "nesting depth exceeds 64", id.Span)
 		p.recover()

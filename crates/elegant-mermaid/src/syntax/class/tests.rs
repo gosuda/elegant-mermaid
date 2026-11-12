@@ -107,3 +107,13 @@ fn class_rejects_namespace_relations_and_unclosed_delimiters() {
         assert_eq!(parsed.diagnostics[0].span.end, source.len());
     }
 }
+
+#[test]
+fn rejected_class_name_recovers_once() {
+    let parsed = parse("classDiagram\nclass \"quoted\"\nclass Next\n", &[]);
+    assert_eq!(parsed.diagnostics.len(), 1);
+    assert_eq!(
+        parsed.diagnostics[0].message,
+        "unexpected \"quoted\", expected one of: ALPHA, BQUOTE_STR, MINUS, NUM, UNICODE_TEXT"
+    );
+}

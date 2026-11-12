@@ -34,7 +34,7 @@ func (p *parser) named() Statement {
 
 func (p *parser) relation() Relation {
 	r := Relation{Span: p.peek().Span}
-	if marker(p.peek().Text) {
+	if marker(p.peek().Kind) {
 		r.Start = RelationType(p.take().Text)
 	}
 	switch p.peek().Kind {
@@ -43,10 +43,10 @@ func (p *parser) relation() Relation {
 	case "NEWLINE", "EOF", "}":
 		return r
 	default:
-		p.unexpected(p.peek(), "DOTTED_LINE, LINE, NEWLINE")
+		p.unexpected(p.peek(), "DOTTED_LINE, LINE")
 		return r
 	}
-	if marker(p.peek().Text) {
+	if marker(p.peek().Kind) {
 		r.End = RelationType(p.take().Text)
 	}
 	r.Span.End = p.tokens[p.at-1].Span.End
