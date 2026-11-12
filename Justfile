@@ -54,6 +54,83 @@ kernel-diff: build proofs
     cmp corpus/.cache/kernel/lean.out corpus/.cache/kernel/go.out
     cmp corpus/.cache/kernel/lean.out corpus/.cache/kernel/rust.out
 
+geomcheck := "proofs/.lake/build/bin/geomcheck"
+
+# Print the selected corpus paths; accepts KIND=<kind> SAMPLE=<n> JOBS=<n> FILES=<list file>
+_corpus *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    kind="" sample=1 files=""
+    for arg in {{ ARGS }}; do
+      case "$arg" in
+        KIND=*) kind="${arg#KIND=}" ;;
+        SAMPLE=*) sample="${arg#SAMPLE=}" ;;
+        FILES=*) files="${arg#FILES=}" ;;
+        JOBS=*) ;;
+        *) echo "unknown argument $arg; expected KIND=, SAMPLE=, JOBS=, or FILES=" >&2; exit 2 ;;
+      esac
+    done
+    if [ -n "$files" ]; then cat "$files"; else git ls-files -- 'corpus/*.mmd' ':!corpus/_out-of-scope/*'; fi \
+      | awk -v kind="$kind" 'kind == "" || index($0, "corpus/" kind "/") == 1' \
+      | LC_ALL=C sort \
+      | awk -v n="$sample" '(NR - 1) % n == 0'
+
+# Print the worker count: JOBS=<n>, else the processor count
+_jobs *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    jobs="$(nproc)"
+    for arg in {{ ARGS }}; do
+      case "$arg" in JOBS=*) jobs="${arg#JOBS=}" ;; esac
+    done
+    echo "$jobs"
+
+# Run one private per-file recipe over the selected corpus paths in parallel
+_each RECIPE *ARGS:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    list="$(mktemp)"
+    trap 'rm -f -- "$list"' EXIT
+    just _corpus {{ ARGS }} > "$list" || exit 2
+    jobs="$(just _jobs {{ ARGS }})"
+    xargs -d '\n' -P "$jobs" -n 1 just {{ RECIPE }} < "$list"
+    status=$?
+    echo "{{ RECIPE }}: $(wc -l < "$list") files, xargs status $status"
+    test "$status" -eq 0
+
+_oracle-one FILE:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    f={{ quote(FILE) }}
+    report="$(bin/emd-go check --output-format json "$f" 2>/dev/null)"
+    printf '%s\n' "$report" | jaq -c --arg path "$f" '{path: $path, accept: (.summary.errors == 0), kind: .files[0].kind}'
+
+# Compare accept, reject, and kind with corpus/verdicts.json and corpus/divergences.json
+oracle *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    list="$(mktemp)" ours="$(mktemp)"
+    trap 'rm -f -- "$list" "$ours"' EXIT
+    just _corpus {{ ARGS }} > "$list"
+    jobs="$(just _jobs {{ ARGS }})"
+    xargs -d '\n' -P "$jobs" -n 1 just _oracle-one < "$list" > "$ours"
+    test "$(wc -l < "$ours")" -eq "$(wc -l < "$list")" || { echo "oracle: a check run printed no verdict"; exit 1; }
+    report="$(jaq -rn --slurpfile ours "$ours" --slurpfile upstream corpus/verdicts.json --slurpfile rows corpus/divergences.json '
+      ($upstream[0]) as $up
+      | ($rows[0] | map({key: .path, value: .}) | from_entries) as $div
+      | $ours[]
+      | . as $o
+      | {accept: $o.accept, kind: $o.kind} as $mine
+      | (if $up | has($o.path) then ($up[$o.path] | {accept, kind}) else null end) as $theirs
+      | if $theirs == null then "oracle: no upstream verdict: \($o.path)"
+        elif $div | has($o.path) then
+          (if $div[$o.path].upstream_verdict == $theirs and $div[$o.path].our_verdict == $mine then empty
+           else "oracle: stale divergence row: \($o.path)" end)
+        elif $theirs == $mine then empty
+        else "oracle: verdict differs: \($o.path) upstream \($theirs | tojson) ours \($mine | tojson)" end')"
+    echo "oracle: $(wc -l < "$list") files, $(jaq 'length' corpus/divergences.json) divergence rows"
+    test -z "$report" || { echo "$report"; exit 1; }
+
 # Format check on the staged content of Go and Rust files; the pre-commit hook runs it
 staged-format:
     #!/usr/bin/env bash
@@ -76,4 +153,5 @@ verify:
     just build
     just proofs
     just model
+    just oracle
     just kernel-diff
