@@ -73,11 +73,18 @@ func hasErrors(ds []diag.Diagnostic) bool {
 
 func modelSource(cfg Config, path string) ([]byte, error) {
 	if path != "-" {
-		return os.ReadFile(path)
+		src, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("cannot read %s: %w", path, err)
+		}
+		return src, nil
 	}
 	input := cfg.Stdin
 	if input == nil {
 		input = os.Stdin
+	}
+	if terminalWriter(input) {
+		return nil, errors.New("missing INPUT; pass a path or pipe Mermaid source")
 	}
 	return io.ReadAll(input)
 }
