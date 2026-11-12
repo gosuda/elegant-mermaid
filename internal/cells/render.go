@@ -181,25 +181,21 @@ func (c *Canvas) inkSegment(a, b geom.Point, style Style, ink Token) {
 	}
 }
 func (c *Canvas) polyline(ps []geom.Point, style Style, ink Token) error {
-	for i := 1; i < len(ps); i++ {
-		a, b := ps[i-1], ps[i]
-		if a.X == b.X || a.Y == b.Y {
-			c.inkSegment(a, b, style, ink)
-			continue
+	if geom.IsOrthogonal(ps) {
+		for i := 1; i < len(ps); i++ {
+			c.inkSegment(ps[i-1], ps[i], style, ink)
 		}
-		ad, err := CellDot(a)
-		if err != nil {
-			return err
-		}
-		bd, err := CellDot(b)
-		if err != nil {
-			return err
-		}
-		if err = c.StrokeDots(ad, bd, ink); err != nil {
-			return err
-		}
+		return nil
 	}
-	return nil
+	dots := make([]geom.Point, len(ps))
+	for i, p := range ps {
+		d, err := CellDot(p)
+		if err != nil {
+			return err
+		}
+		dots[i] = d
+	}
+	return c.dotLines(dots, ink)
 }
 func (c *Canvas) dotLines(ps []geom.Point, ink Token) error {
 	for i := 1; i < len(ps); i++ {

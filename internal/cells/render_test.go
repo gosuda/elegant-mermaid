@@ -201,3 +201,19 @@ func TestDottedLine(t *testing.T) {
 		}
 	}
 }
+
+func TestMixedPolylineEntirelyDots(t *testing.T) {
+	s := cellScene(6, 4, edge(geom.Point{}, geom.Point{X: 3}, geom.Point{X: 4, Y: 2}))
+	for _, tc := range []struct {
+		charset Charset
+		want    string
+	}{{CharsetUnicode, "⠤⠤⠤⡄\n   ⢸\n    ⠇\n\n"}, {CharsetASCII, "####\n   #\n    #\n\n"}} {
+		got, err := Render(s, Options{Charset: tc.charset})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got.Text) != tc.want {
+			t.Fatalf("charset %d: got %q want %q", tc.charset, got.Text, tc.want)
+		}
+	}
+}
