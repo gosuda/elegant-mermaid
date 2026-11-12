@@ -17,3 +17,10 @@ Elegant.Measure.wrap_lines_fit
 Elegant.Measure.segment_concat
 Elegant.Measure.width_nonneg
 Elegant.Measure.width_append_le
+Elegant.Text.canvas_merge_order_independent
+Elegant.Text.cells_inside_canvas
+Elegant.Text.putSymbol_changes_symbol_only
+Elegant.Text.Join.join_glyph_matches_mask
+Elegant.Text.Braille.braille_bit_roundtrip
+Elegant.Text.Braille.line_raster_connected
+Elegant.Text.Braille.fill_raster_inside

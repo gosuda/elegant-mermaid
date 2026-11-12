@@ -25,3 +25,6 @@ import Elegant.Model
 import Elegant.Scene
 import Elegant.Dump
 import Elegant.Measure
+import Elegant.Text.Canvas
+import Elegant.Text.Join
+import Elegant.Text.Braille
