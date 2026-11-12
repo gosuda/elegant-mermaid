@@ -1,15 +1,13 @@
 package mermaid
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/gosuda/elegant-mermaid/internal/diag"
+	"github.com/gosuda/elegant-mermaid/internal/layout"
 	"github.com/gosuda/elegant-mermaid/internal/markdown"
-	model "github.com/gosuda/elegant-mermaid/internal/model/flowchart"
 	"github.com/gosuda/elegant-mermaid/internal/source"
 	"github.com/gosuda/elegant-mermaid/internal/syntax"
-	parser "github.com/gosuda/elegant-mermaid/internal/syntax/flowchart"
 )
 
 // Document is immutable. Its caller must keep the borrowed source unchanged.
@@ -19,36 +17,22 @@ type Document struct {
 	kind          Kind
 	found         bool
 	diagnostics   []Diagnostic
-	model         *model.Model
+	diagram       *layout.Diagram
 	preprocessing syntax.Preprocessed
 }
 
 func Parse(src []byte) *Document {
-	text, bad := source.RepairUTF8(src)
-	p := syntax.Preprocess(text)
-	detected := syntax.Detect(text, p.Removed)
-	d := &Document{source: text, index: source.NewIndex(text), preprocessing: p}
-	ds := append(p.Diags, detected.Diagnostics...)
-	if bad >= 0 {
-		ds = append(ds, diag.Diagnostic{Code: "source/invalid-utf8", Severity: diag.SeverityError, Message: fmt.Sprintf("invalid UTF-8 at byte %d", bad), Span: source.Span{Start: bad, End: bad + 3}, Help: "Save the source as UTF-8."})
-	}
-	if detected.Found {
+	parsed := layout.ParseDiagram(src)
+	d := &Document{source: parsed.Source, index: source.NewIndex(parsed.Source), preprocessing: parsed.Preprocessing, diagram: parsed}
+	if parsed.Found {
 		for k, id := range kindIDs {
-			if id == detected.Kind {
+			if id == parsed.Kind {
 				d.kind, d.found = Kind(k), true
 				break
 			}
 		}
-		if detected.Kind == "flowchart" {
-			ast, syntaxDiagnostics := parser.Parse(text, p.Removed)
-			ds = append(ds, syntaxDiagnostics...)
-			var semanticDiagnostics []diag.Diagnostic
-			d.model, semanticDiagnostics = model.Resolve(text, ast)
-			ds = append(ds, semanticDiagnostics...)
-		}
 	}
-	diag.Sort(ds)
-	d.diagnostics = publicDiagnostics(ds)
+	d.diagnostics = publicDiagnostics(parsed.Diagnostics)
 	return d
 }
 func (d *Document) Source() []byte            { return d.source }

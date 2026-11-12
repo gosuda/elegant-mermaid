@@ -270,6 +270,7 @@ classLiteralName = BQUOTE_STR ;
 - class-050: Accessibility values MUST trim surrounding whitespace and replace the preceding value; direction MUST default to TB and the last recognized direction MUST win. [just parity]
 - class-051: The layered adapter MUST size a class as a compartment table: widest row plus twice class.padding, sum of row heights, and one separator row between compartments; an empty compartment MUST retain one row. [just validate]
 - class-052: The padding fallback MUST be 16 px, with 2 columns in the cell profile; the separator MUST be 1 px or 1 cell row. [just parity]
+    In the cell profile, the box height MUST add 2 rows: one for the top border and one for the bottom border. The first table row MUST start at `box.y + 1`. The cell back end draws the box as a full rectangle, and each separator MUST be a horizontal line that joins both side borders. The vector profile adds no border term.
 - class-053: Notes MUST use note style, namespace frames MUST use group style, and dotted class relations and note connectors MUST use dashed strokes. [just parity]
 
 ## Diagnostics

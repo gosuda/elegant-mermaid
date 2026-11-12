@@ -9,6 +9,7 @@ This file defines the hard constraints beyond the validator, the metric formulas
 - quality-metrics-02: No label MUST be truncated. [just quality]
     A label is truncated when a back end cannot write all of its grapheme clusters. The vector profile never truncates a label, because vector labels are never clipped. In the cell profile, a label is truncated when the label placement rule of `spec/render-cells.md` cannot write one of its clusters.
 - quality-metrics-03: Under the cell profile, no two routes MUST share a cell except at a declared junction, along a shared trunk segment (the trunk rule of spec/layout/routing.md, and grid routes that run on one gutter line), or at a crossing drawn as `┼`. [just quality]
+    A route conflict is a cell that two routes enter on the same axis (both horizontal there or both vertical there) when the two routes share no trunk and share no endpoint box. Two routes that share an endpoint box meet at a declared junction. Two routes that enter one cell on different axes cross, and the cell renderer draws `┼`. The cell renderer returns the count of route conflicts, and the rule holds when that count is 0. A dump input has no cell rendering, so the rule holds for it.
 - quality-metrics-04: `hard_ok` MUST be true exactly when a scene passes `HardConstraints`, both rules above, and the unwritten-cluster count is 0. [just quality]
     The cell renderer returns the count of unwritten clusters. For a model input, `--metrics` runs the cell renderer on the same model and takes that count.
 
@@ -32,7 +33,7 @@ This file defines the hard constraints beyond the validator, the metric formulas
 - quality-metrics-12: The `total_route_length` term `T` MUST be the sum over all segments of all routes of `isqrt(dx * dx + dy * dy)`, with `dx` and `dy` in units and `isqrt` the kernel floor square root. [just parity]
     Orthogonal segments give exact lengths.
 - quality-metrics-13: The `canvas_area` term `K` MUST be `W * H`, where `W` and `H` are the width and height of the bounding box of all real node boxes, group boxes, label boxes, and route points. [just parity]
-    The bounding box has no margin.
+    The bounding box has no margin. A dump with no node box, group box, label box, and route point has `W = 0` and `H = 0`, so `K = 0`.
 - quality-metrics-14: The composite score MUST be `soft_cost = 10 * C + 2 * B + 5 * A + floor_div(T, M) + floor_div(K, M * M * max(1, N))`. [just parity]
     All terms are integers and not negative, so each `floor_div` is the floor of its exact quotient. `N`, `S`, and `M` depend only on the model boxes, so ours and both baselines share them for one fixture.
 - quality-metrics-15: Our layouts and both baseline dumps MUST go through the same metric code on the same kind of dump. [just quality]

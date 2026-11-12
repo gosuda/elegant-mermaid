@@ -18,6 +18,7 @@ type Input struct {
 	Text   []string
 	Edges  []EdgeOptions
 	Fixed  []FixedGroup
+	Sizes  []geom.Size
 }
 type GroupOptions struct{ ID, Direction string }
 type FixedGroup struct {
@@ -212,6 +213,10 @@ func populateNodes(g *Graph, in Input, o scene.Options, lines [][]measure.Line) 
 		node, err := measuredNode(b.ID, int32(i), lines[i], o.Profile)
 		if err != nil {
 			return err
+		}
+		if i < len(in.Sizes) && in.Sizes[i] != (geom.Size{}) {
+			node.W = max(in.Sizes[i].W, constant(o.Profile, "node_min_w"))
+			node.H = max(in.Sizes[i].H, constant(o.Profile, "node_min_h"))
 		}
 		node.Parent = b.Parent
 		node.Role = b.Role

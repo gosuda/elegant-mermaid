@@ -64,3 +64,11 @@ func TestLayoutPublic(t *testing.T) {
 		}
 	}
 }
+
+func TestMetricsCellRefusal(t *testing.T) {
+	var out, stderr bytes.Buffer
+	err := Run(t.Context(), Config{Args: []string{"layout", "--metrics", "--profile", "cell"}, Stdin: strings.NewReader("flowchart\nA\n"), Stdout: &out, Stderr: &stderr})
+	if layoutExitCode(t, err) != 2 || stderr.String() != "--metrics needs --profile vector\n" || out.Len() != 0 {
+		t.Fatalf("%v stdout=%q stderr=%q", err, out.String(), stderr.String())
+	}
+}

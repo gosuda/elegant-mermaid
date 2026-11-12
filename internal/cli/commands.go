@@ -15,11 +15,8 @@ import (
 	"github.com/gosuda/elegant-mermaid/internal/cells"
 	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/layout"
-	model "github.com/gosuda/elegant-mermaid/internal/model/flowchart"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 	"github.com/gosuda/elegant-mermaid/internal/svg"
-	"github.com/gosuda/elegant-mermaid/internal/syntax"
-	parser "github.com/gosuda/elegant-mermaid/internal/syntax/flowchart"
 )
 
 type commandOptions struct {
@@ -81,22 +78,13 @@ func validateChoice(value, name string, choices ...string) error {
 	return nil
 }
 
-func parseInput(path string, src []byte) (diag.FileDiagnostics, *model.Model, error) {
-	p := syntax.Preprocess(src)
-	d := syntax.Detect(src, p.Removed)
-	f := diag.FileDiagnostics{Path: path, Kind: d.Kind, Source: src, Diagnostics: append(p.Diags, d.Diagnostics...)}
-	if !d.Found {
-		return f, nil, nil
+func parseInput(path string, src []byte) (diag.FileDiagnostics, *layout.Diagram, error) {
+	d := layout.ParseDiagram(src)
+	f := diag.FileDiagnostics{Path: path, Kind: d.Kind, Source: d.Source, Diagnostics: d.Diagnostics}
+	if d.Found && !d.Supported() {
+		return f, d, fmt.Errorf("unsupported diagram kind: %s", d.Kind)
 	}
-	if d.Kind != "flowchart" {
-		return f, nil, fmt.Errorf("unsupported diagram kind: %s", d.Kind)
-	}
-	ast, ds := parser.Parse(src, p.Removed)
-	f.Diagnostics = append(f.Diagnostics, ds...)
-	m, ds := model.Resolve(src, ast)
-	f.Diagnostics = append(f.Diagnostics, ds...)
-	diag.Sort(f.Diagnostics)
-	return f, m, nil
+	return f, d, nil
 }
 
 func renderCommand(cfg Config) error {
@@ -145,7 +133,10 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	if o.format == "text" {
 		profile = scene.ProfileCell
 	}
-	in, _ := layout.FromFlowchart(m, profile, scene.Options{MaxWidth: int32(o.width)})
+	in, err := m.Input(profile, scene.Options{MaxWidth: int32(o.width)})
+	if err != nil {
+		return err
+	}
 	s, ds, err := layout.Layout(in)
 	if err != nil {
 		return resultError(cfg, err)
@@ -153,7 +144,7 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	if err = diag.RenderText(cfg.Stderr, path, src, ds, diag.FrameOptions{}); err != nil {
 		return err
 	}
-	return serializeScene(cfg, o, s, svg.Options{Theme: o.theme, Background: o.background, Kind: "flowchart", Title: m.AccTitle, Description: m.AccDescr})
+	return serializeScene(cfg, o, s, svg.Options{Theme: o.theme, Background: o.background, Kind: m.Kind, Title: m.AccTitle, Description: m.AccDescr})
 }
 
 func serializeScene(cfg Config, o commandOptions, s scene.Scene, svgOptions svg.Options) error {

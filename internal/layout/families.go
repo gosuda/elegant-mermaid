@@ -13,7 +13,7 @@ type Family struct {
 	Layout func(Input) (scene.Scene, []diag.Diagnostic, error)
 }
 
-var Families = []Family{{Kind: "flowchart", Layout: layoutFlowchart}}
+var Families = []Family{{Kind: "flowchart", Layout: layoutFlowchart}, {Kind: "class", Layout: layoutClass}}
 
 func Layout(in Input) (scene.Scene, []diag.Diagnostic, error) {
 	for _, f := range Families {

@@ -14,6 +14,7 @@ type Input struct {
 	Routes    []Route
 	Labels    []Label
 	Groups    []Group
+	ClassRows [][][]string
 }
 
 type Box struct {

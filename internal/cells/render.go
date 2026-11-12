@@ -15,6 +15,7 @@ type Options struct {
 type Result struct {
 	Text            []byte
 	RefusedClusters int
+	RouteConflicts  int
 }
 type ProfileError struct{ Profile scene.Profile }
 
@@ -41,7 +42,7 @@ func Render(s scene.Scene, opts Options) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{Text: c.Serialise(opts.Charset, opts.Color, func(token Token) RGB { return RGB(t.Colour(theme.Token(token))) }), RefusedClusters: refused}, nil
+	return Result{Text: c.Serialise(opts.Charset, opts.Color, func(token Token) RGB { return RGB(t.Colour(theme.Token(token))) }), RefusedClusters: refused, RouteConflicts: routeConflicts(s.Routes)}, nil
 }
 
 func (c *Canvas) drawGroups(s scene.Scene, charset Charset, t theme.Theme) ([]*scene.Text, error) {
@@ -351,4 +352,51 @@ func arcPoints(v *scene.ArcTo, current geom.Point) ([]geom.Point, geom.Point, er
 		return nil, current, e
 	}
 	return ps, ps[len(ps)-1], nil
+}
+
+func routeConflicts(routes []scene.Route) int {
+	count := 0
+	for i, r := range routes {
+		for _, q := range routes[:i] {
+			if r.From == q.From || r.From == q.To || r.To == q.From || r.To == q.To {
+				continue
+			}
+			count += routePairConflicts(r.Points, q.Points)
+		}
+	}
+	return count
+}
+func routePairConflicts(p, q []geom.Point) int {
+	cells := map[geom.Point]bool{}
+	for i := 1; i < len(p); i++ {
+		for j := 1; j < len(q); j++ {
+			recordRouteOverlap(cells, p[i-1], p[i], q[j-1], q[j])
+		}
+	}
+	return len(cells)
+}
+func recordRouteOverlap(cells map[geom.Point]bool, a, b, c, d geom.Point) {
+	if a == b || c == d {
+		return
+	}
+	recordHorizontalOverlap(cells, a, b, c, d)
+	recordVerticalOverlap(cells, a, b, c, d)
+}
+func recordHorizontalOverlap(cells map[geom.Point]bool, a, b, c, d geom.Point) {
+	if a.Y != b.Y || c.Y != d.Y || a.Y != c.Y {
+		return
+	}
+	lo, hi := max(min(a.X, b.X), min(c.X, d.X)), min(max(a.X, b.X), max(c.X, d.X))
+	for x := int64(lo); x <= int64(hi); x++ {
+		cells[geom.Point{X: int32(x), Y: a.Y}] = true
+	}
+}
+func recordVerticalOverlap(cells map[geom.Point]bool, a, b, c, d geom.Point) {
+	if a.X != b.X || c.X != d.X || a.X != c.X {
+		return
+	}
+	lo, hi := max(min(a.Y, b.Y), min(c.Y, d.Y)), min(max(a.Y, b.Y), max(c.Y, d.Y))
+	for y := int64(lo); y <= int64(hi); y++ {
+		cells[geom.Point{X: a.X, Y: int32(y)}] = true
+	}
 }

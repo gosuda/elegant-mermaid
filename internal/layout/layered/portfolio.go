@@ -226,20 +226,11 @@ func softCost(g *Graph, part Layout) (int64, error) {
 		return 0, err
 	}
 	area := int64(b.W) * int64(b.H)
-	denominator, err := product(mean, mean)
-	if err != nil {
-		return 0, err
-	}
-	denominator, err = product(denominator, max(int64(1), n))
-	if err != nil {
-		return 0, err
-	}
-	arithmetic := coordinateArithmetic{}
-	score := arithmetic.add(arithmetic.multiply(10, stats.crossings), arithmetic.multiply(2, stats.bends))
-	score = arithmetic.add(score, arithmetic.multiply(5, stats.against))
-	score = arithmetic.add(score, stats.length/mean)
-	score = arithmetic.add(score, area/denominator)
-	return score, arithmetic.err
+	return (scene.Metrics{
+		Nodes: n, MeanNodeExtent: mean, Crossings: stats.crossings,
+		Bends: stats.bends, AgainstFlowEdges: stats.against,
+		TotalRouteLength: stats.length, CanvasArea: area,
+	}).Cost()
 }
 
 type routeStats struct{ crossings, bends, against, length int64 }

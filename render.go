@@ -32,10 +32,10 @@ func Layout(ctx context.Context, d *Document, o LayoutOptions) (*Scene, error) {
 	if err != nil {
 		return nil, err
 	}
-	if d.model == nil {
-		return nil, fmt.Errorf("%w: parser and layout for %s are not implemented", ErrInvalidDocument, d.kind.String())
+	in, err := documentLayoutInput(d, options)
+	if err != nil {
+		return nil, err
 	}
-	in, _ := layout.FromFlowchart(d.model, scene.Profile(o.Profile), options)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -47,6 +47,17 @@ func Layout(ctx context.Context, d *Document, o LayoutOptions) (*Scene, error) {
 		return nil, renderError(err)
 	}
 	return &Scene{value: value}, nil
+}
+
+func documentLayoutInput(d *Document, options scene.Options) (layout.Input, error) {
+	if d.diagram == nil || !d.diagram.Supported() {
+		return layout.Input{}, fmt.Errorf("%w: parser and layout for %s are not implemented", ErrInvalidDocument, d.kind.String())
+	}
+	in, err := d.diagram.Input(options.Profile, options)
+	if err != nil {
+		return layout.Input{}, renderError(err)
+	}
+	return in, nil
 }
 func layoutOptions(o LayoutOptions) (scene.Options, error) {
 	if o.Profile > ProfileCell || o.Thoroughness < 0 || o.Thoroughness > 5 || o.MaxWidth < 0 || int64(o.MaxWidth) > math.MaxInt32 {
@@ -102,7 +113,7 @@ func RenderSVG(ctx context.Context, d *Document, o SVGOptions) ([]byte, error) {
 		return nil, err
 	}
 	var out bytes.Buffer
-	opts := svg.Options{Theme: o.Theme, Background: o.Background, Text: svg.TextMode(o.Text), IDPrefix: o.IDPrefix, Kind: d.kind.String(), Title: d.model.AccTitle, Description: d.model.AccDescr}
+	opts := svg.Options{Theme: o.Theme, Background: o.Background, Text: svg.TextMode(o.Text), IDPrefix: o.IDPrefix, Kind: d.kind.String(), Title: d.diagram.AccTitle, Description: d.diagram.AccDescr}
 	err = svg.Write(&out, s.value, opts)
 	if cancelled := ctx.Err(); cancelled != nil {
 		return nil, cancelled

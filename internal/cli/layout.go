@@ -6,19 +6,33 @@ import (
 	"io"
 	"os"
 
+	"github.com/gosuda/elegant-mermaid/internal/cells"
 	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/layout"
-	model "github.com/gosuda/elegant-mermaid/internal/model/flowchart"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
-	"github.com/gosuda/elegant-mermaid/internal/syntax"
-	parser "github.com/gosuda/elegant-mermaid/internal/syntax/flowchart"
 )
 
 func layoutModel(cfg Config) error {
-	path, profile, err := modelArgs(cfg.Args[1:])
+	metrics, dump, args, err := metricArgs(cfg.Args)
 	if err != nil {
 		return err
 	}
+	cfg.Args = args
+	parseArgs := args[1:]
+	path, profile, err := modelArgs(parseArgs)
+	if err != nil {
+		return err
+	}
+	if metrics && profile == scene.ProfileCell {
+		return errors.New("--metrics needs --profile vector")
+	}
+	if dump != "" {
+		return writeDumpMetrics(cfg, dump)
+	}
+	return layoutSource(cfg, path, profile, metrics)
+}
+
+func layoutSource(cfg Config, path string, profile scene.Profile, metrics bool) error {
 	src, err := modelSource(cfg, path)
 	if err != nil {
 		return err
@@ -26,24 +40,23 @@ func layoutModel(cfg Config) error {
 	if path == "-" {
 		path = "<stdin>"
 	}
-	p := syntax.Preprocess(src)
-	detection := syntax.Detect(src, p.Removed)
-	ds := append(p.Diags, detection.Diagnostics...)
-	if detection.Found && detection.Kind != "flowchart" {
-		return fmt.Errorf("unsupported diagram kind: %s", detection.Kind)
+	f, m, err := parseInput(path, src)
+	if err != nil {
+		return err
 	}
-	file, parsed := parser.Parse(src, p.Removed)
-	ds = append(ds, parsed...)
-	m, resolved := model.Resolve(src, file)
-	ds = append(ds, resolved...)
-	diag.Sort(ds)
-	if hasErrors(ds) {
-		if err := diag.RenderText(cfg.Stderr, path, src, ds, diag.FrameOptions{}); err != nil {
+	if hasErrors(f.Diagnostics) {
+		if err := diag.RenderText(cfg.Stderr, path, f.Source, f.Diagnostics, diag.FrameOptions{}); err != nil {
 			return err
 		}
 		return &ExitError{Code: 1}
 	}
-	in, _ := layout.FromFlowchart(m, profile, scene.Options{})
+	in, err := m.Input(profile, scene.Options{})
+	if err != nil {
+		return err
+	}
+	if metrics {
+		return writeSourceMetrics(cfg, path, src, in, m)
+	}
 	return writeLayoutResult(cfg, path, src, in)
 }
 
@@ -163,4 +176,76 @@ func modelStage(args []string) bool {
 		}
 	}
 	return false
+}
+
+func metricArgs(args []string) (bool, string, []string, error) {
+	out := make([]string, 0, len(args))
+	metrics := false
+	dump := ""
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--" {
+			out = append(out, args[i:]...)
+			break
+		}
+		switch args[i] {
+		case "--metrics":
+			metrics = true
+		case "--dump":
+			if i+1 == len(args) {
+				return false, "", nil, errors.New("missing value for --dump")
+			}
+			i++
+			dump = args[i]
+		default:
+			out = append(out, args[i])
+		}
+	}
+	if dump != "" && !metrics {
+		return false, "", nil, errors.New("--dump requires --metrics")
+	}
+	return metrics, dump, out, nil
+}
+func writeDumpMetrics(cfg Config, path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	d, err := scene.ReadMetricDump(data)
+	if err != nil {
+		return err
+	}
+	m, err := scene.MeasureMetrics(&d, 0)
+	if err != nil {
+		return err
+	}
+	_, err = cfg.Stdout.Write(m.AppendJSON(nil))
+	return err
+}
+func writeSourceMetrics(cfg Config, path string, src []byte, in layout.Input, model *layout.Diagram) error {
+	s, ds, err := layout.Layout(in)
+	if err != nil {
+		return err
+	}
+	if err = diag.RenderText(cfg.Stderr, path, src, ds, diag.FrameOptions{}); err != nil {
+		return err
+	}
+	cell, err := model.Input(scene.ProfileCell, scene.Options{})
+	if err != nil {
+		return err
+	}
+	cs, _, err := layout.Layout(cell)
+	if err != nil {
+		return err
+	}
+	rendered, err := cells.Render(cs, cells.Options{})
+	if err != nil {
+		return err
+	}
+	m, err := scene.MeasureMetrics(&s.Dump, rendered.RefusedClusters)
+	if err != nil {
+		return err
+	}
+	m.HardOK = m.HardOK && rendered.RouteConflicts == 0
+	_, err = cfg.Stdout.Write(m.AppendJSON(nil))
+	return err
 }
