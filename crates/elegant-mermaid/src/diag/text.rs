@@ -80,7 +80,7 @@ impl Frame<'_> {
     }
 
     fn push_header(&mut self, start: Position, d: &Diagnostic) {
-        self.out.push_str(self.path);
+        push_field(self.out, self.path);
         self.out.push(':');
         push_decimal(self.out, start.line);
         self.out.push(':');
@@ -88,9 +88,9 @@ impl Frame<'_> {
         self.out.push_str(": ");
         (self.style.word)(self.out, d.severity);
         self.out.push('[');
-        self.out.push_str(d.code);
+        push_field(self.out, d.code);
         self.out.push_str("]: ");
-        self.out.push_str(&d.message);
+        push_field(self.out, &d.message);
         self.out.push('\n');
     }
 
@@ -127,9 +127,9 @@ impl Frame<'_> {
     fn push_place_note(&mut self, related: &Related) {
         let position = self.position(related.span.start);
         self.out.push_str("  = note: ");
-        self.out.push_str(&related.message);
+        push_field(self.out, &related.message);
         self.out.push_str(" at ");
-        self.out.push_str(self.path);
+        push_field(self.out, self.path);
         self.out.push(':');
         push_decimal(self.out, position.line);
         self.out.push(':');
@@ -170,8 +170,12 @@ fn push_note_line(out: &mut String, prefix: &str, body: &str) {
         return;
     }
     out.push_str(prefix);
-    out.push_str(body);
+    push_field(out, body);
     out.push('\n');
+}
+
+fn push_field(out: &mut String, text: &str) {
+    out.extend(text.chars().map(printable));
 }
 
 fn printable(ch: char) -> char {
@@ -459,5 +463,46 @@ mod tests {
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &plain());
         assert!(out.contains("1 | 世\n  | ^\n"));
+    }
+    #[test]
+    fn terminal_fields_replace_isolated_controls_without_changing_frame_structure() {
+        for ch in (0..=0x1f).chain(0x7f..=0x9f).filter_map(char::from_u32) {
+            for colour in [false, true] {
+                let field = format!("世{ch}é");
+                let mut d = diagnostic(Span { start: 1, end: 2 });
+                d.code = "c/\u{1}x";
+                d.message = field.clone();
+                d.help = field.clone();
+                d.fixes.push(Fix {
+                    title: field.clone(),
+                    safety: FixSafety::Safe,
+                    edits: Vec::new(),
+                });
+                d.related.push(Related {
+                    span: Span { start: 0, end: 1 },
+                    message: field.clone(),
+                });
+                let mut out = String::new();
+                render_text(
+                    &mut out,
+                    &field,
+                    "\t界\n",
+                    &[d],
+                    &TextFrameOptions {
+                        colour,
+                        width: |_| 1,
+                    },
+                );
+                let plain = out.replace("\u{1b}[31m", "").replace("\u{1b}[0m", "");
+                assert_eq!(
+                    plain,
+                    "世�é:1:2: error[c/�x]: 世�é\n  |\n1 |         界\n  |         ^\n  = help: 世�é\n  = fix: 世�é\n  = note: 世�é at 世�é:1:1\n"
+                );
+                if colour {
+                    assert_eq!(out.matches("\u{1b}[31m").count(), 2);
+                    assert_eq!(out.matches("\u{1b}[0m").count(), 2);
+                }
+            }
+        }
     }
 }

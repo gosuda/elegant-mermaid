@@ -67,7 +67,7 @@ func (fw *frameWriter) frame(dst []byte, d *Diagnostic) []byte {
 }
 
 func (fw *frameWriter) header(dst []byte, pos source.Position, d *Diagnostic) []byte {
-	dst = append(dst, fw.path...)
+	dst = appendTerminalField(dst, fw.path)
 	dst = append(dst, ':')
 	dst = strconv.AppendInt(dst, int64(pos.Line), 10)
 	dst = append(dst, ':')
@@ -75,9 +75,9 @@ func (fw *frameWriter) header(dst []byte, pos source.Position, d *Diagnostic) []
 	dst = append(dst, ':', ' ')
 	dst = fw.style.word(dst, d.Severity)
 	dst = append(dst, '[')
-	dst = append(dst, d.Code...)
+	dst = appendTerminalField(dst, d.Code)
 	dst = append(dst, ']', ':', ' ')
-	dst = append(dst, d.Message...)
+	dst = appendTerminalField(dst, d.Message)
 	return append(dst, '\n')
 }
 
@@ -102,9 +102,9 @@ func (fw *frameWriter) notes(dst []byte, d *Diagnostic) []byte {
 func (fw *frameWriter) note(dst []byte, rel *Related) []byte {
 	pos := fw.index.Position(rel.Span.Start)
 	dst = append(dst, "  = note: "...)
-	dst = append(dst, rel.Message...)
+	dst = appendTerminalField(dst, rel.Message)
 	dst = append(dst, " at "...)
-	dst = append(dst, fw.path...)
+	dst = appendTerminalField(dst, fw.path)
 	dst = append(dst, ':')
 	dst = strconv.AppendInt(dst, int64(pos.Line), 10)
 	dst = append(dst, ':')
@@ -117,7 +117,7 @@ func appendLine(dst []byte, prefix, body string) []byte {
 		return dst
 	}
 	dst = append(dst, prefix...)
-	dst = append(dst, body...)
+	dst = appendTerminalField(dst, body)
 	return append(dst, '\n')
 }
 
@@ -235,6 +235,19 @@ func printable(r rune) rune {
 		return utf8.RuneError
 	}
 	return r
+}
+
+func appendTerminalField(dst []byte, text string) []byte {
+	start := 0
+	for at, r := range text {
+		if printable(r) == r {
+			continue
+		}
+		dst = append(dst, text[start:at]...)
+		dst = utf8.AppendRune(dst, utf8.RuneError)
+		start = at + utf8.RuneLen(r)
+	}
+	return append(dst, text[start:]...)
 }
 
 func cellAdvance(r rune, width func(rune) int) int {
