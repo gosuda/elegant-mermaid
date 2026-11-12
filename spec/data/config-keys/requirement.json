@@ -1,0 +1,67 @@
+[
+  {
+    "kind": "requirement",
+    "key": "fontSize",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "line_height",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "requirement",
+    "key": "rect_border_color",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "rect_border_size",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "rect_fill",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "rect_min_height",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "rect_min_width",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "rect_padding",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "text_color",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "requirement",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "requirement",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  }
+]

@@ -549,6 +549,71 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "requirement",
+        key: "fontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "line_height",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "rect_border_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "rect_border_size",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "rect_fill",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "rect_min_height",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "rect_min_width",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "rect_padding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "text_color",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "state",
         key: "arrowMarkerAbsolute",
         class: "accepted-ignored",

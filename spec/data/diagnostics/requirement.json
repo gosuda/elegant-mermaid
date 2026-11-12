@@ -1,0 +1,29 @@
+[
+  {
+    "code": "requirement/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "A token must fit the current production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "requirement/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "An unknown statement cannot create a requirement or element.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "requirement/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "A string, definition body, or accessibility block needs its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]
