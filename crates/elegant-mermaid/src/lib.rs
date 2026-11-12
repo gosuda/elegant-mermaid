@@ -42,6 +42,7 @@ pub mod options;
 pub mod scene;
 pub mod source;
 pub mod syntax;
+pub mod theme;
 
 pub use diag::{Diagnostic, Edit, Fix, FixSafety, Related, Severity};
 pub use error::{IconPackError, RasterError, RenderError};
