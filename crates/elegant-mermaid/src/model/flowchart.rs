@@ -33,6 +33,7 @@ pub struct Group {
     pub title: String,
     pub parent: String,
     pub direction: String,
+    pub direction_span: Span,
     pub members: Vec<String>,
     pub span: Span,
     pub view: String,
@@ -76,6 +77,7 @@ impl Default for Group {
             title: String::new(),
             parent: String::new(),
             direction: String::new(),
+            direction_span: Span { start: 0, end: 0 },
             members: Vec::new(),
             span: Span { start: 0, end: 0 },
             view: String::new(),
@@ -171,9 +173,12 @@ fn walk(source: &str, lines: &[Line], model: &mut Model, parent: &str) {
             Statement::Direction(value) => {
                 if let Some(group) = model.groups.iter_mut().find(|group| group.id == parent) {
                     group.direction = direction(
-                        source[value.span.start..value.span.end].trim_start_matches("direction"),
+                        source[value.span.start..value.span.end]
+                            .trim()
+                            .trim_start_matches("direction"),
                     )
                     .into();
+                    group.direction_span = value.span;
                 }
             }
         }
@@ -423,7 +428,13 @@ fn subgraph(source: &str, value: &Subgraph, model: &mut Model, parent: &str) {
         .groups
         .iter()
         .position(|group| group.id == id)
-        .map(|index| (index, model.groups[index].direction.clone()));
+        .map(|index| {
+            (
+                index,
+                model.groups[index].direction.clone(),
+                model.groups[index].direction_span,
+            )
+        });
     if previous_direction.is_none() {
         model.groups.push(Group {
             id: id.clone(),
@@ -434,8 +445,9 @@ fn subgraph(source: &str, value: &Subgraph, model: &mut Model, parent: &str) {
         });
     }
     walk(source, &value.body, model, &id);
-    if let Some((index, direction)) = previous_direction {
+    if let Some((index, direction, span)) = previous_direction {
         model.groups[index].direction = direction;
+        model.groups[index].direction_span = span;
     }
     finish_group(model, &id);
 }

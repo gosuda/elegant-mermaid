@@ -2,6 +2,9 @@ use super::{LayoutError, graph::Graph};
 
 pub fn break_cycles(g: &Graph) -> Result<Vec<bool>, LayoutError> {
     g.validate()?;
+    if g.edges.iter().any(|edge| edge.decl == i32::MAX) {
+        return protected_cycles(g);
+    }
     let out = g.declared_out();
     let mut state = vec![0; g.nodes.len()];
     let mut reversed = vec![false; g.edges.len()];
@@ -34,6 +37,53 @@ pub fn break_cycles(g: &Graph) -> Result<Vec<bool>, LayoutError> {
         }
     }
     Ok(reversed)
+}
+
+fn protected_cycles(g: &Graph) -> Result<Vec<bool>, LayoutError> {
+    let mut out = vec![Vec::new(); g.nodes.len()];
+    let mut reversed = vec![false; g.edges.len()];
+    for edge in g
+        .edges
+        .iter()
+        .filter(|edge| edge.decl == i32::MAX && !edge.self_loop())
+    {
+        if reachable(&out, edge.head, edge.tail) {
+            return Err(LayoutError::Domain);
+        }
+        out[edge.tail].push(edge.head);
+    }
+    for (index, edge) in g
+        .edges
+        .iter()
+        .enumerate()
+        .filter(|(_, edge)| edge.decl != i32::MAX && !edge.self_loop())
+    {
+        let (tail, head) = edge.chain();
+        let flip = reachable(&out, head, tail);
+        reversed[index] = edge.reversed != flip;
+        if flip {
+            out[head].push(tail);
+        } else {
+            out[tail].push(head);
+        }
+    }
+    Ok(reversed)
+}
+
+fn reachable(out: &[Vec<usize>], start: usize, target: usize) -> bool {
+    let mut seen = vec![false; out.len()];
+    let mut stack = vec![start];
+    while let Some(node) = stack.pop() {
+        if node == target {
+            return true;
+        }
+        if seen[node] {
+            continue;
+        }
+        seen[node] = true;
+        stack.extend(out[node].iter().copied().filter(|&next| !seen[next]));
+    }
+    false
 }
 
 #[cfg(test)]

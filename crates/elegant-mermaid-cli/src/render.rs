@@ -41,7 +41,10 @@ fn prepare(args: &[String]) -> Result<(String, String, i32), String> {
         max_width: o.width.unsigned_abs(),
         ..scene::DumpOptions::default()
     };
-    let in_model = layout::flowchart::from_flowchart(&parsed.model, profile, opts);
+    let model = parsed.model.as_ref().ok_or("unsupported diagram kind")?;
+    let in_model = model
+        .input(profile, opts)
+        .map_err(|error| error.to_string())?;
     let (scene, ds) = match layout::families::layout(&in_model) {
         Ok(value) => value,
         Err(error) => {
@@ -50,7 +53,8 @@ fn prepare(args: &[String]) -> Result<(String, String, i32), String> {
         }
     };
     stderr.push_str(&diagnostics::text(path, &parsed.source, &ds, false));
-    let output = match serialize(&scene, &o, &parsed.model.acc_title, &parsed.model.acc_descr) {
+    let (title, description, kind) = model.accessibility();
+    let output = match serialize(&scene, &o, title, description, kind) {
         Ok(value) => value,
         Err(error) => {
             stderr.push_str(&format!("{error}\n"));
@@ -68,6 +72,7 @@ fn serialize(
     o: &options::Options,
     title: &str,
     description: &str,
+    kind: &str,
 ) -> Result<String, String> {
     if o.format == "svg" {
         let mut output = String::new();
@@ -77,7 +82,7 @@ fn serialize(
             &svg::Options {
                 theme: &o.theme,
                 background: &o.background,
-                kind: "flowchart",
+                kind,
                 title,
                 description,
                 ..svg::Options::default()

@@ -228,7 +228,7 @@ fn binary_pipe_cli_07() -> TestResult {
         "flowchart LR\n A\n",
     )?;
     assert_eq!(output.status.code(), Some(0));
-    assert_eq!(output.stdout, "┌───┐\n│ A │\n└───┘\n".as_bytes());
+    assert_eq!(output.stdout, "\n ┌───┐\n │ A │\n └───┘\n\n".as_bytes());
     assert_eq!(output.stderr, b"");
     Ok(())
 }
@@ -240,16 +240,15 @@ fn binary_width_cli_25() -> TestResult {
         "flowchart LR\n A\n",
     )?;
     assert_eq!(output.status.code(), Some(0));
-    assert_eq!(output.stdout, "┌───┐\n│ A │\n└───┘\n".as_bytes());
+    assert_eq!(output.stdout, "\n ┌───┐\n │ A │\n └───┘\n\n".as_bytes());
     assert_eq!(output.stderr, b"");
     Ok(())
 }
 
 #[test]
 fn binary_colour_cli_36() -> TestResult {
-    let plain = "┌───┐\n│ A │\n└───┘\n";
-    let coloured =
-        "\x1b[90m┌───┐\x1b[39m\n\x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\n\x1b[90m└───┘\x1b[39m\n";
+    let plain = "\n ┌───┐\n │ A │\n └───┘\n\n";
+    let coloured = "\n \x1b[90m┌───┐\x1b[39m\n \x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\n \x1b[90m└───┘\x1b[39m\n\n";
     for (name, flag, env, want) in [
         ("always", "always", vec![("NO_COLOR", "1")], coloured),
         ("never", "never", vec![("FORCE_COLOR", "1")], plain),
@@ -314,7 +313,7 @@ fn binary_argument_order_cli_05() -> TestResult {
             .env("NO_COLOR", "1")
             .output()?;
         assert_eq!(output.status.code(), Some(0));
-        assert_eq!(output.stdout, "┌───┐\n│ A │\n└───┘\n".as_bytes());
+        assert_eq!(output.stdout, "\n ┌───┐\n │ A │\n └───┘\n\n".as_bytes());
         assert_eq!(output.stderr, b"");
     }
     std::fs::remove_dir_all(dir)?;
@@ -347,7 +346,7 @@ fn binary_inference_cli_23_cli_24() -> TestResult {
             assert_eq!(output.stderr, b"");
             let bytes = std::fs::read(path)?;
             if ext == "txt" {
-                assert_eq!(bytes, "┌───┐\n│ A │\n└───┘\n".as_bytes());
+                assert_eq!(bytes, "\n ┌───┐\n │ A │\n └───┘\n\n".as_bytes());
             } else {
                 assert!(String::from_utf8(bytes)?.contains("<svg"));
             }
@@ -376,7 +375,7 @@ fn binary_colour_terminal_cli_36() -> TestResult {
         .output()?;
     std::fs::remove_file(path)?;
     assert_eq!(output.status.code(), Some(0));
-    assert_eq!(output.stdout,"\x1b[90m┌───┐\x1b[39m\r\n\x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\r\n\x1b[90m└───┘\x1b[39m\r\n".as_bytes());
+    assert_eq!(output.stdout,"\r\n \x1b[90m┌───┐\x1b[39m\r\n \x1b[90m│ \x1b[39mA \x1b[90m│\x1b[39m\r\n \x1b[90m└───┘\x1b[39m\r\n\r\n".as_bytes());
     assert_eq!(output.stderr, b"");
     Ok(())
 }

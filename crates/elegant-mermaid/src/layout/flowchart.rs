@@ -13,6 +13,7 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
         routes: Vec::new(),
         labels: Vec::new(),
         groups: Vec::new(),
+        sizes: Vec::new(),
     };
     for node in &model.nodes {
         if model.groups.iter().any(|g| g.id == node.id) {
@@ -36,6 +37,7 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
             parent,
             exclusive: true,
             text,
+            direction: String::new(),
         });
     }
     for group in &model.groups {
@@ -45,20 +47,23 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
             shape: String::new(),
             parent: group.parent.clone(),
             exclusive: false,
-            text: String::new(),
+            text: group.title.clone(),
+            direction: Direction::from_token(&group.direction)
+                .map_or_else(String::new, |d| d.as_str().into()),
         });
         input.groups.push(Group {
             id: group.id.clone(),
             parent: group.parent.clone(),
-            direction: group.direction.clone(),
-            text: group.title.clone(),
+            direction: Direction::from_token(&group.direction)
+                .map_or_else(String::new, |d| d.as_str().into()),
+            direction_span: group.direction_span,
         });
     }
     input.boxes.sort_by_key(|b| declaration(model, &b.id));
     input.labels = input
         .boxes
         .iter()
-        .filter(|b| b.role == BoxRole::Node && b.text != b.id)
+        .filter(|b| b.text != b.id)
         .map(|b| Label {
             id: format!("{}.label", b.id),
             owner: b.id.clone(),
@@ -66,8 +71,20 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
             text: b.text.clone(),
         })
         .collect();
-    for (index, edge) in model.edges.iter().enumerate() {
-        let id = format!("e{index}");
+    let mut blocked: Vec<_> = input
+        .boxes
+        .iter()
+        .filter_map(|b| route_number(&b.id))
+        .collect();
+    blocked.sort();
+    blocked.dedup();
+    let mut next = 0usize;
+    for edge in &model.edges {
+        while blocked.binary_search(&next).is_ok() {
+            next += 1;
+        }
+        let id = format!("e{next}");
+        next += 1;
         input.routes.push(Route {
             id: id.clone(),
             from: edge.from.clone(),
@@ -76,7 +93,7 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
             marker_start: edge.start.clone(),
             marker_end: edge.marker.clone(),
             line: edge.stroke.clone(),
-            min_length: edge.length.max(if edge.label.is_some() { 2 } else { 1 }),
+            min_length: if edge.label.is_some() { 2 } else { 1 },
         });
         if let Some(text) = &edge.label {
             input.labels.push(Label {
@@ -88,6 +105,17 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
         }
     }
     input
+}
+
+fn route_number(id: &str) -> Option<usize> {
+    let suffix = id.strip_prefix('e')?;
+    if suffix.is_empty()
+        || (suffix.len() > 1 && suffix.starts_with('0'))
+        || !suffix.bytes().all(|b| b.is_ascii_digit())
+    {
+        return None;
+    }
+    suffix.parse().ok()
 }
 
 fn declaration(model: &Model, id: &str) -> usize {
@@ -120,6 +148,81 @@ mod tests {
     }
 
     #[test]
+    fn indented_group_direction_is_explicit_not_inherited() {
+        for direction in ["TB", "BT", "LR", "RL"] {
+            let input = build(&format!(
+                "flowchart RL\nsubgraph G\n    direction {direction}\n A --> B\nend\n"
+            ));
+            let directions: Vec<&str> = input
+                .boxes
+                .iter()
+                .filter(|b| b.id == "G")
+                .map(|b| b.direction.as_str())
+                .collect();
+            assert_eq!(directions, [direction]);
+            assert!(model_dump(&input).contains(&format!("\"direction\":\"{direction}\"")));
+        }
+        let input = build("flowchart LR\nsubgraph G\n A --> B\nend\n");
+        let directions: Vec<&str> = input
+            .boxes
+            .iter()
+            .filter(|b| b.id == "G")
+            .map(|b| b.direction.as_str())
+            .collect();
+        assert_eq!(directions, [""]);
+    }
+
+    #[test]
+    fn reversed_label_centres_before_subtracting_half_extent()
+    -> Result<(), std::boxed::Box<dyn std::error::Error>> {
+        let input = build("flowchart LR\n A -->|workload exits| B\n B -->|run| A\n");
+        let scene = crate::layout::families::layout(&input)?.0;
+        let route = scene
+            .routes()
+            .iter()
+            .find(|r| r.id == "e1")
+            .ok_or("route")?;
+        let label = scene
+            .labels()
+            .iter()
+            .find(|l| l.owner == "e1")
+            .ok_or("label")?;
+        assert_eq!(
+            label.rect.x + label.rect.w / 2,
+            (route.points[1].x + route.points[4].x) / 2
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn independent_frame_uses_child_direction_and_one_padding_band()
+    -> Result<(), std::boxed::Box<dyn std::error::Error>> {
+        let child = crate::layout::families::layout(&build("flowchart LR\n A --> B\n"))?.0;
+        let input = build("flowchart TB\nsubgraph G\n direction LR\n A --> B\nend\n");
+        let scene = crate::layout::families::layout(&input)?.0;
+        let frame = scene
+            .boxes()
+            .iter()
+            .find(|b| b.id == "G")
+            .ok_or("frame")?
+            .rect;
+        let title = scene
+            .items()
+            .iter()
+            .find(|g| g.owner == "G")
+            .and_then(|g| {
+                g.items.iter().find_map(|item| match item {
+                    crate::scene::Item::Text(text) => Some(text.rect),
+                    _ => None,
+                })
+            })
+            .ok_or("title")?;
+        assert_eq!(frame.w, child.canvas().w + title.w);
+        assert_eq!(frame.h, child.canvas().h);
+        assert_eq!(title.x, frame.x + 1024);
+        Ok(())
+    }
+    #[test]
     fn model_dump_label_defaults() {
         for (source, labels, text) in [
             ("flowchart\nA --> B\n", 0, ""),
@@ -132,6 +235,73 @@ mod tests {
                 assert_eq!(label.text, text);
             }
         }
+    }
+
+    #[test]
+    fn stroke_length_does_not_change_minimum_rank_span() {
+        for source in [
+            "flowchart\nA --> B\n",
+            "flowchart\nA ----> B\n",
+            "flowchart\nA ====> B\n",
+        ] {
+            let input = build(source);
+            assert_eq!(input.routes[0].min_length, 1);
+        }
+        let input = build("flowchart\nA ---->|label| B\n");
+        assert_eq!(input.routes[0].min_length, 2);
+    }
+
+    #[test]
+    fn group_title_fallback_is_not_a_canonical_label() {
+        for (source, count, text) in [
+            ("flowchart\nsubgraph G\nA\nend\n", 0, ""),
+            ("flowchart\nsubgraph G[G]\nA\nend\n", 0, ""),
+            ("flowchart\nsubgraph G[Title]\nA\nend\n", 1, "Title"),
+            ("flowchart\nsubgraph G[\"\"]\nA\nend\n", 1, ""),
+        ] {
+            let input = build(source);
+            assert_eq!(input.labels.len(), count, "{source}");
+            if let Some(label) = input.labels.first() {
+                assert_eq!((&*label.owner, &*label.text), ("G", text));
+            }
+        }
+    }
+
+    #[test]
+    fn fallback_group_title_keeps_independent_content_geometry()
+    -> Result<(), std::boxed::Box<dyn std::error::Error>> {
+        for direction in [Direction::Tb, Direction::Bt, Direction::Lr, Direction::Rl] {
+            let mut input = build("flowchart\nsubgraph G\n direction LR\n A --> B\nend\n");
+            input.direction = direction;
+            let scene = crate::layout::families::layout(&input)?.0;
+            assert!(!scene.labels().iter().any(|label| label.owner == "G"));
+            let group = scene
+                .items()
+                .iter()
+                .find(|group| group.owner == "G")
+                .ok_or("missing group G scene items")?;
+            let title = group
+                .items
+                .iter()
+                .find_map(|item| match item {
+                    crate::scene::Item::Text(text) => Some(text),
+                    _ => None,
+                })
+                .ok_or("missing fallback title for group G")?;
+            assert_eq!(title.lines[0][0].text, "G");
+            let frame = scene
+                .boxes()
+                .iter()
+                .find(|b| b.id == "G")
+                .ok_or("missing group G frame")?
+                .rect;
+            assert!(crate::geom::contains(frame, title.rect)?);
+            for child in scene.boxes().iter().filter(|b| b.parent == "G") {
+                assert!(crate::geom::contains(frame, child.rect)?);
+                assert!(!crate::geom::intersects(title.rect, child.rect)?);
+            }
+        }
+        Ok(())
     }
 
     #[test]

@@ -21,7 +21,11 @@ impl Canvas {
         for label in labels {
             let ink = colour::text_token(theme.name(), label.style.name(), label.series);
             for (row, runs) in label.lines.iter().enumerate() {
-                let text: String = runs.iter().map(|run| run.text.as_str()).collect();
+                let text: String = runs
+                    .iter()
+                    .flat_map(|run| run.text.chars())
+                    .map(super::serialise::printable)
+                    .collect();
                 refused = refused
                     .checked_add(self.place_line(label, &text, row, ink)?)
                     .ok_or(GeomError::Overflow)?;
@@ -56,5 +60,51 @@ impl Canvas {
                 .ok_or(GeomError::Overflow)?;
         }
         Ok(refused)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cells::{Charset, ColorMode, Rgb};
+    use crate::geom::Rect;
+    use crate::scene::{Run, TextRole, TextStyle};
+
+    #[test]
+    fn label_lines_replace_controls_before_segmentation_and_alignment()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let theme = crate::theme::resolve("")?;
+        for text in ["a\r\nb", "a\u{1}\u{301}b", "世é"] {
+            let (expected, width) = match text {
+                "a\r\nb" => (" a��b\n", 4),
+                "a\u{1}\u{301}b" => (" a�\u{301}b\n", 3),
+                _ => (" 世é\n", 3),
+            };
+            let label = TextItem {
+                rect: Rect {
+                    x: 0,
+                    y: 0,
+                    w: width + 2,
+                    h: 1,
+                },
+                role: TextRole::Label,
+                size: 14,
+                align: Align::Middle,
+                style: TextStyle::Text,
+                series: 0,
+                lines: vec![vec![Run::plain(text)]],
+            };
+            let mut canvas = Canvas::new(width + 2, 1)?;
+            assert_eq!(canvas.place_all(&[&label], &theme)?, 0);
+            assert_eq!(
+                canvas.serialise(Charset::Unicode, ColorMode::None, |_| Rgb {
+                    r: 0,
+                    g: 0,
+                    b: 0
+                }),
+                expected
+            );
+        }
+        Ok(())
     }
 }

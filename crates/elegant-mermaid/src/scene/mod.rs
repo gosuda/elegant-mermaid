@@ -16,7 +16,10 @@ use crate::r#gen;
 use crate::geom::{Point, Rect, Size};
 
 mod dump;
+pub mod metrics;
+mod projection;
 mod validate;
+pub(crate) use projection::project_cell_attachments;
 
 pub use dump::{Stage, push_int, push_layout, push_model};
 pub use validate::{CLAUSES, Clause, Malformed, check, validate, well_formed};
@@ -264,9 +267,9 @@ impl Dump {
 
     /// The model-stage dump of `spec/model-dump.md`: no canvas, no coordinates, and an
     /// empty `lines` array on every label.
-    pub fn dump_model(&self) -> String {
+    pub fn dump_model(&self, directions: &[(&str, Direction)]) -> String {
         let mut out = String::new();
-        dump::push_model(&mut out, self);
+        dump::push_model(&mut out, self, directions);
         out
     }
 }

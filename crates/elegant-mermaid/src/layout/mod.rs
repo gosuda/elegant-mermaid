@@ -1,3 +1,4 @@
+pub mod class;
 pub mod families;
 pub mod flowchart;
 pub mod input;

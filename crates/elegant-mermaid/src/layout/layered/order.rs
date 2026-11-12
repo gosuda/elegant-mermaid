@@ -5,11 +5,14 @@ use std::cmp::Ordering;
 pub enum OrderStart {
     #[default]
     Declaration,
+    BreadthFirst,
+    Reversed,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum OrderKey {
     #[default]
     Barycentre,
+    Median,
 }
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct OrderOptions {
@@ -26,11 +29,64 @@ pub fn order(p: &Proper, opts: OrderOptions) -> Result<Vec<Vec<usize>>, LayoutEr
     Ok(order_with_budget(p, opts)?.layers)
 }
 pub fn order_with_budget(p: &Proper, opts: OrderOptions) -> Result<OrderResult, LayoutError> {
-    let OrderOptions {
-        start: OrderStart::Declaration,
-        key: OrderKey::Barycentre,
-    } = opts;
-    let (g, layers) = OrderGraph::prepare(p)?;
+    order_compound(p, opts, &[], &[])
+}
+
+pub fn order_compound(
+    p: &Proper,
+    opts: OrderOptions,
+    paths: &[Vec<usize>],
+    boundary: &[i8],
+) -> Result<OrderResult, LayoutError> {
+    let (mut g, mut layers) = OrderGraph::prepare(p)?;
+    g.key = opts.key;
+    g.paths = paths.to_vec();
+    g.boundary = boundary.to_vec();
+    let mut declaration = layers.clone();
+    let declaration_positions = positions(&declaration, p.nodes.len())?;
+    for layer in &mut declaration {
+        g.constrain(layer, &[], &declaration_positions)?;
+    }
+    match opts.start {
+        OrderStart::Declaration => {}
+        OrderStart::Reversed => {
+            for layer in &mut layers {
+                layer.reverse();
+            }
+        }
+        OrderStart::BreadthFirst => {
+            let mut discovery = vec![usize::MAX; p.nodes.len()];
+            let mut next = 0;
+            while next < p.nodes.len() {
+                let root = (0..p.nodes.len())
+                    .filter(|&v| discovery[v] == usize::MAX)
+                    .min_by_key(|&v| (next == 0 && !g.above[v].is_empty(), p.nodes[v].node.decl, v))
+                    .ok_or(LayoutError::Domain)?;
+                let mut queue = std::collections::VecDeque::from([root]);
+                discovery[root] = next;
+                next += 1;
+                while let Some(v) = queue.pop_front() {
+                    for &w in &g.below[v] {
+                        if discovery[w] == usize::MAX {
+                            discovery[w] = next;
+                            next += 1;
+                            queue.push_back(w);
+                        }
+                    }
+                }
+            }
+            for layer in &mut layers {
+                layer.sort_by_key(|&v| discovery[v]);
+            }
+        }
+    }
+    let initial = positions(&layers, p.nodes.len())?;
+    for layer in &mut layers {
+        g.constrain(layer, &[], &initial)?;
+    }
+    if g.cross_count(&layers)? >= g.cross_count(&declaration)? {
+        layers = declaration;
+    }
     if layers.is_empty() {
         return Ok(OrderResult {
             layers,
@@ -51,9 +107,15 @@ fn constant(name: &str) -> Result<usize, LayoutError> {
         .filter(|n| *n > 0)
         .ok_or(LayoutError::Domain)
 }
+#[derive(Default)]
 struct OrderGraph {
     above: Vec<Vec<usize>>,
     below: Vec<Vec<usize>>,
+    key: OrderKey,
+    paths: Vec<Vec<usize>>,
+    boundary: Vec<i8>,
+    declaration: Vec<i32>,
+    movable: Vec<bool>,
 }
 impl OrderGraph {
     fn prepare(p: &Proper) -> Result<(Self, Vec<Vec<usize>>), LayoutError> {
@@ -86,6 +148,11 @@ impl OrderGraph {
         let mut g = Self {
             above: vec![Vec::new(); n],
             below: vec![Vec::new(); n],
+            key: OrderKey::Barycentre,
+            paths: Vec::new(),
+            boundary: Vec::new(),
+            declaration: p.nodes.iter().map(|n| n.node.decl).collect(),
+            movable: p.nodes.iter().map(|node| node.edge >= -1).collect(),
         };
         for e in &p.edges {
             if e.tail >= n
@@ -98,6 +165,33 @@ impl OrderGraph {
             g.above[e.head].push(e.tail);
         }
         Ok((g, layers))
+    }
+    fn constrain(
+        &self,
+        layer: &mut [usize],
+        neighbours: &[Vec<usize>],
+        pos: &[i64],
+    ) -> Result<(), LayoutError> {
+        if self.paths.is_empty() {
+            return Ok(());
+        }
+        let empty = vec![Vec::new(); self.paths.len()];
+        let blocks = super::cluster_order::Blocks {
+            paths: &self.paths,
+            boundary: &self.boundary,
+            declaration: &self.declaration,
+            neighbours: if neighbours.is_empty() {
+                &empty
+            } else {
+                neighbours
+            },
+            positions: pos,
+        };
+        if neighbours.is_empty() {
+            blocks.initial(layer, 0)
+        } else {
+            blocks.order(layer, 0)
+        }
     }
     fn run(
         &self,
@@ -149,7 +243,23 @@ impl OrderGraph {
             } else {
                 layers.len() - 2 - k
             };
-            sort_layer(&mut layers[r], neighbours, &pos)?;
+            if !self.paths.is_empty() {
+                self.constrain(&mut layers[r], neighbours, &pos)?;
+            } else if self.key == OrderKey::Median {
+                let mut keys = vec![0; pos.len()];
+                for &v in &layers[r] {
+                    let mut values: Vec<_> = neighbours[v].iter().map(|&w| pos[w]).collect();
+                    values.sort();
+                    keys[v] = if values.is_empty() {
+                        pos[v]
+                    } else {
+                        values[(values.len() - 1) / 2]
+                    };
+                }
+                layers[r].sort_by_key(|&v| keys[v]);
+            } else {
+                sort_layer(&mut layers[r], neighbours, &pos)?;
+            }
             for (i, v) in layers[r].iter().enumerate() {
                 pos[*v] = i64::try_from(i).map_err(|_| LayoutError::Overflow)?;
             }
@@ -195,6 +305,11 @@ impl OrderGraph {
         for layer in layers {
             for i in 1..layer.len() {
                 let (a, b) = (layer[i - 1], layer[i]);
+                if !self.paths.is_empty()
+                    && (self.paths[a] != self.paths[b] || !self.movable[a] || !self.movable[b])
+                {
+                    continue;
+                }
                 let delta = swap_delta(&self.above[a], &self.above[b], &pos)?
                     .checked_add(swap_delta(&self.below[a], &self.below[b], &pos)?)
                     .ok_or(LayoutError::Overflow)?;
@@ -292,6 +407,47 @@ mod tests {
         rank::rank,
     };
     use super::*;
+    #[test]
+    fn initial_cluster_blocks_keep_first_declaration_position() {
+        let graph = OrderGraph {
+            paths: vec![vec![7], vec![], vec![7]],
+            boundary: vec![0; 3],
+            declaration: vec![5, 0, 5],
+            ..OrderGraph::default()
+        };
+        let mut layer = vec![0, 1, 2];
+        graph.constrain(&mut layer, &[], &[0, 1, 2]).unwrap();
+        assert_eq!(layer, vec![0, 2, 1]);
+    }
+    #[test]
+    fn transpose_never_moves_cluster_title_or_anchor() {
+        let graph = OrderGraph {
+            above: vec![vec![], vec![], vec![1], vec![0]],
+            below: vec![vec![3], vec![2], vec![], vec![]],
+            paths: vec![vec![7]; 4],
+            boundary: vec![0; 4],
+            movable: vec![false, true, true, true],
+            ..OrderGraph::default()
+        };
+        let mut layers = vec![vec![0, 1], vec![2, 3]];
+        graph.transpose_pass(&mut layers).unwrap();
+        assert_eq!(layers[0], vec![0, 1]);
+    }
+    #[test]
+    fn equal_block_keys_keep_loose_nodes_before_child_blocks() {
+        let graph = OrderGraph {
+            paths: vec![vec![7], vec![], vec![7], vec![], vec![], vec![]],
+            boundary: vec![0; 6],
+            declaration: vec![1, 1, 2, 3, 4, 5],
+            ..OrderGraph::default()
+        };
+        let neighbours = vec![vec![3], vec![4], vec![5], vec![], vec![], vec![]];
+        let mut layer = vec![0, 1, 2];
+        graph
+            .constrain(&mut layer, &neighbours, &[0, 1, 2, 0, 1, 2])
+            .unwrap();
+        assert_eq!(layer, vec![1, 0, 2]);
+    }
     fn draw(s: &mut u32, lo: usize, hi: usize) -> usize {
         *s ^= *s << 13;
         *s ^= *s >> 17;
@@ -317,6 +473,7 @@ mod tests {
                 slot: 768,
                 pivot_factor: 50,
                 node_gap: 1536,
+                cluster_pad: 1024,
                 rank_gap: 3072,
                 port_gap: 512,
             },
@@ -390,6 +547,7 @@ mod tests {
             let mut g = OrderGraph {
                 above: vec![Vec::new(); a + b],
                 below: vec![Vec::new(); a + b],
+                ..OrderGraph::default()
             };
             for _ in 0..100 {
                 let u = draw(&mut s, 0, a - 1);
@@ -461,6 +619,7 @@ mod tests {
         let g = OrderGraph {
             above: vec![vec![], vec![], vec![1], vec![0]],
             below: vec![vec![3], vec![2], vec![], vec![]],
+            ..OrderGraph::default()
         };
         let result = g.run(vec![vec![0, 1], vec![2, 3]], 24, 4).unwrap();
         assert_eq!(g.cross_count(&result.layers), Ok(0));
@@ -476,6 +635,7 @@ mod tests {
         let mut g = OrderGraph {
             above: vec![Vec::new(); 6],
             below: vec![Vec::new(); 6],
+            ..OrderGraph::default()
         };
         for a in 0..3 {
             for b in 3..6 {
@@ -494,7 +654,12 @@ mod tests {
         let empty = OrderGraph {
             above: Vec::new(),
             below: Vec::new(),
+            ..OrderGraph::default()
         };
         assert_eq!(empty.run(Vec::new(), 0, 4), Err(LayoutError::Domain));
     }
 }
+
+#[cfg(test)]
+#[path = "step14_order_tests.rs"]
+mod step14_tests;

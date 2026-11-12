@@ -27,6 +27,9 @@ pub(crate) fn params(p: &Proper) -> Result<Params, LayoutError> {
     if p.params.port_gap != 0 {
         d.port_gap = p.params.port_gap;
     }
+    if p.params.cluster_pad != 0 {
+        d.cluster_pad = p.params.cluster_pad;
+    }
     if d.slot < 1 || d.node_gap < 1 || d.rank_gap < 1 {
         return Err(LayoutError::Domain);
     }
@@ -72,6 +75,7 @@ struct Pass<'a> {
     set: Vec<bool>,
     marked: &'a [bool],
     gap: i64,
+    paths: &'a [Vec<usize>],
 }
 impl<'a> Pass<'a> {
     fn new(p: &'a Proper, layers: &[Vec<usize>], marked: &'a [bool], gap: i64, k: usize) -> Self {
@@ -106,6 +110,7 @@ impl<'a> Pass<'a> {
             set: vec![false; n],
             marked,
             gap,
+            paths: &[],
         }
     }
     fn neighbours(&self, v: usize) -> Vec<(usize, usize)> {
@@ -151,7 +156,32 @@ impl<'a> Pass<'a> {
         }
     }
     fn sep(&self, a: usize, b: usize) -> i64 {
-        i64::from(self.p.nodes[a].node.w) / 2 + i64::from(self.p.nodes[b].node.w) / 2 + self.gap
+        let interior = self.border_member(a, b);
+        let anchor = ((self.p.nodes[a].edge == -4 && self.p.nodes[b].edge == -5)
+            || (self.p.nodes[b].edge == -4 && self.p.nodes[a].edge == -5))
+            && self.p.nodes[a].node.decl == self.p.nodes[b].node.decl;
+        let gap = if interior {
+            i64::from(self.p.params.cluster_pad)
+        } else if anchor {
+            0
+        } else {
+            self.gap
+        };
+        i64::from(self.p.nodes[a].node.w) / 2 + i64::from(self.p.nodes[b].node.w) / 2 + gap
+    }
+    fn border_member(&self, a: usize, b: usize) -> bool {
+        for (border, member) in [(a, b), (b, a)] {
+            if !matches!(self.p.nodes[border].edge, -2 | -3) {
+                continue;
+            }
+            if let Some(owner) = self.paths.get(border).and_then(|path| path.last()) {
+                return self
+                    .paths
+                    .get(member)
+                    .is_some_and(|path| path.contains(owner));
+            }
+        }
+        false
     }
     fn predecessor(&self, w: usize) -> Option<usize> {
         self.pos[w]
@@ -268,6 +298,14 @@ fn conflicts(p: &Proper, pos: &[usize]) -> Vec<bool> {
         .collect()
 }
 pub fn cross_coords(p: &Proper, layers: &[Vec<usize>]) -> Result<Vec<i32>, LayoutError> {
+    cross_coords_compound(p, layers, &[])
+}
+
+pub fn cross_coords_compound(
+    p: &Proper,
+    layers: &[Vec<usize>],
+    paths: &[Vec<usize>],
+) -> Result<Vec<i32>, LayoutError> {
     let pos = positions(p, layers)?;
     let d = params(p)?;
     if pos.is_empty() {
@@ -276,7 +314,9 @@ pub fn cross_coords(p: &Proper, layers: &[Vec<usize>]) -> Result<Vec<i32>, Layou
     let marked = conflicts(p, &pos);
     let mut passes = Vec::with_capacity(4);
     for k in 0..4 {
-        passes.push(Pass::new(p, layers, &marked, i64::from(d.node_gap), k).run(k)?);
+        let mut pass = Pass::new(p, layers, &marked, i64::from(d.node_gap), k);
+        pass.paths = paths;
+        passes.push(pass.run(k)?);
     }
     balance(passes)
 }
@@ -360,6 +400,25 @@ mod tests {
     };
     use super::*;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn cluster_padding_requires_membership_in_border_owner() {
+        let (mut p, layers) = case(0);
+        p.nodes[0].edge = -2;
+        p.nodes[1].edge = -3;
+        let mut paths = vec![Vec::new(); p.nodes.len()];
+        paths[0] = vec![10, 11];
+        paths[1] = vec![10];
+        let marked = vec![false; p.edges.len()];
+        let mut pass = Pass::new(&p, &layers, &marked, 1536, 0);
+        pass.paths = &paths;
+        assert!(!pass.border_member(0, 1));
+        assert!(pass.border_member(1, 0));
+        assert_eq!(
+            pass.sep(0, 1),
+            i64::from(p.nodes[0].node.w) / 2 + i64::from(p.nodes[1].node.w) / 2 + 1536
+        );
+    }
 
     fn case(index: usize) -> (Proper, Vec<Vec<usize>>) {
         let mut s = (index + 1) as u32;

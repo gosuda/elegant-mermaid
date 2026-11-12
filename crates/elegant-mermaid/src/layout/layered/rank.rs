@@ -277,6 +277,7 @@ mod tests {
                 slot: 768,
                 pivot_factor: 50,
                 node_gap: 1536,
+                cluster_pad: 1024,
                 rank_gap: 3072,
                 port_gap: 512,
             },

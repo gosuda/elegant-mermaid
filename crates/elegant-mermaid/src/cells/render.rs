@@ -24,6 +24,7 @@ impl Default for Options {
 pub struct RenderResult {
     pub text: String,
     pub refused_clusters: usize,
+    pub route_conflicts: usize,
 }
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 #[error("cells: expected cell profile, got {}", profile.as_str())]
@@ -63,6 +64,7 @@ pub fn render(scene: &Scene, options: &Options) -> Result<RenderResult, RenderEr
     Ok(RenderResult {
         text: canvas.serialise(options.charset, options.color, |token| theme.colour(token)),
         refused_clusters,
+        route_conflicts: route_conflicts(scene),
     })
 }
 fn line_style(shape: Shape, base: Style) -> Style {
@@ -403,3 +405,95 @@ fn path_points(
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests;
+
+fn route_conflicts(scene: &Scene) -> usize {
+    let routes = &scene.dump_part().routes;
+    let occupied: Vec<_> = routes.iter().map(route_cells).collect();
+    let mut conflicts = std::collections::BTreeSet::new();
+    for (index, route) in routes.iter().enumerate() {
+        for (other, cells) in routes[..index].iter().zip(&occupied[..index]) {
+            if shared_endpoint(route, other) {
+                continue;
+            }
+            collect_conflicts(&occupied[index], cells, &mut conflicts);
+        }
+    }
+    let size = scene.canvas();
+    conflicts.retain(|(x, y)| *x >= 0 && *y >= 0 && *x < size.w && *y < size.h);
+    conflicts.len()
+}
+
+fn shared_endpoint(a: &SceneRoute, b: &SceneRoute) -> bool {
+    a.from == b.from || a.from == b.to || a.to == b.from || a.to == b.to
+}
+
+fn collect_conflicts(
+    a: &std::collections::BTreeMap<(i32, i32), u8>,
+    b: &std::collections::BTreeMap<(i32, i32), u8>,
+    conflicts: &mut std::collections::BTreeSet<(i32, i32)>,
+) {
+    for (cell, axes) in a {
+        if b.get(cell).is_some_and(|other| axes & other != 0) {
+            conflicts.insert(*cell);
+        }
+    }
+}
+
+fn route_cells(route: &SceneRoute) -> std::collections::BTreeMap<(i32, i32), u8> {
+    let mut cells = std::collections::BTreeMap::new();
+    for pair in route.points.windows(2) {
+        occupy_segment(pair[0], pair[1], &mut cells);
+    }
+    cells
+}
+
+fn occupy_segment(a: Point, b: Point, cells: &mut std::collections::BTreeMap<(i32, i32), u8>) {
+    if a == b {
+        return;
+    }
+    if a.y == b.y {
+        for x in a.x.min(b.x)..=a.x.max(b.x) {
+            *cells.entry((x, a.y)).or_default() |= 1;
+        }
+    } else if a.x == b.x {
+        for y in a.y.min(b.y)..=a.y.max(b.y) {
+            *cells.entry((a.x, y)).or_default() |= 2;
+        }
+    }
+}
+
+#[cfg(test)]
+mod metric_tests {
+    use super::*;
+
+    #[test]
+    fn route_conflicts_respect_axes_and_junctions() {
+        let route = |from: &str, to: &str, points| SceneRoute {
+            id: String::new(),
+            from: from.into(),
+            to: to.into(),
+            points,
+            orthogonal: true,
+            marker_start: String::new(),
+            marker_end: String::new(),
+            stroke: String::new(),
+        };
+        let a = route("A", "B", vec![Point { x: 0, y: 2 }, Point { x: 4, y: 2 }]);
+        let b = route("C", "D", vec![Point { x: 2, y: 2 }, Point { x: 6, y: 2 }]);
+        let mut dump = Dump::new("flowchart", DumpOptions::default());
+        dump.routes = vec![a, b];
+        let size = crate::geom::Size { w: 7, h: 5 };
+        assert_eq!(
+            route_conflicts(&Scene::new(size, dump.clone(), Vec::new())),
+            3
+        );
+        dump.routes[1].points = vec![Point { x: 2, y: 0 }, Point { x: 2, y: 4 }];
+        assert_eq!(
+            route_conflicts(&Scene::new(size, dump.clone(), Vec::new())),
+            0
+        );
+        dump.routes[1].points = dump.routes[0].points.clone();
+        dump.routes[1].from = "A".into();
+        assert_eq!(route_conflicts(&Scene::new(size, dump, Vec::new())), 0);
+    }
+}

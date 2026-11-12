@@ -1,9 +1,19 @@
+mod cluster_order;
+pub mod clusters;
 pub mod coords;
+mod cost;
 pub mod cycles;
 pub mod graph;
+mod gutters;
+mod isolate;
+pub mod labels;
+pub mod lanes;
+pub mod loops;
 pub mod normalize;
 pub mod order;
+pub mod pack;
 pub mod pipeline;
+pub mod portfolio;
 pub mod rank;
 pub mod route;
 

@@ -37,6 +37,7 @@ pub struct Params {
     pub node_gap: i32,
     pub rank_gap: i32,
     pub port_gap: i32,
+    pub cluster_pad: i32,
 }
 
 impl Params {
@@ -59,6 +60,7 @@ impl Params {
             node_gap: lookup("node_gap")?,
             rank_gap: lookup("rank_gap")?,
             port_gap: lookup("port_gap")?,
+            cluster_pad: lookup("cluster_pad")?,
         })
     }
 }
@@ -76,7 +78,6 @@ impl Graph {
             return Err(LayoutError::Overflow);
         }
         if self.nodes.iter().any(|n| n.w < 0 || n.h < 0)
-            || self.nodes.windows(2).any(|n| n[0].decl > n[1].decl)
             || self.edges.windows(2).any(|e| e[0].decl > e[1].decl)
         {
             return Err(LayoutError::Domain);
@@ -113,6 +114,7 @@ impl Graph {
 pub struct ProperNode {
     pub node: Node,
     pub dummy: bool,
+    pub label: bool,
     pub edge: i32,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -146,6 +148,7 @@ mod tests {
                 node_gap: 1536,
                 rank_gap: 3072,
                 port_gap: 512,
+                cluster_pad: 1024,
             })
         );
     }
@@ -166,3 +169,7 @@ mod tests {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "step14_compound_tests.rs"]
+mod compound_tests;

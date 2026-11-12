@@ -10,6 +10,7 @@ pub struct Input {
     pub routes: Vec<Route>,
     pub labels: Vec<Label>,
     pub groups: Vec<Group>,
+    pub sizes: Vec<crate::geom::Size>,
 }
 #[derive(Debug, Clone)]
 pub struct Box {
@@ -19,6 +20,7 @@ pub struct Box {
     pub parent: String,
     pub exclusive: bool,
     pub text: String,
+    pub direction: String,
 }
 #[derive(Debug, Clone)]
 pub struct Route {
@@ -43,5 +45,5 @@ pub struct Group {
     pub id: String,
     pub parent: String,
     pub direction: String,
-    pub text: String,
+    pub direction_span: crate::source::Span,
 }

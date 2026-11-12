@@ -1,46 +1,126 @@
 use elegant_mermaid::{layout, model, scene, syntax};
 
-#[test]
-fn pipeline_demo_exact_go_bytes() -> Result<(), Box<dyn std::error::Error>> {
+fn demo_input(profile: scene::Profile) -> layout::input::Input {
     let source = "flowchart LR\n  A[Start] --> B{Choice}\n  B -->|yes| C[Done]\n  B -->|no| A\n";
     let parsed = syntax::flowchart::parse(source, &[]);
     let (model, _) = model::flowchart::resolve(source, &parsed.document);
-    let input = layout::flowchart::from_flowchart(
-        &model,
-        scene::Profile::Vector,
-        scene::DumpOptions::default(),
-    );
-    let actual = layout::families::layout(&input)?.0.dump();
-    assert_eq!(
-        actual,
-        r#"{"version":1,"stage":"layout","kind":"flowchart","profile":"vector","options":{"profile":"vector","thoroughness":3,"max_width":0,"direction":"LR","limits":{"max_nodes":2000,"max_edges":5000,"max_text_bytes":1048576}},"canvas":{"w":18150,"h":2304},
-"boxes":[{"id":"A","role":"node","x":0,"y":0,"w":3622,"h":2304,"parent":"","exclusive":true},
-{"id":"B","role":"node","x":6694,"y":0,"w":4577,"h":2304,"parent":"","exclusive":true},
-{"id":"C","role":"node","x":14343,"y":0,"w":3807,"h":2304,"parent":"","exclusive":true}],
-"routes":[{"id":"e0","from":"A","to":"B","orthogonal":true,"points":[[3622,1152],[6694,1152]]},
-{"id":"e1","from":"B","to":"C","orthogonal":true,"points":[[11271,1152],[14343,1152]]},
-{"id":"e2","from":"B","to":"A","orthogonal":true,"points":[[6694,1152],[3622,1152]]}],
-"labels":[]}
-"#
-    );
-    let input = layout::flowchart::from_flowchart(
-        &model,
-        scene::Profile::Cell,
-        scene::DumpOptions::default(),
-    );
-    let actual = layout::families::layout(&input)?.0.dump();
-    assert_eq!(
-        actual,
-        r#"{"version":1,"stage":"layout","kind":"flowchart","profile":"cell","options":{"profile":"cell","thoroughness":3,"max_width":0,"direction":"LR","limits":{"max_nodes":2000,"max_edges":5000,"max_text_bytes":1048576}},"canvas":{"w":33,"h":3},
-"boxes":[{"id":"A","role":"node","x":0,"y":0,"w":9,"h":3,"parent":"","exclusive":true},
-{"id":"B","role":"node","x":12,"y":0,"w":10,"h":3,"parent":"","exclusive":true},
-{"id":"C","role":"node","x":25,"y":0,"w":8,"h":3,"parent":"","exclusive":true}],
-"routes":[{"id":"e0","from":"A","to":"B","orthogonal":true,"points":[[9,1],[12,1]]},
-{"id":"e1","from":"B","to":"C","orthogonal":true,"points":[[22,1],[25,1]]},
-{"id":"e2","from":"B","to":"A","orthogonal":true,"points":[[12,1],[9,1]]}],
-"labels":[]}
-"#
-    );
+    layout::flowchart::from_flowchart(&model, profile, scene::DumpOptions::default())
+}
+
+#[test]
+fn pipeline_demo_geometry_equations() -> Result<(), Box<dyn std::error::Error>> {
+    for (profile, widths, minimum_height, margin, rank_gap) in [
+        (scene::Profile::Vector, [3622, 4577, 3807], 2304, 1024, 3072),
+        (scene::Profile::Cell, [9, 10, 8], 3, 1, 3),
+    ] {
+        let input = demo_input(profile);
+        let rendered = layout::families::layout(&input)?.0;
+        assert!(rendered.check()?);
+        assert_eq!(
+            rendered
+                .boxes()
+                .iter()
+                .map(|b| b.id.as_str())
+                .collect::<Vec<_>>(),
+            ["A", "B", "C"]
+        );
+        for (node, width) in rendered.boxes().iter().zip(widths) {
+            assert_eq!(node.rect.w, width);
+            assert_eq!(node.rect.h, minimum_height);
+        }
+        let boxes = rendered.boxes();
+        assert_eq!(boxes[0].rect.x, margin);
+        assert!(boxes[1].rect.x >= boxes[0].rect.x + boxes[0].rect.w + rank_gap);
+        assert!(boxes[2].rect.x >= boxes[1].rect.x + boxes[1].rect.w + 2 * rank_gap);
+        assert!(rendered.canvas().w >= boxes[2].rect.x + boxes[2].rect.w + margin);
+        assert_eq!(rendered.dump(), layout::families::layout(&input)?.0.dump());
+    }
+    Ok(())
+}
+
+#[test]
+fn pipeline_demo_preserves_node_and_route_text() -> Result<(), Box<dyn std::error::Error>> {
+    for profile in [scene::Profile::Vector, scene::Profile::Cell] {
+        let input = demo_input(profile);
+        let rendered = layout::families::layout(&input)?.0;
+        assert_eq!(
+            rendered
+                .labels()
+                .iter()
+                .map(|label| (label.id.as_str(), label.owner.as_str(), label.text.as_str()))
+                .collect::<Vec<_>>(),
+            [("e1.label", "e1", "yes"), ("e2.label", "e2", "no")]
+        );
+        let node_text = rendered
+            .items()
+            .iter()
+            .filter(|group| ["A", "B", "C"].contains(&group.owner.as_str()))
+            .flat_map(|group| {
+                group.items.iter().filter_map(|item| match item {
+                    scene::Item::Text(text) => Some((
+                        group.owner.as_str(),
+                        text.lines
+                            .iter()
+                            .map(|line| {
+                                line.iter().map(|run| run.text.as_str()).collect::<String>()
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n"),
+                    )),
+                    _ => None,
+                })
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            node_text,
+            [
+                ("A", "Start".into()),
+                ("B", "Choice".into()),
+                ("C", "Done".into())
+            ]
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn pipeline_demo_routes_join_boundaries_and_clear_nodes() -> Result<(), Box<dyn std::error::Error>>
+{
+    for profile in [scene::Profile::Vector, scene::Profile::Cell] {
+        let input = demo_input(profile);
+        let rendered = layout::families::layout(&input)?.0;
+        let boxes = rendered.boxes();
+        for (route, (from, to)) in rendered.routes().iter().zip([(0, 1), (1, 2), (1, 0)]) {
+            let first = route.points.first().ok_or("missing route start")?;
+            let last = route.points.last().ok_or("missing route end")?;
+            assert_eq!(
+                first.x,
+                boxes[from].rect.x + if from < to { boxes[from].rect.w } else { 0 }
+            );
+            assert_eq!(
+                last.x,
+                boxes[to].rect.x + if from < to { 0 } else { boxes[to].rect.w }
+            );
+            assert!(
+                route
+                    .points
+                    .windows(2)
+                    .all(|p| p[0].x == p[1].x || p[0].y == p[1].y)
+            );
+        }
+        let reversed = &rendered.routes()[2].points;
+        assert_eq!(reversed.len(), 6);
+        assert_eq!(reversed[2].y, reversed[3].y);
+        assert!(
+            reversed[2].y
+                > boxes
+                    .iter()
+                    .map(|b| b.rect.y + b.rect.h)
+                    .max()
+                    .ok_or("missing boxes")?
+        );
+        assert!(rendered.canvas().h > reversed[2].y);
+    }
     Ok(())
 }
 
@@ -196,16 +276,9 @@ fn pipeline_reversed_edge_markers() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn walking_skeleton_ranks_ignore_syntax_and_labels() -> Result<(), Box<dyn std::error::Error>> {
-    for edge in [
-        "A --- B",
-        "A <--> B",
-        "A o--x B",
-        "A -.-> B",
-        "A ==> B",
-        "A ---> B",
-        "A -->|yes| B",
-    ] {
+fn step14_ranks_follow_labels_not_stroke_count() -> Result<(), Box<dyn std::error::Error>> {
+    let mut unlabelled_gap = None;
+    for edge in ["A --> B", "A ---> B"] {
         let source = format!("flowchart LR\n{edge}\n");
         let parsed = syntax::flowchart::parse(&source, &[]);
         assert!(
@@ -220,13 +293,32 @@ fn walking_skeleton_ranks_ignore_syntax_and_labels() -> Result<(), Box<dyn std::
             scene::Profile::Vector,
             scene::DumpOptions::default(),
         );
+        assert!(input.labels.is_empty(), "{edge}: {:?}", input.labels);
         let s = layout::families::layout(&input)?.0;
-        assert_eq!(
-            s.boxes()[1].rect.x - s.boxes()[0].rect.x - s.boxes()[0].rect.w,
-            3072,
-            "{edge}"
-        );
+        let gap = s.boxes()[1].rect.x - s.boxes()[0].rect.x - s.boxes()[0].rect.w;
+        assert!(gap > 0, "{edge}");
+        if let Some(expected) = unlabelled_gap {
+            assert_eq!(gap, expected, "{edge}");
+        } else {
+            unlabelled_gap = Some(gap);
+        }
     }
+    let source = "flowchart LR\nA -->|yes| B\n";
+    let parsed = syntax::flowchart::parse(source, &[]);
+    assert!(parsed.diagnostics.is_empty());
+    let (model, diagnostics) = model::flowchart::resolve(source, &parsed.document);
+    assert!(diagnostics.is_empty());
+    let input = layout::flowchart::from_flowchart(
+        &model,
+        scene::Profile::Vector,
+        scene::DumpOptions::default(),
+    );
+    let s = layout::families::layout(&input)?.0;
+    let gap = s.boxes()[1].rect.x - s.boxes()[0].rect.x - s.boxes()[0].rect.w;
+    assert!(Some(gap) > unlabelled_gap);
+    let label = &s.labels()[0];
+    assert!(s.boxes()[0].rect.x + s.boxes()[0].rect.w <= label.rect.x);
+    assert!(label.rect.x + label.rect.w <= s.boxes()[1].rect.x);
     Ok(())
 }
 

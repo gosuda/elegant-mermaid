@@ -25,8 +25,30 @@
 //! Diagnostic codes are stable identifiers. A renamed code keeps its old
 //! name as an alias in the registry, and a code is never reused. Before
 //! 1.0, a minor version may change the public API.
+//!
+//! # Current implementation
+//!
+//! Parsing and rendering currently implement flowcharts. Detection preserves
+//! other registered kinds, but their syntax and semantic adapters are not yet
+//! implemented; attempting their layout returns `RenderError::InvalidConfig`.
+//! Config text is checked against the shared mapping grammar; applying config
+//! keys to layout and paint awaits the shared config resolver. SVG path text
+//! awaits glyph outlines and is rejected by the existing SVG backend.
+//!
+//! `Limits::max_text_bytes` bounds resolved text measured by layout, including
+//! displayed fallback IDs, rather than source bytes or SVG accessibility text.
+//! Source convenience renderers check cancellation before parsing their input.
 #![forbid(unsafe_code)]
 #![deny(clippy::disallowed_methods, clippy::disallowed_types)]
+
+mod document;
+mod public_render;
+pub use document::{Document, parse, parse_bytes};
+pub use public_render::{layout, render_svg, render_svg_str, render_text, render_text_str};
+pub use scene::Scene;
+
+#[cfg(test)]
+mod public_api_tests;
 
 pub mod cells;
 pub mod diag;

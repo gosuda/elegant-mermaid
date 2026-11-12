@@ -8,7 +8,7 @@
 use crate::diag::json::push_json_string;
 use crate::geom::{Point, Rect, Size};
 
-use super::{Dump, DumpOptions, DumpValue, Limits, SceneBox, SceneLabel, SceneRoute};
+use super::{Direction, Dump, DumpOptions, DumpValue, Limits, SceneBox, SceneLabel, SceneRoute};
 
 /// The stage of a dump, which selects the members that carry coordinates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,16 +33,22 @@ impl Stage {
 /// Writes the canonical layout dump of `spec/layout-dump.md`, with one LF after the final
 /// `}`.
 pub fn push_layout(out: &mut String, dump: &Dump, canvas: Size) {
-    push_dump(out, dump, Some(canvas), Stage::Layout);
+    push_dump(out, dump, Some(canvas), (Stage::Layout, &[]));
 }
 
 /// Writes the model-stage dump of `spec/model-dump.md`: no canvas, no coordinates, and an
 /// empty `lines` array on every label.
-pub fn push_model(out: &mut String, dump: &Dump) {
-    push_dump(out, dump, None, Stage::Model);
+pub fn push_model(out: &mut String, dump: &Dump, directions: &[(&str, Direction)]) {
+    push_dump(out, dump, None, (Stage::Model, directions));
 }
 
-fn push_dump(out: &mut String, dump: &Dump, canvas: Option<Size>, stage: Stage) {
+fn push_dump(
+    out: &mut String,
+    dump: &Dump,
+    canvas: Option<Size>,
+    context: (Stage, &[(&str, Direction)]),
+) {
+    let (stage, directions) = context;
     out.push_str("{\"version\":1,\"stage\":");
     push_json_string(out, stage.as_str());
     out.push_str(",\"kind\":");
@@ -54,7 +60,7 @@ fn push_dump(out: &mut String, dump: &Dump, canvas: Option<Size>, stage: Stage) 
     if let Some(canvas) = canvas {
         push_canvas(out, canvas);
     }
-    push_boxes(out, &dump.boxes, stage);
+    push_boxes(out, &dump.boxes, stage, directions);
     push_routes(out, &dump.routes, stage);
     push_labels(out, &dump.labels, stage);
     out.push_str("}\n");
@@ -102,7 +108,12 @@ fn push_canvas(out: &mut String, canvas: Size) {
     out.push('}');
 }
 
-fn push_boxes(out: &mut String, boxes: &[SceneBox], stage: Stage) {
+fn push_boxes(
+    out: &mut String,
+    boxes: &[SceneBox],
+    stage: Stage,
+    directions: &[(&str, Direction)],
+) {
     out.push_str(",\n\"boxes\":[");
     for (index, item) in boxes.iter().enumerate() {
         if index > 0 {
@@ -119,6 +130,16 @@ fn push_boxes(out: &mut String, boxes: &[SceneBox], stage: Stage) {
         push_json_string(out, &item.parent);
         out.push_str(",\"exclusive\":");
         out.push_str(if item.exclusive { "true" } else { "false" });
+        if stage == Stage::Model && item.role == super::BoxRole::Group {
+            out.push_str(",\"direction\":");
+            push_json_string(
+                out,
+                directions
+                    .iter()
+                    .find(|(id, _)| *id == item.id)
+                    .map_or("", |(_, direction)| direction.as_str()),
+            );
+        }
         out.push('}');
     }
     out.push(']');
@@ -309,7 +330,7 @@ mod tests {
 
     #[test]
     fn model_dump_matches_the_golden_example_byte_for_byte() {
-        assert_eq!(two_node_model().dump_model(), MODEL_GOLDEN);
+        assert_eq!(two_node_model().dump_model(&[]), MODEL_GOLDEN);
     }
 
     #[test]
@@ -318,7 +339,7 @@ mod tests {
         if let Some(item) = dump.labels.first_mut() {
             item.lines = vec![String::from("ye"), String::from("s")];
         }
-        let out = dump.dump_model();
+        let out = dump.dump_model(&[]);
         assert!(out.contains("\"text\":\"yes\",\"lines\":[]}"));
         assert!(!out.contains("\"lines\":[\"ye\""));
     }
@@ -367,7 +388,7 @@ mod tests {
     #[test]
     fn newlines_fall_only_before_the_three_arrays_and_between_their_elements() {
         for body in [
-            two_node_model().dump_model(),
+            two_node_model().dump_model(&[]),
             two_node_model().dump_layout(Size { w: 30, h: 40 }),
         ] {
             assert_eq!(body.matches('\n').count(), 5);
@@ -479,7 +500,7 @@ mod tests {
         if let Some(r) = dump.routes.first_mut() {
             r.points = vec![Point { x: 3, y: 4 }];
         }
-        let out = dump.dump_model();
+        let out = dump.dump_model(&[]);
         assert!(!out.contains("canvas"));
         assert!(!out.contains("\"x\":"));
         assert!(!out.contains("\"points\""));
@@ -496,9 +517,9 @@ mod tests {
             b.parent = String::from("A");
             b.exclusive = false;
         }
-        let out = dump.dump_model();
+        let out = dump.dump_model(&[]);
         assert!(
-            out.contains("{\"id\":\"A\",\"role\":\"group\",\"parent\":\"A\",\"exclusive\":false}")
+            out.contains("{\"id\":\"A\",\"role\":\"group\",\"parent\":\"A\",\"exclusive\":false,\"direction\":\"\"}")
         );
     }
     #[test]
@@ -512,6 +533,6 @@ mod tests {
         for key in ["\"marker_start\"", "\"marker_end\"", "\"stroke\""] {
             assert!(!layout.contains(key));
         }
-        assert!(dump.dump_model().contains("\"orthogonal\":true,\"marker_start\":\"circle\",\"marker_end\":\"cross\",\"stroke\":\"dotted\""));
+        assert!(dump.dump_model(&[]).contains("\"orthogonal\":true,\"marker_start\":\"circle\",\"marker_end\":\"cross\",\"stroke\":\"dotted\""));
     }
 }

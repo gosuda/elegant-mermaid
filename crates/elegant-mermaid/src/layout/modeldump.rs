@@ -57,5 +57,13 @@ pub fn model_dump(input: &Input) -> String {
             lines: Vec::new(),
         })
         .collect();
-    dump.dump_model()
+    let directions: Vec<_> = input
+        .boxes
+        .iter()
+        .filter_map(|b| {
+            crate::scene::Direction::from_token(&b.direction)
+                .map(|direction| (b.id.as_str(), direction))
+        })
+        .collect();
+    dump.dump_model(&directions)
 }

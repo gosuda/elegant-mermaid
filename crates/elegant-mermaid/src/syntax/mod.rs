@@ -1,3 +1,4 @@
+pub mod class;
 pub mod config_value;
 pub mod detect;
 pub mod flowchart;

@@ -59,7 +59,7 @@ fn help(command: &str) -> (String, String, i32) {
             "Check syntax and semantics without changing files\nUsage: emd check [PATH...] [--output-format text|json] [--color auto|always|never]\nDefaults: paths .; output-format text; color auto.\nExample: emd check docs/\n"
         }
         "layout" => {
-            "Print canonical layout data\nUsage: emd layout [INPUT] [--profile vector|cell]\nDefaults: input stdin; profile vector.\nExample: emd layout demo.mmd --profile cell\n"
+            "Print canonical layout data\nUsage: emd layout [INPUT] [--profile vector|cell] [--metrics]\nDefaults: input stdin; profile vector; metrics off. --metrics prints vector layout quality metrics.\nExample: emd layout demo.mmd --profile cell\n"
         }
         _ => {
             return (

@@ -53,6 +53,12 @@ fn assign_ports(
     ns.sort_by_key(|&w| (x[w], p.nodes[w].node.decl, w));
     let w = i64::from(p.nodes[v].node.w);
     let left = i64::from(x[v]) - w / 2;
+    if p.nodes[v].label {
+        for &i in edges {
+            out[i] = narrow(left)?;
+        }
+        return Ok(());
+    }
     for &i in edges {
         let j = ns
             .iter()
@@ -73,14 +79,14 @@ fn conflict(a: &RoutingSegment, b: &RoutingSegment) -> bool {
         && a.source_x.min(a.target_x).max(b.source_x.min(b.target_x))
             <= a.source_x.max(a.target_x).min(b.source_x.max(b.target_x))
 }
-fn number_gap(g: &mut RoutingGap) -> Result<(), LayoutError> {
+pub(crate) fn number_gap(g: &mut RoutingGap) -> Result<(), LayoutError> {
     let n = g.segments.len();
     let mut incoming = vec![0; n];
     let mut out = vec![Vec::new(); n];
     let mut done = vec![false; n];
     for (i, a) in g.segments.iter().enumerate() {
         for (j, b) in g.segments.iter().enumerate() {
-            if (a.source_x, a.decl) < (b.source_x, b.decl) && conflict(a, b) {
+            if (a.source_x, a.decl, i) < (b.source_x, b.decl, j) && conflict(a, b) {
                 out[i].push(j);
                 incoming[j] += 1;
             }
@@ -114,6 +120,15 @@ fn number_gap(g: &mut RoutingGap) -> Result<(), LayoutError> {
     Ok(())
 }
 pub fn route(p: &Proper, layers: &[Vec<usize>], x: &[i32]) -> Result<Routing, LayoutError> {
+    route_selected(p, layers, x, &[])
+}
+
+pub fn route_selected(
+    p: &Proper,
+    layers: &[Vec<usize>],
+    x: &[i32],
+    reversed: &[bool],
+) -> Result<Routing, LayoutError> {
     positions(p, layers)?;
     params(p)?;
     if x.len() != p.nodes.len() {
@@ -123,7 +138,7 @@ pub fn route(p: &Proper, layers: &[Vec<usize>], x: &[i32]) -> Result<Routing, La
         gaps: vec![RoutingGap::default(); layers.len().saturating_sub(1)],
         source_x: vec![0; p.edges.len()],
         target_x: vec![0; p.edges.len()],
-        segment: vec![0; p.edges.len()],
+        segment: vec![usize::MAX; p.edges.len()],
     };
     let mut incoming = vec![Vec::new(); p.nodes.len()];
     let mut outgoing = vec![Vec::new(); p.nodes.len()];
@@ -136,6 +151,9 @@ pub fn route(p: &Proper, layers: &[Vec<usize>], x: &[i32]) -> Result<Routing, La
         assign_ports(p, v, &incoming[v], x, &mut r.target_x)?;
     }
     for (i, e) in p.edges.iter().enumerate() {
+        if reversed.get(e.original).copied().unwrap_or(false) {
+            continue;
+        }
         let rank = usize::try_from(p.rank[e.tail]).map_err(|_| LayoutError::Domain)?;
         let g = &mut r.gaps[rank];
         if let Some(j) = g
@@ -191,6 +209,9 @@ pub fn route_points(
         })
         .collect();
     for (i, e) in p.edges.iter().enumerate() {
+        if r.segment[i] == usize::MAX {
+            continue;
+        }
         let a = Point {
             x: r.source_x[i],
             y: narrow(i64::from(y[e.tail]) + i64::from(p.nodes[e.tail].node.h))?,
@@ -200,18 +221,15 @@ pub fn route_points(
             y: y[e.head],
         };
         let mut points = vec![a];
-        if a.x != b.x {
-            let rank = usize::try_from(p.rank[e.tail]).map_err(|_| LayoutError::Domain)?;
-            let s = r
-                .gaps
-                .get(rank)
-                .and_then(|g| g.segments.get(r.segment[i]))
-                .ok_or(LayoutError::Domain)?;
-            if s.slot < 0 {
-                return Err(LayoutError::Domain);
-            }
+        let rank = usize::try_from(p.rank[e.tail]).map_err(|_| LayoutError::Domain)?;
+        let segment = r
+            .gaps
+            .get(rank)
+            .and_then(|gap| gap.segments.get(r.segment[i]))
+            .ok_or(LayoutError::Domain)?;
+        if segment.slot >= 0 {
             let offset = i64::from(d.slot)
-                .checked_mul(i64::from(s.slot) + 1)
+                .checked_mul(i64::from(segment.slot) + 1)
                 .ok_or(LayoutError::Overflow)?;
             let mid = narrow(
                 i64::from(rank_top[rank]) + i64::from(h[rank]) + offset + i64::from(d.slot) / 2,

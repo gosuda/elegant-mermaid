@@ -19,6 +19,7 @@ pub fn normalize(g: &Graph, rank: &[i32]) -> Result<Proper, LayoutError> {
         .map(|node| ProperNode {
             node: node.clone(),
             dummy: false,
+            label: false,
             edge: -1,
         })
         .collect();
@@ -56,6 +57,7 @@ pub fn normalize(g: &Graph, rank: &[i32]) -> Result<Proper, LayoutError> {
                     h: 0,
                 },
                 dummy: true,
+                label: false,
                 edge: i32::try_from(index).map_err(|_| LayoutError::Overflow)?,
             });
             proper.rank.push(

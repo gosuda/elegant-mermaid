@@ -1,8 +1,17 @@
 use super::{Canvas, Cell, Charset, ColorMode, Label, Rgb, Token, colour, join};
+
+pub(super) fn printable(ch: char) -> char {
+    if ch <= '\u{1f}' || ('\u{7f}'..='\u{9f}').contains(&ch) {
+        '\u{fffd}'
+    } else {
+        ch
+    }
+}
+
 impl Cell {
     fn glyph(&self, charset: Charset) -> char {
         if self.symbol != 0 {
-            return char::from_u32(self.symbol).unwrap_or(' ');
+            return printable(char::from_u32(self.symbol).unwrap_or(' '));
         }
         if self.mask != 0 {
             return join::glyph(charset, self.style, self.mask);
@@ -32,7 +41,7 @@ impl Cell {
     fn write_text(&self, out: &mut String, charset: Charset) {
         match &self.label {
             Label::Continuation => (),
-            Label::Cluster { text, .. } => out.push_str(text),
+            Label::Cluster { text, .. } => out.extend(text.chars().map(printable)),
             Label::None => out.push(self.glyph(charset)),
         }
     }
@@ -82,5 +91,51 @@ impl Canvas {
             out.push_str("\x1b[39m")
         }
         out.push('\n');
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn direct_canvas_controls_are_replaced_in_every_colour_mode()
+    -> Result<(), crate::geom::GeomError> {
+        for ch in (0..=0x1f).chain(0x7f..=0x9f).filter_map(char::from_u32) {
+            for (mode, prefix) in [
+                (ColorMode::None, ""),
+                (ColorMode::Ansi16, "\u{1b}[30m"),
+                (ColorMode::Ansi256, "\u{1b}[38;5;16m"),
+                (ColorMode::Truecolor, "\u{1b}[38;2;0;0;0m"),
+            ] {
+                let mut canvas = Canvas::new(2, 1)?;
+                assert!(canvas.put_label(0, 0, &ch.to_string(), 1, Token::Border));
+                canvas.put_symbol(1, 0, u32::from(ch));
+                canvas.put(1, 0, |cell| cell.token = Some(Token::Border));
+                let suffix = if mode == ColorMode::None {
+                    ""
+                } else {
+                    "\u{1b}[39m"
+                };
+                let body = if ch == '\0' { "�" } else { "��" };
+                let out = canvas.serialise(Charset::Unicode, mode, |_| Rgb { r: 0, g: 0, b: 0 });
+                assert_eq!(out, format!("{prefix}{body}{suffix}\n"), "{ch:?} {mode:?}");
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn direct_canvas_preserves_legitimate_unicode() -> Result<(), crate::geom::GeomError> {
+        let mut canvas = Canvas::new(3, 1)?;
+        assert!(canvas.put_label(0, 0, "世", 2, Token::Foreground));
+        assert!(canvas.put_label(2, 0, "e\u{301}", 1, Token::Foreground));
+        for charset in [Charset::Unicode, Charset::Ascii] {
+            assert_eq!(
+                canvas.serialise(charset, ColorMode::None, |_| Rgb { r: 0, g: 0, b: 0 }),
+                "世e\u{301}\n"
+            );
+        }
+        Ok(())
     }
 }
