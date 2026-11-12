@@ -14,6 +14,471 @@ pub(crate) struct Theme {
 
 pub(crate) const THEMES: &[Theme] = &[
     Theme {
+        name: "base",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#debbee",
+            },
+            Token {
+                token: "bg",
+                value: "#f4f4f4",
+            },
+            Token {
+                token: "border",
+                value: "#eedebb",
+            },
+            Token {
+                token: "error",
+                value: "#f7f9ff",
+            },
+            Token {
+                token: "fg",
+                value: "#333333",
+            },
+            Token {
+                token: "line",
+                value: "#0b0b0b",
+            },
+            Token {
+                token: "muted",
+                value: "#0b2200",
+            },
+            Token {
+                token: "series0",
+                value: "#fff4dd",
+            },
+            Token {
+                token: "series1",
+                value: "#f4ddff",
+            },
+            Token {
+                token: "series10",
+                value: "#ff77a3",
+            },
+            Token {
+                token: "series11",
+                value: "#aaffe4",
+            },
+            Token {
+                token: "series2",
+                value: "#f7f9ff",
+            },
+            Token {
+                token: "series3",
+                value: "#ffe4aa",
+            },
+            Token {
+                token: "series4",
+                value: "#e4aaff",
+            },
+            Token {
+                token: "series5",
+                value: "#c4d7ff",
+            },
+            Token {
+                token: "series6",
+                value: "#c6ffaa",
+            },
+            Token {
+                token: "series7",
+                value: "#ffaac6",
+            },
+            Token {
+                token: "series8",
+                value: "#ddfff4",
+            },
+            Token {
+                token: "series9",
+                value: "#a3ff77",
+            },
+            Token {
+                token: "success",
+                value: "#f7f9ff",
+            },
+            Token {
+                token: "surface",
+                value: "#fff4dd",
+            },
+            Token {
+                token: "warning",
+                value: "#fff5ad",
+            },
+        ],
+    },
+    Theme {
+        name: "catppuccin-latte",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#1e66f5",
+            },
+            Token {
+                token: "bg",
+                value: "#eff1f5",
+            },
+            Token {
+                token: "border",
+                value: "#7c7f93",
+            },
+            Token {
+                token: "error",
+                value: "#d20f39",
+            },
+            Token {
+                token: "fg",
+                value: "#4c4f69",
+            },
+            Token {
+                token: "line",
+                value: "#6c6f85",
+            },
+            Token {
+                token: "muted",
+                value: "#5c5f77",
+            },
+            Token {
+                token: "series0",
+                value: "#a6cee3",
+            },
+            Token {
+                token: "series1",
+                value: "#1f78b4",
+            },
+            Token {
+                token: "series10",
+                value: "#ffff99",
+            },
+            Token {
+                token: "series11",
+                value: "#b15928",
+            },
+            Token {
+                token: "series2",
+                value: "#b2df8a",
+            },
+            Token {
+                token: "series3",
+                value: "#33a02c",
+            },
+            Token {
+                token: "series4",
+                value: "#fb9a99",
+            },
+            Token {
+                token: "series5",
+                value: "#e31a1c",
+            },
+            Token {
+                token: "series6",
+                value: "#fdbf6f",
+            },
+            Token {
+                token: "series7",
+                value: "#ff7f00",
+            },
+            Token {
+                token: "series8",
+                value: "#cab2d6",
+            },
+            Token {
+                token: "series9",
+                value: "#6a3d9a",
+            },
+            Token {
+                token: "success",
+                value: "#40a02b",
+            },
+            Token {
+                token: "surface",
+                value: "#e6e9ef",
+            },
+            Token {
+                token: "warning",
+                value: "#df8e1d",
+            },
+        ],
+    },
+    Theme {
+        name: "catppuccin-mocha",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#89b4fa",
+            },
+            Token {
+                token: "bg",
+                value: "#1e1e2e",
+            },
+            Token {
+                token: "border",
+                value: "#9399b2",
+            },
+            Token {
+                token: "error",
+                value: "#f38ba8",
+            },
+            Token {
+                token: "fg",
+                value: "#cdd6f4",
+            },
+            Token {
+                token: "line",
+                value: "#a6adc8",
+            },
+            Token {
+                token: "muted",
+                value: "#bac2de",
+            },
+            Token {
+                token: "series0",
+                value: "#a6cee3",
+            },
+            Token {
+                token: "series1",
+                value: "#1f78b4",
+            },
+            Token {
+                token: "series10",
+                value: "#ffff99",
+            },
+            Token {
+                token: "series11",
+                value: "#b15928",
+            },
+            Token {
+                token: "series2",
+                value: "#b2df8a",
+            },
+            Token {
+                token: "series3",
+                value: "#33a02c",
+            },
+            Token {
+                token: "series4",
+                value: "#fb9a99",
+            },
+            Token {
+                token: "series5",
+                value: "#e31a1c",
+            },
+            Token {
+                token: "series6",
+                value: "#fdbf6f",
+            },
+            Token {
+                token: "series7",
+                value: "#ff7f00",
+            },
+            Token {
+                token: "series8",
+                value: "#cab2d6",
+            },
+            Token {
+                token: "series9",
+                value: "#6a3d9a",
+            },
+            Token {
+                token: "success",
+                value: "#a6e3a1",
+            },
+            Token {
+                token: "surface",
+                value: "#181825",
+            },
+            Token {
+                token: "warning",
+                value: "#f9e2af",
+            },
+        ],
+    },
+    Theme {
+        name: "dark",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#2f2f2f",
+            },
+            Token {
+                token: "bg",
+                value: "#333333",
+            },
+            Token {
+                token: "border",
+                value: "#cccccc",
+            },
+            Token {
+                token: "error",
+                value: "#a44141",
+            },
+            Token {
+                token: "fg",
+                value: "#e0dfdf",
+            },
+            Token {
+                token: "line",
+                value: "#d3d3d3",
+            },
+            Token {
+                token: "muted",
+                value: "#b8b6b6",
+            },
+            Token {
+                token: "series0",
+                value: "#0b0000",
+            },
+            Token {
+                token: "series1",
+                value: "#4d1037",
+            },
+            Token {
+                token: "series10",
+                value: "#01629c",
+            },
+            Token {
+                token: "series11",
+                value: "#010029",
+            },
+            Token {
+                token: "series2",
+                value: "#3f5258",
+            },
+            Token {
+                token: "series3",
+                value: "#4f2f1b",
+            },
+            Token {
+                token: "series4",
+                value: "#6e0a0a",
+            },
+            Token {
+                token: "series5",
+                value: "#3b0048",
+            },
+            Token {
+                token: "series6",
+                value: "#995a01",
+            },
+            Token {
+                token: "series7",
+                value: "#154706",
+            },
+            Token {
+                token: "series8",
+                value: "#161722",
+            },
+            Token {
+                token: "series9",
+                value: "#00296f",
+            },
+            Token {
+                token: "success",
+                value: "#201f1f",
+            },
+            Token {
+                token: "surface",
+                value: "#1f2020",
+            },
+            Token {
+                token: "warning",
+                value: "#474949",
+            },
+        ],
+    },
+    Theme {
+        name: "default",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#eeeebc",
+            },
+            Token {
+                token: "bg",
+                value: "#ffffff",
+            },
+            Token {
+                token: "border",
+                value: "#c7c7f1",
+            },
+            Token {
+                token: "error",
+                value: "#552222",
+            },
+            Token {
+                token: "fg",
+                value: "#131300",
+            },
+            Token {
+                token: "line",
+                value: "#333333",
+            },
+            Token {
+                token: "muted",
+                value: "#000021",
+            },
+            Token {
+                token: "series0",
+                value: "#ececff",
+            },
+            Token {
+                token: "series1",
+                value: "#ffffde",
+            },
+            Token {
+                token: "series10",
+                value: "#20ff90",
+            },
+            Token {
+                token: "series11",
+                value: "#ff5353",
+            },
+            Token {
+                token: "series2",
+                value: "#b5ff20",
+            },
+            Token {
+                token: "series3",
+                value: "#b9b9ff",
+            },
+            Token {
+                token: "series4",
+                value: "#ffff45",
+            },
+            Token {
+                token: "series5",
+                value: "#d7ff86",
+            },
+            Token {
+                token: "series6",
+                value: "#ff86ff",
+            },
+            Token {
+                token: "series7",
+                value: "#20ffff",
+            },
+            Token {
+                token: "series8",
+                value: "#ff2020",
+            },
+            Token {
+                token: "series9",
+                value: "#ff20ff",
+            },
+            Token {
+                token: "success",
+                value: "#f9ffec",
+            },
+            Token {
+                token: "surface",
+                value: "#ececff",
+            },
+            Token {
+                token: "warning",
+                value: "#fff5ad",
+            },
+        ],
+    },
+    Theme {
         name: "elegant-dark",
         tokens: &[
             Token {
@@ -196,6 +661,1215 @@ pub(crate) const THEMES: &[Theme] = &[
             Token {
                 token: "warning",
                 value: "#ab6400",
+            },
+        ],
+    },
+    Theme {
+        name: "forest",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#b4e599",
+            },
+            Token {
+                token: "bg",
+                value: "#ffffff",
+            },
+            Token {
+                token: "border",
+                value: "#abb594",
+            },
+            Token {
+                token: "error",
+                value: "#552222",
+            },
+            Token {
+                token: "fg",
+                value: "#321b67",
+            },
+            Token {
+                token: "line",
+                value: "#000000",
+            },
+            Token {
+                token: "muted",
+                value: "#32004d",
+            },
+            Token {
+                token: "series0",
+                value: "#cde498",
+            },
+            Token {
+                token: "series1",
+                value: "#cdffb2",
+            },
+            Token {
+                token: "series10",
+                value: "#63301a",
+            },
+            Token {
+                token: "series11",
+                value: "#1a4d63",
+            },
+            Token {
+                token: "series2",
+                value: "#e1efc0",
+            },
+            Token {
+                token: "series3",
+                value: "#8cb42f",
+            },
+            Token {
+                token: "series4",
+                value: "#6aff19",
+            },
+            Token {
+                token: "series5",
+                value: "#33b42f",
+            },
+            Token {
+                token: "series6",
+                value: "#70d990",
+            },
+            Token {
+                token: "series7",
+                value: "#d99070",
+            },
+            Token {
+                token: "series8",
+                value: "#98cde4",
+            },
+            Token {
+                token: "series9",
+                value: "#1a6330",
+            },
+            Token {
+                token: "success",
+                value: "#e1efc0",
+            },
+            Token {
+                token: "surface",
+                value: "#cde498",
+            },
+            Token {
+                token: "warning",
+                value: "#fff5ad",
+            },
+        ],
+    },
+    Theme {
+        name: "github-dark",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#4493f8",
+            },
+            Token {
+                token: "bg",
+                value: "#0d1117",
+            },
+            Token {
+                token: "border",
+                value: "#656c76",
+            },
+            Token {
+                token: "error",
+                value: "#f85149",
+            },
+            Token {
+                token: "fg",
+                value: "#f0f6fc",
+            },
+            Token {
+                token: "line",
+                value: "#9198a1",
+            },
+            Token {
+                token: "muted",
+                value: "#9198a1",
+            },
+            Token {
+                token: "series0",
+                value: "#a6cee3",
+            },
+            Token {
+                token: "series1",
+                value: "#1f78b4",
+            },
+            Token {
+                token: "series10",
+                value: "#ffff99",
+            },
+            Token {
+                token: "series11",
+                value: "#b15928",
+            },
+            Token {
+                token: "series2",
+                value: "#b2df8a",
+            },
+            Token {
+                token: "series3",
+                value: "#33a02c",
+            },
+            Token {
+                token: "series4",
+                value: "#fb9a99",
+            },
+            Token {
+                token: "series5",
+                value: "#e31a1c",
+            },
+            Token {
+                token: "series6",
+                value: "#fdbf6f",
+            },
+            Token {
+                token: "series7",
+                value: "#ff7f00",
+            },
+            Token {
+                token: "series8",
+                value: "#cab2d6",
+            },
+            Token {
+                token: "series9",
+                value: "#6a3d9a",
+            },
+            Token {
+                token: "success",
+                value: "#3fb950",
+            },
+            Token {
+                token: "surface",
+                value: "#151b23",
+            },
+            Token {
+                token: "warning",
+                value: "#d29922",
+            },
+        ],
+    },
+    Theme {
+        name: "github-light",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#0969da",
+            },
+            Token {
+                token: "bg",
+                value: "#ffffff",
+            },
+            Token {
+                token: "border",
+                value: "#818b98",
+            },
+            Token {
+                token: "error",
+                value: "#d1242f",
+            },
+            Token {
+                token: "fg",
+                value: "#1f2328",
+            },
+            Token {
+                token: "line",
+                value: "#59636e",
+            },
+            Token {
+                token: "muted",
+                value: "#59636e",
+            },
+            Token {
+                token: "series0",
+                value: "#a6cee3",
+            },
+            Token {
+                token: "series1",
+                value: "#1f78b4",
+            },
+            Token {
+                token: "series10",
+                value: "#ffff99",
+            },
+            Token {
+                token: "series11",
+                value: "#b15928",
+            },
+            Token {
+                token: "series2",
+                value: "#b2df8a",
+            },
+            Token {
+                token: "series3",
+                value: "#33a02c",
+            },
+            Token {
+                token: "series4",
+                value: "#fb9a99",
+            },
+            Token {
+                token: "series5",
+                value: "#e31a1c",
+            },
+            Token {
+                token: "series6",
+                value: "#fdbf6f",
+            },
+            Token {
+                token: "series7",
+                value: "#ff7f00",
+            },
+            Token {
+                token: "series8",
+                value: "#cab2d6",
+            },
+            Token {
+                token: "series9",
+                value: "#6a3d9a",
+            },
+            Token {
+                token: "success",
+                value: "#1a7f37",
+            },
+            Token {
+                token: "surface",
+                value: "#f6f8fa",
+            },
+            Token {
+                token: "warning",
+                value: "#9a6700",
+            },
+        ],
+    },
+    Theme {
+        name: "neo",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#b3b3b3",
+            },
+            Token {
+                token: "bg",
+                value: "#ffffff",
+            },
+            Token {
+                token: "border",
+                value: "#b3b3b3",
+            },
+            Token {
+                token: "error",
+                value: "#ffffff",
+            },
+            Token {
+                token: "fg",
+                value: "#333333",
+            },
+            Token {
+                token: "line",
+                value: "#000000",
+            },
+            Token {
+                token: "muted",
+                value: "#333333",
+            },
+            Token {
+                token: "series0",
+                value: "#ececfe",
+            },
+            Token {
+                token: "series1",
+                value: "#e9e9f1",
+            },
+            Token {
+                token: "series10",
+                value: "#8bf9f9",
+            },
+            Token {
+                token: "series11",
+                value: "#fbbcbc",
+            },
+            Token {
+                token: "series2",
+                value: "#ffffff",
+            },
+            Token {
+                token: "series3",
+                value: "#bcbcfb",
+            },
+            Token {
+                token: "series4",
+                value: "#cacadd",
+            },
+            Token {
+                token: "series5",
+                value: "#fcfccf",
+            },
+            Token {
+                token: "series6",
+                value: "#fbbcfb",
+            },
+            Token {
+                token: "series7",
+                value: "#bcfbfb",
+            },
+            Token {
+                token: "series8",
+                value: "#feecec",
+            },
+            Token {
+                token: "series9",
+                value: "#f98bf9",
+            },
+            Token {
+                token: "success",
+                value: "#ffffff",
+            },
+            Token {
+                token: "surface",
+                value: "#ffffff",
+            },
+            Token {
+                token: "warning",
+                value: "#fff5ad",
+            },
+        ],
+    },
+    Theme {
+        name: "neo-dark",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#2f2f2f",
+            },
+            Token {
+                token: "bg",
+                value: "#333333",
+            },
+            Token {
+                token: "border",
+                value: "#cccccc",
+            },
+            Token {
+                token: "error",
+                value: "#201f1f",
+            },
+            Token {
+                token: "fg",
+                value: "#e0dfdf",
+            },
+            Token {
+                token: "line",
+                value: "#cccccc",
+            },
+            Token {
+                token: "muted",
+                value: "#b8b6b6",
+            },
+            Token {
+                token: "series0",
+                value: "#1f2020",
+            },
+            Token {
+                token: "series1",
+                value: "#474949",
+            },
+            Token {
+                token: "series10",
+                value: "#000000",
+            },
+            Token {
+                token: "series11",
+                value: "#060606",
+            },
+            Token {
+                token: "series2",
+                value: "#201f1f",
+            },
+            Token {
+                token: "series3",
+                value: "#060606",
+            },
+            Token {
+                token: "series4",
+                value: "#2e3030",
+            },
+            Token {
+                token: "series5",
+                value: "#060606",
+            },
+            Token {
+                token: "series6",
+                value: "#060606",
+            },
+            Token {
+                token: "series7",
+                value: "#060606",
+            },
+            Token {
+                token: "series8",
+                value: "#201f20",
+            },
+            Token {
+                token: "series9",
+                value: "#000000",
+            },
+            Token {
+                token: "success",
+                value: "#201f1f",
+            },
+            Token {
+                token: "surface",
+                value: "#2a2020",
+            },
+            Token {
+                token: "warning",
+                value: "#fff5ad",
+            },
+        ],
+    },
+    Theme {
+        name: "neutral",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#e3e3e3",
+            },
+            Token {
+                token: "bg",
+                value: "#ffffff",
+            },
+            Token {
+                token: "border",
+                value: "#d5d5d5",
+            },
+            Token {
+                token: "error",
+                value: "#552222",
+            },
+            Token {
+                token: "fg",
+                value: "#111111",
+            },
+            Token {
+                token: "line",
+                value: "#666666",
+            },
+            Token {
+                token: "muted",
+                value: "#030303",
+            },
+            Token {
+                token: "series0",
+                value: "#f4f4f4",
+            },
+            Token {
+                token: "series1",
+                value: "#555555",
+            },
+            Token {
+                token: "series10",
+                value: "#777777",
+            },
+            Token {
+                token: "series11",
+                value: "#555555",
+            },
+            Token {
+                token: "series2",
+                value: "#bbbbbb",
+            },
+            Token {
+                token: "series3",
+                value: "#777777",
+            },
+            Token {
+                token: "series4",
+                value: "#999999",
+            },
+            Token {
+                token: "series5",
+                value: "#dddddd",
+            },
+            Token {
+                token: "series6",
+                value: "#ffffff",
+            },
+            Token {
+                token: "series7",
+                value: "#dddddd",
+            },
+            Token {
+                token: "series8",
+                value: "#bbbbbb",
+            },
+            Token {
+                token: "series9",
+                value: "#999999",
+            },
+            Token {
+                token: "success",
+                value: "#eeeeee",
+            },
+            Token {
+                token: "surface",
+                value: "#eeeeee",
+            },
+            Token {
+                token: "warning",
+                value: "#666666",
+            },
+        ],
+    },
+    Theme {
+        name: "nord",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#88c0d0",
+            },
+            Token {
+                token: "bg",
+                value: "#2e3440",
+            },
+            Token {
+                token: "border",
+                value: "#d8dee9",
+            },
+            Token {
+                token: "error",
+                value: "#bf616a",
+            },
+            Token {
+                token: "fg",
+                value: "#eceff4",
+            },
+            Token {
+                token: "line",
+                value: "#e5e9f0",
+            },
+            Token {
+                token: "muted",
+                value: "#d8dee9",
+            },
+            Token {
+                token: "series0",
+                value: "#a6cee3",
+            },
+            Token {
+                token: "series1",
+                value: "#1f78b4",
+            },
+            Token {
+                token: "series10",
+                value: "#ffff99",
+            },
+            Token {
+                token: "series11",
+                value: "#b15928",
+            },
+            Token {
+                token: "series2",
+                value: "#b2df8a",
+            },
+            Token {
+                token: "series3",
+                value: "#33a02c",
+            },
+            Token {
+                token: "series4",
+                value: "#fb9a99",
+            },
+            Token {
+                token: "series5",
+                value: "#e31a1c",
+            },
+            Token {
+                token: "series6",
+                value: "#fdbf6f",
+            },
+            Token {
+                token: "series7",
+                value: "#ff7f00",
+            },
+            Token {
+                token: "series8",
+                value: "#cab2d6",
+            },
+            Token {
+                token: "series9",
+                value: "#6a3d9a",
+            },
+            Token {
+                token: "success",
+                value: "#a3be8c",
+            },
+            Token {
+                token: "surface",
+                value: "#3b4252",
+            },
+            Token {
+                token: "warning",
+                value: "#d08770",
+            },
+        ],
+    },
+    Theme {
+        name: "redux",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#b3b3b3",
+            },
+            Token {
+                token: "bg",
+                value: "#ffffff",
+            },
+            Token {
+                token: "border",
+                value: "#181818",
+            },
+            Token {
+                token: "error",
+                value: "#ffffff",
+            },
+            Token {
+                token: "fg",
+                value: "#28253d",
+            },
+            Token {
+                token: "line",
+                value: "#000000",
+            },
+            Token {
+                token: "muted",
+                value: "#333333",
+            },
+            Token {
+                token: "series0",
+                value: "#ececfe",
+            },
+            Token {
+                token: "series1",
+                value: "#e9e9f1",
+            },
+            Token {
+                token: "series10",
+                value: "#8bf9f9",
+            },
+            Token {
+                token: "series11",
+                value: "#fbbcbc",
+            },
+            Token {
+                token: "series2",
+                value: "#ffffff",
+            },
+            Token {
+                token: "series3",
+                value: "#bcbcfb",
+            },
+            Token {
+                token: "series4",
+                value: "#cacadd",
+            },
+            Token {
+                token: "series5",
+                value: "#fcfccf",
+            },
+            Token {
+                token: "series6",
+                value: "#fbbcfb",
+            },
+            Token {
+                token: "series7",
+                value: "#bcfbfb",
+            },
+            Token {
+                token: "series8",
+                value: "#feecec",
+            },
+            Token {
+                token: "series9",
+                value: "#f98bf9",
+            },
+            Token {
+                token: "success",
+                value: "#ffffff",
+            },
+            Token {
+                token: "surface",
+                value: "#ffffff",
+            },
+            Token {
+                token: "warning",
+                value: "#fff5ad",
+            },
+        ],
+    },
+    Theme {
+        name: "redux-color",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#b3b3b3",
+            },
+            Token {
+                token: "bg",
+                value: "#ffffff",
+            },
+            Token {
+                token: "border",
+                value: "#181818",
+            },
+            Token {
+                token: "error",
+                value: "#ffffff",
+            },
+            Token {
+                token: "fg",
+                value: "#28253d",
+            },
+            Token {
+                token: "line",
+                value: "#000000",
+            },
+            Token {
+                token: "muted",
+                value: "#333333",
+            },
+            Token {
+                token: "series0",
+                value: "#f4a8ff",
+            },
+            Token {
+                token: "series1",
+                value: "#46ecd5",
+            },
+            Token {
+                token: "series10",
+                value: "#74d4ff",
+            },
+            Token {
+                token: "series11",
+                value: "#ffa1ad",
+            },
+            Token {
+                token: "series2",
+                value: "#ffb86a",
+            },
+            Token {
+                token: "series3",
+                value: "#dab2ff",
+            },
+            Token {
+                token: "series4",
+                value: "#7bf1a8",
+            },
+            Token {
+                token: "series5",
+                value: "#c4b4ff",
+            },
+            Token {
+                token: "series6",
+                value: "#ffa2a2",
+            },
+            Token {
+                token: "series7",
+                value: "#ffdf20",
+            },
+            Token {
+                token: "series8",
+                value: "#a3b3ff",
+            },
+            Token {
+                token: "series9",
+                value: "#bbf451",
+            },
+            Token {
+                token: "success",
+                value: "#ffffff",
+            },
+            Token {
+                token: "surface",
+                value: "#ffffff",
+            },
+            Token {
+                token: "warning",
+                value: "#fff5ad",
+            },
+        ],
+    },
+    Theme {
+        name: "redux-dark",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#2f2f2f",
+            },
+            Token {
+                token: "bg",
+                value: "#333333",
+            },
+            Token {
+                token: "border",
+                value: "#cccccc",
+            },
+            Token {
+                token: "error",
+                value: "#201f1f",
+            },
+            Token {
+                token: "fg",
+                value: "#e0dfdf",
+            },
+            Token {
+                token: "line",
+                value: "#cccccc",
+            },
+            Token {
+                token: "muted",
+                value: "#b8b6b6",
+            },
+            Token {
+                token: "series0",
+                value: "#1f2020",
+            },
+            Token {
+                token: "series1",
+                value: "#474949",
+            },
+            Token {
+                token: "series10",
+                value: "#000000",
+            },
+            Token {
+                token: "series11",
+                value: "#060606",
+            },
+            Token {
+                token: "series2",
+                value: "#201f1f",
+            },
+            Token {
+                token: "series3",
+                value: "#060606",
+            },
+            Token {
+                token: "series4",
+                value: "#2e3030",
+            },
+            Token {
+                token: "series5",
+                value: "#060606",
+            },
+            Token {
+                token: "series6",
+                value: "#060606",
+            },
+            Token {
+                token: "series7",
+                value: "#060606",
+            },
+            Token {
+                token: "series8",
+                value: "#201f20",
+            },
+            Token {
+                token: "series9",
+                value: "#000000",
+            },
+            Token {
+                token: "success",
+                value: "#201f1f",
+            },
+            Token {
+                token: "surface",
+                value: "#111113",
+            },
+            Token {
+                token: "warning",
+                value: "#fef9c3",
+            },
+        ],
+    },
+    Theme {
+        name: "redux-dark-color",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#2f2f2f",
+            },
+            Token {
+                token: "bg",
+                value: "#333333",
+            },
+            Token {
+                token: "border",
+                value: "#cccccc",
+            },
+            Token {
+                token: "error",
+                value: "#201f1f",
+            },
+            Token {
+                token: "fg",
+                value: "#e0dfdf",
+            },
+            Token {
+                token: "line",
+                value: "#cccccc",
+            },
+            Token {
+                token: "muted",
+                value: "#b8b6b6",
+            },
+            Token {
+                token: "series0",
+                value: "#f4a8ff",
+            },
+            Token {
+                token: "series1",
+                value: "#46ecd5",
+            },
+            Token {
+                token: "series10",
+                value: "#74d4ff",
+            },
+            Token {
+                token: "series11",
+                value: "#ffa1ad",
+            },
+            Token {
+                token: "series2",
+                value: "#ffb86a",
+            },
+            Token {
+                token: "series3",
+                value: "#dab2ff",
+            },
+            Token {
+                token: "series4",
+                value: "#7bf1a8",
+            },
+            Token {
+                token: "series5",
+                value: "#c4b4ff",
+            },
+            Token {
+                token: "series6",
+                value: "#ffa2a2",
+            },
+            Token {
+                token: "series7",
+                value: "#ffdf20",
+            },
+            Token {
+                token: "series8",
+                value: "#a3b3ff",
+            },
+            Token {
+                token: "series9",
+                value: "#bbf451",
+            },
+            Token {
+                token: "success",
+                value: "#201f1f",
+            },
+            Token {
+                token: "surface",
+                value: "#111113",
+            },
+            Token {
+                token: "warning",
+                value: "#fef9c3",
+            },
+        ],
+    },
+    Theme {
+        name: "solarized-dark",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#268bd2",
+            },
+            Token {
+                token: "bg",
+                value: "#002b36",
+            },
+            Token {
+                token: "border",
+                value: "#839496",
+            },
+            Token {
+                token: "error",
+                value: "#dc322f",
+            },
+            Token {
+                token: "fg",
+                value: "#eee8d5",
+            },
+            Token {
+                token: "line",
+                value: "#839496",
+            },
+            Token {
+                token: "muted",
+                value: "#93a1a1",
+            },
+            Token {
+                token: "series0",
+                value: "#a6cee3",
+            },
+            Token {
+                token: "series1",
+                value: "#1f78b4",
+            },
+            Token {
+                token: "series10",
+                value: "#ffff99",
+            },
+            Token {
+                token: "series11",
+                value: "#b15928",
+            },
+            Token {
+                token: "series2",
+                value: "#b2df8a",
+            },
+            Token {
+                token: "series3",
+                value: "#33a02c",
+            },
+            Token {
+                token: "series4",
+                value: "#fb9a99",
+            },
+            Token {
+                token: "series5",
+                value: "#e31a1c",
+            },
+            Token {
+                token: "series6",
+                value: "#fdbf6f",
+            },
+            Token {
+                token: "series7",
+                value: "#ff7f00",
+            },
+            Token {
+                token: "series8",
+                value: "#cab2d6",
+            },
+            Token {
+                token: "series9",
+                value: "#6a3d9a",
+            },
+            Token {
+                token: "success",
+                value: "#859900",
+            },
+            Token {
+                token: "surface",
+                value: "#073642",
+            },
+            Token {
+                token: "warning",
+                value: "#cb4b16",
+            },
+        ],
+    },
+    Theme {
+        name: "solarized-light",
+        tokens: &[
+            Token {
+                token: "accent",
+                value: "#268bd2",
+            },
+            Token {
+                token: "bg",
+                value: "#fdf6e3",
+            },
+            Token {
+                token: "border",
+                value: "#657b83",
+            },
+            Token {
+                token: "error",
+                value: "#dc322f",
+            },
+            Token {
+                token: "fg",
+                value: "#073642",
+            },
+            Token {
+                token: "line",
+                value: "#586e75",
+            },
+            Token {
+                token: "muted",
+                value: "#586e75",
+            },
+            Token {
+                token: "series0",
+                value: "#a6cee3",
+            },
+            Token {
+                token: "series1",
+                value: "#1f78b4",
+            },
+            Token {
+                token: "series10",
+                value: "#ffff99",
+            },
+            Token {
+                token: "series11",
+                value: "#b15928",
+            },
+            Token {
+                token: "series2",
+                value: "#b2df8a",
+            },
+            Token {
+                token: "series3",
+                value: "#33a02c",
+            },
+            Token {
+                token: "series4",
+                value: "#fb9a99",
+            },
+            Token {
+                token: "series5",
+                value: "#e31a1c",
+            },
+            Token {
+                token: "series6",
+                value: "#fdbf6f",
+            },
+            Token {
+                token: "series7",
+                value: "#ff7f00",
+            },
+            Token {
+                token: "series8",
+                value: "#cab2d6",
+            },
+            Token {
+                token: "series9",
+                value: "#6a3d9a",
+            },
+            Token {
+                token: "success",
+                value: "#859900",
+            },
+            Token {
+                token: "surface",
+                value: "#fdf6e3",
+            },
+            Token {
+                token: "warning",
+                value: "#cb4b16",
             },
         ],
     },
