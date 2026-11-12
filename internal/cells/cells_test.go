@@ -144,12 +144,12 @@ func TestTextColour(t *testing.T) {
 	c.AttachInk(7, 0, BitN|BitS, StyleLight, TokenBorder)
 	c.PutLabel(3, 0, "H", 1, TokenFG)
 	c.PutLabel(4, 0, "i", 1, TokenFG)
-	lookup := func(Token) RGB { return RGB{139, 141, 152} }
+	lookup := func(Token) RGB { return RGB{R: 139, G: 141, B: 152} }
 	want := "\x1b[38;2;139;141;152m│  \x1b[39mHi  \x1b[38;2;139;141;152m│\x1b[39m\n"
 	if got := string(c.Serialise(CharsetUnicode, ColorTruecolor, lookup)); got != want {
 		t.Fatalf("%q", got)
 	}
-	if ANSI256(lookup(TokenBorder)) != 246 || ANSI16(RGB{230, 0, 0}) != 1 {
+	if ANSI256(lookup(TokenBorder)) != 246 || ANSI16(RGB{R: 230}) != 1 {
 		t.Fatal("quantisation")
 	}
 	strip := regexp.MustCompile("\x1b\\[[0-9;]*m")
@@ -166,7 +166,7 @@ func TestColourGoldens(t *testing.T) {
 	c.AttachInk(7, 0, BitN|BitS, StyleLight, TokenBorder)
 	c.PutLabel(3, 0, "H", 1, TokenFG)
 	c.PutLabel(4, 0, "i", 1, TokenFG)
-	lookup := func(Token) RGB { return RGB{139, 141, 152} }
+	lookup := func(Token) RGB { return RGB{R: 139, G: 141, B: 152} }
 	for i, name := range []string{"none", "ansi16", "ansi256", "truecolor"} {
 		want, err := os.ReadFile("testdata/colour/" + name + ".txt")
 		if err != nil {
