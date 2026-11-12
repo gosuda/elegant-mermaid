@@ -299,6 +299,81 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "honoured",
     },
     ConfigKey {
+        kind: "class",
+        key: "arrowMarkerAbsolute",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "diagramPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "dividerMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "hideEmptyMembersBox",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "hierarchicalNamespaces",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "htmlLabels",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "nodeSpacing",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "padding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "rankSpacing",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "textHeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "titleTopMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "flowchart",
         key: "arrowMarkerAbsolute",
         class: "accepted-ignored",

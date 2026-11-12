@@ -13,6 +13,11 @@ type Diagnostic struct {
 }
 
 var Diagnostics = []Diagnostic{
+	{"class/annotation-target-unknown", "error", "annotation references unknown class ID", "", "The database requires a class before a standalone annotation.", "none", []string{}},
+	{"class/nested-member-block", "error", "class member cannot contain a block", "", "The member lexer explicitly rejects nested braces.", "none", []string{}},
+	{"class/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "A token must fit the current production.", "none", []string{}},
+	{"class/unknown-statement", "error", "unknown statement TOKEN", "", "Unknown statements cannot create phantom classes.", "none", []string{}},
+	{"class/unterminated", "error", "unterminated TOKEN", "", "Every open delimiter needs its closing delimiter.", "none", []string{}},
 	{"common/empty-source", "error", "source is empty", "add a diagram header, for example flowchart", "A file with no header has no diagram in it, so a render would produce nothing to look at.", "none", []string{}},
 	{"common/unknown-diagram-kind", "error", "unknown diagram kind TOKEN", "Start the source with a supported diagram header, for example flowchart.", "Nothing is drawn until the first word names a diagram kind, so the whole file is ignored.", "none", []string{}},
 	{"config/font-metrics-approximate", "info", "text width is measured with Inter; fontFamily is VALUE", "Text widths may differ from the font named in fontFamily.", "Widths come from a fixed font table, so a diagram whose text is set in another font can end up with different line breaks than the author expected.", "none", []string{}},
