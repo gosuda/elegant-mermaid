@@ -1,5 +1,13 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+# Generate the shared tables, font copies, and README kinds block from spec/data
+gen:
+    go run ./tools/specgen
+
+# Regenerate into a temporary directory and fail on any difference
+gen-check:
+    go run ./tools/specgen -check
+
 # Go checks: gofmt, go vet, golangci-lint, race tests, govulncheck
 go-check PKG='./...':
     {{ if PKG != './...' { "go test -list '.*' " + PKG + " | grep '^Test' >/dev/null" } else { "true" } }}
@@ -32,6 +40,7 @@ staged-format:
 
 # Run every gate whose subject exists, in order
 verify:
+    just gen-check
     just go-check
     just rust-check
     just slop
