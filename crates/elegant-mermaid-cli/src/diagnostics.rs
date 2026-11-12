@@ -1,4 +1,4 @@
-use elegant_mermaid::{DiagramKind, diag, model, syntax};
+use elegant_mermaid::{DiagramKind, diag, model, source::Span, syntax};
 
 pub struct Parsed {
     pub source: String,
@@ -7,7 +7,7 @@ pub struct Parsed {
     pub model: model::flowchart::Model,
 }
 pub fn parse(bytes: &[u8]) -> Result<Parsed, String> {
-    let (source, _) = elegant_mermaid::source::repair_utf8(bytes);
+    let (source, first_bad) = elegant_mermaid::source::repair_utf8(bytes);
     let prep = syntax::preprocess::preprocess(&source);
     let detection = syntax::detect::detect(&source, &prep.removed);
     if let Some(kind) = detection.kind.filter(|k| *k != DiagramKind::Flowchart) {
@@ -20,6 +20,20 @@ pub fn parse(bytes: &[u8]) -> Result<Parsed, String> {
     if detection.kind.is_some() {
         diagnostics.extend(parsed.diagnostics);
         diagnostics.extend(resolved);
+    }
+    if let Some(start) = first_bad {
+        diagnostics.push(diag::Diagnostic {
+            code: "source/invalid-utf8",
+            severity: diag::Severity::Error,
+            message: format!("invalid UTF-8 at byte {start}"),
+            span: Span {
+                start,
+                end: start + '\u{fffd}'.len_utf8(),
+            },
+            related: Vec::new(),
+            help: "Save the source as UTF-8.".into(),
+            fixes: Vec::new(),
+        });
     }
     diag::sort(&mut diagnostics);
     Ok(Parsed {

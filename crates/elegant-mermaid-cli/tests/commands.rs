@@ -9,6 +9,12 @@ fn binary() -> std::ffi::OsString {
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 fn invoke(args: &[&str], source: &str) -> Result<std::process::Output, Box<dyn std::error::Error>> {
+    invoke_bytes(args, source.as_bytes())
+}
+fn invoke_bytes(
+    args: &[&str],
+    source: &[u8],
+) -> Result<std::process::Output, Box<dyn std::error::Error>> {
     let mut child = Command::new(binary())
         .args(args)
         .env_remove("NO_COLOR")
@@ -22,7 +28,7 @@ fn invoke(args: &[&str], source: &str) -> Result<std::process::Output, Box<dyn s
         .stdin
         .take()
         .ok_or("missing stdin")?
-        .write_all(source.as_bytes())?;
+        .write_all(source)?;
     Ok(child.wait_with_output()?)
 }
 #[test]
@@ -393,6 +399,58 @@ fn binary_explicit_format_cli_23() -> TestResult {
     assert_eq!(output.stderr, b"");
     assert!(std::fs::read_to_string(&path)?.contains("<svg"));
     std::fs::remove_file(path)?;
+    Ok(())
+}
+
+#[test]
+fn invalid_utf8_rejected_by_source_commands() -> TestResult {
+    for malformed in [&b"\xff"[..], &b"\xe2\x82"[..], &b"\xed\xa0\x80"[..]] {
+        let mut source = b"flowchart LR\n  %% ".to_vec();
+        let start = source.len();
+        source.extend_from_slice(malformed);
+        source.extend_from_slice(b"\n  A --> B\n");
+        let output = invoke_bytes(&["check", "-", "--output-format", "json"], &source)?;
+        assert_eq!(output.status.code(), Some(1));
+        let json = String::from_utf8(output.stdout)?;
+        assert!(json.contains("\"code\":\"source/invalid-utf8\""));
+        assert!(json.contains("\"severity\":\"error\""));
+        assert!(json.contains(&format!("\"message\":\"invalid UTF-8 at byte {start}\"")));
+        assert!(json.contains(&format!(
+            "\"span\":{{\"start\":{start},\"end\":{}}}",
+            start + 3
+        )));
+        assert!(json.contains("\"help\":\"Save the source as UTF-8.\""));
+        for args in [
+            vec!["render", "-e", "svg"],
+            vec!["render", "-e", "text"],
+            vec!["layout", "--stage", "model"],
+            vec!["layout", "--stage", "layout"],
+        ] {
+            let output = invoke_bytes(&args, &source)?;
+            assert_eq!(output.status.code(), Some(1), "{args:?}");
+            assert!(output.stdout.is_empty(), "{args:?}");
+            let stderr = String::from_utf8(output.stderr)?;
+            assert!(stderr.contains("error[source/invalid-utf8]"), "{stderr}");
+            assert!(stderr.contains(&format!("invalid UTF-8 at byte {start}")));
+            assert!(stderr.contains("Save the source as UTF-8."));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn valid_non_ascii_source_commands() -> TestResult {
+    for args in [
+        vec!["check", "-", "--output-format", "json"],
+        vec!["render", "-e", "svg"],
+        vec!["layout", "--stage", "model"],
+        vec!["layout", "--stage", "layout"],
+    ] {
+        let output = invoke(&args, "flowchart LR\n  %% café 日本語 😀\n  A --> B\n")?;
+        assert_eq!(output.status.code(), Some(0), "{args:?}");
+        assert!(!String::from_utf8(output.stdout)?.contains("source/invalid-utf8"));
+        assert!(!String::from_utf8(output.stderr)?.contains("source/invalid-utf8"));
+    }
     Ok(())
 }
 

@@ -1,4 +1,4 @@
-use elegant_mermaid::{diag, layout, scene, syntax};
+use elegant_mermaid::{diag, layout, scene};
 use std::ffi::OsString;
 
 pub fn run(args: &[OsString]) -> (String, String, i32) {
@@ -78,45 +78,18 @@ fn render(
     stage: scene::Stage,
     bytes: &[u8],
 ) -> (String, String, i32) {
-    let (source, _) = elegant_mermaid::source::repair_utf8(bytes);
-    let prep = syntax::preprocess::preprocess(&source);
-    let detection = syntax::detect::detect(&source, &prep.removed);
-    if detection
-        .kind
-        .is_some_and(|k| k != elegant_mermaid::DiagramKind::Flowchart)
-    {
+    let parsed = match crate::diagnostics::parse(bytes) {
+        Ok(parsed) => parsed,
+        Err(error) => return (String::new(), format!("{error}\n"), 2),
+    };
+    let source = parsed.source;
+    let model = parsed.model;
+    if crate::diagnostics::has_errors(&parsed.diagnostics) {
         return (
             String::new(),
-            format!(
-                "unsupported diagram kind: {}\n",
-                detection.kind.map_or("", |k| k.id())
-            ),
-            2,
+            crate::diagnostics::text(path, &source, &parsed.diagnostics, false),
+            1,
         );
-    }
-    let parsed = syntax::flowchart::parse(&source, &prep.removed);
-    let (model, resolved) = elegant_mermaid::model::flowchart::resolve(&source, &parsed.document);
-    let mut diagnostics = prep.diagnostics;
-    diagnostics.extend(detection.diagnostics);
-    diagnostics.extend(parsed.diagnostics);
-    diagnostics.extend(resolved);
-    diag::sort(&mut diagnostics);
-    if diagnostics
-        .iter()
-        .any(|d| d.severity == diag::Severity::Error)
-    {
-        let mut stderr = String::new();
-        diag::text::render_text(
-            &mut stderr,
-            path,
-            &source,
-            &diagnostics,
-            &diag::text::TextFrameOptions {
-                colour: false,
-                width: |_| 1,
-            },
-        );
-        return (String::new(), stderr, 1);
     }
     let input = layout::flowchart::from_flowchart(&model, profile, scene::DumpOptions::default());
     if stage == scene::Stage::Model {
