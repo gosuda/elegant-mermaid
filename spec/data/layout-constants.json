@@ -1,0 +1,1262 @@
+[
+  {
+    "name": "node_pad_x",
+    "vector": 768,
+    "cell": 1
+  },
+  {
+    "name": "node_pad_y",
+    "vector": 512,
+    "cell": 0
+  },
+  {
+    "name": "node_border",
+    "vector": 0,
+    "cell": 1
+  },
+  {
+    "name": "line_h",
+    "vector": 1280,
+    "cell": 1
+  },
+  {
+    "name": "node_min_w",
+    "vector": 2048,
+    "cell": 3
+  },
+  {
+    "name": "node_min_h",
+    "vector": 1280,
+    "cell": 3
+  },
+  {
+    "name": "port_gap",
+    "vector": 512,
+    "cell": 1
+  },
+  {
+    "name": "node_gap",
+    "vector": 1536,
+    "cell": 2
+  },
+  {
+    "name": "rank_gap",
+    "vector": 3072,
+    "cell": 3
+  },
+  {
+    "name": "slot",
+    "vector": 768,
+    "cell": 1
+  },
+  {
+    "name": "cluster_border_w",
+    "vector": 512,
+    "cell": 1
+  },
+  {
+    "name": "cluster_pad",
+    "vector": 1024,
+    "cell": 1
+  },
+  {
+    "name": "canvas_margin",
+    "vector": 1024,
+    "cell": 1
+  },
+  {
+    "name": "corner_radius",
+    "vector": 512,
+    "cell": 0
+  },
+  {
+    "name": "component_aspect_num",
+    "vector": 16,
+    "cell": 2
+  },
+  {
+    "name": "component_aspect_den",
+    "vector": 9,
+    "cell": 1
+  },
+  {
+    "name": "sweep_max",
+    "vector": 24,
+    "cell": 24
+  },
+  {
+    "name": "sweep_stall",
+    "vector": 4,
+    "cell": 4
+  },
+  {
+    "name": "pivot_factor",
+    "vector": 50,
+    "cell": 50
+  },
+  {
+    "name": "portfolio_max",
+    "vector": 5,
+    "cell": 5
+  },
+  {
+    "name": "portfolio_replace_num",
+    "vector": 97,
+    "cell": 97
+  },
+  {
+    "name": "portfolio_replace_den",
+    "vector": 100,
+    "cell": 100
+  },
+  {
+    "name": "sequence.actor_width",
+    "vector": 9600,
+    "cell": 12
+  },
+  {
+    "name": "sequence.actor_height",
+    "vector": 4160,
+    "cell": 3
+  },
+  {
+    "name": "sequence.actor_margin",
+    "vector": 3200,
+    "cell": 4
+  },
+  {
+    "name": "sequence.wrap_padding",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "sequence.box_margin",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "sequence.box_text_margin",
+    "vector": 320,
+    "cell": 1
+  },
+  {
+    "name": "sequence.note_margin",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "sequence.message_top",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "sequence.self_loop_depth",
+    "vector": 1920,
+    "cell": 2
+  },
+  {
+    "name": "sequence.self_loop_min_dx",
+    "vector": 1920,
+    "cell": 3
+  },
+  {
+    "name": "sequence.activation_width",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "sequence.activation_top",
+    "vector": 128,
+    "cell": 0
+  },
+  {
+    "name": "sequence.label_box_width",
+    "vector": 3200,
+    "cell": 8
+  },
+  {
+    "name": "sequence.label_box_height",
+    "vector": 1280,
+    "cell": 1
+  },
+  {
+    "name": "sequence.dash_on",
+    "vector": 192,
+    "cell": 1
+  },
+  {
+    "name": "sequence.dash_off",
+    "vector": 192,
+    "cell": 1
+  },
+  {
+    "name": "sequence.autonumber_radius",
+    "vector": 384,
+    "cell": 1
+  },
+  {
+    "name": "sequence.diagram_margin_x",
+    "vector": 3200,
+    "cell": 2
+  },
+  {
+    "name": "sequence.diagram_margin_y",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "block.padding",
+    "vector": 512,
+    "cell": 1
+  },
+  {
+    "name": "architecture.pitch_x",
+    "vector": 7680,
+    "cell": 14
+  },
+  {
+    "name": "architecture.pitch_y",
+    "vector": 7680,
+    "cell": 6
+  },
+  {
+    "name": "architecture.padding",
+    "vector": 2560,
+    "cell": 2
+  },
+  {
+    "name": "architecture.junction_size",
+    "vector": 512,
+    "cell": 1
+  },
+  {
+    "name": "architecture.label_wrap",
+    "vector": 7168,
+    "cell": 13
+  },
+  {
+    "name": "architecture.icon_width",
+    "vector": 5120,
+    "cell": 7
+  },
+  {
+    "name": "architecture.icon_height",
+    "vector": 5120,
+    "cell": 3
+  },
+  {
+    "name": "architecture.bfs_cap",
+    "vector": 2000,
+    "cell": 2000
+  },
+  {
+    "name": "kanban.gutter",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "kanban.padding",
+    "vector": 512,
+    "cell": 1
+  },
+  {
+    "name": "kanban.section_width",
+    "vector": 12800,
+    "cell": 25
+  },
+  {
+    "name": "kanban.label_band_min",
+    "vector": 1600,
+    "cell": 1
+  },
+  {
+    "name": "kanban.card_pad_x",
+    "vector": 1280,
+    "cell": 3
+  },
+  {
+    "name": "kanban.card_pad_y",
+    "vector": 640,
+    "cell": 0
+  },
+  {
+    "name": "kanban.card_gap",
+    "vector": 320,
+    "cell": 1
+  },
+  {
+    "name": "kanban.section_min_height",
+    "vector": 3200,
+    "cell": 4
+  },
+  {
+    "name": "packet.bits_per_row",
+    "vector": 32,
+    "cell": 32
+  },
+  {
+    "name": "packet.row_height",
+    "vector": 2048,
+    "cell": 3
+  },
+  {
+    "name": "packet.bit_width",
+    "vector": 2048,
+    "cell": 2
+  },
+  {
+    "name": "packet.padding_x",
+    "vector": 320,
+    "cell": 1
+  },
+  {
+    "name": "packet.padding_y",
+    "vector": 320,
+    "cell": 1
+  },
+  {
+    "name": "mindmap.padding",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "mindmap.max_node_width",
+    "vector": 12800,
+    "cell": 24
+  },
+  {
+    "name": "mindmap.sibling_gap",
+    "vector": 1280,
+    "cell": 1
+  },
+  {
+    "name": "mindmap.level_gap",
+    "vector": 2560,
+    "cell": 4
+  },
+  {
+    "name": "mindmap.label_wrap",
+    "vector": 11520,
+    "cell": 22
+  },
+  {
+    "name": "mindmap.contour_cap",
+    "vector": 2000,
+    "cell": 2000
+  },
+  {
+    "name": "treeview.row_indent",
+    "vector": 640,
+    "cell": 0
+  },
+  {
+    "name": "treeview.padding_x",
+    "vector": 320,
+    "cell": 0
+  },
+  {
+    "name": "treeview.padding_y",
+    "vector": 320,
+    "cell": 0
+  },
+  {
+    "name": "treeview.line_thickness",
+    "vector": 64,
+    "cell": 0
+  },
+  {
+    "name": "treeview.icon_size",
+    "vector": 896,
+    "cell": 0
+  },
+  {
+    "name": "treeview.icon_gap",
+    "vector": 256,
+    "cell": 0
+  },
+  {
+    "name": "treeview.desc_gap",
+    "vector": 1024,
+    "cell": 2
+  },
+  {
+    "name": "ishikawa.spine_base_length",
+    "vector": 16000,
+    "cell": 40
+  },
+  {
+    "name": "ishikawa.rib_min_length",
+    "vector": 4800,
+    "cell": 12
+  },
+  {
+    "name": "ishikawa.rib_pool",
+    "vector": 32000,
+    "cell": 80
+  },
+  {
+    "name": "ishikawa.cause_min_spacing",
+    "vector": 1792,
+    "cell": 4
+  },
+  {
+    "name": "ishikawa.bone_stub",
+    "vector": 1920,
+    "cell": 3
+  },
+  {
+    "name": "ishikawa.bone_base",
+    "vector": 3840,
+    "cell": 6
+  },
+  {
+    "name": "ishikawa.bone_per_child",
+    "vector": 320,
+    "cell": 1
+  },
+  {
+    "name": "ishikawa.rib_cos_q15",
+    "vector": 4561,
+    "cell": 4561
+  },
+  {
+    "name": "ishikawa.rib_sin_q15",
+    "vector": 32455,
+    "cell": 32455
+  },
+  {
+    "name": "ishikawa.rib_angle_turns",
+    "vector": 14928,
+    "cell": 14928
+  },
+  {
+    "name": "gitgraph.commit_step",
+    "vector": 2560,
+    "cell": 4
+  },
+  {
+    "name": "gitgraph.lane_pitch",
+    "vector": 3200,
+    "cell": 2
+  },
+  {
+    "name": "gitgraph.label_rotation_extra",
+    "vector": 2560,
+    "cell": 0
+  },
+  {
+    "name": "gitgraph.label_offset",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "gitgraph.commit_radius",
+    "vector": 512,
+    "cell": 1
+  },
+  {
+    "name": "eventmodeling.swimlane_min_height",
+    "vector": 4480,
+    "cell": 5
+  },
+  {
+    "name": "eventmodeling.swimlane_padding",
+    "vector": 960,
+    "cell": 1
+  },
+  {
+    "name": "eventmodeling.swimlane_gap",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "eventmodeling.box_padding",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "eventmodeling.box_overlap",
+    "vector": 5760,
+    "cell": 9
+  },
+  {
+    "name": "eventmodeling.box_min_width",
+    "vector": 5120,
+    "cell": 10
+  },
+  {
+    "name": "eventmodeling.box_max_width",
+    "vector": 28800,
+    "cell": 56
+  },
+  {
+    "name": "eventmodeling.box_min_height",
+    "vector": 5120,
+    "cell": 5
+  },
+  {
+    "name": "eventmodeling.box_max_height",
+    "vector": 48000,
+    "cell": 47
+  },
+  {
+    "name": "eventmodeling.content_start_x",
+    "vector": 16000,
+    "cell": 25
+  },
+  {
+    "name": "timeline.card_width",
+    "vector": 9600,
+    "cell": 18
+  },
+  {
+    "name": "timeline.column_gap",
+    "vector": 3200,
+    "cell": 6
+  },
+  {
+    "name": "timeline.event_gap",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "timeline.section_gap",
+    "vector": 3200,
+    "cell": 3
+  },
+  {
+    "name": "timeline.card_padding",
+    "vector": 1280,
+    "cell": 1
+  },
+  {
+    "name": "timeline.left_margin",
+    "vector": 3200,
+    "cell": 6
+  },
+  {
+    "name": "journey.task_width",
+    "vector": 9600,
+    "cell": 18
+  },
+  {
+    "name": "journey.task_height",
+    "vector": 3200,
+    "cell": 3
+  },
+  {
+    "name": "journey.column_gap",
+    "vector": 3200,
+    "cell": 6
+  },
+  {
+    "name": "journey.score_step",
+    "vector": 1920,
+    "cell": 2
+  },
+  {
+    "name": "journey.score_min",
+    "vector": 1,
+    "cell": 1
+  },
+  {
+    "name": "journey.score_max",
+    "vector": 5,
+    "cell": 5
+  },
+  {
+    "name": "journey.band_height",
+    "vector": 3200,
+    "cell": 3
+  },
+  {
+    "name": "journey.face_radius",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "chart.number_scale",
+    "vector": 1000,
+    "cell": 1000
+  },
+  {
+    "name": "chart.range_units_max",
+    "vector": 4194304,
+    "cell": 4194304
+  },
+  {
+    "name": "chart.tick_count",
+    "vector": 10,
+    "cell": 10
+  },
+  {
+    "name": "chart.tick_cap",
+    "vector": 64,
+    "cell": 64
+  },
+  {
+    "name": "chart.scan_cap",
+    "vector": 40,
+    "cell": 40
+  },
+  {
+    "name": "gantt.bar_height",
+    "vector": 1280,
+    "cell": 2
+  },
+  {
+    "name": "gantt.row_gap",
+    "vector": 256,
+    "cell": 1
+  },
+  {
+    "name": "gantt.top_pad",
+    "vector": 3200,
+    "cell": 4
+  },
+  {
+    "name": "gantt.label_gutter",
+    "vector": 4800,
+    "cell": 10
+  },
+  {
+    "name": "gantt.side_pad",
+    "vector": 4800,
+    "cell": 10
+  },
+  {
+    "name": "gantt.width",
+    "vector": 76800,
+    "cell": 150
+  },
+  {
+    "name": "gantt.axis_height",
+    "vector": 3200,
+    "cell": 4
+  },
+  {
+    "name": "xychart.width",
+    "vector": 44800,
+    "cell": 88
+  },
+  {
+    "name": "xychart.height",
+    "vector": 32000,
+    "cell": 32
+  },
+  {
+    "name": "xychart.plot_reserved_percent",
+    "vector": 50,
+    "cell": 50
+  },
+  {
+    "name": "xychart.bar_padding_m",
+    "vector": 50,
+    "cell": 50
+  },
+  {
+    "name": "xychart.bar_width_ratio_m",
+    "vector": 700,
+    "cell": 700
+  },
+  {
+    "name": "xychart.label_outer_max_m",
+    "vector": 200,
+    "cell": 200
+  },
+  {
+    "name": "quadrant.width",
+    "vector": 32000,
+    "cell": 63
+  },
+  {
+    "name": "quadrant.height",
+    "vector": 32000,
+    "cell": 32
+  },
+  {
+    "name": "quadrant.padding",
+    "vector": 320,
+    "cell": 1
+  },
+  {
+    "name": "quadrant.axis_band_x",
+    "vector": 1664,
+    "cell": 4
+  },
+  {
+    "name": "quadrant.axis_band_y",
+    "vector": 1664,
+    "cell": 2
+  },
+  {
+    "name": "quadrant.title_band",
+    "vector": 2560,
+    "cell": 3
+  },
+  {
+    "name": "quadrant.point_radius",
+    "vector": 320,
+    "cell": 1
+  },
+  {
+    "name": "quadrant.point_text_pad",
+    "vector": 320,
+    "cell": 1
+  },
+  {
+    "name": "wardley.padding_x",
+    "vector": 3072,
+    "cell": 6
+  },
+  {
+    "name": "wardley.padding_y",
+    "vector": 3072,
+    "cell": 3
+  },
+  {
+    "name": "wardley.width",
+    "vector": 57600,
+    "cell": 113
+  },
+  {
+    "name": "wardley.height",
+    "vector": 38400,
+    "cell": 38
+  },
+  {
+    "name": "cynefin.width",
+    "vector": 51200,
+    "cell": 100
+  },
+  {
+    "name": "cynefin.height",
+    "vector": 38400,
+    "cell": 38
+  },
+  {
+    "name": "cynefin.confusion_permille",
+    "vector": 150,
+    "cell": 150
+  },
+  {
+    "name": "cynefin.default_seed",
+    "vector": 625341585,
+    "cell": 625341585
+  },
+  {
+    "name": "cynefin.amplitude_permille",
+    "vector": 15,
+    "cell": 15
+  },
+  {
+    "name": "cynefin.wave_segments",
+    "vector": 7,
+    "cell": 7
+  },
+  {
+    "name": "info.width",
+    "vector": 25600,
+    "cell": 0
+  },
+  {
+    "name": "info.height",
+    "vector": 6400,
+    "cell": 1
+  },
+  {
+    "name": "info.text_x",
+    "vector": 6400,
+    "cell": 0
+  },
+  {
+    "name": "info.text_y",
+    "vector": 2560,
+    "cell": 0
+  },
+  {
+    "name": "info.font_size",
+    "vector": 2048,
+    "cell": 0
+  },
+  {
+    "name": "treemap.width",
+    "vector": 61440,
+    "cell": 0
+  },
+  {
+    "name": "treemap.height",
+    "vector": 32000,
+    "cell": 0
+  },
+  {
+    "name": "treemap.section_header",
+    "vector": 1600,
+    "cell": 2
+  },
+  {
+    "name": "treemap.section_padding_x",
+    "vector": 640,
+    "cell": 2
+  },
+  {
+    "name": "treemap.section_padding_y",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "treemap.inner_padding_x",
+    "vector": 640,
+    "cell": 2
+  },
+  {
+    "name": "treemap.inner_padding_y",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "treemap.rho_q30",
+    "vector": 1737350766,
+    "cell": 1737350766
+  },
+  {
+    "name": "treemap.value_bits",
+    "vector": 24,
+    "cell": 24
+  },
+  {
+    "name": "treemap.squarify_cap",
+    "vector": 2000,
+    "cell": 2000
+  },
+  {
+    "name": "sankey.width",
+    "vector": 38400,
+    "cell": 75
+  },
+  {
+    "name": "sankey.height",
+    "vector": 25600,
+    "cell": 25
+  },
+  {
+    "name": "sankey.node_width",
+    "vector": 640,
+    "cell": 0
+  },
+  {
+    "name": "sankey.node_padding",
+    "vector": 768,
+    "cell": 0
+  },
+  {
+    "name": "sankey.show_values_pad",
+    "vector": 960,
+    "cell": 0
+  },
+  {
+    "name": "sankey.iterations",
+    "vector": 6,
+    "cell": 6
+  },
+  {
+    "name": "pie.height",
+    "vector": 28800,
+    "cell": 0
+  },
+  {
+    "name": "pie.margin",
+    "vector": 2560,
+    "cell": 0
+  },
+  {
+    "name": "pie.legend_row",
+    "vector": 1408,
+    "cell": 0
+  },
+  {
+    "name": "radar.width",
+    "vector": 38400,
+    "cell": 75
+  },
+  {
+    "name": "radar.height",
+    "vector": 38400,
+    "cell": 38
+  },
+  {
+    "name": "radar.ticks_default",
+    "vector": 5,
+    "cell": 5
+  },
+  {
+    "name": "radar.ticks_max",
+    "vector": 32,
+    "cell": 32
+  },
+  {
+    "name": "radar.legend_row",
+    "vector": 1280,
+    "cell": 0
+  },
+  {
+    "name": "radar.margin",
+    "vector": 3200,
+    "cell": 0
+  },
+  {
+    "name": "radar.label_gap_x",
+    "vector": 1216,
+    "cell": 3
+  },
+  {
+    "name": "radar.label_gap_y",
+    "vector": 1216,
+    "cell": 2
+  },
+  {
+    "name": "radar.curve_tension",
+    "vector": 170,
+    "cell": 170
+  },
+  {
+    "name": "venn.width",
+    "vector": 51200,
+    "cell": 0
+  },
+  {
+    "name": "venn.height",
+    "vector": 28800,
+    "cell": 0
+  },
+  {
+    "name": "venn.max_radius_x",
+    "vector": 7168,
+    "cell": 14
+  },
+  {
+    "name": "venn.max_radius_y",
+    "vector": 7168,
+    "cell": 7
+  },
+  {
+    "name": "venn.acos_iterations",
+    "vector": 16,
+    "cell": 16
+  },
+  {
+    "name": "venn.bisect_iterations",
+    "vector": 32,
+    "cell": 32
+  },
+  {
+    "name": "venn.sqrt3_half_q15",
+    "vector": 28378,
+    "cell": 28378
+  },
+  {
+    "name": "railroad.pad_x",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "railroad.pad_y",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "railroad.line_height",
+    "vector": 1280,
+    "cell": 1
+  },
+  {
+    "name": "railroad.hsep",
+    "vector": 640,
+    "cell": 2
+  },
+  {
+    "name": "railroad.vsep",
+    "vector": 512,
+    "cell": 1
+  },
+  {
+    "name": "railroad.arc_radius",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "railroad.terminal_radius",
+    "vector": 640,
+    "cell": 0
+  },
+  {
+    "name": "railroad.marker_radius",
+    "vector": 320,
+    "cell": 1
+  },
+  {
+    "name": "railroad.margin",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "railroad.rule_name_gap",
+    "vector": 1280,
+    "cell": 2
+  },
+  {
+    "name": "railroad.rule_end_gap",
+    "vector": 640,
+    "cell": 2
+  },
+  {
+    "name": "railroad.rule_min_baseline",
+    "vector": 1280,
+    "cell": 2
+  },
+  {
+    "name": "railroad.rule_min_height",
+    "vector": 2560,
+    "cell": 3
+  },
+  {
+    "name": "railroad.empty_width",
+    "vector": 12800,
+    "cell": 20
+  },
+  {
+    "name": "railroad.empty_height",
+    "vector": 6400,
+    "cell": 5
+  },
+  {
+    "name": "math.rule",
+    "vector": 50,
+    "cell": 50
+  },
+  {
+    "name": "math.axis",
+    "vector": 250,
+    "cell": 250
+  },
+  {
+    "name": "math.frac_gap",
+    "vector": 60,
+    "cell": 60
+  },
+  {
+    "name": "math.sup_shift",
+    "vector": 360,
+    "cell": 360
+  },
+  {
+    "name": "math.sub_shift",
+    "vector": 150,
+    "cell": 150
+  },
+  {
+    "name": "math.script_gap",
+    "vector": 30,
+    "cell": 30
+  },
+  {
+    "name": "math.script_scale",
+    "vector": 700,
+    "cell": 700
+  },
+  {
+    "name": "math.rad_gap",
+    "vector": 60,
+    "cell": 60
+  },
+  {
+    "name": "math.rad_sign_w",
+    "vector": 600,
+    "cell": 600
+  },
+  {
+    "name": "math.delim_w",
+    "vector": 250,
+    "cell": 250
+  },
+  {
+    "name": "math.bigop_scale",
+    "vector": 1400,
+    "cell": 1400
+  },
+  {
+    "name": "math.bigop_gap",
+    "vector": 100,
+    "cell": 100
+  },
+  {
+    "name": "math.binop_space",
+    "vector": 222,
+    "cell": 222
+  },
+  {
+    "name": "math.relop_space",
+    "vector": 278,
+    "cell": 278
+  },
+  {
+    "name": "math.thin_space",
+    "vector": 167,
+    "cell": 167
+  },
+  {
+    "name": "math.medium_space",
+    "vector": 278,
+    "cell": 278
+  },
+  {
+    "name": "math.quad",
+    "vector": 1000,
+    "cell": 1000
+  },
+  {
+    "name": "paint.tint_alpha",
+    "vector": 102,
+    "cell": 102
+  },
+  {
+    "name": "paint.dash_dotted_on",
+    "vector": 192,
+    "cell": 0
+  },
+  {
+    "name": "paint.dash_dotted_off",
+    "vector": 192,
+    "cell": 0
+  },
+  {
+    "name": "paint.dash_dashed_on",
+    "vector": 512,
+    "cell": 0
+  },
+  {
+    "name": "paint.dash_dashed_off",
+    "vector": 256,
+    "cell": 0
+  },
+  {
+    "name": "arrow_len",
+    "vector": 512,
+    "cell": 0
+  },
+  {
+    "name": "arrow_half",
+    "vector": 256,
+    "cell": 0
+  },
+  {
+    "name": "class.separator",
+    "vector": 64,
+    "cell": 1
+  },
+  {
+    "name": "class.padding",
+    "vector": 1024,
+    "cell": 2
+  },
+  {
+    "name": "er.min_width",
+    "vector": 6400,
+    "cell": 13
+  },
+  {
+    "name": "er.min_height",
+    "vector": 4800,
+    "cell": 5
+  },
+  {
+    "name": "er.padding_x",
+    "vector": 960,
+    "cell": 2
+  },
+  {
+    "name": "er.padding_y",
+    "vector": 960,
+    "cell": 1
+  },
+  {
+    "name": "state.start_size",
+    "vector": 896,
+    "cell": 1
+  },
+  {
+    "name": "state.end_size",
+    "vector": 896,
+    "cell": 1
+  },
+  {
+    "name": "state.end_inner_size",
+    "vector": 320,
+    "cell": 0
+  },
+  {
+    "name": "requirement.padding_x",
+    "vector": 1280,
+    "cell": 3
+  },
+  {
+    "name": "requirement.padding_y",
+    "vector": 1280,
+    "cell": 2
+  },
+  {
+    "name": "usecase.wrapping_width",
+    "vector": 7680,
+    "cell": 15
+  },
+  {
+    "name": "usecase.min_node_width",
+    "vector": 7680,
+    "cell": 15
+  },
+  {
+    "name": "usecase.node_spacing",
+    "vector": 3200,
+    "cell": 2
+  },
+  {
+    "name": "usecase.rank_spacing",
+    "vector": 3200,
+    "cell": 3
+  },
+  {
+    "name": "usecase.diagram_padding",
+    "vector": 1280,
+    "cell": 1
+  },
+  {
+    "name": "agentflow.wrapping_width",
+    "vector": 7680,
+    "cell": 15
+  },
+  {
+    "name": "agentflow.min_node_width",
+    "vector": 7680,
+    "cell": 15
+  },
+  {
+    "name": "agentflow.padding",
+    "vector": 512,
+    "cell": 1
+  },
+  {
+    "name": "agentflow.node_spacing",
+    "vector": 3200,
+    "cell": 2
+  },
+  {
+    "name": "agentflow.rank_spacing",
+    "vector": 3200,
+    "cell": 3
+  },
+  {
+    "name": "agentflow.diagram_padding",
+    "vector": 512,
+    "cell": 1
+  }
+]
