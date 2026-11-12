@@ -238,10 +238,12 @@ func directionOf(k syn.TokenKind) string {
 
 func (r *resolver) styleStatement(s *syn.StyleStatement) {
 	for _, target := range s.Targets {
-		id := target.String()
-		node := &r.model.Nodes[r.nodeIndex(id, target.Span)]
-		node.Styles = resolveStyles(s.Styles)
-		r.model.StyleTargets = append(r.model.StyleTargets, StyleTarget{ID: id, Styles: resolveStyles(s.Styles), Span: s.Bounds()})
+		for _, id := range splitList(target.String()) {
+			node := &r.model.Nodes[r.nodeIndex(id, target.Span)]
+			styles := resolveStyles(s.Styles)
+			node.Styles.Styles = append(node.Styles.Styles, styles.Styles...)
+			r.model.StyleTargets = append(r.model.StyleTargets, StyleTarget{ID: id, Styles: styles, Span: s.Bounds()})
+		}
 	}
 }
 
