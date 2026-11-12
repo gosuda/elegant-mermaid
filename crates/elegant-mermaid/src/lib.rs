@@ -41,6 +41,7 @@ pub mod model;
 pub mod options;
 pub mod scene;
 pub mod source;
+pub mod svg;
 pub mod syntax;
 pub mod theme;
 
