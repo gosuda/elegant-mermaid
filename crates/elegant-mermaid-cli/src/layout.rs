@@ -3,9 +3,10 @@ use std::ffi::OsString;
 use std::io::Read;
 
 pub fn run(args: &[OsString]) -> (String, String, i32) {
-    match arguments(args).and_then(|(path, profile)| read_source(&path).map(|s| (path, profile, s)))
+    match arguments(args)
+        .and_then(|(path, profile, stage)| read_source(&path).map(|s| (path, profile, stage, s)))
     {
-        Ok((path, profile, bytes)) => render(&path, profile, &bytes),
+        Ok((path, profile, stage, bytes)) => render(&path, profile, stage, &bytes),
         Err(error) => (String::new(), format!("{error}\n"), 2),
     }
 }
@@ -21,9 +22,10 @@ fn read_source(path: &str) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-fn arguments(args: &[OsString]) -> Result<(String, scene::Profile), String> {
+fn arguments(args: &[OsString]) -> Result<(String, scene::Profile, scene::Stage), String> {
     let mut path = None;
     let mut profile = scene::Profile::Vector;
+    let mut stage = scene::Stage::Layout;
     let mut flags = true;
     let mut iter = args.iter();
     while let Some(argument) = iter.next() {
@@ -36,12 +38,24 @@ fn arguments(args: &[OsString]) -> Result<(String, scene::Profile), String> {
             let value = iter
                 .next()
                 .ok_or_else(|| format!("missing value for {argument}"))?;
-            set_option(&argument, &value.to_string_lossy(), &mut profile)?;
+            if argument == "--stage" {
+                stage = match value.to_string_lossy().as_ref() {
+                    "model" => scene::Stage::Model,
+                    "layout" => scene::Stage::Layout,
+                    value => {
+                        return Err(format!(
+                            "invalid value {value} for --stage; expected one of: model, layout"
+                        ));
+                    }
+                };
+            } else {
+                set_option(&argument, &value.to_string_lossy(), &mut profile)?;
+            }
         } else {
             set_path(&argument, flags, &mut path)?;
         }
     }
-    Ok((path.unwrap_or_else(|| "-".into()), profile))
+    Ok((path.unwrap_or_else(|| "-".into()), profile, stage))
 }
 
 fn set_path(argument: &str, flags: bool, path: &mut Option<String>) -> Result<(), String> {
@@ -56,25 +70,24 @@ fn set_path(argument: &str, flags: bool, path: &mut Option<String>) -> Result<()
 }
 
 fn set_option(flag: &str, value: &str, profile: &mut scene::Profile) -> Result<(), String> {
-    let expected = if flag == "--stage" {
-        "model"
-    } else {
-        "vector, cell"
-    };
-    match (flag, value) {
-        ("--stage", "model") => {}
-        ("--profile", "vector") => *profile = scene::Profile::Vector,
-        ("--profile", "cell") => *profile = scene::Profile::Cell,
+    match value {
+        "vector" => *profile = scene::Profile::Vector,
+        "cell" => *profile = scene::Profile::Cell,
         _ => {
             return Err(format!(
-                "invalid value {value} for {flag}; expected one of: {expected}"
+                "invalid value {value} for {flag}; expected one of: vector, cell"
             ));
         }
     }
     Ok(())
 }
 
-fn render(path: &str, profile: scene::Profile, bytes: &[u8]) -> (String, String, i32) {
+fn render(
+    path: &str,
+    profile: scene::Profile,
+    stage: scene::Stage,
+    bytes: &[u8],
+) -> (String, String, i32) {
     let (source, _) = elegant_mermaid::source::repair_utf8(bytes);
     let prep = syntax::preprocess::preprocess(&source);
     let detection = syntax::detect::detect(&source, &prep.removed);
@@ -121,5 +134,24 @@ fn render(path: &str, profile: scene::Profile, bytes: &[u8]) -> (String, String,
         profile,
         scene::DumpOptions::default(),
     );
-    (layout::modeldump::model_dump(&input), String::new(), 0)
+    if stage == scene::Stage::Model {
+        return (layout::modeldump::model_dump(&input), String::new(), 0);
+    }
+    match layout::families::layout(&input) {
+        Ok((scene, diagnostics)) => {
+            let mut stderr = String::new();
+            diag::text::render_text(
+                &mut stderr,
+                path,
+                &source,
+                &diagnostics,
+                &diag::text::TextFrameOptions {
+                    colour: false,
+                    width: |_| 1,
+                },
+            );
+            (scene.dump(), stderr, 0)
+        }
+        Err(error) => (String::new(), format!("{error}\n"), 1),
+    }
 }
