@@ -8,6 +8,7 @@ This file fixes the dump that `emd layout --stage model` prints, which the Lean 
 - model-dump-02: The dump MUST NOT hold `canvas`. [just lean-parity]
 - model-dump-03: A box MUST NOT hold `x`, `y`, `w`, or `h`. [just lean-parity]
     A group box MUST carry `direction` after `exclusive`: `TB`, `BT`, `LR`, or `RL` for its own direction statement, or the empty string when no statement exists. A node box MUST NOT carry this key. This key MUST exist only in the model stage; the layout-stage box schema MUST remain unchanged.
+    A group box MUST have `exclusive` `false`, because a group frame holds its member boxes. A model whose group box has `exclusive` `true` is not well formed.
 - model-dump-04: A route MUST NOT hold `points`. [just lean-parity]
 - model-dump-05: A label MUST NOT hold `x`, `y`, `w`, or `h`. [just lean-parity]
 - model-dump-06: The model stage MUST write each label's unwrapped text in `text` and an empty array in `lines`, which MUST be written as `"lines":[]`. [just lean-parity]
