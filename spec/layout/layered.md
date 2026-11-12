@@ -298,7 +298,7 @@ This file defines the layered layout family: its conventions, its pipeline phase
 - layered-94: The proof `coords_separated` in `proofs/Elegant/Layered/Coords.lean` MUST hold. [just proofs]
     Statement: `forall L i, x (L[i+1]) - x (L[i]) >= sep (L[i], L[i+1])`, where `sep (L, R) = floor_div (wsep L) 2 + floor_div (wsep R) 2 + gap` and `gap` is the gap of the separation rule.
     Proof approach: step C3 enforces the gap for adjacent nodes of one class at every placement, and step C4 (b) enforces it for adjacent nodes of different classes; induction over the layer.
-    The proof MUST include `rawPass_separated`: a raw pass that returns a result satisfies the separation rule, so the separation check of `checkedPass` never fails; a proof of `coords_separated` from that check alone does not meet this requirement.
+    The proof MUST include `rawPass_separated`: a raw pass that returns a result satisfies the separation rule; the coordinate functions MUST NOT hold a runtime separation check.
 - layered-95: The proof `balance_separated` in `proofs/Elegant/Layered/Coords.lean` MUST hold. [just proofs]
     Statement: `forall L i, bal (L[i+1]) - bal (L[i]) >= sep`, where `bal v = floor_div (s2 + s3) 2` and `s2`, `s3` are the second and third smallest of the four alignment values of `v`.
     Proof approach: the four separated families dominate componentwise; order statistics are monotone, so `s2` and `s3` each rise by at least `sep`.
