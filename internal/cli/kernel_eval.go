@@ -16,8 +16,15 @@ func kernelEval(cfg Config) error {
 	if err := flags.Parse(cfg.Args[1:]); err != nil {
 		return errors.New(strings.TrimSuffix(usage, "\n"))
 	}
-	if flags.NArg() != 1 {
+	if flags.NArg() > 1 {
 		return errors.New(strings.TrimSuffix(usage, "\n"))
+	}
+	if flags.NArg() == 0 || flags.Arg(0) == "-" {
+		input := cfg.Stdin
+		if input == nil {
+			input = strings.NewReader("")
+		}
+		return geom.Eval(input, cfg.Stdout)
 	}
 	f, err := os.Open(flags.Arg(0))
 	if err != nil {
