@@ -1469,6 +1469,41 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "swimlane",
+        key: "automaticLaneOrdering",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "swimlane",
+        key: "ignoreCrossLaneEdges",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "swimlane",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "swimlane",
+        key: "lineHops",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "swimlane",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "swimlane",
+        key: "optimizeRanksByCrossings",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "swimlane",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
         kind: "usecase",
         key: "actorFontFamily",
         class: "accepted-ignored",
