@@ -1,25 +1,15 @@
 use elegant_mermaid::{diag, layout, scene, syntax};
 use std::ffi::OsString;
-use std::io::Read;
 
 pub fn run(args: &[OsString]) -> (String, String, i32) {
-    match arguments(args)
-        .and_then(|(path, profile, stage)| read_source(&path).map(|s| (path, profile, stage, s)))
-    {
-        Ok((path, profile, stage, bytes)) => render(&path, profile, stage, &bytes),
+    match arguments(args).and_then(|(path, profile, stage)| {
+        crate::input::read(&path).map(|s| (path, profile, stage, s))
+    }) {
+        Ok((path, profile, stage, bytes)) => {
+            render(crate::input::label(&path), profile, stage, &bytes)
+        }
         Err(error) => (String::new(), format!("{error}\n"), 2),
     }
-}
-
-fn read_source(path: &str) -> Result<Vec<u8>, String> {
-    if path != "-" {
-        return std::fs::read(path).map_err(|e| e.to_string());
-    }
-    let mut bytes = Vec::new();
-    std::io::stdin()
-        .read_to_end(&mut bytes)
-        .map_err(|e| e.to_string())?;
-    Ok(bytes)
 }
 
 fn arguments(args: &[OsString]) -> Result<(String, scene::Profile, scene::Stage), String> {
@@ -128,12 +118,7 @@ fn render(
         );
         return (String::new(), stderr, 1);
     }
-    let input = layout::flowchart::from_flowchart(
-        &parsed.document,
-        &model,
-        profile,
-        scene::DumpOptions::default(),
-    );
+    let input = layout::flowchart::from_flowchart(&model, profile, scene::DumpOptions::default());
     if stage == scene::Stage::Model {
         return (layout::modeldump::model_dump(&input), String::new(), 0);
     }

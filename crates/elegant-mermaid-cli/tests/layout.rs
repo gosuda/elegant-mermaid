@@ -50,8 +50,8 @@ fn layout_model_cli_usage() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 fn layout_public_demo() -> Result<(), Box<dyn std::error::Error>> {
     for (profile, canvas) in [
-        ("vector", "\"canvas\":{\"w\":25830,\"h\":2304}"),
-        ("cell", "\"canvas\":{\"w\":41,\"h\":3}"),
+        ("vector", "\"canvas\":{\"w\":18150,\"h\":2304}"),
+        ("cell", "\"canvas\":{\"w\":33,\"h\":3}"),
     ] {
         let mut child = Command::new(env!("CARGO_BIN_EXE_emd"))
             .args(["layout", "-", "--profile", profile])

@@ -53,17 +53,15 @@ impl Drop for Scratch {
 }
 
 #[test]
-fn unsupported_invocations_print_only_usage() -> io::Result<()> {
-    for args in [
-        &[][..],
-        &["--help"][..],
-        &["--version"][..],
-        &["render"][..],
-    ] {
-        let outcome = run(args)?;
-        assert_eq!(outcome.code, Some(2));
-        assert_eq!(outcome.stdout, "");
-        assert_eq!(outcome.stderr, "Usage: emd kernel-eval FILE\n");
+fn public_invocations_replace_kernel_only_usage() -> io::Result<()> {
+    let outcome = run::<&str>(&[])?;
+    assert_eq!(outcome.code, Some(2));
+    assert_eq!(outcome.stdout, "");
+    assert!(outcome.stderr.starts_with("Usage: emd COMMAND"));
+    for flag in ["--help", "--version"] {
+        let outcome = run(&[flag])?;
+        assert_eq!(outcome.code, Some(0));
+        assert_eq!(outcome.stderr, "");
     }
     Ok(())
 }
