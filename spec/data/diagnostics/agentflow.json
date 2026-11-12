@@ -1,0 +1,11 @@
+[
+  {"code":"agentflow/unexpected-token","severity":"error","summary":"unexpected TOKEN, expected one of: LIST","help":"","rationale":"The token must fit the active production.","fix_safety":"none","aliases":[]},
+  {"code":"agentflow/unknown-statement","severity":"error","summary":"unknown statement TOKEN","help":"","rationale":"Rejected statements must not create nodes.","fix_safety":"none","aliases":[]},
+  {"code":"agentflow/unterminated","severity":"error","summary":"unterminated TOKEN","help":"","rationale":"An open construct needs a closing delimiter.","fix_safety":"none","aliases":[]},
+  {"code":"agentflow/metadata-malformed","severity":"error","summary":"invalid metadata value","help":"","rationale":"Metadata must parse before it can be attached to an element.","fix_safety":"none","aliases":[]},
+  {"code":"agentflow/shape-unknown","severity":"error","summary":"unknown shape SHAPE","help":"","rationale":"Authored metadata shapes must satisfy the shared shape registry and naming rules.","fix_safety":"none","aliases":[]},
+  {"code":"agentflow/shape-removed","severity":"error","summary":"shape SHAPE was removed; using roundedRect","help":"","rationale":"The agentflow shape catalogue excludes removed shapes.","fix_safety":"none","aliases":[]},
+  {"code":"agentflow/shape-unsupported","severity":"warning","summary":"shape SHAPE is not supported; using roundedRect","help":"","rationale":"A registered shape outside the agentflow catalogue uses the default outline.","fix_safety":"none","aliases":[]},
+  {"code":"agentflow/link-style-index","severity":"error","summary":"linkStyle index INDEX is outside 0..LAST","help":"","rationale":"An indexed style requires an existing edge.","fix_safety":"none","aliases":[]}
+  ,{"code":"agentflow/containment-violation","severity":"warning","summary":"container PARENT cannot contain CHILD because it closes a containment cycle","help":"","rationale":"The containment relation must remain acyclic.","fix_safety":"none","aliases":[]}
+]

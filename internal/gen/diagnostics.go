@@ -13,6 +13,15 @@ type Diagnostic struct {
 }
 
 var Diagnostics = []Diagnostic{
+	{"agentflow/containment-violation", "warning", "container PARENT cannot contain CHILD because it closes a containment cycle", "", "The containment relation must remain acyclic.", "none", []string{}},
+	{"agentflow/link-style-index", "error", "linkStyle index INDEX is outside 0..LAST", "", "An indexed style requires an existing edge.", "none", []string{}},
+	{"agentflow/metadata-malformed", "error", "invalid metadata value", "", "Metadata must parse before it can be attached to an element.", "none", []string{}},
+	{"agentflow/shape-removed", "error", "shape SHAPE was removed; using roundedRect", "", "The agentflow shape catalogue excludes removed shapes.", "none", []string{}},
+	{"agentflow/shape-unknown", "error", "unknown shape SHAPE", "", "Authored metadata shapes must satisfy the shared shape registry and naming rules.", "none", []string{}},
+	{"agentflow/shape-unsupported", "warning", "shape SHAPE is not supported; using roundedRect", "", "A registered shape outside the agentflow catalogue uses the default outline.", "none", []string{}},
+	{"agentflow/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "The token must fit the active production.", "none", []string{}},
+	{"agentflow/unknown-statement", "error", "unknown statement TOKEN", "", "Rejected statements must not create nodes.", "none", []string{}},
+	{"agentflow/unterminated", "error", "unterminated TOKEN", "", "An open construct needs a closing delimiter.", "none", []string{}},
 	{"c4/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "A token must fit the active grammar production.", "none", []string{}},
 	{"c4/unknown-statement", "error", "unknown statement TOKEN", "", "An unrecognized statement cannot introduce model objects.", "none", []string{}},
 	{"c4/unterminated", "error", "unterminated TOKEN", "", "An open construct requires its closing delimiter.", "none", []string{}},

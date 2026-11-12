@@ -299,6 +299,61 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "honoured",
     },
     ConfigKey {
+        kind: "agentflow",
+        key: "diagramPadding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "minNodeWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "nodeSpacing",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "rankSpacing",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "titleTopMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "agentflow",
+        key: "wrappingWidth",
+        class: "honoured",
+    },
+    ConfigKey {
         kind: "c4",
         key: "boundaryFont",
         class: "accepted-ignored",
