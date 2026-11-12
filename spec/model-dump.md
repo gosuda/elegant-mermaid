@@ -37,3 +37,4 @@ This file fixes the dump that `emd layout --stage model` prints, which the Lean 
 - model-dump-14: The two comparisons of this dump against `geomcheck layout` and `geomcheck text` MUST be the ones that `spec/lean-reference.md` fixes. [just lean-parity]
 - model-dump-15: `emd layout --stage model` MUST run neither measurement nor layout, so it MUST print the dump before both stages. [just go-check]
 - model-dump-16: The model-stage dump MUST be one of the inputs that `just parity` compares between the Go and Rust binaries. [just parity]
+- model-dump-17: A box label MUST be a label record with the id `<boxId>.label` and the box as `owner`, written exactly when the label text of the box differs from its id, an empty label included; a box with no such record has its id as its label text; the box label records MUST come first, in box order, then the route label records in route order. [just lean-parity]
