@@ -131,6 +131,80 @@ oracle *ARGS:
     echo "oracle: $(wc -l < "$list") files, $(jaq 'length' corpus/divergences.json) divergence rows"
     test -z "$report" || { echo "$report"; exit 1; }
 
+_parity-one FILE:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    f={{ quote(FILE) }}
+    same() {
+      cmp -s <(bin/emd-go "$@" 2>/dev/null; echo "exit=$?") <(bin/emd-rs "$@" 2>/dev/null; echo "exit=$?") && return 0
+      echo "parity: differs: emd $*"
+      return 1
+    }
+    same check --output-format json "$f" || exit 1
+    same check --output-format text --color never "$f" || exit 1
+    bin/emd-go check --output-format json "$f" >/dev/null 2>&1; status=$?
+    case "$status" in 0) ;; 1) exit 0 ;; *) echo "parity: check failed with exit $status: $f"; exit 1 ;; esac
+    works() {
+      bin/emd-go "$@" >/dev/null 2>&1 || { echo "parity: go fails on an accepted file: emd $*"; return 1; }
+      same "$@"
+    }
+    works layout --profile vector "$f" || exit 1
+    works layout --profile cell "$f" || exit 1
+    works layout --stage model "$f" || exit 1
+    works render -e svg "$f" || exit 1
+    works render -e text --charset unicode --color never "$f" || exit 1
+    works render -e text --charset ascii --color never "$f" || exit 1
+
+# Go and Rust outputs equal on every selected corpus file
+parity *ARGS:
+    go_version="$(bin/emd-go --version)"; rs_version="$(bin/emd-rs --version)"; test "$go_version" = "$rs_version"
+    just _each _parity-one {{ ARGS }}
+
+_validate-one FILE:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    f={{ quote(FILE) }}
+    bin/emd-go check --output-format json "$f" >/dev/null 2>&1; status=$?
+    case "$status" in 0) ;; 1) exit 0 ;; *) echo "validate: check failed with exit $status: $f"; exit 1 ;; esac
+    for engine in bin/emd-go bin/emd-rs; do
+      for profile in vector cell; do
+        verdict="$("$engine" layout --profile "$profile" "$f" 2>/dev/null | proofs/.lake/build/bin/geomcheck validate 2>&1)"
+        test "$verdict" = "valid" && continue
+        echo "validate: $engine $profile $f: $verdict"
+        exit 1
+      done
+    done
+
+# Every layout dump of every accepted corpus file passes geomcheck validate
+validate *ARGS:
+    just _each _validate-one {{ ARGS }}
+
+_lean-parity-one FILE:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    f={{ quote(FILE) }}
+    geomcheck=proofs/.lake/build/bin/geomcheck
+    bin/emd-go check --output-format json "$f" >/dev/null 2>&1; status=$?
+    case "$status" in 0) ;; 1) exit 0 ;; *) echo "lean-parity: check failed with exit $status: $f"; exit 1 ;; esac
+    for profile in vector cell; do
+      bin/emd-go layout --profile "$profile" "$f" >/dev/null 2>&1 || { echo "lean-parity: go layout fails: $profile $f"; exit 1; }
+      cmp -s <(bin/emd-go layout --stage model --profile "$profile" "$f" 2>/dev/null | "$geomcheck" layout 2>/dev/null; echo "exit=$?") \
+             <(bin/emd-go layout --profile "$profile" "$f" 2>/dev/null; echo "exit=$?") && continue
+      echo "lean-parity: layout differs: $profile $f"
+      exit 1
+    done
+    for charset in unicode ascii; do
+      bin/emd-go render -e text --charset "$charset" --color never "$f" >/dev/null 2>&1 || { echo "lean-parity: go render fails: $charset $f"; exit 1; }
+      cmp -s <(bin/emd-go layout --stage model --profile cell "$f" 2>/dev/null | "$geomcheck" text --charset "$charset" 2>/dev/null; echo "exit=$?") \
+             <(bin/emd-go render -e text --charset "$charset" --color never "$f" 2>/dev/null; echo "exit=$?") && continue
+      echo "lean-parity: text differs: $charset $f"
+      exit 1
+    done
+
+# Lean reference output equals the Go output on every accepted corpus file
+lean-parity *ARGS:
+    just _each _lean-parity-one {{ ARGS }}
+
 # Format check on the staged content of Go and Rust files; the pre-commit hook runs it
 staged-format:
     #!/usr/bin/env bash
@@ -144,6 +218,13 @@ staged-format:
     test "${#go_files[@]}" -eq 0 || test -z "$(gofmt -l "${go_files[@]}")"
     test "${#rs_files[@]}" -eq 0 || rustfmt --check --edition 2024 "${rs_files[@]}"
 
+# Contributor loop: generated tables, Go and Rust checks, and parity on every tenth corpus file
+check-fast:
+    just gen-check
+    just go-check
+    just rust-check
+    just parity SAMPLE=10
+
 # Run every gate whose subject exists, in order
 verify:
     just gen-check
@@ -154,4 +235,7 @@ verify:
     just proofs
     just model
     just oracle
+    just parity
     just kernel-diff
+    just validate
+    just lean-parity
