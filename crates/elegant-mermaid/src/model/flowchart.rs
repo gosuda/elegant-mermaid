@@ -442,10 +442,7 @@ fn apply_shape_data(node: &mut Node, data: &ShapeData) -> Vec<Diagnostic> {
                     "flowchart/typed-shape-unsupported",
                     crate::diag::Severity::Error,
                     "A typed shape in an @{ shape: ... } node is not supported".into(),
-                    Span {
-                        start: entry.key_span.start,
-                        end: entry.key_span.end,
-                    },
+                    shape_value_span(data, entry.key_span),
                 ));
             }
         }
@@ -453,6 +450,44 @@ fn apply_shape_data(node: &mut Node, data: &ShapeData) -> Vec<Diagnostic> {
     }
     finish_shape_data(node);
     diagnostics
+}
+
+fn shape_value_span(data: &ShapeData, key: Span) -> Span {
+    let offset = data.span.start + 2;
+    let tail = data
+        .text
+        .get(key.end.saturating_sub(offset)..)
+        .unwrap_or("");
+    let value = tail.trim_start_matches([' ', '\t', ':']);
+    let start = key.end + tail.len() - value.len();
+    let end = shape_value_end(value);
+    Span {
+        start,
+        end: start + value[..end].trim_end().len(),
+    }
+}
+
+fn shape_value_end(value: &str) -> usize {
+    let mut quote = None;
+    let mut escaped = false;
+    for (index, character) in value.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if character == '\\' && quote == Some('"') {
+            escaped = true;
+        } else if Some(character) == quote {
+            quote = None;
+        } else if quote.is_none() {
+            match character {
+                '"' | '\'' => quote = Some(character),
+                ',' | '\r' | '\n' => return index,
+                _ => {}
+            }
+        }
+    }
+    value.len()
 }
 
 fn shape_entries(data: &ShapeData) -> (Vec<crate::syntax::config_value::Entry>, Vec<Diagnostic>) {
@@ -579,5 +614,23 @@ fn finish_shape_data(node: &mut Node) {
             _ => "icon",
         }
         .into();
+    }
+}
+
+#[cfg(test)]
+mod parity_tests {
+    #[test]
+    fn flowchart_typed_shape_value_span() {
+        let source = "flowchart\nA@{ shape: missing }\n";
+        let parsed = crate::syntax::flowchart::parse(source, &[]);
+        assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+        let (_, diagnostics) = super::resolve(source, &parsed.document);
+        assert_eq!(diagnostics.len(), 1);
+        let diagnostic = &diagnostics[0];
+        assert_eq!(diagnostic.code, "flowchart/typed-shape-unsupported");
+        assert_eq!(
+            &source[diagnostic.span.start..diagnostic.span.end],
+            "missing"
+        );
     }
 }

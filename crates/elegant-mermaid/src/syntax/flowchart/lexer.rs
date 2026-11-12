@@ -959,6 +959,7 @@ impl<'a> Lexer<'a> {
     fn lex_dir(&mut self, p: usize) -> Option<Token> {
         if let Some(end) = self.nodir_end(p) {
             let span = Span { start: p, end };
+            self.pop();
             return Some(self.finish(TokenKind::Nodir, p, end, TextVal::Slice(span)));
         }
         if let Some((_, end)) = self.direction_keyword(p) {

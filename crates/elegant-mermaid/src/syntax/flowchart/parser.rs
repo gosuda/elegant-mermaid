@@ -256,6 +256,14 @@ impl<'a> Parser<'a> {
         } else if self.at(TokenKind::Nodir) {
             end = self.cur.span.end.max(end);
             self.bump();
+            return GraphConfig {
+                span: Span {
+                    start: keyword.start,
+                    end,
+                },
+                keyword,
+                direction,
+            };
         }
         if self.at_separator() {
             self.bump();
