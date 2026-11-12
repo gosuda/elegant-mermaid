@@ -1,0 +1,97 @@
+[
+  {
+    "kind": "flowchart",
+    "key": "arrowMarkerAbsolute",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "curve",
+    "class": "honoured"
+  },
+  {
+    "kind": "flowchart",
+    "key": "diagramPadding",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "htmlLabels",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "inheritDir",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "flowchart",
+    "key": "minNodeWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "nodeSpacing",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "padding",
+    "class": "honoured"
+  },
+  {
+    "kind": "flowchart",
+    "key": "rankSpacing",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "stepDuration",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "stepNumbers",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "subGraphTitleMargin",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "flowchart",
+    "key": "titleTopMargin",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "flowchart",
+    "key": "wrappingWidth",
+    "class": "accepted-ignored"
+  }
+]

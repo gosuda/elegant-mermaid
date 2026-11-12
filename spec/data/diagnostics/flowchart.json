@@ -1,0 +1,49 @@
+[
+  {
+    "code": "flowchart/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "Remove the token, or replace it with one of the listed tokens.",
+    "rationale": "A token that no rule of the current mode accepts stops the parse, so the remainder of the statement cannot be read.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "flowchart/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "Start the line with a node, an edge, or a flowchart statement such as style or subgraph.",
+    "rationale": "A line whose first token starts no statement form would otherwise become a phantom node with a meaningless shape.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "flowchart/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "Close the opening delimiter before the end of the input.",
+    "rationale": "The input ends inside an open construct, so no complete statement exists for it.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "flowchart/unclosed-node-bracket",
+    "severity": "error",
+    "summary": "node bracket TOKEN is never closed",
+    "help": "Add the closing bracket that matches the opening bracket.",
+    "rationale": "A node shape whose bracket never closes leaves the label text and the rest of the line undelimited.",
+    "fix_safety": "unsafe",
+    "aliases": [
+      "flowchart/node-unclosed-bracket"
+    ]
+  },
+  {
+    "code": "flowchart/subgraph-direction-ignored",
+    "severity": "warning",
+    "summary": "subgraph direction is ignored because an edge crosses its boundary",
+    "help": "Remove the direction statement, or move the crossing edge outside the subgraph.",
+    "rationale": "A subgraph whose direction differs from its parent cannot keep that direction while an edge crosses its boundary, so the parent orientation decides the layout.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]
