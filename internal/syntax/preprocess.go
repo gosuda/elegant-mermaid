@@ -111,7 +111,7 @@ func frontmatterFence(src []byte) (frontmatterBounds, bool) {
 	}
 	for p := openNext; p < len(src); {
 		closeStart, closeEnd := splitLine(src, p, len(src))
-		if closeEnd == len(src) || !isFenceLine(src, p, closeStart) {
+		if closeStart == len(src) || !isFenceLine(src, p, closeStart) {
 			p = closeEnd
 			continue
 		}
