@@ -278,10 +278,11 @@ def drawPrimitive (charset : Charset) (g : Canvas) : Primitive → Except Layout
 def drawAll (charset : Charset) (g : Canvas) (ps : List Primitive) : Except LayoutError Canvas :=
   ps.foldlM (drawPrimitive charset) g
 
+
 /-- The primitives of a scene in scene order: the groups in order, each group's items in
 order. -/
 def scenePrimitives (s : Scene) : List Primitive :=
-  s.items.flatMap fun grp => grp.items
+  s.items.flatMap (·.items)
 
 /-- The labels of a scene in declaration order. -/
 def sceneLabels (s : Scene) : List SceneText :=
@@ -301,25 +302,37 @@ def drawCanvas (s : Scene) (charset : Charset) : Except LayoutError Canvas :=
   | .error e => .error e
 
 /-- The canvas of a cell scene after drawing and label placement, with the number of label
-clusters that could not be written. A scene of another profile is a domain error. -/
+clusters that could not be written. Another profile or out-of-bounds primitive geometry is a
+domain error. Drawing errors retain their original checked-error precedence. -/
 def renderCanvas (s : Scene) (charset : Charset) : Except LayoutError (Canvas × Nat) :=
   if s.profile = .cell then
     match drawCanvas s charset with
-    | .ok g => .ok (Place.placeAll g (sceneLabels s))
+    | .ok g =>
+      if s.primitiveBoundsCheck then .ok (Place.placeAll g (sceneLabels s))
+      else .error .domain
     | .error e => .error e
   else .error .domain
+
+/-- The renderer depends only on its display list, profile, and canvas, never on canonical
+relations, ownership metadata, or layout options. -/
+theorem renderCanvas_eq_of_inputs (s t : Scene) (charset : Charset)
+    (hi : s.items = t.items) (hp : s.profile = t.profile) (hc : s.canvas = t.canvas) :
+    renderCanvas s charset = renderCanvas t charset := by
+  simp only [renderCanvas, drawCanvas, sceneCanvas, scenePrimitives, sceneLabels,
+    Scene.primitiveBoundsCheck, hi, hp, hc]
+  rfl
 
 /-- The text of one cell: nothing for a continuation, the cluster of a label, the symbol, the
 arm glyph, or the braille glyph, which is a space for a blank cell. -/
 def cellText (charset : Charset) (v : Cell) : String :=
   match v.label with
   | .cont => ""
-  | .cluster text _ => text
+  | .cluster text _ => Place.terminalText text
   | .empty =>
-    String.singleton (Char.ofNat
+    String.singleton (Place.terminalChar (Char.ofNat
       (if v.symbol ≠ 0 then v.symbol
        else if v.mask ≠ 0 then Join.glyph charset v.style v.mask
-       else Braille.glyph charset v.dots))
+       else Braille.glyph charset v.dots)))
 
 /-- The cell texts of one row. -/
 def rowTexts (charset : Charset) (g : Canvas) (r : Nat) : List String :=
@@ -596,12 +609,27 @@ theorem renderCanvas_ok {s : Scene} {charset : Charset} (hp : s.profile = .cell)
   simp only [hp, ↓reduceIte] at h
   split at h
   · rename_i g1 hd
-    simp only [Except.ok.injEq] at h
-    unfold drawCanvas at hd
-    split at hd
-    · rename_i g0 h0
-      exact ⟨g0, g1, h0, hd, h⟩
-    · simp at hd
+    split at h
+    · simp only [Except.ok.injEq] at h
+      unfold drawCanvas at hd
+      split at hd
+      · rename_i g0 h0
+        exact ⟨g0, g1, h0, hd, h⟩
+      · simp at hd
+    · simp at h
+  · simp at h
+
+/-- Successful rendering certifies geometry, not merely clipping of attempted writes.
+The check follows drawing so existing checked arithmetic errors keep their precedence. -/
+theorem renderCanvas_primitiveBounds {s : Scene} {charset : Charset}
+    (hp : s.profile = .cell) {g : Canvas} {n : Nat}
+    (h : renderCanvas s charset = .ok (g, n)) : s.PrimitiveBounds := by
+  unfold renderCanvas at h
+  simp only [hp, ↓reduceIte] at h
+  split at h
+  · split at h
+    · assumption
+    · simp at h
   · simp at h
 
 end Render
@@ -632,13 +660,13 @@ theorem canvas_size_eq_scene_extent (s : Scene) (charset : Charset) (hp : s.prof
   rw [hW, hH]
   exact ⟨Int.toNat_of_nonneg hw, Int.toNat_of_nonneg hh⟩
 
-/-- A rendered cell scene is valid: the canvas is the scene extent, every cell that a
-primitive or a label changes lies on that canvas, and every cell that holds label text received
-it from exactly one label. `HardConstraints` is about the dump part of the scene; the three
-facts do not need it, because they hold for every scene. -/
+/-- A successful cell rendering certifies the bounds of every actual scene primitive,
+including decor, as well as canvas confinement and unique label ownership. Dump hard
+constraints alone cannot establish primitive bounds because the dump omits scene items. -/
 theorem text_valid (s : Scene) (charset : Charset) (hp : s.profile = .cell)
     (_hv : HardConstraints s.layoutDump) (g : Canvas) (n : Nat)
     (h : Render.renderCanvas s charset = .ok (g, n)) :
+    s.PrimitiveBounds ∧
     ((g.W : Int) = s.canvas.w ∧ (g.H : Int) = s.canvas.h) ∧
       (Canvas.new g.W g.H).Confined g ∧
       ∃ g1, Render.drawCanvas s charset = .ok g1 ∧
@@ -652,7 +680,8 @@ theorem text_valid (s : Scene) (charset : Charset) (hp : s.profile = .cell)
   have hdr := Render.drawAll_drawn charset _ g0 g1 h1
   have hgeq : g = Place.placeCanvas g1 (Render.sceneLabels s) := (congrArg Prod.fst h2).symm
   have hpl := Place.placeCanvas_placing (Render.sceneLabels s) g1
-  refine ⟨canvas_size_eq_scene_extent s charset hp g n h, ?_, g1, ?_, h2, ?_⟩
+  refine ⟨Render.renderCanvas_primitiveBounds hp h,
+    canvas_size_eq_scene_extent s charset hp g n h, ?_, g1, ?_, h2, ?_⟩
   · have hc := confined_trans hdr.1 hpl.confined
     have hW : g.W = g0.W := by rw [hgeq]; exact hpl.1.trans hdr.1.1
     have hH : g.H = g0.H := by rw [hgeq]; exact hpl.2.1.trans hdr.1.2.1
@@ -733,7 +762,20 @@ private def dashedEmphasis : Paint := { style := "edge", line := .dashed, width 
 #guard rendered { cellScene 1 1 [] with profile := .vector } .unicode == none
 #guard rendered (cellScene 0 0 []) .unicode == some ("", 0)
 #guard rendered (cellScene (-1) 3 []) .unicode == none
+#guard rendered (cellScene 1 1 [.symbolRef "disc" (pt 10 10) "ink"]) .unicode == none
+#guard rendered (cellScene 1 1 [.symbolRef "disc" (pt 0 0) "ink"]) .unicode ==
+  some ("●\n", 0)
 
 end Oracles
+
+end Elegant.Text
+
+namespace Elegant.Text
+-- These executable guards contain data controls only; row LF is renderer-owned.
+#guard Place.terminalText (String.ofList [Char.ofNat 0, Char.ofNat 31,
+  Char.ofNat 127, Char.ofNat 128, Char.ofNat 159, 'A', '界']) = "�����A界"
+#guard Render.cellText .unicode { label := .cluster (String.singleton (Char.ofNat 27)) .one } = "�"
+#guard Render.cellText .ascii { symbol := 155 } = "�"
+#guard Render.serialise .unicode (Canvas.new 0 1) = "\n"
 
 end Elegant.Text

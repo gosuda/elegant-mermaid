@@ -37,4 +37,17 @@ import Elegant.Layered.Route
 import Elegant.Text.Place
 import Elegant.Text.Render
 import Elegant.Layered.Pipeline
+import Elegant.Layered.Reachability
+import Elegant.Layered.FramePorts
+import Elegant.Layered.LaneMetadata
+import Elegant.Layered.ForwardLane
+import Elegant.Layered.LaneValidity
+import Elegant.Layered.Assembly
+import Elegant.Layered.Metadata
+import Elegant.Layered.Compound
+import Elegant.Layered.Labels
+import Elegant.Layered.Loops
+import Elegant.Layered.Pack
+import Elegant.Layered.Portfolio
+import Elegant.Layered.PipelineFacts
 import Elegant.Kinds.Flowchart

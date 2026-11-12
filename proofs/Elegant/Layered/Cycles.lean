@@ -1,4 +1,5 @@
 import ElegantGeometry.Basic
+import Elegant.Layered.Reachability
 
 set_option autoImplicit false
 
@@ -15,6 +16,9 @@ structure Node where
   decl : Nat
   w : Int
   h : Int
+  loopExtent : Nat := 0
+  clusterPath : List Nat := []
+  border : Int := 0
 deriving DecidableEq, Repr, Inhabited
 
 structure Edge where
@@ -608,5 +612,536 @@ theorem breakCycles_acyclic (g : Graph) : Acyclic (breakCycles g) := by
   have := key v v hv
   omega
 
+namespace GreedyCycles
+
+def earlier (g : Graph) (a b : Nat) : Bool :=
+  let da := (g.nodes[a]?.map Node.decl).getD a
+  let db := (g.nodes[b]?.map Node.decl).getD b
+  da < db || (da == db && a < b)
+
+def degree (g : Graph) (remaining : List Nat) (v : Nat) (outgoing : Bool) : Nat :=
+  (g.edges.filter (fun e => e.tail != e.head && remaining.contains e.tail &&
+    remaining.contains e.head && (if outgoing then e.tail == v else e.head == v))).length
+
+def delta (g : Graph) (remaining : List Nat) (v : Nat) : Int :=
+  (degree g remaining v true : Int) - (degree g remaining v false : Int)
+
+def firstBy (preferred : Nat → Nat → Bool) : List Nat → Option Nat
+  | [] => none
+  | v :: vs => some (vs.foldl (fun best next => if preferred next best then next else best) v)
+
+def select (g : Graph) (remaining : List Nat) : Option (Nat × Bool) :=
+  match firstBy (earlier g) (remaining.filter (fun v => degree g remaining v true == 0)) with
+  | some v => some (v, true)
+  | none =>
+    match firstBy (earlier g) (remaining.filter (fun v => degree g remaining v false == 0)) with
+    | some v => some (v, false)
+    | none =>
+      (firstBy (fun a b => delta g remaining a > delta g remaining b ||
+        (delta g remaining a == delta g remaining b && earlier g a b)) remaining).map
+        (fun v => (v, false))
+
+def removeVertices (g : Graph) : Nat → List Nat → List Nat → List Nat → List Nat
+  | 0, remaining, left, right => left ++ remaining ++ right
+  | fuel + 1, remaining, left, right =>
+    match select g remaining with
+    | none => left ++ right
+    | some (v, sink) =>
+      if sink then removeVertices g fuel (remaining.erase v) left (v :: right)
+      else removeVertices g fuel (remaining.erase v) (left ++ [v]) right
+
+def ordering (g : Graph) : List Nat :=
+  removeVertices g g.bound (List.range g.bound) [] []
+
+def before (order : List Nat) (a b : Nat) : Prop :=
+  order.idxOf a < order.idxOf b ∨ (order.idxOf a = order.idxOf b ∧ a < b)
+
+instance (order : List Nat) (a b : Nat) : Decidable (before order a b) := by
+  unfold before
+  infer_instance
+
+def orient (order : List Nat) (e : Edge) : Edge :=
+  if before order e.head e.tail then e.reverse else e
+
+theorem before_trans (order : List Nat) {a b c : Nat}
+    (hab : before order a b) (hbc : before order b c) : before order a c := by
+  unfold before at *
+  omega
+
+theorem orient_increases (order : List Nat) (e : Edge)
+    (hne : (orient order e).tail ≠ (orient order e).head) :
+    before order (orient order e).tail (orient order e).head := by
+  by_cases hb : before order e.head e.tail
+  · simp only [orient, hb, ↓reduceIte, Edge.reverse]
+  · simp only [orient, hb, ↓reduceIte] at hne ⊢
+    unfold before at *
+    omega
+
+end GreedyCycles
+
+def breakCyclesGreedy (g : Graph) : Graph :=
+  { g with edges := g.edges.map (GreedyCycles.orient (GreedyCycles.ordering g)) }
+
+theorem breakCyclesGreedy_acyclic (g : Graph) : Acyclic (breakCyclesGreedy g) := by
+  intro v hv
+  have key : ∀ a b, Relation.TransGen (Graph.Step (breakCyclesGreedy g)) a b →
+      GreedyCycles.before (GreedyCycles.ordering g) a b := by
+    intro a b h
+    induction h with
+    | single hab =>
+      obtain ⟨e, he, rfl, rfl, hne⟩ := hab
+      obtain ⟨original, _, rfl⟩ := List.mem_map.mp he
+      exact GreedyCycles.orient_increases _ original hne
+    | tail _ hbc ih =>
+      obtain ⟨e, he, rfl, rfl, hne⟩ := hbc
+      obtain ⟨original, _, rfl⟩ := List.mem_map.mp he
+      exact GreedyCycles.before_trans _ ih (GreedyCycles.orient_increases _ original hne)
+  have := key v v hv
+  simp [GreedyCycles.before] at this
+
+theorem breakCyclesGreedy_edges_perm (g : Graph) :
+    List.Perm (breakCyclesGreedy g).edges
+      (g.edges.map (GreedyCycles.orient (GreedyCycles.ordering g))) :=
+  List.Perm.refl _
+
+theorem breakCyclesGreedy_nodes (g : Graph) :
+    (breakCyclesGreedy g).nodes = g.nodes := rfl
+
+theorem breakCyclesGreedy_edge_count (g : Graph) :
+    (breakCyclesGreedy g).edges.length = g.edges.length := by
+  simp [breakCyclesGreedy]
+
+theorem Edge.reverse_identity (e : Edge) :
+    e.reverse.decl = e.decl ∧ e.reverse.minLen = e.minLen ∧
+    e.reverse.reverse = e := by
+  cases e
+  simp [Edge.reverse]
+
+theorem breakCyclesGreedy_original_identity (g : Graph) :
+    (breakCyclesGreedy g).edges.map (fun e => (e.decl, e.minLen)) =
+      g.edges.map (fun e => (e.decl, e.minLen)) := by
+  simp only [breakCyclesGreedy, List.map_map]
+  apply List.map_congr_left
+  intro e _
+  simp only [Function.comp_apply]
+  unfold GreedyCycles.orient
+  split <;> rfl
+
+def Edge.original (e : Edge) : Edge :=
+  if e.reversed then { e with tail := e.head, head := e.tail, reversed := false }
+  else { e with reversed := false }
+
+theorem Edge.reverse_original (e : Edge) : e.reverse.original = e.original := by
+  cases h : e.reversed <;> simp [Edge.reverse, Edge.original, h]
+
+theorem breakCyclesGreedy_semantic_identity (g : Graph) :
+    (breakCyclesGreedy g).edges.map Edge.original = g.edges.map Edge.original := by
+  simp only [breakCyclesGreedy, List.map_map]
+  apply List.map_congr_left
+  intro e _
+  change (GreedyCycles.orient (GreedyCycles.ordering g) e).original = e.original
+  unfold GreedyCycles.orient
+  split
+  · exact Edge.reverse_original e
+  · rfl
+
+namespace ProtectedCycles
+abbrev Rel (edges : List Edge) (a b : Nat) : Prop :=
+  ∃ e ∈ edges, e.tail = a ∧ e.head = b ∧ a ≠ b
+abbrev Path (edges : List Edge) (a b : Nat) : Prop := a = b ∨ Relation.TransGen (Rel edges) a b
+
+theorem path_trans {edges : List Edge} {a b c : Nat}
+    (hab : Path edges a b) (hbc : Path edges b c) : Path edges a c := by
+  rcases hab with rfl | hab
+  · exact hbc
+  rcases hbc with rfl | hbc
+  · exact Or.inr hab
+  · exact Or.inr (hab.trans hbc)
+
+def bounded (edges : List Edge) (nodes : Nat) : Prop :=
+  ∀ e ∈ edges, e.tail < nodes ∧ e.head < nodes
+
+/-- Build declaration-ordered adjacency once per query. Out-of-range endpoints
+are omitted; well-formed ranking graphs have none. -/
+def adjacency (nodes : Nat) : List Edge → Array (List Nat)
+  | [] => Array.replicate nodes []
+  | e :: es =>
+    let adj := adjacency nodes es
+    if e.head < nodes then adj.modify e.tail (fun ns => e.head :: ns) else adj
+
+@[simp] theorem adjacency_size (nodes : Nat) (edges : List Edge) :
+    (adjacency nodes edges).size = nodes := by
+  induction edges with
+  | nil => simp [adjacency]
+  | cons e es ih => simp only [adjacency]; split <;> simp [ih]
+
+theorem adjacency_get (nodes : Nat) (edges : List Edge) (a : Nat) (ha : a < nodes) :
+    (adjacency nodes edges)[a]'(by simpa using ha) =
+      (edges.filter (fun e => e.tail == a && decide (e.head < nodes))).map Edge.head := by
+  induction edges with
+  | nil => simp [adjacency]
+  | cons e es ih =>
+    by_cases hh : e.head < nodes
+    · by_cases he : e.tail = a
+      · subst a
+        simp [adjacency, hh, Array.getElem_modify, ih]
+      · simp [adjacency, hh, Array.getElem_modify, he, ih]
+    · simp [adjacency, hh, ih]
+
+theorem adjacency_mem (nodes : Nat) (edges : List Edge) (a b : Nat) (ha : a < nodes) :
+    b ∈ (adjacency nodes edges)[a]! ↔
+      ∃ e ∈ edges, e.tail = a ∧ e.head = b ∧ b < nodes := by
+  have ha' : a < (adjacency nodes edges).size := by simpa using ha
+  simp only [getElem!_pos (adjacency nodes edges) a ha', adjacency_get nodes edges a ha]
+  simp only [List.mem_map, List.mem_filter, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq]
+  constructor
+  · rintro ⟨e, ⟨he, ht, hh⟩, rfl⟩
+    exact ⟨e, he, ht, rfl, hh⟩
+  · rintro ⟨e, he, ht, rfl, hh⟩
+    exact ⟨e, ⟨he, ht, hh⟩, rfl⟩
+
+theorem adjacency_bounded (nodes : Nat) (edges : List Edge) :
+    ∀ a, a < (adjacency nodes edges).size →
+      ∀ b ∈ (adjacency nodes edges)[a]!, b < (adjacency nodes edges).size := by
+  intro a ha b hb
+  have ha' : a < nodes := by simpa using ha
+  obtain ⟨e, _, _, _, hh⟩ := (adjacency_mem nodes edges a b ha').mp hb
+  simpa using hh
+
+theorem adjacency_path_sound (nodes : Nat) (edges : List Edge) {a b : Nat}
+    (h : Relation.TransGen (fun x y => y ∈ (adjacency nodes edges)[x]!) a b) :
+    Path edges a b := by
+  have step : ∀ x y, y ∈ (adjacency nodes edges)[x]! → Path edges x y := by
+    intro x y hxy
+    by_cases hx : x < nodes
+    · obtain ⟨e, he, ht, hh, _⟩ := (adjacency_mem nodes edges x y hx).mp hxy
+      by_cases hself : x = y
+      · exact Or.inl hself
+      · exact Or.inr (.single ⟨e, he, ht, hh, hself⟩)
+    · have hx' : ¬ x < (adjacency nodes edges).size := by simpa using hx
+      have hempty : (adjacency nodes edges)[x]! = ([] : List Nat) := by
+        rw [getElem!_neg (adjacency nodes edges) x hx']
+        rfl
+      simp [hempty] at hxy
+  induction h with
+  | single h => exact step _ _ h
+  | tail _ h ih => exact path_trans ih (step _ _ h)
+
+theorem adjacency_path_complete (nodes : Nat) (edges : List Edge)
+    (hb : bounded edges nodes) {a b : Nat}
+    (h : Relation.TransGen (Rel edges) a b) :
+    Relation.TransGen (fun x y => y ∈ (adjacency nodes edges)[x]!) a b := by
+  induction h with
+  | single h =>
+    obtain ⟨e, he, rfl, rfl, _⟩ := h
+    exact .single ((adjacency_mem nodes edges _ _ (hb e he).1).mpr
+      ⟨e, he, rfl, rfl, (hb e he).2⟩)
+  | tail _ h ih =>
+    obtain ⟨e, he, ht, hh, _⟩ := h
+    exact .tail ih ((adjacency_mem nodes edges _ _ (ht ▸ (hb e he).1)).mpr
+      ⟨e, he, ht, hh, hh ▸ (hb e he).2⟩)
+end ProtectedCycles
+
+namespace ProtectedCycles
+def acyclicEdges (edges : List Edge) : Prop := ∀ v, ¬ Relation.TransGen (Rel edges) v v
+
+theorem append_edge_cases (edges : List Edge) (edge : Edge) {a b : Nat}
+    (h : Rel (edges ++ [edge]) a b) :
+    Rel edges a b ∨ (a = edge.tail ∧ b = edge.head ∧ a ≠ b) := by
+  obtain ⟨e, he, ht, hh, hne⟩ := h
+  rcases List.mem_append.mp he with he | he
+  · exact Or.inl ⟨e, he, ht, hh, hne⟩
+  · simp only [List.mem_singleton] at he
+    subst e
+    exact Or.inr ⟨ht.symm, hh.symm, hne⟩
+
+theorem insert_path_cases (edges : List Edge) (edge : Edge)
+    (hback : ¬ Path edges edge.head edge.tail) {a b : Nat}
+    (h : Relation.TransGen (Rel (edges ++ [edge])) a b) :
+    Relation.TransGen (Rel edges) a b ∨
+      (Path edges a edge.tail ∧ Path edges edge.head b) := by
+  induction h with
+  | single hab =>
+    rcases append_edge_cases edges edge hab with hab | ⟨rfl, rfl, _⟩
+    · exact Or.inl (.single hab)
+    · exact Or.inr ⟨Or.inl rfl, Or.inl rfl⟩
+  | @tail b c hab hbc ih =>
+    rcases append_edge_cases edges edge hbc with hbc | ⟨rfl, rfl, _⟩
+    · rcases ih with ih | ⟨ha, hb⟩
+      · exact Or.inl (.tail ih hbc)
+      · exact Or.inr ⟨ha, path_trans hb (Or.inr (.single hbc))⟩
+    · rcases ih with ih | ⟨ha, hb⟩
+      · exact Or.inr ⟨Or.inr ih, Or.inl rfl⟩
+      · exact False.elim (hback hb)
+
+theorem append_acyclic (edges : List Edge) (edge : Edge)
+    (ha : acyclicEdges edges) (hback : ¬ Path edges edge.head edge.tail) :
+    acyclicEdges (edges ++ [edge]) := by
+  intro v h
+  rcases insert_path_cases edges edge hback h with h | ⟨hv, hv'⟩
+  · exact ha v h
+  · exact hback (path_trans hv' hv)
+
+theorem opposite_unreachable (edges : List Edge) (ha : acyclicEdges edges)
+    (edge : Edge) (hne : edge.tail ≠ edge.head)
+    (hback : Path edges edge.head edge.tail) : ¬ Path edges edge.tail edge.head := by
+  intro hforward
+  rcases hback with hback | hback
+  · exact hne hback.symm
+  rcases hforward with hforward | hforward
+  · exact hne hforward
+  · exact ha edge.tail (hforward.trans hback)
+end ProtectedCycles
+
+namespace ProtectedCycles
+
+def reachable (edges : List Edge) (nodes : Nat) (source target : Nat) : Bool :=
+  if source = target then true
+  else if source < nodes ∧ target < nodes then
+    Reachability.search (adjacency nodes edges) source target
+  else false
+
+def orient (nodes : Nat) (accepted : List Edge) (edge : Edge) : Edge :=
+  if edge.tail = edge.head then edge
+  else if reachable accepted nodes edge.head edge.tail then edge.reverse
+  else edge
+
+def insertSemantic (nodes : Nat) : List Edge → List Edge → List Edge
+  | _, [] => []
+  | accepted, edge :: rest =>
+    let chosen := orient nodes accepted edge
+    let next := if edge.tail = edge.head then accepted else accepted ++ [chosen]
+    chosen :: insertSemantic nodes next rest
+
+def breakWithHierarchy (g : Graph) (hierarchy : List Edge) : Graph :=
+  { g with edges := insertSemantic g.nodes.length hierarchy g.edges }
+
+theorem orient_original (nodes : Nat) (accepted : List Edge) (edge : Edge) :
+    (orient nodes accepted edge).original = edge.original := by
+  unfold orient
+  split
+  · rfl
+  · split
+    · exact Edge.reverse_original edge
+    · rfl
+
+theorem insertSemantic_identity (nodes : Nat) (semantic : List Edge) :
+    ∀ accepted, (insertSemantic nodes accepted semantic).map Edge.original =
+      semantic.map Edge.original := by
+  induction semantic with
+  | nil => intro accepted; rfl
+  | cons edge rest ih =>
+    intro accepted
+    simp only [insertSemantic, List.map_cons, orient_original]
+    rw [ih]
+
+theorem semantic_identity (g : Graph) (hierarchy : List Edge) :
+    (breakWithHierarchy g hierarchy).edges.map Edge.original = g.edges.map Edge.original :=
+  insertSemantic_identity g.nodes.length g.edges hierarchy
+
+theorem semantic_multiset (g : Graph) (hierarchy : List Edge) :
+    List.Perm ((breakWithHierarchy g hierarchy).edges.map Edge.original)
+      (g.edges.map Edge.original) := by
+  rw [semantic_identity]
+
+theorem alias_equivalent_preserved (nodes : Nat) (accepted : List Edge) (edge : Edge)
+    (halias : edge.tail = edge.head) :
+    insertSemantic nodes accepted [edge] = [edge] := by
+  simp [insertSemantic, orient, halias]
+
+theorem alias_equivalent_cons (nodes : Nat) (accepted : List Edge) (edge : Edge)
+    (rest : List Edge) (halias : edge.tail = edge.head) :
+    insertSemantic nodes accepted (edge :: rest) =
+      edge :: insertSemantic nodes accepted rest := by
+  simp [insertSemantic, orient, halias]
+
+theorem zero_length_alias_preserved (nodes : Nat) (accepted : List Edge) (edge : Edge)
+    (rest : List Edge) (halias : edge.tail = edge.head) (_hzero : edge.minLen = 0) :
+    insertSemantic nodes accepted (edge :: rest) =
+      edge :: insertSemantic nodes accepted rest :=
+  alias_equivalent_cons nodes accepted edge rest halias
+
+theorem insertSemantic_length (nodes : Nat) (semantic : List Edge) :
+    ∀ accepted, (insertSemantic nodes accepted semantic).length = semantic.length := by
+  induction semantic with
+  | nil => intro accepted; rfl
+  | cons edge rest ih =>
+    intro accepted
+    simp only [insertSemantic, List.length_cons]
+    rw [ih]
+
+theorem semantic_count (g : Graph) (hierarchy : List Edge) :
+    (breakWithHierarchy g hierarchy).edges.length = g.edges.length :=
+  insertSemantic_length g.nodes.length g.edges hierarchy
+
+theorem nodes_preserved (g : Graph) (hierarchy : List Edge) :
+    (breakWithHierarchy g hierarchy).nodes = g.nodes := rfl
+
+end ProtectedCycles
+
 end Layered
 end Elegant
+
+namespace Elegant.Layered
+namespace ProtectedCycles
+
+theorem reachable_sound (edges : List Edge) (nodes a b : Nat)
+    (h : reachable edges nodes a b = true) : Path edges a b := by
+  unfold reachable at h
+  split at h
+  next he => exact Or.inl he
+  next he =>
+    split at h
+    next hb =>
+      have hs : a < (adjacency nodes edges).size := by simpa using hb.1
+      have ht : b < (adjacency nodes edges).size := by simpa using hb.2
+      rcases (Reachability.search_iff (adjacency nodes edges)
+        (adjacency_bounded nodes edges) a b hs ht).mp h with heq | hp
+      · exact Or.inl heq
+      · exact adjacency_path_sound nodes edges hp
+    next hb => contradiction
+
+theorem path_endpoints (edges : List Edge) (nodes : Nat) (hb : bounded edges nodes)
+    {a b : Nat} (h : Relation.TransGen (Rel edges) a b) : a < nodes ∧ b < nodes := by
+  induction h with
+  | single h =>
+    obtain ⟨e, he, ht, hh, _⟩ := h
+    exact ⟨ht ▸ (hb e he).1, hh ▸ (hb e he).2⟩
+  | tail _ h ih =>
+    obtain ⟨e, he, _, hh, _⟩ := h
+    exact ⟨ih.1, hh ▸ (hb e he).2⟩
+
+theorem reachable_complete (edges : List Edge) (nodes : Nat) (hb : bounded edges nodes)
+    {a b : Nat} (h : Path edges a b) : reachable edges nodes a b = true := by
+  rcases h with rfl | hp
+  · simp [reachable]
+  · have he := path_endpoints edges nodes hb hp
+    by_cases hab : a = b
+    · simp [reachable, hab]
+    · simp only [reachable, hab, ↓reduceIte, he, and_self]
+      apply (Reachability.search_iff (adjacency nodes edges)
+        (adjacency_bounded nodes edges) a b (by simpa using he.1)
+        (by simpa using he.2)).mpr
+      exact Or.inr (adjacency_path_complete nodes edges hb hp)
+
+theorem orient_acyclic (nodes : Nat) (accepted : List Edge) (edge : Edge)
+    (ha : acyclicEdges accepted) (hb : bounded accepted nodes)
+    (hne : edge.tail ≠ edge.head) :
+    acyclicEdges (accepted ++ [orient nodes accepted edge]) := by
+  unfold orient
+  simp only [hne, ↓reduceIte]
+  split
+  next h =>
+    apply append_acyclic accepted edge.reverse ha
+    change ¬ Path accepted edge.tail edge.head
+    exact opposite_unreachable accepted ha edge hne (reachable_sound accepted nodes _ _ h)
+  next h =>
+    apply append_acyclic accepted edge ha
+    intro hp
+    exact h (reachable_complete accepted nodes hb hp)
+
+theorem orient_bounded (nodes : Nat) (accepted : List Edge) (edge : Edge)
+    (he : edge.tail < nodes ∧ edge.head < nodes) :
+    (orient nodes accepted edge).tail < nodes ∧ (orient nodes accepted edge).head < nodes := by
+  unfold orient
+  split
+  · exact he
+  · split
+    · exact ⟨he.2, he.1⟩
+    · exact he
+
+theorem bounded_append (nodes : Nat) (accepted : List Edge) (edge : Edge)
+    (hb : bounded accepted nodes) (he : edge.tail < nodes ∧ edge.head < nodes) :
+    bounded (accepted ++ [edge]) nodes := by
+  intro e he'
+  rcases List.mem_append.mp he' with he' | he'
+  · exact hb e he'
+  · simp only [List.mem_singleton] at he'
+    subst e
+    exact he
+
+theorem rel_mono {xs ys : List Edge} (hsub : xs ⊆ ys) {a b : Nat}
+    (h : Rel xs a b) : Rel ys a b := by
+  obtain ⟨e, he, ht, hh, hne⟩ := h
+  exact ⟨e, hsub he, ht, hh, hne⟩
+
+theorem acyclic_mono {xs ys : List Edge} (hsub : xs ⊆ ys) (ha : acyclicEdges ys) :
+    acyclicEdges xs := by
+  have lift : ∀ a b, Relation.TransGen (Rel xs) a b → Relation.TransGen (Rel ys) a b := by
+    intro a b h
+    induction h with
+    | single h => exact .single (rel_mono hsub h)
+    | tail _ h ih => exact .tail ih (rel_mono hsub h)
+  intro v h
+  exact ha v (lift v v h)
+
+end ProtectedCycles
+
+namespace ProtectedCycles
+
+theorem acyclic_rel_mono {xs ys : List Edge}
+    (hsub : ∀ a b, Rel xs a b → Rel ys a b) (ha : acyclicEdges ys) : acyclicEdges xs := by
+  have lift : ∀ a b, Relation.TransGen (Rel xs) a b → Relation.TransGen (Rel ys) a b := by
+    intro a b h
+    induction h with
+    | single h => exact .single (hsub _ _ h)
+    | tail _ h ih => exact .tail ih (hsub _ _ h)
+  intro v h
+  exact ha v (lift v v h)
+
+theorem insertSemantic_acyclic (nodes : Nat) (semantic : List Edge)
+    (hs : bounded semantic nodes) : ∀ accepted,
+    bounded accepted nodes → acyclicEdges accepted →
+    acyclicEdges (accepted ++ insertSemantic nodes accepted semantic) := by
+  induction semantic with
+  | nil => intro accepted _ ha; simpa [insertSemantic] using ha
+  | cons edge rest ih =>
+    intro accepted hb ha
+    have he : edge.tail < nodes ∧ edge.head < nodes := hs edge (by simp)
+    have hr : bounded rest nodes := fun e h => hs e (by simp [h])
+    by_cases hself : edge.tail = edge.head
+    · have hi := ih hr accepted hb ha
+      simp only [insertSemantic, orient, hself, ↓reduceIte]
+      apply acyclic_rel_mono (ys := accepted ++ insertSemantic nodes accepted rest) _ hi
+      intro a b h
+      obtain ⟨e, hm, ht, hh, hne⟩ := h
+      refine ⟨e, ?_, ht, hh, hne⟩
+      rcases List.mem_append.mp hm with hm | hm
+      · exact List.mem_append_left _ hm
+      · rcases List.mem_cons.mp hm with rfl | hm
+        · exact False.elim (hne (ht.symm.trans (hself.trans hh)))
+        · exact List.mem_append_right _ hm
+    · have hb' := bounded_append nodes accepted (orient nodes accepted edge) hb
+        (orient_bounded nodes accepted edge he)
+      have ha' := orient_acyclic nodes accepted edge ha hb hself
+      have hi := ih hr (accepted ++ [orient nodes accepted edge]) hb' ha'
+      simpa only [insertSemantic, hself, ↓reduceIte, List.append_assoc,
+        List.singleton_append] using hi
+
+theorem breakWithHierarchy_acyclic (g : Graph) (hierarchy : List Edge)
+    (hg : bounded g.edges g.nodes.length) (hh : bounded hierarchy g.nodes.length)
+    (ha : acyclicEdges hierarchy) : Acyclic (breakWithHierarchy g hierarchy) := by
+  have hi := insertSemantic_acyclic g.nodes.length g.edges hg hierarchy hh ha
+  exact acyclic_mono (fun _ h => List.mem_append_right hierarchy h) hi
+
+end ProtectedCycles
+
+end Elegant.Layered
+
+namespace Elegant.Layered
+theorem Edge.original_decl (e : Edge) : e.original.decl = e.decl := by
+  unfold Edge.original
+  split <;> rfl
+theorem Edge.original_minLen (e : Edge) : e.original.minLen = e.minLen := by
+  unfold Edge.original
+  split <;> rfl
+theorem breakCyclesGreedy_semantic_multiset (g : Graph) :
+    List.Perm ((breakCyclesGreedy g).edges.map Edge.original) (g.edges.map Edge.original) := by
+  rw [breakCyclesGreedy_semantic_identity]
+namespace ProtectedCycles
+theorem semantic_declarations (g : Graph) (hierarchy : List Edge) :
+    (breakWithHierarchy g hierarchy).edges.map Edge.decl = g.edges.map Edge.decl := by
+  have h := congrArg (List.map Edge.decl) (semantic_identity g hierarchy)
+  simpa only [List.map_map, Function.comp_def, Edge.original_decl] using h
+end ProtectedCycles
+end Elegant.Layered

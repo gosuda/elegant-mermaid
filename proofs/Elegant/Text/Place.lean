@@ -53,6 +53,13 @@ def Canvas.putLabel (g : Canvas) (c r : Int) (cluster : List Char) (w : Nat) : O
 
 namespace Place
 
+/-- Terminal controls are visible replacement scalars, never terminal instructions. -/
+def terminalChar (c : Char) : Char :=
+  if c.toNat ≤ 31 ∨ (127 ≤ c.toNat ∧ c.toNat ≤ 159) then '�' else c
+
+def terminalText (s : String) : String :=
+  String.ofList (s.toList.map terminalChar)
+
 /-- The first column of a line of cell width `lineW` in the box that starts at column `x`
 and is `w` cells wide. -/
 def lineStart (align : Align) (x w lineW : Int) : Int :=
@@ -77,7 +84,7 @@ def placeCluster (row : Int) (st : LineState) (cl : Measure.Cluster) : LineState
 
 /-- Place line `k` of a text: the canvas and the number of refused clusters. -/
 def placeLine (g : Canvas) (t : SceneText) (k : Nat) (text : List Char) : Canvas × Nat :=
-  let clusters := Measure.segment text
+  let clusters := Measure.segment (text.map terminalChar)
   let st := clusters.foldl (placeCluster (t.rect.y + (k : Int)))
     (g, lineStart t.align t.rect.x t.rect.w ((Measure.cw clusters : Nat) : Int), 0)
   (st.1, st.2.2)
@@ -256,7 +263,8 @@ theorem foldl_placeCluster_placing (row : Int) :
 
 theorem placeLine_placing (g : Canvas) (t : SceneText) (k : Nat) (text : List Char) :
     g.Placing (placeLine g t k text).1 :=
-  foldl_placeCluster_placing (t.rect.y + (k : Int)) (Measure.segment text) _
+  foldl_placeCluster_placing (t.rect.y + (k : Int))
+    (Measure.segment (text.map terminalChar)) _
 
 theorem placeLines_placing (t : SceneText) :
     ∀ (ls : List (List TextRun)) (k : Nat) (g : Canvas) (n : Nat),

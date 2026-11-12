@@ -43,7 +43,7 @@ opaque defaultRankGap : Option Int :=
 
 def nodeW (p : Proper) (v : Nat) : Int :=
   match p.nodes[v]? with
-  | some n => n.node.w
+  | some n => n.node.w + 2 * (n.node.loopExtent : Int)
   | none => 0
 
 def nodeH (p : Proper) (v : Nat) : Int :=
@@ -51,6 +51,14 @@ def nodeH (p : Proper) (v : Nat) : Int :=
   | some n => n.node.h
   | none => 0
 
+theorem nodeW_ge_width (p : Proper) (v : Nat) :
+    (match p.nodes[v]? with | some n => n.node.w | none => 0) ≤ nodeW p v :=
+  match h : p.nodes[v]? with
+  | none => by simp [nodeW, h]
+  | some n => by
+    simp only [nodeW, h]
+    exact Int.le_add_of_nonneg_right
+      (Int.mul_nonneg (by decide) (Int.natCast_nonneg _))
 def coordSep (gap : Int) (p : Proper) (a b : Nat) : Int :=
   Int.fdiv (nodeW p a) 2 + Int.fdiv (nodeW p b) 2 + gap
 
@@ -58,7 +66,7 @@ def sizesNonneg (p : Proper) : Bool :=
   p.nodes.all fun n => decide (0 ≤ n.node.w ∧ 0 ≤ n.node.h)
 
 def sizesFit (p : Proper) : Bool :=
-  p.nodes.all fun n => decide (n.node.w ≤ I32_MAX ∧ n.node.h ≤ I32_MAX)
+  p.nodes.all fun n => decide (n.node.w + 2 * (n.node.loopExtent : Int) ≤ I32_MAX ∧ n.node.h ≤ I32_MAX)
 
 def checkSizes (p : Proper) : Except LayoutError Unit :=
   if I32_MAX < (p.nodes.length : Int) ∨ I32_MAX < (p.edges.length : Int) then .error .overflow
@@ -149,9 +157,11 @@ structure Ctx where
   layers : List (List Nat)
   rank : Array Nat
   pos : Array Nat
+  pairGap : Option (Nat → Nat → Int) := none
 
 def Ctx.sep (c : Ctx) (a b : Nat) : Int :=
-  Int.fdiv c.widths[a]! 2 + Int.fdiv c.widths[b]! 2 + c.gap
+  Int.fdiv c.widths[a]! 2 + Int.fdiv c.widths[b]! 2 +
+    (match c.pairGap with | none => c.gap | some f => f a b)
 
 def passLayers (layers : List (List Nat)) (k : Nat) : List (List Nat) :=
   (if 2 ≤ k then layers.reverse else layers).map fun l => if k % 2 = 1 then l.reverse else l
@@ -3461,6 +3471,84 @@ def crossCoordsWith (gap : Int) (p : Proper) (layers : List (List Nat)) :
     | .error e => .error e
     | .ok (x0, x1, x2, x3) => balance p.nodes.length x0 x1 x2 x3
 
+def borderMember (p : Proper) (a b : Nat) : Bool :=
+  match p.nodes[a]?, p.nodes[b]? with
+  | some na, some nb =>
+    let pa := na.node.clusterPath
+    let pb := nb.node.clusterPath
+    let ba := na.node.border == -1 || na.node.border == 1
+    let bb := nb.node.border == -1 || nb.node.border == 1
+    (ba && (pa.getLast?.any fun c => pb.contains c)) ||
+      (bb && (pb.getLast?.any fun c => pa.contains c))
+  | _, _ => false
+
+def ownTitleAnchor (p : Proper) (a b : Nat) : Bool :=
+  match p.nodes[a]?, p.nodes[b]? with
+  | some na, some nb =>
+    !na.node.clusterPath.isEmpty && na.node.clusterPath == nb.node.clusterPath &&
+      (((na.node.border == -2 || na.node.border == 2) && na.node.w == 0 && nb.node.border == 3) ||
+       ((nb.node.border == -2 || nb.node.border == 2) && nb.node.w == 0 && na.node.border == 3))
+  | _, _ => false
+
+def clusterGap (nodeGap clusterPad : Int) (p : Proper) (a b : Nat) : Int :=
+  if borderMember p a b then clusterPad else if ownTitleAnchor p a b then 0 else nodeGap
+
+def clusterSep (nodeGap clusterPad : Int) (p : Proper) (a b : Nat) : Int :=
+  coordSep (clusterGap nodeGap clusterPad p a b) p a b
+
+def borderAlignment (p : Proper) (layers : List (List Nat)) : Proper :=
+  let pairs := (layers.zip layers.tail).flatMap fun ls =>
+    ls.1.flatMap fun a => ls.2.filterMap fun b =>
+      let na := (p.nodes.getD a default).node
+      let nb := (p.nodes.getD b default).node
+      if (na.border == -1 || na.border == 1) && na.border == nb.border &&
+          na.clusterPath == nb.clusterPath then
+        some ({ tail := a, head := b, decl := na.decl, original := 0 } : ProperEdge)
+      else none
+  { p with edges := p.edges ++ pairs }
+
+def clusterCtx (nodeGap clusterPad : Int) (p : Proper) (layers : List (List Nat))
+    (marked : Array Bool) (k : Nat) : Ctx :=
+  { mkCtx nodeGap p layers marked k with
+    pairGap := some (clusterGap nodeGap clusterPad p) }
+
+def clusterPass (nodeGap clusterPad : Int) (p : Proper) (layers : List (List Nat))
+    (marked : Array Bool) (k : Nat) : Except LayoutError (Array Int) :=
+  runPass (clusterCtx nodeGap clusterPad p layers marked k) (k % 2 == 1)
+
+def crossClusterPasses (nodeGap clusterPad : Int) (p : Proper) (layers : List (List Nat)) :
+    Except LayoutError (Array Int × Array Int × Array Int × Array Int) :=
+  match checkLayers p layers with
+  | .error e => .error e
+  | .ok pos =>
+    if nodeGap < 1 ∨ clusterPad < 1 then .error .domain
+    else
+      let marked := typeOneConflicts p pos
+      match clusterPass nodeGap clusterPad p layers marked 0 with
+      | .error e => .error e
+      | .ok x0 =>
+        match clusterPass nodeGap clusterPad p layers marked 1 with
+        | .error e => .error e
+        | .ok x1 =>
+          match clusterPass nodeGap clusterPad p layers marked 2 with
+          | .error e => .error e
+          | .ok x2 =>
+            match clusterPass nodeGap clusterPad p layers marked 3 with
+            | .error e => .error e
+            | .ok x3 => .ok (x0, x1, x2, x3)
+
+def crossCoordsClusterWith (nodeGap clusterPad : Int) (p : Proper)
+    (layers : List (List Nat)) : Except LayoutError (List Int) :=
+  let aligned := borderAlignment p layers
+  if p.nodes.length = 0 then
+    match checkLayers aligned layers with
+    | .error e => .error e
+    | .ok _ => if nodeGap < 1 ∨ clusterPad < 1 then .error .domain else .ok []
+  else
+    match crossClusterPasses nodeGap clusterPad aligned layers with
+    | .error e => .error e
+    | .ok (x0, x1, x2, x3) => balance p.nodes.length x0 x1 x2 x3
+
 def crossCoords (p : Proper) (layers : List (List Nat)) : Except LayoutError (List Int) :=
   match defaultNodeGap, defaultRankGap, NormalizeImpl.defaultSlot with
   | some g, some r, some s =>
@@ -3643,7 +3731,7 @@ theorem nodeW_nonneg {p : Proper} (h : sizesNonneg p = true) (v : Nat) : 0 ≤ n
     rw [List.all_eq_true] at h
     have := h n hm
     simp at this
-    exact this.1
+    exact Int.add_nonneg this.1 (Int.mul_nonneg (by decide) (Int.natCast_nonneg _))
   · exact Int.le_refl 0
 
 theorem nodeH_nonneg {p : Proper} (h : sizesNonneg p = true) (v : Nat) : 0 ≤ nodeH p v := by
@@ -3998,9 +4086,421 @@ theorem rankAxis_node_in_band {rankGap slot : Int} {p : Proper} {layers : List (
   omega
 
 
+
+theorem borderMember_symm (p : Proper) (a b : Nat) : borderMember p a b = borderMember p b a := by
+  unfold borderMember
+  cases p.nodes[a]? <;> cases p.nodes[b]? <;> simp [Bool.or_comm]
+
+theorem ownTitleAnchor_symm (p : Proper) (a b : Nat) :
+    ownTitleAnchor p a b = ownTitleAnchor p b a := by
+  unfold ownTitleAnchor
+  cases p.nodes[a]? <;> cases p.nodes[b]? <;> try rfl
+  rename_i na nb
+  by_cases he : na.node.clusterPath = nb.node.clusterPath
+  · simp [he, Bool.or_comm]
+  · apply Bool.eq_iff_iff.mpr
+    simp [Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq, he, Ne.symm he]
+
+theorem clusterSep_symm (ng cp : Int) (p : Proper) (a b : Nat) :
+    clusterSep ng cp p a b = clusterSep ng cp p b a := by
+  unfold clusterSep coordSep clusterGap
+  rw [borderMember_symm p a b, ownTitleAnchor_symm p a b]
+  omega
+
+theorem clusterCtx_sep {ng cp : Int} {p : Proper} {layers : List (List Nat)}
+    {marked : Array Bool} {k a b : Nat} (ha : a < p.nodes.length) (hb : b < p.nodes.length) :
+    (clusterCtx ng cp p layers marked k).sep a b = clusterSep ng cp p a b := by
+  unfold Ctx.sep clusterSep coordSep clusterCtx mkCtx
+  simp only []
+  rw [array_map_range_get (nodeW p) ha, array_map_range_get (nodeW p) hb]
+
+theorem clusterPass_separated {ng cp : Int} {p : Proper} {layers : List (List Nat)}
+    {pos : Array Nat} {k : Nat} {x : Array Int}
+    (hc : checkLayers p layers = .ok pos)
+    (h : clusterPass ng cp p layers (typeOneConflicts p pos) k = .ok x) :
+    ∀ l ∈ layers, ∀ ab ∈ l.zip l.tail,
+      clusterSep ng cp p ab.1 ab.2 ≤ x[ab.2]! - x[ab.1]! := by
+  let c := clusterCtx ng cp p layers (typeOneConflicts p pos) k
+  obtain ⟨hL, hE⟩ := layout_facts (gap := ng) (typeOneConflicts p pos) k hc
+  have hLc : Lay c := ⟨hL.idx, hL.unset⟩
+  have hEc : EdgeOK c := hE
+  have hA := af_of_layout hLc hEc
+  have hW := wf_of_af hA
+  obtain ⟨st, hst, hx⟩ := runPass_ok h
+  obtain ⟨hG, hall, _⟩ := placeRoots_spec hW _ _ PS.init st (fun v hv => hv) ginv_init hst
+  have hO := xo_separated (PassFacts.mk (same_sep hA hG hall) (pairs_rank hA hG hall))
+  intro l hl ab hab
+  obtain ⟨a, b⟩ := ab
+  obtain ⟨i, hia, hib⟩ := mem_zip_tail_iff.mp hab
+  have hr := (checkLayers_parts hc).1
+  have ha : a < p.nodes.length := layer_node_lt hr hl (List.mem_of_getElem? hia)
+  have hb : b < p.nodes.length := layer_node_lt hr hl (List.mem_of_getElem? hib)
+  have hxa : x[a]! = finalX st (offsetsOf c st) (k % 2 == 1) a - lowest c st (offsetsOf c st) (k % 2 == 1) := by
+    rw [hx]
+    exact array_map_range_get _ ha
+  have hxb : x[b]! = finalX st (offsetsOf c st) (k % 2 == 1) b - lowest c st (offsetsOf c st) (k % 2 == 1) := by
+    rw [hx]
+    exact array_map_range_get _ hb
+  have hmem : l ∈ (if 2 ≤ k then layers.reverse else layers) := by
+    split
+    · exact List.mem_reverse.mpr hl
+    · exact hl
+  by_cases hk : k % 2 = 1
+  · have hl' : l.reverse ∈ c.layers := by
+      show l.reverse ∈ passLayers layers k
+      unfold passLayers
+      exact List.mem_map.mpr ⟨l, hmem, by simp [hk]⟩
+    have hz : (b, a) ∈ l.reverse.zip l.reverse.tail := mem_zip_tail_reverse.mpr hab
+    have h1 := hO l.reverse hl' (b, a) hz
+    change (clusterCtx ng cp p layers (typeOneConflicts p pos) k).sep b a ≤ _ at h1
+    rw [clusterCtx_sep hb ha, clusterSep_symm ng cp p b a] at h1
+    rw [hxa, hxb]
+    simp only [finalX, hk, beq_self_eq_true, ite_true]
+    dsimp only at h1
+    omega
+  · have hk0 : k % 2 = 0 := by omega
+    have hl' : l ∈ c.layers := by
+      show l ∈ passLayers layers k
+      unfold passLayers
+      exact List.mem_map.mpr ⟨l, hmem, by simp [hk0]⟩
+    have h1 := hO l hl' (a, b) hab
+    change (clusterCtx ng cp p layers (typeOneConflicts p pos) k).sep a b ≤ _ at h1
+    rw [clusterCtx_sep ha hb] at h1
+    rw [hxa, hxb]
+    simp [finalX, hk0]
+    dsimp only at h1
+    omega
+
+def clusterPassSeparated (ng cp : Int) (p : Proper) (layers : List (List Nat)) (x : Array Int) : Prop :=
+  ∀ layer ∈ layers, ∀ i a b, layer[i]? = some a → layer[i + 1]? = some b →
+    clusterSep ng cp p a b ≤ x[b]! - x[a]!
+
+theorem crossClusterPasses_spec {ng cp : Int} {p : Proper} {layers : List (List Nat)}
+    {x0 x1 x2 x3 : Array Int} (h : crossClusterPasses ng cp p layers = .ok (x0, x1, x2, x3)) :
+    1 ≤ ng ∧ 1 ≤ cp ∧ layersInRange p layers = true ∧ sizesNonneg p = true ∧
+      clusterPassSeparated ng cp p layers x0 ∧ clusterPassSeparated ng cp p layers x1 ∧
+      clusterPassSeparated ng cp p layers x2 ∧ clusterPassSeparated ng cp p layers x3 := by
+  unfold crossClusterPasses at h
+  split at h
+  · simp at h
+  · next pos hpos =>
+    split at h
+    · simp at h
+    · next hg =>
+      dsimp only at h
+      split at h
+      · simp at h
+      · next y0 h0 =>
+        split at h
+        · simp at h
+        · next y1 h1 =>
+          split at h
+          · simp at h
+          · next y2 h2 =>
+            split at h
+            · simp at h
+            · next y3 h3 =>
+              simp only [Except.ok.injEq, Prod.mk.injEq] at h
+              obtain ⟨rfl, rfl, rfl, rfl⟩ := h
+              have hc := checkLayers_spec hpos
+              refine ⟨by omega, by omega, hc.1, hc.2, ?_, ?_, ?_, ?_⟩
+              all_goals
+                intro l hl i a b ha hb
+                first
+                | exact clusterPass_separated hpos h0 l hl (a,b) (mem_zip_tail l i a b ha hb)
+                | exact clusterPass_separated hpos h1 l hl (a,b) (mem_zip_tail l i a b ha hb)
+                | exact clusterPass_separated hpos h2 l hl (a,b) (mem_zip_tail l i a b ha hb)
+                | exact clusterPass_separated hpos h3 l hl (a,b) (mem_zip_tail l i a b ha hb)
+
+theorem crossCoordsClusterWith_spec {ng cp : Int} {p : Proper} {layers : List (List Nat)} {xs : List Int}
+    (h : crossCoordsClusterWith ng cp p layers = .ok xs) :
+    1 ≤ ng ∧ 1 ≤ cp ∧ layersInRange p layers = true ∧ sizesNonneg p = true ∧
+      ((p.nodes.length = 0 ∧ xs = []) ∨
+        ∃ x0 x1 x2 x3, crossClusterPasses ng cp (borderAlignment p layers) layers = .ok (x0,x1,x2,x3) ∧
+          xs = balanceValues p.nodes.length x0 x1 x2 x3) := by
+  unfold crossCoordsClusterWith at h
+  dsimp only at h
+  split at h
+  · next h0 =>
+    split at h
+    · simp at h
+    · next pos hpos =>
+      split at h
+      · simp at h
+      · next hg =>
+        simp only [Except.ok.injEq] at h
+        have hc := checkLayers_spec hpos
+        exact ⟨by omega, by omega, hc.1, hc.2, Or.inl ⟨h0, h.symm⟩⟩
+  · next h0 =>
+    split at h
+    · simp at h
+    · next x0 x1 x2 x3 hp =>
+      have hs := crossClusterPasses_spec hp
+      exact ⟨hs.1, hs.2.1, hs.2.2.1, hs.2.2.2.1,
+        Or.inr ⟨x0, x1, x2, x3, hp, balance_ok h⟩⟩
+
+theorem cluster_balance_separated {ng cp : Int} {p : Proper} {layers : List (List Nat)} {xs : List Int}
+    (h : crossCoordsClusterWith ng cp p layers = .ok xs) :
+    ∀ layer ∈ layers, ∀ i a b, layer[i]? = some a → layer[i + 1]? = some b →
+      clusterSep ng cp p a b ≤ xs.getD b 0 - xs.getD a 0 := by
+  intro layer hl i a b ha hb
+  obtain ⟨_, _, hr, _, hcase⟩ := crossCoordsClusterWith_spec h
+  have ha' := layers_mem_lt hr hl ha
+  have hb' := layers_mem_lt hr hl hb
+  rcases hcase with ⟨h0, _⟩ | ⟨x0, x1, x2, x3, hp, hx⟩
+  · omega
+  · obtain ⟨_, _, _, _, s0, s1, s2, s3⟩ := crossClusterPasses_spec hp
+    subst hx
+    rw [balanceValues_getD _ _ _ _ _ ha', balanceValues_getD _ _ _ _ _ hb']
+    have d0 := s0 layer hl i a b ha hb
+    have d1 := s1 layer hl i a b ha hb
+    have d2 := s2 layer hl i a b ha hb
+    have d3 := s3 layer hl i a b ha hb
+    change clusterSep ng cp p a b ≤ _ at d0 d1 d2 d3
+    have key := bal4_mono (clusterSep ng cp p a b)
+      (x0[a]! + (balanceOffsets x0 x1 x2 x3).o0) (x1[a]! + (balanceOffsets x0 x1 x2 x3).o1)
+      (x2[a]! + (balanceOffsets x0 x1 x2 x3).o2) (x3[a]! + (balanceOffsets x0 x1 x2 x3).o3)
+      (x0[b]! + (balanceOffsets x0 x1 x2 x3).o0) (x1[b]! + (balanceOffsets x0 x1 x2 x3).o1)
+      (x2[b]! + (balanceOffsets x0 x1 x2 x3).o2) (x3[b]! + (balanceOffsets x0 x1 x2 x3).o3)
+      (by omega) (by omega) (by omega) (by omega)
+    omega
+
+theorem crossCoordsClusterWith_length {ng cp : Int} {p : Proper} {layers : List (List Nat)} {xs : List Int}
+    (h : crossCoordsClusterWith ng cp p layers = .ok xs) : xs.length = p.nodes.length := by
+  obtain ⟨_, _, _, _, hcase⟩ := crossCoordsClusterWith_spec h
+  rcases hcase with ⟨h0, hx⟩ | ⟨x0, x1, x2, x3, _, hx⟩
+  · subst hx
+    simp [h0]
+  · subst hx
+    simp [balanceValues]
+
+theorem clusterSep_pos {ng cp : Int} {p : Proper} (hn : 1 ≤ ng) (hp : 1 ≤ cp)
+    (hs : sizesNonneg p = true) (a b : Nat) (ht : ownTitleAnchor p a b = false) :
+    1 ≤ clusterSep ng cp p a b := by
+  apply coordSep_pos (p := p) (gap := clusterGap ng cp p a b) _ hs
+  simp only [clusterGap, ht, Bool.false_eq_true, ite_false]
+  split <;> assumption
+
+theorem clusterSep_nonneg {ng cp : Int} {p : Proper} (hn : 1 ≤ ng) (hp : 1 ≤ cp)
+    (hs : sizesNonneg p = true) (a b : Nat) : 0 ≤ clusterSep ng cp p a b := by
+  have ha := nodeW_nonneg hs a
+  have hb := nodeW_nonneg hs b
+  have hg : 0 ≤ clusterGap ng cp p a b := by
+    unfold clusterGap
+    split
+    · omega
+    · split <;> omega
+  unfold clusterSep coordSep
+  rw [Int.fdiv_eq_ediv_of_nonneg _ (by decide), Int.fdiv_eq_ediv_of_nonneg _ (by decide)]
+  omega
+
+theorem cluster_coords_order_preserved {ng cp : Int} {p : Proper} {layers : List (List Nat)} {xs : List Int}
+    (h : crossCoordsClusterWith ng cp p layers = .ok xs) :
+    ∀ layer ∈ layers, ∀ i a b, layer[i]? = some a → layer[i + 1]? = some b →
+      xs.getD a 0 ≤ xs.getD b 0 := by
+  intro layer hl i a b ha hb
+  have h1 := cluster_balance_separated h layer hl i a b ha hb
+  obtain ⟨hn, hp, _, hs, _⟩ := crossCoordsClusterWith_spec h
+  have h2 := clusterSep_nonneg hn hp hs a b
+  omega
+
+theorem clusterSep_real_real {ng cp : Int} {p : Proper} {a b : Nat} {na nb : ProperNode}
+    (ha : p.nodes[a]? = some na) (hb : p.nodes[b]? = some nb)
+    (hba : na.node.border = 0) (hbb : nb.node.border = 0) :
+    clusterSep ng cp p a b = coordSep ng p a b := by
+  simp [clusterSep, clusterGap, borderMember, ownTitleAnchor, ha, hb, hba, hbb]
+
+theorem clusterGap_nonneg {ng cp : Int} (hn : 1 ≤ ng) (hp : 1 ≤ cp) (p : Proper) (a b : Nat) :
+    0 ≤ clusterGap ng cp p a b := by
+  unfold clusterGap
+  split
+  · omega
+  · split <;> omega
+
+theorem clusterGap_ge_min {ng cp : Int} (p : Proper) (a b : Nat)
+    (ht : ownTitleAnchor p a b = false) : min ng cp ≤ clusterGap ng cp p a b := by
+  simp only [clusterGap, ht, Bool.false_eq_true, ite_false]
+  split <;> omega
+
+theorem cluster_zero_pairs_separated {ng cp : Int} {p : Proper} {layers : List (List Nat)} {xs : List Int}
+    (h : crossCoordsClusterWith ng cp p layers = .ok xs) :
+    ∀ layer ∈ layers, ∀ (i j a b : Nat), i < j → layer[i]? = some a → layer[j]? = some b →
+      Int.fdiv (nodeW p a) 2 + Int.fdiv (nodeW p b) 2 ≤ xs.getD b 0 - xs.getD a 0 := by
+  obtain ⟨hn,hp,_,hs,_⟩ := crossCoordsClusterWith_spec h
+  intro layer hl i j
+  induction j with
+  | zero => intro a b hij; omega
+  | succ j ih =>
+    intro a b hij ha hb
+    by_cases he : i = j
+    · subst i
+      have hd := cluster_balance_separated h layer hl j a b ha hb
+      have hg := clusterGap_nonneg hn hp p a b
+      unfold clusterSep coordSep at hd
+      omega
+    · have hj : j < layer.length := by
+        have hb_len : j+1 < layer.length := (List.getElem?_eq_some_iff.mp hb).1
+        omega
+      have hex : ∃ c, layer[j]? = some c := by
+        cases hc : layer[j]? with
+        | none => have := List.getElem?_eq_none_iff.mp hc; omega
+        | some c => exact ⟨c,rfl⟩
+      obtain ⟨c,hc⟩ := hex
+      have hd := cluster_balance_separated h layer hl j c b hc hb
+      have hi := ih a c (by omega) ha hc
+      have hg := clusterGap_nonneg hn hp p c b
+      unfold clusterSep coordSep at hd
+      have hh : 0 ≤ Int.fdiv (nodeW p c) 2 := by
+        rw [Int.fdiv_eq_ediv_of_nonneg _ (by decide)]
+        exact Int.ediv_nonneg (nodeW_nonneg hs c) (by decide)
+      omega
+
+theorem ownTitleAnchor_left_nonanchor {p : Proper} {a b : Nat} {na nb : ProperNode}
+    (ha : p.nodes[a]? = some na) (hb : p.nodes[b]? = some nb)
+    (hna : na.node.border ≠ -2) (hpa : na.node.border ≠ 2)
+    (ht : ownTitleAnchor p a b = true) :
+    na.node.border = 3 ∧ na.node.clusterPath = nb.node.clusterPath ∧
+      (nb.node.border = -2 ∨ nb.node.border = 2) := by
+  simp only [ownTitleAnchor, ha, hb, Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq] at ht
+  rcases ht with ⟨⟨_, heq⟩, hfirst | hsecond⟩
+  · rcases hfirst with ⟨⟨hborder, _⟩, _⟩
+    rcases hborder with he | he
+    · exact False.elim (hna he)
+    · exact False.elim (hpa he)
+  · exact ⟨hsecond.2, heq, hsecond.1.1⟩
+
+theorem layer_nodup_of_flatten {layers : List (List Nat)} (h : layers.flatten.Nodup) :
+    ∀ l ∈ layers, l.Nodup := by
+  induction layers with
+  | nil => simp
+  | cons l ls ih =>
+    simp only [List.flatten_cons, List.nodup_append] at h
+    intro q hq
+    rcases List.mem_cons.mp hq with rfl | hq
+    · exact h.1
+    · exact ih h.2.1 q hq
+
+theorem cluster_layer_nodup {ng cp : Int} {p : Proper} {layers : List (List Nat)} {xs : List Int}
+    (h : crossCoordsClusterWith ng cp p layers = .ok xs) :
+    ∀ l ∈ layers, l.Nodup := by
+  obtain ⟨_,_,hr,_,he⟩ := crossCoordsClusterWith_spec h
+  rcases he with ⟨he,_⟩ | ⟨x0,x1,x2,x3,hp,_⟩
+  · intro l hl
+    have hempty : l = [] := by
+      cases l with
+      | nil => rfl
+      | cons a as =>
+        have hm := layer_node_lt hr hl (List.mem_cons_self)
+        omega
+    rw [hempty]
+    exact List.nodup_nil
+  · unfold crossClusterPasses at hp
+    split at hp
+    · simp at hp
+    · next pos hpos =>
+      obtain ⟨_,⟨pos',hlp⟩,_⟩ := checkLayers_parts hpos
+      exact layer_nodup_of_flatten (layerPositions_spec hlp).1
+
+theorem ownTitleAnchor_after_anchor {p : Proper} {a b : Nat} {na nb : ProperNode}
+    (ha : p.nodes[a]? = some na) (hb : p.nodes[b]? = some nb)
+    (hna : na.node.border = -2 ∨ na.node.border = 2)
+    (ht : ownTitleAnchor p a b = true) :
+    nb.node.border = 3 ∧ na.node.clusterPath = nb.node.clusterPath := by
+  simp only [ownTitleAnchor, ha, hb, Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq] at ht
+  rcases ht with ⟨⟨_, heq⟩, hfirst | hsecond⟩
+  · exact ⟨hfirst.2, heq⟩
+  · have hbad := hsecond.2
+    rcases hna with he | he <;> omega
+
+theorem cluster_all_pairs_separated {ng cp : Int} {p : Proper} {layers : List (List Nat)} {xs : List Int}
+    (h : crossCoordsClusterWith ng cp p layers = .ok xs)
+    (huniq : ∀ (a b : Nat) (na nb : ProperNode), p.nodes[a]? = some na → p.nodes[b]? = some nb →
+      na.node.border = 3 → nb.node.border = 3 → na.node.clusterPath = nb.node.clusterPath → a = b) :
+    ∀ layer ∈ layers, ∀ (i j a b : Nat) na nb, i < j → layer[i]? = some a → layer[j]? = some b →
+      p.nodes[a]? = some na → p.nodes[b]? = some nb →
+      na.node.border ≠ -2 → na.node.border ≠ 2 → nb.node.border ≠ -2 → nb.node.border ≠ 2 →
+      coordSep (min ng cp) p a b ≤ xs.getD b 0 - xs.getD a 0 := by
+  intro layer hl i j a b na nb hij ha hb hna hnb hna1 hna2 hnb1 hnb2
+  obtain ⟨hn,hp,hr,hs,_⟩ := crossCoordsClusterWith_spec h
+  have halfnonneg : ∀ v, 0 ≤ Int.fdiv (nodeW p v) 2 := by
+    intro v
+    rw [Int.fdiv_eq_ediv_of_nonneg _ (by decide)]
+    exact Int.ediv_nonneg (nodeW_nonneg hs v) (by decide)
+  have hnd := cluster_layer_nodup h layer hl
+  have middle : ∀ k, k ≤ j → ∃ c, layer[k]? = some c := by
+    intro k hkj
+    have hj : j < layer.length := (List.getElem?_eq_some_iff.mp hb).1
+    cases hc : layer[k]? with
+    | none => have := List.getElem?_eq_none_iff.mp hc; omega
+    | some c => exact ⟨c,rfl⟩
+  obtain ⟨c,hc⟩ := middle (i+1) (by omega)
+  have hc_lt := layers_mem_lt hr hl hc
+  have hcn : ∃ nc, p.nodes[c]? = some nc := by
+    cases he : p.nodes[c]? with
+    | none => have := List.getElem?_eq_none_iff.mp he; omega
+    | some nc => exact ⟨nc,rfl⟩
+  obtain ⟨nc,hnc⟩ := hcn
+  have hadj := cluster_balance_separated h layer hl i a c ha hc
+  by_cases ht : ownTitleAnchor p a c = true
+  · obtain ⟨hatitle,hpath,hcanchor⟩ := ownTitleAnchor_left_nonanchor hna hnc hna1 hna2 ht
+    have hic : i+1 < j := by
+      by_cases he : i+1 < j
+      · exact he
+      have heq : i+1 = j := by omega
+      have hcb : c = b := by rw [heq,hb] at hc; exact Option.some.inj hc.symm
+      subst c
+      rw [hnb] at hnc
+      have hrec : nc = nb := Option.some.inj hnc.symm
+      subst nc
+      rcases hcanchor with he | he <;> contradiction
+    obtain ⟨d,hd⟩ := middle (i+2) (by omega)
+    have hd_lt := layers_mem_lt hr hl hd
+    have hdn : ∃ nd, p.nodes[d]? = some nd := by
+      cases he : p.nodes[d]? with
+      | none => have := List.getElem?_eq_none_iff.mp he; omega
+      | some nd => exact ⟨nd,rfl⟩
+    obtain ⟨nd,hndnode⟩ := hdn
+    have ht2 : ownTitleAnchor p c d = false := by
+      cases ht2 : ownTitleAnchor p c d with
+      | false => rfl
+      | true =>
+        obtain ⟨hdtitle,hpath2⟩ := ownTitleAnchor_after_anchor hnc hndnode hcanchor ht2
+        have had : a = d := huniq a d na nd hna hndnode hatitle hdtitle (hpath.trans hpath2)
+        subst d
+        have hi_len : i < layer.length := (List.getElem?_eq_some_iff.mp ha).1
+        have heq : i = i+2 := (List.Nodup.getElem?_inj hi_len hnd).mp (ha.trans hd.symm)
+        omega
+    have hadj2 := cluster_balance_separated h layer hl (i+1) c d hc hd
+    have hg := clusterGap_ge_min (ng := ng) (cp := cp) p c d ht2
+    have hz := clusterGap_nonneg hn hp p a c
+    have hw := halfnonneg c
+    unfold clusterSep coordSep at hadj hadj2
+    unfold coordSep
+    by_cases heq : i+2 = j
+    · have hdb : d = b := by rw [heq,hb] at hd; exact Option.some.inj hd.symm
+      subst d
+      omega
+    · have htail := cluster_zero_pairs_separated h layer hl (i+2) j d b (by omega) hd hb
+      have hwd := halfnonneg d
+      omega
+  · have htf : ownTitleAnchor p a c = false := Bool.eq_false_iff.mpr ht
+    have hg := clusterGap_ge_min (ng := ng) (cp := cp) p a c htf
+    unfold clusterSep coordSep at hadj
+    unfold coordSep
+    by_cases heq : i+1 = j
+    · have hcb : c = b := by rw [heq,hb] at hc; exact Option.some.inj hc.symm
+      subst c
+      omega
+    · have htail := cluster_zero_pairs_separated h layer hl (i+1) j c b (by omega) hc hb
+      have hw := halfnonneg c
+      omega
 end CoordsImpl
 
-export CoordsImpl (crossCoords crossCoordsWith crossPasses rankCoords rankCoordsWith coordSep
+export CoordsImpl (crossCoords crossCoordsWith crossCoordsClusterWith clusterSep clusterGap
+  cluster_balance_separated cluster_coords_order_preserved crossCoordsClusterWith_spec
+  crossCoordsClusterWith_length clusterSep_real_real clusterSep_pos clusterSep_nonneg ownTitleAnchor
+  cluster_all_pairs_separated
+  crossPasses rankCoords rankCoordsWith coordSep
   layerHeight crossCoords_eq rankCoords_eq crossCoordsWith_length rankCoordsWith_length
   rankAxis_node_in_band)
 

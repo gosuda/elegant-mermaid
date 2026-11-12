@@ -50,7 +50,19 @@ private def readBox (j : Lean.Json) : Except String ModelBox := do
   let role ← match role with
     | "node" => pure BoxRole.node | "group" => pure BoxRole.group
     | _ => throw "invalid box role"
-  return ⟨← str j "id", role, ← str j "parent", ← bool j "exclusive"⟩
+  let ownDirection ←
+    if role == .group then
+      match j.getObjVal? "direction" with
+      | .ok value => value.getStr?
+      | .error _ => pure ""
+    else pure ""
+  if ownDirection != "" && !["TB", "BT", "LR", "RL"].contains ownDirection then
+    throw "invalid group direction"
+  return { id := (← str j "id")
+           role := role
+           parent := (← str j "parent")
+           exclusive := (← bool j "exclusive")
+           direction := ownDirection }
 
 private def optStr (j : Lean.Json) (k dflt : String) : Except String String :=
   match j.getObjVal? k with

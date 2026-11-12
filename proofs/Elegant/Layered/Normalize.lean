@@ -25,6 +25,7 @@ structure ProperEdge where
   head : Nat
   decl : Nat
   original : Nat
+  synthetic : Bool := false
 deriving DecidableEq, Repr, Inhabited
 
 structure Proper where
@@ -42,7 +43,7 @@ def chainNode (a b n0 s k : Nat) : Nat :=
   if k = 0 then a else if k = s then b else n0 + (k - 1)
 
 def dummyNodes (e : Edge) (idx : Nat) (slot : Int) (s : Nat) : List ProperNode :=
-  List.replicate (s - 1) ⟨⟨e.decl, slot, 0⟩, true, some idx⟩
+  List.replicate (s - 1) ⟨{ decl := e.decl, w := slot, h := 0 }, true, some idx⟩
 
 def dummyRanks (ra : Int) (s : Nat) : List Int :=
   (List.range (s - 1)).map fun (j : Nat) => ra + 1 + (j : Int)
@@ -52,7 +53,8 @@ def chainOf (a b n0 s : Nat) : List Nat :=
 
 def chainEdges (e : Edge) (idx : Nat) (n0 s : Nat) : List ProperEdge :=
   (List.range s).map fun k =>
-    ⟨chainNode e.tail e.head n0 s k, chainNode e.tail e.head n0 s (k + 1), e.decl, idx⟩
+    { tail := chainNode e.tail e.head n0 s k,
+      head := chainNode e.tail e.head n0 s (k + 1), decl := e.decl, original := idx }
 
 def appendChain (slot : Int) (p : Proper) (e : Edge) (idx : Nat) (s : Nat) : Proper :=
   { nodes := p.nodes ++ dummyNodes e idx slot s

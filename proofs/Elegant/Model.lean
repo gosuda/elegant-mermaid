@@ -1,6 +1,12 @@
 import Lean
+import ElegantGeometry.Basic
 
 namespace Elegant
+
+inductive LayoutFailure where
+  | geometry (error : LayoutError)
+  | tooLarge (limit actual : Nat)
+  deriving DecidableEq, Repr
 
 inductive Profile where
   | vector | cell
@@ -50,6 +56,7 @@ structure ModelBox where
   role : BoxRole := .node
   parent : String := ""
   exclusive : Bool := true
+  direction : String := ""
   deriving DecidableEq, Repr
 
 structure ModelRoute where
@@ -94,12 +101,21 @@ def modelWellFormed (m : Model) : Bool :=
   unique boxes && unique routes && unique (m.labels.map (·.id)) &&
     m.boxes.all (fun b => parentTerminates m.boxes m.boxes.length b.parent) &&
     m.routes.all (fun r => boxes.contains r.fromId && boxes.contains r.toId) &&
-    m.labels.all (fun l => boxes.contains l.owner || routes.contains l.owner)
+    m.labels.all (fun l => boxes.contains l.owner || routes.contains l.owner) &&
+    m.boxes.all (fun b => b.role != .group || !b.exclusive)
 
 abbrev WellFormed (m : Model) : Prop := modelWellFormed m = true
 
+def modelBoxText (m : Model) (b : ModelBox) : String :=
+  match m.labels.find? (fun l => l.owner == b.id && l.id == b.id ++ ".label") with
+  | some l => l.text
+  | none => b.id
+
 def modelTextBytes (m : Model) : Nat :=
-  m.labels.foldl (fun n l => n + l.text.utf8ByteSize) 0
+  let boxBytes := m.boxes.foldl (fun n b => n + (modelBoxText m b).utf8ByteSize) 0
+  m.labels.foldl (fun n l =>
+    if m.boxes.any (fun b => l.owner == b.id && l.id == b.id ++ ".label") then n
+    else n + l.text.utf8ByteSize) boxBytes
 
 abbrev WithinLimits (m : Model) : Prop :=
   m.boxes.length ≤ m.options.limits.maxNodes ∧

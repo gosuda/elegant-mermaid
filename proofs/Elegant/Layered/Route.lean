@@ -27,6 +27,7 @@ structure Routing where
   gaps : List RoutingGap
   sourceX : List Int
   targetX : List Int
+  sourceRun : List Int
   segment : List Nat
 deriving DecidableEq, Repr, Inhabited
 
@@ -55,6 +56,19 @@ def nodeDecl (p : Proper) (v : Nat) : Nat :=
   | none => 0
 
 def xAt (x : List Int) (v : Nat) : Int := x.getD v 0
+
+def frameKind (p : Proper) (v : Nat) : Int :=
+  match p.nodes[v]? with
+  | some n => if n.dummy then 0 else n.node.border
+  | none => 0
+
+def IsTop (p : Proper) (v : Nat) : Prop := frameKind p v = -2
+
+def IsBottom (p : Proper) (v : Nat) : Prop := frameKind p v = 2
+
+def IsFrame (p : Proper) (v : Nat) : Prop := IsTop p v ∨ IsBottom p v
+
+def leftOf (p : Proper) (x : List Int) (v : Nat) : Int := xAt x v - Int.fdiv (nodeW p v) 2
 
 def layerHeight (p : Proper) (layer : List Nat) : Int :=
   layer.foldl (fun m v => max m (nodeH p v)) 0
@@ -102,7 +116,10 @@ def portCoord (p : Proper) (x : List Int) (v : Nat) (es : List Nat) (i : Nat) : 
   let ns := portNeighbours p x v es
   let w := nodeW p v
   let j := ns.idxOf (otherEnd (edgeAt p i) v)
-  xAt x v - Int.fdiv w 2 + Int.fdiv (((j : Int) + 1) * w) ((ns.length : Int) + 1)
+  if (p.nodes[v]?.map (·.dummy)).getD false && decide (0 < nodeH p v) then
+    xAt x v - Int.fdiv w 2
+  else
+    xAt x v - Int.fdiv w 2 + Int.fdiv (((j : Int) + 1) * w) ((ns.length : Int) + 1)
 
 def portAt (p : Proper) (x : List Int) (v : Nat) (es : List Nat) (i : Nat) :
     Except LayoutError Int :=
@@ -114,6 +131,13 @@ def sourcePort (p : Proper) (x : List Int) (i : Nat) : Except LayoutError Int :=
 
 def targetPort (p : Proper) (x : List Int) (i : Nat) : Except LayoutError Int :=
   portAt p x (edgeAt p i).head (incomingOf p (edgeAt p i).head) i
+
+def runCoord (p : Proper) (x sx : List Int) (i : Nat) : Int :=
+  if frameKind p (edgeAt p i).tail = -2 then leftOf p x (edgeAt p i).tail else sx.getD i 0
+
+def runAt (p : Proper) (x sx : List Int) (i : Nat) : Except LayoutError Int :=
+  if runCoord p x sx i < I32_MIN ∨ I32_MAX < runCoord p x sx i then .error .overflow
+  else .ok (runCoord p x sx i)
 
 def gapOf (p : Proper) (i : Nat) : Nat := (rk p.rank (edgeAt p i).tail).toNat
 
@@ -190,6 +214,280 @@ def numberGap (segs : List RoutingSegment) : RoutingGap :=
     slots := (List.range segs.length).foldl
       (fun m i => if !segStraight (segs.getD i default) then max m (sl i + 1) else m) 0 }
 
+theorem kahnReady_iff {n : Nat} {arc : Nat → Nat → Bool} {done : List Nat} {j : Nat} :
+    kahnReady n arc done j = true ↔ j ∉ done ∧ ∀ i, i < n → arc i j = true → i ∈ done := by
+  simp only [kahnReady, Bool.and_eq_true, Bool.not_eq_true', List.all_eq_true, List.mem_range,
+    Bool.or_eq_true, Bool.not_eq_true']
+  constructor
+  · rintro ⟨h1, h2⟩
+    refine ⟨by simpa using h1, fun i hi hij => ?_⟩
+    rcases h2 i hi with h | h
+    · rw [h] at hij; exact absurd hij (by decide)
+    · simpa using h
+  · rintro ⟨h1, h2⟩
+    refine ⟨by simpa using h1, fun i hi => ?_⟩
+    by_cases hij : arc i j = true
+    · exact Or.inr (by simpa using h2 i hi hij)
+    · exact Or.inl (by simpa using hij)
+
+theorem kahnPick_fold (n : Nat) (arc : Nat → Nat → Bool) (decl : Nat → Nat) (done : List Nat) :
+    ∀ (l : List Nat) (acc : Option Nat),
+      (∀ v, l.foldl (kahnStep n arc decl done) acc = some v →
+        acc = some v ∨ (v ∈ l ∧ kahnReady n arc done v = true)) ∧
+      (l.foldl (kahnStep n arc decl done) acc = none →
+        acc = none ∧ ∀ j ∈ l, kahnReady n arc done j = false)
+  | [], acc => by simp
+  | a :: l, acc => by
+    simp only [List.foldl_cons]
+    obtain ⟨ih1, ih2⟩ := kahnPick_fold n arc decl done l (kahnStep n arc decl done acc a)
+    constructor
+    · intro v hv
+      rcases ih1 v hv with h | h
+      · unfold kahnStep at h
+        by_cases hr : kahnReady n arc done a = true
+        · simp only [hr, ↓reduceIte] at h
+          cases acc with
+          | none =>
+            simp only [Option.some.injEq] at h
+            exact Or.inr ⟨by simp [h], by rw [← h]; exact hr⟩
+          | some w =>
+            simp only at h
+            by_cases hd : decl a < decl w
+            · simp only [hd, ↓reduceIte] at h
+              simp only [Option.some.injEq] at h
+              exact Or.inr ⟨by simp [h], by rw [← h]; exact hr⟩
+            · simp only [hd, ↓reduceIte] at h
+              exact Or.inl h
+        · simp only [hr] at h
+          exact Or.inl h
+      · exact Or.inr ⟨List.mem_cons_of_mem _ h.1, h.2⟩
+    · intro hv
+      obtain ⟨h1, h2⟩ := ih2 hv
+      unfold kahnStep at h1
+      by_cases hr : kahnReady n arc done a = true
+      · simp only [hr, ↓reduceIte] at h1
+        cases acc with
+        | none => simp at h1
+        | some w =>
+          simp only at h1
+          by_cases hd : decl a < decl w
+          · simp [hd] at h1
+          · simp [hd] at h1
+      · simp only [hr] at h1
+        refine ⟨h1, fun j hj => ?_⟩
+        rcases List.mem_cons.mp hj with rfl | hj
+        · simpa using hr
+        · exact h2 j hj
+
+theorem kahnPick_some {n : Nat} {arc : Nat → Nat → Bool} {decl : Nat → Nat} {done : List Nat}
+    {v : Nat} (h : kahnPick n arc decl done = some v) :
+    v < n ∧ kahnReady n arc done v = true := by
+  have := (kahnPick_fold n arc decl done (List.range n) none).1 v h
+  rcases this with h | h
+  · simp at h
+  · exact ⟨List.mem_range.mp h.1, h.2⟩
+
+theorem kahnPick_none {n : Nat} {arc : Nat → Nat → Bool} {decl : Nat → Nat} {done : List Nat}
+    (h : kahnPick n arc decl done = none) : ∀ j, j < n → kahnReady n arc done j = false := by
+  intro j hj
+  exact ((kahnPick_fold n arc decl done (List.range n) none).2 h).2 j (List.mem_range.mpr hj)
+
+
+theorem foldl_congr_mem {α β : Type} (f g : β → α → β) :
+    ∀ (l : List α) (a : β), (∀ x ∈ l, ∀ b, f b x = g b x) → l.foldl f a = l.foldl g a
+  | [], _, _ => rfl
+  | x :: l, a, h => by
+    simp only [List.foldl_cons]
+    rw [h x (List.mem_cons_self) a]
+    exact foldl_congr_mem f g l _ (fun y hy b => h y (List.mem_cons_of_mem _ hy) b)
+
+def kahnFastReady (pred : Array (List Nat)) (dn : Array Bool) (j : Nat) : Bool :=
+  !dn.getD j true && (pred.getD j []).all fun i => dn.getD i false
+
+def kahnFastStep (pred : Array (List Nat)) (decl : Nat → Nat) (dn : Array Bool)
+    (acc : Option Nat) (j : Nat) : Option Nat :=
+  if kahnFastReady pred dn j then
+    match acc with
+    | none => some j
+    | some v => if decl j < decl v then some j else acc
+  else acc
+
+def kahnFastPick (n : Nat) (pred : Array (List Nat)) (decl : Nat → Nat) (dn : Array Bool) :
+    Option Nat :=
+  (List.range n).foldl (kahnFastStep pred decl dn) none
+
+def kahnFastValue (pred : Array (List Nat)) (straight : Nat → Bool) (sl : Array Int)
+    (v : Nat) : Int :=
+  if straight v then -1
+  else (pred.getD v []).foldl (fun m i => max m (sl.getD i (-1) + 1)) 0
+
+def kahnFast (n : Nat) (pred : Array (List Nat)) (decl : Nat → Nat) (straight : Nat → Bool) :
+    Nat → Array Bool → Array Int → Array Int
+  | 0, _, sl => sl
+  | fuel + 1, dn, sl =>
+    match kahnFastPick n pred decl dn with
+    | none => sl
+    | some v =>
+      kahnFast n pred decl straight fuel (dn.set! v true)
+        (sl.set! v (kahnFastValue pred straight sl v))
+
+def kahnSlots (n : Nat) (arc : Nat → Nat → Bool) (decl : Nat → Nat) (straight : Nat → Bool) :
+    Array Int :=
+  kahnFast n ((List.range n).map fun j => (List.range n).filter fun i => arc i j).toArray decl
+    straight n (Array.replicate n false) (Array.replicate n (-1))
+
+structure KRel (n : Nat) (done : List Nat) (sl : Nat → Int) (dn : Array Bool)
+    (sa : Array Int) : Prop where
+  dget : ∀ j, j < n → dn[j]? = some (done.contains j)
+  sget : ∀ j, j < n → sa[j]? = some (sl j)
+  dsize : dn.size = n
+  ssize : sa.size = n
+
+theorem kahnFastReady_eq {n : Nat} {arc : Nat → Nat → Bool} {pred : Array (List Nat)}
+    (hpred : ∀ j, j < n → pred.getD j [] = (List.range n).filter fun i => arc i j)
+    {done : List Nat} {sl : Nat → Int} {dn : Array Bool} {sa : Array Int}
+    (hR : KRel n done sl dn sa) {j : Nat} (hj : j < n) :
+    kahnFastReady pred dn j = kahnReady n arc done j := by
+  unfold kahnFastReady kahnReady
+  rw [hpred j hj, List.all_filter]
+  have h1 : dn.getD j true = done.contains j := by
+    rw [Array.getD_eq_getD_getElem?, hR.dget j hj]; rfl
+  rw [h1]
+  congr 1
+  rw [Bool.eq_iff_iff]
+  simp only [List.all_eq_true, List.mem_range]
+  constructor
+  · intro h i hi
+    have := h i hi
+    have h2 : dn.getD i false = done.contains i := by
+      rw [Array.getD_eq_getD_getElem?, hR.dget i hi]; rfl
+    rw [h2] at this
+    exact this
+  · intro h i hi
+    have := h i hi
+    have h2 : dn.getD i false = done.contains i := by
+      rw [Array.getD_eq_getD_getElem?, hR.dget i hi]; rfl
+    rw [h2]
+    exact this
+
+theorem kahnFastPick_eq {n : Nat} {arc : Nat → Nat → Bool} {decl : Nat → Nat}
+    {pred : Array (List Nat)}
+    (hpred : ∀ j, j < n → pred.getD j [] = (List.range n).filter fun i => arc i j)
+    {done : List Nat} {sl : Nat → Int} {dn : Array Bool} {sa : Array Int}
+    (hR : KRel n done sl dn sa) :
+    kahnFastPick n pred decl dn = kahnPick n arc decl done := by
+  unfold kahnFastPick kahnPick
+  apply foldl_congr_mem
+  intro j hj acc
+  have hjn := List.mem_range.mp hj
+  unfold kahnFastStep kahnStep
+  rw [kahnFastReady_eq hpred hR hjn]
+
+theorem kahnFastValue_eq {n : Nat} {arc : Nat → Nat → Bool} {straight : Nat → Bool}
+    {pred : Array (List Nat)}
+    (hpred : ∀ j, j < n → pred.getD j [] = (List.range n).filter fun i => arc i j)
+    {done : List Nat} {sl : Nat → Int} {dn : Array Bool} {sa : Array Int}
+    (hR : KRel n done sl dn sa) {v : Nat} (hv : v < n) :
+    kahnFastValue pred straight sa v = kahnValue n arc straight sl v := by
+  unfold kahnFastValue kahnValue
+  by_cases hs : straight v = true
+  · simp [hs]
+  · simp only [hs, Bool.false_eq_true, ↓reduceIte]
+    rw [hpred v hv, List.foldl_filter]
+    apply foldl_congr_mem
+    intro i hi m
+    have hin := List.mem_range.mp hi
+    have h2 : sa.getD i (-1) = sl i := by
+      rw [Array.getD_eq_getD_getElem?, hR.sget i hin]; rfl
+    rw [h2]
+
+theorem kahnFast_eq {n : Nat} {arc : Nat → Nat → Bool} {decl : Nat → Nat}
+    {straight : Nat → Bool} {pred : Array (List Nat)}
+    (hpred : ∀ j, j < n → pred.getD j [] = (List.range n).filter fun i => arc i j) :
+    ∀ (fuel : Nat) (done : List Nat) (sl : Nat → Int) (dn : Array Bool) (sa : Array Int),
+      KRel n done sl dn sa → ∀ j, j < n →
+        (kahnFast n pred decl straight fuel dn sa).getD j (-1) =
+          kahn n arc decl straight fuel done sl j
+  | 0, done, sl, dn, sa, hR, j, hj => by
+    simp only [kahnFast, kahn]
+    rw [Array.getD_eq_getD_getElem?, hR.sget j hj]; rfl
+  | fuel + 1, done, sl, dn, sa, hR, j, hj => by
+    simp only [kahnFast, kahn]
+    rw [kahnFastPick_eq hpred hR]
+    cases hp : kahnPick n arc decl done with
+    | none =>
+      simp only
+      rw [Array.getD_eq_getD_getElem?, hR.sget j hj]; rfl
+    | some v =>
+      simp only
+      obtain ⟨hvn, _⟩ := kahnPick_some hp
+      have hval := kahnFastValue_eq (straight := straight) hpred hR hvn
+      refine kahnFast_eq hpred fuel (v :: done)
+        (fun j => if j = v then kahnValue n arc straight sl v else sl j)
+        (dn.set! v true) (sa.set! v (kahnFastValue pred straight sa v)) ⟨?_, ?_, ?_, ?_⟩ j hj
+      · intro k hk
+        rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, hR.dget k hk]
+        by_cases hkv : v = k
+        · subst hkv
+          simp [hR.dsize, hvn]
+        · have : k ≠ v := fun h => hkv h.symm
+          simp [hkv, this]
+      · intro k hk
+        rw [Array.set!_eq_setIfInBounds, Array.getElem?_setIfInBounds, hR.sget k hk]
+        by_cases hkv : v = k
+        · subst hkv
+          simp [hR.ssize, hvn, hval]
+        · have : k ≠ v := fun h => hkv h.symm
+          simp [hkv, this]
+      · rw [Array.set!_eq_setIfInBounds, Array.size_setIfInBounds]; exact hR.dsize
+      · rw [Array.set!_eq_setIfInBounds, Array.size_setIfInBounds]; exact hR.ssize
+
+theorem kahnSlots_get {n : Nat} {arc : Nat → Nat → Bool} {decl : Nat → Nat}
+    {straight : Nat → Bool} {j : Nat} (hj : j < n) :
+    (kahnSlots n arc decl straight).getD j (-1) =
+      kahn n arc decl straight n [] (fun _ => -1) j := by
+  unfold kahnSlots
+  refine kahnFast_eq (n := n) (arc := arc) ?_ n [] (fun _ => -1) _ _ ⟨?_, ?_, ?_, ?_⟩ j hj
+  · intro k hk
+    rw [Array.getD_eq_getD_getElem?, List.getElem?_toArray, List.getElem?_map,
+      List.getElem?_range hk]
+    rfl
+  · intro k hk
+    rw [Array.getElem?_replicate]; simp [hk]
+  · intro k hk
+    rw [Array.getElem?_replicate]; simp [hk]
+  · simp
+  · simp
+
+def numberGapFast (segs : List RoutingSegment) : RoutingGap :=
+  let sl := kahnSlots segs.length (fun i j => segArc (segs.getD i default) (segs.getD j default))
+    (fun j => (segs.getD j default).decl) (fun j => segStraight (segs.getD j default))
+  { segments := (List.range segs.length).map fun i =>
+      { segs.getD i default with slot := sl.getD i (-1) }
+    slots := (List.range segs.length).foldl
+      (fun m i => if !segStraight (segs.getD i default) then max m (sl.getD i (-1) + 1) else m) 0 }
+
+theorem numberGapFast_eq : numberGapFast = numberGap := by
+  funext segs
+  unfold numberGapFast numberGap
+  have hs : ∀ i, i < segs.length →
+      (kahnSlots segs.length (fun i j => segArc (segs.getD i default) (segs.getD j default))
+        (fun j => (segs.getD j default).decl)
+        (fun j => segStraight (segs.getD j default))).getD i (-1) = numberSlots segs i :=
+    fun i hi => kahnSlots_get hi
+  dsimp only
+  congr 1
+  · apply List.map_congr_left
+    intro i hi
+    rw [hs i (List.mem_range.mp hi)]
+  · apply foldl_congr_mem
+    intro i hi m
+    rw [hs i (List.mem_range.mp hi)]
+
+@[csimp] theorem numberGap_eq_numberGapFast : @numberGap = @numberGapFast :=
+  numberGapFast_eq.symm
+
+
 def route (p : Proper) (layers : List (List Nat)) (x : List Int) : Except LayoutError Routing :=
   if I32_MAX < (p.nodes.length : Int) ∨ I32_MAX < (p.edges.length : Int) then .error .overflow
   else if !layersOk p layers ∨ x.length ≠ p.nodes.length then .error .domain
@@ -200,12 +498,16 @@ def route (p : Proper) (layers : List (List Nat)) (x : List Int) : Except Layout
       match mapOk (targetPort p x) (List.range p.edges.length) with
       | .error e => .error e
       | .ok tx =>
-        .ok { gaps := (List.range (layers.length - 1)).map fun g =>
-                numberGap (gapSegments p sx tx g)
-              sourceX := sx
-              targetX := tx
-              segment := (List.range p.edges.length).map fun i =>
-                (gapKeys p (gapOf p i)).idxOf (segKey p i) }
+        match mapOk (runAt p x sx) (List.range p.edges.length) with
+        | .error e => .error e
+        | .ok sr =>
+          .ok { gaps := (List.range (layers.length - 1)).map fun g =>
+                  numberGap (gapSegments p sr tx g)
+                sourceX := sx
+                targetX := tx
+                sourceRun := sr
+                segment := (List.range p.edges.length).map fun i =>
+                  (gapKeys p (gapOf p i)).idxOf (segKey p i) }
 
 def edgesOf (p : Proper) (o : Nat) : List Nat :=
   (List.range p.edges.length).filter fun i => (edgeAt p i).original == o
@@ -223,14 +525,17 @@ def midOf (p : Proper) (slot : Int) (top heights : List Int) (r : Routing) (i : 
     slot * (((r.gaps.getD (gapOf p i) default).segments.getD (r.segment.getD i 0) default).slot + 1) +
     Int.fdiv slot 2
 
+def runOf (r : Routing) (i : Nat) : Int := r.sourceRun.getD i 0
+
 def pieceOf (p : Proper) (slot : Int) (y top heights : List Int) (r : Routing) (i : Nat) :
     Except LayoutError (List Point) :=
   if I32_MAX < (pieceStart p y r i).y then .error .overflow
-  else if (pieceStart p y r i).x = (pieceEnd p y r i).x then
-    .ok [pieceStart p y r i, pieceEnd p y r i]
+  else if runOf r i = (pieceEnd p y r i).x then
+    .ok [pieceStart p y r i, ⟨runOf r i, (pieceStart p y r i).y⟩, pieceEnd p y r i]
   else if I32_MAX < midOf p slot top heights r i then .error .overflow
   else
-    .ok [pieceStart p y r i, ⟨(pieceStart p y r i).x, midOf p slot top heights r i⟩,
+    .ok [pieceStart p y r i, ⟨runOf r i, (pieceStart p y r i).y⟩,
+      ⟨runOf r i, midOf p slot top heights r i⟩,
       ⟨(pieceEnd p y r i).x, midOf p slot top heights r i⟩, pieceEnd p y r i]
 
 def dedupFrom (last : Point) : List Point → List Point
@@ -487,84 +792,6 @@ theorem foldl_cmax_ge_mem (g : Nat → Int) (P : Nat → Bool) :
         omega
       exact Int.le_trans h2 h1
     · exact foldl_cmax_ge_mem g P l _ i hil hp
-
-theorem kahnReady_iff {n : Nat} {arc : Nat → Nat → Bool} {done : List Nat} {j : Nat} :
-    kahnReady n arc done j = true ↔ j ∉ done ∧ ∀ i, i < n → arc i j = true → i ∈ done := by
-  simp only [kahnReady, Bool.and_eq_true, Bool.not_eq_true', List.all_eq_true, List.mem_range,
-    Bool.or_eq_true, Bool.not_eq_true']
-  constructor
-  · rintro ⟨h1, h2⟩
-    refine ⟨by simpa using h1, fun i hi hij => ?_⟩
-    rcases h2 i hi with h | h
-    · rw [h] at hij; exact absurd hij (by decide)
-    · simpa using h
-  · rintro ⟨h1, h2⟩
-    refine ⟨by simpa using h1, fun i hi => ?_⟩
-    by_cases hij : arc i j = true
-    · exact Or.inr (by simpa using h2 i hi hij)
-    · exact Or.inl (by simpa using hij)
-
-theorem kahnPick_fold (n : Nat) (arc : Nat → Nat → Bool) (decl : Nat → Nat) (done : List Nat) :
-    ∀ (l : List Nat) (acc : Option Nat),
-      (∀ v, l.foldl (kahnStep n arc decl done) acc = some v →
-        acc = some v ∨ (v ∈ l ∧ kahnReady n arc done v = true)) ∧
-      (l.foldl (kahnStep n arc decl done) acc = none →
-        acc = none ∧ ∀ j ∈ l, kahnReady n arc done j = false)
-  | [], acc => by simp
-  | a :: l, acc => by
-    simp only [List.foldl_cons]
-    obtain ⟨ih1, ih2⟩ := kahnPick_fold n arc decl done l (kahnStep n arc decl done acc a)
-    constructor
-    · intro v hv
-      rcases ih1 v hv with h | h
-      · unfold kahnStep at h
-        by_cases hr : kahnReady n arc done a = true
-        · simp only [hr, ↓reduceIte] at h
-          cases acc with
-          | none =>
-            simp only [Option.some.injEq] at h
-            exact Or.inr ⟨by simp [h], by rw [← h]; exact hr⟩
-          | some w =>
-            simp only at h
-            by_cases hd : decl a < decl w
-            · simp only [hd, ↓reduceIte] at h
-              simp only [Option.some.injEq] at h
-              exact Or.inr ⟨by simp [h], by rw [← h]; exact hr⟩
-            · simp only [hd, ↓reduceIte] at h
-              exact Or.inl h
-        · simp only [hr] at h
-          exact Or.inl h
-      · exact Or.inr ⟨List.mem_cons_of_mem _ h.1, h.2⟩
-    · intro hv
-      obtain ⟨h1, h2⟩ := ih2 hv
-      unfold kahnStep at h1
-      by_cases hr : kahnReady n arc done a = true
-      · simp only [hr, ↓reduceIte] at h1
-        cases acc with
-        | none => simp at h1
-        | some w =>
-          simp only at h1
-          by_cases hd : decl a < decl w
-          · simp [hd] at h1
-          · simp [hd] at h1
-      · simp only [hr] at h1
-        refine ⟨h1, fun j hj => ?_⟩
-        rcases List.mem_cons.mp hj with rfl | hj
-        · simpa using hr
-        · exact h2 j hj
-
-theorem kahnPick_some {n : Nat} {arc : Nat → Nat → Bool} {decl : Nat → Nat} {done : List Nat}
-    {v : Nat} (h : kahnPick n arc decl done = some v) :
-    v < n ∧ kahnReady n arc done v = true := by
-  have := (kahnPick_fold n arc decl done (List.range n) none).1 v h
-  rcases this with h | h
-  · simp at h
-  · exact ⟨List.mem_range.mp h.1, h.2⟩
-
-theorem kahnPick_none {n : Nat} {arc : Nat → Nat → Bool} {decl : Nat → Nat} {done : List Nat}
-    (h : kahnPick n arc decl done = none) : ∀ j, j < n → kahnReady n arc done j = false := by
-  intro j hj
-  exact ((kahnPick_fold n arc decl done (List.range n) none).2 h).2 j (List.mem_range.mpr hj)
 
 theorem exists_min_mem (lt : Nat → Nat → Prop) (hirr : ∀ i, ¬ lt i i)
     (htrans : ∀ i j k, lt i j → lt j k → lt i k) :
@@ -866,7 +1093,7 @@ theorem route_spec {p : Proper} {layers : List (List Nat)} {x : List Int} {r : R
     (∀ i, i < p.edges.length → sourcePort p x i = .ok (r.sourceX.getD i 0) ∧
         targetPort p x i = .ok (r.targetX.getD i 0)) ∧
     r.gaps = (List.range (layers.length - 1)).map
-      (fun g => numberGap (gapSegments p r.sourceX r.targetX g)) ∧
+      (fun g => numberGap (gapSegments p r.sourceRun r.targetX g)) ∧
     r.segment = (List.range p.edges.length).map
       (fun i => (gapKeys p (gapOf p i)).idxOf (segKey p i)) := by
   unfold route at h
@@ -881,17 +1108,51 @@ theorem route_spec {p : Proper} {layers : List (List Nat)} {x : List Int} {r : R
         split at h
         · simp at h
         · next tx htx =>
-          simp only [Except.ok.injEq] at h
-          subst h
-          have hl : layersOk p layers = true := by
-            refine Classical.byContradiction fun hc => ?_
-            exact h2 (Or.inl (by simpa using hc))
-          have hx : x.length = p.nodes.length := by
-            refine Classical.byContradiction fun hc => ?_
-            exact h2 (Or.inr hc)
-          obtain ⟨hsl, hs⟩ := mapOk_range_getD hsx
-          obtain ⟨htl, ht⟩ := mapOk_range_getD htx
-          exact ⟨hl, hx, hsl, htl, fun i hi => ⟨hs i hi, ht i hi⟩, rfl, rfl⟩
+          split at h
+          · simp at h
+          · next sr hsr =>
+            simp only [Except.ok.injEq] at h
+            subst h
+            have hl : layersOk p layers = true := by
+              refine Classical.byContradiction fun hc => ?_
+              exact h2 (Or.inl (by simpa using hc))
+            have hx : x.length = p.nodes.length := by
+              refine Classical.byContradiction fun hc => ?_
+              exact h2 (Or.inr hc)
+            obtain ⟨hsl, hs⟩ := mapOk_range_getD hsx
+            obtain ⟨htl, ht⟩ := mapOk_range_getD htx
+            exact ⟨hl, hx, hsl, htl, fun i hi => ⟨hs i hi, ht i hi⟩, rfl, rfl⟩
+
+theorem runAt_eq {p : Proper} {x sx : List Int} {i : Nat} {a : Int}
+    (h : runAt p x sx i = .ok a) : a = runCoord p x sx i := by
+  unfold runAt at h
+  split at h
+  · simp at h
+  · simp only [Except.ok.injEq] at h
+    exact h.symm
+
+theorem route_run_spec {p : Proper} {layers : List (List Nat)} {x : List Int} {r : Routing}
+    (h : route p layers x = .ok r) :
+    r.sourceRun.length = p.edges.length ∧
+    ∀ i, i < p.edges.length → r.sourceRun.getD i 0 = runCoord p x r.sourceX i := by
+  unfold route at h
+  split at h
+  · simp at h
+  · split at h
+    · simp at h
+    · split at h
+      · simp at h
+      · next sx hsx =>
+        split at h
+        · simp at h
+        · next tx htx =>
+          split at h
+          · simp at h
+          · next sr hsr =>
+            simp only [Except.ok.injEq] at h
+            subst h
+            obtain ⟨hrl, hr⟩ := mapOk_range_getD hsr
+            exact ⟨hrl, fun i hi => runAt_eq (hr i hi)⟩
 
 theorem portAt_eq {p : Proper} {x : List Int} {v : Nat} {es : List Nat} {i : Nat} {a : Int}
     (h : portAt p x v es i = .ok a) : a = portCoord p x v es i := by
@@ -911,7 +1172,7 @@ theorem portCoord_bounds {p : Proper} {x : List Int} {v : Nat} {es : List Nat} {
     exact List.mem_map.mpr ⟨i, hi, rfl⟩
   have hj := List.idxOf_lt_length_of_mem hmem
   unfold portCoord
-  simp only
+  simp only; split <;> try omega
   generalize (portNeighbours p x v es).idxOf (otherEnd (edgeAt p i) v) = j at hj ⊢
   generalize (portNeighbours p x v es).length = len at hj ⊢
   have h1 : 0 ≤ Int.fdiv (((j : Int) + 1) * nodeW p v) ((len : Int) + 1) :=
@@ -968,9 +1229,13 @@ theorem getD_map_range {α : Type} (f : Nat → α) (n i : Nat) (hi : i < n) (d 
     ((List.range n).map f).getD i d = f i := by
   simp [List.getD_eq_getElem?_getD, hi]
 
-theorem buildSegment_ports {p : Proper} {x sx tx : List Int}
-    (hs : ∀ i, i < p.edges.length → sourcePort p x i = .ok (sx.getD i 0))
-    (ht : ∀ i, i < p.edges.length → targetPort p x i = .ok (tx.getD i 0))
+def KeyConst (p : Proper) (f : List Int) : Prop :=
+  ∀ i a, i < p.edges.length → a < p.edges.length →
+    (edgeAt p a).tail = (edgeAt p i).tail → (edgeAt p a).head = (edgeAt p i).head →
+      f.getD a 0 = f.getD i 0
+
+theorem buildSegment_ports {p : Proper} {sx tx : List Int}
+    (hs : KeyConst p sx) (ht : KeyConst p tx)
     {i : Nat} (hi : i < p.edges.length) :
     (buildSegment p sx tx (gapOf p i) (segKey p i)).sourceX = sx.getD i 0 ∧
     (buildSegment p sx tx (gapOf p i) (segKey p i)).targetX = tx.getD i 0 := by
@@ -996,23 +1261,42 @@ theorem buildSegment_ports {p : Proper} {x sx tx : List Int}
     have hk2 : (edgeAt p a).head = (edgeAt p i).head := by
       have := congrArg Prod.snd hk
       simpa [segKey] using this
-    have e1 : sourcePort p x a = sourcePort p x i := sourcePort_congr hk1 hk2
-    have e2 : targetPort p x a = targetPort p x i := targetPort_congr hk1 hk2
-    rw [hs a ham, hs i hi] at e1
-    rw [ht a ham, ht i hi] at e2
-    simp only [Except.ok.injEq] at e1 e2
     simp only [List.headD_cons]
-    exact ⟨e1, e2⟩
+    exact ⟨hs i a hi ham hk1 hk2, ht i a hi ham hk1 hk2⟩
+
+theorem route_keyConst {p : Proper} {layers : List (List Nat)} {x : List Int} {r : Routing}
+    (h : route p layers x = .ok r) :
+    KeyConst p r.sourceX ∧ KeyConst p r.targetX ∧ KeyConst p r.sourceRun := by
+  obtain ⟨_, _, _, _, hp, _⟩ := route_spec h
+  obtain ⟨_, hrun⟩ := route_run_spec h
+  have hs : KeyConst p r.sourceX := by
+    intro i a hi ha ht hh
+    have e : sourcePort p x a = sourcePort p x i := sourcePort_congr ht hh
+    rw [(hp a ha).1, (hp i hi).1] at e
+    simpa only [Except.ok.injEq] using e
+  have htg : KeyConst p r.targetX := by
+    intro i a hi ha ht hh
+    have e : targetPort p x a = targetPort p x i := targetPort_congr ht hh
+    rw [(hp a ha).2, (hp i hi).2] at e
+    simpa only [Except.ok.injEq] using e
+  refine ⟨hs, htg, ?_⟩
+  intro i a hi ha ht hh
+  rw [hrun a ha, hrun i hi]
+  unfold runCoord
+  rw [ht]
+  split
+  · rfl
+  · exact hs i a hi ha ht hh
 
 theorem route_segment_facts {p : Proper} {layers : List (List Nat)} {x : List Int} {r : Routing}
     (h : route p layers x = .ok r) {i : Nat} (hi : i < p.edges.length) :
     gapOf p i + 1 < layers.length ∧
     0 ≤ (r.gaps.getD (gapOf p i) default).slots ∧
     ((r.gaps.getD (gapOf p i) default).segments.getD (r.segment.getD i 0) default).sourceX =
-      r.sourceX.getD i 0 ∧
+      r.sourceRun.getD i 0 ∧
     ((r.gaps.getD (gapOf p i) default).segments.getD (r.segment.getD i 0) default).targetX =
       r.targetX.getD i 0 ∧
-    (r.sourceX.getD i 0 ≠ r.targetX.getD i 0 →
+    (r.sourceRun.getD i 0 ≠ r.targetX.getD i 0 →
       0 ≤ ((r.gaps.getD (gapOf p i) default).segments.getD (r.segment.getD i 0) default).slot ∧
       ((r.gaps.getD (gapOf p i) default).segments.getD (r.segment.getD i 0) default).slot + 1 ≤
         (r.gaps.getD (gapOf p i) default).slots) := by
@@ -1028,7 +1312,7 @@ theorem route_segment_facts {p : Proper} {layers : List (List Nat)} {x : List In
       simp only [gapOf]; omega
     omega
   have hgap : r.gaps.getD (gapOf p i) default =
-      numberGap (gapSegments p r.sourceX r.targetX (gapOf p i)) := by
+      numberGap (gapSegments p r.sourceRun r.targetX (gapOf p i)) := by
     rw [hgaps]
     exact getD_map_range _ _ _ (by omega) _
   have hsegi : r.segment.getD i 0 = (gapKeys p (gapOf p i)).idxOf (segKey p i) := by
@@ -1039,27 +1323,28 @@ theorem route_segment_facts {p : Proper} {layers : List (List Nat)} {x : List In
     exact ⟨i, by simp [gapEdges, hi], rfl⟩
   have hk : (gapKeys p (gapOf p i)).idxOf (segKey p i) < (gapKeys p (gapOf p i)).length :=
     List.idxOf_lt_length_of_mem hkey
-  have hsl : (gapSegments p r.sourceX r.targetX (gapOf p i)).length =
+  have hsl : (gapSegments p r.sourceRun r.targetX (gapOf p i)).length =
       (gapKeys p (gapOf p i)).length := by
     simp [gapSegments]
-  have hseg' : (gapSegments p r.sourceX r.targetX (gapOf p i)).getD
+  have hseg' : (gapSegments p r.sourceRun r.targetX (gapOf p i)).getD
       ((gapKeys p (gapOf p i)).idxOf (segKey p i)) default =
-      buildSegment p r.sourceX r.targetX (gapOf p i) (segKey p i) := by
+      buildSegment p r.sourceRun r.targetX (gapOf p i) (segKey p i) := by
     have := List.getElem_idxOf hk
     simp only [gapSegments, List.getD_eq_getElem?_getD, List.getElem?_map,
       List.getElem?_eq_getElem hk, this]
     rfl
-  obtain ⟨hs, ht⟩ := buildSegment_ports (fun i hi => (hp i hi).1) (fun i hi => (hp i hi).2) hi
+  obtain ⟨_, hkt, hkr⟩ := route_keyConst h
+  obtain ⟨hs, ht⟩ := buildSegment_ports hkr hkt hi
   rw [hgap, hsegi]
   generalize hidx : (gapKeys p (gapOf p i)).idxOf (segKey p i) = idx at hk hseg' ⊢
-  generalize hsegs : gapSegments p r.sourceX r.targetX (gapOf p i) = segs at hsl hseg' ⊢
+  generalize hsegs : gapSegments p r.sourceRun r.targetX (gapOf p i) = segs at hsl hseg' ⊢
   have hidxl : idx < segs.length := by rw [hsl]; exact hk
   have hG : (numberGap segs).segments.getD idx default =
       { segs.getD idx default with slot := numberSlots segs idx } := by
     simp only [numberGap]
     exact getD_map_range _ _ _ hidxl _
   have hstr : segStraight (segs.getD idx default) = false ↔
-      r.sourceX.getD i 0 ≠ r.targetX.getD i 0 := by
+      r.sourceRun.getD i 0 ≠ r.targetX.getD i 0 := by
     rw [hseg', segStraight_false]
     simp only [hs, ht]
   rw [hG, hseg']
@@ -1073,6 +1358,7 @@ structure Geo where
   wid : Nat → Int
   yv : Nat → Int
   hv : Nat → Int
+  bd : Nat → Int
   T : Nat → Int
   H : Nat → Int
 
@@ -1085,8 +1371,38 @@ structure Geo.Ok (G : Geo) (n K : Nat) : Prop where
   rk_lt : ∀ v, v < n → G.rk v < K
   band : ∀ v, v < n → G.T (G.rk v) ≤ G.yv v ∧ G.yv v + G.hv v ≤ G.T (G.rk v) + G.H (G.rk v)
   mono : ∀ k k', k < k' → k' < K → G.T k + G.H k ≤ G.T k'
+  frame_flat : ∀ v, v < n → (G.bd v = -2 ∨ G.bd v = 2) → G.hv v = 0
   apart : ∀ u v, u < n → v < n → G.rk u = G.rk v → u ≠ v →
+    G.bd u ≠ -2 → G.bd u ≠ 2 → G.bd v ≠ -2 → G.bd v ≠ 2 → (0 < G.hv u ∨ 0 < G.hv v) →
     G.left u + G.wid u ≤ G.left v ∨ G.left v + G.wid v ≤ G.left u
+  top_at : ∀ t, t < n → G.bd t = -2 → G.yv t + G.hv t ≤ G.T (G.rk t)
+  top_clear : ∀ t v, t < n → v < n → G.bd t = -2 → G.rk v = G.rk t → v ≠ t →
+    G.bd v ≠ -2 → G.bd v ≠ 2 → 0 < G.hv v →
+    G.left v + G.wid v ≤ G.left t ∨ G.left t ≤ G.left v
+  bottom_clear : ∀ t v, t < n → v < n → G.bd t = 2 → G.rk v = G.rk t → v ≠ t →
+    G.bd v ≠ -2 → G.bd v ≠ 2 → 0 < G.hv v →
+    G.left t + G.wid t ≤ G.left v ∨ G.left v + G.wid v ≤ G.left t
+
+theorem Geo.Ok.nonframe {G : Geo} {n K : Nat} (hG : G.Ok n K) {v : Nat} (hv : v < n)
+    (hpos : 0 < G.hv v) : G.bd v ≠ -2 ∧ G.bd v ≠ 2 := by
+  constructor <;> intro h <;> have := hG.frame_flat v hv (by omega) <;> omega
+
+theorem Geo.Ok.range_apart {G : Geo} {n K : Nat} (hG : G.Ok n K) {u v : Nat} (hu : u < n)
+    (hv : v < n) (hrk : G.rk u = G.rk v) (hne : u ≠ v) (hnt : G.bd u ≠ -2)
+    (hpos : 0 < G.hv v) :
+    G.left u + G.wid u ≤ G.left v ∨ G.left v + G.wid v ≤ G.left u := by
+  have nf := hG.nonframe hv hpos
+  by_cases hb : G.bd u = 2
+  · exact hG.bottom_clear u v hu hv hb hrk.symm (Ne.symm hne) nf.1 nf.2 hpos
+  · exact hG.apart u v hu hv hrk hne hnt hb nf.1 nf.2 (Or.inr hpos)
+
+theorem Geo.Ok.top_y {G : Geo} {n K : Nat} (hG : G.Ok n K) {u v : Nat} (hu : u < n)
+    (hv : v < n) (hb : G.bd u = -2) (hrk : G.rk u = G.rk v) :
+    G.yv u + G.hv u ≤ G.yv v := by
+  have h1 := hG.top_at u hu hb
+  have h2 := (hG.band v hv).1
+  rw [← hrk] at h2
+  omega
 
 theorem miss_left {P Q : Point} {R : Rect} (h : max P.x Q.x ≤ R.x) :
     Polyline.segMisses P Q R := Or.inl h
@@ -1113,8 +1429,46 @@ theorem range_miss {G : Geo} {u v : Nat} {P Q : Point}
   · apply miss_right
     geo_omega
 
+theorem bottomEdge_hseg_miss {G : Geo} {n K : Nat} (hG : G.Ok n K) {u v : Nat} (hu : u < n)
+    (hv : v < n) (hne : v ≠ u) (hpos : 0 < G.hv v) {a b : Int}
+    (ha : G.left u ≤ a ∧ a ≤ G.left u + G.wid u)
+    (hb : G.left u ≤ b ∧ b ≤ G.left u + G.wid u) :
+    Polyline.segMisses ⟨a, G.yv u + G.hv u⟩ ⟨b, G.yv u + G.hv u⟩ (G.rect v) := by
+  have bu := hG.band u hu
+  have bv := hG.band v hv
+  have hKu := hG.rk_lt u hu
+  have hKv := hG.rk_lt v hv
+  have hvn := hG.hv_nn v hv
+  have hun := hG.hv_nn u hu
+  rcases Nat.lt_trichotomy (G.rk v) (G.rk u) with hlt | heq | hgt
+  · have hm := hG.mono _ _ hlt hKu
+    apply miss_below
+    geo_omega
+  · by_cases hbt : G.bd u = -2
+    · apply miss_above
+      have := hG.top_y hu hv hbt heq.symm
+      geo_omega
+    · exact range_miss (hG.range_apart hu hv heq.symm (Ne.symm hne) hbt hpos) ha hb
+  · have hm := hG.mono _ _ hgt hKv
+    apply miss_above
+    geo_omega
+
+theorem run_vseg_miss {G : Geo} {n K : Nat} (hG : G.Ok n K) {t v : Nat} (ht : t < n)
+    (hv : v < n) (hne : v ≠ t) (hrk : G.rk v = G.rk t) (hpos : 0 < G.hv v) {sx run : Int}
+    (hsx : G.left t ≤ sx ∧ sx ≤ G.left t + G.wid t)
+    (hrun : (G.bd t ≠ -2 ∧ run = sx) ∨ (G.bd t = -2 ∧ run = G.left t)) (ya yb : Int) :
+    Polyline.segMisses ⟨run, ya⟩ ⟨run, yb⟩ (G.rect v) := by
+  have nf := hG.nonframe hv hpos
+  rcases hrun with ⟨hnt, rfl⟩ | ⟨hbt, rfl⟩
+  · exact range_miss (hG.range_apart ht hv hrk.symm (Ne.symm hne) hnt hpos) hsx hsx
+  · rcases hG.top_clear t v ht hv hbt hrk hne nf.1 nf.2 hpos with h | h
+    · apply miss_right
+      geo_omega
+    · apply miss_left
+      geo_omega
+
 theorem junction_miss {G : Geo} {n K : Nat} (hG : G.Ok n K) {d v : Nat} (hd : d < n)
-    (hv : v < n) (hvd : v ≠ d) {tx sx : Int}
+    (hv : v < n) (hvd : v ≠ d) (hnt : G.bd d ≠ -2) (hpos : 0 < G.hv v) {tx sx : Int}
     (h1 : G.left d ≤ tx ∧ tx ≤ G.left d + G.wid d)
     (h2 : G.left d ≤ sx ∧ sx ≤ G.left d + G.wid d) :
     Polyline.segMisses ⟨tx, G.yv d⟩ ⟨sx, G.yv d + G.hv d⟩ (G.rect v) := by
@@ -1128,18 +1482,20 @@ theorem junction_miss {G : Geo} {n K : Nat} (hG : G.Ok n K) {d v : Nat} (hd : d 
   · have hm := hG.mono _ _ hlt hKd
     apply miss_below
     geo_omega
-  · exact range_miss (hG.apart d v hd hv heq.symm (Ne.symm hvd)) h1 h2
+  · exact range_miss (hG.range_apart hd hv heq.symm (Ne.symm hvd) hnt hpos) h1 h2
   · have hm := hG.mono _ _ hgt hKv
     apply miss_above
     geo_omega
 
 theorem piece_miss {G : Geo} {n K : Nat} (hG : G.Ok n K) {t h v : Nat} (ht : t < n)
     (hh : h < n) (hv : v < n) (hrk : G.rk h = G.rk t + 1) (hvt : v ≠ t) (hvh : v ≠ h)
-    {sx tx : Int} (hsx : G.left t ≤ sx ∧ sx ≤ G.left t + G.wid t)
+    (hpos : 0 < G.hv v) {sx run tx : Int} (hsx : G.left t ≤ sx ∧ sx ≤ G.left t + G.wid t)
+    (hrun : (G.bd t ≠ -2 ∧ run = sx) ∨ (G.bd t = -2 ∧ run = G.left t))
     (htx : G.left h ≤ tx ∧ tx ≤ G.left h + G.wid h) {pc : List Point}
-    (hpc : (pc = [⟨sx, G.yv t + G.hv t⟩, ⟨tx, G.yv h⟩] ∧ sx = tx) ∨
+    (hpc : (pc = [⟨sx, G.yv t + G.hv t⟩, ⟨run, G.yv t + G.hv t⟩, ⟨tx, G.yv h⟩] ∧ run = tx) ∨
       ∃ mid, G.T (G.rk t) + G.H (G.rk t) ≤ mid ∧ mid ≤ G.T (G.rk t + 1) ∧
-        pc = [⟨sx, G.yv t + G.hv t⟩, ⟨sx, mid⟩, ⟨tx, mid⟩, ⟨tx, G.yv h⟩]) :
+        pc = [⟨sx, G.yv t + G.hv t⟩, ⟨run, G.yv t + G.hv t⟩, ⟨run, mid⟩, ⟨tx, mid⟩,
+          ⟨tx, G.yv h⟩]) :
     pairsAll (fun P Q => Polyline.segMisses P Q (G.rect v)) pc := by
   have bt := hG.band t ht
   have bh := hG.band h hh
@@ -1153,33 +1509,46 @@ theorem piece_miss {G : Geo} {n K : Nat} (hG : G.Ok n K) {t h v : Nat} (ht : t <
   have hH0 := hG.H_nn (G.rk t) hKt
   have hH1 := hG.H_nn (G.rk h) hKh
   have hstep := hG.mono (G.rk t) (G.rk h) (by omega) hKh
+  have hrunr : G.left t ≤ run ∧ run ≤ G.left t + G.wid t := by
+    have hw := hG.wid_nn t ht
+    rcases hrun with ⟨_, rfl⟩ | ⟨_, rfl⟩
+    · exact hsx
+    · omega
+  have s1 := bottomEdge_hseg_miss hG ht hv hvt hpos hsx hrunr
   rw [hrk] at bh hH1 hstep
   rcases (by omega : G.rk v < G.rk t ∨ G.rk v = G.rk t ∨ G.rk v = G.rk t + 1 ∨
       G.rk t + 2 ≤ G.rk v) with c | c | c | c
   · have hm := hG.mono _ _ c hKt
     rcases hpc with ⟨rfl, hs⟩ | ⟨mid, hm1, hm2, rfl⟩
-    · exact ⟨miss_below (by geo_omega), trivial⟩
-    · exact ⟨miss_below (by geo_omega), miss_below (by geo_omega), miss_below (by geo_omega),
-        trivial⟩
-  · have hap := hG.apart t v ht hv c.symm (Ne.symm hvt)
+    · exact ⟨s1, miss_below (by geo_omega), trivial⟩
+    · exact ⟨s1, miss_below (by geo_omega), miss_below (by geo_omega),
+        miss_below (by geo_omega), trivial⟩
+  · have s2 := run_vseg_miss hG ht hv hvt c hpos hsx hrun
     rw [c] at bv
     rcases hpc with ⟨rfl, hs⟩ | ⟨mid, hm1, hm2, rfl⟩
     · subst hs
-      exact ⟨range_miss hap hsx hsx, trivial⟩
-    · exact ⟨range_miss hap hsx hsx, miss_below (by geo_omega), miss_below (by geo_omega),
-        trivial⟩
-  · have hap := hG.apart h v hh hv (by omega) (Ne.symm hvh)
-    rw [c] at bv
+      exact ⟨s1, s2 _ _, trivial⟩
+    · exact ⟨s1, s2 _ _, miss_below (by geo_omega), miss_below (by geo_omega), trivial⟩
+  · rw [c] at bv
+    have head : ∀ ya : Int, ya ≤ G.yv v →
+        Polyline.segMisses ⟨tx, ya⟩ ⟨tx, G.yv h⟩ (G.rect v) := by
+      intro ya hya
+      by_cases hbt : G.bd h = -2
+      · apply miss_above
+        have := hG.top_at h hh hbt
+        rw [hrk] at this
+        geo_omega
+      · exact range_miss (hG.range_apart hh hv (by omega) (Ne.symm hvh) hbt hpos) htx htx
     rcases hpc with ⟨rfl, hs⟩ | ⟨mid, hm1, hm2, rfl⟩
     · subst hs
-      exact ⟨range_miss hap htx htx, trivial⟩
-    · exact ⟨miss_above (by geo_omega), miss_above (by geo_omega), range_miss hap htx htx,
+      exact ⟨s1, head _ (by omega), trivial⟩
+    · exact ⟨s1, miss_above (by geo_omega), miss_above (by geo_omega), head _ (by omega),
         trivial⟩
   · have hm := hG.mono (G.rk t + 1) (G.rk v) (by omega) hKv
     rcases hpc with ⟨rfl, hs⟩ | ⟨mid, hm1, hm2, rfl⟩
-    · exact ⟨miss_above (by geo_omega), trivial⟩
-    · exact ⟨miss_above (by geo_omega), miss_above (by geo_omega), miss_above (by geo_omega),
-        trivial⟩
+    · exact ⟨s1, miss_above (by geo_omega), trivial⟩
+    · exact ⟨s1, miss_above (by geo_omega), miss_above (by geo_omega),
+        miss_above (by geo_omega), trivial⟩
 
 def coordSep (gap : Int) (p : Proper) (a b : Nat) : Int :=
   Int.fdiv (nodeW p a) 2 + Int.fdiv (nodeW p b) 2 + gap
@@ -1190,8 +1559,18 @@ structure CoordFacts (p : Proper) (layers : List (List Nat)) (x y top : List Int
   rank_gap_nonneg : 0 ≤ rankGap
   slot_pos : 1 ≤ slot
   half_slot_le : Int.fdiv slot 2 ≤ rankGap
-  separated : ∀ layer ∈ layers, ∀ (i a b : Nat), layer[i]? = some a → layer[i + 1]? = some b →
-    coordSep gap p a b ≤ xAt x b - xAt x a
+  separated : ∀ layer ∈ layers, ∀ (i j a b : Nat), i < j → layer[i]? = some a →
+    layer[j]? = some b → ¬ IsFrame p a → ¬ IsFrame p b →
+    (0 < nodeH p a ∨ 0 < nodeH p b) → coordSep gap p a b ≤ xAt x b - xAt x a
+  frame_flat : ∀ v, IsFrame p v → nodeH p v = 0
+  top_at : ∀ (k : Nat) (l : List Nat) (v : Nat), layers[k]? = some l → v ∈ l → IsTop p v →
+    yAt y v + nodeH p v ≤ top.getD k 0
+  top_clear : ∀ layer ∈ layers, ∀ t v : Nat, t ∈ layer → v ∈ layer → IsTop p t → v ≠ t →
+    ¬ IsFrame p v → 0 < nodeH p v →
+    leftOf p x v + nodeW p v ≤ leftOf p x t ∨ leftOf p x t ≤ leftOf p x v
+  bottom_clear : ∀ layer ∈ layers, ∀ t v : Nat, t ∈ layer → v ∈ layer → IsBottom p t →
+    v ≠ t → ¬ IsFrame p v → 0 < nodeH p v →
+    leftOf p x t + nodeW p t ≤ leftOf p x v ∨ leftOf p x v + nodeW p v ≤ leftOf p x t
   node_in_band : ∀ (k : Nat) (l : List Nat) (v : Nat), layers[k]? = some l → v ∈ l →
     v < p.nodes.length → rk p.rank v = (k : Int) →
     top.getD k 0 ≤ yAt y v ∧ yAt y v + nodeH p v ≤ top.getD k 0 + layerHeight p l
@@ -1205,6 +1584,7 @@ def routeGeo (p : Proper) (layers : List (List Nat)) (x y top : List Int) : Geo 
   wid v := nodeW p v
   yv v := yAt y v
   hv v := nodeH p v
+  bd v := frameKind p v
   T k := top.getD k 0
   H k := (layers.map (layerHeight p)).getD k 0
 
@@ -1249,57 +1629,94 @@ theorem top_mono {p : Proper} {layers : List (List Nat)} {top : List Int} {r : R
     rw [e, h1]
     omega
 
-theorem pairwise_of_separated {gap : Int} (hgap : 1 ≤ gap) {p : Proper} {x : List Int} :
-    ∀ (L : List Nat), (∀ v ∈ L, 0 ≤ nodeW p v) →
-      (∀ (i a b : Nat), L[i]? = some a → L[i + 1]? = some b →
-        coordSep gap p a b ≤ xAt x b - xAt x a) →
-      List.Pairwise (fun a b => xAt x a - Int.fdiv (nodeW p a) 2 + nodeW p a ≤
-        xAt x b - Int.fdiv (nodeW p b) 2) L
-  | [], _, _ => List.Pairwise.nil
-  | [a], _, _ => List.pairwise_singleton _ _
-  | a :: b :: L, hw, hs => by
-    have ih := pairwise_of_separated hgap (b :: L) (fun v hv => hw v (List.mem_cons_of_mem _ hv))
-      (fun i a' b' h1 h2 => hs (i + 1) a' b' (by simpa using h1) (by simpa using h2))
-    have hab := hs 0 a b (by simp) (by simp)
-    have hwa := hw a (by simp)
-    have hwb := hw b (by simp)
-    have e : ∀ w : Int, Int.fdiv w 2 = w / 2 := fun w => Int.fdiv_eq_ediv_of_nonneg w (by decide)
-    unfold coordSep at hab
-    have rab : xAt x a - Int.fdiv (nodeW p a) 2 + nodeW p a ≤
-        xAt x b - Int.fdiv (nodeW p b) 2 := by
-      simp only [e] at hab ⊢
-      omega
-    refine List.pairwise_cons.mpr ⟨fun c hc => ?_, ih⟩
-    rcases List.mem_cons.mp hc with hcb | hc
-    · rw [hcb]; exact rab
-    · have hbc := (List.pairwise_cons.mp ih).1 c hc
-      have hbc' : xAt x b - Int.fdiv (nodeW p b) 2 + nodeW p b ≤ xAt x c - Int.fdiv (nodeW p c) 2 := hbc
-      omega
+theorem same_layer {p : Proper} {layers : List (List Nat)} (hl : layersOk p layers = true)
+    {u v : Nat} (hu : u < p.nodes.length) (hv : v < p.nodes.length)
+    (h : rk p.rank u = rk p.rank v) :
+    ∃ l, l ∈ layers ∧ u ∈ l ∧ v ∈ l := by
+  obtain ⟨_, _, _, hcov, _⟩ := layersOk_spec hl
+  obtain ⟨lu, hlu, hul, _⟩ := hcov u hu
+  obtain ⟨lv, hlv, hvl, _⟩ := hcov v hv
+  have h' : (rk p.rank u).toNat = (rk p.rank v).toNat := by rw [h]
+  rw [h'] at hlu
+  have hleq : lu = lv := Option.some.inj (hlu.symm.trans hlv)
+  subst hleq
+  exact ⟨lu, List.mem_of_getElem? hlu, hul, hvl⟩
 
-theorem apart_of_pairwise {R : Nat → Nat → Prop} :
-    ∀ (L : List Nat), L.Pairwise R → ∀ u ∈ L, ∀ v ∈ L, u ≠ v → R u v ∨ R v u
-  | [], _, u, hu, _, _, _ => by simp at hu
-  | a :: L, hp, u, hu, v, hv, hne => by
-    obtain ⟨h1, h2⟩ := List.pairwise_cons.mp hp
-    rcases List.mem_cons.mp hu with hua | hu'
-    · rcases List.mem_cons.mp hv with hva | hv'
-      · exact absurd (hua.trans hva.symm) hne
-      · rw [hua]; exact Or.inl (h1 v hv')
-    · rcases List.mem_cons.mp hv with hva | hv'
-      · rw [hva]; exact Or.inr (h1 u hu')
-      · exact apart_of_pairwise L h2 u hu' v hv' hne
+theorem layer_pair_apart {p : Proper} {layers : List (List Nat)} {x y top : List Int}
+    {r : Routing} {gap rankGap slot : Int} (hl : layersOk p layers = true)
+    (hF : CoordFacts p layers x y top r gap rankGap slot) {u v : Nat}
+    (hu : u < p.nodes.length) (hv : v < p.nodes.length) (hrk : rk p.rank u = rk p.rank v)
+    (hne : u ≠ v) (hnu : ¬ IsFrame p u) (hnv : ¬ IsFrame p v)
+    (hpos : 0 < nodeH p u ∨ 0 < nodeH p v) :
+    leftOf p x u + nodeW p u ≤ leftOf p x v ∨ leftOf p x v + nodeW p v ≤ leftOf p x u := by
+  obtain ⟨_, hsz, _, _, _⟩ := layersOk_spec hl
+  obtain ⟨l, hlm, hul, hvl⟩ := same_layer hl hu hv hrk
+  obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hul
+  obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hvl
+  have wu := (hsz u hu).1
+  have wv := (hsz v hv).1
+  have e : ∀ w : Int, Int.fdiv w 2 = w / 2 := fun w => Int.fdiv_eq_ediv_of_nonneg w (by decide)
+  have hg := hF.gap_pos
+  rcases Nat.lt_trichotomy i j with hij | hij | hij
+  · have := hF.separated l hlm i j u v hij hi hj hnu hnv hpos
+    unfold coordSep at this
+    left
+    simp only [leftOf, e] at this ⊢
+    omega
+  · subst hij
+    exact absurd (Option.some.inj (hi.symm.trans hj)) hne
+  · have := hF.separated l hlm j i v u hij hj hi hnv hnu hpos.symm
+    unfold coordSep at this
+    right
+    simp only [leftOf, e] at this ⊢
+    omega
 
-theorem geo_ok {p : Proper} {layers : List (List Nat)} {x y top : List Int} {r : Routing}
-    {gap rankGap slot : Int} (hr : route p layers x = .ok r)
+theorem boxRect_disjoint {p : Proper} {layers : List (List Nat)} {x y top : List Int}
+    {r : Routing} {gap rankGap slot : Int} (hl : layersOk p layers = true)
+    (hF : CoordFacts p layers x y top r gap rankGap slot) {u v : Nat}
+    (hu : u < p.nodes.length) (hv : v < p.nodes.length) (hrk : rk p.rank u = rk p.rank v)
+    (hne : u ≠ v) :
+    ¬ Rect.meetsInterior ⟨leftOf p x u, yAt y u, nodeW p u, nodeH p u⟩
+      ⟨leftOf p x v, yAt y v, nodeW p v, nodeH p v⟩ := by
+  by_cases hfu : IsFrame p u
+  · have := hF.frame_flat u hfu
+    simp only [Rect.meetsInterior]
+    omega
+  by_cases hfv : IsFrame p v
+  · have := hF.frame_flat v hfv
+    simp only [Rect.meetsInterior]
+    omega
+  obtain ⟨_, hsz, _, _, _⟩ := layersOk_spec hl
+  have hun := (hsz u hu).2
+  have hvn := (hsz v hv).2
+  by_cases hpos : 0 < nodeH p u ∨ 0 < nodeH p v
+  · have h := layer_pair_apart hl hF hu hv hrk hne hfu hfv hpos
+    simp only [Rect.meetsInterior]
+    rcases h with h | h <;> omega
+  · simp only [Rect.meetsInterior]
+    omega
+
+theorem geo_ok_of_layers {p : Proper} {layers : List (List Nat)} {x y top : List Int} {r : Routing}
+    {gap rankGap slot : Int} (hl : layersOk p layers = true)
+    (hgapnn : ∀ k, k + 1 < layers.length → 0 ≤ (r.gaps.getD k default).slots)
     (hF : CoordFacts p layers x y top r gap rankGap slot) :
     (routeGeo p layers x y top).Ok p.nodes.length layers.length := by
-  obtain ⟨hl, _, _, _, _, hgaps, _⟩ := route_spec hr
   obtain ⟨_, hsz, hlay, hcov, _⟩ := layersOk_spec hl
-  have hgapnn : ∀ k, k + 1 < layers.length → 0 ≤ (r.gaps.getD k default).slots := by
-    intro k hk
-    rw [hgaps, getD_map_range _ _ _ (by omega) _]
-    exact numberGap_slots_nonneg _
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  have nonframe : ∀ v : Nat, (routeGeo p layers x y top).bd v ≠ -2 →
+      (routeGeo p layers x y top).bd v ≠ 2 → ¬ IsFrame p v := by
+    intro v h1 h2 h
+    rcases h with h | h
+    · exact h1 h
+    · exact h2 h
+  have rank_eq : ∀ u v : Nat, u < p.nodes.length → v < p.nodes.length →
+      (routeGeo p layers x y top).rk u = (routeGeo p layers x y top).rk v →
+      rk p.rank u = rk p.rank v := by
+    intro u v hu hv h
+    obtain ⟨_, _, _, h0⟩ := hcov u hu
+    obtain ⟨_, _, _, h1⟩ := hcov v hv
+    have h' : (rk p.rank u).toNat = (rk p.rank v).toNat := h
+    omega
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · intro v hv
     exact (hsz v hv).1
   · intro v hv
@@ -1322,26 +1739,44 @@ theorem geo_ok {p : Proper} {layers : List (List Nat)} {x y top : List Int} {r :
   · intro k k' hkk hk'
     obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_lt hkk
     exact top_mono hF.rank_gap_nonneg (by have := hF.slot_pos; omega) hgapnn hF.band_step d k hk'
-  · intro u v hu hv h hne
-    obtain ⟨lu, hlu, hul, _⟩ := hcov u hu
-    obtain ⟨lv, hlv, hvl, _⟩ := hcov v hv
-    have h' : (rk p.rank u).toNat = (rk p.rank v).toNat := h
-    rw [h'] at hlu
-    have hleq : lu = lv := Option.some.inj (hlu.symm.trans hlv)
-    subst hleq
-    have hpw := pairwise_of_separated hF.gap_pos lu
-      (fun w hw => by
-        obtain ⟨hwn, _⟩ := hlay _ lu hlv w hw
-        exact (hsz w hwn).1)
-      (hF.separated lu (List.mem_of_getElem? hlv))
-    exact apart_of_pairwise lu hpw u hul v hvl hne
+  · intro v _ hb
+    exact hF.frame_flat v hb
+  · intro u v hu hv h hne h1 h2 h3 h4 hpos
+    exact layer_pair_apart hl hF hu hv (rank_eq u v hu hv h) hne (nonframe u h1 h2)
+      (nonframe v h3 h4) hpos
+  · intro t ht hb
+    obtain ⟨l, hl, htl, _⟩ := hcov t ht
+    exact hF.top_at _ l t hl htl hb
+  · intro t v ht hv hb h hne h1 h2 hpos
+    obtain ⟨l, hlm, htl, hvl⟩ := same_layer hl ht hv (rank_eq t v ht hv h.symm)
+    exact hF.top_clear l hlm t v htl hvl hb hne (nonframe v h1 h2) hpos
+  · intro t v ht hv hb h hne h1 h2 hpos
+    obtain ⟨l, hlm, htl, hvl⟩ := same_layer hl ht hv (rank_eq t v ht hv h.symm)
+    exact hF.bottom_clear l hlm t v htl hvl hb hne (nonframe v h1 h2) hpos
+
+theorem geo_ok {p : Proper} {layers : List (List Nat)} {x y top : List Int} {r : Routing}
+    {gap rankGap slot : Int} (hr : route p layers x = .ok r)
+    (hF : CoordFacts p layers x y top r gap rankGap slot) :
+    (routeGeo p layers x y top).Ok p.nodes.length layers.length := by
+  obtain ⟨hl, _, _, _, _, hgaps, _⟩ := route_spec hr
+  apply geo_ok_of_layers hl ?_ hF
+  intro k hk
+  rw [hgaps, getD_map_range _ _ _ (by omega) _]
+  exact numberGap_slots_nonneg _
 
 def FlatDummy (p : Proper) (v : Nat) : Prop :=
   ∃ nd, p.nodes[v]? = some nd ∧ nd.dummy = true ∧ nd.node.h = 0
 
+
+def ChainNode (p : Proper) (v : Nat) : Prop :=
+  ∃ nd, p.nodes[v]? = some nd ∧ nd.dummy = true
 def ChainLink (p : Proper) (i j : Nat) : Prop :=
   i < p.edges.length ∧ j < p.edges.length ∧ (edgeAt p i).head = (edgeAt p j).tail ∧
-    FlatDummy p (edgeAt p j).tail
+    ChainNode p (edgeAt p j).tail
+
+theorem frameKind_of_chain {p : Proper} {d : Nat} (h : ChainNode p d) : frameKind p d = 0 := by
+  obtain ⟨nd, hnd, hd⟩ := h
+  simp [frameKind, hnd, hd]
 
 def ProperShape (p : Proper) : Prop := ∀ o, chainRel (ChainLink p) (edgesOf p o)
 
@@ -1376,11 +1811,12 @@ theorem Zipped.imp {α β : Type} {R R' : α → β → Prop} :
 
 theorem pieceOf_cases {p : Proper} {slot : Int} {y top heights : List Int} {r : Routing}
     {i : Nat} {pc : List Point} (h : pieceOf p slot y top heights r i = .ok pc) :
-    (pc = [pieceStart p y r i, pieceEnd p y r i] ∧
-      r.sourceX.getD i 0 = r.targetX.getD i 0) ∨
-    (pc = [pieceStart p y r i, ⟨r.sourceX.getD i 0, midOf p slot top heights r i⟩,
+    (pc = [pieceStart p y r i, ⟨runOf r i, (pieceStart p y r i).y⟩, pieceEnd p y r i] ∧
+      runOf r i = r.targetX.getD i 0) ∨
+    (pc = [pieceStart p y r i, ⟨runOf r i, (pieceStart p y r i).y⟩,
+        ⟨runOf r i, midOf p slot top heights r i⟩,
         ⟨r.targetX.getD i 0, midOf p slot top heights r i⟩, pieceEnd p y r i] ∧
-      r.sourceX.getD i 0 ≠ r.targetX.getD i 0) := by
+      runOf r i ≠ r.targetX.getD i 0) := by
   unfold pieceOf at h
   split at h
   · simp at h
@@ -1399,8 +1835,8 @@ theorem pieceOf_basic {p : Proper} {slot : Int} {y top heights : List Int} {r : 
     pc.head? = some (pieceStart p y r i) ∧ pc.getLast? = some (pieceEnd p y r i) ∧
       pairsAll (fun P Q => P.x = Q.x ∨ P.y = Q.y) pc := by
   rcases pieceOf_cases h with ⟨rfl, hx⟩ | ⟨rfl, hx⟩
-  · exact ⟨rfl, rfl, Or.inl hx, trivial⟩
-  · exact ⟨rfl, rfl, Or.inl rfl, Or.inr rfl, Or.inl rfl, trivial⟩
+  · exact ⟨rfl, rfl, Or.inr rfl, Or.inl hx, trivial⟩
+  · exact ⟨rfl, rfl, Or.inr rfl, Or.inl rfl, Or.inr rfl, Or.inl rfl, trivial⟩
 
 theorem routePointsWith_spec {slot : Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} {routes : List EdgeRoute}
@@ -1435,8 +1871,42 @@ theorem routePointsWith_spec {slot : Int} {p : Proper} {layers : List (List Nat)
         subst hro
         exact ⟨pcs, mapOk_zipped _ _ _ hpcs, rfl⟩
 
+theorem chain_junction_orthogonal {p : Proper} {layers : List (List Nat)}
+    {x y : List Int} {r : Routing} (hr : route p layers x = .ok r) {i j : Nat}
+    (hc : ChainLink p i j) :
+    (pieceEnd p y r i).x = (pieceStart p y r j).x ∨
+      (pieceEnd p y r i).y = (pieceStart p y r j).y := by
+  obtain ⟨hi, hj, he, nd, hn, hd⟩ := hc
+  obtain ⟨hl, _, _, _, hp, _⟩ := route_spec hr
+  by_cases hh : 0 < nodeH p (edgeAt p j).tail
+  · left
+    have ht := portAt_eq (hp i hi).2
+    have hs := portAt_eq (hp j hj).1
+    simp only [pieceEnd, pieceStart]
+    rw [ht, hs]
+    simp [he, portCoord, hn, hd, hh]
+  · right
+    have hz := ((layersOk_spec hl).2.1 _ ((layersOk_spec hl).2.2.2.2 j hj).1).2
+    have hzero : nodeH p (edgeAt p j).tail = 0 := by omega
+    simp [pieceEnd, pieceStart, he, hzero]
+
+theorem label_junction_misses_label {p : Proper} {layers : List (List Nat)}
+    {x y : List Int} {r : Routing} (hr : route p layers x = .ok r) {i j : Nat}
+    (hc : ChainLink p i j) (hh : 0 < nodeH p (edgeAt p j).tail) :
+    Polyline.segMisses (pieceEnd p y r i) (pieceStart p y r j)
+      (boxRect p x y (edgeAt p j).tail) := by
+  obtain ⟨hi, hj, he, nd, hn, hd⟩ := hc
+  obtain ⟨_, _, _, _, hp, _⟩ := route_spec hr
+  have ht := portAt_eq (hp i hi).2
+  have hs := portAt_eq (hp j hj).1
+  apply Or.inl
+  simp only [pieceEnd, pieceStart, boxRect]
+  rw [ht, hs]
+  simp [he, portCoord, hn, hd, hh]
+
 theorem route_orthogonal_aux {slot : Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} {routes : List EdgeRoute} (hP : ProperShape p)
+    (hr : route p layers x = .ok r)
     (h : routePointsWith slot p layers x y top r = .ok routes) :
     ∀ rt ∈ routes, Polyline.isOrthogonal rt.points = true := by
   intro rt hrt
@@ -1446,13 +1916,7 @@ theorem route_orthogonal_aux {slot : Int} {p : Proper} {layers : List (List Nat)
   apply pairsAll_dedup
   refine pairsAll_flatten_of _ (pieceStart p y r) (pieceEnd p y r) (ChainLink p) ?_
     (edgesOf p rt.original) pcs ?_ (hP rt.original)
-  · intro i j hij
-    obtain ⟨_, _, hhead, hfd⟩ := hij
-    have h0 := flatDummy_h hfd
-    refine Or.inr ?_
-    show yAt y (edgeAt p i).head = yAt y (edgeAt p j).tail + nodeH p (edgeAt p j).tail
-    rw [hhead, h0]
-    omega
+  · exact fun _ _ hij => chain_junction_orthogonal hr hij
   · exact Zipped.imp _ _ (fun i _ pc hpc => pieceOf_basic hpc) hz
 
 theorem mem_of_head' {l : List Nat} {a : Nat} (h : l.head? = some a) : a ∈ l := by
@@ -1548,7 +2012,7 @@ theorem chain_ne {p : Proper} {v : Nat} (hv : IsReal p v) :
     rw [hii]
     exact ⟨h0 i' rfl, h1 i' rfl⟩
   | i' :: j :: rest, hc, h0, h1, i, hi => by
-    obtain ⟨_, _, hhead, nd, hnd, hdum, _⟩ := hc.1
+    obtain ⟨_, _, hhead, nd, hnd, hdum⟩ := hc.1
     have hj : (edgeAt p j).tail ≠ v := by
       intro hjv
       have := hv nd (by rw [← hjv]; exact hnd)
@@ -1565,10 +2029,38 @@ theorem chain_ne {p : Proper} {v : Nat} (hv : IsReal p v) :
       exact ⟨h0 i' rfl, by rw [hhead]; exact hj⟩
     · exact ih i hi'
 
+theorem run_cases {p : Proper} {layers : List (List Nat)} {x : List Int} {r : Routing}
+    (hr : route p layers x = .ok r) {i : Nat} (hi : i < p.edges.length) :
+    (frameKind p (edgeAt p i).tail ≠ -2 ∧ runOf r i = r.sourceX.getD i 0) ∨
+    (frameKind p (edgeAt p i).tail = -2 ∧
+      runOf r i = xAt x (edgeAt p i).tail - Int.fdiv (nodeW p (edgeAt p i).tail) 2) := by
+  obtain ⟨_, hrun⟩ := route_run_spec hr
+  unfold runOf
+  rw [hrun i hi]
+  unfold runCoord leftOf
+  by_cases h : frameKind p (edgeAt p i).tail = -2
+  · exact Or.inr ⟨h, by simp [h]⟩
+  · exact Or.inl ⟨h, by simp [h]⟩
+
+theorem run_ranges {p : Proper} {layers : List (List Nat)} {x : List Int} {r : Routing}
+    (hr : route p layers x = .ok r) {i : Nat} (hi : i < p.edges.length) :
+    xAt x (edgeAt p i).tail - Int.fdiv (nodeW p (edgeAt p i).tail) 2 ≤ runOf r i ∧
+      runOf r i ≤ xAt x (edgeAt p i).tail - Int.fdiv (nodeW p (edgeAt p i).tail) 2 +
+        nodeW p (edgeAt p i).tail := by
+  obtain ⟨hl, _, _, _, _, _, _⟩ := route_spec hr
+  obtain ⟨_, hsz, _, _, hedge⟩ := layersOk_spec hl
+  have hw := (hsz _ (hedge i hi).1).1
+  have pr := port_ranges hr hi
+  rcases run_cases hr hi with ⟨_, h⟩ | ⟨_, h⟩
+  · rw [h]
+    exact ⟨pr.1, pr.2.1⟩
+  · rw [h]
+    omega
+
 theorem mid_bounds {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} (hr : route p layers x = .ok r)
     (hF : CoordFacts p layers x y top r gap rankGap slot) {i : Nat}
-    (hi : i < p.edges.length) (hne : r.sourceX.getD i 0 ≠ r.targetX.getD i 0) :
+    (hi : i < p.edges.length) (hne : runOf r i ≠ r.targetX.getD i 0) :
     top.getD (gapOf p i) 0 + (layers.map (layerHeight p)).getD (gapOf p i) 0 ≤
       midOf p slot top (layers.map (layerHeight p)) r i ∧
     midOf p slot top (layers.map (layerHeight p)) r i ≤ top.getD (gapOf p i + 1) 0 := by
@@ -1592,6 +2084,7 @@ theorem mid_bounds {slot gap rankGap : Int} {p : Proper} {layers : List (List Na
 theorem piece_pairs {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} (hr : route p layers x = .ok r)
     (hF : CoordFacts p layers x y top r gap rankGap slot) {v : Nat} (hv : v < p.nodes.length)
+    (hvpos : 0 < nodeH p v)
     {i : Nat} (hi : i < p.edges.length) (hvt : (edgeAt p i).tail ≠ v)
     (hvh : (edgeAt p i).head ≠ v) {pc : List Point}
     (hpc : pieceOf p slot y top (layers.map (layerHeight p)) r i = .ok pc) :
@@ -1609,7 +2102,8 @@ theorem piece_pairs {slot gap rankGap : Int} {p : Proper} {layers : List (List N
     omega
   have hc := pieceOf_cases hpc
   have key := piece_miss (G := routeGeo p layers x y top) hG ht hh hv hrk' (Ne.symm hvt)
-    (Ne.symm hvh) (sx := r.sourceX.getD i 0) (tx := r.targetX.getD i 0) ⟨pr.1, pr.2.1⟩
+    (Ne.symm hvh) hvpos (sx := r.sourceX.getD i 0) (run := runOf r i)
+    (tx := r.targetX.getD i 0) ⟨pr.1, pr.2.1⟩ (run_cases hr hi)
     ⟨pr.2.2.1, pr.2.2.2⟩ (pc := pc) (by
       rcases hc with ⟨h1, h2⟩ | ⟨h1, h2⟩
       · exact Or.inl ⟨h1, h2⟩
@@ -1626,6 +2120,7 @@ theorem route_avoids_aux {slot gap rankGap : Int} {p : Proper} {layers : List (L
       ∀ v, v < p.nodes.length → IsReal p v → v ≠ (edgeAt p i₀).tail → v ≠ (edgeAt p i₁).head →
         ¬ Polyline.hitsRect rt.points (boxRect p x y v) := by
   intro rt hrt i₀ i₁ h0 h1 v hv hreal hv0 hv1
+  refine Classical.byCases (fun hvpos : 0 < nodeH p v => ?_) (fun hvpos hh => hvpos hh.2.1)
   obtain ⟨_, _, _, hspec⟩ := routePointsWith_spec h
   obtain ⟨pcs, hz, hpts⟩ := hspec rt hrt
   obtain ⟨hl, _, _, _, hp, _⟩ := route_spec hr
@@ -1650,7 +2145,7 @@ theorem route_avoids_aux {slot gap rankGap : Int} {p : Proper} {layers : List (L
     (pieceStart p y r) (pieceEnd p y r) (ChainLink p) ?_ (edgesOf p rt.original) pcs ?_
     (hP rt.original)
   · intro i j hij
-    obtain ⟨hi, hj, hhead, nd, hnd, hdum, _⟩ := hij
+    obtain ⟨hi, hj, hhead, nd, hnd, hdum⟩ := hij
     have hd : (edgeAt p j).tail < p.nodes.length := (hedge j hj).1
     have hvd : v ≠ (edgeAt p j).tail := by
       intro hvd
@@ -1660,14 +2155,18 @@ theorem route_avoids_aux {slot gap rankGap : Int} {p : Proper} {layers : List (L
     have pi := port_ranges hr hi
     have pj := port_ranges hr hj
     rw [hhead] at pi
-    have key := junction_miss (G := routeGeo p layers x y top) hG hd hv hvd
+    have hnt : (routeGeo p layers x y top).bd (edgeAt p j).tail ≠ -2 := by
+      show frameKind p (edgeAt p j).tail ≠ -2
+      rw [frameKind_of_chain ⟨nd, hnd, hdum⟩]
+      decide
+    have key := junction_miss (G := routeGeo p layers x y top) hG hd hv hvd hnt hvpos
       (tx := r.targetX.getD i 0) (sx := r.sourceX.getD j 0) ⟨pi.2.2.1, pi.2.2.2⟩
       ⟨pj.1, pj.2.1⟩
     simp only [pieceEnd, pieceStart, hhead]
     exact key
   · exact Zipped.imp _ _ (fun i hi pc hpc =>
       ⟨(pieceOf_basic hpc).1, (pieceOf_basic hpc).2.1,
-        piece_pairs hr hF hv (mem_edgesOf hi) (hne i hi).1 (hne i hi).2 hpc⟩) hz
+        piece_pairs hr hF hv hvpos (mem_edgesOf hi) (hne i hi).1 (hne i hi).2 hpc⟩) hz
 
 theorem slots_separate_aux {p : Proper} {layers : List (List Nat)} {x : List Int} {r : Routing}
     (hr : route p layers x = .ok r)
@@ -1683,7 +2182,7 @@ theorem slots_separate_aux {p : Proper} {layers : List (List Nat)} {x : List Int
   subst hgk
   obtain ⟨i, hi, rfl⟩ := mem_numberGap_segments hs
   obtain ⟨j, hj, rfl⟩ := mem_numberGap_segments ht
-  generalize gapSegments p r.sourceX r.targetX k = segs at hg hi hj htr hc ⊢
+  generalize gapSegments p r.sourceRun r.targetX k = segs at hg hi hj htr hc ⊢
   have hmem : ∀ i', i' < segs.length →
       { segs.getD i' default with slot := numberSlots segs i' } ∈ (numberGap segs).segments :=
     fun i' hi' => List.mem_map.mpr ⟨i', List.mem_range.mpr hi', rfl⟩
@@ -1722,6 +2221,25 @@ theorem chainRel_mono {R R' : Nat → Nat → Prop} (hR : ∀ i j, R i j → R' 
   | [_], _ => trivial
   | i :: j :: rest, h => ⟨hR i j h.1, chainRel_mono hR (j :: rest) h.2⟩
 
+theorem properShape_of_metadata {p p' : Proper} (he : p'.edges = p.edges)
+    (hd : ∀ v : Nat, (p'.nodes[v]?).map (·.dummy) = (p.nodes[v]?).map (·.dummy))
+    (h : ProperShape p) : ProperShape p' := by
+  intro o
+  have ho : edgesOf p' o = edgesOf p o := by simp [edgesOf, edgeAt, he]
+  rw [ho]
+  apply chainRel_mono (l := edgesOf p o) _ (h o)
+  intro i j hij
+  obtain ⟨hi, hj, hh, nd, hn, hnd⟩ := hij
+  have ht : (p'.nodes[(edgeAt p j).tail]?).map (·.dummy) = some true := by
+    rw [hd, hn]
+    simp [hnd]
+  cases hp : p'.nodes[(edgeAt p j).tail]? with
+  | none => simp [hp] at ht
+  | some nd' =>
+    have hd' : nd'.dummy = true := by simpa [hp] using ht
+    exact ⟨by simpa [he] using hi, by simpa [he] using hj,
+      by simpa [edgeAt, he] using hh, nd', by simpa [edgeAt, he] using hp, hd'⟩
+
 theorem chainRel_map_range (R : Nat → Nat → Prop) :
     ∀ (s : Nat) (f : Nat → Nat), (∀ k, k + 1 < s → R (f k) (f (k + 1))) →
       chainRel R ((List.range s).map f)
@@ -1743,7 +2261,7 @@ def NInv (q : Proper) (k : Nat) : Prop :=
 theorem chainLink_append {q q' : Proper} {new : List ProperEdge} {extra : List ProperNode}
     (hE : q'.edges = q.edges ++ new) (hN : q'.nodes = q.nodes ++ extra) {i j : Nat}
     (h : ChainLink q i j) : ChainLink q' i j := by
-  obtain ⟨hi, hj, hhead, nd, hnd, hd, hh⟩ := h
+  obtain ⟨hi, hj, hhead, nd, hnd, hd⟩ := h
   have hi' : i < q'.edges.length := by rw [hE]; simp; omega
   have hj' : j < q'.edges.length := by rw [hE]; simp; omega
   have ei : edgeAt q' i = edgeAt q i := by
@@ -1755,7 +2273,7 @@ theorem chainLink_append {q q' : Proper} {new : List ProperEdge} {extra : List P
   have hv : (edgeAt q j).tail < q.nodes.length := by
     have := (List.getElem?_eq_some_iff.mp hnd).1
     exact this
-  refine ⟨hi', hj', by rw [ei, ej]; exact hhead, nd, ?_, hd, hh⟩
+  refine ⟨hi', hj', by rw [ei, ej]; exact hhead, nd, ?_, hd⟩
   rw [ej, hN, List.getElem?_append_left hv]
   exact hnd
 
@@ -1782,13 +2300,14 @@ theorem normalizeEdge_nInv {slot : Int} {q q' : Proper} {e : Edge} {idx : Nat}
         have hlen : (NormalizeImpl.chainEdges e idx q.nodes.length s).length = s := by
           simp [NormalizeImpl.chainEdges]
         have hget : ∀ k, k < s → (NormalizeImpl.chainEdges e idx q.nodes.length s).getD k default =
-            ⟨NormalizeImpl.chainNode e.tail e.head q.nodes.length s k,
-              NormalizeImpl.chainNode e.tail e.head q.nodes.length s (k + 1), e.decl, idx⟩ := by
+            { tail := NormalizeImpl.chainNode e.tail e.head q.nodes.length s k,
+              head := NormalizeImpl.chainNode e.tail e.head q.nodes.length s (k + 1),
+              decl := e.decl, original := idx } := by
           intro k hk
           simp [NormalizeImpl.chainEdges, List.getD_eq_getElem?_getD, hk]
         have hnode : ∀ k, k + 1 < s →
             (appendChain slot q e idx s).nodes[q.nodes.length + k]? =
-              some ⟨⟨e.decl, slot, 0⟩, true, some idx⟩ := by
+              some ⟨{ decl := e.decl, w := slot, h := 0 }, true, some idx⟩ := by
           intro k hk
           rw [hN, List.getElem?_append_right (Nat.le_add_right _ _)]
           simp [NormalizeImpl.dummyNodes, List.getElem?_replicate]
@@ -1842,7 +2361,7 @@ theorem normalizeEdge_nInv {slot : Int} {q q' : Proper} {e : Edge} {idx : Nat}
               rw [edgeAt_append_right, hget (k + 1) hk]
               have hne1 : k + 1 ≠ 0 := by omega
               have hne2 : k + 1 ≠ s := by omega
-              refine ⟨⟨⟨e.decl, slot, 0⟩, true, some o⟩, ?_, rfl, rfl⟩
+              refine ⟨⟨{ decl := e.decl, w := slot, h := 0 }, true, some o⟩, ?_, rfl⟩
               simp only [NormalizeImpl.chainNode, hne1, hne2, ↓reduceIte]
               have := hnode k hk
               rw [Nat.add_sub_cancel] 
@@ -1989,19 +2508,885 @@ theorem routePoints_eq {p : Proper} {layers : List (List Nat)} {x y top : List I
   · next slot hs => exact ⟨slot, hs, h⟩
   · simp at h
 
+structure ReversedLane where
+  original : Nat
+  lane : Int
+  sourceGap : Nat
+  targetGap : Nat
+  sourceSegment : Nat
+  targetSegment : Nat
+  sourceX : Int
+  targetX : Int
+  targetRun : Int
+  sourceNode : Nat
+  targetNode : Nat
+deriving Repr, Inhabited
+
+structure LaneRouting where
+  routing : Routing
+  runs : List ReversedLane
+deriving Repr, Inhabited
+
+def reversedEdge (reversed : List Bool) (p : Proper) (i : Nat) : Bool :=
+  reversed.getD (edgeAt p i).original false
+
+def laneRight (p : Proper) (x : List Int) : Int :=
+  (List.range p.nodes.length).foldl (fun right v =>
+    max right (xAt x v - Int.fdiv (nodeW p v) 2 + nodeW p v +
+      (p.nodes.getD v default).node.loopExtent)) 0
+
+def reverseRunMid (slot : Int) (top heights : List Int) (r : Routing)
+    (gap segment : Nat) : Int :=
+  top.getD gap 0 + heights.getD gap 0 +
+    slot * (((r.gaps.getD gap default).segments.getD segment default).slot + 1) +
+      Int.fdiv slot 2
+
+def reversedLabelRect (slot : Int) (top heights : List Int) (r : Routing)
+    (run : ReversedLane) (width height : Int) : Rect :=
+  { x := run.lane + slot
+    y := Int.fdiv (reverseRunMid slot top heights r run.sourceGap run.sourceSegment +
+      reverseRunMid slot top heights r run.targetGap run.targetSegment) 2 - Int.fdiv height 2
+    w := width, h := height }
+
+def laneSegment (p : Proper) (o order : Nat) (px lane : Int) : RoutingSegment :=
+  { tail := p.nodes.length + 2 * o + order, head := p.nodes.length + 2 * o + order
+    decl := (edgeAt p ((edgesOf p o).headD 0)).decl
+    slot := -1, sourceX := px, targetX := lane, edges := [] }
+
+def laneBefore (segs : List RoutingSegment) (i j : Nat) : Prop :=
+  let a := segs.getD i default
+  let b := segs.getD j default
+  a.sourceX < b.sourceX ∨
+    (a.sourceX = b.sourceX ∧ (a.decl < b.decl ∨ (a.decl = b.decl ∧ i < j)))
+
+instance (segs : List RoutingSegment) (i j : Nat) : Decidable (laneBefore segs i j) := by
+  unfold laneBefore
+  infer_instance
+
+def laneArc (segs : List RoutingSegment) (i j : Nat) : Bool :=
+  segConflict (segs.getD i default) (segs.getD j default) && decide (laneBefore segs i j)
+
+def numberLaneSlots (segs : List RoutingSegment) : Nat → Int :=
+  kahn segs.length (laneArc segs) (fun j => (segs.getD j default).decl)
+    (fun j => segStraight (segs.getD j default)) segs.length [] (fun _ => -1)
+
+def numberLaneGap (segs : List RoutingSegment) : RoutingGap :=
+  let sl := numberLaneSlots segs
+  { segments := (List.range segs.length).map fun i => { segs.getD i default with slot := sl i }
+    slots := (List.range segs.length).foldl
+      (fun m i => if !segStraight (segs.getD i default) then max m (sl i + 1) else m) 0 }
+
+def numberLaneGapFast (segs : List RoutingSegment) : RoutingGap :=
+  let sl := kahnSlots segs.length (laneArc segs) (fun j => (segs.getD j default).decl)
+    (fun j => segStraight (segs.getD j default))
+  { segments := (List.range segs.length).map fun i =>
+      { segs.getD i default with slot := sl.getD i (-1) }
+    slots := (List.range segs.length).foldl
+      (fun m i => if !segStraight (segs.getD i default) then max m (sl.getD i (-1) + 1) else m) 0 }
+
+theorem numberLaneGapFast_eq : numberLaneGapFast = numberLaneGap := by
+  funext segs
+  unfold numberLaneGapFast numberLaneGap
+  have hs : ∀ i, i < segs.length →
+      (kahnSlots segs.length (laneArc segs) (fun j => (segs.getD j default).decl)
+        (fun j => segStraight (segs.getD j default))).getD i (-1) = numberLaneSlots segs i :=
+    fun i hi => kahnSlots_get hi
+  dsimp only
+  congr 1
+  · apply List.map_congr_left
+    intro i hi
+    rw [hs i (List.mem_range.mp hi)]
+  · apply foldl_congr_mem
+    intro i hi m
+    rw [hs i (List.mem_range.mp hi)]
+
+@[csimp] theorem numberLaneGap_eq_numberLaneGapFast : @numberLaneGap = @numberLaneGapFast :=
+  numberLaneGapFast_eq.symm
+
+theorem numberLaneSlots_full_spec (segs : List RoutingSegment) :
+    (∀ i j, i < segs.length → j < segs.length → laneArc segs i j = true →
+      numberLaneSlots segs i + 1 ≤ numberLaneSlots segs j) ∧
+    (∀ j, j < segs.length → segStraight (segs.getD j default) = false →
+      0 ≤ numberLaneSlots segs j) := by
+  have key := kahn_spec (n := segs.length)
+    (arc := laneArc segs) (decl := fun j => (segs.getD j default).decl)
+    (straight := fun j => segStraight (segs.getD j default))
+    (laneBefore segs)
+    (fun i h => by simp [laneBefore] at h)
+    (fun i j k h1 h2 => by simp only [laneBefore] at h1 h2 ⊢; omega)
+    (fun i j h => by
+      simp only [laneArc, Bool.and_eq_true, decide_eq_true_eq] at h
+      exact h.2)
+    (fun i j h => by
+      simp only [laneArc, Bool.and_eq_true, decide_eq_true_eq] at h
+      have hc := h.1
+      simp only [segConflict, Bool.and_eq_true, Bool.not_eq_true'] at hc
+      exact hc.1)
+    segs.length [] (fun _ => -1)
+    ⟨List.nodup_nil, fun j hj => by simp at hj, fun j hj => by simp at hj,
+      fun j hj => by simp at hj⟩ (by simp)
+  exact ⟨fun i j hi hj h => key.1 j hj i hi h, key.2⟩
+
+theorem numberLaneSlots_spec (segs : List RoutingSegment) :
+    ∀ i j, i < segs.length → j < segs.length → laneArc segs i j = true →
+      numberLaneSlots segs i + 1 ≤ numberLaneSlots segs j :=
+  (numberLaneSlots_full_spec segs).1
+
+theorem numberLaneGap_separates (segs : List RoutingSegment) {i j : Nat}
+    (hi : i < segs.length) (hj : j < segs.length) (hne : i ≠ j)
+    (hc : segConflict (segs.getD i default) (segs.getD j default) = true) :
+    numberLaneSlots segs i ≠ numberLaneSlots segs j := by
+  have order : laneBefore segs i j ∨ laneBefore segs j i := by
+    simp only [laneBefore]
+    omega
+  rcases order with h | h
+  · have arc : laneArc segs i j = true := by
+      simp only [laneArc, Bool.and_eq_true, decide_eq_true_eq]
+      exact ⟨hc, h⟩
+    have := numberLaneSlots_spec segs i j hi hj arc
+    omega
+  · have arc : laneArc segs j i = true := by
+      simp only [laneArc, Bool.and_eq_true, decide_eq_true_eq]
+      exact ⟨segConflict_comm hc, h⟩
+    have := numberLaneSlots_spec segs j i hj hi arc
+    omega
+
+def laneOriginals (p : Proper) (reversed : List Bool) : List Nat :=
+  (List.range p.chains.length).filter fun o =>
+    reversed.getD o false && !(edgesOf p o).isEmpty
+
+def forwardGapSegments (p : Proper) (base : Routing) (reversed : List Bool) (gap : Nat) :
+    List RoutingSegment :=
+  ((gapSegments p base.sourceRun base.targetX gap).map fun s =>
+    { s with edges := s.edges.filter fun i => !reversedEdge reversed p i }).filter fun s =>
+      !s.edges.isEmpty
+
+def runGapCount (p : Proper) (originals : List Nat) (gap : Nat) : Nat :=
+  originals.foldl (fun n o =>
+    n + (if gapOf p ((edgesOf p o).getLast?.getD 0) = gap then 1 else 0) +
+      (if gapOf p ((edgesOf p o).headD 0) = gap then 1 else 0)) 0
+
+def makeLane (slot : Int) (p : Proper) (base : Routing) (x : List Int)
+    (reversed : List Bool) (widths : List Int) (o index : Nat) : ReversedLane :=
+  let originals := laneOriginals p reversed
+  let maxLabel := originals.foldl (fun w o => max w (widths.getD o 0)) 0
+  let es := edgesOf p o
+  let first := es.headD 0
+  let last := es.getLast?.getD 0
+  let sg := gapOf p last
+  let tg := gapOf p first
+  { original := o
+    lane := laneRight p x + slot + (index : Int) * (2 * slot + maxLabel)
+    sourceGap := sg, targetGap := tg
+    sourceSegment := (forwardGapSegments p base reversed sg).length +
+      runGapCount p (originals.take index) sg
+    targetSegment := (forwardGapSegments p base reversed tg).length +
+      runGapCount p (originals.take index) tg + if sg = tg then 1 else 0
+    sourceX := base.targetX.getD last 0, targetX := base.sourceX.getD first 0
+    targetRun := base.sourceRun.getD first 0
+    sourceNode := (edgeAt p last).head, targetNode := (edgeAt p first).tail }
+
+def plannedLanes (slot : Int) (p : Proper) (base : Routing) (x : List Int)
+    (reversed : List Bool) (widths : List Int) : List ReversedLane :=
+  (laneOriginals p reversed).zipIdx.map fun q => makeLane slot p base x reversed widths q.1 q.2
+
+def laneGapSegments (p : Proper) (base : Routing) (reversed : List Bool)
+    (runs : List ReversedLane) (gap : Nat) : List RoutingSegment :=
+  forwardGapSegments p base reversed gap ++ runs.flatMap fun run =>
+    (if run.sourceGap = gap then [laneSegment p run.original 0 run.sourceX run.lane] else []) ++
+    (if run.targetGap = gap then [laneSegment p run.original 1 run.targetRun run.lane] else [])
+
+def assembleLaneRouting (p : Proper) (base : Routing) (reversed : List Bool)
+    (runs : List ReversedLane) : LaneRouting :=
+  let raw := laneGapSegments p base reversed runs
+  { routing := { base with
+      gaps := (List.range base.gaps.length).map fun gap => numberLaneGap (raw gap)
+      segment := (List.range p.edges.length).map fun i =>
+        ((raw (gapOf p i)).findIdx? fun s => s.edges.contains i).getD 0 }
+    runs := runs }
+
+def routeWithLanes (slot : Int) (p : Proper) (layers : List (List Nat)) (x : List Int)
+    (reversed : List Bool) (labelWidths : List Int) : Except LayoutError LaneRouting :=
+  if slot < 1 then .error .domain
+  else match route p layers x with
+  | .error e => .error e
+  | .ok base =>
+    let runs := plannedLanes slot p base x reversed labelWidths
+    if runs.all (fun run => decide (I32_MIN ≤ run.lane ∧ run.lane ≤ I32_MAX)) then
+      .ok (assembleLaneRouting p base reversed runs)
+    else .error .overflow
+
+theorem routeWithLanes_spec {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
+    (h : routeWithLanes slot p layers x reversed widths = .ok lr) :
+    ∃ base, route p layers x = .ok base ∧ 1 ≤ slot ∧
+      lr = assembleLaneRouting p base reversed (plannedLanes slot p base x reversed widths) := by
+  unfold routeWithLanes at h
+  split at h
+  · simp at h
+  · next hs =>
+    split at h
+    · simp at h
+    · next base hb =>
+      dsimp only at h
+      split at h
+      · simp only [Except.ok.injEq] at h
+        exact ⟨base, hb, by omega, h.symm⟩
+      · simp at h
+
+theorem routeWithLanes_geometry {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
+    (h : routeWithLanes slot p layers x reversed widths = .ok lr) :
+    layersOk p layers = true ∧ x.length = p.nodes.length ∧
+      lr.routing.sourceX.length = p.edges.length ∧
+      lr.routing.targetX.length = p.edges.length ∧
+      lr.routing.gaps.length = layers.length - 1 ∧
+      (∀ i, i < p.edges.length →
+        sourcePort p x i = .ok (lr.routing.sourceX.getD i 0) ∧
+        targetPort p x i = .ok (lr.routing.targetX.getD i 0)) ∧
+      ∀ g ∈ lr.routing.gaps, ∃ segs, g = numberLaneGap segs := by
+  obtain ⟨base, hb, _, rfl⟩ := routeWithLanes_spec h
+  obtain ⟨hl, hx, hs, ht, hp, hg, _⟩ := route_spec hb
+  refine ⟨hl, hx, hs, ht, ?_, hp, ?_⟩
+  · simp only [assembleLaneRouting, List.length_map, List.length_range]
+    rw [hg]
+    simp
+  · intro g hm
+    simp only [assembleLaneRouting, List.mem_map, List.mem_range] at hm
+    obtain ⟨k, _, rfl⟩ := hm
+    exact ⟨_, rfl⟩
+
+theorem numberLaneGap_nonneg (segs : List RoutingSegment) :
+    0 ≤ (numberLaneGap segs).slots :=
+  foldl_cmax_ge (fun i => numberLaneSlots segs i + 1)
+    (fun i => !segStraight (segs.getD i default)) (List.range segs.length) 0
+
+theorem routeWithLanes_gap_nonneg {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
+    (h : routeWithLanes slot p layers x reversed widths = .ok lr) :
+    ∀ k, k + 1 < layers.length → 0 ≤ (lr.routing.gaps.getD k default).slots := by
+  obtain ⟨_, _, _, _, hlen, _, hg⟩ := routeWithLanes_geometry h
+  intro k hk
+  have hkl : k < lr.routing.gaps.length := by omega
+  have heq : lr.routing.gaps.getD k default = lr.routing.gaps[k] := by
+    simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hkl, Option.getD_some]
+  rw [heq]
+  obtain ⟨segs, hs⟩ := hg _ (List.getElem_mem hkl)
+  rw [hs]
+  exact numberLaneGap_nonneg segs
+
+theorem geo_ok_withLanes {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
+    {x y top : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
+    (h : routeWithLanes slot p layers x reversed widths = .ok lr)
+    (hF : CoordFacts p layers x y top lr.routing gap rankGap slot) :
+    (routeGeo p layers x y top).Ok p.nodes.length layers.length :=
+  geo_ok_of_layers (routeWithLanes_geometry h).1 (routeWithLanes_gap_nonneg h) hF
+
+theorem numberLaneGap_slot_bounds {segs : List RoutingSegment} {i : Nat}
+    (hi : i < segs.length) (hs : segStraight (segs.getD i default) = false) :
+    0 ≤ numberLaneSlots segs i ∧
+      numberLaneSlots segs i + 1 ≤ (numberLaneGap segs).slots := by
+  refine ⟨(numberLaneSlots_full_spec segs).2 i hi hs, ?_⟩
+  exact foldl_cmax_ge_mem (fun j => numberLaneSlots segs j + 1)
+    (fun j => !segStraight (segs.getD j default)) (List.range segs.length) 0 i
+    (List.mem_range.mpr hi) (by rw [hs]; rfl)
+
+theorem reverseRunMid_bounds {slot rankGap : Int} {top heights : List Int} {r : Routing}
+    {gap index : Nat} (hslot : 1 ≤ slot) (hhalf : Int.fdiv slot 2 ≤ rankGap)
+    (hsl : 0 ≤ ((r.gaps.getD gap default).segments.getD index default).slot)
+    (hcount : ((r.gaps.getD gap default).segments.getD index default).slot + 1 ≤
+      (r.gaps.getD gap default).slots)
+    (hstep : top.getD (gap + 1) 0 =
+      top.getD gap 0 + heights.getD gap 0 + rankGap + slot * (r.gaps.getD gap default).slots) :
+    top.getD gap 0 + heights.getD gap 0 ≤ reverseRunMid slot top heights r gap index ∧
+      reverseRunMid slot top heights r gap index ≤ top.getD (gap + 1) 0 := by
+  have hhalf0 := Int.fdiv_nonneg (by omega : 0 ≤ slot) (by decide : 0 ≤ (2 : Int))
+  have hmul0 := Int.mul_nonneg (by omega : 0 ≤ slot) (by omega :
+    0 ≤ ((r.gaps.getD gap default).segments.getD index default).slot + 1)
+  have hmul := Int.mul_le_mul_of_nonneg_left hcount (by omega : 0 ≤ slot)
+  unfold reverseRunMid
+  omega
+
+theorem laneSlots_separate_overlapping_segments {slot : Int} {p : Proper}
+    {layers : List (List Nat)} {x : List Int} {reversed : List Bool} {widths : List Int}
+    {lr : LaneRouting} (h : routeWithLanes slot p layers x reversed widths = .ok lr) :
+    ∀ g ∈ lr.routing.gaps, ∀ s ∈ g.segments, ∀ t ∈ g.segments,
+      s ≠ t → segConflict s t = true → s.slot ≠ t.slot := by
+  intro g hg s hs t ht hne hc
+  obtain ⟨_, _, _, _, _, _, hgap⟩ := routeWithLanes_geometry h
+  obtain ⟨segs, rfl⟩ := hgap g hg
+  simp only [numberLaneGap, List.mem_map, List.mem_range] at hs ht
+  obtain ⟨i, hi, rfl⟩ := hs
+  obtain ⟨j, hj, rfl⟩ := ht
+  have hij : i ≠ j := by intro heq; subst heq; exact hne rfl
+  exact numberLaneGap_separates segs hi hj hij hc
+
+theorem laneRight_bound (p : Proper) (x : List Int) {v : Nat} (hv : v < p.nodes.length) :
+    xAt x v - Int.fdiv (nodeW p v) 2 + nodeW p v +
+      (p.nodes.getD v default).node.loopExtent ≤ laneRight p x := by
+  have h := foldl_cmax_ge_mem
+    (fun v => xAt x v - Int.fdiv (nodeW p v) 2 + nodeW p v +
+      (p.nodes.getD v default).node.loopExtent)
+    (fun _ => true) (List.range p.nodes.length) 0 v (List.mem_range.mpr hv) rfl
+  simpa only [laneRight, ite_true] using h
+
+theorem plannedLanes_mem {slot : Int} {p : Proper} {base : Routing} {x : List Int}
+    {reversed : List Bool} {widths : List Int} {run : ReversedLane}
+    (h : run ∈ plannedLanes slot p base x reversed widths) :
+    ∃ o index, (o, index) ∈ (laneOriginals p reversed).zipIdx ∧
+      run = makeLane slot p base x reversed widths o index := by
+  simp only [plannedLanes, List.mem_map] at h
+  obtain ⟨q, hq, rfl⟩ := h
+  exact ⟨q.1, q.2, hq, rfl⟩
+
+def reversedPoints (slot : Int) (p : Proper) (y top heights : List Int)
+    (r : Routing) (run : ReversedLane) : List Point :=
+  let cs := reverseRunMid slot top heights r run.sourceGap run.sourceSegment
+  let ct := reverseRunMid slot top heights r run.targetGap run.targetSegment
+  [⟨run.sourceX, yAt y run.sourceNode⟩, ⟨run.sourceX, cs⟩,
+    ⟨run.lane, cs⟩, ⟨run.lane, ct⟩, ⟨run.targetRun, ct⟩,
+    ⟨run.targetRun, yAt y run.targetNode + nodeH p run.targetNode⟩,
+    ⟨run.targetX, yAt y run.targetNode + nodeH p run.targetNode⟩]
+
+def laneRouteOf (slot : Int) (p : Proper) (y top heights : List Int)
+    (r : LaneRouting) (o : Nat) : Except LayoutError EdgeRoute :=
+  match r.runs.find? (fun run => run.original == o) with
+  | none => routeOf p slot y top heights r.routing o
+  | some run =>
+    let points := reversedPoints slot p y top heights r.routing run
+    if points.all (fun q => decide (I32_MIN ≤ q.x ∧ q.x ≤ I32_MAX ∧
+        I32_MIN ≤ q.y ∧ q.y ≤ I32_MAX)) then .ok ⟨o, dedup points⟩
+    else .error .overflow
+
+def routePointsWithLanes (slot : Int) (p : Proper) (layers : List (List Nat))
+    (x y top : List Int) (r : LaneRouting) : Except LayoutError (List EdgeRoute) :=
+  if !layersOk p layers ∨ x.length ≠ p.nodes.length ∨ y.length ≠ p.nodes.length ∨
+      top.length ≠ layers.length ∨ slot < 1 then .error .domain
+  else mapOk (laneRouteOf slot p y top (layers.map (layerHeight p)) r)
+    (List.range p.chains.length)
+
+theorem laneRouteOf_original {slot : Int} {p : Proper} {y top heights : List Int}
+    {r : LaneRouting} {o : Nat} {rt : EdgeRoute}
+    (h : laneRouteOf slot p y top heights r o = .ok rt) : rt.original = o := by
+  unfold laneRouteOf at h
+  split at h
+  · unfold routeOf at h
+    split at h
+    · simp at h
+    · simp only [Except.ok.injEq] at h
+      subst h; rfl
+  · dsimp only at h
+    split at h
+    · simp only [Except.ok.injEq] at h
+      subst h; rfl
+    · simp at h
+
+theorem routePointsWithLanes_mem {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x y top : List Int} {r : LaneRouting} {routes : List EdgeRoute}
+    (h : routePointsWithLanes slot p layers x y top r = .ok routes)
+    {rt : EdgeRoute} (hrt : rt ∈ routes) :
+    rt.original < p.chains.length ∧
+      laneRouteOf slot p y top (layers.map (layerHeight p)) r rt.original = .ok rt := by
+  unfold routePointsWithLanes at h
+  split at h
+  · simp at h
+  · obtain ⟨o, ho, he⟩ := mapOk_mem _ _ _ h rt hrt
+    have hor := laneRouteOf_original he
+    rw [hor]
+    exact ⟨List.mem_range.mp ho, he⟩
+
+theorem plannedLane_reversed {slot : Int} {p : Proper} {base : Routing} {x : List Int}
+    {reversed : List Bool} {widths : List Int} {run : ReversedLane}
+    (h : run ∈ plannedLanes slot p base x reversed widths) :
+    reversed.getD run.original false = true := by
+  obtain ⟨o, index, hq, rfl⟩ := plannedLanes_mem h
+  have hm : o ∈ laneOriginals p reversed := by
+    rw [← List.zipIdx_map_fst 0 (laneOriginals p reversed)]
+    exact List.mem_map.mpr ⟨(o, index), hq, rfl⟩
+  simp only [laneOriginals, List.mem_filter, Bool.and_eq_true] at hm
+  exact hm.2.1
+
+theorem plannedLane_exists {slot : Int} {p : Proper} {base : Routing} {x : List Int}
+    {reversed : List Bool} {widths : List Int} {o : Nat}
+    (ho : o < p.chains.length) (hr : reversed.getD o false = true)
+    (hne : (edgesOf p o).isEmpty = false) :
+    ∃ run ∈ plannedLanes slot p base x reversed widths, run.original = o := by
+  have hm : o ∈ laneOriginals p reversed := by
+    simp only [laneOriginals, List.mem_filter, List.mem_range, Bool.and_eq_true,
+      Bool.not_eq_true']
+    exact ⟨ho, hr, hne⟩
+  rw [← List.zipIdx_map_fst 0 (laneOriginals p reversed)] at hm
+  obtain ⟨q, hq, hqo⟩ := List.mem_map.mp hm
+  refine ⟨makeLane slot p base x reversed widths q.1 q.2, ?_, ?_⟩
+  · exact List.mem_map.mpr ⟨q, hq, rfl⟩
+  · exact hqo
+
+theorem plannedLane_endpoints {slot : Int} {p : Proper} {base : Routing} {x : List Int}
+    {reversed : List Bool} {widths : List Int} {run : ReversedLane} {i₀ i₁ : Nat}
+    (hm : run ∈ plannedLanes slot p base x reversed widths)
+    (h0 : (edgesOf p run.original).head? = some i₀)
+    (h1 : (edgesOf p run.original).getLast? = some i₁) :
+    run.sourceX = base.targetX.getD i₁ 0 ∧
+      run.targetX = base.sourceX.getD i₀ 0 ∧
+      run.sourceNode = (edgeAt p i₁).head ∧ run.targetNode = (edgeAt p i₀).tail ∧
+      run.sourceGap = gapOf p i₁ ∧ run.targetGap = gapOf p i₀ ∧
+      run.targetRun = base.sourceRun.getD i₀ 0 := by
+  obtain ⟨o, index, _, rfl⟩ := plannedLanes_mem hm
+  have hh : (edgesOf p o).headD 0 = i₀ := by
+    cases he : edgesOf p o with
+    | nil => simp [he, makeLane] at h0
+    | cons a as =>
+      simp only [makeLane, he, List.head?_cons, Option.some.injEq] at h0
+      simpa [List.headD, he] using h0
+  have hl : ((edgesOf p o).getLast?).getD 0 = i₁ := by
+    have h1' : (edgesOf p o).getLast? = some i₁ := by simpa only [makeLane] using h1
+    rw [h1']
+    rfl
+  simp only [makeLane, hh, hl]
+  trivial
+
+theorem reversedPoints_orthogonal (slot : Int) (p : Proper) (y top heights : List Int)
+    (r : Routing) (run : ReversedLane) :
+    Polyline.isOrthogonal (reversedPoints slot p y top heights r run) = true := by
+  simp [reversedPoints, Polyline.isOrthogonal, Polyline.isOrthogonal_cons]
+
+theorem reversedPoints_endpoints (slot : Int) (p : Proper) (y top heights : List Int)
+    (r : Routing) (run : ReversedLane) :
+    (reversedPoints slot p y top heights r run).head? =
+      some ⟨run.sourceX, yAt y run.sourceNode⟩ ∧
+    (reversedPoints slot p y top heights r run).getLast? =
+      some ⟨run.targetX, yAt y run.targetNode + nodeH p run.targetNode⟩ := by
+  simp [reversedPoints]
+
+theorem gapLine_miss {G : Geo} {n K k v : Nat} (hG : G.Ok n K)
+    (hk : k + 1 < K) (hv : v < n) {c ax bx : Int}
+    (hc0 : G.T k + G.H k ≤ c) (hc1 : c ≤ G.T (k + 1)) :
+    Polyline.segMisses ⟨ax, c⟩ ⟨bx, c⟩ (G.rect v) := by
+  have bv := hG.band v hv
+  have hKv := hG.rk_lt v hv
+  by_cases h : G.rk v ≤ k
+  · have bound : G.yv v + G.hv v ≤ G.T k + G.H k := by
+      by_cases heq : G.rk v = k
+      · simpa [heq] using bv.2
+      · have hm := hG.mono (G.rk v) k (by omega) (by omega)
+        have hh := hG.H_nn k (by omega)
+        omega
+    exact miss_below (by dsimp [Geo.rect]; omega)
+  · have bound : G.T (k + 1) ≤ G.yv v := by
+      by_cases heq : G.rk v = k + 1
+      · simpa [heq] using bv.1
+      · have hm := hG.mono (k + 1) (G.rk v) (by omega) hKv
+        have hh := hG.H_nn (k + 1) hk
+        omega
+    exact miss_above (by dsimp [Geo.rect]; omega)
+
+theorem upperStub_miss {G : Geo} {n K k u v : Nat} (hG : G.Ok n K)
+    (hu : u < n) (hv : v < n) (hne : v ≠ u) (hpos : 0 < G.hv v) (hr : G.rk u = k + 1)
+    {px c : Int} (hp : G.left u ≤ px ∧ px ≤ G.left u + G.wid u)
+    (hc0 : G.T k + G.H k ≤ c) (hc1 : c ≤ G.T (k + 1)) :
+    Polyline.segMisses ⟨px, G.yv u⟩ ⟨px, c⟩ (G.rect v) := by
+  have bu := hG.band u hu
+  have bv := hG.band v hv
+  have hKu := hG.rk_lt u hu
+  have hKv := hG.rk_lt v hv
+  have hhu := hG.hv_nn u hu
+  rw [hr] at bu hKu
+  rcases Nat.lt_trichotomy (G.rk v) (k + 1) with h | h | h
+  · have bound : G.yv v + G.hv v ≤ c := by
+      by_cases heq : G.rk v = k
+      · rw [heq] at bv; omega
+      · have hm := hG.mono (G.rk v) k (by omega) (by omega)
+        have hh := hG.H_nn k (by omega)
+        omega
+    exact miss_below (by dsimp [Geo.rect]; omega)
+  · by_cases hbt : G.bd u = -2
+    · apply miss_above
+      have hty := hG.top_y hu hv hbt (by omega)
+      rw [h] at bv
+      geo_omega
+    · exact range_miss (hG.range_apart hu hv (by omega) (Ne.symm hne) hbt hpos) hp hp
+  · have hm := hG.mono (k + 1) (G.rk v) h hKv
+    exact miss_above (by dsimp [Geo.rect]; omega)
+
+theorem lowerStub_miss {G : Geo} {n K k u v : Nat} (hG : G.Ok n K)
+    (hu : u < n) (hv : v < n) (hne : v ≠ u) (hpos : 0 < G.hv v) (hr : G.rk u = k)
+    (hk : k + 1 < K) {px c : Int}
+    (hx : (G.bd u ≠ -2 ∧ G.left u ≤ px ∧ px ≤ G.left u + G.wid u) ∨
+      (G.bd u = -2 ∧ px = G.left u))
+    (hc0 : G.T k + G.H k ≤ c) (hc1 : c ≤ G.T (k + 1)) :
+    Polyline.segMisses ⟨px, c⟩ ⟨px, G.yv u + G.hv u⟩ (G.rect v) := by
+  have bu := hG.band u hu
+  have bv := hG.band v hv
+  have hKu := hG.rk_lt u hu
+  have hKv := hG.rk_lt v hv
+  have hhu := hG.hv_nn u hu
+  rw [hr] at bu hKu
+  rcases Nat.lt_trichotomy (G.rk v) k with h | h | h
+  · have hm := hG.mono (G.rk v) k h hKu
+    have hh := hG.H_nn k hKu
+    exact miss_below (by dsimp [Geo.rect]; omega)
+  · rcases hx with ⟨hnt, hp⟩ | ⟨hbt, rfl⟩
+    · exact range_miss (hG.range_apart hu hv (by omega) (Ne.symm hne) hnt hpos) hp hp
+    · have nf := hG.nonframe hv hpos
+      rcases hG.top_clear u v hu hv hbt (by omega) hne nf.1 nf.2 hpos with h' | h'
+      · apply miss_right
+        geo_omega
+      · apply miss_left
+        geo_omega
+  · have bound : c ≤ G.yv v := by
+      by_cases heq : G.rk v = k + 1
+      · rw [heq] at bv; omega
+      · have hm := hG.mono (k + 1) (G.rk v) (by omega) hKv
+        have hh := hG.H_nn (k + 1) hk
+        omega
+    exact miss_above (by dsimp [Geo.rect]; omega)
+
+theorem reversedSevenPoint_avoids {G : Geo} {n K source target v sg tg : Nat}
+    (hG : G.Ok n K) (hs : source < n) (ht : target < n) (hv : v < n)
+    (hvs : v ≠ source) (hvt : v ≠ target) (hpos : 0 < G.hv v)
+    (hsr : G.rk source = sg + 1) (htr : G.rk target = tg)
+    (htg : tg + 1 < K) {sx tx tr cs ct lane : Int}
+    (hsx : G.left source ≤ sx ∧ sx ≤ G.left source + G.wid source)
+    (htx : G.left target ≤ tx ∧ tx ≤ G.left target + G.wid target)
+    (htrun : (G.bd target ≠ -2 ∧ tr = tx) ∨ (G.bd target = -2 ∧ tr = G.left target))
+    (hcs0 : G.T sg + G.H sg ≤ cs) (hcs1 : cs ≤ G.T (sg + 1))
+    (hct0 : G.T tg + G.H tg ≤ ct) (hct1 : ct ≤ G.T (tg + 1))
+    (hlane : G.left v + G.wid v ≤ lane) :
+    Polyline.allSegsMiss
+      [⟨sx, G.yv source⟩, ⟨sx, cs⟩, ⟨lane, cs⟩, ⟨lane, ct⟩, ⟨tr, ct⟩,
+        ⟨tr, G.yv target + G.hv target⟩, ⟨tx, G.yv target + G.hv target⟩] (G.rect v) := by
+  have hw := hG.wid_nn target ht
+  have htrr : G.left target ≤ tr ∧ tr ≤ G.left target + G.wid target := by
+    rcases htrun with ⟨_, rfl⟩ | ⟨_, rfl⟩
+    · exact htx
+    · omega
+  have hxr : (G.bd target ≠ -2 ∧ G.left target ≤ tr ∧ tr ≤ G.left target + G.wid target) ∨
+      (G.bd target = -2 ∧ tr = G.left target) := by
+    rcases htrun with ⟨hnt, _⟩ | h
+    · exact Or.inl ⟨hnt, htrr⟩
+    · exact Or.inr h
+  exact ⟨upperStub_miss hG hs hv hvs hpos hsr hsx hcs0 hcs1,
+    gapLine_miss hG (by have := hG.rk_lt source hs; omega) hv hcs0 hcs1,
+    miss_right (by dsimp [Geo.rect]; simpa using hlane),
+    gapLine_miss hG htg hv hct0 hct1,
+    lowerStub_miss hG ht hv hvt hpos htr htg hxr hct0 hct1,
+    bottomEdge_hseg_miss hG ht hv hvt hpos htrr htx, trivial⟩
+
+theorem laneRouteOf_forward_endpoints {slot : Int} {p : Proper} {y top heights : List Int}
+    {r : LaneRouting} {o i₀ i₁ : Nat} {rt : EdgeRoute}
+    (hn : r.runs.find? (fun run => run.original == o) = none)
+    (h : laneRouteOf slot p y top heights r o = .ok rt)
+    (h0 : (edgesOf p o).head? = some i₀) (h1 : (edgesOf p o).getLast? = some i₁) :
+    rt.points.head? = some (pieceStart p y r.routing i₀) ∧
+      rt.points.getLast? = some (pieceEnd p y r.routing i₁) := by
+  simp only [laneRouteOf, hn] at h
+  unfold routeOf at h
+  split at h
+  · simp at h
+  · next pcs hp =>
+    simp only [Except.ok.injEq] at h
+    subst h
+    have hz := mapOk_zipped _ _ _ hp
+    have hz' : Zipped (fun i pc => pc.head? = some (pieceStart p y r.routing i) ∧
+        pc.getLast? = some (pieceEnd p y r.routing i)) (edgesOf p o) pcs :=
+      Zipped.imp _ _ (fun i _ pc hpc =>
+        ⟨(pieceOf_basic hpc).1, (pieceOf_basic hpc).2.1⟩) hz
+    exact ⟨by rw [dedup_head]; exact flatten_head _ pcs hz' i₀ h0,
+      by rw [dedup_getLast]; exact flatten_last _ pcs hz' i₁ h1⟩
+
+theorem laneRouteOf_reverse_endpoints {slot : Int} {p : Proper} {y top heights : List Int}
+    {r : LaneRouting} {o : Nat} {run : ReversedLane} {rt : EdgeRoute}
+    (hs : r.runs.find? (fun run => run.original == o) = some run)
+    (h : laneRouteOf slot p y top heights r o = .ok rt) :
+    rt.points.head? = some ⟨run.sourceX, yAt y run.sourceNode⟩ ∧
+      rt.points.getLast? =
+        some ⟨run.targetX, yAt y run.targetNode + nodeH p run.targetNode⟩ := by
+  simp only [laneRouteOf, hs] at h
+  split at h
+  · simp only [Except.ok.injEq] at h
+    subst h
+    rw [dedup_head, dedup_getLast]
+    exact reversedPoints_endpoints _ _ _ _ _ _ _
+  · simp at h
+
+theorem laneSemantic_endpoints {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x y top : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
+    {routes : List EdgeRoute}
+    (hr : routeWithLanes slot p layers x reversed widths = .ok lr)
+    (h : routePointsWithLanes slot p layers x y top lr = .ok routes) :
+    ∀ rt ∈ routes, ∀ i₀ i₁, (edgesOf p rt.original).head? = some i₀ →
+      (edgesOf p rt.original).getLast? = some i₁ →
+      if reversed.getD rt.original false then
+        rt.points.head? = some ⟨lr.routing.targetX.getD i₁ 0, yAt y (edgeAt p i₁).head⟩ ∧
+        rt.points.getLast? = some ⟨lr.routing.sourceX.getD i₀ 0,
+          yAt y (edgeAt p i₀).tail + nodeH p (edgeAt p i₀).tail⟩
+      else
+        rt.points.head? = some (pieceStart p y lr.routing i₀) ∧
+        rt.points.getLast? = some (pieceEnd p y lr.routing i₁) := by
+  intro rt hrt i₀ i₁ h0 h1
+  obtain ⟨ho, he⟩ := routePointsWithLanes_mem h hrt
+  obtain ⟨base, hb, _, hlr⟩ := routeWithLanes_spec hr
+  have hruns : lr.runs = plannedLanes slot p base x reversed widths := by
+    rw [hlr]; rfl
+  cases hf : lr.runs.find? (fun run => run.original == rt.original) with
+  | none =>
+    have hn : reversed.getD rt.original false = false := by
+      apply Classical.byContradiction
+      intro hn
+      have ht : reversed.getD rt.original false = true := by cases he : reversed.getD rt.original false <;> simp_all
+      have hne : (edgesOf p rt.original).isEmpty = false := by
+        cases he : edgesOf p rt.original <;> simp_all
+      obtain ⟨run, hm, hor⟩ := plannedLane_exists (base := base) (x := x) (widths := widths) ho ht hne
+      have hn := List.find?_eq_none.mp hf run (by rw [hruns]; exact hm)
+      exact hn (by simp only [hor, beq_self_eq_true])
+    simp only [hn, Bool.false_eq_true, ↓reduceIte]
+    exact laneRouteOf_forward_endpoints hf he h0 h1
+  | some run =>
+    have hm : run ∈ plannedLanes slot p base x reversed widths := by
+      rw [← hruns]; exact List.mem_of_find?_eq_some hf
+    have hor : run.original = rt.original := by
+      simpa only [beq_iff_eq] using List.find?_some hf
+    have hrev := plannedLane_reversed hm
+    rw [hor] at hrev
+    simp only [hrev, ↓reduceIte]
+    have hmends := plannedLane_endpoints hm (by rw [hor]; exact h0) (by rw [hor]; exact h1)
+    have hends := laneRouteOf_reverse_endpoints hf he
+    rcases hmends with ⟨hsx, htx, hsn, htn, _, _, _⟩
+    rw [hsx, htx, hsn, htn] at hends
+    have hs : lr.routing.sourceX = base.sourceX := by rw [hlr]; rfl
+    have ht : lr.routing.targetX = base.targetX := by rw [hlr]; rfl
+    simpa only [hs, ht] using hends
+
+theorem laneRight_nonneg (p : Proper) (x : List Int) : 0 ≤ laneRight p x :=
+  foldl_max_ge _ _ _
+
+theorem plannedLane_right_strict {slot : Int} {p : Proper} {base : Routing} {x : List Int}
+    {reversed : List Bool} {widths : List Int} {run : ReversedLane}
+    (hs : 0 ≤ slot) (hm : run ∈ plannedLanes slot p base x reversed widths) :
+    laneRight p x + slot ≤ run.lane := by
+  obtain ⟨o, index, _, rfl⟩ := plannedLanes_mem hm
+  have hmax : 0 ≤ (laneOriginals p reversed).foldl
+      (fun w o => max w (widths.getD o 0)) 0 := by
+    have key := foldl_max_ge (fun o => widths.getD o 0) (laneOriginals p reversed) 0
+    exact key
+  have hprod := Int.mul_nonneg (Int.natCast_nonneg index) (by omega : 0 ≤
+    2 * slot + (laneOriginals p reversed).foldl (fun w o => max w (widths.getD o 0)) 0)
+  dsimp only [makeLane]
+  omega
+
+theorem plannedLane_right {slot : Int} {p : Proper} {base : Routing} {x : List Int}
+    {reversed : List Bool} {widths : List Int} {run : ReversedLane}
+    (hs : 0 ≤ slot) (hm : run ∈ plannedLanes slot p base x reversed widths) :
+    laneRight p x ≤ run.lane := by
+  have := plannedLane_right_strict hs hm
+  omega
+
+
+theorem laneRouteOf_reverse_avoids {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x y top : List Int} {lr : LaneRouting} {run : ReversedLane} {o : Nat} {rt : EdgeRoute}
+    {v : Nat}
+    (hf : lr.runs.find? (fun run => run.original == o) = some run)
+    (he : laneRouteOf slot p y top (layers.map (layerHeight p)) lr o = .ok rt)
+    (hG : (routeGeo p layers x y top).Ok p.nodes.length layers.length)
+    (hs : run.sourceNode < p.nodes.length) (ht : run.targetNode < p.nodes.length)
+    (hv : v < p.nodes.length) (hvs : v ≠ run.sourceNode) (hvt : v ≠ run.targetNode)
+    (hsr : (rk p.rank run.sourceNode).toNat = run.sourceGap + 1)
+    (htr : (rk p.rank run.targetNode).toNat = run.targetGap)
+    (htg : run.targetGap + 1 < layers.length)
+    (hsx : (boxRect p x y run.sourceNode).x ≤ run.sourceX ∧
+      run.sourceX ≤ (boxRect p x y run.sourceNode).x + (boxRect p x y run.sourceNode).w)
+    (htx : (boxRect p x y run.targetNode).x ≤ run.targetX ∧
+      run.targetX ≤ (boxRect p x y run.targetNode).x + (boxRect p x y run.targetNode).w)
+    (hcs : top.getD run.sourceGap 0 + (layers.map (layerHeight p)).getD run.sourceGap 0 ≤
+        reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.sourceGap run.sourceSegment ∧
+      reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.sourceGap run.sourceSegment ≤
+        top.getD (run.sourceGap + 1) 0)
+    (hct : top.getD run.targetGap 0 + (layers.map (layerHeight p)).getD run.targetGap 0 ≤
+        reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.targetGap run.targetSegment ∧
+      reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.targetGap run.targetSegment ≤
+        top.getD (run.targetGap + 1) 0)
+    (hvpos : 0 < nodeH p v)
+    (htrun : (frameKind p run.targetNode ≠ -2 ∧ run.targetRun = run.targetX) ∨
+      (frameKind p run.targetNode = -2 ∧
+        run.targetRun = xAt x run.targetNode - Int.fdiv (nodeW p run.targetNode) 2))
+    (hlane : (boxRect p x y v).x + (boxRect p x y v).w ≤ run.lane) :
+    ¬ Polyline.hitsRect rt.points (boxRect p x y v) := by
+  simp only [laneRouteOf, hf] at he
+  split at he
+  · simp only [Except.ok.injEq] at he
+    subst he
+    dsimp only
+    apply Polyline.not_hits_of_allMiss
+    rw [allSegsMiss_iff]
+    apply pairsAll_dedup
+    rw [← allSegsMiss_iff]
+    change Polyline.allSegsMiss
+      [⟨run.sourceX, yAt y run.sourceNode⟩,
+        ⟨run.sourceX, reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.sourceGap run.sourceSegment⟩,
+        ⟨run.lane, reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.sourceGap run.sourceSegment⟩,
+        ⟨run.lane, reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.targetGap run.targetSegment⟩,
+        ⟨run.targetRun, reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.targetGap run.targetSegment⟩,
+        ⟨run.targetRun, yAt y run.targetNode + nodeH p run.targetNode⟩,
+        ⟨run.targetX, yAt y run.targetNode + nodeH p run.targetNode⟩]
+      ((routeGeo p layers x y top).rect v)
+    exact reversedSevenPoint_avoids (G := routeGeo p layers x y top) hG hs ht hv hvs hvt hvpos
+      hsr htr htg hsx htx htrun hcs.1 hcs.2 hct.1 hct.2
+      (by simpa only [routeGeo, Geo.rect, boxRect, Int.min_self] using hlane)
+  · simp at he
+
+theorem laneSemantic_orthogonal {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x y top : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
+    {routes : List EdgeRoute} (hP : ProperShape p)
+    (hr : routeWithLanes slot p layers x reversed widths = .ok lr)
+    (h : routePointsWithLanes slot p layers x y top lr = .ok routes) :
+    ∀ rt ∈ routes, Polyline.isOrthogonal rt.points = true := by
+  intro rt hrt
+  obtain ⟨_, he⟩ := routePointsWithLanes_mem h hrt
+  obtain ⟨base, hb, _, hlr⟩ := routeWithLanes_spec hr
+  cases hf : lr.runs.find? (fun run => run.original == rt.original) with
+  | some run =>
+    simp only [laneRouteOf, hf] at he
+    split at he
+    · simp only [Except.ok.injEq] at he
+      have hpts := congrArg EdgeRoute.points he
+      rw [← hpts]
+      dsimp only
+      rw [isOrthogonal_iff]
+      apply pairsAll_dedup
+      rw [← isOrthogonal_iff]
+      exact reversedPoints_orthogonal _ _ _ _ _ _ _
+    · simp at he
+  | none =>
+    simp only [laneRouteOf, hf] at he
+    unfold routeOf at he
+    split at he
+    · simp at he
+    · next pcs hpcs =>
+      simp only [Except.ok.injEq] at he
+      have hpts := congrArg EdgeRoute.points he
+      rw [← hpts]
+      rw [isOrthogonal_iff]
+      apply pairsAll_dedup
+      refine pairsAll_flatten_of _ (pieceStart p y lr.routing) (pieceEnd p y lr.routing)
+        (ChainLink p) ?_ (edgesOf p rt.original) pcs ?_ (hP rt.original)
+      · intro i j hij
+        have hc := chain_junction_orthogonal (y := y) hb hij
+        have hs : lr.routing.sourceX = base.sourceX := by rw [hlr]; rfl
+        have ht : lr.routing.targetX = base.targetX := by rw [hlr]; rfl
+        simpa only [pieceStart, pieceEnd, hs, ht] using hc
+      · exact Zipped.imp _ _ (fun i _ pc hpc => pieceOf_basic hpc)
+          (mapOk_zipped _ _ _ hpcs)
+
+theorem laneRun_node_facts {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
+    (hr : routeWithLanes slot p layers x reversed widths = .ok lr)
+    {run : ReversedLane} (hm : run ∈ lr.runs) :
+    run.sourceNode < p.nodes.length ∧ run.targetNode < p.nodes.length ∧
+      (rk p.rank run.sourceNode).toNat = run.sourceGap + 1 ∧
+      (rk p.rank run.targetNode).toNat = run.targetGap ∧
+      run.targetGap + 1 < layers.length ∧
+      xAt x run.sourceNode - Int.fdiv (nodeW p run.sourceNode) 2 ≤ run.sourceX ∧
+      run.sourceX ≤ xAt x run.sourceNode - Int.fdiv (nodeW p run.sourceNode) 2 + nodeW p run.sourceNode ∧
+      xAt x run.targetNode - Int.fdiv (nodeW p run.targetNode) 2 ≤ run.targetX ∧
+      run.targetX ≤ xAt x run.targetNode - Int.fdiv (nodeW p run.targetNode) 2 + nodeW p run.targetNode ∧
+      (xAt x run.targetNode - Int.fdiv (nodeW p run.targetNode) 2 ≤ run.targetRun ∧
+        run.targetRun ≤ xAt x run.targetNode - Int.fdiv (nodeW p run.targetNode) 2 +
+          nodeW p run.targetNode) ∧
+      ((frameKind p run.targetNode ≠ -2 ∧ run.targetRun = run.targetX) ∨
+        (frameKind p run.targetNode = -2 ∧
+          run.targetRun = xAt x run.targetNode - Int.fdiv (nodeW p run.targetNode) 2)) := by
+  obtain ⟨base, hb, _, hlr⟩ := routeWithLanes_spec hr
+  have hmem : run ∈ plannedLanes slot p base x reversed widths := by
+    rw [hlr] at hm; exact hm
+  obtain ⟨o, index, hq, rfl⟩ := plannedLanes_mem hmem
+  have hom : o ∈ laneOriginals p reversed := by
+    rw [← List.zipIdx_map_fst 0 (laneOriginals p reversed)]
+    exact List.mem_map.mpr ⟨(o, index), hq, rfl⟩
+  have hne : (edgesOf p o).isEmpty = false := by
+    simp only [laneOriginals, List.mem_filter, Bool.and_eq_true, Bool.not_eq_true'] at hom
+    exact hom.2.2
+  have hfirst : (edgesOf p o).headD 0 ∈ edgesOf p o := by
+    cases he : edgesOf p o with
+    | nil => simp [he] at hne
+    | cons a as => simp
+  have hlast : (edgesOf p o).getLast?.getD 0 ∈ edgesOf p o := by
+    cases he : (edgesOf p o).getLast? with
+    | none => have := List.getLast?_eq_none_iff.mp he; simp [this] at hne
+    | some a => simpa only [he, Option.getD_some] using List.mem_of_getLast? he
+  have hi0 := mem_edgesOf hfirst
+  have hi1 := mem_edgesOf hlast
+  have hl := (route_spec hb).1
+  have hedge := (layersOk_spec hl).2.2.2.2
+  have h0 := hedge _ hi0
+  have h1 := hedge _ hi1
+  have hc := (layersOk_spec hl).2.2.2.1
+  obtain ⟨l, hll, _, hn⟩ := hc _ h0.1
+  obtain ⟨l', hll', _, hn'⟩ := hc _ h1.1
+  have hgap := (route_segment_facts hb hi0).1
+  have pr0 := port_ranges hb hi0
+  have pr1 := port_ranges hb hi1
+  dsimp only [makeLane]
+  refine ⟨h1.2.1, h0.1, ?_, rfl, hgap, pr1.2.2.1, pr1.2.2.2, pr0.1, pr0.2.1,
+    run_ranges hb hi0, run_cases hb hi0⟩
+  unfold gapOf
+  omega
+
+theorem laneRun_right_bound {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x y : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
+    (hr : routeWithLanes slot p layers x reversed widths = .ok lr)
+    {run : ReversedLane} (hm : run ∈ lr.runs) {v : Nat} (hv : v < p.nodes.length) :
+    (boxRect p x y v).x + (boxRect p x y v).w ≤ run.lane := by
+  have hext : (0 : Int) ≤ ((p.nodes.getD v default).node.loopExtent : Int) :=
+    Int.natCast_nonneg _
+  obtain ⟨base, hb, hs, hlr⟩ := routeWithLanes_spec hr
+  have hmem : run ∈ plannedLanes slot p base x reversed widths := by
+    rw [hlr] at hm; exact hm
+  have hl := plannedLane_right (by omega : 0 ≤ slot) hmem
+  have hbnd := laneRight_bound p x hv
+  dsimp only [boxRect]
+  omega
+
+theorem laneRun_port_ne_lane {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
+    (hr : routeWithLanes slot p layers x reversed widths = .ok lr)
+    {run : ReversedLane} (hm : run ∈ lr.runs) :
+    run.sourceX ≠ run.lane ∧ run.targetRun ≠ run.lane := by
+  have nf := laneRun_node_facts hr hm
+  obtain ⟨base, hb, hs, hlr⟩ := routeWithLanes_spec hr
+  have hmem : run ∈ plannedLanes slot p base x reversed widths := by
+    rw [hlr] at hm; exact hm
+  have hstrict := plannedLane_right_strict (by omega : 0 ≤ slot) hmem
+  have hbs := laneRight_bound p x nf.1
+  have hbt := laneRight_bound p x nf.2.1
+  have hsn : (0 : Int) ≤ ((p.nodes.getD run.sourceNode default).node.loopExtent : Int) :=
+    Int.natCast_nonneg _
+  have htn : (0 : Int) ≤ ((p.nodes.getD run.targetNode default).node.loopExtent : Int) :=
+    Int.natCast_nonneg _
+  rcases nf with ⟨_, _, _, _, _, _, hsp, _, _, hrr, _⟩
+  constructor <;> omega
+
 end RouteImpl
 
 export RouteImpl (route routePointsWith routePoints ProperShape CoordFacts IsReal boxRect edgesOf
   edgeAt pieceStart pieceEnd segConflict sourcePort targetPort DistinctSegmentKeys
   GapDeclsDistinct)
 
-theorem route_orthogonal {slot : Int} {p : Proper} {layers : List (List Nat)}
+theorem forward_route_orthogonal {slot : Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} {routes : List EdgeRoute} (hP : ProperShape p)
+    (hr : route p layers x = .ok r)
     (h : routePointsWith slot p layers x y top r = .ok routes) :
     ∀ rt ∈ routes, Polyline.isOrthogonal rt.points = true :=
-  RouteImpl.route_orthogonal_aux hP h
+  RouteImpl.route_orthogonal_aux hP hr h
 
-theorem route_endpoints_on_ports {slot : Int} {p : Proper} {layers : List (List Nat)}
+theorem route_orthogonal {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x y top : List Int} {reversed : List Bool} {widths : List Int}
+    {lr : RouteImpl.LaneRouting} {routes : List EdgeRoute} (hP : ProperShape p)
+    (hr : RouteImpl.routeWithLanes slot p layers x reversed widths = .ok lr)
+    (h : RouteImpl.routePointsWithLanes slot p layers x y top lr = .ok routes) :
+    ∀ rt ∈ routes, Polyline.isOrthogonal rt.points = true :=
+  RouteImpl.laneSemantic_orthogonal hP hr h
+
+theorem forward_route_endpoints_on_ports {slot : Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} {routes : List EdgeRoute}
     (hr : route p layers x = .ok r) (h : routePointsWith slot p layers x y top r = .ok routes) :
     ∀ rt ∈ routes, ∀ i₀ i₁, (edgesOf p rt.original).head? = some i₀ →
@@ -2016,7 +3401,42 @@ theorem route_endpoints_on_ports {slot : Int} {p : Proper} {layers : List (List 
         rt.points.getLast? = some ⟨qx, (boxRect p x y (edgeAt p i₁).head).y⟩ :=
   RouteImpl.route_endpoints_aux hr h
 
-theorem route_avoids_nodes {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
+theorem route_endpoints_on_ports {slot : Int} {p : Proper} {layers : List (List Nat)}
+    {x y top : List Int} {reversed : List Bool} {widths : List Int}
+    {lr : RouteImpl.LaneRouting} {routes : List EdgeRoute}
+    (hr : RouteImpl.routeWithLanes slot p layers x reversed widths = .ok lr)
+    (h : RouteImpl.routePointsWithLanes slot p layers x y top lr = .ok routes) :
+    ∀ rt ∈ routes, ∀ i₀ i₁, (edgesOf p rt.original).head? = some i₀ →
+      (edgesOf p rt.original).getLast? = some i₁ →
+      ∃ px qx,
+        sourcePort p x i₀ = .ok px ∧ targetPort p x i₁ = .ok qx ∧
+        (boxRect p x y (edgeAt p i₀).tail).x ≤ px ∧
+        px ≤ (boxRect p x y (edgeAt p i₀).tail).x + (boxRect p x y (edgeAt p i₀).tail).w ∧
+        (boxRect p x y (edgeAt p i₁).head).x ≤ qx ∧
+        qx ≤ (boxRect p x y (edgeAt p i₁).head).x + (boxRect p x y (edgeAt p i₁).head).w ∧
+        (if reversed.getD rt.original false then
+          rt.points.head? = some ⟨qx, (boxRect p x y (edgeAt p i₁).head).y⟩ ∧
+          rt.points.getLast? = some ⟨px, (boxRect p x y (edgeAt p i₀).tail).y +
+            (boxRect p x y (edgeAt p i₀).tail).h⟩
+        else
+          rt.points.head? = some ⟨px, (boxRect p x y (edgeAt p i₀).tail).y +
+            (boxRect p x y (edgeAt p i₀).tail).h⟩ ∧
+          rt.points.getLast? = some ⟨qx, (boxRect p x y (edgeAt p i₁).head).y⟩) := by
+  intro rt hrt i₀ i₁ h0 h1
+  obtain ⟨base, hb, _, hlr⟩ := RouteImpl.routeWithLanes_spec hr
+  have hports := RouteImpl.laneSemantic_endpoints hr h rt hrt i₀ i₁ h0 h1
+  have hi0 := RouteImpl.mem_edgesOf (RouteImpl.mem_of_head' h0)
+  have hi1 := RouteImpl.mem_edgesOf (List.mem_of_getLast? h1)
+  have pr0 := RouteImpl.port_ranges hb hi0
+  have pr1 := RouteImpl.port_ranges hb hi1
+  have hp := (RouteImpl.route_spec hb).2.2.2.2.1
+  refine ⟨base.sourceX.getD i₀ 0, base.targetX.getD i₁ 0,
+    (hp i₀ hi0).1, (hp i₁ hi1).2, pr0.1, pr0.2.1, pr1.2.2.1, pr1.2.2.2, ?_⟩
+  have hs : lr.routing.sourceX = base.sourceX := by rw [hlr]; rfl
+  have ht : lr.routing.targetX = base.targetX := by rw [hlr]; rfl
+  simpa only [hs, ht, RouteImpl.pieceStart, RouteImpl.pieceEnd, boxRect] using hports
+
+theorem forward_route_avoids_nodes {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} {routes : List EdgeRoute} (hP : ProperShape p)
     (hr : route p layers x = .ok r) (h : routePointsWith slot p layers x y top r = .ok routes)
     (hF : CoordFacts p layers x y top r gap rankGap slot) :
@@ -2026,11 +3446,23 @@ theorem route_avoids_nodes {slot gap rankGap : Int} {p : Proper} {layers : List 
         ¬ Polyline.hitsRect rt.points (boxRect p x y v) :=
   RouteImpl.route_avoids_aux hP hr h hF
 
-theorem slots_separate_overlapping_segments {p : Proper} {layers : List (List Nat)}
+theorem forward_slots_separate_overlapping_segments {p : Proper} {layers : List (List Nat)}
     {x : List Int} {r : Routing} (hr : route p layers x = .ok r) (hkeys : DistinctSegmentKeys r) :
     ∀ g ∈ r.gaps, ∀ s ∈ g.segments, ∀ t ∈ g.segments,
       (s.tail ≠ t.tail ∨ s.head ≠ t.head) → segConflict s t = true → s.slot ≠ t.slot :=
   RouteImpl.slots_separate_aux hr hkeys
+
+theorem slots_separate_overlapping_segments {slot : Int} {p : Proper}
+    {layers : List (List Nat)} {x : List Int} {reversed : List Bool} {widths : List Int}
+    {lr : RouteImpl.LaneRouting}
+    (hr : RouteImpl.routeWithLanes slot p layers x reversed widths = .ok lr) :
+    ∀ g ∈ lr.routing.gaps, ∀ s ∈ g.segments, ∀ t ∈ g.segments,
+      (s.tail ≠ t.tail ∨ s.head ≠ t.head) → segConflict s t = true → s.slot ≠ t.slot := by
+  intro g hg s hs t ht hne hc
+  apply RouteImpl.laneSlots_separate_overlapping_segments hr g hg s hs t ht ?_ hc
+  intro heq
+  subst heq
+  simp at hne
 
 theorem normalize_shape {g : Graph} {rank : List Int} {p : Proper}
     (h : normalize g rank = .ok p) : ProperShape p :=
@@ -2040,7 +3472,7 @@ theorem slots_separate_of_gap_decls {p : Proper} {layers : List (List Nat)}
     {x : List Int} {r : Routing} (hr : route p layers x = .ok r) (hD : GapDeclsDistinct p) :
     ∀ g ∈ r.gaps, ∀ s ∈ g.segments, ∀ t ∈ g.segments,
       (s.tail ≠ t.tail ∨ s.head ≠ t.head) → segConflict s t = true → s.slot ≠ t.slot :=
-  slots_separate_overlapping_segments hr (RouteImpl.distinctSegmentKeys_of_gap_decls hr hD)
+  forward_slots_separate_overlapping_segments hr (RouteImpl.distinctSegmentKeys_of_gap_decls hr hD)
 
 end Layered
 end Elegant

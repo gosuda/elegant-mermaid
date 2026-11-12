@@ -61,6 +61,12 @@ def layoutFailure : LayoutError → IO UInt32
     IO.eprintln "layout error: domain"
     pure 1
 
+def familyFailure : Elegant.LayoutFailure → IO UInt32
+  | .geometry error => layoutFailure error
+  | .tooLarge limit actual => do
+    IO.eprintln s!"layout error: model size {actual} exceeds limit {limit}"
+    pure 1
+
 def withModel (run : Elegant.Model → IO UInt32) : IO UInt32 := do
   let text ← readStdin
   match Elegant.readModel text with
@@ -76,7 +82,7 @@ def withModel (run : Elegant.Model → IO UInt32) : IO UInt32 := do
 def layoutMain : IO UInt32 :=
   withModel fun m =>
     match Elegant.Kinds.Flowchart.layout m with
-    | .error e => layoutFailure e
+    | .error e => familyFailure e
     | .ok result => do
       layoutDiagnostic result.budgetExhausted
       IO.print (Elegant.toDump result.scene)
@@ -88,7 +94,7 @@ def cellModel (m : Elegant.Model) : Elegant.Model :=
 def textMain (charset : Elegant.Text.Charset) : IO UInt32 :=
   withModel fun m =>
     match Elegant.Kinds.Flowchart.layout (cellModel m) with
-    | .error e => layoutFailure e
+    | .error e => familyFailure e
     | .ok result =>
       match Elegant.Text.render result.scene charset with
       | .error e => layoutFailure e

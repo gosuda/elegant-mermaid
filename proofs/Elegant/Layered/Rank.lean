@@ -63,6 +63,217 @@ def initRank (g : Graph) : Except LayoutError (List Int) :=
       .ok ((List.range g.nodes.length).map r)
     else .error .overflow
 
+theorem find?_congr' {α : Type} (p q : α → Bool) (l : List α) (h : ∀ x ∈ l, p x = q x) :
+    l.find? p = l.find? q := by
+  induction l with
+  | nil => rfl
+  | cons x xs ih =>
+    have hx := h x (by simp)
+    have ih' := ih (fun y hy => h y (by simp [hy]))
+    simp only [List.find?_cons, hx, ih']
+
+structure InitCtx where
+  n : Nat
+  inTails : Array (List Nat)
+  out : Array (List Edge)
+
+def InitCtx.build (g : Graph) : InitCtx :=
+  { n := g.nodes.length
+    inTails := (Array.range g.nodes.length).map fun v =>
+      (g.edges.filter fun e => e.head == v && e.tail != e.head).map (·.tail)
+    out := (Array.range g.nodes.length).map fun v =>
+      g.edges.filter fun e => e.tail == v && e.tail != e.head }
+
+def readyA (c : InitCtx) (d : Array Bool) (v : Nat) : Bool :=
+  !d.getD v false && (c.inTails.getD v []).all fun t => d.getD t false
+
+def relaxA (c : InitCtx) (v : Nat) (a : Array Int) : Array Int :=
+  (c.out.getD v []).foldl
+    (fun a e => a.set! e.head (max (a.getD e.head 0) (a.getD e.tail 0 + e.minLen))) a
+
+def longestLoop (c : InitCtx) : Nat → Array Bool → Array Int → Except LayoutError (Array Int)
+  | 0, _, a => .ok a
+  | k + 1, d, a =>
+    match (List.range c.n).find? (readyA c d) with
+    | none => .error .domain
+    | some v => longestLoop c k (d.set! v true) (relaxA c v a)
+
+def initRankArr (g : Graph) : Except LayoutError (List Int) :=
+  match longestLoop (InitCtx.build g) g.nodes.length
+      (Array.replicate g.nodes.length false) (Array.replicate g.nodes.length 0) with
+  | .error e => .error e
+  | .ok a =>
+    if a.toList.all (fun x => decide (x ≤ I32_MAX)) then .ok a.toList else .error .overflow
+
+def initRankFast (g : Graph) : Except LayoutError (List Int) :=
+  if g.wellformed = true then initRankArr g else initRank g
+
+def SimR (n : Nat) (a : Array Int) (r : Nat → Int) : Prop :=
+  a.size = n ∧ ∀ x, x < n → a.getD x 0 = r x
+
+theorem getD_set! {α : Type} (a : Array α) (i j : Nat) (v d : α) :
+    (a.set! i v).getD j d = if i = j ∧ i < a.size then v else a.getD j d := by
+  simp only [Array.set!_eq_setIfInBounds, Array.getD_eq_getD_getElem?,
+    Array.getElem?_setIfInBounds]
+  by_cases h1 : i = j
+  · subst h1
+    by_cases h2 : i < a.size <;> simp [h2]
+  · simp [h1]
+
+theorem simR_relax {n : Nat} {a : Array Int} {r : Nat → Int} (e : Edge) (ht : e.tail < n)
+    (he : e.head < n) (h : SimR n a r) :
+    SimR n (a.set! e.head (max (a.getD e.head 0) (a.getD e.tail 0 + e.minLen)))
+      (relaxEdge e r) := by
+  have hsize := h.1
+  refine ⟨by simpa [Array.set!_eq_setIfInBounds] using hsize, ?_⟩
+  intro x hx
+  rw [getD_set!]
+  have hlt : e.head < a.size := by rw [hsize]; exact he
+  by_cases hxe : e.head = x
+  · subst hxe
+    have h1 := h.2 e.head he
+    have h2 := h.2 e.tail ht
+    simp [relaxEdge, hlt, h1, h2]
+  · have h1 := h.2 x hx
+    simp [relaxEdge, hxe, h1, Ne.symm hxe]
+
+theorem simR_fold {n : Nat} (l : List Edge) (hl : ∀ e ∈ l, e.tail < n ∧ e.head < n) :
+    ∀ {a : Array Int} {r : Nat → Int}, SimR n a r →
+      SimR n
+        (l.foldl (fun a e => a.set! e.head (max (a.getD e.head 0) (a.getD e.tail 0 + e.minLen))) a)
+        (l.foldl (fun r e => relaxEdge e r) r) := by
+  induction l with
+  | nil => intro a r h; exact h
+  | cons e es ih =>
+    intro a r h
+    simp only [List.foldl_cons]
+    exact ih (fun f hf => hl f (by simp [hf])) (simR_relax e (hl e (by simp)).1 (hl e (by simp)).2 h)
+
+theorem relaxOut_eq (g : Graph) (v : Nat) (r : Nat → Int) :
+    relaxOut g v r =
+      (g.edges.filter fun e => e.tail == v && e.tail != e.head).foldl
+        (fun r e => relaxEdge e r) r := by
+  unfold relaxOut
+  rw [List.foldl_filter]
+  congr 1
+  funext x y
+  simp [relaxStep]
+
+theorem wellformed_bounds {g : Graph} (h : g.wellformed = true) :
+    ∀ e ∈ g.edges, e.tail < g.nodes.length ∧ e.head < g.nodes.length := by
+  intro e he
+  have := List.all_eq_true.mp h e he
+  simp only [decide_eq_true_eq] at this
+  exact ⟨this.1, this.2.1⟩
+
+theorem relaxA_sim {g : Graph} (hwf : g.wellformed = true) {v : Nat} (hv : v < g.nodes.length)
+    {a : Array Int} {r : Nat → Int} (h : SimR g.nodes.length a r) :
+    SimR g.nodes.length (relaxA (InitCtx.build g) v a) (relaxOut g v r) := by
+  rw [relaxOut_eq]
+  have hout : (InitCtx.build g).out.getD v [] =
+      g.edges.filter fun e => e.tail == v && e.tail != e.head := by
+    simp [InitCtx.build, Array.getD_eq_getD_getElem?, hv]
+  unfold relaxA
+  rw [hout]
+  apply simR_fold _ _ h
+  intro e he
+  exact wellformed_bounds hwf e (List.mem_filter.mp he).1
+
+theorem readyA_eq (g : Graph) (d : Array Bool) (done : List Nat)
+    (hd : ∀ x, d.getD x false = done.contains x) {v : Nat} (hv : v < g.nodes.length) :
+    readyA (InitCtx.build g) d v = readyNode g done v := by
+  unfold readyA readyNode
+  have hin : (InitCtx.build g).inTails.getD v [] =
+      (g.edges.filter fun e => e.head == v && e.tail != e.head).map (·.tail) := by
+    simp [InitCtx.build, Array.getD_eq_getD_getElem?, hv]
+  rw [hin, List.all_map, List.all_filter, hd v]
+  congr 1
+  apply List.all_congr rfl
+  intro e
+  simp only [Function.comp_apply, hd]
+  cases h1 : e.head == v <;> cases h2 : e.tail == e.head <;> simp_all [bne]
+
+theorem simR_toList {n : Nat} {a : Array Int} {r : Nat → Int} (h : SimR n a r) :
+    (List.range n).map r = a.toList := by
+  apply List.ext_getElem
+  · simp [h.1]
+  · intro i h1 h2
+    have hi : i < n := by simpa using h1
+    have := h.2 i hi
+    rw [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem (by rw [h.1]; exact hi)] at this
+    simpa using this.symm
+
+theorem longestLoop_eq (g : Graph) (hwf : g.wellformed = true) :
+    ∀ (k : Nat) (done : List Nat) (d : Array Bool) (r : Nat → Int) (a : Array Int),
+      (∀ x, d.getD x false = done.contains x) → d.size = g.nodes.length →
+      SimR g.nodes.length a r →
+      (longestAux g k done r).map (fun r' => (List.range g.nodes.length).map r') =
+        (longestLoop (InitCtx.build g) k d a).map Array.toList := by
+  intro k
+  induction k with
+  | zero =>
+    intro done d r a hd hds hs
+    simp only [longestAux, longestLoop, Except.map]
+    rw [simR_toList hs]
+  | succ k ih =>
+    intro done d r a hd hds hs
+    have hfind : (List.range g.nodes.length).find? (readyNode g done) =
+        (List.range g.nodes.length).find? (readyA (InitCtx.build g) d) :=
+      find?_congr' _ _ _ (fun x hx => (readyA_eq g d done hd (List.mem_range.mp hx)).symm)
+    have hn : (InitCtx.build g).n = g.nodes.length := rfl
+    simp only [longestAux, longestLoop, hn, hfind]
+    cases hv : (List.range g.nodes.length).find? (readyA (InitCtx.build g) d) with
+    | none => rfl
+    | some v =>
+      have hvlt : v < g.nodes.length := List.mem_range.mp (List.mem_of_find?_eq_some hv)
+      simp only
+      refine ih (done ++ [v]) (d.set! v true) (relaxOut g v r) (relaxA (InitCtx.build g) v a)
+        ?_ (by simpa using hds) (relaxA_sim hwf hvlt hs)
+      intro x
+      rw [getD_set!]
+      by_cases hvx : v = x
+      · subst hvx
+        simp [hds, hvlt]
+      · simp [hvx, hd x, Ne.symm hvx]
+
+theorem initRankFast_eq (g : Graph) : initRankFast g = initRank g := by
+  unfold initRankFast
+  split
+  · next hwf =>
+    have h := longestLoop_eq g hwf g.nodes.length [] (Array.replicate g.nodes.length false)
+      (fun _ => 0) (Array.replicate g.nodes.length 0)
+      (by
+        intro x
+        by_cases hx : x < g.nodes.length <;>
+          simp [Array.getD_eq_getD_getElem?, hx])
+      (by simp)
+      ⟨by simp, by
+        intro x hx
+        simp [Array.getD_eq_getD_getElem?, hx]⟩
+    unfold initRankArr initRank
+    revert h
+    generalize longestAux g g.nodes.length [] (fun _ => 0) = A
+    generalize longestLoop (InitCtx.build g) g.nodes.length (Array.replicate g.nodes.length false)
+      (Array.replicate g.nodes.length 0) = L
+    intro h
+    cases A with
+    | error e =>
+      cases L with
+      | error e' => simp only [Except.map, Except.error.injEq] at h; subst h; rfl
+      | ok a => simp [Except.map] at h
+    | ok r =>
+      cases L with
+      | error e => simp [Except.map] at h
+      | ok a =>
+        simp only [Except.map, Except.ok.injEq] at h
+        dsimp only
+        rw [h]
+  · rfl
+
+@[csimp] theorem initRank_eq_initRankFast : @initRank = @initRankFast := by
+  funext g
+  exact (initRankFast_eq g).symm
+
 def inS (side : List Bool) (v : Nat) : Bool := side.getD v false
 
 def crossing (side : List Bool) (e : Edge) : Bool := inS side e.tail != inS side e.head
@@ -143,6 +354,194 @@ def tightTree (g : Graph) (r : List Int) : Except LayoutError TT :=
         tree := List.replicate g.edges.length false
         r := r }
 
+theorem getD_toList {α : Type} (a : Array α) (i : Nat) (d : α) :
+    a.toList.getD i d = a.getD i d := by
+  simp [List.getD_eq_getElem?_getD, Array.getD_eq_getD_getElem?]
+
+theorem findSome?_congr' {α β : Type} (f h : α → Option β) (l : List α)
+    (hfh : ∀ x ∈ l, f x = h x) : l.findSome? f = l.findSome? h := by
+  induction l with
+  | nil => rfl
+  | cons x xs ih =>
+    simp only [List.findSome?_cons]
+    rw [hfh x (by simp), ih (fun y hy => hfh y (by simp [hy]))]
+
+structure TTA where
+  side : Array Bool
+  tree : Array Bool
+  r : Array Int
+
+def TTA.toTT (s : TTA) : TT :=
+  { side := s.side.toList, tree := s.tree.toList, r := s.r.toList }
+
+structure TightCtx where
+  n : Nat
+  ea : Array Edge
+  zi : List (Edge × Nat)
+  inc : Array (List Nat)
+
+def TightCtx.build (g : Graph) : TightCtx :=
+  { n := g.nodes.length
+    ea := g.edges.toArray
+    zi := g.edges.zipIdx
+    inc := (Array.range g.nodes.length).map (incident g) }
+
+def slackA (ra : Array Int) (e : Edge) : Int := ra.getD e.head 0 - ra.getD e.tail 0 - e.minLen
+
+def crossingA (sa : Array Bool) (e : Edge) : Bool := sa.getD e.tail false != sa.getD e.head false
+
+def tightAtA (ea : Array Edge) (ra : Array Int) (sa : Array Bool) (i : Nat) : Bool :=
+  match ea[i]? with
+  | some e => crossingA sa e && slackA ra e == 0
+  | none => false
+
+def firstTightA (c : TightCtx) (ra : Array Int) (sa : Array Bool) : Option Nat :=
+  (List.range c.n).findSome? fun v =>
+    if sa.getD v false then (c.inc.getD v []).find? (tightAtA c.ea ra sa) else none
+
+def msStepA (p : Edge → Bool) (ra : Array Int) (acc : Option (Nat × Int)) (q : Edge × Nat) :
+    Option (Nat × Int) :=
+  if p q.1 then
+    match acc with
+    | none => some (q.2, slackA ra q.1)
+    | some (_, gap) => if slackA ra q.1 < gap then some (q.2, slackA ra q.1) else acc
+  else acc
+
+def closestDeltaA (c : TightCtx) (ra : Array Int) (sa : Array Bool) : Option Int :=
+  match c.zi.foldl (msStepA (crossingA sa) ra) none with
+  | none => none
+  | some (j, s) =>
+    match c.ea[j]? with
+    | some e => some (if sa.getD e.head false then -s else s)
+    | none => none
+
+def shiftByA (sa : Array Bool) (δ : Int) (ra : Array Int) : Array Int :=
+  ra.mapIdx fun i x => if sa.getD i false then x + δ else x
+
+def extendA (c : TightCtx) (st : TTA) (i : Nat) : Except LayoutError TTA :=
+  match c.ea[i]? with
+  | some e =>
+    .ok { st with
+      tree := st.tree.set! i true
+      side := (st.side.set! e.tail true).set! e.head true }
+  | none => .error .domain
+
+def growStepA (c : TightCtx) (st : TTA) : Except LayoutError TTA :=
+  match firstTightA c st.r st.side with
+  | some i => extendA c st i
+  | none =>
+    match closestDeltaA c st.r st.side with
+    | none => .error .domain
+    | some δ =>
+      let r' := shiftByA st.side δ st.r
+      match firstTightA c r' st.side with
+      | some i => extendA c { st with r := r' } i
+      | none => .error .domain
+
+def growA (c : TightCtx) : Nat → TTA → Except LayoutError TTA
+  | 0, st => .ok st
+  | k + 1, st =>
+    match growStepA c st with
+    | .error e => .error e
+    | .ok st' => growA c k st'
+
+def tightTreeFast (g : Graph) (r : List Int) : Except LayoutError TT :=
+  if g.nodes.length = 0 then
+    .ok { side := [], tree := List.replicate g.edges.length false, r := r }
+  else
+    (growA (TightCtx.build g) (g.nodes.length - 1)
+      { side := (Array.replicate g.nodes.length false).set! 0 true
+        tree := Array.replicate g.edges.length false
+        r := r.toArray }).map TTA.toTT
+
+theorem slackA_eq (ra : Array Int) (e : Edge) : slackA ra e = slack ra.toList e := by
+  simp [slackA, slack, rk]
+
+theorem crossingA_eq (sa : Array Bool) (e : Edge) : crossingA sa e = crossing sa.toList e := by
+  simp [crossingA, crossing, inS]
+
+theorem tightAtA_eq (g : Graph) (ra : Array Int) (sa : Array Bool) (i : Nat) :
+    tightAtA g.edges.toArray ra sa i = tightAt g ra.toList sa.toList i := by
+  unfold tightAtA tightAt
+  simp only [List.getElem?_toArray]
+  cases g.edges[i]? with
+  | none => rfl
+  | some e => simp [crossingA_eq, slackA_eq]
+
+theorem firstTightA_eq (g : Graph) (ra : Array Int) (sa : Array Bool) :
+    firstTightA (TightCtx.build g) ra sa = firstTight g ra.toList sa.toList := by
+  unfold firstTightA firstTight
+  apply findSome?_congr'
+  intro v hv
+  have hv' : v < g.nodes.length := List.mem_range.mp hv
+  have hinc : (TightCtx.build g).inc.getD v [] = incident g v := by
+    simp [TightCtx.build, Array.getD_eq_getD_getElem?, hv']
+  have hat : tightAtA (TightCtx.build g).ea ra sa = tightAt g ra.toList sa.toList :=
+    funext (tightAtA_eq g ra sa)
+  simp only [inS, getD_toList, hinc, hat]
+
+theorem closestDeltaA_eq (g : Graph) (ra : Array Int) (sa : Array Bool) :
+    closestDeltaA (TightCtx.build g) ra sa = closestDelta g ra.toList sa.toList := by
+  have hms : msStepA (crossingA sa) ra = msStep (crossing sa.toList) ra.toList := by
+    funext acc q
+    simp only [msStepA, msStep, crossingA_eq, slackA_eq]
+  unfold closestDeltaA closestDelta minSlack
+  simp only [TightCtx.build, hms, List.getElem?_toArray, inS, getD_toList]
+
+theorem shiftByA_eq (sa : Array Bool) (δ : Int) (ra : Array Int) :
+    (shiftByA sa δ ra).toList = shiftBy sa.toList δ ra.toList := by
+  simp [shiftByA, shiftBy, Array.toList_mapIdx, inS]
+
+theorem extendA_eq (g : Graph) (st : TTA) (i : Nat) :
+    (extendA (TightCtx.build g) st i).map TTA.toTT = TT.extend g st.toTT i := by
+  unfold extendA TT.extend
+  simp only [TightCtx.build, List.getElem?_toArray]
+  cases g.edges[i]? with
+  | none => rfl
+  | some e =>
+    simp [TTA.toTT, Except.map, Array.set!_eq_setIfInBounds, Array.toList_setIfInBounds]
+
+theorem growStepA_eq (g : Graph) (st : TTA) :
+    (growStepA (TightCtx.build g) st).map TTA.toTT = growStep g st.toTT := by
+  unfold growStepA growStep
+  simp only [TTA.toTT, firstTightA_eq, closestDeltaA_eq]
+  cases hf : firstTight g st.r.toList st.side.toList with
+  | some i => exact extendA_eq g st i
+  | none =>
+    cases hc : closestDelta g st.r.toList st.side.toList with
+    | none => rfl
+    | some δ =>
+      simp only [shiftByA_eq]
+      cases hf2 : firstTight g (shiftBy st.side.toList δ st.r.toList) st.side.toList with
+      | none => rfl
+      | some i =>
+        have := extendA_eq g { st with r := shiftByA st.side δ st.r } i
+        simpa [TTA.toTT, shiftByA_eq] using this
+
+theorem growA_eq (g : Graph) :
+    ∀ (k : Nat) (st : TTA), (growA (TightCtx.build g) k st).map TTA.toTT = grow g k st.toTT := by
+  intro k
+  induction k with
+  | zero => intro st; rfl
+  | succ k ih =>
+    intro st
+    unfold growA grow
+    rw [← growStepA_eq g st]
+    cases growStepA (TightCtx.build g) st with
+    | error e => rfl
+    | ok st' => exact ih st'
+
+theorem tightTreeFast_eq (g : Graph) (r : List Int) : tightTreeFast g r = tightTree g r := by
+  unfold tightTreeFast tightTree
+  split
+  · rfl
+  · rw [growA_eq]
+    simp [TTA.toTT, Array.set!_eq_setIfInBounds, Array.toList_setIfInBounds]
+
+@[csimp] theorem tightTree_eq_tightTreeFast : @tightTree = @tightTreeFast := by
+  funext g r
+  exact (tightTreeFast_eq g r).symm
+
 def cutContrib (side : List Bool) (e : Edge) : Int :=
   if inS side e.tail == inS side e.head then 0 else if inS side e.head then 1 else -1
 
@@ -168,6 +567,150 @@ def leavingEdge (g : Graph) (tree : List Bool) : Option (Nat × List Bool) :=
     if p.1 then
       if cutValue g (treeSide g tree p.2) < 0 then some (p.2, treeSide g tree p.2) else none
     else none
+
+def iterN {α : Type} (f : α → α) : Nat → α → α
+  | 0, s => s
+  | k + 1, s => iterN f k (f s)
+
+theorem foldl_range_const {α : Type} (f : α → α) (l : List Nat) (s : α) :
+    l.foldl (fun s _ => f s) s = iterN f l.length s := by
+  induction l generalizing s with
+  | nil => rfl
+  | cons x xs ih => simp only [List.foldl_cons, List.length_cons, iterN]; exact ih _
+
+theorem iterN_fixed {α : Type} (f : α → α) (s : α) (h : f s = s) : ∀ k, iterN f k s = s := by
+  intro k
+  induction k with
+  | zero => rfl
+  | succ k ih => simp only [iterN, h]; exact ih
+
+theorem foldl_sim {α β γ : Type} (fA : α → γ → α) (fL : β → γ → β) (toL : α → β)
+    (hstep : ∀ s p, toL (fA s p) = fL (toL s) p) (l : List γ) :
+    ∀ s, toL (l.foldl fA s) = l.foldl fL (toL s) := by
+  induction l with
+  | nil => intro s; rfl
+  | cons p ps ih => intro s; simp only [List.foldl_cons]; rw [ih, hstep]
+
+theorem foldl_add_sum {α : Type} (f : α → Int) (l : List α) (acc : Int) :
+    l.foldl (fun a x => a + f x) acc = acc + (l.map f).sum := by
+  induction l generalizing acc with
+  | nil => simp
+  | cons x xs ih => simp only [List.foldl_cons, List.map_cons, List.sum_cons, ih]; omega
+
+def cutContribA (sa : Array Bool) (e : Edge) : Int :=
+  if sa.getD e.tail false == sa.getD e.head false then 0
+  else if sa.getD e.head false then 1 else -1
+
+def cutValueA (g : Graph) (sa : Array Bool) : Int :=
+  g.edges.foldl (fun acc e => acc + cutContribA sa e) 0
+
+theorem cutValueA_eq (g : Graph) (sa : Array Bool) : cutValueA g sa = cutValue g sa.toList := by
+  have h : ∀ e, cutContribA sa e = cutContrib sa.toList e := by
+    intro e
+    simp [cutContribA, cutContrib, inS]
+  unfold cutValueA cutValue
+  simp only [h]
+  rw [foldl_add_sum]
+  omega
+
+structure LeaveCtx where
+  n : Nat
+  ea : Array Edge
+  te : List (Edge × Nat)
+
+def LeaveCtx.build (g : Graph) (tree : List Bool) : LeaveCtx :=
+  let ta := tree.toArray
+  { n := g.nodes.length
+    ea := g.edges.toArray
+    te := g.edges.zipIdx.filter fun p => ta.getD p.2 false }
+
+def treeStepA (removed : Nat) (s : Array Bool) (p : Edge × Nat) : Array Bool :=
+  if p.2 = removed then s
+  else if s.getD p.1.tail false || s.getD p.1.head false then
+    (s.set! p.1.tail true).set! p.1.head true
+  else s
+
+def treeIterA (te : List (Edge × Nat)) (removed : Nat) : Nat → Array Bool → Array Bool
+  | 0, s => s
+  | k + 1, s =>
+    let s' := te.foldl (treeStepA removed) s
+    if s' = s then s else treeIterA te removed k s'
+
+def treeSideA (c : LeaveCtx) (removed : Nat) : Array Bool :=
+  match c.ea[removed]? with
+  | none => Array.replicate c.n false
+  | some e => treeIterA c.te removed c.n ((Array.replicate c.n false).set! e.head true)
+
+def leavingEdgeFast (g : Graph) (tree : List Bool) : Option (Nat × List Bool) :=
+  let c := LeaveCtx.build g tree
+  tree.zipIdx.findSome? fun p =>
+    if p.1 then
+      let s := treeSideA c p.2
+      if cutValueA g s < 0 then some (p.2, s.toList) else none
+    else none
+
+theorem treePass_eq (g : Graph) (tree : List Bool) (removed : Nat) (s : Array Bool) :
+    ((LeaveCtx.build g tree).te.foldl (treeStepA removed) s).toList =
+      treeSideStep g tree removed s.toList := by
+  unfold treeSideStep LeaveCtx.build
+  simp only
+  rw [List.foldl_filter]
+  apply foldl_sim _ _ Array.toList
+  intro s' p
+  have hq : tree.toArray.getD p.2 false = tree.getD p.2 false := by
+    rw [← getD_toList]
+  have hin : ∀ v, inS s'.toList v = s'.getD v false := fun v => getD_toList s' v false
+  simp only [hq, treeStepA, hin]
+  generalize tree.getD p.2 false = t
+  generalize s'.getD p.1.tail false = x
+  generalize s'.getD p.1.head false = y
+  cases t <;> cases x <;> cases y <;> by_cases hb : p.2 = removed <;>
+    simp [hb, Array.set!_eq_setIfInBounds, Array.toList_setIfInBounds]
+
+theorem treeIterA_eq (g : Graph) (tree : List Bool) (removed : Nat) :
+    ∀ (k : Nat) (s : Array Bool),
+      (treeIterA (LeaveCtx.build g tree).te removed k s).toList =
+        iterN (treeSideStep g tree removed) k s.toList := by
+  intro k
+  induction k with
+  | zero => intro s; rfl
+  | succ k ih =>
+    intro s
+    have hp := treePass_eq g tree removed s
+    simp only [treeIterA, iterN]
+    split
+    · next hs =>
+      rw [hs] at hp
+      rw [← hp]
+      exact (iterN_fixed _ _ hp.symm k).symm
+    · next hs =>
+      rw [← hp]
+      exact ih _
+
+theorem treeSideA_eq (g : Graph) (tree : List Bool) (removed : Nat) :
+    (treeSideA (LeaveCtx.build g tree) removed).toList = treeSide g tree removed := by
+  unfold treeSideA treeSide
+  simp only [LeaveCtx.build, List.getElem?_toArray]
+  cases g.edges[removed]? with
+  | none => simp
+  | some e =>
+    simp only
+    rw [foldl_range_const, List.length_range]
+    have := treeIterA_eq g tree removed g.nodes.length
+      ((Array.replicate g.nodes.length false).set! e.head true)
+    simpa [LeaveCtx.build, Array.set!_eq_setIfInBounds, Array.toList_setIfInBounds] using this
+
+theorem leavingEdgeFast_eq (g : Graph) (tree : List Bool) :
+    leavingEdgeFast g tree = leavingEdge g tree := by
+  unfold leavingEdgeFast leavingEdge
+  dsimp only
+  congr 1
+  funext p
+  simp only [cutValueA_eq, treeSideA_eq]
+
+@[csimp] theorem leavingEdge_eq_leavingEdgeFast : @leavingEdge = @leavingEdgeFast := by
+  funext g tree
+  exact (leavingEdgeFast_eq g tree).symm
 
 def simplex (g : Graph) : Nat → List Bool → List Int → Except LayoutError (List Int × Bool)
   | 0, _, r => .ok (r, true)
