@@ -31,3 +31,4 @@ import Elegant.Text.Braille
 import Elegant.Layered.Cycles
 import Elegant.Layered.Rank
 import Elegant.Layered.Normalize
+import Elegant.Layered.Coords

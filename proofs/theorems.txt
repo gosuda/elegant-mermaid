@@ -29,3 +29,7 @@ Elegant.Layered.breakCycles_edges_perm
 Elegant.Layered.rank_feasible
 Elegant.Layered.simplex_cost_le_init
 Elegant.Layered.normalize_proper
+Elegant.Layered.coords_order_preserved
+Elegant.Layered.coords_separated
+Elegant.Layered.balance_separated
+Elegant.Layered.rankAxis_bands_disjoint
