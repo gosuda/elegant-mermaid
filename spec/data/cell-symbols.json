@@ -1,0 +1,62 @@
+[
+  {
+    "name": "disc",
+    "unicode": "U+25CF",
+    "ascii": "U+002A"
+  },
+  {
+    "name": "ring",
+    "unicode": "U+25CB",
+    "ascii": "U+006F"
+  },
+  {
+    "name": "bullseye",
+    "unicode": "U+25C9",
+    "ascii": "U+0040"
+  },
+  {
+    "name": "diamond",
+    "unicode": "U+25C6",
+    "ascii": "U+002A"
+  },
+  {
+    "name": "diamond-hollow",
+    "unicode": "U+25C7",
+    "ascii": "U+006F"
+  },
+  {
+    "name": "box-hollow",
+    "unicode": "U+25A1",
+    "ascii": "U+006F"
+  },
+  {
+    "name": "cloud",
+    "unicode": "U+2601",
+    "ascii": "U+007E"
+  },
+  {
+    "name": "database",
+    "unicode": "U+25A4",
+    "ascii": "U+003D"
+  },
+  {
+    "name": "disk",
+    "unicode": "U+25CE",
+    "ascii": "U+006F"
+  },
+  {
+    "name": "internet",
+    "unicode": "U+25CA",
+    "ascii": "U+002A"
+  },
+  {
+    "name": "server",
+    "unicode": "U+25A5",
+    "ascii": "U+0023"
+  },
+  {
+    "name": "unknown",
+    "unicode": "U+003F",
+    "ascii": "U+003F"
+  }
+]

@@ -1,0 +1,68 @@
+[
+  {
+    "code": "common/no-experimental",
+    "severity": "warning",
+    "summary": "KIND is a beta diagram type",
+    "help": "Beta syntax may break on a Mermaid upgrade.",
+    "rationale": "A beta kind can change or disappear with an upgrade, so a diagram that matters should not be built on it without knowing.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:no-experimental",
+    "status": "adopted"
+  },
+  {
+    "code": "common/acc-title-missing",
+    "severity": "off",
+    "summary": "diagram has no accTitle line",
+    "help": "Add an accTitle line that names the diagram.",
+    "rationale": "Without a title a screen reader announces an unnamed graphic, so a reader who cannot see the picture gets no name for it.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "own",
+    "status": "adopted"
+  },
+  {
+    "code": "common/acc-descr-missing",
+    "severity": "off",
+    "summary": "diagram has no accDescr line",
+    "help": "Add an accDescr line that describes the diagram.",
+    "rationale": "Without a description a reader who cannot see the picture gets no account of what it shows.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "own",
+    "status": "adopted"
+  },
+  {
+    "code": "meta/unknown-rule",
+    "severity": "warning",
+    "summary": "unknown rule CODE",
+    "help": "Use a code from the lint rule registry.",
+    "rationale": "The suppression directive names a rule that does not exist, so the author believes a check is silenced while it still runs or was never there.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:suppression-unknown-rule",
+    "status": "adopted"
+  },
+  {
+    "code": "meta/unused-suppression",
+    "severity": "warning",
+    "summary": "suppression of CODE suppresses nothing",
+    "help": "Remove the directive, or move it to the line it should cover.",
+    "rationale": "A directive that suppresses nothing usually sits on the wrong line or outlived its finding, so the check the author thinks is off is still on.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:suppression-unused",
+    "status": "adopted"
+  },
+  {
+    "code": "meta/malformed-suppression",
+    "severity": "warning",
+    "summary": "malformed suppression directive",
+    "help": "Write the directive with a code list and a reason, as in `%% emd-disable-next-line CODES: reason`.",
+    "rationale": "A malformed directive applies nothing, so the author's intent to silence a check is silently lost.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:suppression-malformed",
+    "status": "adopted"
+  }
+]

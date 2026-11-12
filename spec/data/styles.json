@@ -1,0 +1,148 @@
+{
+  "shape": [
+    {
+      "name": "node",
+      "fill": "surface",
+      "stroke": "border",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "group",
+      "fill": "none",
+      "stroke": "border",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "band",
+      "fill": "surface",
+      "stroke": "none",
+      "tint": "none",
+      "cell": "none"
+    },
+    {
+      "name": "note",
+      "fill": "surface",
+      "stroke": "accent",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "edge",
+      "fill": "none",
+      "stroke": "line",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "rule",
+      "fill": "none",
+      "stroke": "border",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "mark",
+      "fill": "line",
+      "stroke": "line",
+      "tint": "none",
+      "cell": "fill"
+    },
+    {
+      "name": "mark-hollow",
+      "fill": "bg",
+      "stroke": "line",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "ink",
+      "fill": "fg",
+      "stroke": "none",
+      "tint": "none",
+      "cell": "fill"
+    },
+    {
+      "name": "ink-line",
+      "fill": "none",
+      "stroke": "fg",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "series",
+      "fill": "series",
+      "stroke": "line",
+      "tint": "none",
+      "cell": "fill"
+    },
+    {
+      "name": "series-line",
+      "fill": "none",
+      "stroke": "series",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "series-tint",
+      "fill": "series",
+      "stroke": "line",
+      "tint": "fill",
+      "cell": "line"
+    },
+    {
+      "name": "series-flow",
+      "fill": "none",
+      "stroke": "series",
+      "tint": "stroke",
+      "cell": "line"
+    },
+    {
+      "name": "error",
+      "fill": "surface",
+      "stroke": "error",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "warning",
+      "fill": "surface",
+      "stroke": "warning",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "success",
+      "fill": "surface",
+      "stroke": "success",
+      "tint": "none",
+      "cell": "line"
+    },
+    {
+      "name": "plate",
+      "fill": "bg",
+      "stroke": "none",
+      "tint": "none",
+      "cell": "none"
+    }
+  ],
+  "text": [
+    {
+      "name": "text",
+      "colour": "fg"
+    },
+    {
+      "name": "text-muted",
+      "colour": "muted"
+    },
+    {
+      "name": "text-inverse",
+      "colour": "bg"
+    },
+    {
+      "name": "text-on-series",
+      "colour": "on-series"
+    }
+  ]
+}

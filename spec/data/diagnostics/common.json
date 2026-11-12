@@ -1,0 +1,164 @@
+[
+  {
+    "code": "common/unknown-diagram-kind",
+    "severity": "error",
+    "summary": "unknown diagram kind TOKEN",
+    "help": "Start the source with a supported diagram header, for example flowchart.",
+    "rationale": "Nothing is drawn until the first word names a diagram kind, so the whole file is ignored.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "common/empty-source",
+    "severity": "error",
+    "summary": "source is empty",
+    "help": "add a diagram header, for example flowchart",
+    "rationale": "A file with no header has no diagram in it, so a render would produce nothing to look at.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "config/malformed",
+    "severity": "error",
+    "summary": "invalid config value VALUE for KEY",
+    "help": "Write a value that the config key accepts.",
+    "rationale": "A config value that does not parse leaves the diagram with settings nobody chose, so the layout can look wrong for no visible reason.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "config/unsupported-anchor",
+    "severity": "error",
+    "summary": "anchor or alias TOKEN is not supported",
+    "help": "Write the value without anchors or aliases.",
+    "rationale": "An anchor or alias would silently change a value, and this tool does not resolve them, so the written text is the only truth.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "config/unsupported-tag",
+    "severity": "error",
+    "summary": "tag TOKEN is not supported",
+    "help": "Write the value without a tag.",
+    "rationale": "A tag asks for a type the reader cannot honour, so the value would be read as plain text and surprise the author.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "config/unknown-key",
+    "severity": "warning",
+    "summary": "unknown config key KEY",
+    "help": "Check the spelling of the key, or remove it.",
+    "rationale": "A key this tool does not know is never applied, so the diagram keeps the default the author meant to override.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "config/unsupported-key",
+    "severity": "warning",
+    "summary": "config key KEY is not supported by this project",
+    "help": "Remove the key; this project cannot produce the output it asks for.",
+    "rationale": "The key asks for output this project never produces, so leaving it in gives a false impression that the setting took effect.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "config/font-metrics-approximate",
+    "severity": "info",
+    "summary": "text width is measured with Inter; fontFamily is VALUE",
+    "help": "Text widths may differ from the font named in fontFamily.",
+    "rationale": "Widths come from a fixed font table, so a diagram whose text is set in another font can end up with different line breaks than the author expected.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "limit/nesting-depth",
+    "severity": "error",
+    "summary": "nesting depth exceeds 64",
+    "help": "Reduce the nesting to 64 levels or fewer.",
+    "rationale": "Past 64 levels the structure stops being readable and the parser cannot hold it, so the source needs flattening.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "limit/max-text-size",
+    "severity": "error",
+    "summary": "source has SIZE bytes; the limit is LIMIT bytes",
+    "help": "Shorten the source, or raise maxTextSize.",
+    "rationale": "An oversized file is refused rather than half parsed, so the author learns the limit instead of seeing a partial diagram.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "limit/max-edges",
+    "severity": "error",
+    "summary": "diagram has COUNT edges; the limit is LIMIT",
+    "help": "Reduce the number of edges, or raise maxEdges.",
+    "rationale": "A diagram past the edge limit cannot be laid out in the time the tool promises, so the author must split it or raise the cap.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "layout/budget-exhausted",
+    "severity": "info",
+    "summary": "layout stopped at its iteration cap in PHASE",
+    "help": "The diagram uses the best feasible result found so far.",
+    "rationale": "The diagram is still drawn and valid, but the author should know that an improvement pass stopped early and the result can change between versions.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "math/unsupported-command",
+    "severity": "warning",
+    "summary": "unsupported math command COMMAND",
+    "help": "The source text is shown as written.",
+    "rationale": "The command is printed literally instead of typeset, so the author can see which part of the formula did not become math.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "math/syntax",
+    "severity": "error",
+    "summary": "invalid math syntax: REASON",
+    "help": "The source text is shown as written.",
+    "rationale": "A broken formula cannot be typeset, so the raw text stands in and the author gets the reason instead of a silently wrong symbol.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "icon/pack-missing",
+    "severity": "info",
+    "summary": "icon NAME is not available",
+    "help": "The diagram draws the unknown icon in its place.",
+    "rationale": "A missing icon still leaves a marked placeholder, so the author sees which name did not resolve and can fix or drop it.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "interaction/unsafe-url",
+    "severity": "warning",
+    "summary": "link URL is not allowed",
+    "help": "Use an http, https, or mailto link.",
+    "rationale": "The link is dropped instead of emitted, so a shared diagram cannot carry a URL scheme that runs code on the reader's machine.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "interaction/callback-ignored",
+    "severity": "info",
+    "summary": "callback FUNCTION is ignored",
+    "help": "Static output never runs callbacks.",
+    "rationale": "Output here is a static picture, so the author should not count on a click doing anything.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "source/invalid-utf8",
+    "severity": "error",
+    "summary": "invalid UTF-8 at byte OFFSET",
+    "help": "Save the source as UTF-8.",
+    "rationale": "Bytes that are not UTF-8 put the offset of every later diagnostic at risk, so the file must be repaired before anything else can be trusted.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

@@ -1,0 +1,162 @@
+[
+  {
+    "mask": 0,
+    "light": "U+0020",
+    "heavy": "U+0020",
+    "double": "U+0020",
+    "rounded": "U+0020",
+    "dotted": "U+0020",
+    "ascii": "U+0020",
+    "ascii_dotted": "U+0020"
+  },
+  {
+    "mask": 1,
+    "light": "U+2575",
+    "heavy": "U+2579",
+    "double": "U+2575",
+    "rounded": "U+2575",
+    "dotted": "U+2575",
+    "ascii": "U+007C",
+    "ascii_dotted": "U+003A"
+  },
+  {
+    "mask": 2,
+    "light": "U+2576",
+    "heavy": "U+257A",
+    "double": "U+2576",
+    "rounded": "U+2576",
+    "dotted": "U+2576",
+    "ascii": "U+002D",
+    "ascii_dotted": "U+002E"
+  },
+  {
+    "mask": 3,
+    "light": "U+2514",
+    "heavy": "U+2517",
+    "double": "U+255A",
+    "rounded": "U+2570",
+    "dotted": "U+2514",
+    "ascii": "U+002B",
+    "ascii_dotted": "U+002B"
+  },
+  {
+    "mask": 4,
+    "light": "U+2577",
+    "heavy": "U+257B",
+    "double": "U+2577",
+    "rounded": "U+2577",
+    "dotted": "U+2577",
+    "ascii": "U+007C",
+    "ascii_dotted": "U+003A"
+  },
+  {
+    "mask": 5,
+    "light": "U+2502",
+    "heavy": "U+2503",
+    "double": "U+2551",
+    "rounded": "U+2502",
+    "dotted": "U+2506",
+    "ascii": "U+007C",
+    "ascii_dotted": "U+003A"
+  },
+  {
+    "mask": 6,
+    "light": "U+250C",
+    "heavy": "U+250F",
+    "double": "U+2554",
+    "rounded": "U+256D",
+    "dotted": "U+250C",
+    "ascii": "U+002B",
+    "ascii_dotted": "U+002B"
+  },
+  {
+    "mask": 7,
+    "light": "U+251C",
+    "heavy": "U+2523",
+    "double": "U+2560",
+    "rounded": "U+251C",
+    "dotted": "U+251C",
+    "ascii": "U+002B",
+    "ascii_dotted": "U+002B"
+  },
+  {
+    "mask": 8,
+    "light": "U+2574",
+    "heavy": "U+2578",
+    "double": "U+2574",
+    "rounded": "U+2574",
+    "dotted": "U+2574",
+    "ascii": "U+002D",
+    "ascii_dotted": "U+002E"
+  },
+  {
+    "mask": 9,
+    "light": "U+2518",
+    "heavy": "U+251B",
+    "double": "U+255D",
+    "rounded": "U+256F",
+    "dotted": "U+2518",
+    "ascii": "U+002B",
+    "ascii_dotted": "U+002B"
+  },
+  {
+    "mask": 10,
+    "light": "U+2500",
+    "heavy": "U+2501",
+    "double": "U+2550",
+    "rounded": "U+2500",
+    "dotted": "U+2504",
+    "ascii": "U+002D",
+    "ascii_dotted": "U+002E"
+  },
+  {
+    "mask": 11,
+    "light": "U+2534",
+    "heavy": "U+253B",
+    "double": "U+2569",
+    "rounded": "U+2534",
+    "dotted": "U+2534",
+    "ascii": "U+002B",
+    "ascii_dotted": "U+002B"
+  },
+  {
+    "mask": 12,
+    "light": "U+2510",
+    "heavy": "U+2513",
+    "double": "U+2557",
+    "rounded": "U+256E",
+    "dotted": "U+2510",
+    "ascii": "U+002B",
+    "ascii_dotted": "U+002B"
+  },
+  {
+    "mask": 13,
+    "light": "U+2524",
+    "heavy": "U+252B",
+    "double": "U+2563",
+    "rounded": "U+2524",
+    "dotted": "U+2524",
+    "ascii": "U+002B",
+    "ascii_dotted": "U+002B"
+  },
+  {
+    "mask": 14,
+    "light": "U+252C",
+    "heavy": "U+2533",
+    "double": "U+2566",
+    "rounded": "U+252C",
+    "dotted": "U+252C",
+    "ascii": "U+002B",
+    "ascii_dotted": "U+002B"
+  },
+  {
+    "mask": 15,
+    "light": "U+253C",
+    "heavy": "U+254B",
+    "double": "U+256C",
+    "rounded": "U+253C",
+    "dotted": "U+253C",
+    "ascii": "U+002B",
+    "ascii_dotted": "U+002B"
+  }
+]

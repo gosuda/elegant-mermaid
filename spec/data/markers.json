@@ -1,0 +1,258 @@
+[
+  {
+    "name": "extension",
+    "paint": "hollow",
+    "cell": ["U+25B7", "U+25C1", "U+25BD", "U+25B3"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "composition",
+    "paint": "filled",
+    "cell": ["U+25C6", "U+25C6", "U+25C6", "U+25C6"],
+    "ascii": ["U+002A", "U+002A", "U+002A", "U+002A"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "aggregation",
+    "paint": "hollow",
+    "cell": ["U+25C7", "U+25C7", "U+25C7", "U+25C7"],
+    "ascii": ["U+006F", "U+006F", "U+006F", "U+006F"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "dependency",
+    "paint": "filled",
+    "cell": ["U+25B6", "U+25C0", "U+25BC", "U+25B2"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "lollipop",
+    "paint": "hollow",
+    "cell": ["U+25CB", "U+25CB", "U+25CB", "U+25CB"],
+    "ascii": ["U+006F", "U+006F", "U+006F", "U+006F"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "point",
+    "paint": "filled",
+    "cell": ["U+25B6", "U+25C0", "U+25BC", "U+25B2"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [[0, 0], [-512, 256], [-512, -256]],
+    "ref": [0, 0]
+  },
+  {
+    "name": "circle",
+    "paint": "filled",
+    "cell": ["U+25CF", "U+25CF", "U+25CF", "U+25CF"],
+    "ascii": ["U+002A", "U+002A", "U+002A", "U+002A"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "cross",
+    "paint": "open",
+    "cell": ["U+00D7", "U+00D7", "U+00D7", "U+00D7"],
+    "ascii": ["U+0078", "U+0078", "U+0078", "U+0078"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "barb",
+    "paint": "filled",
+    "cell": ["U+25B6", "U+25C0", "U+25BC", "U+25B2"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "barbNeo",
+    "paint": "filled",
+    "cell": ["U+25B6", "U+25C0", "U+25BC", "U+25B2"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "hierarchy",
+    "paint": "open",
+    "cell": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "only_one",
+    "paint": "open",
+    "cell": ["U+0031", "U+0031", "U+0031", "U+0031"],
+    "ascii": ["U+0031", "U+0031", "U+0031", "U+0031"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "zero_or_one",
+    "paint": "hollow",
+    "cell": ["U+003F", "U+003F", "U+003F", "U+003F"],
+    "ascii": ["U+003F", "U+003F", "U+003F", "U+003F"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "one_or_more",
+    "paint": "open",
+    "cell": ["U+002B", "U+002B", "U+002B", "U+002B"],
+    "ascii": ["U+002B", "U+002B", "U+002B", "U+002B"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "zero_or_more",
+    "paint": "hollow",
+    "cell": ["U+002A", "U+002A", "U+002A", "U+002A"],
+    "ascii": ["U+002A", "U+002A", "U+002A", "U+002A"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "only_one_neo",
+    "paint": "open",
+    "cell": ["U+0031", "U+0031", "U+0031", "U+0031"],
+    "ascii": ["U+0031", "U+0031", "U+0031", "U+0031"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "zero_or_one_neo",
+    "paint": "hollow",
+    "cell": ["U+003F", "U+003F", "U+003F", "U+003F"],
+    "ascii": ["U+003F", "U+003F", "U+003F", "U+003F"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "one_or_more_neo",
+    "paint": "open",
+    "cell": ["U+002B", "U+002B", "U+002B", "U+002B"],
+    "ascii": ["U+002B", "U+002B", "U+002B", "U+002B"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "zero_or_more_neo",
+    "paint": "hollow",
+    "cell": ["U+002A", "U+002A", "U+002A", "U+002A"],
+    "ascii": ["U+002A", "U+002A", "U+002A", "U+002A"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "requirement_arrow",
+    "paint": "open",
+    "cell": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "requirement_contains",
+    "paint": "hollow",
+    "cell": ["U+2295", "U+2295", "U+2295", "U+2295"],
+    "ascii": ["U+002B", "U+002B", "U+002B", "U+002B"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "requirement_arrow_neo",
+    "paint": "open",
+    "cell": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "requirement_contains_neo",
+    "paint": "hollow",
+    "cell": ["U+2295", "U+2295", "U+2295", "U+2295"],
+    "ascii": ["U+002B", "U+002B", "U+002B", "U+002B"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "openArrow",
+    "paint": "open",
+    "cell": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "hollowCircle",
+    "paint": "hollow",
+    "cell": ["U+25CB", "U+25CB", "U+25CB", "U+25CB"],
+    "ascii": ["U+006F", "U+006F", "U+006F", "U+006F"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "arrowhead",
+    "paint": "filled",
+    "cell": ["U+25B6", "U+25C0", "U+25BC", "U+25B2"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "solidTopArrowHead",
+    "paint": "filled",
+    "cell": ["U+25B6", "U+25C0", "U+25BC", "U+25B2"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "solidBottomArrowHead",
+    "paint": "filled",
+    "cell": ["U+25B6", "U+25C0", "U+25BC", "U+25B2"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "filled-head",
+    "paint": "open",
+    "cell": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "stickTopArrowHead",
+    "paint": "open",
+    "cell": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "stickBottomArrowHead",
+    "paint": "open",
+    "cell": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "ascii": ["U+003E", "U+003C", "U+0076", "U+005E"],
+    "points": [],
+    "ref": [0, 0]
+  },
+  {
+    "name": "crosshead",
+    "paint": "open",
+    "cell": ["U+00D7", "U+00D7", "U+00D7", "U+00D7"],
+    "ascii": ["U+0078", "U+0078", "U+0078", "U+0078"],
+    "points": [],
+    "ref": [0, 0]
+  }
+]

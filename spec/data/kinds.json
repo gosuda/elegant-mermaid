@@ -1,0 +1,511 @@
+[
+  {
+    "id": "flowchart",
+    "family": "layered",
+    "keywords": [
+      {
+        "text": "graph",
+        "case": "sensitive"
+      },
+      {
+        "text": "flowchart",
+        "case": "sensitive"
+      },
+      {
+        "text": "flowchart-elk",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "flowchart-elk",
+      "flowchart-v2"
+    ]
+  },
+  {
+    "id": "swimlane",
+    "family": "layered",
+    "keywords": [
+      {
+        "text": "swimlane-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "swimlane"
+    ]
+  },
+  {
+    "id": "agentflow",
+    "family": "layered",
+    "keywords": [
+      {
+        "text": "agentflow-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "agentflow"
+    ]
+  },
+  {
+    "id": "class",
+    "family": "layered",
+    "keywords": [
+      {
+        "text": "classDiagram",
+        "case": "sensitive"
+      },
+      {
+        "text": "classDiagram-v2",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "classDiagram"
+    ]
+  },
+  {
+    "id": "state",
+    "family": "layered",
+    "keywords": [
+      {
+        "text": "stateDiagram",
+        "case": "sensitive"
+      },
+      {
+        "text": "stateDiagram-v2",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "stateDiagram"
+    ]
+  },
+  {
+    "id": "er",
+    "family": "layered",
+    "keywords": [
+      {
+        "text": "erDiagram",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "er"
+    ]
+  },
+  {
+    "id": "requirement",
+    "family": "layered",
+    "keywords": [
+      {
+        "text": "requirementDiagram",
+        "case": "sensitive"
+      },
+      {
+        "text": "requirement",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "requirement"
+    ]
+  },
+  {
+    "id": "usecase",
+    "family": "layered",
+    "keywords": [
+      {
+        "text": "usecase-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "usecase"
+    ]
+  },
+  {
+    "id": "c4",
+    "family": "layered",
+    "keywords": [
+      {
+        "text": "C4Context",
+        "case": "sensitive"
+      },
+      {
+        "text": "C4Container",
+        "case": "sensitive"
+      },
+      {
+        "text": "C4Component",
+        "case": "sensitive"
+      },
+      {
+        "text": "C4Dynamic",
+        "case": "sensitive"
+      },
+      {
+        "text": "C4Deployment",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "c4"
+    ]
+  },
+  {
+    "id": "sequence",
+    "family": "sequence",
+    "keywords": [
+      {
+        "text": "sequenceDiagram",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "sequence"
+    ]
+  },
+  {
+    "id": "block",
+    "family": "grid",
+    "keywords": [
+      {
+        "text": "block",
+        "case": "sensitive"
+      },
+      {
+        "text": "block-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "block"
+    ]
+  },
+  {
+    "id": "architecture",
+    "family": "grid",
+    "keywords": [
+      {
+        "text": "architecture",
+        "case": "sensitive"
+      },
+      {
+        "text": "architecture-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "architecture"
+    ]
+  },
+  {
+    "id": "kanban",
+    "family": "grid",
+    "keywords": [
+      {
+        "text": "kanban",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "kanban"
+    ]
+  },
+  {
+    "id": "packet",
+    "family": "grid",
+    "keywords": [
+      {
+        "text": "packet",
+        "case": "sensitive"
+      },
+      {
+        "text": "packet-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "packet"
+    ]
+  },
+  {
+    "id": "mindmap",
+    "family": "tree",
+    "keywords": [
+      {
+        "text": "mindmap",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "mindmap"
+    ]
+  },
+  {
+    "id": "treeview",
+    "family": "tree",
+    "keywords": [
+      {
+        "text": "treeView-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "treeView"
+    ]
+  },
+  {
+    "id": "ishikawa",
+    "family": "tree",
+    "keywords": [
+      {
+        "text": "ishikawa",
+        "case": "insensitive"
+      },
+      {
+        "text": "ishikawa-beta",
+        "case": "insensitive"
+      }
+    ],
+    "aliases": [
+      "ishikawa"
+    ]
+  },
+  {
+    "id": "gitgraph",
+    "family": "lanes",
+    "keywords": [
+      {
+        "text": "gitGraph",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "gitGraph"
+    ]
+  },
+  {
+    "id": "eventmodeling",
+    "family": "lanes",
+    "keywords": [
+      {
+        "text": "eventmodeling",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "eventmodeling"
+    ]
+  },
+  {
+    "id": "timeline",
+    "family": "lanes",
+    "keywords": [
+      {
+        "text": "timeline",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "timeline"
+    ]
+  },
+  {
+    "id": "journey",
+    "family": "lanes",
+    "keywords": [
+      {
+        "text": "journey",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "journey"
+    ]
+  },
+  {
+    "id": "gantt",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "gantt",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "gantt"
+    ]
+  },
+  {
+    "id": "xychart",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "xychart",
+        "case": "sensitive"
+      },
+      {
+        "text": "xychart-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "xychart"
+    ]
+  },
+  {
+    "id": "quadrant",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "quadrantChart",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "quadrantChart"
+    ]
+  },
+  {
+    "id": "treemap",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "treemap",
+        "case": "sensitive"
+      },
+      {
+        "text": "treemap-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "treemap"
+    ]
+  },
+  {
+    "id": "wardley",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "wardley-beta",
+        "case": "insensitive"
+      }
+    ],
+    "aliases": [
+      "wardley"
+    ]
+  },
+  {
+    "id": "pie",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "pie",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "pie"
+    ]
+  },
+  {
+    "id": "radar",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "radar-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "radar"
+    ]
+  },
+  {
+    "id": "sankey",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "sankey",
+        "case": "sensitive"
+      },
+      {
+        "text": "sankey-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "sankey"
+    ]
+  },
+  {
+    "id": "venn",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "venn-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "venn"
+    ]
+  },
+  {
+    "id": "cynefin",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "cynefin-beta",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "cynefin"
+    ]
+  },
+  {
+    "id": "railroad",
+    "family": "railroad",
+    "keywords": [
+      {
+        "text": "railroad-beta",
+        "case": "insensitive"
+      },
+      {
+        "text": "railroad-ebnf-beta",
+        "case": "insensitive"
+      },
+      {
+        "text": "railroad-abnf-beta",
+        "case": "insensitive"
+      },
+      {
+        "text": "railroad-peg-beta",
+        "case": "insensitive"
+      }
+    ],
+    "aliases": [
+      "railroad",
+      "railroadEbnf",
+      "railroadAbnf",
+      "railroadPeg"
+    ]
+  },
+  {
+    "id": "info",
+    "family": "chart",
+    "keywords": [
+      {
+        "text": "info",
+        "case": "sensitive"
+      }
+    ],
+    "aliases": [
+      "info"
+    ]
+  }
+]
