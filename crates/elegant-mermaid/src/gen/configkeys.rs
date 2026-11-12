@@ -374,6 +374,86 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "er",
+        key: "diagramPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "entityPadding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "fill",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "fontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "layoutDirection",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "minEntityHeight",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "minEntityWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "nodeSpacing",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "rankSpacing",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "stroke",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "titleTopMargin",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "er",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "flowchart",
         key: "arrowMarkerAbsolute",
         class: "accepted-ignored",
