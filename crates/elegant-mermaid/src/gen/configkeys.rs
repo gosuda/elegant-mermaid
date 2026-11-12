@@ -1354,6 +1354,51 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "mindmap",
+        key: "colorBy",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "mindmap",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "mindmap",
+        key: "layoutAlgorithm",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "mindmap",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "mindmap",
+        key: "maxNodeWidth",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "mindmap",
+        key: "padding",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "mindmap",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "mindmap",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "mindmap",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "requirement",
         key: "fontSize",
         class: "accepted-ignored",

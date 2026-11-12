@@ -4,18 +4,18 @@ This file fixes the lexer, grammar, abstract syntax, model resolution, and diagn
 
 ## Scope
 
-- sequence-01: The grammar authority MUST be `.references/mermaid/packages/mermaid/src/diagrams/sequence/parser/sequenceDiagram.jison`; semantic resolution MUST follow `sequenceDb.ts` in the same diagram directory. [just oracle]
-- sequence-02: The parser MUST accept every reachable statement alternative below. [just oracle]
-- sequence-03: Preprocessing MUST follow `spec/preprocessing.md`; spans MUST index repaired source bytes with an exclusive end. [just parity]
+- seqgrammar-01: The grammar authority MUST be `.references/mermaid/packages/mermaid/src/diagrams/sequence/parser/sequenceDiagram.jison`; semantic resolution MUST follow `sequenceDb.ts` in the same diagram directory. [just oracle]
+- seqgrammar-02: The parser MUST accept every reachable statement alternative below. [just oracle]
+- seqgrammar-03: Preprocessing MUST follow `spec/preprocessing.md`; spans MUST index repaired source bytes with an exclusive end. [just parity]
 
 ## Header forms
 
-- sequence-04: Shared detection MUST recognize `sequenceDiagram` with its written case and the boundary of `spec/detection.md`. [just oracle]
-- sequence-05: The body lexer MUST fold ASCII keyword case; participant ids and label text MUST retain their case. [just parity]
+- seqgrammar-04: Shared detection MUST recognize `sequenceDiagram` with its written case and the boundary of `spec/detection.md`. [just oracle]
+- seqgrammar-05: The body lexer MUST fold ASCII keyword case; participant ids and label text MUST retain their case. [just parity]
 
 ## Lexer modes
 
-- sequence-06: The lexer MUST use the exclusive modes below and MUST select the first matching rule in each mode. [just parity]
+- seqgrammar-06: The lexer MUST use the exclusive modes below and MUST select the first matching rule in each mode. [just parity]
 
 | Mode | Entry | Exit |
 |---|---|---|
@@ -33,7 +33,7 @@ This file fixes the lexer, grammar, abstract syntax, model resolution, and diagn
 
 The order column is the authority line number. An unqualified rule applies in INITIAL. This table describes patterns, not host-language character categories.
 
-- sequence-07: The lexer MUST apply the following rules in source order after preprocessing. [just parity]
+- seqgrammar-07: The lexer MUST apply the following rules in source order after preprocessing. [just parity]
 
 | Order | Pattern and modes | Result |
 |---|---|---|
@@ -78,9 +78,9 @@ The order column is the authority line number. An unqualified rule applies in IN
 | 125 | EOF | one synthetic NEWLINE, then end of input |
 | 126 | any unmatched byte | INVALID |
 
-- sequence-08: Ordinary actor scanning MUST stop before colon, comma, semicolon, line end, plus, parentheses, angle-arrow syntax, or any arrow spelling below; slash and backslash MUST NOT start an ordinary actor token. [just oracle]
-- sequence-09: The ordinary actor continuation MUST retain hyphens only when they do not start an arrow; it MUST trim surrounding whitespace. [just parity]
-- sequence-10: Shared preprocessing MUST give LF, CRLF, and lone CR the same statement-boundary effect; a semicolon MUST also return NEWLINE outside text modes. [just parity]
+- seqgrammar-08: Ordinary actor scanning MUST stop before colon, comma, semicolon, line end, plus, parentheses, angle-arrow syntax, or any arrow spelling below; slash and backslash MUST NOT start an ordinary actor token. [just oracle]
+- seqgrammar-09: The ordinary actor continuation MUST retain hyphens only when they do not start an arrow; it MUST trim surrounding whitespace. [just parity]
+- seqgrammar-10: Shared preprocessing MUST give LF, CRLF, and lone CR the same statement-boundary effect; a semicolon MUST also return NEWLINE outside text modes. [just parity]
 
 | Ordered arrow token | Signal kind |
 |---|---|
@@ -113,7 +113,7 @@ The order column is the authority line number. An unqualified rule applies in IN
 
 ## Grammar
 
-- sequence-11: The parser MUST use this EBNF without backtracking over consumed tokens; production names MUST retain the authority names. [just parity]
+- seqgrammar-11: The parser MUST use this EBNF without backtracking over consumed tokens; production names MUST retain the authority names. [just parity]
 
 ```ebnf
 start = { NEWLINE }, SD, document ;
@@ -159,20 +159,20 @@ signaltype = any arrow token in the ordered table ;
 text2 = TXT ;
 ```
 
-- sequence-12: A box body MUST contain only participant statements and blank lines; a control body MUST contain document statements. [just oracle]
-- sequence-13: A message and a note MUST contain a colon text token; an empty colon value MUST be accepted. [just oracle]
-- sequence-14: Alias and control text MUST end at hash, semicolon, or line end; quotes MUST remain ordinary text and MUST NOT hide these terminators. [just oracle]
+- seqgrammar-12: A box body MUST contain only participant statements and blank lines; a control body MUST contain document statements. [just oracle]
+- seqgrammar-13: A message and a note MUST contain a colon text token; an empty colon value MUST be accepted. [just oracle]
+- seqgrammar-14: Alias and control text MUST end at hash, semicolon, or line end; quotes MUST remain ordinary text and MUST NOT hide these terminators. [just oracle]
 
 ## Statement boundary
 
-- sequence-15: Recovery MUST stop at the next physical line end or semicolon outside metadata and multiline accessibility text, or at a matching control separator or end at the current scope. [just go-check]
-- sequence-16: Recovery MUST preserve the enclosing block and MUST NOT create participants from a rejected statement. [just go-check]
-- sequence-17: EOF inside a block, metadata object, or accessibility block MUST raise the unterminated diagnostic; EOF after a complete final statement MUST supply exactly one terminator. [just go-check]
-- sequence-18: Block nesting MUST stop before level 65 with the shared nesting-limit diagnostic. [just go-check]
+- seqgrammar-15: Recovery MUST stop at the next physical line end or semicolon outside metadata and multiline accessibility text, or at a matching control separator or end at the current scope. [just go-check]
+- seqgrammar-16: Recovery MUST preserve the enclosing block and MUST NOT create participants from a rejected statement. [just go-check]
+- seqgrammar-17: EOF inside a block, metadata object, or accessibility block MUST raise the unterminated diagnostic; EOF after a complete final statement MUST supply exactly one terminator. [just go-check]
+- seqgrammar-18: Block nesting MUST stop before level 65 with the shared nesting-limit diagnostic. [just go-check]
 
 ## Abstract syntax tree
 
-- sequence-19: Each AST node MUST take its upstream production name in PascalCase and MUST span its first through last consumed token, without a trailing statement separator. [just parity]
+- seqgrammar-19: Each AST node MUST take its upstream production name in PascalCase and MUST span its first through last consumed token, without a trailing statement separator. [just parity]
 
 | Node | Fields | Span rule |
 |---|---|---|
@@ -189,43 +189,43 @@ text2 = TXT ;
 | `ActorWithConfig`, `ConfigObject` | actor and metadata; raw metadata | actor through brace; both delimiters included |
 | `Actor`, `Signaltype`, `Text2` | id; arrow kind; text and wrap override | token span; Text2 includes colon |
 
-- sequence-20: AST tokens MUST borrow source text; the model MUST retain id, declaration, message, suffix, and block-opening spans for diagnostics. [just parity]
+- seqgrammar-20: AST tokens MUST borrow source text; the model MUST retain id, declaration, message, suffix, and block-opening spans for diagnostics. [just parity]
 
 ## Semantic resolution
 
-- sequence-21: Resolution MUST process statements in source order and MUST keep participant order at first insertion. [just parity]
-- sequence-22: Message endpoints and note actors MUST create absent participants with their id as label; an explicit participant or actor MUST replace its existing description and type without moving its index. [just oracle]
-- sequence-23: An explicit alias MUST replace the display label, not the id; metadata alias MUST apply only when no distinct explicit alias exists. [just parity]
-- sequence-24: Metadata MUST use the shared config-value reader; a single-line metadata body MUST be read as a mapping body, and a multiline body MUST be read as a block mapping. [just parity]
-- sequence-25: Metadata type MUST override participant or actor draw kind; other metadata fields MUST be retained without inventing syntax statements. [just parity]
-- sequence-26: A participant MUST retain its first assigned box; assignment to a different box MUST report the box-conflict diagnostic. [just oracle]
-- sequence-27: A box MUST retain its ordered participants, title, wrap override, and optional color; its closing end MUST clear the current box. [just parity]
-- sequence-28: Every arrow token MUST retain the signal kind in the table; bidirectional tokens MUST mark both ends, and reverse half-arrow tokens MUST mark the source end without swapping message endpoints. [just parity]
-- sequence-29: A plus suffix MUST append a target activation after its message; a minus suffix MUST append a source deactivation after its message. [just oracle]
-- sequence-30: Explicit activation MUST append an activation event for its actor; deactivation MUST reject a participant whose activation count is zero. [just oracle]
-- sequence-31: Central connection after the arrow MUST append a target central event; central connection before the arrow MUST append a source reverse-central event; both MUST append target then source events. [just parity]
-- sequence-32: Central connection events MUST NOT change activation counts. [just oracle]
-- sequence-33: A create statement MUST reject any id already present, including a destroyed id; otherwise it MUST record the current event index and set the pending-created actor. [just oracle]
-- sequence-34: The next message while a created actor is pending MUST target that actor; a different target MUST report the creating-message diagnostic. [just oracle]
-- sequence-35: A destroy statement MUST record the current event index and set the pending-destroyed actor; the next message checked for destruction MUST have that actor as source or target. [just oracle]
-- sequence-36: When creation and destruction are both pending, creation MUST be checked first and destruction MUST remain pending until a later message. [just oracle]
-- sequence-37: End of input with a pending create or destroy MUST NOT add an error; later messages involving a previously destroyed actor MUST NOT add an error solely for that fact. [just oracle]
-- sequence-38: A left or right note MUST retain one actor; an over note MUST retain its two actors, duplicating a single actor as both endpoints. [just parity]
-- sequence-39: Control blocks MUST emit start, ordered content, separators, and end events; par_over MUST retain its distinct start kind, and rect MUST retain its color text. [just parity]
-- sequence-40: Message, alias, note, and control text MUST trim outer whitespace and remove an initial wrap: or nowrap: marker, with an optional preceding colon; an absent override MUST use the shared wrap setting before sequence.wrap. [just parity]
-- sequence-41: Autonumber MUST start with counter 1 and step 1; explicit nonzero start and step MUST replace those values, and zero MUST retain the current value, as upstream's fallback does. [just parity]
-- sequence-42: Autonumber off MUST hide numbering without resetting the counter; bare autonumber MUST enable it without resetting the counter. [just parity]
-- sequence-43: Number arithmetic MUST use integer hundredths; each message MUST advance the counter once, including messages while numbering is hidden. [just parity]
-- sequence-44: A visible message number MUST prefix the label as `(NUMBER) `, or `(NUMBER)` for empty text; NUMBER MUST omit unnecessary fractional zeros. [just parity]
-- sequence-45: Links and properties MUST create an absent target through their actor production; valid JSON mappings MUST merge in source order with later keys replacing earlier keys; malformed JSON MUST have no model effect and MUST NOT become a syntax error. [just oracle]
-- sequence-46: A link statement MUST split its text at the first at-sign; its label MUST use the trimmed prefix excluding the byte immediately before that sign, and its URL MUST use the trimmed suffix. [just oracle]
-- sequence-47: Details MUST retain its reference as static metadata and MUST NOT query a DOM, file, or network resource. [just parity]
-- sequence-48: Title, legacy title, accessibility title, and accessibility description MUST replace the preceding value; accessibility values MUST trim surrounding whitespace. [just parity]
+- seqgrammar-21: Resolution MUST process statements in source order and MUST keep participant order at first insertion. [just parity]
+- seqgrammar-22: Message endpoints and note actors MUST create absent participants with their id as label; an explicit participant or actor MUST replace its existing description and type without moving its index. [just oracle]
+- seqgrammar-23: An explicit alias MUST replace the display label, not the id; metadata alias MUST apply only when no distinct explicit alias exists. [just parity]
+- seqgrammar-24: Metadata MUST use the shared config-value reader; a single-line metadata body MUST be read as a mapping body, and a multiline body MUST be read as a block mapping. [just parity]
+- seqgrammar-25: Metadata type MUST override participant or actor draw kind; other metadata fields MUST be retained without inventing syntax statements. [just parity]
+- seqgrammar-26: A participant MUST retain its first assigned box; assignment to a different box MUST report the box-conflict diagnostic. [just oracle]
+- seqgrammar-27: A box MUST retain its ordered participants, title, wrap override, and optional color; its closing end MUST clear the current box. [just parity]
+- seqgrammar-28: Every arrow token MUST retain the signal kind in the table; bidirectional tokens MUST mark both ends, and reverse half-arrow tokens MUST mark the source end without swapping message endpoints. [just parity]
+- seqgrammar-29: A plus suffix MUST append a target activation after its message; a minus suffix MUST append a source deactivation after its message. [just oracle]
+- seqgrammar-30: Explicit activation MUST append an activation event for its actor; deactivation MUST reject a participant whose activation count is zero. [just oracle]
+- seqgrammar-31: Central connection after the arrow MUST append a target central event; central connection before the arrow MUST append a source reverse-central event; both MUST append target then source events. [just parity]
+- seqgrammar-32: Central connection events MUST NOT change activation counts. [just oracle]
+- seqgrammar-33: A create statement MUST reject any id already present, including a destroyed id; otherwise it MUST record the current event index and set the pending-created actor. [just oracle]
+- seqgrammar-34: The next message while a created actor is pending MUST target that actor; a different target MUST report the creating-message diagnostic. [just oracle]
+- seqgrammar-35: A destroy statement MUST record the current event index and set the pending-destroyed actor; the next message checked for destruction MUST have that actor as source or target. [just oracle]
+- seqgrammar-36: When creation and destruction are both pending, creation MUST be checked first and destruction MUST remain pending until a later message. [just oracle]
+- seqgrammar-37: End of input with a pending create or destroy MUST NOT add an error; later messages involving a previously destroyed actor MUST NOT add an error solely for that fact. [just oracle]
+- seqgrammar-38: A left or right note MUST retain one actor; an over note MUST retain its two actors, duplicating a single actor as both endpoints. [just parity]
+- seqgrammar-39: Control blocks MUST emit start, ordered content, separators, and end events; par_over MUST retain its distinct start kind, and rect MUST retain its color text. [just parity]
+- seqgrammar-40: Message, alias, note, and control text MUST trim outer whitespace and remove an initial wrap: or nowrap: marker, with an optional preceding colon; an absent override MUST use the shared wrap setting before sequence.wrap. [just parity]
+- seqgrammar-41: Autonumber MUST start with counter 1 and step 1; explicit nonzero start and step MUST replace those values, and zero MUST retain the current value, as upstream's fallback does. [just parity]
+- seqgrammar-42: Autonumber off MUST hide numbering without resetting the counter; bare autonumber MUST enable it without resetting the counter. [just parity]
+- seqgrammar-43: Number arithmetic MUST use integer hundredths; each message MUST advance the counter once, including messages while numbering is hidden. [just parity]
+- seqgrammar-44: A visible message number MUST prefix the label as `(NUMBER) `, or `(NUMBER)` for empty text; NUMBER MUST omit unnecessary fractional zeros. [just parity]
+- seqgrammar-45: Links and properties MUST create an absent target through their actor production; valid JSON mappings MUST merge in source order with later keys replacing earlier keys; malformed JSON MUST have no model effect and MUST NOT become a syntax error. [just oracle]
+- seqgrammar-46: A link statement MUST split its text at the first at-sign; its label MUST use the trimmed prefix excluding the byte immediately before that sign, and its URL MUST use the trimmed suffix. [just oracle]
+- seqgrammar-47: Details MUST retain its reference as static metadata and MUST NOT query a DOM, file, or network resource. [just parity]
+- seqgrammar-48: Title, legacy title, accessibility title, and accessibility description MUST replace the preceding value; accessibility values MUST trim surrounding whitespace. [just parity]
 
 ## Diagnostics
 
-- sequence-49: A parser rejection or database exception MUST produce the corresponding diagnostic below rather than a panic. [just go-check]
-- sequence-50: The diagnostic registry MUST contain exactly these rows in this order. [just gen-check]
+- seqgrammar-49: A parser rejection or database exception MUST produce the corresponding diagnostic below rather than a panic. [just go-check]
+- seqgrammar-50: The diagnostic registry MUST contain exactly these rows in this order. [just gen-check]
 
 | Code | Severity | Trigger | Span | Message |
 |---|---|---|---|---|
@@ -238,8 +238,8 @@ text2 = TXT ;
 | `sequence/creating-message-missing` | error | next message has wrong target | message target id | next message must target created participant ID |
 | `sequence/destroying-message-missing` | error | next checked message does not involve destroyed actor | whole signal | next message must involve destroyed participant ID |
 
-- sequence-51: LIST MUST contain accepted token-kind names sorted bytewise and joined with `, `; TOKEN MUST be source text. [just parity]
-- sequence-52: Shared metadata-reader diagnostics MUST retain their shared codes; named semantic diagnostics MUST take precedence over generic diagnostics for the same failure. [just parity]
+- seqgrammar-51: LIST MUST contain accepted token-kind names sorted bytewise and joined with `, `; TOKEN MUST be source text. [just parity]
+- seqgrammar-52: Shared metadata-reader diagnostics MUST retain their shared codes; named semantic diagnostics MUST take precedence over generic diagnostics for the same failure. [just parity]
 
 ## Upstream readings
 
@@ -262,5 +262,5 @@ text2 = TXT ;
 | Link separator | database slices one byte before at-sign | preserve that behavior, including a missing separator using the equivalent slice bounds |
 | Sanitization | database uses HTML sanitization | retain semantic text; shared static-output escaping and URL rules apply |
 
-- sequence-53: An unreachable helper or accidental runtime failure MUST NOT add a new statement form or an invented semantic rejection. [just oracle]
-- sequence-54: Go and Rust MUST resolve the same ordered participants, events, notes, boxes, and text under both metric profiles. [just parity]
+- seqgrammar-53: An unreachable helper or accidental runtime failure MUST NOT add a new statement form or an invented semantic rejection. [just oracle]
+- seqgrammar-54: Go and Rust MUST resolve the same ordered participants, events, notes, boxes, and text under both metric profiles. [just parity]
