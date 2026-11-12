@@ -1494,6 +1494,151 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "accepted-ignored",
     },
     ConfigKey {
+        kind: "railroad",
+        key: "arcRadius",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "commentFill",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "commentStroke",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "commentTextColor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "compactMode",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "fontFamily",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "fontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "horizontalSeparation",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "lineColor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "look",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "markerFill",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "markerRadius",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "nonTerminalFill",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "nonTerminalStroke",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "nonTerminalTextColor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "padding",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "ruleNameColor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "showMarkers",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "specialFill",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "specialStroke",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "strokeWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "terminalFill",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "terminalStroke",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "terminalTextColor",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "theme",
+        class: "honoured",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "railroad",
+        key: "verticalSeparation",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "requirement",
         key: "fontSize",
         class: "accepted-ignored",
