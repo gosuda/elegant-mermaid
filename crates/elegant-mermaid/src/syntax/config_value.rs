@@ -451,6 +451,39 @@ impl<'a> Cfg<'a> {
         LineKind::Scalar
     }
 
+    fn block_map_start(&self) -> bool {
+        match self.raw(self.pos) {
+            Some(b'[' | b'{') => false,
+            Some(b'\'' | b'"') => {
+                let mut end = self.quote_token_end(self.pos);
+                while matches!(self.raw(end), Some(b' ' | b'\t')) {
+                    end += 1;
+                }
+                self.raw(end) == Some(b':') && self.map_boundary(end + 1)
+            }
+            _ => self.plain_line_kind() == LineKind::Entry,
+        }
+    }
+
+    fn quote_token_end(&self, start: usize) -> usize {
+        let quote = self.b[start];
+        let end = self.content_end(start);
+        let mut at = start + 1;
+        while at < end {
+            let c = self.b[at];
+            at += 1;
+            if c == quote {
+                if quote != b'\'' || self.raw(at) != Some(quote) {
+                    return at;
+                }
+                at += 1;
+            } else if c == b'\\' && quote == b'"' {
+                at += 1;
+            }
+        }
+        end
+    }
+
     fn yaml_document(&mut self) -> ConfigValue {
         self.skip_lines();
         if self.stop || self.marker_check() {
@@ -642,9 +675,12 @@ impl<'a> Cfg<'a> {
         if self.stop {
             return ConfigValue::Null;
         }
-        if l.col > n {
+        if l.col > n || (l.col == n && self.block_sequence_at(l.content)) {
             self.pos = l.content;
-            if self.plain_line_kind() != LineKind::Entry {
+            if self.block_sequence_at(self.pos) {
+                return self.block_sequence(l.col);
+            }
+            if !self.block_map_start() {
                 return self.nested_scalar(n);
             }
             return self.block_map(l.col, l.content);
@@ -660,6 +696,55 @@ impl<'a> Cfg<'a> {
             self.finish_line();
         }
         value
+    }
+
+    fn block_sequence_at(&self, at: usize) -> bool {
+        self.raw(at) == Some(b'-') && (at + 1 == self.end || self.boundary(at + 1))
+    }
+
+    fn block_sequence(&mut self, n: usize) -> ConfigValue {
+        if !self.enter(self.pos) {
+            return ConfigValue::Null;
+        }
+        let mut items = Vec::new();
+        while let Some(item) = self.sequence_item(n) {
+            items.push(item);
+            if self.stop || !self.map_advance(n) || !self.block_sequence_at(self.pos) {
+                break;
+            }
+        }
+        self.leave();
+        if self.stop {
+            ConfigValue::Null
+        } else {
+            ConfigValue::Sequence(items)
+        }
+    }
+
+    fn sequence_item(&mut self, n: usize) -> Option<ConfigValue> {
+        if !self.block_sequence_at(self.pos) {
+            self.fail(self.pos);
+            return None;
+        }
+        let dash = self.pos;
+        self.pos += 1;
+        self.skip_inline_ws();
+        let column = n + self.pos - dash;
+        if self.block_sequence_at(self.pos) {
+            return Some(self.block_sequence(column));
+        }
+        if self.block_map_start() {
+            return Some(self.block_map(column, self.pos));
+        }
+        let (value, inline, consumed) = self.entry_value(n)?;
+        if !consumed {
+            self.finish_line()?;
+        }
+        if inline {
+            Some(value)
+        } else {
+            Some(self.nested_or_null(n))
+        }
     }
 
     fn entry(&mut self, n: usize) -> Option<EntryOut> {
@@ -1218,6 +1303,12 @@ impl<'a> Cfg<'a> {
                 self.fail(self.end);
                 return None;
             }
+            if !json && self.yaml_quote_space(&mut out, qc) {
+                if self.stop {
+                    return None;
+                }
+                continue;
+            }
             let c = self.raw(self.pos).unwrap_or(0);
             if c == b'\r' || c == b'\n' || c <= 0x1F {
                 self.fail(self.pos);
@@ -1278,6 +1369,50 @@ impl<'a> Cfg<'a> {
         out.push(c);
         self.pos += 1;
         Step::Next
+    }
+
+    fn yaml_quote_space(&mut self, out: &mut Vec<u8>, quote: u8) -> bool {
+        if matches!(self.raw(self.pos), Some(b'\r' | b'\n')) {
+            let breaks = self.quoted_breaks();
+            if breaks == 1 {
+                out.push(b' ');
+            } else {
+                out.extend(std::iter::repeat_n(b'\n', breaks - 1));
+            }
+            return true;
+        }
+        if quote == b'"'
+            && self.raw(self.pos) == Some(b'\\')
+            && matches!(self.raw(self.pos + 1), Some(b'\r' | b'\n'))
+        {
+            self.pos += 1;
+            self.quoted_breaks();
+            return true;
+        }
+        self.quoted_inline_space(out)
+    }
+
+    fn quoted_inline_space(&mut self, out: &mut Vec<u8>) -> bool {
+        if !matches!(self.raw(self.pos), Some(b' ' | b'\t')) {
+            return false;
+        }
+        let start = self.pos;
+        self.skip_inline_ws();
+        if !matches!(self.raw(self.pos), Some(b'\r' | b'\n')) {
+            out.extend_from_slice(&self.b[start..self.pos]);
+        }
+        true
+    }
+
+    fn quoted_breaks(&mut self) -> usize {
+        let mut count = 0;
+        while matches!(self.raw(self.pos), Some(b'\r' | b'\n')) {
+            self.pos += self.eol(self.pos);
+            self.skip_inline_ws();
+            count += 1;
+        }
+        self.marker_check();
+        count
     }
 
     fn escape(&mut self, out: &mut Vec<u8>, json: bool) -> bool {
@@ -1967,7 +2102,6 @@ mod tests {
     #[test]
     fn config_nested_scalar_rejections() {
         for src in [
-            "a:\n  - item\n",
             "a:\n  first\n\tsecond\n",
             "a:\n  first\n  invalid: mapping\n",
         ] {
@@ -1978,6 +2112,142 @@ mod tests {
             let (_, ds) = parse_config_yaml(src, 0, src.len());
             assert_eq!(ds[0].code, C_ANCHOR);
         }
+    }
+
+    #[test]
+    fn config_block_sequences() {
+        let src = "items:\n  - alpha\n  - 12\n  - true\nother: end\n";
+        let (v, ds) = parse_config_yaml(src, 0, src.len());
+        assert!(ds.is_empty(), "{ds:?}");
+        let entries = mapping(v);
+        assert_eq!(
+            entries[0].value,
+            ConfigValue::Sequence(vec![
+                ConfigValue::String("alpha".into()),
+                ConfigValue::Integer("12".into()),
+                ConfigValue::Bool(true),
+            ])
+        );
+        assert_eq!(entries[1].value, ConfigValue::String("end".into()));
+    }
+
+    #[test]
+    fn config_sequence_maps_and_nesting() {
+        let src = "items:\n  - name: alpha\n    values:\n      - first\n      - second\n  - name: beta\n    enabled: true\n";
+        let (v, ds) = parse_config_yaml(src, 0, src.len());
+        assert!(ds.is_empty(), "{ds:?}");
+        let entries = mapping(v);
+        let items = sequence(entries[0].value.clone());
+        assert_eq!(items.len(), 2);
+        let first = mapping(items[0].clone());
+        assert_eq!(first[0].key_span, Span { start: 11, end: 15 });
+        assert_eq!(first[0].value, ConfigValue::String("alpha".into()));
+        assert_eq!(
+            first[1].value,
+            ConfigValue::Sequence(vec![
+                ConfigValue::String("first".into()),
+                ConfigValue::String("second".into())
+            ])
+        );
+        let second = mapping(items[1].clone());
+        assert_eq!(second[0].value, ConfigValue::String("beta".into()));
+        assert_eq!(second[1].value, ConfigValue::Bool(true));
+    }
+
+    #[test]
+    fn config_multiline_quoted() {
+        for (src, want) in [
+            ("a: \"first  \n  second\"\n", "first second"),
+            ("a: 'first\\n  second'\n", "first\\n  second"),
+            ("a: 'first  \n \n  second'\n", "first\nsecond"),
+            ("a: \"first\\\n  second\"\n", "firstsecond"),
+            ("a: \"first\\\n\n  second\"\n", "firstsecond"),
+            ("a: \"first\\n\n  second\"\n", "first\n second"),
+            ("a: \"first\r\n  second\"\n", "first second"),
+        ] {
+            let (v, ds) = parse_config_yaml(src, 0, src.len());
+            assert!(ds.is_empty(), "{ds:?}");
+            assert_eq!(mapping(v)[0].value, ConfigValue::String(want.into()));
+        }
+    }
+
+    #[test]
+    fn config_sequence_indentless() {
+        let src = "items:\n- alpha\n- beta\nother: end\n";
+        let (v, ds) = parse_config_yaml(src, 0, src.len());
+        assert!(ds.is_empty(), "{ds:?}");
+        let es = mapping(v);
+        assert_eq!(
+            es[0].value,
+            ConfigValue::Sequence(vec![
+                ConfigValue::String("alpha".into()),
+                ConfigValue::String("beta".into())
+            ])
+        );
+        assert_eq!(es[1].value, ConfigValue::String("end".into()));
+    }
+
+    #[test]
+    fn config_new_yaml_forms_reject_malformed() {
+        for src in [
+            "a:\n  - name: alpha\n   enabled: true\n",
+            "a:\n\t- item\n",
+            "a: \"first\n  second\n",
+            "a: 'first\n  second\n",
+            "a: \"first\n---\nsecond\"\n",
+            "a: 'first\n...\nsecond'\n",
+            "a: \"first\\q\n  second\"\n",
+        ] {
+            let (_, ds) = parse_config_yaml(src, 0, src.len());
+            assert_eq!(ds[0].code, C_MALFORMED, "{src}");
+        }
+        let src = "{\"a\":\"first\n  second\"}";
+        let (_, ds) = parse_config_json(src, 0, src.len());
+        assert_eq!(ds[0].code, C_MALFORMED);
+    }
+
+    #[test]
+    fn config_sequence_depth() {
+        for levels in [63, 64] {
+            let mut src = String::from("a:\n");
+            for depth in 1..=levels {
+                src.push_str(&format!("{}-\n", "  ".repeat(depth)));
+            }
+            let (_, ds) = parse_config_yaml(&src, 0, src.len());
+            if levels == 63 {
+                assert!(ds.is_empty(), "{ds:?}");
+                continue;
+            }
+            let at = src.len() - 2;
+            check(
+                &ds,
+                C_DEPTH,
+                "nesting depth exceeds 64",
+                Span {
+                    start: at,
+                    end: at + 1,
+                },
+            );
+        }
+    }
+
+    #[test]
+    fn config_sequence_quoted_and_flow_scalars() {
+        let src = "items:\n  - \"a: b\"\n  - 'c: d'\n  - [first, second]\n";
+        let (v, ds) = parse_config_yaml(src, 0, src.len());
+        assert!(ds.is_empty(), "{ds:?}");
+        let es = mapping(v);
+        assert_eq!(
+            es[0].value,
+            ConfigValue::Sequence(vec![
+                ConfigValue::String("a: b".into()),
+                ConfigValue::String("c: d".into()),
+                ConfigValue::Sequence(vec![
+                    ConfigValue::String("first".into()),
+                    ConfigValue::String("second".into())
+                ]),
+            ])
+        );
     }
 
     fn check(ds: &[Diagnostic], code: &str, msg: &str, span: Span) {
