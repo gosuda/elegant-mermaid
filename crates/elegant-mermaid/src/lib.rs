@@ -29,6 +29,22 @@
 #![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
 pub mod diag;
+pub mod error;
 pub(crate) mod r#gen;
+pub mod geom;
+pub mod kind;
+pub mod markdown;
+pub mod measure;
+pub mod options;
+pub mod scene;
 pub mod source;
 pub mod syntax;
+
+pub use diag::{Diagnostic, Edit, Fix, FixSafety, Related, Severity};
+pub use error::{IconPackError, RasterError, RenderError};
+pub use kind::DiagramKind;
+pub use options::{
+    Cancel, Charset, ColorMode, FixOutcome, LayoutOptions, Limits, LintConfig, Profile, SvgOptions,
+    TextMode, TextOptions,
+};
+pub use source::{Position, Span};
