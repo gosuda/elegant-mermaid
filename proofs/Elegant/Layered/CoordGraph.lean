@@ -216,8 +216,8 @@ theorem addClusterBorders_extra (p : Proper) (bw : Int) :
   · apply OrderImpl.foldl_inv (ExtraInv p) _ _ out hout
     intro state hstate offset _
     obtain ⟨extra, hx, hall⟩ := hstate
-    let nl : ProperNode := ⟨{ decl := q.1.node.decl, w := bw, h := 0, clusterPath := q.1.node.clusterPath, border := -1 }, false, none⟩
-    let nr : ProperNode := ⟨{ decl := q.1.node.decl, w := bw, h := 0, loopExtent := q.1.node.loopExtent, clusterPath := q.1.node.clusterPath, border := 1 }, false, none⟩
+    let nl : ProperNode := ⟨{ decl := q.1.node.decl, w := bw, h := 0, clusterPath := q.1.node.clusterPath, border := -1 }, false, none, false⟩
+    let nr : ProperNode := ⟨{ decl := q.1.node.decl, w := bw, h := 0, loopExtent := q.1.node.loopExtent, clusterPath := q.1.node.clusterPath, border := 1 }, false, none, false⟩
     refine ⟨extra ++ [nl, nr], ?_, ?_⟩
     · simp [hx, List.append_assoc, nl, nr]
     · intro n hn
@@ -568,6 +568,86 @@ theorem proxyWidths_rel {p q : Proper} {xs xs' : List Int}
     subst hb1
     exact ⟨by simp [List.getElem?_map, hb2], by simp [List.getElem?_map, hb2]⟩
 
+theorem proxyWidths_flags {p q : Proper} {xs xs' : List Int}
+    (h : proxyWidths p xs = .ok (q, xs')) (v : Nat) :
+    q.nodes[v]?.map (fun n => (n.label, n.dummy)) =
+      p.nodes[v]?.map (fun n => (n.label, n.dummy)) := by
+  unfold proxyWidths at h
+  obtain ⟨updated, hu, h⟩ := bind_ok' h
+  have h : (Except.ok _ : Except LayoutError (Proper × List Int)) = Except.ok (q, xs') := h
+  have h := Except.ok.inj h
+  obtain ⟨hlen, hidx⟩ := mapM_getElem? _ _ _ hu
+  have hq : q = { p with nodes := updated.map (·.1) } := (Prod.mk.inj h).1.symm
+  have hx : xs' = updated.map (·.2) := (Prod.mk.inj h).2.symm
+  subst hq hx
+  have hlen' : updated.length = p.nodes.length := by simpa using hlen
+  change (updated.map (·.1))[v]?.map (fun n => (n.label, n.dummy)) =
+    p.nodes[v]?.map (fun n => (n.label, n.dummy))
+  cases hv : p.nodes[v]? with
+  | none =>
+    have hvn : p.nodes.length ≤ v := List.getElem?_eq_none_iff.mp hv
+    have hqn : (updated.map (·.1))[v]? = none := List.getElem?_eq_none_iff.mpr (by simp [hlen']; omega)
+    simp [hqn]
+  | some nd =>
+    obtain ⟨b, hb1, hb2⟩ := hidx v (nd, v) (by simp [List.getElem?_zipIdx, hv])
+    rw [show (updated.map (·.1))[v]? = some b.1 by simp [List.getElem?_map, hb2]]
+    simp only [Option.map_some]
+    dsimp only at hb1
+    by_cases hcond : (nd.node.border == -2 || nd.node.border == 2) = true
+    · simp only [hcond, ↓reduceIte] at hb1
+      cases hl : nd.node.clusterPath.getLast? with
+      | none => simp [hl] at hb1
+      | some owner =>
+        simp only [hl] at hb1
+        obtain ⟨span, hspan, hb1⟩ := bind_ok' hb1
+        obtain ⟨w, hw, hb1⟩ := bind_ok' hb1
+        by_cases hw0 : w < 0
+        · simp only [hw0, ↓reduceIte] at hb1
+          simp [bind, Except.bind] at hb1
+        simp only [hw0, ↓reduceIte] at hb1
+        obtain ⟨c, hc, hb1⟩ := bind_ok' hb1
+        have hb1 : (Except.ok _ : Except LayoutError (ProperNode × Int)) = Except.ok b := hb1
+        have hb1 := Except.ok.inj hb1
+        subst hb1
+        rfl
+    · simp only [hcond] at hb1
+      have hb1 : (Except.ok (nd, xs.getD v 0) : Except LayoutError (ProperNode × Int)) =
+          Except.ok b := hb1
+      have hb1 := Except.ok.inj hb1
+      subst hb1
+      rfl
+
+theorem labelOnlyRank_proxy {p q : Proper} {xs xs' : List Int}
+    (h : proxyWidths p xs = .ok (q, xs')) (layer : List Nat) :
+    CoordsImpl.labelOnlyRank q.nodes.toArray layer =
+      CoordsImpl.labelOnlyRank p.nodes.toArray layer := by
+  have hall : (fun (v : Nat) => (q.nodes.toArray[v]?.map (fun (n : ProperNode) => n.label || n.dummy)).getD false) =
+      (fun (v : Nat) => (p.nodes.toArray[v]?.map (fun (n : ProperNode) => n.label || n.dummy)).getD false) := by
+    funext v
+    have hf := congrArg (fun o => (o.map (fun n => n.1 || n.2)).getD false)
+      (proxyWidths_flags h v)
+    simpa [Option.map_map, Function.comp_def] using hf
+  have hany : (fun (v : Nat) => (q.nodes.toArray[v]?.map (fun (n : ProperNode) => n.label)).getD false) =
+      (fun (v : Nat) => (p.nodes.toArray[v]?.map (fun (n : ProperNode) => n.label)).getD false) := by
+    funext v
+    have hf := congrArg (fun o => (o.map (fun n => n.1)).getD false)
+      (proxyWidths_flags h v)
+    simpa [Option.map_map, Function.comp_def] using hf
+  unfold CoordsImpl.labelOnlyRank
+  rw [hall, hany]
+
+theorem rankGapAt_proxy {p q : Proper} {xs xs' : List Int}
+    (h : proxyWidths p xs = .ok (q, xs')) (rg : Int) (layers : List (List Nat)) (k : Nat) :
+    CoordsImpl.rankGapAt rg (OrderImpl.dropSynthetic q) layers k =
+      CoordsImpl.rankGapAt rg p layers k := by
+  have hf : layers.map (CoordsImpl.labelOnlyRank (OrderImpl.dropSynthetic q).nodes.toArray) =
+      layers.map (CoordsImpl.labelOnlyRank p.nodes.toArray) := by
+    apply List.map_congr_left
+    intro layer _
+    exact labelOnlyRank_proxy h layer
+  unfold CoordsImpl.rankGapAt
+  rw [hf]
+
 theorem nodeH_proxy {p q : Proper} {xs xs' : List Int}
     (h : proxyWidths p xs = .ok (q, xs')) (v : Nat) :
     RouteImpl.nodeH q v = RouteImpl.nodeH p v := by
@@ -641,6 +721,21 @@ theorem topsFrom_step (rg sl : Int) :
           simp only [List.getD_cons_succ]
           exact ih (h2' :: hs') _ k' hlen (by simpa using h2)
 
+theorem rankSteps_topsFrom_step (rg sl : Int) (p : Proper)
+    (layers : List (List Nat)) (ss : List Int) (t : Int) (k : Nat)
+    (hlen : ss.length + 1 = layers.length) (hk : k + 1 < layers.length) :
+    (CoordsImpl.topsFrom 0 1 t (layers.map (CoordsImpl.layerHeight p))
+      (CoordsImpl.rankSteps rg sl p layers ss)).getD (k + 1) 0 =
+    (CoordsImpl.topsFrom 0 1 t (layers.map (CoordsImpl.layerHeight p))
+      (CoordsImpl.rankSteps rg sl p layers ss)).getD k 0 +
+      (layers.map (CoordsImpl.layerHeight p)).getD k 0 +
+      CoordsImpl.rankGapAt rg p layers k + sl * ss.getD k 0 := by
+  rw [topsFrom_step 0 1 (CoordsImpl.rankSteps rg sl p layers ss)
+    (layers.map (CoordsImpl.layerHeight p)) t k
+    (by simpa [CoordsImpl.rankSteps_length] using hlen) (by simpa using hk),
+    CoordsImpl.rankSteps_getD rg sl p layers ss k (by omega)]
+  omega
+
 /-! fifth block: assembling the coordinate facts of the executed run -/
 
 theorem isTop_iff {q : Proper} {v : Nat} {n : ProperNode} (h : q.nodes[v]? = some n) :
@@ -698,7 +793,7 @@ theorem coordFacts_of_parts {P : Params} (hP : P.Valid) {cg : Graph} {labeled pc
     (hys : proxyYs pc layers top cy = ys)
     (hclear : FrameClearance q layers xs) :
     RouteImpl.CoordFacts q layers xs ys top lr.routing
-      (min P.nodeGap P.clusterPad) P.rankGap P.slot := by
+      (min P.nodeGap P.clusterPad) (CoordsImpl.rankGapAt P.rankGap q layers) P.slot := by
   obtain ⟨hg, hrg, hs, hh⟩ := hP
   obtain ⟨hn1, hcp, _, _, _⟩ := CoordsImpl.crossCoordsClusterWith_spec hx
   obtain ⟨hrE, hrR, hlen, hxlen, hP1, hP2⟩ := proxyWidths_rel hprox
@@ -771,7 +866,9 @@ theorem coordFacts_of_parts {P : Params} (hP : P.Valid) {cg : Graph} {labeled pc
     by
     have hf : RouteImpl.nodeH q = RouteImpl.nodeH pc := funext hnodeH
     simp only [RouteImpl.layerHeight, hf]; rfl
-  refine ⟨by omega, by omega, hs, hh, ?_, hflat, ?_, hclear.1, hclear.2, ?_, ?_⟩
+  refine ⟨by omega, fun k => CoordsImpl.rankGapAt_nonneg (by omega) q layers k, hs,
+    fun k => CoordsImpl.half_slot_le_rankGapAt hrg hh q layers k,
+    ?_, hflat, ?_, hclear.1, hclear.2, ?_, ?_⟩
   · intro layer hl i j a b hij ha hb hna hnb _
     have hLa : a ∈ layer := List.mem_of_getElem? ha
     have hLb : b ∈ layer := List.mem_of_getElem? hb
@@ -883,9 +980,11 @@ theorem coordFacts_of_parts {P : Params} (hP : P.Valid) {cg : Graph} {labeled pc
       simp [List.getD_eq_getElem?_getD, List.getElem?_map, hkl]
     have hs' : (lr.routing.gaps.map (·.slots)).getD k 0 = (lr.routing.gaps.getD k default).slots := by
       simp [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hk']
-    rw [topsFrom_step P.rankGap P.slot (lr.routing.gaps.map (·.slots))
-      (layers.map (CoordsImpl.layerHeight pc)) 0 k (by simp; omega) (by simpa using hk), hh, hs',
-      hLH l]
+    rw [rankSteps_topsFrom_step P.rankGap P.slot pc layers (lr.routing.gaps.map (·.slots))
+      0 k (by simp; omega) (by simpa using hk), hh, hs', hLH l]
+    rw [show CoordsImpl.rankGapAt P.rankGap q layers k =
+      CoordsImpl.rankGapAt P.rankGap pc layers k by
+        rw [← hq]; exact rankGapAt_proxy hprox _ _ _]
 
 end PipelineImpl
 end Layered

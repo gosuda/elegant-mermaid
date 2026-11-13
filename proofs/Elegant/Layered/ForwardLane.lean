@@ -34,7 +34,7 @@ namespace Elegant.Layered.RouteImpl
   simp only [Option.getD_some, numberLaneGap]
   exact getD_map_range _ _ _ hj _
 
- theorem lane_mid_bounds_of_retained {slot gap rankGap : Int} {p : Proper}
+ theorem lane_mid_bounds_of_retained {slot gap : Int} {rankGap : Nat → Int} {p : Proper}
     {layers : List (List Nat)} {x y top : List Int} {base : Routing}
     {reversed : List Bool} {runs : List ReversedLane} {i : Nat}
     (hi : i < p.edges.length) (hg : gapOf p i < base.gaps.length)
@@ -62,7 +62,7 @@ namespace Elegant.Layered.RouteImpl
   have key := reverseRunMid_bounds (top := top) (heights := layers.map (layerHeight p))
     (r := (assembleLaneRouting p base reversed runs).routing) (gap := gapOf p i)
     (index := (assembleLaneRouting p base reversed runs).routing.segment.getD i 0)
-    hF.slot_pos hF.half_slot_le
+    hF.slot_pos (hF.half_slot_le (gapOf p i))
     (by rw [he]; exact bounds.1)
     (by rw [he, hgap]; exact bounds.2)
     (by rw [heights]; exact step)
@@ -126,7 +126,7 @@ end Elegant.Layered.RouteImpl
 
 namespace Elegant.Layered.RouteImpl
 
-theorem forward_mid_bounds {slot gap rankGap : Int} {p : Proper}
+theorem forward_mid_bounds {slot gap : Int} {rankGap : Nat → Int} {p : Proper}
     {layers : List (List Nat)} {x y top : List Int} {rev : List Bool}
     {widths : List Int} {lr : LaneRouting}
     (hr : routeWithLanes slot p layers x rev widths = .ok lr)
@@ -170,7 +170,7 @@ end Elegant.Layered.RouteImpl
 
 namespace Elegant.Layered.RouteImpl
 
-theorem forward_piece_pairs {slot gap rankGap : Int} {p : Proper}
+theorem forward_piece_pairs {slot gap : Int} {rankGap : Nat → Int} {p : Proper}
     {layers : List (List Nat)} {x y top : List Int} {rev : List Bool}
     {widths : List Int} {lr : LaneRouting}
     (hr : routeWithLanes slot p layers x rev widths = .ok lr)

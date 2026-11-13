@@ -448,10 +448,12 @@ theorem coordFacts_of_pipeline {P : Params} (hP : P.Valid) {p : Proper}
     (hnf : ∀ v, ¬ RouteImpl.IsFrame p v)
     (hx : crossCoordsWith P.nodeGap p layers = .ok xs) (hr : route p layers xs = .ok r)
     (hy : rankCoordsWith P.rankGap P.slot p layers (r.gaps.map (·.slots)) = .ok (ys, top)) :
-    CoordFacts p layers xs ys top r P.nodeGap P.rankGap P.slot := by
+    CoordFacts p layers xs ys top r P.nodeGap (CoordsImpl.rankGapAt P.rankGap p layers) P.slot := by
   obtain ⟨hg, hrg, hs, hh⟩ := hP
   obtain ⟨_, _, hsz, _⟩ := CoordsImpl.crossCoordsWith_spec hx
-  refine ⟨hg, by omega, hs, hh, ?_, fun v hv => absurd hv (hnf v),
+  refine ⟨hg, fun k => CoordsImpl.rankGapAt_nonneg (by omega) p layers k, hs,
+    fun k => CoordsImpl.half_slot_le_rankGapAt hrg hh p layers k,
+    ?_, fun v hv => absurd hv (hnf v),
     fun k l v _ _ hT => absurd (Or.inl hT) (hnf v),
     fun layer _ t v _ _ hT => absurd (Or.inl hT) (hnf t),
     fun layer _ t v _ _ hB => absurd (Or.inr hB) (hnf t), ?_, ?_⟩
@@ -481,8 +483,8 @@ theorem coordFacts_of_pipeline {P : Params} (hP : P.Valid) {p : Proper}
       simp [List.getD_eq_getElem?_getD, List.getElem?_map, hkl]
     have hs' : (r.gaps.map (·.slots)).getD k 0 = (r.gaps.getD k default).slots := by
       simp [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hk']
-    rw [topsFrom_step P.rankGap P.slot (r.gaps.map (·.slots))
-      (layers.map (CoordsImpl.layerHeight p)) 0 k (by simp; omega) (by simpa using hk), hh, hs']
+    rw [rankSteps_topsFrom_step P.rankGap P.slot p layers (r.gaps.map (·.slots))
+      0 k (by simp; omega) (by simpa using hk), hh, hs']
     rfl
 
 theorem componentRun_facts {P : Params} (hP : P.Valid) {cg : Graph} {run : Run}
@@ -492,7 +494,8 @@ theorem componentRun_facts {P : Params} (hP : P.Valid) {cg : Graph} {run : Run}
     RouteImpl.ProperShape run.proper ∧ RouteImpl.GapDeclsDistinct run.proper ∧
       (FrameClearance run.proper run.layers run.xs →
         CoordFacts run.proper run.layers run.xs run.ys run.top run.routing
-          (min P.nodeGap P.clusterPad) P.rankGap P.slot) := by
+          (min P.nodeGap P.clusterPad)
+          (CoordsImpl.rankGapAt P.rankGap run.proper run.layers) P.slot) := by
   obtain ⟨ranks, p0, labeled, q0, hn, hlabels, hproper, _, hx, hprox, hdrop, hr, hroute, hy,
     hys, _⟩ := componentRun_spec h
   obtain ⟨he, _, _, hdummy⟩ := Labels.addLabelNodes_metadata hlabels
@@ -587,7 +590,8 @@ def ComponentFacts (inp : Input) (o : Options) : Prop :=
       RouteImpl.ProperShape run.proper ∧ RouteImpl.GapDeclsDistinct run.proper ∧
       (FrameClearance run.proper run.layers run.xs →
         CoordFacts run.proper run.layers run.xs run.ys run.top run.routing
-          (min P.nodeGap P.clusterPad) P.rankGap P.slot)
+          (min P.nodeGap P.clusterPad)
+          (CoordsImpl.rankGapAt P.rankGap run.proper run.layers) P.slot)
 
 theorem layout_component_facts {inp : Input} {o : Options} {res : FamilyResult}
     (h : layout inp o = .ok res) : ComponentFacts inp o := by
@@ -666,7 +670,7 @@ theorem coordPhases_coordFacts {P : PipelineImpl.Params} (hP : P.Valid) {p : Pro
     (hnf : ∀ v, ¬ RouteImpl.IsFrame p v)
     (hx : crossCoordsWith P.nodeGap p layers = .ok xs) (hr : route p layers xs = .ok r)
     (hy : rankCoordsWith P.rankGap P.slot p layers (r.gaps.map (·.slots)) = .ok (ys, top)) :
-    CoordFacts p layers xs ys top r P.nodeGap P.rankGap P.slot :=
+    CoordFacts p layers xs ys top r P.nodeGap (CoordsImpl.rankGapAt P.rankGap p layers) P.slot :=
   PipelineImpl.coordFacts_of_pipeline hP hnf hx hr hy
 
 theorem layoutFamily_component_facts {inp : Input} {o : Options} {res : FamilyResult}

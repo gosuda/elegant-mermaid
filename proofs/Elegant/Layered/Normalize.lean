@@ -18,6 +18,7 @@ structure ProperNode where
   node : Node
   dummy : Bool
   edge : Option Nat
+  label : Bool := false
 deriving DecidableEq, Repr, Inhabited
 
 structure ProperEdge where
@@ -43,7 +44,7 @@ def chainNode (a b n0 s k : Nat) : Nat :=
   if k = 0 then a else if k = s then b else n0 + (k - 1)
 
 def dummyNodes (e : Edge) (idx : Nat) (slot : Int) (s : Nat) : List ProperNode :=
-  List.replicate (s - 1) ⟨{ decl := e.decl, w := slot, h := 0 }, true, some idx⟩
+  List.replicate (s - 1) ⟨{ decl := e.decl, w := slot, h := 0 }, true, some idx, false⟩
 
 def dummyRanks (ra : Int) (s : Nat) : List Int :=
   (List.range (s - 1)).map fun (j : Nat) => ra + 1 + (j : Int)
@@ -90,7 +91,7 @@ def normalize (g : Graph) (rank : List Int) : Except LayoutError Proper :=
   | some slot =>
     if g.wellformed = true ∧ rank.length = g.nodes.length ∧ 0 ≤ slot then
       normalizeLoop slot g.edges.zipIdx
-        { nodes := g.nodes.map fun n => ⟨n, false, none⟩
+        { nodes := g.nodes.map fun n => ⟨n, false, none, false⟩
           edges := []
           rank := rank
           chains := [] }
@@ -228,7 +229,7 @@ theorem normalize_proper (g : Graph) (rank : List Int) (p : Proper)
         intro q hq
         exact wellformed_spec hwf q.1 (mem_of_mem_zipIdx hq)
       have hP : PInv
-          { nodes := g.nodes.map fun n => ⟨n, false, none⟩
+          { nodes := g.nodes.map fun n => ⟨n, false, none, false⟩
             edges := []
             rank := rank
             chains := [] } := by

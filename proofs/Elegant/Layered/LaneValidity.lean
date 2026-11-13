@@ -5,7 +5,7 @@ set_option autoImplicit false
 
 namespace Elegant.Layered.RouteImpl
 
-theorem reversed_runtime_clearance {slot gap rankGap : Int} {p : Proper}
+theorem reversed_runtime_clearance {slot gap : Int} {rankGap : Nat → Int} {p : Proper}
     {layers : List (List Nat)} {x y top : List Int} {reversed : List Bool}
     {widths : List Int} {lr : LaneRouting} {run : ReversedLane} {rt : EdgeRoute}
     (hr : routeWithLanes slot p layers x reversed widths = .ok lr)
@@ -21,7 +21,7 @@ theorem reversed_runtime_clearance {slot gap rankGap : Int} {p : Proper}
   exact laneRouteOf_reverse_avoids hf he (geo_ok_withLanes hr hF) hs ht hv hvs hvt
     hsr htr htg ⟨hsx0, hsx1⟩ ⟨htx0, htx1⟩ hcs hct hvpos htrun (laneRun_right_bound hr hm hv)
 
-theorem forward_runtime_clearance {slot gap rankGap : Int} {p : Proper}
+theorem forward_runtime_clearance {slot gap : Int} {rankGap : Nat → Int} {p : Proper}
     {layers : List (List Nat)} {x y top : List Int} {reversed : List Bool}
     {widths : List Int} {lr : LaneRouting} {rt : EdgeRoute}
     (hP : ProperShape p)
@@ -100,7 +100,7 @@ end Elegant.Layered.RouteImpl
 
 namespace Elegant.Layered
 
-theorem route_avoids_nodes {slot gap rankGap : Int} {p : Proper}
+theorem route_avoids_nodes {slot gap : Int} {rankGap : Nat → Int} {p : Proper}
     {layers : List (List Nat)} {x y top : List Int} {reversed : List Bool}
     {widths : List Int} {lr : RouteImpl.LaneRouting} {routes : List EdgeRoute}
     (hP : ProperShape p)

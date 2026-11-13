@@ -164,7 +164,7 @@ theorem laneRun_slot_bounds {slot : Int} {p : Proper} {layers : List (List Nat)}
   exact ⟨numberLaneGap_at_bounds hraw.1 hneSource,
     numberLaneGap_at_bounds hraw.2 hneTarget⟩
 
-theorem laneRun_mid_bounds {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
+theorem laneRun_mid_bounds {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
     (hr : routeWithLanes slot p layers x reversed widths = .ok lr)
     (hF : CoordFacts p layers x y top lr.routing gap rankGap slot)
@@ -181,15 +181,15 @@ theorem laneRun_mid_bounds {slot gap rankGap : Int} {p : Proper} {layers : List 
   have hslots := laneRun_slot_bounds hr hm
   have hstep (k : Nat) (hk : k + 1 < layers.length) :
       top.getD (k + 1) 0 = top.getD k 0 + (layers.map (layerHeight p)).getD k 0 +
-        rankGap + slot * (lr.routing.gaps.getD k default).slots := by
+        rankGap k + slot * (lr.routing.gaps.getD k default).slots := by
     have hlt : k < layers.length := by omega
     have hl := List.getElem?_eq_getElem hlt
     have hb := hF.band_step k layers[k] hl hk
     rw [heights_getD hl]
     exact hb
-  exact ⟨reverseRunMid_bounds hF.slot_pos hF.half_slot_le hslots.1.1 hslots.1.2
+  exact ⟨reverseRunMid_bounds hF.slot_pos (hF.half_slot_le run.sourceGap) hslots.1.1 hslots.1.2
       (hstep _ hg.1),
-    reverseRunMid_bounds hF.slot_pos hF.half_slot_le hslots.2.1 hslots.2.2
+    reverseRunMid_bounds hF.slot_pos (hF.half_slot_le run.targetGap) hslots.2.1 hslots.2.2
       (hstep _ hg.2)⟩
 
 theorem laneRun_numbered_segments {slot : Int} {p : Proper} {layers : List (List Nat)}

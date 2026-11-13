@@ -143,8 +143,8 @@ def addClusterBorders (p : Proper) (borderWidth : Int) : Proper :=
         { state with
           edges := state.edges ++ borderLinks state.nodes.length q.1.node.decl offset
           nodes := state.nodes ++
-            [⟨{ node with border := -1 }, false, none⟩,
-             ⟨{ node with border := 1, loopExtent := q.1.node.loopExtent }, false, none⟩]
+            [⟨{ node with border := -1 }, false, none, false⟩,
+             ⟨{ node with border := 1, loopExtent := q.1.node.loopExtent }, false, none, false⟩]
           rank := state.rank ++ [((lo + offset : Nat) : Int), ((lo + offset : Nat) : Int)] }) out) p
 def medianKey (nb : Nat → List Nat) (pos : Nat → Int) (v : Nat) : Int × Int :=
   match (nb v).map pos |>.mergeSort (fun a b => decide (a ≤ b)) with
@@ -3655,11 +3655,11 @@ theorem inner_fold_binv {p : Proper} (g : Proper → Nat → Proper) (nl nr : Pr
 
 def borderLeft (q : ProperNode × Nat) (w : Int) : ProperNode :=
   ⟨{ decl := q.1.node.decl, w := w, h := 0, clusterPath := q.1.node.clusterPath, border := -1 },
-    false, none⟩
+    false, none, false⟩
 
 def borderRight (q : ProperNode × Nat) (w : Int) : ProperNode :=
   ⟨{ decl := q.1.node.decl, w := w, h := 0, clusterPath := q.1.node.clusterPath, border := 1,
-     loopExtent := q.1.node.loopExtent }, false, none⟩
+     loopExtent := q.1.node.loopExtent }, false, none, false⟩
 
 def borderInner (q : ProperNode × Nat) (w : Int) (lo : Nat) (state : Proper) (offset : Nat) :
     Proper :=
@@ -4225,7 +4225,7 @@ theorem transpose_crossings_le_of_order (p : Proper) (opts : OrderOptions)
 
 private def refCase (decls : List Nat) (ranks : List Int) (edges : List (Nat × Nat)) :
     Proper :=
-  { nodes := decls.map fun d => ⟨{ decl := d, w := 0, h := 0 }, false, none⟩
+  { nodes := decls.map fun d => ⟨{ decl := d, w := 0, h := 0 }, false, none, false⟩
     edges := edges.map fun (t, h) => { tail := t, head := h, decl := 0, original := 0 }
     rank := ranks
     chains := [] }

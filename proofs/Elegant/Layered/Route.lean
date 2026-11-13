@@ -117,7 +117,7 @@ def portCoord (p : Proper) (x : List Int) (v : Nat) (es : List Nat) (i : Nat) : 
   let ns := portNeighbours p x v es
   let w := nodeW p v
   let j := ns.idxOf (otherEnd (edgeAt p i) v)
-  if (p.nodes[v]?.map (·.dummy)).getD false && decide (0 < nodeH p v) then
+  if (p.nodes[v]?.map (·.label)).getD false then
     xAt x v - Int.fdiv w 2
   else
     xAt x v - Int.fdiv w 2 + Int.fdiv (((j : Int) + 1) * w) ((ns.length : Int) + 1)
@@ -495,10 +495,13 @@ theorem numberGapFast_eq : numberGapFast = numberGap := by
 @[csimp] theorem numberGap_eq_numberGapFast : @numberGap = @numberGapFast :=
   numberGapFast_eq.symm
 
+def labelsOk (p : Proper) : Bool :=
+  p.nodes.all fun n => decide (n.dummy = true → 0 < n.node.h → n.label = true)
+
 
 def route (p : Proper) (layers : List (List Nat)) (x : List Int) : Except LayoutError Routing :=
   if I32_MAX < (p.nodes.length : Int) ∨ I32_MAX < (p.edges.length : Int) then .error .overflow
-  else if !layersOk p layers ∨ x.length ≠ p.nodes.length then .error .domain
+  else if (!layersOk p layers ∨ x.length ≠ p.nodes.length) ∨ !labelsOk p then .error .domain
   else
     match mapOk (sourcePort p x) (List.range p.edges.length) with
     | .error e => .error e
@@ -1135,13 +1138,33 @@ theorem route_spec {p : Proper} {layers : List (List Nat)} {x : List Int} {r : R
             subst h
             have hl : layersOk p layers = true := by
               refine Classical.byContradiction fun hc => ?_
-              exact h2 (Or.inl (by simpa using hc))
+              exact h2 (Or.inl (Or.inl (by simpa using hc)))
             have hx : x.length = p.nodes.length := by
               refine Classical.byContradiction fun hc => ?_
-              exact h2 (Or.inr hc)
+              exact h2 (Or.inl (Or.inr hc))
             obtain ⟨hsl, hs⟩ := mapOk_range_getD hsx
             obtain ⟨htl, ht⟩ := mapOk_range_getD htx
             exact ⟨hl, hx, hsl, htl, fun i hi => ⟨hs i hi, ht i hi⟩, rfl, rfl⟩
+
+theorem route_labelsOk {p : Proper} {layers : List (List Nat)} {x : List Int} {r : Routing}
+    (h : route p layers x = .ok r) : labelsOk p = true := by
+  unfold route at h
+  split at h
+  · simp at h
+  · split at h
+    · simp at h
+    · next hguard =>
+      refine Classical.byContradiction fun hc => ?_
+      exact hguard (Or.inr (by simpa using hc))
+
+theorem route_dummy_label {p : Proper} {layers : List (List Nat)} {x : List Int} {r : Routing}
+    (hr : route p layers x = .ok r) {v : Nat} {nd : ProperNode}
+    (hn : p.nodes[v]? = some nd) (hd : nd.dummy = true) (hh : 0 < nodeH p v) :
+    nd.label = true := by
+  have hgood := route_labelsOk hr
+  simp only [labelsOk, List.all_eq_true, decide_eq_true_eq] at hgood
+  have hh' : 0 < nd.node.h := by simpa [nodeH, hn] using hh
+  exact hgood nd (List.mem_of_getElem? hn) hd hh'
 
 theorem runAt_eq {p : Proper} {x sx : List Int} {i : Nat} {a : Int}
     (h : runAt p x sx i = .ok a) : a = runCoord p x sx i := by
@@ -1574,11 +1597,11 @@ def coordSep (gap : Int) (p : Proper) (a b : Nat) : Int :=
   Int.fdiv (nodeW p a) 2 + Int.fdiv (nodeW p b) 2 + gap
 
 structure CoordFacts (p : Proper) (layers : List (List Nat)) (x y top : List Int) (r : Routing)
-    (gap rankGap slot : Int) : Prop where
+    (gap : Int) (rankGap : Nat → Int) (slot : Int) : Prop where
   gap_pos : 1 ≤ gap
-  rank_gap_nonneg : 0 ≤ rankGap
+  rank_gap_nonneg : ∀ k, 0 ≤ rankGap k
   slot_pos : 1 ≤ slot
-  half_slot_le : Int.fdiv slot 2 ≤ rankGap
+  half_slot_le : ∀ k, Int.fdiv slot 2 ≤ rankGap k
   separated : ∀ layer ∈ layers, ∀ (i j a b : Nat), i < j → layer[i]? = some a →
     layer[j]? = some b → ¬ IsFrame p a → ¬ IsFrame p b →
     (0 < nodeH p a ∨ 0 < nodeH p b) → coordSep gap p a b ≤ xAt x b - xAt x a
@@ -1596,7 +1619,7 @@ structure CoordFacts (p : Proper) (layers : List (List Nat)) (x y top : List Int
     top.getD k 0 ≤ yAt y v ∧ yAt y v + nodeH p v ≤ top.getD k 0 + layerHeight p l
   band_step : ∀ (k : Nat) (l : List Nat), layers[k]? = some l → k + 1 < layers.length →
     top.getD (k + 1) 0 =
-      top.getD k 0 + layerHeight p l + rankGap + slot * (r.gaps.getD k default).slots
+      top.getD k 0 + layerHeight p l + rankGap k + slot * (r.gaps.getD k default).slots
 
 def routeGeo (p : Proper) (layers : List (List Nat)) (x y top : List Int) : Geo where
   rk v := (Elegant.Layered.rk p.rank v).toNat
@@ -1623,17 +1646,18 @@ theorem layerHeight_nonneg (p : Proper) (l : List Nat) : 0 ≤ layerHeight p l :
   foldl_max_ge (nodeH p) l 0
 
 theorem top_mono {p : Proper} {layers : List (List Nat)} {top : List Int} {r : Routing}
-    {rankGap slot : Int} (hrg : 0 ≤ rankGap) (hsl : 0 ≤ slot)
+    {rankGap : Nat → Int} {slot : Int} (hrg : ∀ k, 0 ≤ rankGap k) (hsl : 0 ≤ slot)
     (hnn : ∀ k, k + 1 < layers.length → 0 ≤ (r.gaps.getD k default).slots)
     (hstep : ∀ (k : Nat) (l : List Nat), layers[k]? = some l → k + 1 < layers.length →
       top.getD (k + 1) 0 =
-        top.getD k 0 + layerHeight p l + rankGap + slot * (r.gaps.getD k default).slots) :
+        top.getD k 0 + layerHeight p l + rankGap k + slot * (r.gaps.getD k default).slots) :
     ∀ (d k : Nat), k + d + 1 < layers.length →
       top.getD k 0 + (layers.map (layerHeight p)).getD k 0 ≤ top.getD (k + d + 1) 0
   | 0, k, hk => by
     obtain ⟨l, hl⟩ : ∃ l, layers[k]? = some l := ⟨layers[k]'(by omega), List.getElem?_eq_getElem _⟩
     rw [heights_getD hl]
     have := hstep k l hl (by omega)
+    have hg := hrg k
     have h2 := Int.mul_nonneg hsl (hnn k (by omega))
     have e0 : k + 0 + 1 = k + 1 := by omega
     rw [e0]
@@ -1644,6 +1668,7 @@ theorem top_mono {p : Proper} {layers : List (List Nat)} {top : List Int} {r : R
       ⟨layers[k + d + 1]'(by omega), List.getElem?_eq_getElem _⟩
     have h1 := hstep (k + d + 1) l hl (by omega)
     have h2 := Int.mul_nonneg hsl (hnn (k + d + 1) (by omega))
+    have hg := hrg (k + d + 1)
     have h3 := layerHeight_nonneg p l
     have e : k + (d + 1) + 1 = k + d + 1 + 1 := by omega
     rw [e, h1]
@@ -1663,7 +1688,7 @@ theorem same_layer {p : Proper} {layers : List (List Nat)} (hl : layersOk p laye
   exact ⟨lu, List.mem_of_getElem? hlu, hul, hvl⟩
 
 theorem layer_pair_apart {p : Proper} {layers : List (List Nat)} {x y top : List Int}
-    {r : Routing} {gap rankGap slot : Int} (hl : layersOk p layers = true)
+    {r : Routing} {gap slot : Int} {rankGap : Nat → Int} (hl : layersOk p layers = true)
     (hF : CoordFacts p layers x y top r gap rankGap slot) {u v : Nat}
     (hu : u < p.nodes.length) (hv : v < p.nodes.length) (hrk : rk p.rank u = rk p.rank v)
     (hne : u ≠ v) (hnu : ¬ IsFrame p u) (hnv : ¬ IsFrame p v)
@@ -1692,7 +1717,7 @@ theorem layer_pair_apart {p : Proper} {layers : List (List Nat)} {x y top : List
     omega
 
 theorem boxRect_disjoint {p : Proper} {layers : List (List Nat)} {x y top : List Int}
-    {r : Routing} {gap rankGap slot : Int} (hl : layersOk p layers = true)
+    {r : Routing} {gap slot : Int} {rankGap : Nat → Int} (hl : layersOk p layers = true)
     (hF : CoordFacts p layers x y top r gap rankGap slot) {u v : Nat}
     (hu : u < p.nodes.length) (hv : v < p.nodes.length) (hrk : rk p.rank u = rk p.rank v)
     (hne : u ≠ v) :
@@ -1717,7 +1742,7 @@ theorem boxRect_disjoint {p : Proper} {layers : List (List Nat)} {x y top : List
     omega
 
 theorem geo_ok_of_layers {p : Proper} {layers : List (List Nat)} {x y top : List Int} {r : Routing}
-    {gap rankGap slot : Int} (hl : layersOk p layers = true)
+    {gap slot : Int} {rankGap : Nat → Int} (hl : layersOk p layers = true)
     (hgapnn : ∀ k, k + 1 < layers.length → 0 ≤ (r.gaps.getD k default).slots)
     (hF : CoordFacts p layers x y top r gap rankGap slot) :
     (routeGeo p layers x y top).Ok p.nodes.length layers.length := by
@@ -1775,7 +1800,7 @@ theorem geo_ok_of_layers {p : Proper} {layers : List (List Nat)} {x y top : List
     exact hF.bottom_clear l hlm t v htl hvl hb hne (nonframe v h1 h2) hpos
 
 theorem geo_ok {p : Proper} {layers : List (List Nat)} {x y top : List Int} {r : Routing}
-    {gap rankGap slot : Int} (hr : route p layers x = .ok r)
+    {gap slot : Int} {rankGap : Nat → Int} (hr : route p layers x = .ok r)
     (hF : CoordFacts p layers x y top r gap rankGap slot) :
     (routeGeo p layers x y top).Ok p.nodes.length layers.length := by
   obtain ⟨hl, _, _, _, _, hgaps, _⟩ := route_spec hr
@@ -1904,7 +1929,8 @@ theorem chain_junction_orthogonal {p : Proper} {layers : List (List Nat)}
     have hs := portAt_eq (hp j hj).1
     simp only [pieceEnd, pieceStart]
     rw [ht, hs]
-    simp [he, portCoord, hn, hd, hh]
+    have hlabel := route_dummy_label hr hn hd hh
+    simp [he, portCoord, hn, hlabel]
   · right
     have hz := ((layersOk_spec hl).2.1 _ ((layersOk_spec hl).2.2.2.2 j hj).1).2
     have hzero : nodeH p (edgeAt p j).tail = 0 := by omega
@@ -1922,7 +1948,8 @@ theorem label_junction_misses_label {p : Proper} {layers : List (List Nat)}
   apply Or.inl
   simp only [pieceEnd, pieceStart, boxRect]
   rw [ht, hs]
-  simp [he, portCoord, hn, hd, hh]
+  have hlabel := route_dummy_label hr hn hd hh
+  simp [he, portCoord, hn, hlabel]
 
 theorem route_orthogonal_aux {slot : Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} {routes : List EdgeRoute} (hP : ProperShape p)
@@ -2077,7 +2104,7 @@ theorem run_ranges {p : Proper} {layers : List (List Nat)} {x : List Int} {r : R
   · rw [h]
     omega
 
-theorem mid_bounds {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
+theorem mid_bounds {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} (hr : route p layers x = .ok r)
     (hF : CoordFacts p layers x y top r gap rankGap slot) {i : Nat}
     (hi : i < p.edges.length) (hne : runOf r i ≠ r.targetX.getD i 0) :
@@ -2090,7 +2117,7 @@ theorem mid_bounds {slot gap rankGap : Int} {p : Proper} {layers : List (List Na
     ⟨layers[gapOf p i]'(by omega), List.getElem?_eq_getElem _⟩
   have hb := hF.band_step (gapOf p i) l hl hg
   have hsl := hF.slot_pos
-  have hrg := hF.half_slot_le
+  have hrg := hF.half_slot_le (gapOf p i)
   have hf : 0 ≤ Int.fdiv slot 2 := Int.fdiv_nonneg (by omega) (by decide)
   unfold midOf
   rw [heights_getD hl]
@@ -2101,7 +2128,7 @@ theorem mid_bounds {slot gap rankGap : Int} {p : Proper} {layers : List (List Na
   have m2 : slot * (s + 1) ≤ slot * S := Int.mul_le_mul_of_nonneg_left (by omega) (by omega)
   omega
 
-theorem piece_pairs {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
+theorem piece_pairs {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} (hr : route p layers x = .ok r)
     (hF : CoordFacts p layers x y top r gap rankGap slot) {v : Nat} (hv : v < p.nodes.length)
     (hvpos : 0 < nodeH p v)
@@ -2131,7 +2158,7 @@ theorem piece_pairs {slot gap rankGap : Int} {p : Proper} {layers : List (List N
           (mid_bounds hr hF hi h2).1, (mid_bounds hr hF hi h2).2, h1⟩)
   exact key
 
-theorem route_avoids_aux {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
+theorem route_avoids_aux {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} {routes : List EdgeRoute} (hP : ProperShape p)
     (hr : route p layers x = .ok r) (h : routePointsWith slot p layers x y top r = .ok routes)
     (hF : CoordFacts p layers x y top r gap rankGap slot) :
@@ -2327,7 +2354,7 @@ theorem normalizeEdge_nInv {slot : Int} {q q' : Proper} {e : Edge} {idx : Nat}
           simp [NormalizeImpl.chainEdges, List.getD_eq_getElem?_getD, hk]
         have hnode : ∀ k, k + 1 < s →
             (appendChain slot q e idx s).nodes[q.nodes.length + k]? =
-              some ⟨{ decl := e.decl, w := slot, h := 0 }, true, some idx⟩ := by
+              some ⟨{ decl := e.decl, w := slot, h := 0 }, true, some idx, false⟩ := by
           intro k hk
           rw [hN, List.getElem?_append_right (Nat.le_add_right _ _)]
           simp [NormalizeImpl.dummyNodes, List.getElem?_replicate]
@@ -2381,7 +2408,7 @@ theorem normalizeEdge_nInv {slot : Int} {q q' : Proper} {e : Edge} {idx : Nat}
               rw [edgeAt_append_right, hget (k + 1) hk]
               have hne1 : k + 1 ≠ 0 := by omega
               have hne2 : k + 1 ≠ s := by omega
-              refine ⟨⟨{ decl := e.decl, w := slot, h := 0 }, true, some o⟩, ?_, rfl⟩
+              refine ⟨⟨{ decl := e.decl, w := slot, h := 0 }, true, some o, false⟩, ?_, rfl⟩
               simp only [NormalizeImpl.chainNode, hne1, hne2, ↓reduceIte]
               have := hnode k hk
               rw [Nat.add_sub_cancel] 
@@ -2424,7 +2451,7 @@ theorem normalize_shape {g : Graph} {rank : List Int} {p : Proper}
   · simp at h
   · next slot hs =>
     split at h
-    · have hbase : NInv { nodes := g.nodes.map fun n => ⟨n, false, none⟩
+    · have hbase : NInv { nodes := g.nodes.map fun n => ⟨n, false, none, false⟩
                           edges := []
                           rank := rank
                           chains := [] } 0 :=
@@ -2806,7 +2833,7 @@ theorem routeWithLanes_gap_nonneg {slot : Int} {p : Proper} {layers : List (List
   rw [hs]
   exact numberLaneGap_nonneg segs
 
-theorem geo_ok_withLanes {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
+theorem geo_ok_withLanes {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {reversed : List Bool} {widths : List Int} {lr : LaneRouting}
     (h : routeWithLanes slot p layers x reversed widths = .ok lr)
     (hF : CoordFacts p layers x y top lr.routing gap rankGap slot) :
@@ -3467,7 +3494,7 @@ theorem route_endpoints_on_ports {slot : Int} {p : Proper} {layers : List (List 
   have ht : lr.routing.targetX = base.targetX := by rw [hlr]; rfl
   simpa only [hs, ht, RouteImpl.pieceStart, RouteImpl.pieceEnd, boxRect] using hports
 
-theorem forward_route_avoids_nodes {slot gap rankGap : Int} {p : Proper} {layers : List (List Nat)}
+theorem forward_route_avoids_nodes {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} {routes : List EdgeRoute} (hP : ProperShape p)
     (hr : route p layers x = .ok r) (h : routePointsWith slot p layers x y top r = .ok routes)
     (hF : CoordFacts p layers x y top r gap rankGap slot) :

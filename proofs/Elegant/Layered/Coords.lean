@@ -3578,6 +3578,100 @@ def topsFrom (rankGap slot : Int) : Int → List Int → List Int → List Int
   | t, h :: hs, s :: ss => t :: topsFrom rankGap slot (t + h + rankGap + slot * s) hs ss
   | _, _, _ => []
 
+def labelOnlyRank (nodes : Array ProperNode) (layer : List Nat) : Bool :=
+  layer.all (fun v =>
+    (nodes[v]?.map (fun n => n.label || n.dummy)).getD false) &&
+    layer.any (fun v => (nodes[v]?.map (·.label)).getD false)
+
+def rankStepsFrom (rankGap slot : Int) : List Bool → List Int → List Int
+  | _, [] => []
+  | flags, s :: ss =>
+    let gap := if flags.headD false || flags.tail.headD false then
+      Int.fdiv (rankGap + 1) 2 else rankGap
+    (gap + slot * s) :: rankStepsFrom rankGap slot flags.tail ss
+
+def rankSteps (rankGap slot : Int) (p : Proper) (layers : List (List Nat))
+    (slots : List Int) : List Int :=
+  let nodes := p.nodes.toArray
+  rankStepsFrom rankGap slot (layers.map (labelOnlyRank nodes)) slots
+
+def rankGapAt (rankGap : Int) (p : Proper) (layers : List (List Nat)) (k : Nat) : Int :=
+  if (layers.map (labelOnlyRank p.nodes.toArray)).getD k false ||
+      (layers.map (labelOnlyRank p.nodes.toArray)).getD (k + 1) false then
+    Int.fdiv (rankGap + 1) 2 else rankGap
+
+theorem rankGapAt_nonneg {rankGap : Int} (hg : 0 ≤ rankGap)
+    (p : Proper) (layers : List (List Nat)) (k : Nat) :
+    0 ≤ rankGapAt rankGap p layers k := by
+  unfold rankGapAt
+  split
+  · exact Int.fdiv_nonneg (by omega) (by omega)
+  · exact hg
+
+theorem half_slot_le_rankGapAt {rankGap slot : Int} (hg : 1 ≤ rankGap)
+    (hh : Int.fdiv slot 2 < Int.fdiv (rankGap + 1) 2)
+    (p : Proper) (layers : List (List Nat)) (k : Nat) :
+    Int.fdiv slot 2 ≤ rankGapAt rankGap p layers k := by
+  have hd : Int.fdiv (rankGap + 1) 2 ≤ rankGap := by
+    simp only [Int.fdiv_eq_ediv_of_nonneg _ (show (0 : Int) ≤ 2 by decide)]
+    omega
+  unfold rankGapAt
+  split <;> omega
+
+theorem rankStepsFrom_getD (rankGap slot : Int) (flags : List Bool)
+    (slots : List Int) (k : Nat) (hk : k < slots.length) :
+    (rankStepsFrom rankGap slot flags slots).getD k 0 =
+      (if flags.getD k false || flags.getD (k + 1) false then
+        Int.fdiv (rankGap + 1) 2 else rankGap) + slot * slots.getD k 0 := by
+  induction slots generalizing flags k with
+  | nil => simp at hk
+  | cons s ss ih =>
+    cases k with
+    | zero => cases flags with
+      | nil => simp [rankStepsFrom]
+      | cons f fs => cases fs <;> simp [rankStepsFrom]
+    | succ k =>
+      have hi := ih flags.tail k (by simpa using hk)
+      cases flags <;>
+        simpa [rankStepsFrom, List.getD_cons_succ, Nat.add_assoc] using hi
+
+theorem rankSteps_getD (rankGap slot : Int) (p : Proper) (layers : List (List Nat))
+    (slots : List Int) (k : Nat) (hk : k < slots.length) :
+    (rankSteps rankGap slot p layers slots).getD k 0 =
+      rankGapAt rankGap p layers k + slot * slots.getD k 0 := by
+  exact rankStepsFrom_getD rankGap slot _ slots k hk
+
+theorem rankStepsFrom_length (rankGap slot : Int) (flags : List Bool) (slots : List Int) :
+    (rankStepsFrom rankGap slot flags slots).length = slots.length := by
+  induction slots generalizing flags with
+  | nil => rfl
+  | cons s ss ih => simp [rankStepsFrom, ih]
+
+theorem rankSteps_length (rankGap slot : Int) (p : Proper) (layers : List (List Nat))
+    (slots : List Int) : (rankSteps rankGap slot p layers slots).length = slots.length := by
+  exact rankStepsFrom_length rankGap slot _ slots
+
+theorem rankStepsFrom_nonneg {rankGap slot : Int} (hg : 0 ≤ rankGap) (hs : 0 ≤ slot)
+    (flags : List Bool) (slots : List Int) (hn : ∀ s ∈ slots, 0 ≤ s) :
+    ∀ s ∈ rankStepsFrom rankGap slot flags slots, 0 ≤ s := by
+  induction slots generalizing flags with
+  | nil => simp [rankStepsFrom]
+  | cons a rest ih =>
+    intro s h
+    simp only [rankStepsFrom, List.mem_cons] at h
+    rcases h with h | h
+    · subst s
+      have hm := Int.mul_nonneg hs (hn a (by simp))
+      have hd := Int.fdiv_nonneg (show 0 ≤ rankGap + 1 by omega)
+        (show (0 : Int) ≤ 2 by omega)
+      split <;> omega
+    · exact ih flags.tail (fun a ha => hn a (by simp [ha])) s h
+
+theorem rankSteps_nonneg {rankGap slot : Int} (hg : 0 ≤ rankGap) (hs : 0 ≤ slot)
+    (p : Proper) (layers : List (List Nat)) (slots : List Int)
+    (hn : ∀ s ∈ slots, 0 ≤ s) : ∀ s ∈ rankSteps rankGap slot p layers slots, 0 ≤ s := by
+  exact rankStepsFrom_nonneg hg hs _ slots hn
+
 def rankCoordsWith (rankGap slot : Int) (p : Proper) (layers : List (List Nat)) (slots : List Int) :
     Except LayoutError (List Int × List Int) :=
   match checkLayers p layers with
@@ -3588,7 +3682,7 @@ def rankCoordsWith (rankGap slot : Int) (p : Proper) (layers : List (List Nat)) 
     else if slots.any (fun s => decide (s < 0)) then .error .domain
     else
       let heights := layers.map (layerHeight p)
-      let tops := topsFrom rankGap slot 0 heights slots
+      let tops := topsFrom 0 1 0 heights (rankSteps rankGap slot p layers slots)
       if tops.any (fun t => decide (I32_MAX < t)) then .error .overflow
       else
         let y := (List.range p.nodes.length).map fun v =>
@@ -3963,7 +4057,8 @@ theorem topsFrom_disjoint (rankGap slot : Int) (hg : 0 ≤ rankGap) (hsl : 0 ≤
 theorem rankCoordsWith_spec {rankGap slot : Int} {p : Proper} {layers : List (List Nat)}
     {slots y top : List Int} (h : rankCoordsWith rankGap slot p layers slots = .ok (y, top)) :
     1 ≤ rankGap ∧ 1 ≤ slot ∧ slots.length = layers.length - 1 ∧ (∀ s ∈ slots, 0 ≤ s) ∧
-      sizesNonneg p = true ∧ top = topsFrom rankGap slot 0 (layers.map (layerHeight p)) slots ∧
+      sizesNonneg p = true ∧ top = topsFrom 0 1 0 (layers.map (layerHeight p))
+        (rankSteps rankGap slot p layers slots) ∧
       y = (List.range p.nodes.length).map (fun v =>
         top.getD (rk p.rank v).toNat 0 +
           Int.fdiv ((layers.map (layerHeight p)).getD (rk p.rank v).toNat 0 - nodeH p v) 2) := by
@@ -4011,19 +4106,23 @@ theorem rankAxis_bands_disjoint {rankGap slot : Int} {p : Proper} {layers : List
     intro x hx
     obtain ⟨m, _, rfl⟩ := List.mem_map.mp hx
     exact layerHeight_nonneg p m
-  have hL := topsFrom_length rankGap slot (layers.map (layerHeight p)) slots 0 hlen'
+  have hsteps := rankSteps_nonneg (by omega : 0 ≤ rankGap) (by omega : 0 ≤ slot) p layers slots hnn
+  have hstepslen : (rankSteps rankGap slot p layers slots).length + 1 =
+      (layers.map (layerHeight p)).length := by simpa [rankSteps_length] using hlen'
+  have hL := topsFrom_length 0 1 (layers.map (layerHeight p))
+    (rankSteps rankGap slot p layers slots) 0 hstepslen
   subst htop
-  have hr'len : r' < (topsFrom rankGap slot 0 (layers.map (layerHeight p)) slots).length := by
+  have hr'len : r' < (topsFrom 0 1 0 (layers.map (layerHeight p)) (rankSteps rankGap slot p layers slots)).length := by
     rw [hL]
     simpa using (List.getElem?_eq_some_iff.mp hl').1
-  have hrlen : r < (topsFrom rankGap slot 0 (layers.map (layerHeight p)) slots).length := by
+  have hrlen : r < (topsFrom 0 1 0 (layers.map (layerHeight p)) (rankSteps rankGap slot p layers slots)).length := by
     omega
   have ha := List.getElem?_eq_getElem hrlen
   have hb := List.getElem?_eq_getElem hr'len
   have hH : (layers.map (layerHeight p))[r]? = some (layerHeight p l) := by
     simp [hl]
-  have := topsFrom_disjoint rankGap slot (by omega) (by omega) (layers.map (layerHeight p)) slots 0
-    hh hnn hlen' r r' _ _ _ hr ha hb hH
+  have := topsFrom_disjoint 0 1 (by omega) (by omega) (layers.map (layerHeight p))
+    (rankSteps rankGap slot p layers slots) 0 hh hsteps hstepslen r r' _ _ _ hr ha hb hH
   rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD, ha, hb]
   simpa using this
 
@@ -4082,7 +4181,8 @@ theorem rankCoordsWith_length {rankGap slot : Int} {p : Proper} {layers : List (
     have hlen' : slots.length + 1 = ((l :: ls).map (layerHeight p)).length := by
       simp at hlen ⊢
       omega
-    rw [topsFrom_length rankGap slot _ slots 0 hlen']
+    rw [topsFrom_length 0 1 _ (rankSteps rankGap slot p (l :: ls) slots) 0
+      (by simpa [rankSteps_length] using hlen')]
     simp
 
 theorem rankAxis_node_in_band {rankGap slot : Int} {p : Proper} {layers : List (List Nat)}

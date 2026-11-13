@@ -35,7 +35,7 @@ def addLabelNode (g : Graph) (p : Proper) (label : EdgeLabelSize) :
           | none => .error .domain
           | some nd =>
             .ok { p with nodes := p.nodes.set q.2 ({ nd with
-              node := { nd.node with w := label.width, h := label.height } }) }
+              node := { nd.node with w := label.width, h := label.height }, label := true }) }
 
 def addLabelNodes (g : Graph) (p : Proper) (labels : List EdgeLabelSize) :
     Except LayoutError Proper :=
@@ -153,7 +153,7 @@ theorem rectAt_eq_box (p : Proper) (xs ys : List Int) (v : Nat) :
 /-- The actual midpoint-node rectangles used by the pipeline are disjoint within a rank.
 The result applies to every pair of distinct nodes, hence also to the subset that carries labels. -/
 theorem labels_disjoint {p : Proper} {layers : List (List Nat)} {xs ys top : List Int}
-    {routing : Routing} {gap rankGap slot : Int}
+    {routing : Routing} {gap slot : Int} {rankGap : Nat → Int}
     (hrLayers : RouteImpl.layersOk p layers = true)
     (hcoords : CoordFacts p layers xs ys top routing gap rankGap slot)
     {u v : Nat} (hu : u < p.nodes.length) (hv : v < p.nodes.length)
@@ -163,7 +163,7 @@ theorem labels_disjoint {p : Proper} {layers : List (List Nat)} {xs ys top : Lis
   exact RouteImpl.boxRect_disjoint hrLayers hcoords hu hv hrank hne
 
 theorem label_text_disjoint {p : Proper} {layers : List (List Nat)} {xs ys top : List Int}
-    {routing : Routing} {gap rankGap slot gutter : Int}
+    {routing : Routing} {gap slot gutter : Int} {rankGap : Nat → Int}
     (hrLayers : RouteImpl.layersOk p layers = true)
     (hcoords : CoordFacts p layers xs ys top routing gap rankGap slot)
     {u v : Nat} (hu : u < p.nodes.length) (hv : v < p.nodes.length)

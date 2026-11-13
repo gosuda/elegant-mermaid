@@ -77,7 +77,8 @@ structure Params where
 deriving Repr, Inhabited
 
 def Params.Valid (P : Params) : Prop :=
-  1 ≤ P.nodeGap ∧ 1 ≤ P.rankGap ∧ 1 ≤ P.slot ∧ Int.fdiv P.slot 2 ≤ P.rankGap
+  1 ≤ P.nodeGap ∧ 1 ≤ P.rankGap ∧ 1 ≤ P.slot ∧
+    Int.fdiv P.slot 2 < Int.fdiv (P.rankGap + 1) 2
 
 instance (P : Params) : Decidable P.Valid := by
   unfold Params.Valid
