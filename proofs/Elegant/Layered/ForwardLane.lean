@@ -84,7 +84,10 @@ theorem forward_retained {p : Proper} {base : Routing} {rev : List Bool}
     simp only [gapKeys, List.mem_eraseDups, List.mem_map]
     exact ⟨i, by simp [gapEdges, hi], rfl⟩
   have hf : i ∈ s.edges.filter (fun j => !reversedEdge rev p j) := by simp [he, hr]
-  refine ⟨{s with edges := s.edges.filter fun j => !reversedEdge rev p j}, ?_, hf⟩
+  refine ⟨{s with
+    edges := s.edges.filter (fun j => !reversedEdge rev p j)
+    decl := minDecl ((s.edges.filter (fun j => !reversedEdge rev p j)).map
+      (fun j => (edgeAt p j).decl))}, ?_, hf⟩
   apply List.mem_append_left
   apply List.mem_filter.mpr
   refine ⟨List.mem_map.mpr ⟨s, hm, rfl⟩, ?_⟩

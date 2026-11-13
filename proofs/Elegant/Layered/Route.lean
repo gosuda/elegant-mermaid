@@ -16,6 +16,7 @@ structure RoutingSegment where
   sourceX : Int
   targetX : Int
   edges : List Nat
+  run : Nat := 0
 deriving DecidableEq, Repr, Inhabited
 
 structure RoutingGap where
@@ -168,8 +169,15 @@ def segConflict (a b : RoutingSegment) : Bool :=
     decide (max (min a.sourceX a.targetX) (min b.sourceX b.targetX) ≤
       min (max a.sourceX a.targetX) (max b.sourceX b.targetX))
 
+def segClass (a : RoutingSegment) : Nat :=
+  if a.sourceX < a.targetX then 1 else 0
+
+def segSide (a : RoutingSegment) : Int :=
+  if a.sourceX < a.targetX then -a.sourceX else a.sourceX
+
 def segBefore (a b : RoutingSegment) : Bool :=
-  decide (a.sourceX < b.sourceX ∨ (a.sourceX = b.sourceX ∧ a.decl < b.decl))
+  decide (segClass a < segClass b ∨ (segClass a = segClass b ∧
+    (segSide a < segSide b ∨ (segSide a = segSide b ∧ a.decl < b.decl))))
 
 def segArc (a b : RoutingSegment) : Bool := segBefore a b && segConflict a b
 
@@ -943,11 +951,21 @@ theorem segStraight_false {a : RoutingSegment} :
     segStraight a = false ↔ a.sourceX ≠ a.targetX := by
   simp [segStraight]
 
+theorem segClass_spec (a : RoutingSegment) :
+    (a.sourceX < a.targetX ∧ segClass a = 1 ∧ segSide a = -a.sourceX) ∨
+      (¬ a.sourceX < a.targetX ∧ segClass a = 0 ∧ segSide a = a.sourceX) := by
+  by_cases h : a.sourceX < a.targetX
+  · exact Or.inl ⟨h, by simp [segClass, h], by simp [segSide, h]⟩
+  · exact Or.inr ⟨h, by simp [segClass, h], by simp [segSide, h]⟩
+
 theorem segBefore_irrefl (a : RoutingSegment) : segBefore a a = false := by
   simp [segBefore]
 
 theorem segBefore_trans {a b c : RoutingSegment} (h1 : segBefore a b = true)
     (h2 : segBefore b c = true) : segBefore a c = true := by
+  have ha := segClass_spec a
+  have hb := segClass_spec b
+  have hc := segClass_spec c
   simp only [segBefore, decide_eq_true_eq] at h1 h2 ⊢
   omega
 
@@ -1021,6 +1039,8 @@ theorem numberGap_separates (segs : List RoutingSegment)
   obtain ⟨hs1, hs2⟩ := numberSlots_spec segs
   have hbefore : segBefore (segs.getD i default) (segs.getD j default) = true ∨
       segBefore (segs.getD j default) (segs.getD i default) = true := by
+    have ha := segClass_spec (segs.getD i default)
+    have hb := segClass_spec (segs.getD j default)
     simp only [segBefore, decide_eq_true_eq]
     omega
   rcases hbefore with hb | hb
@@ -2551,13 +2571,14 @@ def reversedLabelRect (slot : Int) (top heights : List Int) (r : Routing)
 def laneSegment (p : Proper) (o order : Nat) (px lane : Int) : RoutingSegment :=
   { tail := p.nodes.length + 2 * o + order, head := p.nodes.length + 2 * o + order
     decl := (edgeAt p ((edgesOf p o).headD 0)).decl
-    slot := -1, sourceX := px, targetX := lane, edges := [] }
+    slot := -1, sourceX := px, targetX := lane, edges := [], run := order }
 
 def laneBefore (segs : List RoutingSegment) (i j : Nat) : Prop :=
   let a := segs.getD i default
   let b := segs.getD j default
-  a.sourceX < b.sourceX ∨
-    (a.sourceX = b.sourceX ∧ (a.decl < b.decl ∨ (a.decl = b.decl ∧ i < j)))
+  segClass a < segClass b ∨ (segClass a = segClass b ∧
+    (segSide a < segSide b ∨ (segSide a = segSide b ∧
+      (a.decl < b.decl ∨ (a.decl = b.decl ∧ (a.run < b.run ∨ (a.run = b.run ∧ i < j)))))))
 
 instance (segs : List RoutingSegment) (i j : Nat) : Decidable (laneBefore segs i j) := by
   unfold laneBefore
@@ -2613,7 +2634,12 @@ theorem numberLaneSlots_full_spec (segs : List RoutingSegment) :
     (straight := fun j => segStraight (segs.getD j default))
     (laneBefore segs)
     (fun i h => by simp [laneBefore] at h)
-    (fun i j k h1 h2 => by simp only [laneBefore] at h1 h2 ⊢; omega)
+    (fun i j k h1 h2 => by
+      have ha := segClass_spec (segs.getD i default)
+      have hb := segClass_spec (segs.getD j default)
+      have hc := segClass_spec (segs.getD k default)
+      simp only [laneBefore] at h1 h2 ⊢
+      omega)
     (fun i j h => by
       simp only [laneArc, Bool.and_eq_true, decide_eq_true_eq] at h
       exact h.2)
@@ -2637,6 +2663,8 @@ theorem numberLaneGap_separates (segs : List RoutingSegment) {i j : Nat}
     (hc : segConflict (segs.getD i default) (segs.getD j default) = true) :
     numberLaneSlots segs i ≠ numberLaneSlots segs j := by
   have order : laneBefore segs i j ∨ laneBefore segs j i := by
+    have ha := segClass_spec (segs.getD i default)
+    have hb := segClass_spec (segs.getD j default)
     simp only [laneBefore]
     omega
   rcases order with h | h
@@ -2658,7 +2686,10 @@ def laneOriginals (p : Proper) (reversed : List Bool) : List Nat :=
 def forwardGapSegments (p : Proper) (base : Routing) (reversed : List Bool) (gap : Nat) :
     List RoutingSegment :=
   ((gapSegments p base.sourceRun base.targetX gap).map fun s =>
-    { s with edges := s.edges.filter fun i => !reversedEdge reversed p i }).filter fun s =>
+    { s with
+      edges := s.edges.filter fun i => !reversedEdge reversed p i
+      decl := minDecl ((s.edges.filter fun i => !reversedEdge reversed p i).map fun i =>
+        (edgeAt p i).decl) }).filter fun s =>
       !s.edges.isEmpty
 
 def runGapCount (p : Proper) (originals : List Nat) (gap : Nat) : Nat :=
