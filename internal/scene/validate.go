@@ -3,6 +3,7 @@ package scene
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/gosuda/elegant-mermaid/internal/geom"
 )
@@ -26,6 +27,8 @@ var (
 	ClauseRouteClearance = Clause{"route-clearance", "route crosses an exclusive box"}
 
 	ClauseLabelClearance = Clause{"label-clearance", "label overlaps an exclusive box"}
+
+	ClauseFrameClearance = Clause{"frame-clearance", "group frame overlaps a foreign box or label"}
 )
 
 var ErrMalformed = errors.New("scene: malformed dump")
@@ -212,6 +215,7 @@ var clauseOrder = [...]struct {
 	{ClausePorts, (*validator).portsOK},
 	{ClauseRouteClearance, (*validator).routeClearanceOK},
 	{ClauseLabelClearance, (*validator).labelClearanceOK},
+	{ClauseFrameClearance, (*validator).frameClearanceOK},
 }
 
 type validator struct {
@@ -399,6 +403,64 @@ func (v *validator) labelClear(l *Label) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func (v *validator) frameClearanceOK() (bool, error) {
+	for i := range v.d.Boxes {
+		g := &v.d.Boxes[i]
+		if g.Role != RoleGroup {
+			continue
+		}
+		ok, err := v.frameBoxesClear(g)
+		if err == nil && ok {
+			ok, err = v.frameLabelsClear(g)
+		}
+		if err != nil || !ok {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (v *validator) frameBoxesClear(g *Box) (bool, error) {
+	for j := range v.d.Boxes {
+		b := &v.d.Boxes[j]
+		if b.ID == g.ID || v.isAncestor(g.ID, b.ID) || v.isAncestor(b.ID, g.ID) {
+			continue
+		}
+		meet, err := geom.Intersects(g.Rect, b.Rect)
+		if err != nil {
+			return false, fmt.Errorf("scene: frame-clearance clause: %w", err)
+		}
+		if meet {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (v *validator) frameLabelsClear(g *Box) (bool, error) {
+	for j := range v.d.Labels {
+		meet, err := geom.Intersects(g.Rect, v.d.Labels[j].Rect)
+		if err != nil {
+			return false, fmt.Errorf("scene: frame-clearance clause: %w", err)
+		}
+		if meet && !strictlyInside(g.Rect, v.d.Labels[j].Rect) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (v *validator) isAncestor(ancestor, id string) bool {
+	return slices.Contains(v.ix.ancestorsOf(id), ancestor)
+}
+
+func strictlyInside(outer, inner geom.Rect) bool {
+	return int64(outer.X) < int64(inner.X) &&
+		int64(inner.X)+int64(inner.W) < int64(outer.X)+int64(outer.W) &&
+		int64(outer.Y) < int64(inner.Y) &&
+		int64(inner.Y)+int64(inner.H) < int64(outer.Y)+int64(outer.H)
 }
 
 func (v *validator) boxScope(r *Route) map[string]struct{} {

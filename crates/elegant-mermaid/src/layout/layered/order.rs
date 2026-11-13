@@ -84,6 +84,8 @@ pub fn order_compound(
     for layer in &mut layers {
         g.constrain(layer, &[], &initial)?;
     }
+    g.normalise(&mut declaration)?;
+    g.normalise(&mut layers)?;
     if g.cross_count(&layers)? >= g.cross_count(&declaration)? {
         layers = declaration;
     }
@@ -193,6 +195,17 @@ impl OrderGraph {
             blocks.order(layer, 0)
         }
     }
+    fn normalise(&self, layers: &mut [Vec<usize>]) -> Result<(), LayoutError> {
+        if self.paths.is_empty() {
+            return Ok(());
+        }
+        let context = super::sibling_order::Context {
+            paths: &self.paths,
+            boundary: &self.boundary,
+            declaration: &self.declaration,
+        };
+        super::sibling_order::normalise(&context, layers)
+    }
     fn run(
         &self,
         mut best: Vec<Vec<usize>>,
@@ -208,6 +221,7 @@ impl OrderGraph {
             let mut trial = best.clone();
             self.sweep(&mut trial, sweep)?;
             self.transpose(&mut trial)?;
+            self.normalise(&mut trial)?;
             let next = self.cross_count(&trial)?;
             stall += 1;
             if next < score {

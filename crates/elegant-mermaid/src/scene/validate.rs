@@ -1,5 +1,5 @@
 //! The layout validator of `spec/layout-dump.md`: `WellFormed`, the ancestor and scope
-//! relations, and the seven hard-constraint clauses in their fixed order.
+//! relations, and the eight hard-constraint clauses in their fixed order.
 //!
 //! A reader checks [`well_formed`] before it validates. Under a well-formed dump every
 //! `crate::geom` operation this module calls succeeds, so [`check`] and [`validate`] return
@@ -13,7 +13,7 @@ use crate::geom::{
     is_orthogonal, polyline_hits_rect,
 };
 
-use super::{Dump, SceneBox, SceneLabel, SceneRoute};
+use super::{BoxRole, Dump, SceneBox, SceneLabel, SceneRoute};
 
 /// The clause of `spec/layout-dump.md` that a dump violates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -32,10 +32,12 @@ pub enum Clause {
     RouteClearance,
     /// No label overlaps an exclusive box outside its owner's ancestors.
     LabelClearance,
+    /// No group frame overlaps a foreign box, and no label straddles or touches a frame border.
+    FrameClearance,
 }
 
-/// The seven clauses in their fixed order.
-pub const CLAUSES: [Clause; 7] = [
+/// The eight clauses in their fixed order.
+pub const CLAUSES: [Clause; 8] = [
     Clause::Canvas,
     Clause::ExclusiveSiblings,
     Clause::Parent,
@@ -43,6 +45,7 @@ pub const CLAUSES: [Clause; 7] = [
     Clause::Ports,
     Clause::RouteClearance,
     Clause::LabelClearance,
+    Clause::FrameClearance,
 ];
 
 impl Clause {
@@ -56,6 +59,7 @@ impl Clause {
             Clause::Ports => "ports",
             Clause::RouteClearance => "route-clearance",
             Clause::LabelClearance => "label-clearance",
+            Clause::FrameClearance => "frame-clearance",
         }
     }
 
@@ -69,6 +73,7 @@ impl Clause {
             Clause::Ports => "route end is off its box boundary",
             Clause::RouteClearance => "route crosses an exclusive box",
             Clause::LabelClearance => "label overlaps an exclusive box",
+            Clause::FrameClearance => "group frame overlaps a foreign box or label",
         }
     }
 
@@ -424,6 +429,61 @@ fn label_clearance_holds(index: &Index<'_>, labels: &[SceneLabel]) -> Result<boo
     Ok(true)
 }
 
+/// `inner` lies strictly inside `outer`, so it touches none of the four border cells.
+fn strictly_inside(outer: Rect, inner: Rect) -> bool {
+    let (ox, oy) = (i64::from(outer.x), i64::from(outer.y));
+    let (ix, iy) = (i64::from(inner.x), i64::from(inner.y));
+    ox < ix
+        && ix + i64::from(inner.w) < ox + i64::from(outer.w)
+        && oy < iy
+        && iy + i64::from(inner.h) < oy + i64::from(outer.h)
+}
+
+/// Clause `frame-clearance`: a group frame is disjoint from every box that is neither its
+/// member nor its ancestor, and from every label that it does not strictly contain.
+fn frame_clearance_holds(index: &Index<'_>, labels: &[SceneLabel]) -> Result<bool, GeomError> {
+    let ancestry: Vec<Vec<&str>> = index.boxes.iter().map(|b| index.ancestors(&b.id)).collect();
+    for (at, g) in index
+        .boxes
+        .iter()
+        .enumerate()
+        .filter(|(_, b)| b.role == BoxRole::Group)
+    {
+        if !frame_boxes_clear(index, &ancestry, at)? || !frame_labels_clear(g, labels)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn frame_boxes_clear(
+    index: &Index<'_>,
+    ancestry: &[Vec<&str>],
+    at: usize,
+) -> Result<bool, GeomError> {
+    let g = &index.boxes[at];
+    let foreign = index.boxes.iter().enumerate().filter(|(other, b)| {
+        *other != at
+            && !ancestry[*other].contains(&g.id.as_str())
+            && !ancestry[at].contains(&b.id.as_str())
+    });
+    for (_, b) in foreign {
+        if intersects(g.rect, b.rect)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+fn frame_labels_clear(g: &SceneBox, labels: &[SceneLabel]) -> Result<bool, GeomError> {
+    for label in labels {
+        if intersects(g.rect, label.rect)? && !strictly_inside(g.rect, label.rect) {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
 /// The first clause that fails, in the fixed clause order of `spec/layout-dump.md`, or
 /// `None` when every clause holds.
 pub fn validate(canvas: Size, dump: &Dump) -> Result<Option<Clause>, GeomError> {
@@ -455,6 +515,9 @@ pub fn validate(canvas: Size, dump: &Dump) -> Result<Option<Clause>, GeomError> 
     }
     if !label_clearance_holds(&index, &dump.labels)? {
         return Ok(Some(Clause::LabelClearance));
+    }
+    if !frame_clearance_holds(&index, &dump.labels)? {
+        return Ok(Some(Clause::FrameClearance));
     }
     Ok(None)
 }
@@ -555,7 +618,8 @@ mod tests {
                 "orthogonal",
                 "ports",
                 "route-clearance",
-                "label-clearance"
+                "label-clearance",
+                "frame-clearance"
             ]
         );
         let messages: Vec<&str> = CLAUSES.iter().map(|c| c.message()).collect();
@@ -568,7 +632,8 @@ mod tests {
                 "orthogonal route has a diagonal segment",
                 "route end is off its box boundary",
                 "route crosses an exclusive box",
-                "label overlaps an exclusive box"
+                "label overlaps an exclusive box",
+                "group frame overlaps a foreign box or label"
             ]
         );
         assert_eq!(
@@ -580,6 +645,10 @@ mod tests {
             "invalid ports: route end is off its box boundary"
         );
         assert_eq!(format!("{}", Clause::LabelClearance), "label-clearance");
+        assert_eq!(
+            Clause::FrameClearance.report(),
+            "invalid frame-clearance: group frame overlaps a foreign box or label"
+        );
     }
 
     #[test]
@@ -621,7 +690,6 @@ mod tests {
     fn clause_exclusive_siblings_keeps_boxes_of_other_parents() {
         let mut dump = valid_dump();
         let mut frame = bbox("G", rect(0, 0, 40, 40));
-        frame.role = BoxRole::Group;
         frame.exclusive = false;
         dump.boxes.push(frame);
         let mut other = bbox("C", rect(10, 10, 20, 20));
@@ -633,16 +701,16 @@ mod tests {
     #[test]
     fn clause_parent_rejects_a_box_outside_its_parent() {
         let mut dump = valid_dump();
-        let mut frame = bbox("G", rect(0, 0, 40, 40));
+        let mut frame = bbox("G", rect(40, 0, 40, 40));
         frame.role = BoxRole::Group;
         frame.exclusive = false;
         dump.boxes.push(frame);
-        let mut child = bbox("C", rect(0, 0, 20, 20));
+        let mut child = bbox("C", rect(40, 0, 20, 20));
         child.parent = String::from("G");
         dump.boxes.push(child);
         assert_eq!(failure(&dump), None);
         if let Some(b) = dump.boxes.get_mut(2) {
-            b.rect = rect(30, 30, 20, 20);
+            b.rect = rect(70, 30, 20, 20);
         }
         assert_eq!(failure(&dump), Some(Clause::Parent));
     }
@@ -769,6 +837,115 @@ mod tests {
         dump.labels
             .push(label("A.title", "A", rect(25, 25, 10, 10)));
         assert_eq!(failure(&dump), None);
+    }
+
+    fn group(id: &str, r: Rect, parent: &str) -> SceneBox {
+        SceneBox {
+            role: BoxRole::Group,
+            parent: parent.to_owned(),
+            exclusive: false,
+            ..bbox(id, r)
+        }
+    }
+
+    /// A frame with one member, and one foreign node away from the frame.
+    fn frame_dump() -> Dump {
+        let mut dump = Dump::new("flowchart", DumpOptions::default());
+        dump.boxes.push(group("G", rect(0, 0, 40, 40), ""));
+        let mut member = bbox("N", rect(5, 5, 10, 10));
+        member.parent = String::from("G");
+        dump.boxes.push(member);
+        dump.boxes.push(bbox("F", rect(60, 0, 10, 10)));
+        dump
+    }
+
+    fn frame_failure(change: impl FnOnce(&mut Dump)) -> Option<Clause> {
+        let mut dump = frame_dump();
+        change(&mut dump);
+        failure(&dump)
+    }
+
+    fn frame_label(r: Rect) -> impl FnOnce(&mut Dump) {
+        move |dump| dump.labels.push(label("l", "N", r))
+    }
+
+    #[test]
+    fn clause_frame_clearance_accepts_members_and_distant_boxes() {
+        assert_eq!(frame_failure(|_| {}), None);
+    }
+
+    #[test]
+    fn clause_frame_clearance_rejects_a_foreign_node_in_the_frame() {
+        let overlapping = frame_failure(|d| d.boxes[2].rect = rect(30, 30, 20, 20));
+        let inside = frame_failure(|d| d.boxes[2].rect = rect(20, 20, 10, 10));
+        assert_eq!(overlapping, Some(Clause::FrameClearance));
+        assert_eq!(inside, Some(Clause::FrameClearance));
+    }
+
+    #[test]
+    fn clause_frame_clearance_accepts_a_foreign_node_that_touches_the_frame() {
+        assert_eq!(
+            frame_failure(|d| d.boxes[2].rect = rect(40, 0, 10, 10)),
+            None
+        );
+    }
+
+    #[test]
+    fn clause_frame_clearance_compares_sibling_frames() {
+        let overlapping = frame_failure(|d| d.boxes.push(group("H", rect(30, 0, 40, 40), "")));
+        let disjoint = frame_failure(|d| d.boxes.push(group("H", rect(40, 0, 20, 40), "")));
+        assert_eq!(overlapping, Some(Clause::FrameClearance));
+        assert_eq!(disjoint, None);
+    }
+
+    #[test]
+    fn clause_frame_clearance_skips_nested_frames() {
+        let nested = frame_failure(|d| {
+            d.boxes.push(group("H", rect(2, 2, 30, 30), "G"));
+            d.boxes[1].parent = String::from("H");
+        });
+        assert_eq!(nested, None);
+    }
+
+    #[test]
+    fn clause_frame_clearance_compares_a_frame_with_the_nested_frame_of_another() {
+        let failed = frame_failure(|d| {
+            d.boxes.push(group("P", rect(30, 30, 60, 60), ""));
+            d.boxes.push(group("Q", rect(35, 35, 20, 20), "P"));
+        });
+        assert_eq!(failed, Some(Clause::FrameClearance));
+    }
+
+    #[test]
+    fn clause_frame_clearance_accepts_a_label_strictly_inside_or_disjoint() {
+        assert_eq!(frame_failure(frame_label(rect(10, 20, 10, 5))), None);
+        assert_eq!(frame_failure(frame_label(rect(60, 50, 5, 5))), None);
+        assert_eq!(frame_failure(frame_label(rect(40, 20, 10, 5))), None);
+    }
+
+    #[test]
+    fn clause_frame_clearance_rejects_a_label_on_a_frame_border() {
+        for r in [
+            rect(35, 20, 10, 5),
+            rect(0, 20, 10, 5),
+            rect(10, 35, 10, 5),
+            rect(10, 0, 10, 5),
+        ] {
+            assert_eq!(
+                frame_failure(frame_label(r)),
+                Some(Clause::FrameClearance),
+                "{r:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn clause_frame_clearance_follows_label_clearance() {
+        let failed = frame_failure(|d| {
+            d.boxes[2].rect = rect(36, 36, 10, 10);
+            d.labels.push(label("l", "N", rect(36, 36, 10, 10)));
+        });
+        assert_eq!(failed, Some(Clause::LabelClearance));
     }
 
     #[test]

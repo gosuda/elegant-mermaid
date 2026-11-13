@@ -75,7 +75,8 @@ This file fixes the bytes, key order, and content of the canonical layout dump, 
 
 ## Clauses
 
-- layout-dump-38: The seven clauses MUST run in this fixed order, and each MUST have its fixed message. [just validate]
+- layout-dump-38: The eight clauses MUST run in this fixed order, and each MUST have its fixed message. [just validate]
+    The order is `canvas`, `exclusive-siblings`, `parent`, `orthogonal`, `ports`, `route-clearance`, `label-clearance`, `frame-clearance`.
 - layout-dump-39: Clause `canvas` MUST hold when every box rect is contained in `(0, 0, canvas.w, canvas.h)`, and its message MUST be `box outside canvas`. [just validate]
 - layout-dump-40: Clause `exclusive-siblings` MUST hold when distinct boxes `b` and `c` with `exclusive` `true` and equal `parent` satisfy `Disjoint(b.rect, c.rect)`, and its message MUST be `exclusive sibling boxes overlap`. [just validate]
 - layout-dump-41: Clause `parent` MUST hold when every box with `parent != ""` has its rect contained in the rect of that parent, and its message MUST be `box outside its parent`. [just validate]
@@ -83,14 +84,20 @@ This file fixes the bytes, key order, and content of the canonical layout dump, 
 - layout-dump-43: Clause `ports` MUST hold when every route has at least one point, its first point satisfies `on_boundary` of the `from` rect, and its last point satisfies `on_boundary` of the `to` rect, and its message MUST be `route end is off its box boundary`. [just validate]
 - layout-dump-44: Clause `route-clearance` MUST hold when, for every route `r` and every exclusive box `b` with `b.id` not in `Scope(r)`, `Polyline.hitsRect(r.points, b.rect)` is false, and its message MUST be `route crosses an exclusive box`. [just validate]
 - layout-dump-45: Clause `label-clearance` MUST hold when, for every label `l` and every exclusive box `b` with `b.id` not in `OwnerAnc(l)`, `intersects(l.rect, b.rect)` is false, and its message MUST be `label overlaps an exclusive box`. [just validate]
+- layout-dump-54: Clause `frame-clearance` MUST hold when both conditions below hold, and its message MUST be `group frame overlaps a foreign box or label`. [just validate]
+    Let `G` be the boxes with `role` `group`.
+    1. For every `g` in `G` and every box `b` other than `g` with `g.id` not in `anc(b)` and `b.id` not in `anc(g)`, `Disjoint(g.rect, b.rect)` MUST be true. This covers node boxes that are not members of `g`, at any depth, sibling frames, and cousin frames. A nested frame has one id in the `anc` of the other, so this condition skips it, because clause `parent` already makes it contained.
+    2. For every `g` in `G` and every label `l`, `Disjoint(g.rect, l.rect)` or `StrictInside(g.rect, l.rect)` MUST be true.
+    `StrictInside(o, i)` is true when `o.x < i.x`, `i.x + i.w < o.x + o.w`, `o.y < i.y`, and `i.y + i.h < o.y + o.h`.
+    No label straddles a frame boundary, and no label touches a frame boundary from inside. The strict form is required by the cell profile: the border cells of a frame are the columns `x` and `x + w - 1` and the rows `y` and `y + h - 1`, so a label that is only contained could print on them. Nested frames need containment only. A group title is not a dump object. It lies strictly inside its own frame, so condition 1 protects it from foreign frames and nodes.
 
 ## Outcomes
 
 - layout-dump-46: `Validator.validate d` MUST return the first clause in this order that fails, or none. [just proofs]
 - layout-dump-47: `Validator.check d` MUST be true exactly when no clause fails. [just proofs]
 - layout-dump-48: `geomcheck validate` MUST print `valid` and exit 0 when `check` is true, and otherwise MUST print `invalid <clause-id>: <message>` and exit 1, for example `invalid canvas: box outside canvas`. [just validate]
-- layout-dump-49: `HardConstraints d` MUST be the conjunction `C1 d and C2 d and C3 d and C4 d and C5 d and C6 d and C7 d`, where `Ci` is the predicate of clause `i`. [just proofs]
-- layout-dump-50: `Validator.check` MUST compute each `Ci` as a Boolean test and MUST combine the seven tests with `&&`. [just proofs]
+- layout-dump-49: `HardConstraints d` MUST be the conjunction `C1 d and C2 d and C3 d and C4 d and C5 d and C6 d and C7 d and C8 d`, where `Ci` is the predicate of clause `i`. [just proofs]
+- layout-dump-50: `Validator.check` MUST compute each `Ci` as a Boolean test and MUST combine the eight tests with `&&`. [just proofs]
 - layout-dump-51: The soundness theorem `Validator.sound` MUST hold, and its statement MUST be the row of the kernel theorem table of `spec/lean-reference.md`. [just proofs]
 - layout-dump-52: The cell-profile rules of `spec/quality-metrics.md` MUST be outside `HardConstraints`. [just quality]
 - layout-dump-53: `just validate` MUST pipe every corpus dump from both implementations through `geomcheck validate`. [just validate]

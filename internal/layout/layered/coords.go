@@ -125,18 +125,31 @@ func coordinateSizes(p *Proper) error {
 	return nil
 }
 func typeOneConflicts(p *Proper, pos []int32) []bool {
+	chain := make([]bool, len(p.Edges))
+	inner := make([]bool, len(p.Edges))
+	for i, e := range p.Edges {
+		chain[i] = borderChain(p, e)
+		inner[i] = p.Nodes[e.Tail].Dummy && p.Nodes[e.Head].Dummy
+	}
 	marked := make([]bool, len(p.Edges))
 	for i, e := range p.Edges {
-		if p.Nodes[e.Tail].Dummy && p.Nodes[e.Head].Dummy {
-			continue
+		switch {
+		case chain[i]:
+		case crossesAmong(p, pos, e, chain):
+			marked[i] = true
+		case !inner[i]:
+			marked[i] = crossesAmong(p, pos, e, inner)
 		}
-		marked[i] = crossesInner(p, pos, e)
 	}
 	return marked
 }
-func crossesInner(p *Proper, pos []int32, e ProperEdge) bool {
-	for _, f := range p.Edges {
-		if p.Rank[e.Tail] != p.Rank[f.Tail] || !p.Nodes[f.Tail].Dummy || !p.Nodes[f.Head].Dummy {
+func borderChain(p *Proper, e ProperEdge) bool {
+	a, b := p.Nodes[e.Tail], p.Nodes[e.Head]
+	return (a.Border == BorderLeft || a.Border == BorderRight) && a.Border == b.Border && a.Parent == b.Parent
+}
+func crossesAmong(p *Proper, pos []int32, e ProperEdge, among []bool) bool {
+	for i, f := range p.Edges {
+		if !among[i] || p.Rank[e.Tail] != p.Rank[f.Tail] {
 			continue
 		}
 		a := int64(pos[e.Tail]) - int64(pos[f.Tail])

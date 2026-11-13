@@ -16,6 +16,7 @@ pub mod pipeline;
 pub mod portfolio;
 pub mod rank;
 pub mod route;
+mod sibling_order;
 
 pub use crate::geom::GeomError as LayoutError;
 

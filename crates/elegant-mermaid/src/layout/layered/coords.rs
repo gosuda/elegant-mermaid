@@ -1,6 +1,6 @@
 use super::{
     LayoutError,
-    graph::{Params, Proper},
+    graph::{Params, Proper, ProperEdge},
     route::Routing,
 };
 
@@ -282,20 +282,32 @@ impl<'a> Pass<'a> {
         Ok(self.x)
     }
 }
+fn border_chain(p: &Proper, e: &ProperEdge) -> bool {
+    let (tail, head) = (p.nodes[e.tail].edge, p.nodes[e.head].edge);
+    tail == head && matches!(tail, -2 | -3)
+}
+fn crosses_among(p: &Proper, pos: &[usize], e: &ProperEdge, among: &[bool]) -> bool {
+    p.edges.iter().zip(among).any(|(f, &member)| {
+        member
+            && p.rank[e.tail] == p.rank[f.tail]
+            && ((pos[e.tail] < pos[f.tail] && pos[e.head] > pos[f.head])
+                || (pos[e.tail] > pos[f.tail] && pos[e.head] < pos[f.head]))
+    })
+}
 fn conflicts(p: &Proper, pos: &[usize]) -> Vec<bool> {
+    let chain: Vec<bool> = p.edges.iter().map(|e| border_chain(p, e)).collect();
+    let inner: Vec<bool> = p
+        .edges
+        .iter()
+        .map(|e| p.nodes[e.tail].dummy && p.nodes[e.head].dummy)
+        .collect();
     p.edges
         .iter()
-        .map(|e| {
-            if p.nodes[e.tail].dummy && p.nodes[e.head].dummy {
-                return false;
-            }
-            p.edges.iter().any(|f| {
-                p.rank[e.tail] == p.rank[f.tail]
-                    && p.nodes[f.tail].dummy
-                    && p.nodes[f.head].dummy
-                    && ((pos[e.tail] < pos[f.tail] && pos[e.head] > pos[f.head])
-                        || (pos[e.tail] > pos[f.tail] && pos[e.head] < pos[f.head]))
-            })
+        .enumerate()
+        .map(|(i, e)| {
+            !chain[i]
+                && (crosses_among(p, pos, e, &chain)
+                    || (!inner[i] && crosses_among(p, pos, e, &inner)))
         })
         .collect()
 }
@@ -395,13 +407,97 @@ pub fn rank_coords(
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::{
-        graph::{Edge, Graph, Node},
+        graph::{Edge, Graph, Node, ProperNode},
         normalize::normalize,
         rank::rank,
         route::{route, route_points},
     };
     use super::*;
     use std::collections::BTreeMap;
+
+    const PLAIN: (bool, i32) = (false, -1);
+    const DUMMY: (bool, i32) = (true, 0);
+    const CHAIN: (bool, i32) = (false, -2);
+
+    fn marks(nodes: &[(bool, i32)], edges: &[(usize, usize)], layers: &[Vec<usize>]) -> Vec<bool> {
+        let n = nodes.len();
+        let mut rank = vec![0; n];
+        let mut pos = vec![0; n];
+        for (r, layer) in layers.iter().enumerate() {
+            for (j, &v) in layer.iter().enumerate() {
+                rank[v] = i32::try_from(r).unwrap();
+                pos[v] = j;
+            }
+        }
+        let p = Proper {
+            nodes: nodes
+                .iter()
+                .map(|&(dummy, edge)| ProperNode {
+                    node: Node::default(),
+                    dummy,
+                    label: false,
+                    edge,
+                })
+                .collect(),
+            edges: edges
+                .iter()
+                .map(|&(tail, head)| ProperEdge {
+                    tail,
+                    head,
+                    decl: 0,
+                    original: usize::MAX,
+                })
+                .collect(),
+            rank,
+            chains: Vec::new(),
+            out: vec![Vec::new(); n],
+            r#in: vec![Vec::new(); n],
+            params: Params::for_profile("cell").unwrap(),
+        };
+        conflicts(&p, &pos)
+    }
+
+    #[test]
+    fn a_plain_segment_crossing_a_border_chain_is_marked() {
+        let nodes = [CHAIN, CHAIN, PLAIN, PLAIN];
+        let layers = [vec![0, 2], vec![3, 1]];
+        assert_eq!(marks(&nodes, &[(0, 1), (2, 3)], &layers), [false, true]);
+    }
+
+    #[test]
+    fn an_inner_segment_crossing_a_border_chain_is_marked() {
+        let nodes = [CHAIN, CHAIN, DUMMY, DUMMY];
+        let layers = [vec![0, 2], vec![3, 1]];
+        assert_eq!(marks(&nodes, &[(0, 1), (2, 3)], &layers), [false, true]);
+    }
+
+    #[test]
+    fn a_border_chain_crossing_an_inner_segment_stays_unmarked() {
+        let nodes = [CHAIN, CHAIN, DUMMY, DUMMY];
+        let layers = [vec![2, 0], vec![1, 3]];
+        assert_eq!(marks(&nodes, &[(2, 3), (0, 1)], &layers), [true, false]);
+    }
+
+    #[test]
+    fn segments_that_do_not_cross_stay_unmarked() {
+        let nodes = [CHAIN, CHAIN, PLAIN, PLAIN];
+        let layers = [vec![0, 2], vec![1, 3]];
+        assert_eq!(marks(&nodes, &[(0, 1), (2, 3)], &layers), [false, false]);
+    }
+
+    #[test]
+    fn a_plain_segment_crossing_an_inner_segment_is_still_marked() {
+        let nodes = [PLAIN, PLAIN, DUMMY, DUMMY];
+        let layers = [vec![0, 2], vec![3, 1]];
+        assert_eq!(marks(&nodes, &[(0, 1), (2, 3)], &layers), [true, false]);
+    }
+
+    #[test]
+    fn border_chains_are_never_marked_even_when_they_cross() {
+        let nodes = [CHAIN, CHAIN, (false, -3), (false, -3)];
+        let layers = [vec![0, 2], vec![3, 1]];
+        assert_eq!(marks(&nodes, &[(0, 1), (2, 3)], &layers), [false, false]);
+    }
 
     #[test]
     fn nested_border_padding_is_symmetric() {

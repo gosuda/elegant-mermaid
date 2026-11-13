@@ -59,6 +59,12 @@ func OrderWithBudget(p *Proper, opts OrderOptions) (OrderResult, error) {
 		layers[i] = g.clusterLayer(layers[i], "", nil)
 		seed[i] = g.clusterLayer(seed[i], "", nil)
 	}
+	if err := g.siblingNormalise(layers); err != nil {
+		return OrderResult{}, err
+	}
+	if err := g.siblingNormalise(seed); err != nil {
+		return OrderResult{}, err
+	}
 	if g.crossCount(seed) < g.crossCount(layers) {
 		layers = seed
 	}
@@ -158,6 +164,9 @@ func (g orderGraph) orderRun(best [][]int32, limit, stallLimit int) (OrderResult
 			return OrderResult{}, err
 		}
 		if err := g.orderTranspose(trial); err != nil {
+			return OrderResult{}, err
+		}
+		if err := g.siblingNormalise(trial); err != nil {
 			return OrderResult{}, err
 		}
 		next := g.crossCount(trial)
