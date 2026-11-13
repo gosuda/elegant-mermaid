@@ -13,6 +13,16 @@ use crate::{
 #[path = "pipeline/scene_items.rs"]
 mod scene_items;
 use scene_items::assemble;
+#[path = "pipeline/attachment_geometry.rs"]
+mod attachment_geometry;
+#[path = "pipeline/attachment_metadata.rs"]
+pub(super) mod attachment_metadata;
+#[path = "pipeline/attachment_parts.rs"]
+mod attachment_parts;
+#[path = "pipeline/attachment_routes.rs"]
+mod attachment_routes;
+#[path = "pipeline/attachments.rs"]
+mod attachments;
 #[path = "pipeline/component_input.rs"]
 mod component_input;
 
@@ -248,6 +258,15 @@ pub(super) fn component_layout(
     measurements: &Measurements<'_, '_>,
     options: order::OrderOptions,
 ) -> Result<Component, LayoutError> {
+    attachments::layout(g, input, measurements, options)
+}
+
+fn component_core(
+    g: &Graph,
+    input: &Input,
+    measurements: &Measurements<'_, '_>,
+    options: order::OrderOptions,
+) -> Result<Component, LayoutError> {
     let component_input::Prepared {
         semantic,
         proper: mut p,
@@ -448,6 +467,7 @@ pub fn layout_family(
     if edges.len() != input.routes.len() {
         return Err(LayoutError::Domain);
     }
+    attachment_metadata::validate(input)?;
     if let Some(scene) = super::isolate::layout(input, edges)? {
         return Ok(scene);
     }
@@ -506,6 +526,7 @@ pub(super) fn layout_unisolated(
     let sizes = edge_sizes(&g, &measurements.route_stacks)?;
     super::loops::size_nodes(&mut g, &sizes, input)?;
     super::clusters::connect(&mut g, input);
+    attachment_metadata::connect(&mut g, input);
     let mut dump = blank_dump(input);
     let mut canvas = Size { w: 0, h: 0 };
     let mut placed_titles = Vec::new();
@@ -970,3 +991,7 @@ fn orient_rect(rect: &mut Rect, direction: Direction, height: i32) {
 #[cfg(test)]
 #[path = "pipeline_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "pipeline/attachment_tests.rs"]
+mod attachment_tests;

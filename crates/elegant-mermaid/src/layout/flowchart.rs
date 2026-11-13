@@ -14,6 +14,7 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
         labels: Vec::new(),
         groups: Vec::new(),
         sizes: Vec::new(),
+        attachments: Vec::new(),
     };
     append_nodes(&mut input, model);
     append_groups(&mut input, model);

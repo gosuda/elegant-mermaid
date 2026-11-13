@@ -23,7 +23,7 @@ pub fn layout(
         return Ok(None);
     }
     let (children, child_budget) = layout_children(input, edges, &selected)?;
-    let (parent, parent_edges) = parent_input(input, edges, &selected, &children);
+    let (parent, parent_edges) = parent_input(input, edges, &selected, &children)?;
     let fixed: Vec<_> = children
         .iter()
         .map(|(id, scene)| Fixed {
@@ -65,41 +65,70 @@ fn child_input<'a>(
     group: &crate::layout::input::Group,
     ids: &[String],
 ) -> Result<(Input, Vec<EdgeOptions<'a>>), LayoutError> {
-    let mut child = input.clone();
-    child.sizes = input
-        .boxes
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| ids.contains(&b.id))
-        .map(|(index, _)| input.sizes.get(index).copied().unwrap_or_default())
-        .collect();
-    child.boxes.retain(|b| ids.contains(&b.id));
-    for b in &mut child.boxes {
-        if b.parent == group.id {
-            b.parent.clear();
-        }
-    }
-    let mut child_edges = Vec::new();
-    child.routes = input
+    let (routes, child_edges): (Vec<_>, Vec<_>) = input
         .routes
         .iter()
         .zip(edges)
-        .filter(|(r, _)| ids.contains(&r.from) && ids.contains(&r.to))
-        .map(|(r, edge)| {
-            child_edges.push(*edge);
-            r.clone()
+        .filter(|(route, _)| ids.contains(&route.from) && ids.contains(&route.to))
+        .map(|(route, edge)| (route.clone(), *edge))
+        .unzip();
+    let labels = input
+        .labels
+        .iter()
+        .filter(|label| {
+            ids.contains(&label.owner) || routes.iter().any(|route| route.id == label.owner)
+        })
+        .cloned()
+        .collect();
+    let boxes = input
+        .boxes
+        .iter()
+        .filter(|item| ids.contains(&item.id))
+        .map(|item| {
+            let mut item = item.clone();
+            if item.parent == group.id {
+                item.parent.clear();
+            }
+            item
         })
         .collect();
-    child
-        .labels
-        .retain(|l| ids.contains(&l.owner) || child.routes.iter().any(|r| r.id == l.owner));
-    child.groups.retain(|g| ids.contains(&g.id));
-    for g in &mut child.groups {
-        if g.parent == group.id {
-            g.parent.clear();
-        }
-    }
-    child.direction = Direction::from_token(&group.direction).ok_or(LayoutError::Domain)?;
+    let groups = input
+        .groups
+        .iter()
+        .filter(|item| ids.contains(&item.id))
+        .map(|item| {
+            let mut item = item.clone();
+            if item.parent == group.id {
+                item.parent.clear();
+            }
+            item
+        })
+        .collect();
+    let child = Input {
+        kind: input.kind,
+        profile: input.profile,
+        direction: Direction::from_token(&group.direction).ok_or(LayoutError::Domain)?,
+        options: input.options.clone(),
+        boxes,
+        routes,
+        labels,
+        groups,
+        sizes: input
+            .boxes
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| ids.contains(&item.id))
+            .map(|(index, _)| input.sizes.get(index).copied().unwrap_or_default())
+            .collect(),
+        attachments: pipeline::attachment_metadata::project(
+            input,
+            &input
+                .boxes
+                .iter()
+                .map(|item| ids.contains(&item.id))
+                .collect::<Vec<_>>(),
+        )?,
+    };
     Ok((child, child_edges))
 }
 
@@ -108,12 +137,20 @@ fn parent_input<'a>(
     edges: &[EdgeOptions<'a>],
     selected: &[(&crate::layout::input::Group, Vec<String>)],
     children: &[(String, Scene)],
-) -> (Input, Vec<EdgeOptions<'a>>) {
+) -> Result<(Input, Vec<EdgeOptions<'a>>), LayoutError> {
     let hidden: Vec<_> = selected
         .iter()
         .flat_map(|(_, ids)| ids.iter().cloned())
         .collect();
     let mut parent = input.clone();
+    parent.attachments = pipeline::attachment_metadata::project(
+        input,
+        &input
+            .boxes
+            .iter()
+            .map(|b| !hidden.contains(&b.id))
+            .collect::<Vec<_>>(),
+    )?;
     parent.sizes = input
         .boxes
         .iter()
@@ -142,7 +179,7 @@ fn parent_input<'a>(
                 .iter()
                 .any(|(_, s)| s.routes().iter().any(|r| r.id == l.owner))
     });
-    (parent, parent_edges)
+    Ok((parent, parent_edges))
 }
 
 struct ComposedChildren {
@@ -443,6 +480,7 @@ mod sizing_tests {
             labels: Vec::new(),
             groups: Vec::new(),
             sizes: vec![SizeRule::Measured, SizeRule::Exact(Size { w: 1, h: 1 })],
+            attachments: Vec::new(),
         };
         let ids = vec!["fixed".into(), "trailing".into()];
         let (child, _) = child_input(&input, &[], &group, &ids)?;
@@ -457,7 +495,7 @@ mod sizing_tests {
             "child must fill the missing trailing size rule with Measured"
         );
         let selected = vec![(&group, vec!["outside".into()])];
-        let (parent, _) = parent_input(&input, &[], &selected, &[]);
+        let (parent, _) = parent_input(&input, &[], &selected, &[])?;
         assert_eq!(parent.boxes.len(), 2);
         assert_eq!(parent.sizes.len(), 2);
         assert!(

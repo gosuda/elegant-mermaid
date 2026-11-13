@@ -20,6 +20,7 @@ pub fn from_class(
         labels: Vec::new(),
         groups: Vec::new(),
         sizes: Vec::new(),
+        attachments: Vec::new(),
     };
     append_classes(&mut input, model, profile)?;
     append_notes(&mut input, model);

@@ -11,6 +11,7 @@ fn content_size_override_precedes_minimum_and_orientation() -> Result<(), Layout
         labels: Vec::new(),
         groups: Vec::new(),
         sizes: Vec::new(),
+        attachments: Vec::new(),
     };
     input.boxes.push(crate::layout::input::Box {
         id: "A".into(),
@@ -78,6 +79,7 @@ fn sized_input(profile: Profile, direction: Direction, rule: SizeRule) -> Input 
         labels: Vec::new(),
         groups: Vec::new(),
         sizes: vec![SizeRule::Measured, rule],
+        attachments: Vec::new(),
     }
 }
 

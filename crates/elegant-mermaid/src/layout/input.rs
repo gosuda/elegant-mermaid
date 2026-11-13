@@ -25,6 +25,23 @@ pub struct Input {
     pub labels: Vec<Label>,
     pub groups: Vec<Group>,
     pub sizes: Vec<SizeRule>,
+    /// Side constraints over original box indices; envelopes never enter the dump.
+    pub attachments: Vec<Attachment>,
+}
+
+/// A note and its target share a semantic parent. A target may have several notes.
+#[derive(Debug, Clone, Copy)]
+pub struct Attachment {
+    pub target: usize,
+    pub note: usize,
+    pub side: AttachmentSide,
+}
+
+/// The note's side in final screen coordinates, independent of layout direction.
+#[derive(Debug, Clone, Copy)]
+pub enum AttachmentSide {
+    Left,
+    Right,
 }
 #[derive(Debug, Clone)]
 pub struct Box {
