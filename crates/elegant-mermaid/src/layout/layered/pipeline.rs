@@ -3,7 +3,7 @@ use super::{
     graph::{Edge, Graph, Node, Params},
     normalize, order, rank, route,
 };
-use crate::layout::input::Input;
+use crate::layout::input::{Input, SizeRule};
 use crate::{
     geom::{Point, Rect, Size},
     measure::{self, Metric, Role},
@@ -130,12 +130,12 @@ fn measure_nodes<'a>(
                 + 2 * i64::from(constant(p, "node_pad_y"))
                 + 2 * i64::from(constant(p, "node_border")),
         )?;
-        let content = input
-            .sizes
-            .get(i)
-            .copied()
-            .filter(|size| size.w != 0 || size.h != 0)
-            .unwrap_or(Size { w, h });
+        let rule = input.sizes.get(i).copied().unwrap_or_default();
+        let content = match rule {
+            SizeRule::Measured => Size { w, h },
+            SizeRule::Content(size) if size.w == 0 && size.h == 0 => Size { w, h },
+            SizeRule::Content(size) | SizeRule::Exact(size) => size,
+        };
         if content.w < 0 || content.h < 0 {
             return Err(LayoutError::Domain);
         }
@@ -144,6 +144,8 @@ fn measure_nodes<'a>(
             decl: i32::try_from(i).map_err(|_| LayoutError::Overflow)?,
             w: if b.role == BoxRole::Group {
                 tw
+            } else if matches!(rule, SizeRule::Exact(_)) {
+                content.w
             } else {
                 content.w.max(constant(p, "node_min_w"))
             },
@@ -152,6 +154,8 @@ fn measure_nodes<'a>(
                     i64::try_from(ls.len().max(1)).map_err(|_| LayoutError::Overflow)?
                         * i64::from(constant(p, "line_h")),
                 )?
+            } else if matches!(rule, SizeRule::Exact(_)) {
+                content.h
             } else {
                 content.h.max(constant(p, "node_min_h"))
             },
@@ -167,6 +171,9 @@ fn size_ports(
 ) -> Result<(), LayoutError> {
     for (index, node) in graph.nodes.iter_mut().enumerate() {
         let declaration = usize::try_from(node.decl).map_err(|_| LayoutError::Domain)?;
+        if matches!(input.sizes.get(declaration), Some(SizeRule::Exact(_))) {
+            continue;
+        }
         if !input
             .boxes
             .get(declaration)
@@ -253,7 +260,7 @@ pub(super) fn component_layout(
     } = component_input::prepare(g, input, measurements)?;
     let ordered = order::order_compound(&p, options, &paths, &boundary)?;
     let sizes = edge_sizes(g, &measurements.route_stacks)?;
-    let extents = super::loops::extents(g, &sizes)?;
+    let extents = super::loops::extents(g, &sizes, input)?;
     let mut proper_extents = extents.clone();
     proper_extents.resize(p.nodes.len(), 0);
     for cluster in &clusters {
@@ -288,7 +295,18 @@ pub(super) fn component_layout(
         &mut r,
         &all,
     )?;
-    let (mut y, top) = coords::rank_coords(&p, &ordered.layers, &r)?;
+    let (mut y, mut top) = coords::rank_coords(&p, &ordered.layers, &r)?;
+    super::loops::reserve_ranks(
+        g,
+        input,
+        &sizes,
+        super::loops::RankPlacement {
+            proper: &p,
+            layers: &ordered.layers,
+            y: &mut y,
+            top: &mut top,
+        },
+    )?;
     super::clusters::anchors(&clusters, &p, &ordered.layers, &top, &mut y)?;
     let node_placement = super::labels::Placement {
         proper: &p,
@@ -323,7 +341,7 @@ pub(super) fn component_layout(
         &mut routes,
     )?;
     super::labels::replace(g, &measurements.route_stacks, reversed_labels, &mut placed)?;
-    let loop_labels = super::loops::place(g, &boxes, &sizes, &mut routes)?;
+    let loop_labels = super::loops::place(g, &boxes, &sizes, &mut routes, input)?;
     super::labels::replace(g, &measurements.route_stacks, loop_labels, &mut placed)?;
     let super::labels::Placed {
         labels,
@@ -363,7 +381,7 @@ pub(super) fn component_layout(
             },
         ));
     }
-    let loop_extents = super::loops::reservations(g, &boxes, &sizes, &extents)?;
+    let loop_extents = super::loops::reservations(g, &boxes, &sizes, &extents, input)?;
     Ok(Component {
         boxes,
         routes,
@@ -486,7 +504,7 @@ pub(super) fn layout_unisolated(
     let route_lines = &measurements.route_lines;
     apply_fixed(&mut g, fixed, input)?;
     let sizes = edge_sizes(&g, &measurements.route_stacks)?;
-    super::loops::size_nodes(&mut g, &sizes)?;
+    super::loops::size_nodes(&mut g, &sizes, input)?;
     super::clusters::connect(&mut g, input);
     let mut dump = blank_dump(input);
     let mut canvas = Size { w: 0, h: 0 };

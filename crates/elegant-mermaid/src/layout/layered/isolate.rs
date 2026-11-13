@@ -69,9 +69,9 @@ fn child_input<'a>(
     child.sizes = input
         .boxes
         .iter()
-        .zip(&input.sizes)
-        .filter(|(b, _)| ids.contains(&b.id))
-        .map(|(_, size)| *size)
+        .enumerate()
+        .filter(|(_, b)| ids.contains(&b.id))
+        .map(|(index, _)| input.sizes.get(index).copied().unwrap_or_default())
         .collect();
     child.boxes.retain(|b| ids.contains(&b.id));
     for b in &mut child.boxes {
@@ -117,9 +117,9 @@ fn parent_input<'a>(
     parent.sizes = input
         .boxes
         .iter()
-        .zip(&input.sizes)
-        .filter(|(b, _)| !hidden.contains(&b.id))
-        .map(|(_, size)| *size)
+        .enumerate()
+        .filter(|(_, b)| !hidden.contains(&b.id))
+        .map(|(index, _)| input.sizes.get(index).copied().unwrap_or_default())
         .collect();
     parent.boxes.retain(|b| !hidden.contains(&b.id));
     parent.groups.retain(|g| {
@@ -405,4 +405,69 @@ fn translate_command(command: &mut PathCommand, by: Point) -> Result<(), LayoutE
         PathCommand::Close => {}
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod sizing_tests {
+    use super::*;
+    use crate::geom::Size;
+    use crate::layout::input::{Box, Group, SizeRule};
+    use crate::scene::{BoxRole, DumpOptions};
+
+    #[test]
+    fn sparse_sizes_follow_filtered_box_indices() -> Result<(), LayoutError> {
+        let group = Group {
+            id: "group".into(),
+            parent: String::new(),
+            direction: "LR".into(),
+            direction_span: crate::source::Span { start: 0, end: 0 },
+        };
+        let input = Input {
+            kind: "flowchart",
+            profile: Profile::Cell,
+            direction: Direction::Tb,
+            options: DumpOptions::default(),
+            boxes: ["outside", "fixed", "trailing"]
+                .into_iter()
+                .map(|id| Box {
+                    id: id.into(),
+                    role: BoxRole::Node,
+                    shape: String::new(),
+                    parent: String::new(),
+                    exclusive: true,
+                    text: String::new(),
+                    direction: String::new(),
+                })
+                .collect(),
+            routes: Vec::new(),
+            labels: Vec::new(),
+            groups: Vec::new(),
+            sizes: vec![SizeRule::Measured, SizeRule::Exact(Size { w: 1, h: 1 })],
+        };
+        let ids = vec!["fixed".into(), "trailing".into()];
+        let (child, _) = child_input(&input, &[], &group, &ids)?;
+        assert_eq!(child.boxes.len(), 2);
+        assert_eq!(child.sizes.len(), 2);
+        assert!(
+            matches!(child.sizes[0], SizeRule::Exact(Size { w: 1, h: 1 })),
+            "child must retain the fixed box's original Exact rule"
+        );
+        assert!(
+            matches!(child.sizes[1], SizeRule::Measured),
+            "child must fill the missing trailing size rule with Measured"
+        );
+        let selected = vec![(&group, vec!["outside".into()])];
+        let (parent, _) = parent_input(&input, &[], &selected, &[]);
+        assert_eq!(parent.boxes.len(), 2);
+        assert_eq!(parent.sizes.len(), 2);
+        assert!(
+            matches!(parent.sizes[0], SizeRule::Exact(Size { w: 1, h: 1 })),
+            "parent must retain the fixed box's original Exact rule"
+        );
+        assert!(
+            matches!(parent.sizes[1], SizeRule::Measured),
+            "parent must fill the missing trailing size rule with Measured"
+        );
+        Ok(())
+    }
 }

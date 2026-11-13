@@ -1,4 +1,4 @@
-use super::input::{Box, Group, Input, Label, Route};
+use super::input::{Box, Group, Input, Label, Route, SizeRule};
 use crate::{
     geom::{GeomError, Size},
     model::class::Model,
@@ -53,7 +53,9 @@ fn append_classes(input: &mut Input, model: &Model, profile: Profile) -> Result<
             })
             .collect::<Vec<_>>()
             .join("\n\n");
-        input.sizes.push(compartment_size(&rows, profile)?);
+        input
+            .sizes
+            .push(SizeRule::Content(compartment_size(&rows, profile)?));
         input.boxes.push(Box {
             id: class.id.clone(),
             role: BoxRole::Node,
@@ -69,7 +71,7 @@ fn append_classes(input: &mut Input, model: &Model, profile: Profile) -> Result<
 
 fn append_notes(input: &mut Input, model: &Model) {
     for note in &model.notes {
-        input.sizes.push(Size { w: 0, h: 0 });
+        input.sizes.push(SizeRule::Measured);
         input.boxes.push(Box {
             id: note.id.clone(),
             role: BoxRole::Node,
