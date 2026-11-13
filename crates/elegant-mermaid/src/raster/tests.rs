@@ -47,7 +47,11 @@ fn png_kinds() -> Result<(), Box<dyn Error>> {
             u32::try_from((i64::from(scene.canvas().h) * 2 + 63) / 64)?
         );
         let first = image.pixels().first().ok_or("empty PNG")?;
-        assert!(image.pixels().iter().any(|p| p != first));
+        assert!(
+            image.pixels().iter().any(|p| p != first),
+            "png_kinds: expected {} to hold (observed false)",
+            stringify!(image.pixels().iter().any(|p| p != first))
+        );
     }
     Ok(())
 }
@@ -62,30 +66,59 @@ fn scene(size: Size) -> Scene {
 fn png_errors() -> Result<(), Box<dyn Error>> {
     let s = scene(Size { w: 64, h: 64 });
     for scale in [0, 9] {
-        assert!(matches!(
+        assert!(
+            matches!(
+                png(
+                    &s,
+                    &PngOptions {
+                        scale,
+                        ..PngOptions::default()
+                    }
+                ),
+                Err(RasterError::InvalidConfig { errors: 1 })
+            ),
+            "png_errors: expected {} to hold (observed false)",
+            stringify!(matches!(
+                png(
+                    &s,
+                    &PngOptions {
+                        scale,
+                        ..PngOptions::default()
+                    }
+                ),
+                Err(RasterError::InvalidConfig { errors: 1 })
+            ))
+        );
+    }
+    assert!(
+        matches!(
             png(
-                &s,
+                &scene(Size {
+                    w: 16385 * 64,
+                    h: 64
+                }),
                 &PngOptions {
-                    scale,
+                    scale: 1,
                     ..PngOptions::default()
                 }
             ),
-            Err(RasterError::InvalidConfig { errors: 1 })
-        ));
-    }
-    assert!(matches!(
-        png(
-            &scene(Size {
-                w: 16385 * 64,
-                h: 64
-            }),
-            &PngOptions {
-                scale: 1,
-                ..PngOptions::default()
-            }
+            Err(RasterError::PixelsTooLarge { .. })
         ),
-        Err(RasterError::PixelsTooLarge { .. })
-    ));
+        "png_errors: expected {} to hold (observed false)",
+        stringify!(matches!(
+            png(
+                &scene(Size {
+                    w: 16385 * 64,
+                    h: 64
+                }),
+                &PngOptions {
+                    scale: 1,
+                    ..PngOptions::default()
+                }
+            ),
+            Err(RasterError::PixelsTooLarge { .. })
+        ))
+    );
     Ok(())
 }
 #[test]
@@ -259,5 +292,21 @@ fn png_rectangle_oracle() -> Result<(), Box<dyn Error>> {
     );
     let image = render(&s, &PngOptions::default())?;
     assert_ne!(image.pixel(30, 30), image.pixel(0, 0));
+    Ok(())
+}
+
+#[test]
+fn owned_rgba_encoder_preserves_opaque_channels() -> Result<(), Box<dyn Error>> {
+    let pixels = vec![17, 91, 203, 255, 222, 54, 7, 255];
+    let png = encode_rgba(2, 1, pixels.clone())?;
+    let decoded = Pixmap::decode_png(&png)?;
+    assert_eq!(decoded.width(), 2);
+    assert_eq!(decoded.height(), 1);
+    assert_eq!(decoded.data(), pixels);
+    assert!(
+        encode_rgba(2, 1, vec![0; 7]).is_err(),
+        "owned_rgba_encoder_preserves_opaque_channels: expected {} to hold (observed false)",
+        stringify!(encode_rgba(2, 1, vec![0; 7]).is_err())
+    );
     Ok(())
 }

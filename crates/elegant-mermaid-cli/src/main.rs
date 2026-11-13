@@ -5,6 +5,9 @@ mod kernel_eval;
 mod layout;
 mod options;
 mod render;
+mod termgfx;
+mod tui;
+mod view;
 
 use std::ffi::OsString;
 use std::io::Write;
@@ -39,6 +42,15 @@ fn dispatch(args: &[OsString]) -> (String, String, i32) {
         "layout" => layout::run(&args[1..]),
         "render" => render::run(&strings),
         "check" => check::run(&strings),
+        "view" => view::run(
+            &strings,
+            &view::Environment {
+                colorfgbg: std::env::var("COLORFGBG").unwrap_or_default(),
+                kitty_window_id: std::env::var("KITTY_WINDOW_ID").unwrap_or_default(),
+                term: std::env::var("TERM").unwrap_or_default(),
+                term_program: std::env::var("TERM_PROGRAM").unwrap_or_default(),
+            },
+        ),
         "kernel-eval" => match kernel_eval::eval_file(&args[1..]) {
             Ok(stdout) => (stdout, String::new(), 0),
             Err(failure) => (failure.stdout, format!("{}\n", failure.error.message()), 2),
@@ -57,6 +69,9 @@ fn help(command: &str) -> (String, String, i32) {
         }
         "check" => {
             "Check syntax and semantics without changing files\nUsage: emd check [PATH...] [--output-format text|json] [--color auto|always|never]\nDefaults: paths .; output-format text; color auto.\nExample: emd check docs/\n"
+        }
+        "view" => {
+            "Watch and display a diagram in the terminal\nUsage: emd view INPUT [-t THEME] [--graphics auto|kitty|iterm|sixel|cells] [--color auto|always|never]\nDefaults: theme elegant-light (elegant-dark on a dark terminal); graphics auto; color auto.\nExample: emd view demo.mmd\n"
         }
         "layout" => {
             "Print canonical layout data\nUsage: emd layout [INPUT] [--profile vector|cell] [--metrics]\nDefaults: input stdin; profile vector; metrics off. --metrics prints vector layout quality metrics.\nExample: emd layout demo.mmd --profile cell\n"

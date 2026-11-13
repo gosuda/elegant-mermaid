@@ -6,6 +6,10 @@ allow = ["Apache-2.0", "MIT", "ISC", "BSD-3-Clause", "Unicode-3.0", "OFL-1.1", "
 crate = "arrayref"
 allow = ["BSD-2-Clause"]
 
+[[licenses.exceptions]]
+crate = "notify"
+allow = ["CC0-1.0"]
+
 [advisories]
 version = 2
 yanked = "deny"

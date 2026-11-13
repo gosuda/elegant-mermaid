@@ -18,5 +18,11 @@ path = "src/main.rs"
 [dependencies]
 elegant-mermaid = { version = "=0.1.0", path = "../elegant-mermaid", features = ["png"] }
 
+base64.workspace = true
+thiserror.workspace = true
+crossterm.workspace = true
+notify.workspace = true
+quanta.workspace = true
+
 [lints]
 workspace = true

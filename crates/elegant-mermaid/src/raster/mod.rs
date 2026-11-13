@@ -37,7 +37,57 @@ fn encode(message: impl ToString) -> RasterError {
 pub fn png(scene: &Scene, options: &PngOptions) -> Result<Vec<u8>, RasterError> {
     render(scene, options)?.encode_png().map_err(encode)
 }
+/// An owned, tightly packed, straight-alpha RGBA8 raster.
+pub struct RgbaImage {
+    pub width: u32,
+    pub height: u32,
+    pub pixels: Vec<u8>,
+}
+
+/// Rasterise without encoding or copying the pixel allocation.
+pub fn rgba(
+    scene: &Scene,
+    options: &PngOptions,
+    theme_name: &str,
+) -> Result<RgbaImage, RasterError> {
+    let pixmap = render_themed(scene, options, theme_name)?;
+    let width = pixmap.width();
+    let height = pixmap.height();
+    Ok(RgbaImage {
+        width,
+        height,
+        pixels: pixmap.take_demultiplied(),
+    })
+}
+
+/// Encode tightly packed straight-alpha RGBA8 pixels as PNG.
+pub fn encode_rgba(width: u32, height: u32, mut pixels: Vec<u8>) -> Result<Vec<u8>, RasterError> {
+    let size = tiny_skia::IntSize::from_wh(width, height).ok_or_else(invalid)?;
+    let expected = u64::from(width) * u64::from(height) * 4;
+    if u64::try_from(pixels.len()).map_err(|_| invalid())? != expected {
+        return Err(invalid());
+    }
+    for pixel in pixels.as_chunks_mut::<4>().0 {
+        let alpha = u16::from(pixel[3]);
+        for channel in &mut pixel[..3] {
+            *channel =
+                u8::try_from((u16::from(*channel) * alpha + 127) / 255).map_err(|_| invalid())?;
+        }
+    }
+    Pixmap::from_vec(pixels, size)
+        .ok_or_else(invalid)?
+        .encode_png()
+        .map_err(encode)
+}
 fn render(scene: &Scene, options: &PngOptions) -> Result<Pixmap, RasterError> {
+    render_themed(scene, options, "")
+}
+
+fn render_themed(
+    scene: &Scene,
+    options: &PngOptions,
+    theme_name: &str,
+) -> Result<Pixmap, RasterError> {
     if !(1..=8).contains(&options.scale) || scene.profile() != Profile::Vector {
         return Err(invalid());
     }
@@ -49,7 +99,7 @@ fn render(scene: &Scene, options: &PngOptions) -> Result<Pixmap, RasterError> {
     if width > 16384 || height > 16384 || u64::from(width) * u64::from(height) > 67108864 {
         return Err(RasterError::PixelsTooLarge { width, height });
     }
-    let theme = theme::resolve("").map_err(|_| invalid())?;
+    let theme = theme::resolve(theme_name).map_err(|_| invalid())?;
     let bg = if options.background.is_empty() {
         theme.colour(Token::Background)
     } else {
