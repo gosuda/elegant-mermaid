@@ -15,6 +15,8 @@ pub struct Model {
     pub acc_descr: String,
     pub definitions: Vec<(String, String)>,
     interfaces: usize,
+    note_ordinal: usize,
+    taken: std::collections::BTreeSet<String>,
 }
 #[derive(Debug, Clone)]
 pub struct Class {
@@ -74,12 +76,64 @@ pub fn resolve(_source: &str, document: &Start<'_>) -> (Model, Vec<Diagnostic>) 
         direction: "TB".into(),
         ..Model::default()
     };
+    model.reserve(&document.statements, "");
     let mut diagnostics = Vec::new();
     model.statements(&document.statements, "", &mut diagnostics);
     (model, diagnostics)
 }
 
 impl Model {
+    fn generated_id(&mut self, prefix: &str, interface: bool) -> String {
+        let ordinal = if interface {
+            &mut self.interfaces
+        } else {
+            &mut self.note_ordinal
+        };
+        loop {
+            let id = format!("{prefix}{ordinal}");
+            *ordinal += 1;
+            if self.taken.insert(id.clone()) {
+                return id;
+            }
+        }
+    }
+    fn reserve(&mut self, statements: &[Statement<'_>], parent: &str) {
+        for statement in statements {
+            match statement {
+                Statement::Class(class) => {
+                    self.taken.insert(class.name.value.clone());
+                }
+                Statement::Member {
+                    name,
+                    member: Some(_),
+                } => {
+                    self.taken.insert(name.value.clone());
+                }
+                Statement::Relation(relation) => {
+                    self.taken.insert(relation.from.value.clone());
+                    self.taken.insert(relation.to.value.clone());
+                }
+                Statement::Namespace(namespace) => {
+                    let id = if parent.is_empty() {
+                        namespace.name.value.clone()
+                    } else {
+                        format!("{parent}.{}", namespace.name.value)
+                    };
+                    let mut prefix = String::new();
+                    for part in id.split('.') {
+                        if !prefix.is_empty() {
+                            prefix.push('.');
+                        }
+                        prefix.push_str(part);
+                        self.taken.insert(prefix.clone());
+                    }
+                    self.reserve(&namespace.children, &id);
+                }
+                _ => {}
+            }
+        }
+    }
+
     fn ensure(&mut self, name: &ClassName<'_>) -> usize {
         if let Some(index) = self.classes.iter().position(|class| class.id == name.value) {
             return index;
@@ -223,8 +277,9 @@ impl Model {
         let target = target
             .filter(|name| self.classes.iter().any(|class| class.id == name.value))
             .map_or_else(String::new, |name| name.value.clone());
+        let id = self.generated_id("note", false);
         self.notes.push(Note {
-            id: format!("note{}", self.notes.len()),
+            id,
             target,
             text: text.into(),
             parent: parent.into(),
@@ -258,8 +313,7 @@ impl Model {
     }
     fn interface<'a>(&mut self, name: &ClassName<'a>, owner: &ClassName<'_>) -> ClassName<'a> {
         let mut interface = name.clone();
-        interface.value = format!("interface{}", self.interfaces);
-        self.interfaces += 1;
+        interface.value = self.generated_id("interface", true);
         let index = self.ensure(&interface);
         self.classes[index].label = name.value.clone();
         self.classes[index].interface_owner = owner.value.clone();
@@ -411,6 +465,24 @@ fn method_display(text: &str) -> Option<(String, Option<char>)> {
 #[cfg(test)]
 mod parity_tests {
     use super::*;
+
+    #[test]
+    fn generated_ids_skip_declarations() {
+        let source = "classDiagram\nnote \"first\"\nclass note0\nclass note1\nclass interface0\nA --() Port\nnote \"second\"\n";
+        let parsed = crate::syntax::class::parse(source, &[]);
+        assert!(parsed.diagnostics.is_empty());
+        let (model, diagnostics) = resolve(source, &parsed.document);
+        assert!(diagnostics.is_empty());
+        assert_eq!(model.notes[0].id, "note2");
+        assert_eq!(model.notes[1].id, "note3");
+        assert_eq!(model.classes.len(), 5);
+        assert!(
+            model
+                .classes
+                .iter()
+                .any(|class| class.id == "interface1" && !class.interface_owner.is_empty())
+        );
+    }
 
     #[test]
     fn package_visibility_survives_generic_conversion() {

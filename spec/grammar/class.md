@@ -255,9 +255,10 @@ classLiteralName = BQUOTE_STR ;
 - class-035: A standalone annotation MUST refer to an existing class; it MUST NOT create a class. [just oracle]
 - class-036: Relations MUST keep both endpoint multiplicities, trimmed, with absent values `none`; the optional LABEL MUST lose its leading colon and surrounding whitespace. [just parity]
 - class-037: Relation marker mapping MUST be aggregation=0, extension=1, composition=2, dependency=3, lollipop=4, absent=none; LINE MUST be solid and DOTTED_LINE MUST be dashed. [just parity]
-- class-038: A relation with exactly one lollipop end and no marker at the other end MUST create `interfaceN` at that end, where N is the zero-based interface insertion index, using the original endpoint as its label and the other class as its owner. [just parity]
+- class-038: A relation with exactly one lollipop end and no marker at the other end MUST create `interfaceN` at that end, where N is the smallest unused non-negative interface ordinal in insertion order, using the original endpoint as its label and the other class as its owner. [just parity]
 - class-039: A relation with any other marker pair MUST create both ordinary endpoint classes, including two lollipop markers. [just oracle]
-- class-040: A note MUST get id `noteN` with zero-based note insertion index; a note for an absent class MUST remain unattached and MUST NOT create that class. [just parity]
+- class-040: A note MUST get id `noteN` with the smallest unused non-negative note ordinal in insertion order; a note for an absent class MUST remain unattached and MUST NOT create that class. [just parity]
+    Generated note and interface ids MUST skip all class and qualified namespace ids in the document and all previously generated box ids, including declarations after the generated box.
 - class-041: Namespace resolution MUST prefix a nested namespace with the current qualified namespace and a dot; dotted segments MUST create missing ancestors with segment labels, ordered from root to leaf. [just parity]
 - class-042: An explicit namespace MUST mark its leaf explicit; redeclaration MUST retain its insertion index and replace its label only when the new label is nonempty. [just parity]
 - class-043: Namespace closure MUST assign direct class and note children to that namespace; a later assignment MUST replace the child's parent without changing its class id. [just parity]

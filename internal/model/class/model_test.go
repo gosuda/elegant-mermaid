@@ -8,6 +8,29 @@ import (
 	parser "github.com/gosuda/elegant-mermaid/internal/syntax/class"
 )
 
+func TestGeneratedIDsSkipDeclarations(t *testing.T) {
+	src := []byte("classDiagram\nnote \"first\"\nclass note0\nclass note1\nclass interface0\nA --() Port\nnote \"second\"\n")
+	f, ds := parser.Parse(src, nil)
+	if len(ds) != 0 {
+		t.Fatal(ds)
+	}
+	m, ds := model.Resolve(src, f)
+	if len(ds) != 0 {
+		t.Fatal(ds)
+	}
+	if m.Notes[0].ID != "note2" || m.Notes[1].ID != "note3" {
+		t.Fatal(m.Notes)
+	}
+	for _, c := range m.Classes {
+		if c.Interface && c.ID != "interface1" {
+			t.Fatal(c)
+		}
+	}
+	if len(m.Classes) != 5 {
+		t.Fatal(m.Classes)
+	}
+}
+
 func TestResolution(t *testing.T) {
 	src := []byte("classDiagram\nnamespace Outer.Inner {\nclass Box~T~[\"Container\"] {\n<<interface>>\n+String value\n+get(x)$ Result~T~\n}\n}\nBox <|-- Child : inherits\nnote for Box \"A note\"\n")
 	f, ds := parser.Parse(src, nil)

@@ -55,10 +55,13 @@ type resolver struct {
 	model      *Model
 	diags      []diag.Diagnostic
 	interfaces int
+	taken      map[string]bool
+	notes      int
 }
 
 func Resolve(_ []byte, file *syn.File) (*Model, []diag.Diagnostic) {
-	r := resolver{model: &Model{Direction: "TB"}}
+	r := resolver{model: &Model{Direction: "TB"}, taken: make(map[string]bool)}
+	r.reserve(file.Statements, "")
 	r.statements(file.Statements, "")
 	diag.Sort(r.diags)
 	return r.model, r.diags
@@ -202,7 +205,7 @@ func (r *resolver) note(n *syn.NoteStatement, parent string) {
 	if r.index(target) < 0 {
 		target = ""
 	}
-	r.model.Notes = append(r.model.Notes, Note{ID: fmt.Sprintf("note%d", len(r.model.Notes)), Target: target, Text: decodeEntities(n.Text), Parent: parent, Span: n.Span})
+	r.model.Notes = append(r.model.Notes, Note{ID: r.generatedID("note", &r.notes), Target: target, Text: decodeEntities(n.Text), Parent: parent, Span: n.Span})
 }
 
 func (r *resolver) member(i int, text string, span source.Span) {
@@ -259,8 +262,7 @@ func (r *resolver) relation(s *syn.RelationStatement) {
 }
 
 func (r *resolver) interfaceName(name, owner syn.ClassName) syn.ClassName {
-	id := fmt.Sprintf("interface%d", r.interfaces)
-	r.interfaces++
+	id := r.generatedID("interface", &r.interfaces)
 	label := name.Value
 	name.Value = id
 	i := r.ensure(name)
@@ -268,4 +270,40 @@ func (r *resolver) interfaceName(name, owner syn.ClassName) syn.ClassName {
 	r.model.Classes[i].Interface = true
 	r.model.Classes[i].Owner = owner.Value
 	return name
+}
+
+func (r *resolver) generatedID(prefix string, ordinal *int) string {
+	for {
+		id := fmt.Sprintf("%s%d", prefix, *ordinal)
+		*ordinal++
+		if !r.taken[id] {
+			r.taken[id] = true
+			return id
+		}
+	}
+}
+func (r *resolver) reserve(statements syn.Statements, parent string) {
+	for _, s := range statements {
+		switch {
+		case s.Class != nil:
+			r.taken[s.Class.Identifier.Name.Value] = true
+		case s.Member != nil:
+			r.taken[s.Member.Name.Value] = true
+		case s.Relation != nil:
+			r.taken[s.Relation.From.Value] = true
+			r.taken[s.Relation.To.Value] = true
+		case s.Namespace != nil:
+			id := s.Namespace.Identifier.Name.Value
+			if parent != "" {
+				id = parent + "." + id
+			}
+			prefix := ""
+			for part := range strings.SplitSeq(id, ".") {
+				prefix += part
+				r.taken[prefix] = true
+				prefix += "."
+			}
+			r.reserve(s.Namespace.Children, id)
+		}
+	}
 }
