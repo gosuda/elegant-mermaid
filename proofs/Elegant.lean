@@ -51,3 +51,5 @@ import Elegant.Layered.Pack
 import Elegant.Layered.Portfolio
 import Elegant.Layered.PipelineFacts
 import Elegant.Kinds.Flowchart
+import Elegant.Kinds.Class
+import Elegant.Kinds.ClassFacts

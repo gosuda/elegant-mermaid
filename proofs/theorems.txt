@@ -84,3 +84,12 @@ Elegant.Layered.PipelineImpl.layoutRecursive_ids
 Elegant.Layered.PipelineImpl.componentCandidate_shape
 Elegant.Layered.PipelineImpl.measuredGraph_shape
 Validator.c8_iff
+Elegant.Kinds.Class.tableOfChars_chars
+Elegant.Kinds.Class.classSize_spec
+Elegant.Kinds.Class.classSize_covers_rows
+Elegant.Kinds.Class.compartmentHeight_empty
+Elegant.Kinds.Class.tableHeight_ge
+Elegant.Kinds.Class.classPrimitives_inside
+Elegant.Kinds.Class.layout_spec
+Elegant.Kinds.Class.layout_ids
+Elegant.Kinds.Class.layout_valid_of_family

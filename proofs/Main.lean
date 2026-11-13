@@ -2,6 +2,7 @@ import ElegantGeometry
 import Elegant
 import ElegantGeometry.Eval
 import Elegant.Kinds.Flowchart
+import Elegant.Kinds.Class
 
 
 set_option autoImplicit false
@@ -67,6 +68,13 @@ def familyFailure : Elegant.LayoutFailure → IO UInt32
     IO.eprintln s!"layout error: model size {actual} exceeds limit {limit}"
     pure 1
 
+def kindLayout (m : Elegant.Model) :
+    Option (Except Elegant.LayoutFailure Elegant.Layered.FamilyResult) :=
+  match m.kind with
+  | "flowchart" => some (Elegant.Kinds.Flowchart.layout m)
+  | "class" => some (Elegant.Kinds.Class.layout m)
+  | _ => none
+
 def withModel (run : Elegant.Model → IO UInt32) : IO UInt32 := do
   let text ← readStdin
   match Elegant.readModel text with
@@ -74,14 +82,14 @@ def withModel (run : Elegant.Model → IO UInt32) : IO UInt32 := do
     IO.eprintln s!"malformed dump: {reason}"
     pure 2
   | .ok m =>
-    if m.kind != "flowchart" then do
+    if (kindLayout m).isNone then do
       IO.eprintln s!"unsupported diagram kind: {m.kind}"
       pure 1
     else run m
 
 def layoutMain : IO UInt32 :=
   withModel fun m =>
-    match Elegant.Kinds.Flowchart.layout m with
+    match (kindLayout m).getD (.error (.geometry .domain)) with
     | .error e => familyFailure e
     | .ok result => do
       layoutDiagnostic result.budgetExhausted
@@ -93,7 +101,7 @@ def cellModel (m : Elegant.Model) : Elegant.Model :=
 
 def textMain (charset : Elegant.Text.Charset) : IO UInt32 :=
   withModel fun m =>
-    match Elegant.Kinds.Flowchart.layout (cellModel m) with
+    match (kindLayout (cellModel m)).getD (.error (.geometry .domain)) with
     | .error e => familyFailure e
     | .ok result =>
       match Elegant.Text.render result.scene charset with

@@ -73,7 +73,7 @@ private def markerName (s : String) : Except String String :=
   if s == "none" || markers.any (fun m => m.name == s) then .ok s else .error "invalid marker"
 
 private def strokeName (s : String) : Except String String :=
-  if ["normal", "thick", "dotted", "dashed", "invisible"].contains s then .ok s
+  if ["normal", "solid", "thick", "dotted", "dashed", "invisible"].contains s then .ok s
   else .error "invalid stroke"
 
 private def readRoute (j : Lean.Json) : Except String ModelRoute := do
