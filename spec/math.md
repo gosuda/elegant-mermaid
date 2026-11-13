@@ -119,7 +119,7 @@ This file fixes the styled Markdown runs inside labels and the TeX subset that a
 ## Box model and constants
 
 - math-20: Each box MUST have integer `w` (width), `a` (ascent above the baseline), and `d` (descent below it), and a list of leaves: glyphs (codepoint, weight, size, shear flag), rules (rectangles), and paths (flattened point lists); a label's formula box MUST be the box of the whole formula. [just parity]
-- math-21: Each constant MUST be `round_half_up(v * em, 1000)` units, where `em = size_px * 64` for the formula's base size, 14 px for body and label and 16 px for title, and `v` is the per-1000 value of this table; scripts MUST use `script_scale` percent of the parent size; and every constant MUST live in this file and in the generated Go and Rust constants. [just gen-check]
+- math-21: Every constant of this table except `script_scale` and `bigop_scale` MUST be a length in units, `round_half_up(v * em, 1000)`, where `em = size_px * 64` for the formula's base size, 14 px for body and label and 16 px for title, and `v` is the constant's per-1000-em value. `script_scale` and `bigop_scale` MUST be dimensionless per-1000 factors. A script MUST have size `round_half_up(script_scale * parent_size, 1000)` units, where `script_scale` is stored as 700 and `parent_size` is the parent element's size in units. A big-operator glyph MUST have size `round_half_up(bigop_scale * em, 1000)` units, where `em` is the formula's base em. Every constant MUST live in this file and in the generated Go and Rust constants. [just gen-check]
 
     |Constant|Value (per 1000 em unless stated)|Use|
     |---|---|---|
@@ -129,11 +129,11 @@ This file fixes the styled Markdown runs inside labels and the TeX subset that a
     |`sup_shift`|360|superscript baseline above the base baseline|
     |`sub_shift`|150|subscript baseline below the base baseline|
     |`script_gap`|30|space before a script; also each side of a fraction bar beyond the wider of numerator and denominator|
-    |`script_scale`|700 (percent)|script size as a percent of the parent size|
+    |`script_scale`|700, dimensionless per-1000|script size = `round_half_up(script_scale * parent_size, 1000)`|
     |`rad_gap`|60|gap between the radicand box and the overbar|
     |`rad_sign_w`|600|width of the radical sign box|
     |`delim_w`|250|width of a delimiter box|
-    |`bigop_scale`|1400|size of the `\sum`, `\prod`, and `\int` glyphs relative to the body size|
+    |`bigop_scale`|1400, dimensionless per-1000|size of the `\sum`, `\prod`, and `\int` glyphs relative to the body size|
     |`bigop_gap`|100|gap between a big operator and its limits|
     |`binop_space`|222|space on each side of `\pm \times \div \cdot`|
     |`relop_space`|278|space on each side of `=` and of the relation commands|
