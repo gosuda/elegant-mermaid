@@ -28,9 +28,9 @@
 //!
 //! # Current implementation
 //!
-//! Parsing and rendering currently implement flowcharts. Detection preserves
-//! other registered kinds, but their syntax and semantic adapters are not yet
-//! implemented; attempting their layout returns `RenderError::InvalidConfig`.
+//! Parsing and rendering implement flowcharts, class diagrams, and state
+//! diagrams. Detection preserves other registered kinds; attempting their
+//! layout returns `RenderError::InvalidConfig`.
 //! Config text is checked against the shared mapping grammar; applying config
 //! keys to layout and paint awaits the shared config resolver. SVG path text
 //! awaits glyph outlines and is rejected by the existing SVG backend.

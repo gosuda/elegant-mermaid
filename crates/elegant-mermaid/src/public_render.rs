@@ -2,7 +2,7 @@ use crate::{
     Document, LayoutOptions, Profile, RenderError, Scene, Severity, SvgOptions, TextOptions,
 };
 
-/// Lay out a parsed flowchart with deterministic integer geometry.
+/// Lay out a parsed diagram with deterministic integer geometry.
 pub fn layout(document: &Document<'_>, options: &LayoutOptions) -> Result<Scene, RenderError> {
     if options.cancel.is_cancelled() {
         return Err(RenderError::Cancelled);
@@ -82,6 +82,7 @@ pub fn render_svg(document: &Document<'_>, options: &SvgOptions) -> Result<Strin
         .as_ref()
         .ok_or(RenderError::InvalidConfig { errors: 1 })?;
     let (title, description, kind) = model.accessibility();
+    let links = model.links();
     let text = match options.text {
         crate::TextMode::Font => crate::svg::TextMode::Font,
         crate::TextMode::Paths => crate::svg::TextMode::Paths,
@@ -99,7 +100,7 @@ pub fn render_svg(document: &Document<'_>, options: &SvgOptions) -> Result<Strin
             description,
             kind,
             font_family: "",
-            links: &[],
+            links: &links,
         },
     )
     .map_err(|error| match error {

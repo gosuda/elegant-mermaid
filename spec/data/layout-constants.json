@@ -1195,6 +1195,21 @@
     "cell": 0
   },
   {
+    "name": "state.fork_length",
+    "vector": 4480,
+    "cell": 1
+  },
+  {
+    "name": "state.fork_thickness",
+    "vector": 640,
+    "cell": 1
+  },
+  {
+    "name": "state.choice_size",
+    "vector": 1792,
+    "cell": 1
+  },
+  {
     "name": "requirement.padding_x",
     "vector": 1280,
     "cell": 3

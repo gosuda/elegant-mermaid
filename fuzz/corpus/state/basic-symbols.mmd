@@ -1,0 +1,20 @@
+stateDiagram-v2
+[*]
+root_start: ordinary start-name collision
+root_end: ordinary end-name collision
+[*] --> Ready: begin
+state "準備 é" as Ready: first: ignored
+Ready: second row
+state forkAngle <<fork>>
+state joinAngle <<join>>
+state choiceAngle <<choice>>
+state forkSquare [[fork]]
+state joinSquare [[join]]
+state choiceSquare [[choice]]
+Ready --> forkAngle
+forkAngle --> choiceSquare
+choiceSquare --> joinAngle: yes
+joinAngle --> [*]
+Ready --> Ready: again
+Ready --> Ready: duplicate
+state Ignored

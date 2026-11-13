@@ -3,6 +3,7 @@ pub mod config_value;
 pub mod detect;
 pub mod flowchart;
 pub mod preprocess;
+pub mod state;
 
 pub(crate) fn eol_len(b: &[u8], i: usize) -> usize {
     match b.get(i) {

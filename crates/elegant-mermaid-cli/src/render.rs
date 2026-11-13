@@ -56,8 +56,7 @@ fn prepare(
         }
     };
     stderr.push_str(&diagnostics::text(path, &parsed.source, &ds, false));
-    let (title, description, kind) = model.accessibility();
-    let output = match serialize(&scene, &o, title, description, kind, environment) {
+    let output = match serialize(&scene, &o, model, environment) {
         Ok(value) => value,
         Err(error) => {
             stderr.push_str(&format!("{error}\n"));
@@ -80,12 +79,12 @@ fn resolve_options(
 fn serialize(
     scene: &scene::Scene,
     o: &options::Options,
-    title: &str,
-    description: &str,
-    kind: &str,
+    model: &elegant_mermaid::model::Resolved,
     environment: &crate::view::Environment,
 ) -> Result<String, String> {
     if o.format == "svg" {
+        let (title, description, kind) = model.accessibility();
+        let links = model.links();
         let mut output = String::new();
         svg::write(
             &mut output,
@@ -96,6 +95,7 @@ fn serialize(
                 kind,
                 title,
                 description,
+                links: &links,
                 ..svg::Options::default()
             },
         )

@@ -17,6 +17,10 @@ pub const FAMILIES: &[Family] = &[
         kind: "class",
         layout: super::class::layout,
     },
+    Family {
+        kind: "state",
+        layout: super::state::layout,
+    },
 ];
 pub fn layout(
     input: &Input,
@@ -54,7 +58,7 @@ pub fn layout(
     for group in input
         .groups
         .iter()
-        .filter(|group| !group.direction.is_empty())
+        .filter(|group| input.kind == "flowchart" && !group.direction.is_empty())
     {
         let inside = |id: &str| {
             super::layered::clusters::ancestors(input, id)

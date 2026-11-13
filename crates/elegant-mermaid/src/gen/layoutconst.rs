@@ -816,11 +816,23 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 1,
     },
     Const {
+        name: "cell.state.choice_size",
+        value: 1,
+    },
+    Const {
         name: "cell.state.end_inner_size",
         value: 0,
     },
     Const {
         name: "cell.state.end_size",
+        value: 1,
+    },
+    Const {
+        name: "cell.state.fork_length",
+        value: 1,
+    },
+    Const {
+        name: "cell.state.fork_thickness",
         value: 1,
     },
     Const {
@@ -1824,12 +1836,24 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 768,
     },
     Const {
+        name: "vector.state.choice_size",
+        value: 1792,
+    },
+    Const {
         name: "vector.state.end_inner_size",
         value: 320,
     },
     Const {
         name: "vector.state.end_size",
         value: 896,
+    },
+    Const {
+        name: "vector.state.fork_length",
+        value: 4480,
+    },
+    Const {
+        name: "vector.state.fork_thickness",
+        value: 640,
     },
     Const {
         name: "vector.state.start_size",
