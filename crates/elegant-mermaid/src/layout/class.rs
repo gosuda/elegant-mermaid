@@ -103,7 +103,7 @@ pub fn from_class(
             orthogonal: true,
             marker_start: relation.marker_start.clone(),
             marker_end: relation.marker_end.clone(),
-            line: if relation.dashed { "dashed" } else { "solid" }.into(),
+            line: if relation.dashed { "dashed" } else { "normal" }.into(),
             min_length: 1,
         });
     }
@@ -326,6 +326,17 @@ fn table_items(
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    #[test]
+    fn class_default_stroke() {
+        let source = "classDiagram\nA --> B\nA ..> B\n";
+        let parsed = crate::syntax::class::parse(source, &[]);
+        assert!(parsed.diagnostics.is_empty());
+        let (model, diagnostics) = crate::model::class::resolve(source, &parsed.document);
+        assert!(diagnostics.is_empty());
+        let input = from_class(&model, Profile::Vector, DumpOptions::default()).unwrap();
+        assert_eq!(input.routes[0].line, "normal");
+        assert_eq!(input.routes[1].line, "dashed");
+    }
     #[test]
     fn class_compartment_size() {
         let rows = vec![

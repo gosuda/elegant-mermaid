@@ -47,7 +47,7 @@ func classRoutes(in *Input, m *model.Model) {
 	ids := allocateRouteIDs(in.Boxes, len(m.Relations)+len(m.Notes))
 	for i, r := range m.Relations {
 		id := ids[i]
-		in.Routes = append(in.Routes, Route{ID: id, From: r.From, To: r.To, Orthogonal: true, MarkerStart: r.MarkerStart, MarkerEnd: r.MarkerEnd, Line: r.Line})
+		in.Routes = append(in.Routes, Route{ID: id, From: r.From, To: r.To, Orthogonal: true, MarkerStart: r.MarkerStart, MarkerEnd: r.MarkerEnd, Line: classStroke(r.Line)})
 		if r.Label != "" {
 			in.Labels = append(in.Labels, Label{ID: id + ".label", Owner: id, Text: r.Label})
 		}
@@ -233,4 +233,11 @@ func compartmentPrimitive(rect geom.Rect, rows []string) *scene.Text {
 		lines[i] = []scene.Run{{Text: text}}
 	}
 	return &scene.Text{Rect: rect, Role: scene.TextRoleLabel, Size: 14, Align: scene.AlignStart, Style: "text", Lines: lines}
+}
+
+func classStroke(line string) string {
+	if line == "solid" {
+		return "normal"
+	}
+	return line
 }

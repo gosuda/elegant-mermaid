@@ -11,6 +11,24 @@ import (
 	parser "github.com/gosuda/elegant-mermaid/internal/syntax/class"
 )
 
+func TestClassDefaultStroke(t *testing.T) {
+	f, diagnostics := parser.Parse([]byte("classDiagram\nA --> B\nA ..> B\n"), nil)
+	if len(diagnostics) != 0 {
+		t.Fatal(diagnostics)
+	}
+	m, diagnostics := model.Resolve(nil, f)
+	if len(diagnostics) != 0 {
+		t.Fatal(diagnostics)
+	}
+	in, err := FromClass(m, scene.ProfileVector, scene.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if in.Routes[0].Line != "normal" || in.Routes[1].Line != "dashed" {
+		t.Fatal(in.Routes)
+	}
+}
+
 func TestClassSize(t *testing.T) {
 	size, err := ClassSize([][]string{{"Animal"}, {"+name", "+age"}, {}}, scene.ProfileCell)
 	if err != nil || size != (geom.Size{W: 10, H: 8}) {
