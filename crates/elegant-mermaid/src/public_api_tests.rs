@@ -12,7 +12,12 @@ fn public_source_ownership_and_positions() {
     );
     let repaired = parse_bytes(b"flowchart\nA[\xff]");
     assert_eq!(repaired.source(), "flowchart\nA[�]");
-    assert!(repaired.has_errors());
+    assert!(
+        repaired.has_errors(),
+        "{}; observed: {:?}",
+        "Invariant failed: repaired.has_errors()",
+        repaired.diagnostics()
+    );
     let diagnostic = repaired
         .diagnostics()
         .iter()
@@ -31,25 +36,43 @@ fn public_render_errors_and_cancellation() {
         .iter()
         .filter(|d| d.severity == Severity::Error)
         .count();
-    assert!(
-        matches!(layout(&document, &LayoutOptions::default()), Err(RenderError::InvalidDocument { errors }) if errors == count)
-    );
+    {
+        let observed = layout(&document, &LayoutOptions::default());
+        assert!(
+            matches!(&observed, Err(RenderError::InvalidDocument { errors }) if *errors == count),
+            "invalid document must report {count} errors; observed: {:?}",
+            observed
+        );
+    };
     let document = parse("flowchart\nA --> B");
     let mut options = LayoutOptions::default();
     options.limits.max_text_bytes = 1;
-    assert!(matches!(
-        layout(&document, &options),
-        Err(RenderError::TooLarge {
-            limit: 1,
-            actual: 2
-        })
-    ));
+    {
+        let observed = layout(&document, &options);
+        assert!(
+            matches!(
+                &observed,
+                Err(RenderError::TooLarge {
+                    limit: 1,
+                    actual: 2
+                })
+            ),
+            "{}; observed: {:?}",
+            "Invariant failed: matches!( layout(&document, &options), Err(RenderError::TooLarge { limit: 1, actual: 2 }) )",
+            observed
+        );
+    };
     options.cancel = Cancel::new();
     options.cancel.cancel();
-    assert!(matches!(
-        layout(&document, &options),
-        Err(RenderError::Cancelled)
-    ));
+    {
+        let observed = layout(&document, &options);
+        assert!(
+            matches!(&observed, Err(RenderError::Cancelled)),
+            "{}; observed: {:?}",
+            "Invariant failed: matches!( layout(&document, &options), Err(RenderError::Cancelled) )",
+            observed
+        );
+    };
 }
 
 #[test]
@@ -61,20 +84,44 @@ fn public_render_preserves_document_and_metadata() -> Result<(), RenderError> {
     let document = parse(source);
     let before = document.diagnostics().to_vec();
     let svg = render_svg(&document, &SvgOptions::default())?;
-    assert!(svg.contains(">Example</title>"));
-    assert!(svg.contains(">Two nodes</desc>"));
+    assert!(
+        svg.contains(">Example</title>"),
+        "{}; observed: {:?}",
+        "Invariant failed: svg.contains(\">Example</title>\")",
+        svg
+    );
+    assert!(
+        svg.contains(">Two nodes</desc>"),
+        "{}; observed: {:?}",
+        "Invariant failed: svg.contains(\">Two nodes</desc>\")",
+        svg
+    );
     let mut options = TextOptions::default();
     options.layout.profile = Profile::Vector;
     let text = render_text(&document, &options)?;
-    assert!(text.contains("Alpha"));
-    assert!(text.contains("Beta"));
+    assert!(
+        text.contains("Alpha"),
+        "{}; observed: {:?}",
+        "Invariant failed: text.contains(\"Alpha\")",
+        text
+    );
+    assert!(
+        text.contains("Beta"),
+        "{}; observed: {:?}",
+        "Invariant failed: text.contains(\"Beta\")",
+        text
+    );
     assert_eq!(document.source(), source);
     assert_eq!(document.diagnostics(), before);
-    assert!(
-        layout(&document, &LayoutOptions::default())?
-            .dump()
-            .contains("\"stage\":\"layout\"")
-    );
+    {
+        let observed = layout(&document, &LayoutOptions::default())?.dump();
+        assert!(
+            observed.contains("\"stage\":\"layout\""),
+            "{}; observed: {:?}",
+            "Invariant failed: layout(&document, &LayoutOptions::default())? .dump() .contains(\"\\\"stage\\\":\\\"layout\\\"\")",
+            observed
+        );
+    };
     Ok(())
 }
 
@@ -92,33 +139,53 @@ fn public_invalid_options_are_typed() {
             config: Some(config.into()),
             ..LayoutOptions::default()
         };
-        assert!(matches!(
-            layout(&document, &options),
-            Err(RenderError::InvalidConfig { errors: 1 })
-        ));
+        {
+            let observed = layout(&document, &options);
+            assert!(
+                matches!(&observed, Err(RenderError::InvalidConfig { errors: 1 })),
+                "{}; observed: {:?}",
+                "Invariant failed: matches!( layout(&document, &options), Err(RenderError::InvalidConfig { errors: 1 }) )",
+                observed
+            );
+        };
     }
     let mut options = SvgOptions {
         id_prefix: "1-invalid".into(),
         ..SvgOptions::default()
     };
-    assert!(matches!(
-        render_svg(&document, &options),
-        Err(RenderError::InvalidConfig { errors: 1 })
-    ));
+    {
+        let observed = render_svg(&document, &options);
+        assert!(
+            matches!(&observed, Err(RenderError::InvalidConfig { errors: 1 })),
+            "{}; observed: {:?}",
+            "Invariant failed: matches!( render_svg(&document, &options), Err(RenderError::InvalidConfig { errors: 1 }) )",
+            observed
+        );
+    };
     options.id_prefix.clear();
     options.text = TextMode::Paths;
-    assert!(matches!(
-        render_svg(&document, &options),
-        Err(RenderError::InvalidConfig { errors: 1 })
-    ));
+    {
+        let observed = render_svg(&document, &options);
+        assert!(
+            matches!(&observed, Err(RenderError::InvalidConfig { errors: 1 })),
+            "{}; observed: {:?}",
+            "Invariant failed: matches!( render_svg(&document, &options), Err(RenderError::InvalidConfig { errors: 1 }) )",
+            observed
+        );
+    };
 }
 
 #[test]
 fn public_text_budget_counts_resolved_labels_not_source() -> Result<(), RenderError> {
-    let mut options = LayoutOptions::default();
-    options.limits.max_text_bytes = 2;
     for profile in [Profile::Vector, Profile::Cell] {
-        options.profile = profile;
+        let options = LayoutOptions {
+            profile,
+            limits: Limits {
+                max_text_bytes: 2,
+                ..Limits::default()
+            },
+            ..LayoutOptions::default()
+        };
         let plain = layout(&parse("flowchart\nA[é]"), &options)?.dump();
         let metadata = "metadata".repeat(128);
         let source = format!(
@@ -130,43 +197,87 @@ fn public_text_budget_counts_resolved_labels_not_source() -> Result<(), RenderEr
             layout: options.clone(),
             ..SvgOptions::default()
         };
-        assert!(render_svg(&document, &svg)?.contains(&metadata));
+        {
+            let observed = render_svg(&document, &svg)?;
+            assert!(
+                observed.contains(&metadata),
+                "{}; observed: {:?}",
+                "Invariant failed: render_svg(&document, &svg)?.contains(&metadata)",
+                observed
+            );
+        };
         let text = TextOptions {
             layout: options.clone(),
             ..TextOptions::default()
         };
-        assert!(render_text(&document, &text)?.contains('é'));
-        options.limits.max_text_bytes = 1;
-        assert!(matches!(
-            layout(&document, &options),
-            Err(RenderError::TooLarge {
-                limit: 1,
-                actual: 2
-            })
-        ));
+        {
+            let observed = render_text(&document, &text)?;
+            assert!(
+                observed.contains('é'),
+                "resolved label must retain é; observed: {:?}",
+                observed
+            );
+        };
+        let options = LayoutOptions {
+            limits: Limits {
+                max_text_bytes: 1,
+                ..options.limits
+            },
+            ..options
+        };
+        {
+            let observed = layout(&document, &options);
+            assert!(
+                matches!(
+                    &observed,
+                    Err(RenderError::TooLarge {
+                        limit: 1,
+                        actual: 2
+                    })
+                ),
+                "{}; observed: {:?}",
+                "Invariant failed: matches!( layout(&document, &options), Err(RenderError::TooLarge { limit: 1, actual: 2 }) )",
+                observed
+            );
+        };
         let svg = SvgOptions {
             layout: options.clone(),
             ..SvgOptions::default()
         };
-        assert!(matches!(
-            render_svg(&document, &svg),
-            Err(RenderError::TooLarge {
-                limit: 1,
-                actual: 2
-            })
-        ));
+        {
+            let observed = render_svg(&document, &svg);
+            assert!(
+                matches!(
+                    &observed,
+                    Err(RenderError::TooLarge {
+                        limit: 1,
+                        actual: 2
+                    })
+                ),
+                "{}; observed: {:?}",
+                "Invariant failed: matches!( render_svg(&document, &svg), Err(RenderError::TooLarge { limit: 1, actual: 2 }) )",
+                observed
+            );
+        };
         let text = TextOptions {
             layout: options.clone(),
             ..TextOptions::default()
         };
-        assert!(matches!(
-            render_text(&document, &text),
-            Err(RenderError::TooLarge {
-                limit: 1,
-                actual: 2
-            })
-        ));
-        options.limits.max_text_bytes = 2;
+        {
+            let observed = render_text(&document, &text);
+            assert!(
+                matches!(
+                    &observed,
+                    Err(RenderError::TooLarge {
+                        limit: 1,
+                        actual: 2
+                    })
+                ),
+                "{}; observed: {:?}",
+                "Invariant failed: matches!( render_text(&document, &text), Err(RenderError::TooLarge { limit: 1, actual: 2 }) )",
+                observed
+            );
+        };
     }
     Ok(())
 }
@@ -176,15 +287,31 @@ fn public_text_budget_counts_displayed_fallback_ids() -> Result<(), RenderError>
     let document = parse("flowchart\nFallback");
     let mut options = LayoutOptions::default();
     options.limits.max_text_bytes = 8;
-    assert!(layout(&document, &options)?.dump().contains("\"Fallback\""));
+    {
+        let observed = layout(&document, &options)?.dump();
+        assert!(
+            observed.contains("\"Fallback\""),
+            "{}; observed: {:?}",
+            "Invariant failed: layout(&document, &options)?.dump().contains(\"\\\"Fallback\\\"\")",
+            observed
+        );
+    };
     options.limits.max_text_bytes = 7;
-    assert!(matches!(
-        layout(&document, &options),
-        Err(RenderError::TooLarge {
-            limit: 7,
-            actual: 8
-        })
-    ));
+    {
+        let observed = layout(&document, &options);
+        assert!(
+            matches!(
+                &observed,
+                Err(RenderError::TooLarge {
+                    limit: 7,
+                    actual: 8
+                })
+            ),
+            "{}; observed: {:?}",
+            "Invariant failed: matches!( layout(&document, &options), Err(RenderError::TooLarge { limit: 7, actual: 8 }) )",
+            observed
+        );
+    };
     Ok(())
 }
 
@@ -209,10 +336,15 @@ fn public_config_counts_duplicate_entries() {
         config: Some("a: 1\na: 2\nb: 1\nb: 2\n".into()),
         ..LayoutOptions::default()
     };
-    assert!(matches!(
-        layout(&document, &options),
-        Err(RenderError::InvalidConfig { errors: 2 })
-    ));
+    {
+        let observed = layout(&document, &options);
+        assert!(
+            matches!(&observed, Err(RenderError::InvalidConfig { errors: 2 })),
+            "{}; observed: {:?}",
+            "Invariant failed: matches!( layout(&document, &options), Err(RenderError::InvalidConfig { errors: 2 }) )",
+            observed
+        );
+    };
 }
 
 #[test]
@@ -224,14 +356,24 @@ fn public_source_renderers_observe_preexisting_cancellation() {
     let mut text = TextOptions::default();
     text.layout.cancel = cancel;
     for source in ["flowchart\nA[unfinished", "flowchart\nA[é]", ""] {
-        assert!(matches!(
-            render_svg_str(source, &svg),
-            Err(RenderError::Cancelled)
-        ));
-        assert!(matches!(
-            render_text_str(source, &text),
-            Err(RenderError::Cancelled)
-        ));
+        {
+            let observed = render_svg_str(source, &svg);
+            assert!(
+                matches!(&observed, Err(RenderError::Cancelled)),
+                "{}; observed: {:?}",
+                "Invariant failed: matches!( render_svg_str(source, &svg), Err(RenderError::Cancelled) )",
+                observed
+            );
+        };
+        {
+            let observed = render_text_str(source, &text);
+            assert!(
+                matches!(&observed, Err(RenderError::Cancelled)),
+                "{}; observed: {:?}",
+                "Invariant failed: matches!( render_text_str(source, &text), Err(RenderError::Cancelled) )",
+                observed
+            );
+        };
     }
 }
 

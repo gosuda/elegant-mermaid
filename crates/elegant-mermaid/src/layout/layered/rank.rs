@@ -316,7 +316,9 @@ mod tests {
             assert!(
                 g.edges
                     .iter()
-                    .all(|e| result.ranks[e.head] - result.ranks[e.tail] >= e.min_len)
+                    .all(|e| result.ranks[e.head] - result.ranks[e.tail] >= e.min_len),
+                "layered_rank_matches_exhaustive_oracle: input violates g.edges .iter() .all(|e| result.ranks[e.head] - result.ranks[e.tail] >= e.min_len); observed {:?}",
+                result.ranks
             );
             let mut best = i64::MAX;
             brute(&g, &mut vec![0; g.nodes.len()], 0, &mut best);

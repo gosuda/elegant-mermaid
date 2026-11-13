@@ -36,14 +36,26 @@ fn group_endpoint_aliases_and_title_gutters_work_in_every_direction() -> TestRes
                 Direction::Lr => point.x == frame.x + frame.w,
                 Direction::Rl => point.x == frame.x,
             };
-            assert!(leading(scene.routes()[0].points[0]));
-            assert!(trailing(
-                *scene.routes()[1].points.last().ok_or("route missing")?
-            ));
-            assert!(trailing(scene.routes()[2].points[0]));
-            assert!(leading(
-                *scene.routes()[3].points.last().ok_or("route missing")?
-            ));
+            assert!(
+                leading(scene.routes()[0].points[0]),
+                "{source:?}: {profile:?} {direction:?} group-to-member must leave leading boundary {frame:?}; routes={:?}",
+                scene.routes()
+            );
+            assert!(
+                trailing(*scene.routes()[1].points.last().ok_or("route missing")?),
+                "{source:?}: {profile:?} {direction:?} member-to-group must enter trailing boundary {frame:?}; routes={:?}",
+                scene.routes()
+            );
+            assert!(
+                trailing(scene.routes()[2].points[0]),
+                "{source:?}: {profile:?} {direction:?} group-to-external must leave trailing boundary {frame:?}; routes={:?}",
+                scene.routes()
+            );
+            assert!(
+                leading(*scene.routes()[3].points.last().ok_or("route missing")?),
+                "{source:?}: {profile:?} {direction:?} external-to-group must enter leading boundary {frame:?}; routes={:?}",
+                scene.routes()
+            );
             assert_eq!(scene.routes().len(), 5);
             assert_eq!(scene.boxes().iter().filter(|b| b.id == "S").count(), 1);
             if profile == Profile::Cell {
@@ -53,7 +65,11 @@ fn group_endpoint_aliases_and_title_gutters_work_in_every_direction() -> TestRes
                     "{direction:?}\n{}",
                     rendered.text
                 );
-                assert!(rendered.text.contains("Group title"));
+                assert!(
+                    rendered.text.contains("Group title"),
+                    "{source:?}: {direction:?} cell output must retain group title; text={:?}",
+                    rendered.text
+                );
             }
         }
     }
@@ -73,7 +89,8 @@ fn independent_contents_remain_upright_under_each_parent_direction() -> TestResu
         assert!(
             !diagnostics
                 .iter()
-                .any(|d| d.code == "flowchart/subgraph-direction-ignored")
+                .any(|d| d.code == "flowchart/subgraph-direction-ignored"),
+            "{source:?}: independent group direction must apply under {direction:?}; diagnostics={diagnostics:?}"
         );
         assert!(scene.check()?, "{direction:?}");
         let a = scene
@@ -88,7 +105,10 @@ fn independent_contents_remain_upright_under_each_parent_direction() -> TestResu
             .find(|b| b.id == "B")
             .ok_or("B missing")?
             .rect;
-        assert!(a.x < b.x);
+        assert!(
+            a.x < b.x,
+            "{source:?}: independent LR contents must remain left-to-right under {direction:?}; A={a:?}, B={b:?}"
+        );
         assert_eq!(a.y, b.y);
         assert_eq!(scene.routes().len(), 3);
         let rendered = cells::render(&scene, &cells::Options::default())?;
@@ -124,7 +144,8 @@ fn explicit_empty_group_title_is_not_replaced_by_its_id() -> TestResult {
         ""
     );
     assert!(
-        layout::modeldump::model_dump(&input).contains("\"exclusive\":false,\"direction\":\"\"")
+        layout::modeldump::model_dump(&input).contains("\"exclusive\":false,\"direction\":\"\""),
+        "{source:?}: empty-title group must retain nonexclusive undirected metadata; input={input:?}"
     );
     Ok(())
 }

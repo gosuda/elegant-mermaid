@@ -46,9 +46,13 @@ fn proxy_missing_rank_border() -> Result<(), super::LayoutError> {
         left: vec![2],
         right: vec![3],
     };
-    assert!(matches!(
-        clusters::ports(&[cluster], &mut proper, &mut [0; 4]),
-        Err(super::LayoutError::Domain)
-    ));
+    assert!(
+        matches!(
+            clusters::ports(&[cluster], &mut proper, &mut [0; 4]),
+            Err(super::LayoutError::Domain)
+        ),
+        "proxy_missing_rank_border: input violates matches!( clusters::ports(&[cluster], &mut proper, &mut [0; 4]), Err(super::LayoutError::Domain) ); observed {:?}",
+        proper
+    );
     Ok(())
 }

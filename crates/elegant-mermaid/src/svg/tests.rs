@@ -82,7 +82,11 @@ fn balance(s: &str) {
             stack.push(tag.split_whitespace().next().unwrap());
         }
     }
-    assert!(stack.is_empty());
+    assert!(
+        stack.is_empty(),
+        "balance: contract stack.is_empty() failed; observed stack={:?}",
+        stack
+    );
 }
 #[test]
 fn svg_golden() {
@@ -161,7 +165,8 @@ fn svg_markers() {
                 axis
             })
             .unwrap()
-            .contains(want)
+            .contains(want),
+            "svg markers: contract r.marker(&MarkerRefItem {{ marker: MarkerName::new(\"point\").unwrap(), at: Point {{ x: 640, y: 640 }}, axis }}) .unwrap() .contains(want) failed; observed predicate=false"
         );
     }
 }
@@ -174,7 +179,10 @@ fn svg_escaping_theme() {
         ..Options::default()
     };
     let a = output(&s, &o);
-    assert!(a.contains("&lt;&amp;&quot;&apos; &gt;�"));
+    assert!(
+        a.contains("&lt;&amp;&quot;&apos; &gt;�"),
+        "svg escaping theme: contract a.contains(\"&lt;&amp;&quot;&apos; &gt;�\") failed; observed predicate=false"
+    );
     let b = output(
         &s,
         &Options {
@@ -220,6 +228,9 @@ fn svg_invalid() {
             ..Options::default()
         },
     ] {
-        assert!(write(&mut String::new(), &sample(), &o).is_err());
+        assert!(
+            write(&mut String::new(), &sample(), &o).is_err(),
+            "svg invalid: contract write(&mut String::new(), &sample(), &o).is_err() failed; observed predicate=false"
+        );
     }
 }

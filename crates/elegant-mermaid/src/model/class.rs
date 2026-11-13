@@ -470,9 +470,16 @@ mod parity_tests {
     fn generated_ids_skip_declarations() {
         let source = "classDiagram\nnote \"first\"\nclass note0\nclass note1\nclass interface0\nA --() Port\nnote \"second\"\n";
         let parsed = crate::syntax::class::parse(source, &[]);
-        assert!(parsed.diagnostics.is_empty());
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "class source {source:?} produced syntax diagnostics: {:?}",
+            parsed.diagnostics
+        );
         let (model, diagnostics) = resolve(source, &parsed.document);
-        assert!(diagnostics.is_empty());
+        assert!(
+            diagnostics.is_empty(),
+            "class source {source:?} produced resolution diagnostics: {diagnostics:?}"
+        );
         assert_eq!(model.notes[0].id, "note2");
         assert_eq!(model.notes[1].id, "note3");
         assert_eq!(model.classes.len(), 5);
@@ -480,7 +487,9 @@ mod parity_tests {
             model
                 .classes
                 .iter()
-                .any(|class| class.id == "interface1" && !class.interface_owner.is_empty())
+                .any(|class| class.id == "interface1" && !class.interface_owner.is_empty()),
+            "class source {source:?} must allocate an owned interface1 after declared IDs; classes: {:?}",
+            model.classes
         );
     }
 
@@ -496,7 +505,10 @@ mod parity_tests {
         let source = "classDiagram\nclass A[\"First\nSecond\"]\n";
         let parsed = crate::syntax::class::parse(source, &[]);
         let (model, diagnostics) = resolve(source, &parsed.document);
-        assert!(diagnostics.is_empty());
+        assert!(
+            diagnostics.is_empty(),
+            "multiline class source {source:?} produced resolution diagnostics: {diagnostics:?}"
+        );
         assert_eq!(model.classes[0].rows()[0], ["First", "Second"]);
     }
 }

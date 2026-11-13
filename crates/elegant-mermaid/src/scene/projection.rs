@@ -132,14 +132,7 @@ mod tests {
         expected: Vec<Point>,
         markers: bool,
     ) -> Result<(Scene, Scene), Box<dyn std::error::Error>> {
-        let mut dump = Dump::new(
-            "flowchart",
-            DumpOptions {
-                profile: Profile::Cell,
-                ..DumpOptions::default()
-            },
-        );
-        for (id, rect) in [
+        let boxes = [
             (
                 "a",
                 Rect {
@@ -158,25 +151,36 @@ mod tests {
                     h: 3,
                 },
             ),
-        ] {
-            dump.boxes.push(SceneBox {
-                id: id.into(),
-                role: BoxRole::Node,
-                rect,
-                parent: String::new(),
-                exclusive: true,
-            });
-        }
-        dump.routes.push(SceneRoute {
-            id: "e".into(),
-            from: "a".into(),
-            to: "b".into(),
-            orthogonal: true,
-            points: points.clone(),
-            marker_start: "point".into(),
-            marker_end: "point".into(),
-            stroke: String::new(),
-        });
+        ]
+        .into_iter()
+        .map(|(id, rect)| SceneBox {
+            id: id.into(),
+            role: BoxRole::Node,
+            rect,
+            parent: String::new(),
+            exclusive: true,
+        })
+        .collect();
+        let dump = Dump {
+            boxes,
+            routes: vec![SceneRoute {
+                id: "e".into(),
+                from: "a".into(),
+                to: "b".into(),
+                orthogonal: true,
+                points: points.clone(),
+                marker_start: "point".into(),
+                marker_end: "point".into(),
+                stroke: String::new(),
+            }],
+            ..Dump::new(
+                "flowchart",
+                DumpOptions {
+                    profile: Profile::Cell,
+                    ..DumpOptions::default()
+                },
+            )
+        };
         let items = |p: Vec<Point>| -> Result<Vec<Item>, Box<dyn std::error::Error>> {
             let mut items = vec![Item::Polyline(PolylineItem {
                 shape: Shape::plain(ShapeStyle::Edge),
@@ -199,7 +203,10 @@ mod tests {
             dump.clone(),
             vec![Group::new(GroupRole::Edge, "e").with_items(items(points)?)],
         );
-        dump.routes.clear();
+        let dump = Dump {
+            routes: Vec::new(),
+            ..dump
+        };
         let oracle = Scene::new(
             Size { w: 12, h: 12 },
             dump,

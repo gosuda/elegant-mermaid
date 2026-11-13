@@ -64,23 +64,7 @@ impl Blocks<'_> {
             if group.is_some() {
                 self.order(&mut members, depth + 1)?;
             }
-            let (mut sum, mut count) = (0i64, 0i64);
-            for &v in &members {
-                for &w in &self.neighbours[v] {
-                    sum = sum
-                        .checked_add(self.positions[w])
-                        .ok_or(LayoutError::Overflow)?;
-                    count += 1;
-                }
-            }
-            if count == 0 {
-                for &v in &members {
-                    sum = sum
-                        .checked_add(self.positions[v])
-                        .ok_or(LayoutError::Overflow)?;
-                    count += 1;
-                }
-            }
+            let (sum, count) = self.barycentre(&members)?;
             let boundary = if group.is_none() {
                 self.boundary[members[0]]
             } else {
@@ -114,5 +98,26 @@ impl Blocks<'_> {
             }
         }
         Ok(())
+    }
+
+    fn barycentre(&self, members: &[usize]) -> Result<(i64, i64), LayoutError> {
+        let (mut sum, mut count) = (0i64, 0i64);
+        for &v in members {
+            for &w in &self.neighbours[v] {
+                sum = sum
+                    .checked_add(self.positions[w])
+                    .ok_or(LayoutError::Overflow)?;
+                count += 1;
+            }
+        }
+        if count == 0 {
+            for &v in members {
+                sum = sum
+                    .checked_add(self.positions[v])
+                    .ok_or(LayoutError::Overflow)?;
+                count += 1;
+            }
+        }
+        Ok((sum, count))
     }
 }

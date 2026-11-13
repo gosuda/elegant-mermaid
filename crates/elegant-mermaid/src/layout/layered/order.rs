@@ -47,39 +47,7 @@ pub fn order_compound(
     for layer in &mut declaration {
         g.constrain(layer, &[], &declaration_positions)?;
     }
-    match opts.start {
-        OrderStart::Declaration => {}
-        OrderStart::Reversed => {
-            for layer in &mut layers {
-                layer.reverse();
-            }
-        }
-        OrderStart::BreadthFirst => {
-            let mut discovery = vec![usize::MAX; p.nodes.len()];
-            let mut next = 0;
-            while next < p.nodes.len() {
-                let root = (0..p.nodes.len())
-                    .filter(|&v| discovery[v] == usize::MAX)
-                    .min_by_key(|&v| (next == 0 && !g.above[v].is_empty(), p.nodes[v].node.decl, v))
-                    .ok_or(LayoutError::Domain)?;
-                let mut queue = std::collections::VecDeque::from([root]);
-                discovery[root] = next;
-                next += 1;
-                while let Some(v) = queue.pop_front() {
-                    for &w in &g.below[v] {
-                        if discovery[w] == usize::MAX {
-                            discovery[w] = next;
-                            next += 1;
-                            queue.push_back(w);
-                        }
-                    }
-                }
-            }
-            for layer in &mut layers {
-                layer.sort_by_key(|&v| discovery[v]);
-            }
-        }
-    }
+    start_order(p, &g, &mut layers, opts.start)?;
     let initial = positions(&layers, p.nodes.len())?;
     for layer in &mut layers {
         g.constrain(layer, &[], &initial)?;
@@ -100,6 +68,57 @@ pub fn order_compound(
         constant("vector.sweep_max")?,
         constant("vector.sweep_stall")?,
     )
+}
+
+fn start_order(
+    p: &Proper,
+    g: &OrderGraph,
+    layers: &mut [Vec<usize>],
+    start: OrderStart,
+) -> Result<(), LayoutError> {
+    match start {
+        OrderStart::Declaration => {}
+        OrderStart::Reversed => {
+            for layer in layers {
+                layer.reverse();
+            }
+        }
+        OrderStart::BreadthFirst => {
+            let discovery = breadth_first_discovery(p, g)?;
+            for layer in layers {
+                layer.sort_by_key(|&v| discovery[v]);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn breadth_first_discovery(p: &Proper, g: &OrderGraph) -> Result<Vec<usize>, LayoutError> {
+    let mut discovery = vec![usize::MAX; p.nodes.len()];
+    let mut next = 0;
+    while next < p.nodes.len() {
+        let root = (0..p.nodes.len())
+            .filter(|&v| discovery[v] == usize::MAX)
+            .min_by_key(|&v| (next == 0 && !g.above[v].is_empty(), p.nodes[v].node.decl, v))
+            .ok_or(LayoutError::Domain)?;
+        discover_component(g, root, &mut discovery, &mut next);
+    }
+    Ok(discovery)
+}
+
+fn discover_component(g: &OrderGraph, root: usize, discovery: &mut [usize], next: &mut usize) {
+    let mut queue = std::collections::VecDeque::from([root]);
+    discovery[root] = *next;
+    *next += 1;
+    while let Some(v) = queue.pop_front() {
+        for &w in &g.below[v] {
+            if discovery[w] == usize::MAX {
+                discovery[w] = *next;
+                *next += 1;
+                queue.push_back(w);
+            }
+        }
+    }
 }
 fn constant(name: &str) -> Result<usize, LayoutError> {
     crate::r#gen::layoutconst::LAYOUT_CONST
@@ -536,7 +555,11 @@ mod tests {
             let (g, initial) = OrderGraph::prepare(&p).unwrap();
             let got = order(&p, OrderOptions::default()).unwrap();
             assert_eq!(got, order(&p, OrderOptions::default()).unwrap());
-            assert!(naive(&g, &got) <= naive(&g, &initial));
+            assert!(
+                naive(&g, &got) <= naive(&g, &initial),
+                "layered_order_random_properties: input violates naive(&g, &got) <= naive(&g, &initial); observed {:?}",
+                (initial, got)
+            );
             for (a, b) in initial.iter().zip(&got) {
                 let mut a = a.clone();
                 let mut b = b.clone();
@@ -546,7 +569,11 @@ mod tests {
             }
             let mut trial = initial.clone();
             let changed = g.transpose_pass(&mut trial).unwrap();
-            assert!(naive(&g, &trial) <= naive(&g, &initial));
+            assert!(
+                naive(&g, &trial) <= naive(&g, &initial),
+                "layered_order_random_properties: input violates naive(&g, &trial) <= naive(&g, &initial); observed {:?}",
+                (initial, trial)
+            );
             if !changed {
                 assert_eq!(trial, initial);
             }
@@ -640,7 +667,10 @@ mod tests {
         assert!(
             g.run(vec![vec![0, 1], vec![2, 3]], 1, 4)
                 .unwrap()
-                .budget_exhausted
+                .budget_exhausted,
+            "two crossing edges with one sweep must exhaust the budget; above={:?}, below={:?}",
+            g.above,
+            g.below
         );
         assert_eq!(compare((i64::MAX, 2), (1, 2)), Err(LayoutError::Overflow));
     }

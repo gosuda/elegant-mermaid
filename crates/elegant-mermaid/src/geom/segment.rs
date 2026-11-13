@@ -307,12 +307,30 @@ mod tests {
 
     #[test]
     fn is_orthogonal_hand_cases() {
-        assert!(is_orthogonal(&[]));
-        assert!(is_orthogonal(&[point(1, 2)]));
-        assert!(is_orthogonal(&[point(0, 0), point(0, 0)]));
-        assert!(is_orthogonal(&[point(0, 0), point(4, 0), point(4, 9)]));
-        assert!(!is_orthogonal(&[point(0, 0), point(4, 3)]));
-        assert!(!is_orthogonal(&[point(0, 0), point(1, 0), point(2, 1)]));
+        assert!(
+            is_orthogonal(&[]),
+            "empty polyline must be orthogonal: points=[]"
+        );
+        assert!(
+            is_orthogonal(&[point(1, 2)]),
+            "single-point polyline must be orthogonal: points=[(1,2)]"
+        );
+        assert!(
+            is_orthogonal(&[point(0, 0), point(0, 0)]),
+            "zero-length segment must be orthogonal: points=[(0,0),(0,0)]"
+        );
+        assert!(
+            is_orthogonal(&[point(0, 0), point(4, 0), point(4, 9)]),
+            "axis-aligned elbow must be orthogonal: points=[(0,0),(4,0),(4,9)]"
+        );
+        assert!(
+            !is_orthogonal(&[point(0, 0), point(4, 3)]),
+            "diagonal segment must not be orthogonal: points=[(0,0),(4,3)]"
+        );
+        assert!(
+            !is_orthogonal(&[point(0, 0), point(1, 0), point(2, 1)]),
+            "polyline containing diagonal must not be orthogonal: points=[(0,0),(1,0),(2,1)]"
+        );
     }
 
     #[test]

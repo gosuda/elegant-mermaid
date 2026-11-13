@@ -15,6 +15,25 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
         groups: Vec::new(),
         sizes: Vec::new(),
     };
+    append_nodes(&mut input, model);
+    append_groups(&mut input, model);
+    input.boxes.sort_by_key(|b| declaration(model, &b.id));
+    input.labels = input
+        .boxes
+        .iter()
+        .filter(|b| b.text != b.id)
+        .map(|b| Label {
+            id: format!("{}.label", b.id),
+            owner: b.id.clone(),
+            role: crate::scene::TextRole::Label,
+            text: b.text.clone(),
+        })
+        .collect();
+    append_routes(&mut input, model);
+    input
+}
+
+fn append_nodes(input: &mut Input, model: &Model) {
     for node in &model.nodes {
         if model.groups.iter().any(|g| g.id == node.id) {
             continue;
@@ -40,6 +59,9 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
             direction: String::new(),
         });
     }
+}
+
+fn append_groups(input: &mut Input, model: &Model) {
     for group in &model.groups {
         input.boxes.push(Box {
             id: group.id.clone(),
@@ -59,18 +81,9 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
             direction_span: group.direction_span,
         });
     }
-    input.boxes.sort_by_key(|b| declaration(model, &b.id));
-    input.labels = input
-        .boxes
-        .iter()
-        .filter(|b| b.text != b.id)
-        .map(|b| Label {
-            id: format!("{}.label", b.id),
-            owner: b.id.clone(),
-            role: crate::scene::TextRole::Label,
-            text: b.text.clone(),
-        })
-        .collect();
+}
+
+fn append_routes(input: &mut Input, model: &Model) {
     let mut blocked: Vec<_> = input
         .boxes
         .iter()
@@ -104,7 +117,6 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
             });
         }
     }
-    input
 }
 
 fn route_number(id: &str) -> Option<usize> {
@@ -160,7 +172,11 @@ mod tests {
                 .map(|b| b.direction.as_str())
                 .collect();
             assert_eq!(directions, [direction]);
-            assert!(model_dump(&input).contains(&format!("\"direction\":\"{direction}\"")));
+            assert!(
+                model_dump(&input).contains(&format!("\"direction\":\"{direction}\"")),
+                "indented_group_direction_is_explicit_not_inherited: input violates model_dump(&input).contains(&format!(\"\\\"direction\\\":\\\"{{direction}}\\\"\")); observed {:?}",
+                input
+            );
         }
         let input = build("flowchart LR\nsubgraph G\n A --> B\nend\n");
         let directions: Vec<&str> = input
@@ -300,7 +316,11 @@ mod tests {
             let mut input = build("flowchart\nsubgraph G\n direction LR\n A --> B\nend\n");
             input.direction = direction;
             let scene = crate::layout::families::layout(&input)?.0;
-            assert!(!scene.labels().iter().any(|label| label.owner == "G"));
+            assert!(
+                !scene.labels().iter().any(|label| label.owner == "G"),
+                "fallback_group_title_keeps_independent_content_geometry: input violates !scene.labels().iter().any(|label| label.owner == \"G\"); observed {:?}",
+                scene.dump()
+            );
             let group = scene
                 .items()
                 .iter()
@@ -321,10 +341,22 @@ mod tests {
                 .find(|b| b.id == "G")
                 .ok_or("missing group G frame")?
                 .rect;
-            assert!(crate::geom::contains(frame, title.rect)?);
+            assert!(
+                crate::geom::contains(frame, title.rect)?,
+                "fallback_group_title_keeps_independent_content_geometry: input violates crate::geom::contains(frame, title.rect)?; observed {:?}",
+                (frame, title.rect)
+            );
             for child in scene.boxes().iter().filter(|b| b.parent == "G") {
-                assert!(crate::geom::contains(frame, child.rect)?);
-                assert!(!crate::geom::intersects(title.rect, child.rect)?);
+                assert!(
+                    crate::geom::contains(frame, child.rect)?,
+                    "fallback_group_title_keeps_independent_content_geometry: input violates crate::geom::contains(frame, child.rect)?; observed {:?}",
+                    (frame, child.rect, title.rect)
+                );
+                assert!(
+                    !crate::geom::intersects(title.rect, child.rect)?,
+                    "fallback_group_title_keeps_independent_content_geometry: input violates !crate::geom::intersects(title.rect, child.rect)?; observed {:?}",
+                    (frame, child.rect, title.rect)
+                );
             }
         }
         Ok(())
@@ -407,7 +439,11 @@ mod tests {
         let mut paths = Vec::new();
         corpus_paths(&root, &mut paths)?;
         paths.sort();
-        assert!(!paths.is_empty());
+        assert!(
+            !paths.is_empty(),
+            "model_dump_corpus_relations: input violates !paths.is_empty(); observed {:?}",
+            paths
+        );
         for path in paths {
             let source = std::fs::read_to_string(path)?;
             let prep = crate::syntax::preprocess::preprocess(&source);
@@ -454,18 +490,26 @@ mod tests {
             input
                 .routes
                 .iter()
-                .all(|r| boxes.contains(&r.from) && boxes.contains(&r.to))
+                .all(|r| boxes.contains(&r.from) && boxes.contains(&r.to)),
+            "check_relations: input violates input .routes .iter() .all(|r| boxes.contains(&r.from) && boxes.contains(&r.to)); observed {:?}",
+            input
         );
         assert!(
             input
                 .labels
                 .iter()
-                .all(|l| boxes.contains(&l.owner) || routes.contains(&l.owner))
+                .all(|l| boxes.contains(&l.owner) || routes.contains(&l.owner)),
+            "check_relations: input violates input .labels .iter() .all(|l| boxes.contains(&l.owner) || routes.contains(&l.owner)); observed {:?}",
+            input
         );
         let first = model_dump(input);
         assert_eq!(first, model_dump(input));
         for key in ["canvas", "x", "y", "w", "h", "points"] {
-            assert!(!first.contains(&format!("\"{key}\":")));
+            assert!(
+                !first.contains(&format!("\"{key}\":")),
+                "check_relations: input violates !first.contains(&format!(\"\\\"{{key}}\\\":\")); observed {:?}",
+                first
+            );
         }
     }
 }

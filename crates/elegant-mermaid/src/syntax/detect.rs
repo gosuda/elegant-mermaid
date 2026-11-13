@@ -257,7 +257,11 @@ mod tests {
                     end: text.len()
                 }
             );
-            assert!(d.diagnostics.is_empty());
+            assert!(
+                d.diagnostics.is_empty(),
+                "header {text:?} produced diagnostics {:?}",
+                d.diagnostics
+            );
             let upper = text.to_ascii_uppercase();
             assert_eq!(
                 parsed(&upper).kind.map(DiagramKind::id),

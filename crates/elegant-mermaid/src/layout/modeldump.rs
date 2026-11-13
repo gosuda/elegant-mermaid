@@ -6,8 +6,7 @@ pub fn model_dump(input: &Input) -> String {
     let mut options = input.options.clone();
     options.profile = input.profile;
     options.direction = input.direction;
-    let mut dump = Dump::new(input.kind, options);
-    dump.boxes = input
+    let boxes = input
         .boxes
         .iter()
         .map(|b| SceneBox {
@@ -23,7 +22,7 @@ pub fn model_dump(input: &Input) -> String {
             exclusive: b.exclusive,
         })
         .collect();
-    dump.routes = input
+    let routes = input
         .routes
         .iter()
         .map(|r| SceneRoute {
@@ -41,7 +40,7 @@ pub fn model_dump(input: &Input) -> String {
             stroke: r.line.clone(),
         })
         .collect();
-    dump.labels = input
+    let labels = input
         .labels
         .iter()
         .map(|l| SceneLabel {
@@ -57,6 +56,12 @@ pub fn model_dump(input: &Input) -> String {
             lines: Vec::new(),
         })
         .collect();
+    let dump = Dump {
+        boxes,
+        routes,
+        labels,
+        ..Dump::new(input.kind, options)
+    };
     let directions: Vec<_> = input
         .boxes
         .iter()

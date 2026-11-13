@@ -60,9 +60,18 @@ fn rectangles_and_labels() {
             }),
             a
         );
-        assert!(c.put_label(1, 1, "界", 2, Token::Foreground));
-        assert!(!c.put_label(0, 1, "x", 1, Token::Foreground));
-        assert!(!c.put_label(2, 1, "x", 1, Token::Foreground));
+        assert!(
+            c.put_label(1, 1, "界", 2, Token::Foreground),
+            "rectangles and labels: contract c.put_label(1, 1, \"界\", 2, Token::Foreground) failed; observed predicate=false"
+        );
+        assert!(
+            !c.put_label(0, 1, "x", 1, Token::Foreground),
+            "rectangles and labels: contract !c.put_label(0, 1, \"x\", 1, Token::Foreground) failed; observed predicate=false"
+        );
+        assert!(
+            !c.put_label(2, 1, "x", 1, Token::Foreground),
+            "rectangles and labels: contract !c.put_label(2, 1, \"x\", 1, Token::Foreground) failed; observed predicate=false"
+        );
     }
 }
 fn dots(c: &Canvas) -> Vec<Point> {
@@ -209,7 +218,12 @@ fn stroke_connectivity() {
                 }
             }
         }
-        assert!(seen.contains(&b));
+        assert!(
+            seen.contains(&b),
+            "stroke connectivity: contract seen.contains(&b) failed; observed seen={:?}, b={:?}",
+            seen,
+            b
+        );
         assert_eq!(seen.len(), all.len());
     }
 }
@@ -251,7 +265,10 @@ fn junctions_and_bounds() {
             }),
         ""
     );
-    assert!(!c.put_label(4, 1, "界", 2, Token::Foreground));
+    assert!(
+        !c.put_label(4, 1, "界", 2, Token::Foreground),
+        "junctions and bounds: contract !c.put_label(4, 1, \"界\", 2, Token::Foreground) failed; observed predicate=false"
+    );
 }
 
 #[test]

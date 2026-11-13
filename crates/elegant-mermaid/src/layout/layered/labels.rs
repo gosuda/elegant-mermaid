@@ -51,22 +51,7 @@ pub fn stacks(input: &Input, lines: &[Vec<measure::Line<'_>>]) -> Result<Vec<Sta
                 .filter(|(_, label)| label.owner == route.id)
             {
                 let measured = lines.get(index).ok_or(LayoutError::Domain)?;
-                let width = measured.iter().map(|line| line.width).max().unwrap_or(0);
-                let height = narrow(
-                    i64::try_from(measured.len()).map_err(|_| LayoutError::Overflow)?
-                        * i64::from(super::pipeline::constant(input.profile, "line_h")),
-                )?;
-                let size = if matches!(input.direction, Direction::Lr | Direction::Rl) {
-                    Size {
-                        w: height,
-                        h: width,
-                    }
-                } else {
-                    Size {
-                        w: width,
-                        h: height,
-                    }
-                };
+                let size = label_size(input, measured)?;
                 let offset = narrow(
                     i64::from(stack.size.h)
                         + if stack.entries.is_empty() {
@@ -86,6 +71,27 @@ pub fn stacks(input: &Input, lines: &[Vec<measure::Line<'_>>]) -> Result<Vec<Sta
             Ok(stack)
         })
         .collect()
+}
+
+fn label_size(input: &Input, measured: &[measure::Line<'_>]) -> Result<Size, LayoutError> {
+    let width = measured.iter().map(|line| line.width).max().unwrap_or(0);
+    let height = narrow(
+        i64::try_from(measured.len()).map_err(|_| LayoutError::Overflow)?
+            * i64::from(super::pipeline::constant(input.profile, "line_h")),
+    )?;
+    Ok(
+        if matches!(input.direction, Direction::Lr | Direction::Rl) {
+            Size {
+                w: height,
+                h: width,
+            }
+        } else {
+            Size {
+                w: width,
+                h: height,
+            }
+        },
+    )
 }
 
 pub fn add_nodes(

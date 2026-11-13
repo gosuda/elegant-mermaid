@@ -454,10 +454,16 @@ mod tests {
             let mut rng = Xorshift32::new(case);
             let n = rng.i32_in(0, i32::MAX);
             let Ok(m) = isqrt(i64::from(n)) else {
-                unreachable!();
+                unreachable!("isqrt must accept nonnegative input: n={n}");
             };
-            assert!(m * m <= i64::from(n));
-            assert!((m + 1) * (m + 1) > i64::from(n));
+            assert!(
+                m * m <= i64::from(n),
+                "integer root square must not exceed input: n={n}, root={m}"
+            );
+            assert!(
+                (m + 1) * (m + 1) > i64::from(n),
+                "next integer square must exceed input: n={n}, root={m}"
+            );
         }
     }
 

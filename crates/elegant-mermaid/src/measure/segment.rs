@@ -373,8 +373,17 @@ mod tests {
             let clusters = segment(&text);
             let mut offset = 0usize;
             for cluster in &clusters {
-                assert!(!cluster.text.is_empty());
-                assert!(text[offset..].starts_with(cluster.text));
+                assert!(
+                    !cluster.text.is_empty(),
+                    "segment clusters are contiguous and non empty: contract !cluster.text.is_empty() failed; observed text={:?}",
+                    text
+                );
+                assert!(
+                    text[offset..].starts_with(cluster.text),
+                    "segment clusters are contiguous and non empty: contract text[offset..].starts_with(cluster.text) failed; observed text={:?}, offset={:?}",
+                    text,
+                    offset
+                );
                 offset += cluster.text.len();
             }
             assert_eq!(offset, text.len());

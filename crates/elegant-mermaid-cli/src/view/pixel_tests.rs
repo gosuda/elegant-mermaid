@@ -21,6 +21,7 @@ fn composite_samples_integer_nearest_neighbours() -> Result<(), String> {
         image: None,
         scheduler: SchedulerState::initial(),
         colour: false,
+        depth: mermaid::cells::ColorMode::Ansi16,
     };
     let pixels = composite(&viewer, &image)?;
     for x in 0..4 {

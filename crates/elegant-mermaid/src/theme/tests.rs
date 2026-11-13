@@ -41,7 +41,11 @@ fn theme_colour_arithmetic() {
     }
     assert_eq!(c("#aBc").hex(), "#aabbcc");
     for bad in ["", "fff", "#12", "#1234", "#ggg", "#12345z"] {
-        assert!(Colour::parse_hex(bad).is_err());
+        assert!(
+            Colour::parse_hex(bad).is_err(),
+            "invalid hex {bad:?} parsed as {:?}",
+            Colour::parse_hex(bad)
+        );
     }
     let blue = c("#3366cc");
     assert_eq!(darken(blue, 10).hex(), "#2952a3");
@@ -61,7 +65,11 @@ fn theme_colour_arithmetic() {
     assert_eq!(invert(c("#123456")).hex(), "#edcba9");
     assert_eq!(mk_border_dark(blue).hex(), "#8593ae");
     assert_eq!(mk_border_light(blue).hex(), "#52607b");
-    assert!(is_dark(c("#777777")));
+    assert!(
+        is_dark(c("#777777")),
+        "#777777 must be dark; luminance={}",
+        luminance(c("#777777"))
+    );
     assert_eq!(luminance(c("#8b8d98")), 17567);
 }
 #[test]
@@ -83,7 +91,12 @@ fn theme_roundtrip_and_contrast_oracle() {
             .max(colour.r.abs_diff(back.r))
             .max(colour.g.abs_diff(back.g))
             .max(colour.b.abs_diff(back.b));
-        assert!((luminance(colour) as f64 / 65535.0 - y(colour)).abs() < 0.00003);
+        assert!(
+            (luminance(colour) as f64 / 65535.0 - y(colour)).abs() < 0.00003,
+            "colour {colour:?}: integer luminance={}, oracle={}",
+            luminance(colour),
+            y(colour)
+        );
         for threshold in [30, 45] {
             let r = ratio(colour, invert(colour));
             if (r - f64::from(threshold) / 10.0).abs() > 0.01 {
@@ -121,7 +134,11 @@ fn theme_built_in_theme_contrast() {
                 let a = th.colour(token);
                 let b = th.colour(surface);
                 assert!(contrast(a, b, threshold), "{name} {token:?}");
-                assert!(ratio(a, b) >= f64::from(threshold) / 10.0);
+                assert!(
+                    ratio(a, b) >= f64::from(threshold) / 10.0,
+                    "theme {name} {token:?} on {surface:?}: colours {a:?}/{b:?}, ratio={}, threshold={threshold}",
+                    ratio(a, b)
+                );
             }
         }
     }
@@ -154,7 +171,11 @@ fn theme_generated_choices() {
         assert_eq!(th.series_text(row.series), choice);
         assert_eq!(th.series_text(row.series + 12), choice);
     }
-    assert!(matches!(resolve("missing"), Err(ThemeError::Unknown(_))));
+    assert!(
+        matches!(resolve("missing"), Err(ThemeError::Unknown(_))),
+        "missing theme must return Unknown; observed {:?}",
+        resolve("missing").err()
+    );
     assert_eq!(resolve("").unwrap().name(), "elegant-light");
 }
 
@@ -210,7 +231,11 @@ fn theme_hsl_float_oracle() {
         let d = hi - lo;
         let l = (hi + lo) / 2.0;
         let hsl = colour.to_hsl();
-        assert!((f64::from(hsl.l) - 100.0 * l).abs() <= 0.500001);
+        assert!(
+            (f64::from(hsl.l) - 100.0 * l).abs() <= 0.500001,
+            "colour {colour:?}: HSL {hsl:?}, oracle lightness={}",
+            100.0 * l
+        );
         if d == 0.0 {
             assert_eq!(hsl.s, 0);
             continue;
@@ -224,8 +249,15 @@ fn theme_hsl_float_oracle() {
             60.0 * ((r - g) / d + 4.0)
         };
         let error = (f64::from(hsl.h) - h).abs();
-        assert!(error.min(360.0 - error) <= 0.500001);
-        assert!((f64::from(hsl.s) - 100.0 * s).abs() <= 0.500001);
+        assert!(
+            error.min(360.0 - error) <= 0.500001,
+            "colour {colour:?}: HSL {hsl:?}, oracle hue={h}, circular error={error}"
+        );
+        assert!(
+            (f64::from(hsl.s) - 100.0 * s).abs() <= 0.500001,
+            "colour {colour:?}: HSL {hsl:?}, oracle saturation={}",
+            100.0 * s
+        );
     }
 }
 
@@ -250,7 +282,10 @@ fn theme_hsl_to_rgb_float_oracle() {
                 let expected = [r, g, b].map(|v| (v + light - chroma / 2.0) * 255.0);
                 let actual = hsl.to_colour();
                 for (got, want) in [actual.r, actual.g, actual.b].into_iter().zip(expected) {
-                    assert!((f64::from(got) - want).abs() <= 2.0);
+                    assert!(
+                        (f64::from(got) - want).abs() <= 2.0,
+                        "HSL {hsl:?}: RGB {actual:?}, observed channel={got}, oracle={want}"
+                    );
                 }
             }
         }

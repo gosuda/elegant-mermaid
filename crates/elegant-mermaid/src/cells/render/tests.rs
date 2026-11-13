@@ -209,10 +209,13 @@ fn cells_render_rejects_vector() {
         Dump::new("flowchart", DumpOptions::default()),
         vec![],
     );
-    assert!(matches!(
-        render(&s, &Options::default()),
-        Err(RenderError::Profile(_))
-    ));
+    assert!(
+        matches!(
+            render(&s, &Options::default()),
+            Err(RenderError::Profile(_))
+        ),
+        "cells render rejects vector: contract matches!( render(&s, &Options::default()), Err(RenderError::Profile(_)) ) failed; observed predicate=false"
+    );
 }
 
 #[test]
@@ -254,9 +257,20 @@ fn cells_render_properties() {
             },
         )
         .unwrap();
-        assert!(got.text.is_ascii());
+        assert!(
+            got.text.is_ascii(),
+            "cells render properties: contract got.text.is_ascii() failed; observed text={:?}, got.text={:?}",
+            got.text,
+            got.text
+        );
         assert_eq!(got.text.lines().count(), 4);
-        assert!(got.text.lines().all(|line| !line.ends_with(' ')));
+        assert!(
+            got.text.lines().all(|line| !line.ends_with(' ')),
+            "cells render properties: contract got.text.lines().all(|line| !line.ends_with(' ')) failed; observed text={:?}, lines={:?}, got.text={:?}",
+            got.text,
+            got.text.lines().collect::<Vec<_>>(),
+            got.text
+        );
     }
 }
 #[test]
@@ -265,7 +279,9 @@ fn cells_placement_alignment_and_occupancy() {
     canvas.put_symbol(0, 0, u32::from('●'));
     let mut t = match label(0, 0, 7, "界AB") {
         Item::Text(t) => t,
-        _ => unreachable!(),
+        _ => unreachable!(
+            "label(0, 0, 7, \"界AB\") must construct Item::Text; observed a non-Text variant"
+        ),
     };
     t.align = Align::Start;
     let theme = theme::resolve("").unwrap();
@@ -385,7 +401,12 @@ fn cells_path_commands_match_dot_geometry() {
         &Options::default(),
     )
     .unwrap();
-    assert!(got.text.contains('⠤'));
+    assert!(
+        got.text.contains('⠤'),
+        "cells path commands match dot geometry: contract got.text.contains('⠤') failed; observed text={:?}, got.text={:?}",
+        got.text,
+        got.text
+    );
     assert_eq!(got.text.lines().count(), 6);
 }
 

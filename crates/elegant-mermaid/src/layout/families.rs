@@ -248,11 +248,23 @@ mod tests {
                     ("C", "Done".into())
                 ]
             );
-            assert!(s.canvas().w > s.boxes()[2].rect.x + s.boxes()[2].rect.w);
-            assert!(s.canvas().h > s.boxes().iter().map(|b| b.rect.y + b.rect.h).max().unwrap());
+            assert!(
+                s.canvas().w > s.boxes()[2].rect.x + s.boxes()[2].rect.w,
+                "pipeline_demo_and_directions: input violates s.canvas().w > s.boxes()[2].rect.x + s.boxes()[2].rect.w; observed {:?}",
+                s.dump()
+            );
+            assert!(
+                s.canvas().h > s.boxes().iter().map(|b| b.rect.y + b.rect.h).max().unwrap(),
+                "pipeline_demo_and_directions: input violates s.canvas().h > s.boxes().iter().map(|b| b.rect.y + b.rect.h).max().unwrap(); observed {:?}",
+                s.dump()
+            );
             for direction in [Direction::Tb, Direction::Bt, Direction::Lr, Direction::Rl] {
                 model.direction = direction;
-                assert!(layout(&model).unwrap().0.check().unwrap());
+                assert!(
+                    layout(&model).unwrap().0.check().unwrap(),
+                    "pipeline_demo_and_directions: input violates layout(&model).unwrap().0.check().unwrap(); observed {:?}",
+                    model
+                );
             }
         }
     }

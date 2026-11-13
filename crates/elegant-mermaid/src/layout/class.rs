@@ -21,6 +21,25 @@ pub fn from_class(
         groups: Vec::new(),
         sizes: Vec::new(),
     };
+    append_classes(&mut input, model, profile)?;
+    append_notes(&mut input, model);
+    append_namespaces(&mut input, model);
+    input.labels = input
+        .boxes
+        .iter()
+        .filter(|node| node.text != node.id)
+        .map(|node| Label {
+            id: format!("{}.label", node.id),
+            owner: node.id.clone(),
+            role: TextRole::Label,
+            text: node.text.clone(),
+        })
+        .collect();
+    append_relations(&mut input, model);
+    Ok(input)
+}
+
+fn append_classes(input: &mut Input, model: &Model, profile: Profile) -> Result<(), GeomError> {
     for class in &model.classes {
         let rows = class.rows();
         let text = rows
@@ -45,6 +64,10 @@ pub fn from_class(
             direction: String::new(),
         });
     }
+    Ok(())
+}
+
+fn append_notes(input: &mut Input, model: &Model) {
     for note in &model.notes {
         input.sizes.push(Size { w: 0, h: 0 });
         input.boxes.push(Box {
@@ -57,6 +80,9 @@ pub fn from_class(
             direction: String::new(),
         });
     }
+}
+
+fn append_namespaces(input: &mut Input, model: &Model) {
     for namespace in &model.namespaces {
         input.boxes.push(Box {
             id: namespace.id.clone(),
@@ -74,17 +100,9 @@ pub fn from_class(
             direction_span: crate::source::Span { start: 0, end: 0 },
         });
     }
-    input.labels = input
-        .boxes
-        .iter()
-        .filter(|node| node.text != node.id)
-        .map(|node| Label {
-            id: format!("{}.label", node.id),
-            owner: node.id.clone(),
-            role: TextRole::Label,
-            text: node.text.clone(),
-        })
-        .collect();
+}
+
+fn append_relations(input: &mut Input, model: &Model) {
     let ids = route_ids(&input.boxes, model.relations.len() + model.notes.len());
     for (index, relation) in model.relations.iter().enumerate() {
         let id = ids[index].clone();
@@ -124,7 +142,6 @@ pub fn from_class(
             min_length: 1,
         });
     }
-    Ok(input)
 }
 
 fn route_ids(boxes: &[Box], count: usize) -> Vec<String> {
@@ -248,78 +265,115 @@ fn table_items(
     profile: Profile,
 ) -> Result<Vec<crate::scene::Item>, super::layered::LayoutError> {
     use crate::scene::*;
-    let mut items = vec![Item::Rect(RectItem {
+    struct TableItems {
+        items: Vec<Item>,
+        texts: Vec<Item>,
+        cell: bool,
+        line_height: i32,
+        separator: i32,
+        padding: i32,
+        y: i32,
+    }
+    impl TableItems {
+        fn append(
+            &mut self,
+            index: usize,
+            compartment: &str,
+            rect: crate::geom::Rect,
+        ) -> Result<(), super::layered::LayoutError> {
+            if index > 0 {
+                let right = rect
+                    .x
+                    .checked_add(rect.w - i32::from(self.cell))
+                    .ok_or(super::layered::LayoutError::Overflow)?;
+                self.items.push(Item::Polyline(PolylineItem {
+                    shape: Shape::plain(ShapeStyle::Rule),
+                    points: vec![
+                        crate::geom::Point {
+                            x: rect.x,
+                            y: self.y,
+                        },
+                        crate::geom::Point {
+                            x: right,
+                            y: self.y,
+                        },
+                    ],
+                    corner: 0,
+                }));
+                self.y = self
+                    .y
+                    .checked_add(self.separator)
+                    .ok_or(super::layered::LayoutError::Overflow)?;
+            }
+            let lines = if compartment.is_empty() {
+                Vec::new()
+            } else {
+                compartment
+                    .split('\n')
+                    .map(|line| vec![Run::plain(line)])
+                    .collect::<Vec<_>>()
+            };
+            let height = i32::try_from(lines.len().max(1))
+                .ok()
+                .and_then(|n| n.checked_mul(self.line_height))
+                .ok_or(super::layered::LayoutError::Overflow)?;
+            let x = rect
+                .x
+                .checked_add(self.padding)
+                .ok_or(super::layered::LayoutError::Overflow)?;
+            let width = rect
+                .w
+                .checked_sub(2 * self.padding)
+                .ok_or(super::layered::LayoutError::Overflow)?;
+            self.texts.push(Item::Text(TextItem {
+                rect: crate::geom::Rect {
+                    x,
+                    y: self.y,
+                    w: width,
+                    h: height,
+                },
+                role: TextRole::Label,
+                size: 14,
+                align: Align::Start,
+                style: TextStyle::Text,
+                series: 0,
+                lines,
+            }));
+            self.y = self
+                .y
+                .checked_add(height)
+                .ok_or(super::layered::LayoutError::Overflow)?;
+            Ok(())
+        }
+    }
+    let items = vec![Item::Rect(RectItem {
         shape: Shape::plain(ShapeStyle::Node),
         rect,
     })];
-    let mut texts = Vec::new();
+    let texts = Vec::new();
     let cell = profile == Profile::Cell;
     let line_height = if cell { 1 } else { 1280 };
     let separator =
         constant(profile, "separator").map_err(|_| super::layered::LayoutError::Domain)?;
     let padding = constant(profile, "padding").map_err(|_| super::layered::LayoutError::Domain)?;
-    let mut y = rect
+    let y = rect
         .y
         .checked_add(i32::from(cell))
         .ok_or(super::layered::LayoutError::Overflow)?;
+    let mut table = TableItems {
+        items,
+        texts,
+        cell,
+        line_height,
+        separator,
+        padding,
+        y,
+    };
     for (index, compartment) in text.split("\n\n").enumerate() {
-        if index > 0 {
-            let right = rect
-                .x
-                .checked_add(rect.w - i32::from(cell))
-                .ok_or(super::layered::LayoutError::Overflow)?;
-            items.push(Item::Polyline(PolylineItem {
-                shape: Shape::plain(ShapeStyle::Rule),
-                points: vec![
-                    crate::geom::Point { x: rect.x, y },
-                    crate::geom::Point { x: right, y },
-                ],
-                corner: 0,
-            }));
-            y = y
-                .checked_add(separator)
-                .ok_or(super::layered::LayoutError::Overflow)?;
-        }
-        let lines = if compartment.is_empty() {
-            Vec::new()
-        } else {
-            compartment
-                .split('\n')
-                .map(|line| vec![Run::plain(line)])
-                .collect::<Vec<_>>()
-        };
-        let height = i32::try_from(lines.len().max(1))
-            .ok()
-            .and_then(|n| n.checked_mul(line_height))
-            .ok_or(super::layered::LayoutError::Overflow)?;
-        let x = rect
-            .x
-            .checked_add(padding)
-            .ok_or(super::layered::LayoutError::Overflow)?;
-        let width = rect
-            .w
-            .checked_sub(2 * padding)
-            .ok_or(super::layered::LayoutError::Overflow)?;
-        texts.push(Item::Text(TextItem {
-            rect: crate::geom::Rect {
-                x,
-                y,
-                w: width,
-                h: height,
-            },
-            role: TextRole::Label,
-            size: 14,
-            align: Align::Start,
-            style: TextStyle::Text,
-            series: 0,
-            lines,
-        }));
-        y = y
-            .checked_add(height)
-            .ok_or(super::layered::LayoutError::Overflow)?;
+        table.append(index, compartment, rect)?;
     }
-    items.extend(texts);
-    Ok(items)
+    table.items.extend(table.texts);
+    Ok(table.items)
 }
 
 #[cfg(test)]
@@ -330,9 +384,17 @@ mod tests {
     fn class_default_stroke() {
         let source = "classDiagram\nA --> B\nA ..> B\n";
         let parsed = crate::syntax::class::parse(source, &[]);
-        assert!(parsed.diagnostics.is_empty());
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "class_default_stroke: input violates parsed.diagnostics.is_empty(); observed {:?}",
+            parsed.diagnostics
+        );
         let (model, diagnostics) = crate::model::class::resolve(source, &parsed.document);
-        assert!(diagnostics.is_empty());
+        assert!(
+            diagnostics.is_empty(),
+            "class_default_stroke: input violates diagnostics.is_empty(); observed {:?}",
+            diagnostics
+        );
         let input = from_class(&model, Profile::Vector, DumpOptions::default()).unwrap();
         assert_eq!(input.routes[0].line, "normal");
         assert_eq!(input.routes[1].line, "dashed");

@@ -10,6 +10,12 @@ use crate::{
     scene::*,
 };
 
+#[path = "pipeline/scene_items.rs"]
+mod scene_items;
+use scene_items::assemble;
+#[path = "pipeline/component_input.rs"]
+mod component_input;
+
 #[derive(Clone, Copy)]
 pub struct EdgeOptions<'a> {
     pub marker_start: Option<MarkerName>,
@@ -57,6 +63,47 @@ fn measured<'a>(
         params: Params::for_profile(p.as_str())?,
     };
     let mut lines = Vec::new();
+    measure_nodes(input, metric, &mut graph, &mut lines)?;
+    for (i, r) in input.routes.iter().enumerate() {
+        let tail = graph
+            .nodes
+            .iter()
+            .position(|n| n.id == r.from)
+            .ok_or(LayoutError::Domain)?;
+        let head = graph
+            .nodes
+            .iter()
+            .position(|n| n.id == r.to)
+            .ok_or(LayoutError::Domain)?;
+        graph.edges.push(Edge {
+            tail,
+            head,
+            min_len: edges[i]
+                .min_length
+                .max(if input.labels.iter().any(|l| l.owner == r.id) {
+                    2
+                } else {
+                    1
+                }),
+            decl: i32::try_from(i).map_err(|_| LayoutError::Overflow)?,
+            reversed: false,
+        });
+    }
+    if matches!(input.direction, Direction::Lr | Direction::Rl) {
+        for n in &mut graph.nodes {
+            std::mem::swap(&mut n.w, &mut n.h);
+        }
+    }
+    Ok((graph, lines))
+}
+
+fn measure_nodes<'a>(
+    input: &'a Input,
+    metric: Metric,
+    graph: &mut Graph,
+    lines: &mut Vec<Vec<measure::Line<'a>>>,
+) -> Result<(), LayoutError> {
+    let p = input.profile;
     for (i, b) in input.boxes.iter().enumerate() {
         let ls = measure::wrap(
             text(input, i),
@@ -111,37 +158,7 @@ fn measured<'a>(
         });
         lines.push(ls);
     }
-    for (i, r) in input.routes.iter().enumerate() {
-        let tail = graph
-            .nodes
-            .iter()
-            .position(|n| n.id == r.from)
-            .ok_or(LayoutError::Domain)?;
-        let head = graph
-            .nodes
-            .iter()
-            .position(|n| n.id == r.to)
-            .ok_or(LayoutError::Domain)?;
-        graph.edges.push(Edge {
-            tail,
-            head,
-            min_len: edges[i]
-                .min_length
-                .max(if input.labels.iter().any(|l| l.owner == r.id) {
-                    2
-                } else {
-                    1
-                }),
-            decl: i32::try_from(i).map_err(|_| LayoutError::Overflow)?,
-            reversed: false,
-        });
-    }
-    if matches!(input.direction, Direction::Lr | Direction::Rl) {
-        for n in &mut graph.nodes {
-            std::mem::swap(&mut n.w, &mut n.h);
-        }
-    }
-    Ok((graph, lines))
+    Ok(())
 }
 fn size_ports(
     proper: &mut super::graph::Proper,
@@ -224,40 +241,16 @@ pub(super) fn component_layout(
     measurements: &Measurements<'_, '_>,
     options: order::OrderOptions,
 ) -> Result<Component, LayoutError> {
-    let (mut ranked, mut clusters) = super::clusters::ranking(g, input);
-    if !clusters.is_empty() {
-        let reversed = cycles::break_cycles(&ranked)?;
-        for (edge, reversed) in ranked.edges.iter_mut().zip(reversed) {
-            edge.reversed = reversed;
-        }
-    }
-    let mut semantic = ranked.clone();
-    semantic.edges.retain(|edge| edge.decl != i32::MAX);
-    let ranks = rank::rank(&ranked)?;
-    let mut p = normalize::normalize(&semantic, &ranks.ranks)?;
-    let gutter = if input.profile == Profile::Cell {
-        g.params.slot
-    } else {
-        0
-    };
-    let label_nodes = super::labels::add_nodes(
-        &mut p,
-        super::labels::Measured {
-            graph: g,
-            stacks: &measurements.route_stacks,
-            gutter,
-        },
-    )?;
-    size_ports(&mut p, &mut semantic, input)?;
-    let (paths, boundary) = super::clusters::borders(
-        &mut p,
-        super::clusters::BorderInput {
-            graph: g,
-            input,
-            titles: &measurements.titles,
-        },
-        &mut clusters,
-    )?;
+    let component_input::Prepared {
+        semantic,
+        proper: mut p,
+        clusters,
+        label_nodes,
+        gutter,
+        paths,
+        boundary,
+        budget,
+    } = component_input::prepare(g, input, measurements)?;
     let ordered = order::order_compound(&p, options, &paths, &boundary)?;
     let sizes = edge_sizes(g, &measurements.route_stacks)?;
     let extents = super::loops::extents(g, &sizes)?;
@@ -297,6 +290,12 @@ pub(super) fn component_layout(
     )?;
     let (mut y, top) = coords::rank_coords(&p, &ordered.layers, &r)?;
     super::clusters::anchors(&clusters, &p, &ordered.layers, &top, &mut y)?;
+    let node_placement = super::labels::Placement {
+        proper: &p,
+        x: &x,
+        y: &y,
+        gutter,
+    };
     let (mut routes, _) = route::route_points(&drawn, &ordered.layers, &x, &y, &top, &r)?;
     let mut placed = super::labels::place(
         label_nodes,
@@ -308,18 +307,7 @@ pub(super) fn component_layout(
         },
         &measurements.route_stacks,
     )?;
-    let mut boxes: Vec<_> = g
-        .nodes
-        .iter()
-        .enumerate()
-        .map(|(i, _)| Rect {
-            x: x[i] - p.nodes[i].node.w / 2,
-            y: y[i],
-            w: p.nodes[i].node.w,
-            h: p.nodes[i].node.h,
-        })
-        .collect();
-    super::clusters::frames(&clusters, &p, &x, &y, &mut boxes)?;
+    let boxes = component_boxes(g, node_placement, &clusters)?;
     routes.truncate(g.edges.len());
     let reversed_labels = super::lanes::place(
         super::lanes::LanePlacement {
@@ -383,8 +371,31 @@ pub(super) fn component_layout(
         titles,
         loop_extents,
         label_reservations,
-        budget: ranks.budget_exhausted || ordered.budget_exhausted,
+        budget: budget || ordered.budget_exhausted,
     })
+}
+
+fn component_boxes(
+    g: &Graph,
+    placement: super::labels::Placement<'_>,
+    clusters: &[super::clusters::Cluster],
+) -> Result<Vec<Rect>, LayoutError> {
+    let super::labels::Placement {
+        proper: p, x, y, ..
+    } = placement;
+    let mut boxes: Vec<_> = g
+        .nodes
+        .iter()
+        .enumerate()
+        .map(|(i, _)| Rect {
+            x: x[i] - p.nodes[i].node.w / 2,
+            y: y[i],
+            w: p.nodes[i].node.w,
+            h: p.nodes[i].node.h,
+        })
+        .collect();
+    super::clusters::frames(clusters, p, x, y, &mut boxes)?;
+    Ok(boxes)
 }
 pub(super) fn bounds<'a>(
     boxes: impl IntoIterator<Item = &'a Rect>,
@@ -638,6 +649,35 @@ fn place_components(
     input: &Input,
     measurements: &Measurements<'_, '_>,
 ) -> Result<Vec<PackedComponent>, LayoutError> {
+    let (mut parts, sizes) = collect_components(graph, input, measurements)?;
+    let target = super::pack::target(
+        input.profile,
+        input.options.max_width,
+        parts.iter().flat_map(|part| part.layout.packing_rects()),
+        parts.iter().flat_map(|part| {
+            part.layout
+                .routes
+                .iter()
+                .map(|route| route.points.as_slice())
+        }),
+        &sizes,
+        graph.params.node_gap,
+    )?;
+    for (part, origin) in
+        parts
+            .iter_mut()
+            .zip(super::pack::shelves(&sizes, target, graph.params.node_gap)?)
+    {
+        part.origin = origin;
+    }
+    Ok(parts)
+}
+
+fn collect_components(
+    graph: &Graph,
+    input: &Input,
+    measurements: &Measurements<'_, '_>,
+) -> Result<(Vec<PackedComponent>, Vec<Size>), LayoutError> {
     let mut parts = Vec::new();
     let mut sizes = Vec::new();
     for members in rank::components(graph)? {
@@ -666,27 +706,7 @@ fn place_components(
             origin: Point { x: 0, y: 0 },
         });
     }
-    let target = super::pack::target(
-        input.profile,
-        input.options.max_width,
-        parts.iter().flat_map(|part| part.layout.packing_rects()),
-        parts.iter().flat_map(|part| {
-            part.layout
-                .routes
-                .iter()
-                .map(|route| route.points.as_slice())
-        }),
-        &sizes,
-        graph.params.node_gap,
-    )?;
-    for (part, origin) in
-        parts
-            .iter_mut()
-            .zip(super::pack::shelves(&sizes, target, graph.params.node_gap)?)
-    {
-        part.origin = origin;
-    }
-    Ok(parts)
+    Ok((parts, sizes))
 }
 
 struct DumpText<'a, 'text> {
@@ -906,85 +926,6 @@ fn normalized_input(input: &Input) -> Input {
     }
     out
 }
-fn assemble(
-    dump: &Dump,
-    placed_titles: &[(usize, Rect)],
-    lines: &[Vec<measure::Line<'_>>],
-    edges: &[EdgeOptions<'_>],
-) -> Vec<Group> {
-    let mut groups = Vec::new();
-    for (r, edge) in dump.routes.iter().zip(edges) {
-        groups.push(Group {
-            role: GroupRole::Edge,
-            owner: r.id.clone(),
-            items: {
-                let mut items = edge_items(r, edge, dump.options.profile);
-                for label in dump.labels.iter().filter(|l| l.owner == r.id) {
-                    items.push(Item::Text(TextItem {
-                        rect: label.rect,
-                        role: TextRole::Label,
-                        size: 14,
-                        align: Align::Middle,
-                        style: TextStyle::Text,
-                        series: 0,
-                        lines: label
-                            .lines
-                            .iter()
-                            .map(|line| vec![Run::plain(line)])
-                            .collect(),
-                    }));
-                }
-                items
-            },
-        });
-    }
-    for (i, b) in dump.boxes.iter().enumerate() {
-        let lh = constant(dump.options.profile, "line_h");
-        let height = lines[i].iter().fold(0, |height, _| height + lh);
-        let rect = Rect {
-            y: b.rect.y + (b.rect.h - height) / 2,
-            h: height,
-            ..b.rect
-        };
-        groups.push(Group {
-            role: if b.role == BoxRole::Group {
-                GroupRole::Group
-            } else {
-                GroupRole::Node
-            },
-            owner: b.id.clone(),
-            items: vec![
-                Item::Rect(RectItem {
-                    shape: Shape::plain(if b.role == BoxRole::Group {
-                        ShapeStyle::Group
-                    } else {
-                        ShapeStyle::Node
-                    }),
-                    rect: b.rect,
-                }),
-                Item::Text(TextItem {
-                    rect: placed_titles
-                        .iter()
-                        .find(|(index, _)| *index == i)
-                        .map_or(rect, |(_, rect)| *rect),
-                    role: TextRole::Label,
-                    size: 14,
-                    align: Align::Middle,
-                    style: TextStyle::Text,
-                    series: 0,
-                    lines: lines[i].iter().map(|l| vec![Run::plain(l.text)]).collect(),
-                }),
-            ],
-        });
-    }
-    groups.sort_by_key(|group| match group.role {
-        GroupRole::Group => 0,
-        GroupRole::Edge => 1,
-        GroupRole::Node => 2,
-        GroupRole::Decor => 3,
-    });
-    groups
-}
 
 fn orient_rect(rect: &mut Rect, direction: Direction, height: i32) {
     let mut position = point(
@@ -1008,103 +949,6 @@ fn orient_rect(rect: &mut Rect, direction: Direction, height: i32) {
     rect.y = position.y;
 }
 
-fn marker_axis(a: Point, b: Point) -> MarkerAxis {
-    let dx = i64::from(b.x) - i64::from(a.x);
-    let dy = i64::from(b.y) - i64::from(a.y);
-    match (dx.abs() >= dy.abs(), dx < 0, dy < 0) {
-        (true, true, _) => MarkerAxis::MinusX,
-        (true, false, _) => MarkerAxis::PlusX,
-        (false, _, true) => MarkerAxis::MinusY,
-        (false, _, false) => MarkerAxis::PlusY,
-    }
-}
-
-fn edge_items(route: &SceneRoute, edge: &EdgeOptions<'_>, profile: Profile) -> Vec<Item> {
-    if edge.stroke == "invisible" {
-        return Vec::new();
-    }
-    let mut shape = Shape::plain(ShapeStyle::Edge);
-    match edge.stroke {
-        "thick" => shape.width = Width::Emphasis,
-        "dotted" => shape.line = Line::Dotted,
-        "dashed" => shape.line = Line::Dashed,
-        _ => {}
-    }
-    let mut items = vec![Item::Polyline(PolylineItem {
-        shape,
-        points: route.points.clone(),
-        corner: constant(profile, "corner_radius"),
-    })];
-    if route.points.len() < 2 {
-        return items;
-    }
-    let end = route.points.len() - 1;
-    if let Some(marker) = edge.marker_start {
-        items.push(Item::MarkerRef(MarkerRefItem {
-            marker,
-            at: route.points[0],
-            axis: marker_axis(route.points[1], route.points[0]),
-        }));
-    }
-    if let Some(marker) = edge.marker_end {
-        items.push(Item::MarkerRef(MarkerRefItem {
-            marker,
-            at: route.points[end],
-            axis: marker_axis(route.points[end - 1], route.points[end]),
-        }));
-    }
-    items
-}
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn content_size_override_precedes_minimum_and_orientation() -> Result<(), LayoutError> {
-        let mut input = Input {
-            kind: "flowchart",
-            profile: Profile::Vector,
-            direction: Direction::Tb,
-            options: DumpOptions::default(),
-            boxes: Vec::new(),
-            routes: Vec::new(),
-            labels: Vec::new(),
-            groups: Vec::new(),
-            sizes: Vec::new(),
-        };
-        input.boxes.push(crate::layout::input::Box {
-            id: "A".into(),
-            role: BoxRole::Node,
-            shape: String::new(),
-            parent: String::new(),
-            exclusive: true,
-            text: "A".into(),
-            direction: String::new(),
-        });
-        input.sizes = vec![Size { w: 10000, h: 1 }];
-        input.direction = Direction::Lr;
-        let (graph, _) = measured(&input, &[])?;
-        assert_eq!(graph.nodes[0].w, constant(input.profile, "node_min_h"));
-        assert_eq!(graph.nodes[0].h, 10000);
-        input.sizes.clear();
-        let (default_graph, _) = measured(&input, &[])?;
-        input.sizes.push(Size { w: 0, h: 0 });
-        let (sentinel_graph, _) = measured(&input, &[])?;
-        assert_eq!(sentinel_graph.nodes, default_graph.nodes);
-        Ok(())
-    }
-    #[test]
-    fn pipeline_bounds_include_route_points() {
-        let boxes = [Rect {
-            x: 0,
-            y: 0,
-            w: 3,
-            h: 3,
-        }];
-        let routes = [route::EdgeRoute {
-            original: 0,
-            points: vec![Point { x: 8, y: 5 }],
-        }];
-        assert_eq!(bounds(&boxes, &routes), Ok((0, 0, 8, 5)));
-    }
-}
+#[path = "pipeline_tests.rs"]
+mod tests;

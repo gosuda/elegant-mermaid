@@ -148,6 +148,9 @@ mod tests {
         assert_eq!(Severity::Info.as_str(), "info");
         assert_eq!(FixSafety::Safe.as_str(), "safe");
         assert_eq!(FixSafety::Unsafe.as_str(), "unsafe");
-        assert!(FixSafety::Safe < FixSafety::Unsafe);
+        assert!(
+            FixSafety::Safe < FixSafety::Unsafe,
+            "wire names are fixed: contract FixSafety::Safe < FixSafety::Unsafe failed; observed predicate=false"
+        );
     }
 }

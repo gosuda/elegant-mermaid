@@ -312,7 +312,10 @@ mod tests {
                 b: 19
             })
         );
-        assert!(theme_rgb("no-such-theme", Token::Background).is_none());
+        assert!(
+            theme_rgb("no-such-theme", Token::Background).is_none(),
+            "theme lookup reads the generated table: contract theme_rgb(\"no-such-theme\", Token::Background).is_none() failed; observed predicate=false"
+        );
     }
 
     #[test]
@@ -473,8 +476,16 @@ mod tests {
         ];
         let mut out = String::new();
         write_row(&mut out, &row, ColorMode::Ansi256, "elegant-light");
-        assert!(out.starts_with(" \u{1b}[38;5;"));
-        assert!(out.ends_with("a\u{1b}[39m\n"));
+        assert!(
+            out.starts_with(" \u{1b}[38;5;"),
+            "spaces never change the colour and rows end at the default: contract out.starts_with(\" \\u{{1b}}[38;5;\") failed; observed out={:?}",
+            out
+        );
+        assert!(
+            out.ends_with("a\u{1b}[39m\n"),
+            "spaces never change the colour and rows end at the default: contract out.ends_with(\"a\\u{{1b}}[39m\\n\") failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -503,7 +514,11 @@ mod tests {
         let mut out = String::new();
         write_row(&mut out, &row, ColorMode::None, "elegant-light");
         assert_eq!(out, "ab\n");
-        assert!(!out.contains('\u{1b}'));
+        assert!(
+            !out.contains('\u{1b}'),
+            "colour mode none writes no escape bytes: contract !out.contains('\\u{{1b}}') failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]

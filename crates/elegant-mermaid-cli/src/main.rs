@@ -10,7 +10,7 @@ mod tui;
 mod view;
 
 use std::ffi::OsString;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 
 const USAGE: &str = "Usage: emd COMMAND [OPTIONS]\n  render   Render Mermaid as SVG, PNG, or terminal text\n  check    Check syntax and semantics without changing files\n  lint     Check lint rules and optionally apply fixes\n  view     Watch and display a diagram in the terminal\n  layout   Print canonical layout data\n  explain  Explain a diagnostic code\n";
 fn main() {
@@ -38,19 +38,33 @@ fn dispatch(args: &[OsString]) -> (String, String, i32) {
         .iter()
         .map(|s| s.to_string_lossy().into_owned())
         .collect();
+    let term = std::env::var("TERM").unwrap_or_default();
+    let colorterm = std::env::var("COLORTERM").unwrap_or_default();
+    let environment = view::Environment {
+        colorfgbg: std::env::var("COLORFGBG").unwrap_or_default(),
+        kitty_window_id: std::env::var("KITTY_WINDOW_ID").unwrap_or_default(),
+        term_program: std::env::var("TERM_PROGRAM").unwrap_or_default(),
+        auto_colour: options::colour_enabled("auto", std::io::stdout().is_terminal(), |name| {
+            if name == "TERM" {
+                term.clone()
+            } else {
+                std::env::var(name).unwrap_or_default()
+            }
+        }),
+        depth: if ["truecolor", "24bit"].contains(&colorterm.as_str()) {
+            elegant_mermaid::cells::ColorMode::Truecolor
+        } else if term.ends_with("256color") {
+            elegant_mermaid::cells::ColorMode::Ansi256
+        } else {
+            elegant_mermaid::cells::ColorMode::Ansi16
+        },
+        term,
+    };
     match command.as_ref() {
         "layout" => layout::run(&args[1..]),
-        "render" => render::run(&strings),
-        "check" => check::run(&strings),
-        "view" => view::run(
-            &strings,
-            &view::Environment {
-                colorfgbg: std::env::var("COLORFGBG").unwrap_or_default(),
-                kitty_window_id: std::env::var("KITTY_WINDOW_ID").unwrap_or_default(),
-                term: std::env::var("TERM").unwrap_or_default(),
-                term_program: std::env::var("TERM_PROGRAM").unwrap_or_default(),
-            },
-        ),
+        "render" => render::run(&strings, &environment),
+        "check" => check::run(&strings, &environment),
+        "view" => view::run(&strings, &environment),
         "kernel-eval" => match kernel_eval::eval_file(&args[1..]) {
             Ok(stdout) => (stdout, String::new(), 0),
             Err(failure) => (failure.stdout, format!("{}\n", failure.error.message()), 2),

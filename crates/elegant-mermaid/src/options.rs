@@ -152,8 +152,18 @@ mod tests {
         assert_eq!(options.theme, "elegant-light");
         assert_eq!(options.thoroughness, 3);
         assert_eq!(options.max_width, 0);
-        assert!(options.config.is_none());
-        assert!(!options.cancel.is_cancelled());
+        assert!(
+            options.config.is_none(),
+            "{}; observed: {:?}",
+            "Invariant failed: options.config.is_none()",
+            options
+        );
+        assert!(
+            !options.cancel.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: !options.cancel.is_cancelled()",
+            options
+        );
     }
 
     #[test]
@@ -183,29 +193,79 @@ mod tests {
     #[test]
     fn lint_config_default_is_empty() {
         let config = LintConfig::default();
-        assert!(config.select.is_empty());
-        assert!(config.ignore.is_empty());
-        assert!(config.severity.is_empty());
-        assert!(config.off.is_empty());
+        assert!(
+            config.select.is_empty(),
+            "{}; observed: {:?}",
+            "Invariant failed: config.select.is_empty()",
+            config
+        );
+        assert!(
+            config.ignore.is_empty(),
+            "{}; observed: {:?}",
+            "Invariant failed: config.ignore.is_empty()",
+            config
+        );
+        assert!(
+            config.severity.is_empty(),
+            "{}; observed: {:?}",
+            "Invariant failed: config.severity.is_empty()",
+            config
+        );
+        assert!(
+            config.off.is_empty(),
+            "{}; observed: {:?}",
+            "Invariant failed: config.off.is_empty()",
+            config
+        );
     }
 
     #[test]
     fn cancel_clones_share_one_flag() {
         let first = Cancel::new();
         let second = first.clone();
-        assert!(!first.is_cancelled());
-        assert!(!second.is_cancelled());
+        assert!(
+            !first.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: !first.is_cancelled()",
+            first
+        );
+        assert!(
+            !second.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: !second.is_cancelled()",
+            second
+        );
         second.cancel();
-        assert!(first.is_cancelled());
-        assert!(second.is_cancelled());
+        assert!(
+            first.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: first.is_cancelled()",
+            first
+        );
+        assert!(
+            second.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: second.is_cancelled()",
+            second
+        );
     }
 
     #[test]
     fn default_cancel_never_fires() {
         let cancel = Cancel::default();
-        assert!(!cancel.is_cancelled());
+        assert!(
+            !cancel.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: !cancel.is_cancelled()",
+            cancel
+        );
         cancel.cancel();
-        assert!(!cancel.is_cancelled());
+        assert!(
+            !cancel.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: !cancel.is_cancelled()",
+            cancel
+        );
     }
 
     #[test]
@@ -213,8 +273,18 @@ mod tests {
         let fired = Cancel::new();
         let quiet = Cancel::new();
         fired.cancel();
-        assert!(fired.is_cancelled());
-        assert!(!quiet.is_cancelled());
+        assert!(
+            fired.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: fired.is_cancelled()",
+            fired
+        );
+        assert!(
+            !quiet.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: !quiet.is_cancelled()",
+            quiet
+        );
     }
 
     #[test]
@@ -223,8 +293,18 @@ mod tests {
         let worker = cancel.clone();
         let handle = std::thread::spawn(move || worker.cancel());
         let joined = handle.join();
-        assert!(joined.is_ok());
-        assert!(cancel.is_cancelled());
+        assert!(
+            joined.is_ok(),
+            "{}; observed: {:?}",
+            "Invariant failed: joined.is_ok()",
+            joined
+        );
+        assert!(
+            cancel.is_cancelled(),
+            "{}; observed: {:?}",
+            "Invariant failed: cancel.is_cancelled()",
+            cancel
+        );
     }
 
     #[test]

@@ -99,33 +99,7 @@ pub(super) fn score(
                 .checked_add(route_crossings(route, other)?)
                 .ok_or(LayoutError::Overflow)?;
         }
-        let from = geometry
-            .boxes
-            .iter()
-            .find(|item| item.id == route.from)
-            .ok_or(LayoutError::Domain)?
-            .rect;
-        let to = geometry
-            .boxes
-            .iter()
-            .find(|item| item.id == route.to)
-            .ok_or(LayoutError::Domain)?
-            .rect;
-        let (a, b) = match input.direction {
-            Direction::Tb | Direction::Bt => (
-                2 * i64::from(from.y) + i64::from(from.h),
-                2 * i64::from(to.y) + i64::from(to.h),
-            ),
-            Direction::Lr | Direction::Rl => (
-                2 * i64::from(from.x) + i64::from(from.w),
-                2 * i64::from(to.x) + i64::from(to.w),
-            ),
-        };
-        let delta = if matches!(input.direction, Direction::Bt | Direction::Rl) {
-            a - b
-        } else {
-            b - a
-        };
+        let delta = flow_delta(&geometry, route, input.direction)?;
         if delta < 0 {
             against += 1;
         }
@@ -144,6 +118,41 @@ pub(super) fn score(
     .map_err(|_| LayoutError::Overflow)
 }
 
+fn flow_delta(
+    geometry: &Geometry<'_>,
+    route: &PlacedRoute<'_>,
+    direction: Direction,
+) -> Result<i64, LayoutError> {
+    let from = geometry
+        .boxes
+        .iter()
+        .find(|item| item.id == route.from)
+        .ok_or(LayoutError::Domain)?
+        .rect;
+    let to = geometry
+        .boxes
+        .iter()
+        .find(|item| item.id == route.to)
+        .ok_or(LayoutError::Domain)?
+        .rect;
+    let (a, b) = match direction {
+        Direction::Tb | Direction::Bt => (
+            2 * i64::from(from.y) + i64::from(from.h),
+            2 * i64::from(to.y) + i64::from(to.h),
+        ),
+        Direction::Lr | Direction::Rl => (
+            2 * i64::from(from.x) + i64::from(from.w),
+            2 * i64::from(to.x) + i64::from(to.w),
+        ),
+    };
+    let delta = if matches!(direction, Direction::Bt | Direction::Rl) {
+        a - b
+    } else {
+        b - a
+    };
+    Ok(delta)
+}
+
 fn expand<'a>(
     graph: &'a Graph,
     input: &'a Input,
@@ -154,37 +163,37 @@ fn expand<'a>(
         direction: input.direction,
         offset: Point { x: 0, y: 0 },
     };
-    let mut geometry = Geometry {
-        boxes: Vec::new(),
-        routes: Vec::new(),
-        labels: Vec::new(),
-    };
-    for (node, rect) in graph.nodes.iter().zip(&part.boxes) {
-        let model = input
-            .boxes
-            .get(usize::try_from(node.decl).map_err(|_| LayoutError::Domain)?)
-            .ok_or(LayoutError::Domain)?;
-        geometry.boxes.push(PlacedBox {
-            id: &node.id,
-            role: model.role,
-            rect: transform.rect(*rect)?,
-        });
-    }
-    for (edge, route) in graph
+    let boxes = graph
+        .nodes
+        .iter()
+        .zip(&part.boxes)
+        .map(|(node, rect)| {
+            let model = input
+                .boxes
+                .get(usize::try_from(node.decl).map_err(|_| LayoutError::Domain)?)
+                .ok_or(LayoutError::Domain)?;
+            Ok(PlacedBox {
+                id: node.id.as_str(),
+                role: model.role,
+                rect: transform.rect(*rect)?,
+            })
+        })
+        .collect::<Result<Vec<_>, LayoutError>>()?;
+    let routes = graph
         .edges
         .iter()
         .zip(&part.routes)
         .filter(|(edge, _)| edge.decl != i32::MAX)
-    {
-        geometry.routes.push(PlacedRoute {
-            from: &graph.nodes[edge.tail].id,
-            to: &graph.nodes[edge.head].id,
-            points: &route.points,
+        .map(|(edge, route)| PlacedRoute {
+            from: graph.nodes[edge.tail].id.as_str(),
+            to: graph.nodes[edge.head].id.as_str(),
+            points: route.points.as_slice(),
             transform,
-        });
-    }
+        })
+        .collect();
+    let mut labels = Vec::new();
     for (_, rect) in &part.labels {
-        geometry.labels.push(transform.rect(*rect)?);
+        labels.push(transform.rect(*rect)?);
     }
     for (node, rect) in &part.titles {
         if input
@@ -192,9 +201,26 @@ fn expand<'a>(
             .iter()
             .any(|label| label.owner == graph.nodes[*node].id)
         {
-            geometry.labels.push(transform.rect(*rect)?);
+            labels.push(transform.rect(*rect)?);
         }
     }
+    let mut geometry = Geometry {
+        boxes,
+        routes,
+        labels,
+    };
+    expand_fixed(&mut geometry, graph, input, measurements, part, transform)?;
+    Ok(geometry)
+}
+
+fn expand_fixed<'a>(
+    geometry: &mut Geometry<'a>,
+    graph: &'a Graph,
+    input: &'a Input,
+    measurements: &'a Measurements<'_, '_>,
+    part: &'a Component,
+    transform: Transform,
+) -> Result<(), LayoutError> {
     let pad = super::pipeline::constant(input.profile, "cluster_pad");
     for fixed in measurements.fixed {
         let Some(index) = graph.nodes.iter().position(|node| node.id == fixed.id) else {
@@ -232,7 +258,7 @@ fn expand<'a>(
             geometry.labels.push(child_transform.rect(label.rect)?);
         }
     }
-    Ok(geometry)
+    Ok(())
 }
 
 fn route_stats(points: &[Point]) -> Result<(i64, i64), LayoutError> {

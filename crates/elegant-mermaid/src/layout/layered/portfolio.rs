@@ -11,7 +11,7 @@ pub(super) fn layout(
     input: &Input,
     measurements: &Measurements<'_, '_>,
 ) -> Result<Component, LayoutError> {
-    let mut best = pipeline::component_layout(g, input, measurements, OrderOptions::default())?;
+    let best = pipeline::component_layout(g, input, measurements, OrderOptions::default())?;
     let count = u8::try_from(super::pipeline::constant(input.profile, "portfolio_max"))
         .map_err(|_| LayoutError::Domain)?
         .min(input.options.thoroughness);
@@ -32,32 +32,26 @@ pub(super) fn layout(
     if numerator <= 0 || denominator <= 0 {
         return Err(LayoutError::Domain);
     }
+    select_candidate(
+        g,
+        input,
+        measurements,
+        best,
+        (count, numerator, denominator),
+    )
+}
+
+fn select_candidate(
+    g: &Graph,
+    input: &Input,
+    measurements: &Measurements<'_, '_>,
+    mut best: Component,
+    selection: (u8, i64, i64),
+) -> Result<Component, LayoutError> {
+    let (count, numerator, denominator) = selection;
     let mut score = super::cost::score(g, input, measurements, &best)?;
     for index in 2..=count {
-        let mut graph;
-        let candidate_graph = if index == 3 {
-            graph = g.clone();
-            greedy(&mut graph);
-            &graph
-        } else {
-            g
-        };
-        let options = match index {
-            2 => OrderOptions {
-                start: OrderStart::BreadthFirst,
-                key: OrderKey::Barycentre,
-            },
-            3 => OrderOptions::default(),
-            4 => OrderOptions {
-                start: OrderStart::Declaration,
-                key: OrderKey::Median,
-            },
-            _ => OrderOptions {
-                start: OrderStart::Reversed,
-                key: OrderKey::Barycentre,
-            },
-        };
-        let candidate = pipeline::component_layout(candidate_graph, input, measurements, options)?;
+        let candidate = portfolio_candidate(g, input, measurements, index)?;
         let next = super::cost::score(g, input, measurements, &candidate)?;
         let weighted_new = next.checked_mul(denominator).ok_or(LayoutError::Overflow)?;
         let weighted_best = score.checked_mul(numerator).ok_or(LayoutError::Overflow)?;
@@ -67,6 +61,38 @@ pub(super) fn layout(
         }
     }
     Ok(best)
+}
+
+fn portfolio_candidate(
+    g: &Graph,
+    input: &Input,
+    measurements: &Measurements<'_, '_>,
+    index: u8,
+) -> Result<Component, LayoutError> {
+    let mut graph;
+    let candidate_graph = if index == 3 {
+        graph = g.clone();
+        greedy(&mut graph);
+        &graph
+    } else {
+        g
+    };
+    let options = match index {
+        2 => OrderOptions {
+            start: OrderStart::BreadthFirst,
+            key: OrderKey::Barycentre,
+        },
+        3 => OrderOptions::default(),
+        4 => OrderOptions {
+            start: OrderStart::Declaration,
+            key: OrderKey::Median,
+        },
+        _ => OrderOptions {
+            start: OrderStart::Reversed,
+            key: OrderKey::Barycentre,
+        },
+    };
+    pipeline::component_layout(candidate_graph, input, measurements, options)
 }
 
 fn greedy(g: &mut Graph) {

@@ -7,7 +7,11 @@ fn flowchart_demo_model() {
     let parsed = parse(source, &[]);
     assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
     let (model, diagnostics) = resolve(source, &parsed.document);
-    assert!(diagnostics.is_empty());
+    assert!(
+        diagnostics.is_empty(),
+        "expected diagnostics.is_empty(); observed diagnostics={:?}",
+        diagnostics
+    );
     assert_eq!(model.direction, "LR");
     assert_eq!(
         model
@@ -61,7 +65,11 @@ fn flowchart_unclosed_bracket() {
     );
     assert_eq!(parsed.diagnostics[0].fixes[0].edits[0].new_text, "]");
     let (model, diagnostics) = resolve(source, &parsed.document);
-    assert!(diagnostics.is_empty());
+    assert!(
+        diagnostics.is_empty(),
+        "expected diagnostics.is_empty(); observed diagnostics={:?}",
+        diagnostics
+    );
     assert_eq!(
         model
             .nodes
@@ -71,7 +79,11 @@ fn flowchart_unclosed_bracket() {
         ["A"]
     );
     assert_eq!(model.nodes[0].label, "Start --> B");
-    assert!(model.edges.is_empty());
+    assert!(
+        model.edges.is_empty(),
+        "expected model.edges.is_empty(); observed model.edges={:?}",
+        model.edges
+    );
 }
 
 #[test]
@@ -91,19 +103,27 @@ fn flowchart_statement_recovery() {
         parsed
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "flowchart/end-without-subgraph")
+            .any(|diagnostic| diagnostic.code == "flowchart/end-without-subgraph"),
+        "expected parsed .diagnostics .iter() .any(|diagnostic| diagnostic.code == \"flowchart/end-without-subgraph\"); observed parsed.diagnostics={:?}",
+        parsed.diagnostics
     );
 }
 
 #[test]
 fn flowchart_recovery_makes_progress() {
     let parsed = parse(";@@", &[]);
-    assert!(!parsed.diagnostics.is_empty());
+    assert!(
+        !parsed.diagnostics.is_empty(),
+        "expected !parsed.diagnostics.is_empty(); observed parsed.diagnostics={:?}",
+        parsed.diagnostics
+    );
     assert!(
         parsed
             .diagnostics
             .iter()
-            .all(|diagnostic| diagnostic.span.end <= 3)
+            .all(|diagnostic| diagnostic.span.end <= 3),
+        "expected parsed .diagnostics .iter() .all(|diagnostic| diagnostic.span.end <= 3); observed parsed.diagnostics={:?}",
+        parsed.diagnostics
     );
 }
 
@@ -204,7 +224,12 @@ fn flowchart_edge_markers() {
             "{link}"
         );
     }
-    assert!(!parse("flowchart LR\nA <-- B\n", &[]).diagnostics.is_empty());
+    let diagnostics = parse("flowchart LR\nA <-- B\n", &[]).diagnostics;
+    assert!(
+        !diagnostics.is_empty(),
+        "expected diagnostics.is_empty() == false; observed diagnostics={:?}",
+        diagnostics
+    );
 }
 
 #[test]
@@ -246,7 +271,12 @@ fn flowchart_first_subgraph_membership() {
     let source = "flowchart\nsubgraph Frontend\nAPI --> UI\nend\nsubgraph Backend\nAPI --> DB\nend\nsubgraph Frontend[Replacement]\nNEW\nend\n";
     let parsed = parse(source, &[]);
     let (model, diagnostics) = resolve(source, &parsed.document);
-    assert!(parsed.diagnostics.is_empty() && diagnostics.is_empty());
+    assert!(
+        parsed.diagnostics.is_empty() && diagnostics.is_empty(),
+        "expected parsed.diagnostics.is_empty() && diagnostics.is_empty(); observed parsed.diagnostics={:?}, diagnostics={:?}",
+        parsed.diagnostics,
+        diagnostics
+    );
     assert_eq!(model.groups.len(), 2);
     assert_eq!(model.groups[0].title, "Frontend");
     assert_eq!(model.groups[0].members, ["API", "UI", "NEW"]);
@@ -258,10 +288,27 @@ fn flowchart_explicit_label_and_dotted_text() {
     let source = "flowchart\nA --> B[B]\nC[\"\"] -. retry .-> D\n";
     let parsed = parse(source, &[]);
     let (model, diagnostics) = resolve(source, &parsed.document);
-    assert!(parsed.diagnostics.is_empty() && diagnostics.is_empty());
-    assert!(model.nodes[0].label_kind.is_none());
-    assert!(model.nodes[1].label_kind.is_some());
-    assert!(model.nodes[2].label_kind.is_some());
+    assert!(
+        parsed.diagnostics.is_empty() && diagnostics.is_empty(),
+        "expected parsed.diagnostics.is_empty() && diagnostics.is_empty(); observed parsed.diagnostics={:?}, diagnostics={:?}",
+        parsed.diagnostics,
+        diagnostics
+    );
+    assert!(
+        model.nodes[0].label_kind.is_none(),
+        "expected model.nodes[0].label_kind.is_none(); observed model.nodes[0].label_kind={:?}",
+        model.nodes[0].label_kind
+    );
+    assert!(
+        model.nodes[1].label_kind.is_some(),
+        "expected model.nodes[1].label_kind.is_some(); observed model.nodes[1].label_kind={:?}",
+        model.nodes[1].label_kind
+    );
+    assert!(
+        model.nodes[2].label_kind.is_some(),
+        "expected model.nodes[2].label_kind.is_some(); observed model.nodes[2].label_kind={:?}",
+        model.nodes[2].label_kind
+    );
     assert_eq!(model.edges[1].label.as_deref(), Some("retry"));
 }
 
@@ -270,7 +317,12 @@ fn flowchart_nested_subgraph_completes_first() {
     let source = "flowchart\nsubgraph Outer\nA\nsubgraph Inner\nA\nend\nB\nend\n";
     let parsed = parse(source, &[]);
     let (model, diagnostics) = resolve(source, &parsed.document);
-    assert!(parsed.diagnostics.is_empty() && diagnostics.is_empty());
+    assert!(
+        parsed.diagnostics.is_empty() && diagnostics.is_empty(),
+        "expected parsed.diagnostics.is_empty() && diagnostics.is_empty(); observed parsed.diagnostics={:?}, diagnostics={:?}",
+        parsed.diagnostics,
+        diagnostics
+    );
     assert_eq!(model.groups[0].members, ["B"]);
     assert_eq!(model.groups[1].members, ["A"]);
 }
@@ -283,7 +335,11 @@ fn flowchart_invalid_direction_span() {
     assert_eq!(diagnostic.code, "flowchart/dir-invalid");
     assert_eq!(diagnostic.span.start, 10);
     assert_eq!(diagnostic.span.end, 12);
-    assert!(diagnostic.fixes.is_empty());
+    assert!(
+        diagnostic.fixes.is_empty(),
+        "expected diagnostic.fixes.is_empty(); observed diagnostic.fixes={:?}",
+        diagnostic.fixes
+    );
 }
 
 #[test]
@@ -292,7 +348,12 @@ fn flowchart_title_only_subgraph_ids() {
         "flowchart\nsubgraph S\nA\nend\nsubgraph S\nB\nend\nsubgraph \"Quoted group\"\nC\nend\n";
     let parsed = parse(source, &[]);
     let (model, diagnostics) = resolve(source, &parsed.document);
-    assert!(parsed.diagnostics.is_empty() && diagnostics.is_empty());
+    assert!(
+        parsed.diagnostics.is_empty() && diagnostics.is_empty(),
+        "expected parsed.diagnostics.is_empty() && diagnostics.is_empty(); observed parsed.diagnostics={:?}, diagnostics={:?}",
+        parsed.diagnostics,
+        diagnostics
+    );
     assert_eq!(model.groups.len(), 2);
     assert_eq!(model.groups[1].id, "subGraph2");
     assert_eq!(model.groups[1].title, "Quoted group");

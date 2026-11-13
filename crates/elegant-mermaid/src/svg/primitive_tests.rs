@@ -36,7 +36,10 @@ fn svg_primitives_styles() {
             rx: 64,
             ry: 64,
         });
-        assert!(r.primitive(&item).unwrap().starts_with("<ellipse "));
+        assert!(
+            r.primitive(&item).unwrap().starts_with("<ellipse "),
+            "svg primitives styles: contract r.primitive(&item).unwrap().starts_with(\"<ellipse \") failed; observed predicate=false"
+        );
     }
     let shape = Shape::plain(ShapeStyle::Edge);
     let p = Point { x: 64, y: 0 };
@@ -47,7 +50,8 @@ fn svg_primitives_styles() {
     assert!(
         r.primitive(&polygon)
             .unwrap()
-            .contains("points='0,0 1,0 0,1'")
+            .contains("points='0,0 1,0 0,1'"),
+        "svg primitives styles: contract r.primitive(&polygon) .unwrap() .contains(\"points='0,0 1,0 0,1'\") failed; observed predicate=false"
     );
     let path = Item::Path(PathItem {
         shape,
@@ -71,14 +75,18 @@ fn svg_primitives_styles() {
     assert!(
         r.primitive(&path)
             .unwrap()
-            .contains("d='M 1 0 L 1 0 C 1 0 1 0 1 0 A 1 1 0 0 1 0 1 Z'")
+            .contains("d='M 1 0 L 1 0 C 1 0 1 0 1 0 A 1 1 0 0 1 0 1 Z'"),
+        "svg primitives styles: contract r.primitive(&path) .unwrap() .contains(\"d='M 1 0 L 1 0 C 1 0 1 0 1 0 A 1 1 0 0 1 0 1 Z'\") failed; observed predicate=false"
     );
     let symbol = Item::SymbolRef(SymbolRefItem {
         symbol: SymbolName::new("disc").unwrap(),
         at: p,
         style: ShapeStyle::Ink,
     });
-    assert!(matches!(r.primitive(&symbol), Err(ConfigError::Invalid(_))));
+    assert!(
+        matches!(r.primitive(&symbol), Err(ConfigError::Invalid(_))),
+        "svg primitives styles: contract matches!(r.primitive(&symbol), Err(ConfigError::Invalid(_))) failed; observed predicate=false"
+    );
 }
 #[test]
 #[expect(

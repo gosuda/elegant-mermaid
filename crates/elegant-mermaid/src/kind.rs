@@ -186,7 +186,10 @@ mod tests {
         sorted.sort_unstable();
         assert_eq!(table_ids, sorted);
         for (kind, _) in IN_ORDER {
-            assert!(table_ids.contains(&kind.id()));
+            assert!(
+                table_ids.contains(&kind.id()),
+                "kind {kind:?} is absent from generated ids {table_ids:?}"
+            );
         }
     }
 
@@ -196,10 +199,11 @@ mod tests {
         assert_eq!(ids.len(), IN_ORDER.len());
         for (kind, _) in IN_ORDER {
             let id = kind.id();
-            assert!(!id.is_empty());
+            assert!(!id.is_empty(), "kind {kind:?} has empty id {id:?}");
             assert!(
                 id.bytes()
-                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit()),
+                "kind {kind:?} has non-lowercase-alphanumeric id {id:?}"
             );
         }
     }

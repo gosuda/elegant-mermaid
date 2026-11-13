@@ -414,8 +414,14 @@ mod tests {
             width_of(metric.width(text), &mut failures),
             width_of(metric.width_from_units(units), &mut failures)
         );
-        assert!(!metric.is_cell());
-        assert!(Metric::cell().is_cell());
+        assert!(
+            !metric.is_cell(),
+            "metric width agrees with its unit prefix: contract !metric.is_cell() failed; observed predicate=false"
+        );
+        assert!(
+            Metric::cell().is_cell(),
+            "metric width agrees with its unit prefix: contract Metric::cell().is_cell() failed; observed predicate=false"
+        );
         assert_eq!(failures, 0);
     }
 }

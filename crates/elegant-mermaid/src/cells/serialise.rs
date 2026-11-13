@@ -109,7 +109,10 @@ mod tests {
                 (ColorMode::Truecolor, "\u{1b}[38;2;0;0;0m"),
             ] {
                 let mut canvas = Canvas::new(2, 1)?;
-                assert!(canvas.put_label(0, 0, &ch.to_string(), 1, Token::Border));
+                assert!(
+                    canvas.put_label(0, 0, &ch.to_string(), 1, Token::Border),
+                    "direct canvas controls are replaced in every colour mode: contract canvas.put_label(0, 0, &ch.to_string(), 1, Token::Border) failed; observed predicate=false"
+                );
                 canvas.put_symbol(1, 0, u32::from(ch));
                 canvas.put(1, 0, |cell| cell.token = Some(Token::Border));
                 let suffix = if mode == ColorMode::None {
@@ -128,8 +131,14 @@ mod tests {
     #[test]
     fn direct_canvas_preserves_legitimate_unicode() -> Result<(), crate::geom::GeomError> {
         let mut canvas = Canvas::new(3, 1)?;
-        assert!(canvas.put_label(0, 0, "世", 2, Token::Foreground));
-        assert!(canvas.put_label(2, 0, "e\u{301}", 1, Token::Foreground));
+        assert!(
+            canvas.put_label(0, 0, "世", 2, Token::Foreground),
+            "direct canvas preserves legitimate unicode: contract canvas.put_label(0, 0, \"世\", 2, Token::Foreground) failed; observed predicate=false"
+        );
+        assert!(
+            canvas.put_label(2, 0, "e\u{301}", 1, Token::Foreground),
+            "direct canvas preserves legitimate unicode: contract canvas.put_label(2, 0, \"e\\u{{301}}\", 1, Token::Foreground) failed; observed predicate=false"
+        );
         for charset in [Charset::Unicode, Charset::Ascii] {
             assert_eq!(
                 canvas.serialise(charset, ColorMode::None, |_| Rgb { r: 0, g: 0, b: 0 }),

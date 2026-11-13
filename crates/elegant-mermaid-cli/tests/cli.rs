@@ -57,7 +57,11 @@ fn public_invocations_replace_kernel_only_usage() -> io::Result<()> {
     let outcome = run::<&str>(&[])?;
     assert_eq!(outcome.code, Some(2));
     assert_eq!(outcome.stdout, "");
-    assert!(outcome.stderr.starts_with("Usage: emd COMMAND"));
+    assert!(
+        outcome.stderr.starts_with("Usage: emd COMMAND"),
+        "public_invocations_replace_kernel_only_usage: required outcome.stderr.starts_with(\"Usage: emd COMMAND\"); observed: {:?}",
+        outcome.stderr
+    );
     for flag in ["--help", "--version"] {
         let outcome = run(&[flag])?;
         assert_eq!(outcome.code, Some(0));

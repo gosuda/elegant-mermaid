@@ -21,6 +21,8 @@ pub struct Environment {
     pub kitty_window_id: String,
     pub term: String,
     pub term_program: String,
+    pub auto_colour: bool,
+    pub depth: mermaid::cells::ColorMode,
 }
 
 struct Image {
@@ -39,6 +41,7 @@ struct Viewer {
     image: Option<Image>,
     scheduler: SchedulerState,
     colour: bool,
+    depth: mermaid::cells::ColorMode,
 }
 impl Viewer {
     fn edited(&mut self) {
@@ -379,7 +382,8 @@ fn prepare(args: &[String], environment: &Environment) -> Result<String, String>
         source,
         image: None,
         scheduler: SchedulerState::initial(),
-        colour: crate::options::colour(&color),
+        colour: crate::options::colour(&color, environment),
+        depth: environment.depth,
     };
     viewer.edited();
     if let Some(script) = script {
@@ -824,7 +828,7 @@ fn draw(viewer: &Viewer) -> Result<(), String> {
                 mermaid::theme::Token::Foreground
             };
             let colour = theme.colour(token);
-            let sgr = mermaid::cells::colour::sgr(colour, token, crate::options::depth("always"));
+            let sgr = mermaid::cells::colour::sgr(colour, token, viewer.depth);
             write!(output, "{sgr}{line}\x1b[39m\r\n").map_err(|e| e.to_string())?;
         }
     } else {

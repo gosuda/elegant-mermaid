@@ -41,9 +41,17 @@ fn markdown_hosts_map_nested_blocks_and_multiple_diagnostics() -> TestResult {
     std::fs::write(fixture.0.join("host.md"), source)?;
     let output = fixture.check(&["check", "host.md", "--output-format", "json"])?;
     assert_eq!(output.status.code(), Some(1));
-    assert!(output.stderr.is_empty());
+    assert!(
+        output.stderr.is_empty(),
+        "markdown_hosts_map_nested_blocks_and_multiple_diagnostics: required output.stderr.is_empty(); observed: {:?}",
+        output.stderr
+    );
     let json = String::from_utf8(output.stdout)?;
-    assert!(json.contains("\"path\":\"host.md\",\"kind\":null"));
+    assert!(
+        json.contains("\"path\":\"host.md\",\"kind\":null"),
+        "markdown_hosts_map_nested_blocks_and_multiple_diagnostics: required json.contains(\"\\\"path\\\":\\\"host.md\\\",\\\"kind\\\":null\"); observed: {:?}",
+        json
+    );
     for (arrow, line, column) in [("A ->", 5, 7), ("C ->", 10, 3)] {
         let start = source.find(arrow).ok_or("missing arrow")? + 2;
         assert!(
@@ -59,11 +67,23 @@ fn markdown_hosts_map_nested_blocks_and_multiple_diagnostics() -> TestResult {
         );
         assert!(json.contains("\"new_text\":\"-->\""), "{json}");
     }
-    assert!(json.contains("\"summary\":{\"files\":1,\"errors\":2,\"warnings\":0,\"info\":0}"));
+    assert!(
+        json.contains("\"summary\":{\"files\":1,\"errors\":2,\"warnings\":0,\"info\":0}"),
+        "markdown_hosts_map_nested_blocks_and_multiple_diagnostics: required json.contains(\"\\\"summary\\\":{{\\\"files\\\":1,\\\"errors\\\":2,\\\"warnings\\\":0,\\\"info\\\":0}}\"); observed: {:?}",
+        json
+    );
     let text = fixture.check(&["check", "--color", "never", "host.md"])?;
     let text = String::from_utf8(text.stdout)?;
-    assert!(text.contains("host.md:5:7: error[flowchart/arrow-invalid]"));
-    assert!(text.contains(">   A -> B"));
+    assert!(
+        text.contains("host.md:5:7: error[flowchart/arrow-invalid]"),
+        "markdown_hosts_map_nested_blocks_and_multiple_diagnostics: required text.contains(\"host.md:5:7: error[flowchart/arrow-invalid]\"); observed: {:?}",
+        text
+    );
+    assert!(
+        text.contains(">   A -> B"),
+        "markdown_hosts_map_nested_blocks_and_multiple_diagnostics: required text.contains(\">   A -> B\"); observed: {:?}",
+        text
+    );
     Ok(())
 }
 
@@ -86,20 +106,40 @@ fn markdown_hosts_include_clean_and_prose_files_in_walks() -> TestResult {
         )?;
     }
     let output = fixture.check(&["check", "--output-format", "json"])?;
-    assert!(output.status.success());
-    assert!(output.stderr.is_empty());
+    assert!(
+        output.status.success(),
+        "markdown_hosts_include_clean_and_prose_files_in_walks: required output.status.success(); observed: {:?}",
+        output.status
+    );
+    assert!(
+        output.stderr.is_empty(),
+        "markdown_hosts_include_clean_and_prose_files_in_walks: required output.stderr.is_empty(); observed: {:?}",
+        output.stderr
+    );
     let json = String::from_utf8(output.stdout)?;
     assert!(json.contains("\"files\":4,\"errors\":0"), "{json}");
     let positions: Vec<_> = ["a.md", "b.markdown", "c.mdx", "d.mmd"]
         .iter()
         .map(|name| json.find(name).ok_or("missing file"))
         .collect::<Result<_, _>>()?;
-    assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+    assert!(
+        positions.windows(2).all(|pair| pair[0] < pair[1]),
+        "markdown_hosts_include_clean_and_prose_files_in_walks: required positions.windows(2).all(|pair| pair[0] < pair[1]); observed: {:?}",
+        positions
+    );
     let prose = fixture.check(&["check", "a.md", "--output-format", "json"])?;
-    assert!(prose.status.success());
+    assert!(
+        prose.status.success(),
+        "markdown_hosts_include_clean_and_prose_files_in_walks: required prose.status.success(); observed: {:?}",
+        prose.status
+    );
     let json = String::from_utf8(prose.stdout)?;
     assert!(json.contains("\"kind\":null,\"diagnostics\":[]"), "{json}");
-    assert!(json.contains("\"files\":1,\"errors\":0"));
+    assert!(
+        json.contains("\"files\":1,\"errors\":0"),
+        "markdown_hosts_include_clean_and_prose_files_in_walks: required json.contains(\"\\\"files\\\":1,\\\"errors\\\":0\"); observed: {:?}",
+        json
+    );
     Ok(())
 }
 
@@ -113,7 +153,11 @@ fn markdown_hosts_repair_before_extracting_and_mapping() -> TestResult {
         std::fs::write(fixture.0.join("invalid.md"), source)?;
         let output = fixture.check(&["check", "invalid.md", "--output-format", "json"])?;
         assert_eq!(output.status.code(), Some(1));
-        assert!(output.stderr.is_empty());
+        assert!(
+            output.stderr.is_empty(),
+            "markdown_hosts_repair_before_extracting_and_mapping: required output.stderr.is_empty(); observed: {:?}",
+            output.stderr
+        );
         let json = String::from_utf8(output.stdout)?;
         let (repaired, first_bad) = elegant_mermaid::source::repair_utf8(source);
         let bad = first_bad.ok_or("missing invalid byte")?;

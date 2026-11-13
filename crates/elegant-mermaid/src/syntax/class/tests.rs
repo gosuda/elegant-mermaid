@@ -7,7 +7,10 @@ fn class_statement_forms() {
     assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
     assert_eq!(parsed.document.statements.len(), 4);
     let (model, diagnostics) = crate::model::class::resolve(source, &parsed.document);
-    assert!(diagnostics.is_empty());
+    assert!(
+        diagnostics.is_empty(),
+        "class source {source:?} produced semantic diagnostics {diagnostics:?}"
+    );
     assert_eq!(model.classes[0].attributes[0].text, "+name");
     assert_eq!(model.classes[0].methods[0].text, "+save() : bool");
     assert_eq!(model.classes[1].parent, "Domain");
@@ -18,10 +21,11 @@ fn class_statement_forms() {
 fn class_declaration_spans() {
     let source = "classDiagram\nclass A[\"Alpha\"]\n";
     let parsed = parse(source, &[]);
-    assert!(matches!(
-        &parsed.document.statements[0],
-        Statement::Class(_)
-    ));
+    assert!(
+        matches!(&parsed.document.statements[0], Statement::Class(_)),
+        "expected class declaration for {source:?}; observed {:?}",
+        parsed.document.statements
+    );
     let Statement::Class(class) = &parsed.document.statements[0] else {
         return;
     };
@@ -56,7 +60,8 @@ fn class_diagnostics() {
         );
         for diagnostic in diagnostics {
             assert!(
-                diagnostic.span.start <= diagnostic.span.end && diagnostic.span.end <= source.len()
+                diagnostic.span.start <= diagnostic.span.end && diagnostic.span.end <= source.len(),
+                "diagnostic {diagnostic:?} has invalid span for source {source:?}"
             );
         }
     }
@@ -81,7 +86,11 @@ fn class_metadata_generics_and_interfaces() {
     assert_eq!(model.direction, "LR");
     assert_eq!(model.classes[0].generic, "T");
     assert_eq!(model.classes[0].methods[0].text, "+find(key) : Result<T>");
-    assert!(model.classes[0].methods[0].is_static);
+    assert!(
+        model.classes[0].methods[0].is_static,
+        "static method marker missing for {source:?}; observed {:?}",
+        model.classes[0].methods[0]
+    );
     assert_eq!(model.relations[0].marker_start, "aggregation");
     assert_eq!(model.relations[0].multiplicity_end.as_deref(), Some("many"));
     assert_eq!(model.relations[1].to, "interface0");
@@ -95,7 +104,9 @@ fn class_rejects_namespace_relations_and_unclosed_delimiters() {
         parsed
             .diagnostics
             .iter()
-            .any(|diagnostic| diagnostic.code == "class/unexpected-token")
+            .any(|diagnostic| diagnostic.code == "class/unexpected-token"),
+        "namespace relation must be rejected; observed {:?}",
+        parsed.diagnostics
     );
     for source in [
         "classDiagram\nclass `A",

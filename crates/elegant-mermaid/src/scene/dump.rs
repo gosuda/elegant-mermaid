@@ -340,8 +340,18 @@ mod tests {
             item.lines = vec![String::from("ye"), String::from("s")];
         }
         let out = dump.dump_model(&[]);
-        assert!(out.contains("\"text\":\"yes\",\"lines\":[]}"));
-        assert!(!out.contains("\"lines\":[\"ye\""));
+        assert!(
+            out.contains("\"text\":\"yes\",\"lines\":[]}"),
+            "{}; observed: {:?}",
+            "Invariant failed: out.contains(\"\\\"text\\\":\\\"yes\\\",\\\"lines\\\":[]}\")",
+            out
+        );
+        assert!(
+            !out.contains("\"lines\":[\"ye\""),
+            "{}; observed: {:?}",
+            "Invariant failed: !out.contains(\"\\\"lines\\\":[\\\"ye\\\"\")",
+            out
+        );
     }
 
     #[test]
@@ -379,10 +389,30 @@ mod tests {
     fn empty_arrays_are_written_compactly() {
         let dump = Dump::new("flowchart", DumpOptions::default());
         let out = dump.dump_layout(Size { w: 0, h: 0 });
-        assert!(out.contains("\"boxes\":[]"));
-        assert!(out.contains("\"routes\":[]"));
-        assert!(out.contains("\"labels\":[]"));
-        assert!(out.ends_with("}\n"));
+        assert!(
+            out.contains("\"boxes\":[]"),
+            "{}; observed: {:?}",
+            "Invariant failed: out.contains(\"\\\"boxes\\\":[]\")",
+            out
+        );
+        assert!(
+            out.contains("\"routes\":[]"),
+            "{}; observed: {:?}",
+            "Invariant failed: out.contains(\"\\\"routes\\\":[]\")",
+            out
+        );
+        assert!(
+            out.contains("\"labels\":[]"),
+            "{}; observed: {:?}",
+            "Invariant failed: out.contains(\"\\\"labels\\\":[]\")",
+            out
+        );
+        assert!(
+            out.ends_with("}\n"),
+            "{}; observed: {:?}",
+            "Invariant failed: out.ends_with(\"}\\n\")",
+            out
+        );
     }
 
     #[test]
@@ -395,7 +425,12 @@ mod tests {
             assert_eq!(body.matches(",\n\"boxes\":[").count(), 1);
             assert_eq!(body.matches(",\n\"routes\":[").count(), 1);
             assert_eq!(body.matches(",\n\"labels\":[").count(), 1);
-            assert!(body.contains("},\n{\"id\":\"B\""));
+            assert!(
+                body.contains("},\n{\"id\":\"B\""),
+                "{}; observed: {:?}",
+                "Invariant failed: body.contains(\"},\\n{\\\"id\\\":\\\"B\\\"\")",
+                body
+            );
             assert_eq!(body.matches("],\n\"routes\"").count(), 1);
         }
     }
@@ -436,7 +471,12 @@ mod tests {
         let out = dump.dump_layout(Size { w: 30, h: 40 });
         let expected = "\"text\":\"\\\"\\\\\\b\\t\\n\\f\\r\\u0001\\u001f/\u{7f}é世😀\"";
         assert!(out.contains(expected), "{out}");
-        assert!(!out.contains("\\u007f"));
+        assert!(
+            !out.contains("\\u007f"),
+            "{}; observed: {:?}",
+            "Invariant failed: !out.contains(\"\\\\u007f\")",
+            out
+        );
     }
 
     #[test]
@@ -446,9 +486,24 @@ mod tests {
             a.rect = rect(-5, 0, 0, 0);
         }
         let out = dump.dump_layout(Size { w: 0, h: 0 });
-        assert!(out.contains("\"x\":-5,"));
-        assert!(out.contains("\"w\":0,"));
-        assert!(!out.contains('+'));
+        assert!(
+            out.contains("\"x\":-5,"),
+            "{}; observed: {:?}",
+            "Invariant failed: out.contains(\"\\\"x\\\":-5,\")",
+            out
+        );
+        assert!(
+            out.contains("\"w\":0,"),
+            "{}; observed: {:?}",
+            "Invariant failed: out.contains(\"\\\"w\\\":0,\")",
+            out
+        );
+        assert!(
+            !out.contains('+'),
+            "{}; observed: {:?}",
+            "Invariant failed: !out.contains('+')",
+            out
+        );
     }
 
     #[test]
@@ -489,9 +544,24 @@ mod tests {
         let alpha = out.find("\"alpha\":true");
         let mid = out.find("\"mid\":\"x\"");
         let zeta = out.find("\"zeta\":7");
-        assert!(alpha.is_some() && mid.is_some() && zeta.is_some());
-        assert!(alpha < mid && mid < zeta);
-        assert!(out.contains("\"profile\":\"cell\""));
+        assert!(
+            alpha.is_some() && mid.is_some() && zeta.is_some(),
+            "{}; observed: {:?}",
+            "Invariant failed: alpha.is_some() && mid.is_some() && zeta.is_some()",
+            out
+        );
+        assert!(
+            alpha < mid && mid < zeta,
+            "{}; observed: {:?}",
+            "Invariant failed: alpha < mid && mid < zeta",
+            out
+        );
+        assert!(
+            out.contains("\"profile\":\"cell\""),
+            "{}; observed: {:?}",
+            "Invariant failed: out.contains(\"\\\"profile\\\":\\\"cell\\\"\")",
+            out
+        );
     }
 
     #[test]
@@ -501,10 +571,30 @@ mod tests {
             r.points = vec![Point { x: 3, y: 4 }];
         }
         let out = dump.dump_model(&[]);
-        assert!(!out.contains("canvas"));
-        assert!(!out.contains("\"x\":"));
-        assert!(!out.contains("\"points\""));
-        assert!(out.contains("\"orthogonal\":true}"));
+        assert!(
+            !out.contains("canvas"),
+            "{}; observed: {:?}",
+            "Invariant failed: !out.contains(\"canvas\")",
+            out
+        );
+        assert!(
+            !out.contains("\"x\":"),
+            "{}; observed: {:?}",
+            "Invariant failed: !out.contains(\"\\\"x\\\":\")",
+            out
+        );
+        assert!(
+            !out.contains("\"points\""),
+            "{}; observed: {:?}",
+            "Invariant failed: !out.contains(\"\\\"points\\\"\")",
+            out
+        );
+        assert!(
+            out.contains("\"orthogonal\":true}"),
+            "{}; observed: {:?}",
+            "Invariant failed: out.contains(\"\\\"orthogonal\\\":true}\")",
+            out
+        );
         assert_eq!(Stage::Model.as_str(), "model");
         assert_eq!(Stage::Layout.as_str(), "layout");
     }
@@ -518,9 +608,7 @@ mod tests {
             b.exclusive = false;
         }
         let out = dump.dump_model(&[]);
-        assert!(
-            out.contains("{\"id\":\"A\",\"role\":\"group\",\"parent\":\"A\",\"exclusive\":false,\"direction\":\"\"}")
-        );
+        assert!(out.contains("{\"id\":\"A\",\"role\":\"group\",\"parent\":\"A\",\"exclusive\":false,\"direction\":\"\"}"), "{}; observed: {:?}", "Invariant failed: out.contains(\"{\\\"id\\\":\\\"A\\\",\\\"role\\\":\\\"group\\\",\\\"parent\\\":\\\"A\\\",\\\"exclusive\\\":false,\\\"direction\\\":\\\"\\\"}\")", out);
     }
     #[test]
     fn route_styles_are_model_stage_only() {
@@ -531,8 +619,16 @@ mod tests {
         route.stroke = "dotted".into();
         let layout = dump.dump_layout(Size { w: 20, h: 20 });
         for key in ["\"marker_start\"", "\"marker_end\"", "\"stroke\""] {
-            assert!(!layout.contains(key));
+            assert!(
+                !layout.contains(key),
+                "{}; observed: {:?}",
+                "Invariant failed: !layout.contains(key)",
+                layout
+            );
         }
-        assert!(dump.dump_model(&[]).contains("\"orthogonal\":true,\"marker_start\":\"circle\",\"marker_end\":\"cross\",\"stroke\":\"dotted\""));
+        {
+            let observed = dump.dump_model(&[]);
+            assert!(observed.contains("\"orthogonal\":true,\"marker_start\":\"circle\",\"marker_end\":\"cross\",\"stroke\":\"dotted\""), "{}; observed: {:?}", "Invariant failed: dump.dump_model(&[]).contains(\"\\\"orthogonal\\\":true,\\\"marker_start\\\":\\\"circle\\\",\\\"marker_end\\\":\\\"cross\\\",\\\"stroke\\\":\\\"dotted\\\"\")", observed);
+        };
     }
 }

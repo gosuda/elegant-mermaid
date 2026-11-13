@@ -66,7 +66,10 @@ mod tests {
 
     fn assert_non_empty_distinct(messages: &[String]) {
         for message in messages {
-            assert!(!message.is_empty());
+            assert!(
+                !message.is_empty(),
+                "error display message must be nonempty: message={message:?}"
+            );
         }
         let mut sorted = messages.to_vec();
         sorted.sort();
@@ -90,24 +93,31 @@ mod tests {
             reason: "no prefix".to_owned(),
         }
         .to_string();
-        assert!(!message.is_empty());
-        assert!(message.contains("no prefix"));
+        assert!(
+            !message.is_empty(),
+            "error display message must be nonempty: message={message:?}"
+        );
+        assert!(
+            message.contains("no prefix"),
+            "icon pack error must retain its reason: message={message:?}, reason=no prefix"
+        );
     }
 
     #[test]
     fn error_messages_carry_their_counts() {
+        let document_message = RenderError::InvalidDocument { errors: 7 }.to_string();
         assert!(
-            RenderError::InvalidDocument { errors: 7 }
-                .to_string()
-                .contains('7')
+            document_message.contains('7'),
+            "invalid document error must retain error count 7: message={document_message:?}"
         );
+        let raster_message = RasterError::PixelsTooLarge {
+            width: 16385,
+            height: 3,
+        }
+        .to_string();
         assert!(
-            RasterError::PixelsTooLarge {
-                width: 16385,
-                height: 3,
-            }
-            .to_string()
-            .contains("16385")
+            raster_message.contains("16385"),
+            "pixel size error must retain width 16385: message={raster_message:?}"
         );
     }
 }

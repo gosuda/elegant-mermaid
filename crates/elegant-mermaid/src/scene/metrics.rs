@@ -316,7 +316,11 @@ mod tests {
         );
         let decoded = read_dump(&scene.dump()).unwrap();
         assert_eq!(measure(&decoded, 0).unwrap(), measure(&scene, 0).unwrap());
-        assert!(!measure(&scene, 1).unwrap().hard_ok);
+        let truncated = measure(&scene, 1).unwrap();
+        assert!(
+            !truncated.hard_ok,
+            "one unwritten cluster must fail hard constraints; metrics: {truncated:?}, scene: {scene:?}"
+        );
         assert_eq!(
             soft_cost(&Metrics {
                 mean_node_extent: i64::MAX,

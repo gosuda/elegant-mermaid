@@ -155,6 +155,13 @@ pub fn route_selected(
         assign_ports(p, v, &outgoing[v], x, &mut r.source_x)?;
         assign_ports(p, v, &incoming[v], x, &mut r.target_x)?;
     }
+    collect_segments(&mut r, p, reversed)?;
+    for g in &mut r.gaps {
+        number_gap(g)?;
+    }
+    Ok(r)
+}
+fn collect_segments(r: &mut Routing, p: &Proper, reversed: &[bool]) -> Result<(), LayoutError> {
     for (i, e) in p.edges.iter().enumerate() {
         if reversed.get(e.original).copied().unwrap_or(false) {
             continue;
@@ -182,11 +189,9 @@ pub fn route_selected(
             });
         }
     }
-    for g in &mut r.gaps {
-        number_gap(g)?;
-    }
-    Ok(r)
+    Ok(())
 }
+
 pub fn route_points(
     p: &Proper,
     layers: &[Vec<usize>],
@@ -324,7 +329,11 @@ mod tests {
         let r = route(&p, &l, &x)?;
         assert_eq!(r.source_x, [1450, 2133, 0, 3584]);
         assert_eq!(r.target_x, [0, 3584, 1450, 2133]);
-        assert!(r.gaps.iter().all(|g| g.slots == 1));
+        assert!(
+            r.gaps.iter().all(|g| g.slots == 1),
+            "layered_diamond_ports: input violates r.gaps.iter().all(|g| g.slots == 1); observed {:?}",
+            r
+        );
         let (y, t) = rank_coords(&p, &l, &r)?;
         let (es, _) = route_points(&p, &l, &x, &y, &t, &r)?;
         let expected = [

@@ -64,6 +64,43 @@ pub fn number(
         .max()
         .unwrap_or(0);
     let mut lanes = Vec::new();
+    collect_lanes(
+        &mut lanes,
+        LaneInput {
+            graph: g,
+            proper: p,
+            x,
+            extents,
+            sizes,
+        },
+        r,
+        all,
+        (right, max_label),
+    )?;
+    for gap in &mut r.gaps {
+        gap.slots = 0;
+        for segment in &mut gap.segments {
+            segment.slot = -1;
+        }
+        route::number_gap(gap)?;
+    }
+    Ok(lanes)
+}
+
+fn collect_lanes(
+    lanes: &mut Vec<Lane>,
+    input: LaneInput<'_>,
+    r: &mut Routing,
+    all: &Routing,
+    spacing: (i64, i32),
+) -> Result<(), LayoutError> {
+    let LaneInput {
+        graph: g,
+        proper: p,
+        x,
+        ..
+    } = input;
+    let (right, max_label) = spacing;
     for (i, edge) in g
         .edges
         .iter()
@@ -121,14 +158,7 @@ pub fn number(
             target_run,
         });
     }
-    for gap in &mut r.gaps {
-        gap.slots = 0;
-        for segment in &mut gap.segments {
-            segment.slot = -1;
-        }
-        route::number_gap(gap)?;
-    }
-    Ok(lanes)
+    Ok(())
 }
 
 pub fn place(

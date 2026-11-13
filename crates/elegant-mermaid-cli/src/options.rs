@@ -88,7 +88,7 @@ fn set(o: &mut Options, name: &str, value: &str) -> Result<(), String> {
     value.clone_into(target);
     Ok(())
 }
-pub fn resolve(o: &mut Options) -> Result<(), String> {
+pub fn resolve(o: &mut Options, environment: &crate::view::Environment) -> Result<(), String> {
     if o.format.is_empty() {
         o.format = infer(&o.output)?;
     }
@@ -103,7 +103,7 @@ pub fn resolve(o: &mut Options) -> Result<(), String> {
     choice(&o.color, "--color", &["auto", "always", "never"])?;
     choice(&o.svg_text, "--svg-text", &["font"])?;
     if o.theme.is_empty() {
-        o.theme = if o.format == "text" && dark_background(&env("COLORFGBG")) {
+        o.theme = if o.format == "text" && dark_background(&environment.colorfgbg) {
             "elegant-dark"
         } else {
             "elegant-light"
@@ -142,9 +142,6 @@ fn dark_background(value: &str) -> bool {
             .and_then(|p| p.parse::<u8>().ok())
             .is_some_and(|n| n <= 6 || n == 8)
 }
-fn env(name: &str) -> String {
-    std::env::var(name).unwrap_or_default()
-}
 pub fn colour_enabled(mode: &str, terminal: bool, getenv: impl Fn(&str) -> String) -> bool {
     if mode != "auto" {
         return mode == "always";
@@ -161,21 +158,21 @@ pub fn colour_enabled(mode: &str, terminal: bool, getenv: impl Fn(&str) -> Strin
     }
     terminal
 }
-pub fn colour(mode: &str) -> bool {
-    colour_enabled(mode, std::io::stdout().is_terminal(), env)
-}
-pub fn depth(mode: &str) -> elegant_mermaid::cells::ColorMode {
-    use elegant_mermaid::cells::ColorMode;
-    if !colour(mode) {
-        return ColorMode::None;
-    }
-    if ["truecolor", "24bit"].contains(&env("COLORTERM").as_str()) {
-        return ColorMode::Truecolor;
-    }
-    if env("TERM").ends_with("256color") {
-        ColorMode::Ansi256
+pub fn colour(mode: &str, environment: &crate::view::Environment) -> bool {
+    if mode == "auto" {
+        environment.auto_colour
     } else {
-        ColorMode::Ansi16
+        mode == "always"
+    }
+}
+pub fn depth(
+    mode: &str,
+    environment: &crate::view::Environment,
+) -> elegant_mermaid::cells::ColorMode {
+    if colour(mode, environment) {
+        environment.depth
+    } else {
+        elegant_mermaid::cells::ColorMode::None
     }
 }
 

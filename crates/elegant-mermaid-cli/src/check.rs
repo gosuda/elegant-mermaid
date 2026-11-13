@@ -68,13 +68,16 @@ fn check_input(path: &str, bytes: &[u8]) -> Result<Checked, String> {
     Ok(checked)
 }
 
-pub fn run(args: &[String]) -> (String, String, i32) {
-    match check(args) {
+pub fn run(args: &[String], environment: &crate::view::Environment) -> (String, String, i32) {
+    match check(args, environment) {
         Ok(result) => result,
         Err(error) => (String::new(), format!("{error}\n"), 2),
     }
 }
-fn check(args: &[String]) -> Result<(String, String, i32), String> {
+fn check(
+    args: &[String],
+    environment: &crate::view::Environment,
+) -> Result<(String, String, i32), String> {
     let (o, paths) = options::parse("check", args)?;
     options::choice(&o.format, "--output-format", &["text", "json"])?;
     options::choice(&o.color, "--color", &["auto", "always", "never"])?;
@@ -100,7 +103,7 @@ fn check(args: &[String]) -> Result<(String, String, i32), String> {
                     input::label(path),
                     &p.source,
                     &p.diagnostics,
-                    options::colour(&o.color),
+                    options::colour(&o.color, environment),
                 )
             })
             .collect()

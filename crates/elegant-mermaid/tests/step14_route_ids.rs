@@ -21,22 +21,34 @@ fn generated_route_ids_skip_source_node_and_group_ids() -> TestResult {
                 .collect::<Vec<_>>(),
             vec!["e2", "e3"]
         );
-        assert!(input.boxes.iter().any(|b| b.id == "e0"));
-        assert!(input.boxes.iter().any(|b| b.id == "e1"));
         assert!(
-            input
-                .labels
-                .iter()
-                .any(|label| label.id == "e2.label" && label.owner == "e2" && label.text == "yes")
+            input.boxes.iter().any(|b| b.id == "e0"),
+            "source box e0 must survive route-ID allocation; input={input:?}"
+        );
+        assert!(
+            input.boxes.iter().any(|b| b.id == "e1"),
+            "source box e1 must survive route-ID allocation; input={input:?}"
         );
         assert!(
             input
                 .labels
                 .iter()
-                .any(|label| label.id == "e3.label" && label.owner == "e3" && label.text == "back")
+                .any(|label| label.id == "e2.label" && label.owner == "e2" && label.text == "yes"),
+            "route e2 label must retain owner, ID and text yes; input={input:?}"
+        );
+        assert!(
+            input
+                .labels
+                .iter()
+                .any(|label| label.id == "e3.label" && label.owner == "e3" && label.text == "back"),
+            "route e3 label must retain owner, ID and text back; input={input:?}"
         );
         let scene = layout::families::layout(&input)?.0;
-        assert!(scene.check()?);
+        assert!(
+            scene.check()?,
+            "reserved source IDs must produce a valid scene; input={input:?}; dump={}",
+            scene.dump()
+        );
         assert_eq!(scene.routes()[0].from, "e0");
         assert_eq!(scene.routes()[0].to, "B");
         assert_eq!(scene.routes()[0].id, "e2");
@@ -76,8 +88,11 @@ fn ambiguous_direct_model_owner_names_are_rejected() {
     let mut input =
         layout::flowchart::from_flowchart(&model, Profile::Cell, DumpOptions::default());
     input.routes[0].id = "A".into();
-    assert!(matches!(
-        layout::families::layout(&input),
-        Err(RenderError::InvalidConfig { errors: 1 })
-    ));
+    assert!(
+        matches!(
+            layout::families::layout(&input),
+            Err(RenderError::InvalidConfig { errors: 1 })
+        ),
+        "ambiguous direct-model owner must return one invalid-config error; input={input:?}"
+    );
 }

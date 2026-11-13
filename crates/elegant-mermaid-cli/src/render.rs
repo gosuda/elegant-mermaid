@@ -1,21 +1,24 @@
 use crate::{diagnostics, input, options};
 use elegant_mermaid::{cells, layout, scene, svg};
 
-pub fn run(args: &[String]) -> (String, String, i32) {
-    match prepare(args) {
+pub fn run(args: &[String], environment: &crate::view::Environment) -> (String, String, i32) {
+    match prepare(args, environment) {
         Ok(result) => result,
         Err(error) => (String::new(), format!("{error}\n"), 2),
     }
 }
-fn prepare(args: &[String]) -> Result<(String, String, i32), String> {
-    let (mut o, paths) = options::parse("render", args)?;
+fn prepare(
+    args: &[String],
+    environment: &crate::view::Environment,
+) -> Result<(String, String, i32), String> {
+    let (o, paths) = options::parse("render", args)?;
     if paths.len() > 1 {
         return Err("render accepts one INPUT".into());
     }
     if !paths.is_empty() && !o.input.is_empty() {
         return Err("pass input either as INPUT or with -i, not both".into());
     }
-    options::resolve(&mut o)?;
+    let o = resolve_options(o, environment)?;
     let path = paths
         .first()
         .map(String::as_str)
@@ -27,7 +30,7 @@ fn prepare(args: &[String]) -> Result<(String, String, i32), String> {
         path,
         &parsed.source,
         &parsed.diagnostics,
-        options::colour(&o.color),
+        options::colour(&o.color, environment),
     );
     if diagnostics::has_errors(&parsed.diagnostics) {
         return Ok((String::new(), stderr, 1));
@@ -54,7 +57,7 @@ fn prepare(args: &[String]) -> Result<(String, String, i32), String> {
     };
     stderr.push_str(&diagnostics::text(path, &parsed.source, &ds, false));
     let (title, description, kind) = model.accessibility();
-    let output = match serialize(&scene, &o, title, description, kind) {
+    let output = match serialize(&scene, &o, title, description, kind, environment) {
         Ok(value) => value,
         Err(error) => {
             stderr.push_str(&format!("{error}\n"));
@@ -67,12 +70,20 @@ fn prepare(args: &[String]) -> Result<(String, String, i32), String> {
     atomic_output(&o.output, output.as_bytes()).map_err(|e| e.to_string())?;
     Ok((String::new(), stderr, 0))
 }
+fn resolve_options(
+    mut options: options::Options,
+    environment: &crate::view::Environment,
+) -> Result<options::Options, String> {
+    options::resolve(&mut options, environment)?;
+    Ok(options)
+}
 fn serialize(
     scene: &scene::Scene,
     o: &options::Options,
     title: &str,
     description: &str,
     kind: &str,
+    environment: &crate::view::Environment,
 ) -> Result<String, String> {
     if o.format == "svg" {
         let mut output = String::new();
@@ -100,7 +111,7 @@ fn serialize(
         scene,
         &cells::render::Options {
             charset,
-            color: options::depth(&o.color),
+            color: options::depth(&o.color, environment),
             theme: o.theme.clone(),
         },
     )

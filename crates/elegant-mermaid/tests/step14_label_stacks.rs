@@ -67,12 +67,27 @@ fn distinct_labels_on_forward_reversed_and_loop_routes_form_ordered_stacks() -> 
                     .filter(|label| label.owner == owner)
                     .collect();
                 assert_eq!(labels.len(), 2);
-                assert!(!geom::intersects(labels[0].rect, labels[1].rect)?);
+                assert!(
+                    !geom::intersects(labels[0].rect, labels[1].rect)?,
+                    "{profile:?} {direction:?} owner {owner}: stacked labels must not overlap; labels={labels:?}"
+                );
                 match direction {
-                    Direction::Tb => assert!(labels[0].rect.y < labels[1].rect.y),
-                    Direction::Bt => assert!(labels[0].rect.y > labels[1].rect.y),
-                    Direction::Lr => assert!(labels[0].rect.x < labels[1].rect.x),
-                    Direction::Rl => assert!(labels[0].rect.x > labels[1].rect.x),
+                    Direction::Tb => assert!(
+                        labels[0].rect.y < labels[1].rect.y,
+                        "{profile:?} {direction:?} owner {owner}: declaration-order stack must follow flow direction; labels={labels:?}"
+                    ),
+                    Direction::Bt => assert!(
+                        labels[0].rect.y > labels[1].rect.y,
+                        "{profile:?} {direction:?} owner {owner}: declaration-order stack must follow flow direction; labels={labels:?}"
+                    ),
+                    Direction::Lr => assert!(
+                        labels[0].rect.x < labels[1].rect.x,
+                        "{profile:?} {direction:?} owner {owner}: declaration-order stack must follow flow direction; labels={labels:?}"
+                    ),
+                    Direction::Rl => assert!(
+                        labels[0].rect.x > labels[1].rect.x,
+                        "{profile:?} {direction:?} owner {owner}: declaration-order stack must follow flow direction; labels={labels:?}"
+                    ),
                 }
             }
         }
@@ -101,13 +116,16 @@ fn stacked_route_labels_count_toward_text_limit() -> TestResult {
         for direction in [Direction::Tb, Direction::Bt, Direction::Lr, Direction::Rl] {
             let mut input = stacked_labels_input(profile, direction);
             input.options.limits.max_text_bytes = 19;
-            assert!(matches!(
-                layout::families::layout(&input),
-                Err(RenderError::TooLarge {
-                    limit: 19,
-                    actual: 20
-                })
-            ));
+            assert!(
+                matches!(
+                    layout::families::layout(&input),
+                    Err(RenderError::TooLarge {
+                        limit: 19,
+                        actual: 20
+                    })
+                ),
+                "{profile:?} {direction:?}: twenty label bytes must exceed limit nineteen; input={input:?}"
+            );
         }
     }
     Ok(())
@@ -123,7 +141,11 @@ fn labelled_parallel_proper_neighbours_size_internal_cross_width() -> TestResult
         let mut input = model(&source, Profile::Cell);
         input.direction = direction;
         let scene = layout::families::layout(&input)?.0;
-        assert!(scene.check()?);
+        assert!(
+            scene.check()?,
+            "eight labelled parallel edges under {direction:?} must satisfy hard constraints; dump={}",
+            scene.dump()
+        );
         assert_eq!(scene.labels().len(), 8);
         for node in scene.boxes() {
             let cross = match direction {

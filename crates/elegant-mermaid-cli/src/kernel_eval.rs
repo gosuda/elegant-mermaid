@@ -119,10 +119,20 @@ mod tests {
     fn stdin_forms_and_bad_lines() {
         for args in [vec![], vec![OsString::from("-")]] {
             let mut input = &b"isqrt 99 -> 9\ncount_inversions [3,1,2] -> 2\n"[..];
-            assert!(matches!(eval_input(&args, &mut input), Ok(out) if out == "9\n2\n"));
+            let result = eval_input(&args, &mut input)
+                .map_err(|failure| (failure.stdout, failure.error.message()));
+            assert!(
+                matches!(&result, Ok(out) if out == "9\n2\n"),
+                "stdin kernel cases must emit both results for {args:?}: {result:?}"
+            );
             let mut bad = &b"isqrt 99 -> 9\ncount_inversions [3,1,2] -> 2\nbroken\n"[..];
-            assert!(matches!(eval_input(&args, &mut bad), Err(failure)
-                if failure.stdout == "9\n2\n" && failure.error.message() == "bad case line 3"));
+            let result = eval_input(&args, &mut bad)
+                .map_err(|failure| (failure.stdout, failure.error.message()));
+            assert!(
+                matches!(&result, Err((stdout, error))
+                if stdout == "9\n2\n" && error == "bad case line 3"),
+                "stdin broken third case must retain prior results for {args:?}: {result:?}"
+            );
         }
     }
 
@@ -131,20 +141,31 @@ mod tests {
         let path = std::env::temp_dir().join(format!("kernel-eval-{}.txt", std::process::id()));
         std::fs::write(&path, b"isqrt 99 -> 9\ncount_inversions [3,1,2] -> 2\n")?;
         let args = [path.clone().into_os_string()];
-        assert!(matches!(eval_input(&args, &mut std::io::empty()), Ok(out) if out == "9\n2\n"));
+        let result = eval_input(&args, &mut std::io::empty())
+            .map_err(|failure| (failure.stdout, failure.error.message()));
+        assert!(
+            matches!(&result, Ok(out) if out == "9\n2\n"),
+            "file kernel cases must emit both results for {args:?}: {result:?}"
+        );
         std::fs::write(
             &path,
             b"isqrt 99 -> 9\ncount_inversions [3,1,2] -> 2\nbroken\n",
         )?;
+        let result = eval_input(&args, &mut std::io::empty())
+            .map_err(|failure| (failure.stdout, failure.error.message()));
         assert!(
-            matches!(eval_input(&args, &mut std::io::empty()), Err(failure)
-            if failure.stdout == "9\n2\n" && failure.error.message() == "bad case line 3")
+            matches!(&result, Err((stdout, error))
+            if stdout == "9\n2\n" && error == "bad case line 3"),
+            "file broken third case must retain prior results for {args:?}: {result:?}"
         );
         std::fs::remove_file(path)?;
         let args = [OsString::from("a"), OsString::from("b")];
+        let result = eval_input(&args, &mut std::io::empty())
+            .map_err(|failure| (failure.stdout, failure.error.message()));
         assert!(
-            matches!(eval_input(&args, &mut std::io::empty()), Err(failure)
-            if failure.stdout.is_empty() && failure.error.message() == "unknown flag b; run emd kernel-eval --help")
+            matches!(&result, Err((stdout, error))
+            if stdout.is_empty() && error == "unknown flag b; run emd kernel-eval --help"),
+            "extra kernel operand must be rejected without output for {args:?}: {result:?}"
         );
         Ok(())
     }

@@ -596,9 +596,17 @@ mod tests {
                 },
             ]
         );
-        assert!(matches!(block.source, Cow::Owned(_)));
+        assert!(
+            matches!(block.source, Cow::Owned(_)),
+            "container prefixes require owned source; host={host:?}, source={:?}",
+            block.source
+        );
         let top = blocks(b"```mermaid\nx\n```\n");
-        assert!(matches!(top[0].source, Cow::Borrowed(_)));
+        assert!(
+            matches!(top[0].source, Cow::Borrowed(_)),
+            "top-level fence must borrow source; observed {:?}",
+            top[0].source
+        );
     }
 
     #[test]
@@ -610,7 +618,11 @@ mod tests {
 
     fn mapping(host: &[u8]) {
         for block in blocks(host) {
-            assert!(block.span.start <= block.span.end && block.span.end <= host.len());
+            assert!(
+                block.span.start <= block.span.end && block.span.end <= host.len(),
+                "block span {:?} exceeds host {host:?}",
+                block.span
+            );
             for line in &block.lines {
                 for delta in 0..line.len {
                     assert_eq!(

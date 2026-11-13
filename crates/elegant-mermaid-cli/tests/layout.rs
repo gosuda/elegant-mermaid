@@ -22,13 +22,29 @@ fn layout_model_cli_streams() -> Result<(), Box<dyn std::error::Error>> {
         let output = child.wait_with_output()?;
         assert_eq!(output.status.code(), Some(code));
         if code == 0 {
-            assert!(output.stderr.is_empty());
             assert!(
-                String::from_utf8(output.stdout)?.contains(&format!("\"profile\":\"{profile}\""))
+                output.stderr.is_empty(),
+                "layout_model_cli_streams: required output.stderr.is_empty(); observed: {:?}",
+                output.stderr
+            );
+            let observed = String::from_utf8(output.stdout)?;
+            assert!(
+                observed.contains(&format!("\"profile\":\"{profile}\"")),
+                "layout_model_cli_streams: required String::from_utf8(output.stdout)?.contains(&format!(\"\\\"profile\\\":\\\"{{profile}}\\\"\")); observed: {:?}",
+                observed
             );
         } else {
-            assert!(output.stdout.is_empty());
-            assert!(String::from_utf8(output.stderr)?.contains("error["));
+            assert!(
+                output.stdout.is_empty(),
+                "layout_model_cli_streams: required output.stdout.is_empty(); observed: {:?}",
+                output.stdout
+            );
+            let observed = String::from_utf8(output.stderr)?;
+            assert!(
+                observed.contains("error["),
+                "layout_model_cli_streams: required String::from_utf8(output.stderr)?.contains(\"error[\"); observed: {:?}",
+                observed
+            );
         }
     }
     Ok(())
@@ -67,9 +83,17 @@ fn layout_public_demo() -> Result<(), Box<dyn std::error::Error>> {
             .write_all(source.as_bytes())?;
         let output = child.wait_with_output()?;
         assert_eq!(output.status.code(), Some(0));
-        assert!(output.stderr.is_empty());
+        assert!(
+            output.stderr.is_empty(),
+            "layout_public_demo: required output.stderr.is_empty(); observed: {:?}",
+            output.stderr
+        );
         let text = String::from_utf8(output.stdout)?;
-        assert!(text.contains("\"stage\":\"layout\""));
+        assert!(
+            text.contains("\"stage\":\"layout\""),
+            "layout_public_demo: required text.contains(\"\\\"stage\\\":\\\"layout\\\"\"); observed: {:?}",
+            text
+        );
         let parsed = elegant_mermaid::syntax::flowchart::parse(source, &[]);
         let (model, _) = elegant_mermaid::model::flowchart::resolve(source, &parsed.document);
         let input = elegant_mermaid::layout::flowchart::from_flowchart(
@@ -78,7 +102,11 @@ fn layout_public_demo() -> Result<(), Box<dyn std::error::Error>> {
             elegant_mermaid::scene::DumpOptions::default(),
         );
         let scene = elegant_mermaid::layout::families::layout(&input)?.0;
-        assert!(scene.check()?);
+        assert!(
+            scene.check()?,
+            "public demo must satisfy scene constraints: profile={profile}, source={source:?}, dump={}",
+            scene.dump()
+        );
         assert_eq!(text, scene.dump());
         assert_eq!(
             scene
@@ -101,9 +129,7 @@ fn layout_public_demo() -> Result<(), Box<dyn std::error::Error>> {
                     elegant_mermaid::scene::Item::Text(text) => Some(
                         text.lines
                             .iter()
-                            .map(|line| {
-                                line.iter().map(|run| run.text.as_str()).collect::<String>()
-                            })
+                            .map(|line| caption_line(line))
                             .collect::<Vec<_>>()
                             .join("\n"),
                     ),
@@ -116,13 +142,21 @@ fn layout_public_demo() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn caption_line(line: &[elegant_mermaid::scene::Run]) -> String {
+    line.iter().map(|run| run.text.as_str()).collect()
+}
+
 #[test]
 fn metrics_rejects_cell_profile() -> Result<(), Box<dyn std::error::Error>> {
     let output = Command::new(env!("CARGO_BIN_EXE_emd"))
         .args(["layout", "--metrics", "--profile", "cell"])
         .output()?;
     assert_eq!(output.status.code(), Some(2));
-    assert!(output.stdout.is_empty());
+    assert!(
+        output.stdout.is_empty(),
+        "metrics_rejects_cell_profile: required output.stdout.is_empty(); observed: {:?}",
+        output.stdout
+    );
     assert_eq!(output.stderr, b"--metrics needs --profile vector\n");
     Ok(())
 }

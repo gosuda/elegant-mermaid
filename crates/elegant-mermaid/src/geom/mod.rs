@@ -199,9 +199,15 @@ mod tests {
             let y = i128::from(divisor);
             assert_eq!(i128::from(quotient), floor_quotient_oracle(x, y));
             assert_eq!(i128::from(remainder), x - i128::from(quotient) * y);
-            assert!(i128::from(remainder).abs() < y.abs());
+            assert!(
+                i128::from(remainder).abs() < y.abs(),
+                "floor remainder magnitude must be below divisor magnitude: dividend={dividend}, divisor={divisor}, remainder={remainder}"
+            );
             if y > 0 {
-                assert!(remainder >= 0 && i128::from(remainder) < y);
+                assert!(
+                    remainder >= 0 && i128::from(remainder) < y,
+                    "positive divisor requires remainder in [0, divisor): divisor={divisor}, remainder={remainder}"
+                );
             }
         }
     }
@@ -231,31 +237,46 @@ mod tests {
             w: 10,
             h: 10,
         };
-        assert!(rect_is_valid(&valid));
-        assert!(rect_is_valid(&Rect {
-            x: i32::MIN,
-            y: i32::MIN,
-            w: 0,
-            h: 0,
-        }));
-        assert!(!rect_is_valid(&Rect {
-            x: 0,
-            y: 0,
-            w: -1,
-            h: 0,
-        }));
-        assert!(!rect_is_valid(&Rect {
-            x: 0,
-            y: 0,
-            w: 0,
-            h: -1,
-        }));
-        assert!(!rect_is_valid(&Rect {
-            x: i32::MAX,
-            y: 0,
-            w: 1,
-            h: 0,
-        }));
+        assert!(
+            rect_is_valid(&valid),
+            "nonnegative rectangle with representable edges must be valid: {valid:?}"
+        );
+        assert!(
+            rect_is_valid(&Rect {
+                x: i32::MIN,
+                y: i32::MIN,
+                w: 0,
+                h: 0,
+            }),
+            "zero-size rectangle at i32::MIN must be valid: x=y=i32::MIN, w=h=0"
+        );
+        assert!(
+            !rect_is_valid(&Rect {
+                x: 0,
+                y: 0,
+                w: -1,
+                h: 0,
+            }),
+            "negative width must be invalid: x=y=h=0, w=-1"
+        );
+        assert!(
+            !rect_is_valid(&Rect {
+                x: 0,
+                y: 0,
+                w: 0,
+                h: -1,
+            }),
+            "negative height must be invalid: x=y=w=0, h=-1"
+        );
+        assert!(
+            !rect_is_valid(&Rect {
+                x: i32::MAX,
+                y: 0,
+                w: 1,
+                h: 0,
+            }),
+            "right edge beyond i32::MAX must be invalid: x=i32::MAX, w=1, y=h=0"
+        );
     }
 
     #[test]
@@ -281,6 +302,6 @@ mod tests {
         assert_eq!(COORD_LIMIT, 1 << 29);
         assert_eq!(i64::from(Point { x: 1, y: -1 }.x), 1);
         assert_eq!(Size { w: 3, h: 4 }.h, 4);
-        assert!(Axis::X != Axis::Y);
+        assert_ne!(Axis::X, Axis::Y);
     }
 }

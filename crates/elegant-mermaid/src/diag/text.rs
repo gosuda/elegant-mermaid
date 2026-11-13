@@ -339,7 +339,11 @@ mod tests {
         ];
         let mut out = String::new();
         render_text(&mut out, "p", text, &ds, &plain());
-        assert!(out.contains("^\n\np:1:2: "));
+        assert!(
+            out.contains("^\n\np:1:2: "),
+            "blank line separates diagnostics: contract out.contains(\"^\\n\\np:1:2: \") failed; observed out={:?}",
+            out
+        );
         assert_eq!(out.matches("error[flowchart").count(), 2);
     }
 
@@ -349,7 +353,11 @@ mod tests {
         let d = diagnostic(Span { start: 1, end: 8 });
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &plain());
-        assert!(out.contains("1 | abc\n  |  ^~\n"));
+        assert!(
+            out.contains("1 | abc\n  |  ^~\n"),
+            "multi line span underlines to the first line end: contract out.contains(\"1 | abc\\n | ^~\\n\") failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -358,7 +366,11 @@ mod tests {
         let d = diagnostic(Span { start: 2, end: 2 });
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &plain());
-        assert!(out.contains("1 | abc\n  |   ^\n"));
+        assert!(
+            out.contains("1 | abc\n  |   ^\n"),
+            "zero width span gets one cell: contract out.contains(\"1 | abc\\n | ^\\n\") failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -367,8 +379,16 @@ mod tests {
         let d = diagnostic(Span { start: 2, end: 3 });
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &plain());
-        assert!(out.contains("1 | a       bc\n"));
-        assert!(out.contains("  |         ^\n"));
+        assert!(
+            out.contains("1 | a       bc\n"),
+            "tabs expand to eight column stops and the caret follows: contract out.contains(\"1 | a bc\\n\") failed; observed out={:?}",
+            out
+        );
+        assert!(
+            out.contains("  |         ^\n"),
+            "tabs expand to eight column stops and the caret follows: contract out.contains(\" | ^\\n\") failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -377,7 +397,11 @@ mod tests {
         let d = diagnostic(Span { start: 0, end: 1 });
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &plain());
-        assert!(out.contains("1 | a\u{FFFD}b\n"));
+        assert!(
+            out.contains("1 | a\u{FFFD}b\n"),
+            "control characters print as replacement: contract out.contains(\"1 | a\\u{{FFFD}}b\\n\") failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -413,9 +437,21 @@ mod tests {
         let d = diagnostic(Span { start: 10, end: 11 });
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &plain());
-        assert!(out.contains("11 | ab\n"));
-        assert!(out.contains("   |\n"));
-        assert!(out.contains("   | ^\n"));
+        assert!(
+            out.contains("11 | ab\n"),
+            "gutter is as wide as the line number: contract out.contains(\"11 | ab\\n\") failed; observed out={:?}",
+            out
+        );
+        assert!(
+            out.contains("   |\n"),
+            "gutter is as wide as the line number: contract out.contains(\" |\\n\") failed; observed out={:?}",
+            out
+        );
+        assert!(
+            out.contains("   | ^\n"),
+            "gutter is as wide as the line number: contract out.contains(\" | ^\\n\") failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -424,7 +460,11 @@ mod tests {
         let d = diagnostic(Span { start: 5, end: 6 });
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &plain());
-        assert!(out.contains("2 | two\n  | ^\n"));
+        assert!(
+            out.contains("2 | two\n  | ^\n"),
+            "carriage return is not part of the printed line: contract out.contains(\"2 | two\\n | ^\\n\") failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -437,7 +477,11 @@ mod tests {
         }];
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &plain());
-        assert!(out.ends_with("  = note:  at p:1:2\n"));
+        assert!(
+            out.ends_with("  = note:  at p:1:2\n"),
+            "empty related message still prints its note line: contract out.ends_with(\" = note: at p:1:2\\n\") failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -453,7 +497,11 @@ mod tests {
         };
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &options);
-        assert!(out.contains("1 | 世a\n  |   ^\n"));
+        assert!(
+            out.contains("1 | 世a\n  |   ^\n"),
+            "wide: contract out.contains(\"1 | 世a\\n | ^\\n\") failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -462,7 +510,11 @@ mod tests {
         let d = diagnostic(Span { start: 1, end: 2 });
         let mut out = String::new();
         render_text(&mut out, "p", text, &[d], &plain());
-        assert!(out.contains("1 | 世\n  | ^\n"));
+        assert!(
+            out.contains("1 | 世\n  | ^\n"),
+            "offsets inside a sequence do not split it: contract out.contains(\"1 | 世\\n | ^\\n\") failed; observed out={:?}",
+            out
+        );
     }
     #[test]
     fn terminal_fields_replace_isolated_controls_without_changing_frame_structure() {

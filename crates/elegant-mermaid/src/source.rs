@@ -220,7 +220,10 @@ mod tests {
     fn repair_keeps_valid_input_borrowed() {
         let bytes = b"plain ascii\nand \xc3\xa9";
         let (text, first_bad) = repair_utf8(bytes);
-        assert!(matches!(text, Cow::Borrowed(_)));
+        assert!(
+            matches!(text, Cow::Borrowed(_)),
+            "valid UTF-8 {bytes:?} must remain borrowed; observed {text:?}"
+        );
         assert_eq!(first_bad, None);
         assert_eq!(text.as_ref(), "plain ascii\nand é");
     }
@@ -235,7 +238,10 @@ mod tests {
         ];
         for (bytes, want, first_bad) in cases {
             let (text, got) = repair_utf8(bytes);
-            assert!(matches!(text, Cow::Owned(_)));
+            assert!(
+                matches!(text, Cow::Owned(_)),
+                "invalid UTF-8 {bytes:?} must be repaired into owned text; observed {text:?}"
+            );
             assert_eq!(text.as_ref(), want);
             assert_eq!(got, Some(first_bad));
         }

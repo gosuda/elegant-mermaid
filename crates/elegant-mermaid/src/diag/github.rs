@@ -105,7 +105,15 @@ mod tests {
         push_github(&mut out, "p", &index, &list);
         let lines: Vec<&str> = out.lines().collect();
         assert_eq!(lines.len(), 2);
-        assert!(lines[0].starts_with("::warning file=p,line=1,col=1,"));
-        assert!(lines[1].starts_with("::notice file=p,line=1,col=2,"));
+        assert!(
+            lines[0].starts_with("::warning file=p,line=1,col=1,"),
+            "github maps levels and orders diagnostics: contract lines[0].starts_with(\"::warning file=p,line=1,col=1,\") failed; observed lines={:?}",
+            lines
+        );
+        assert!(
+            lines[1].starts_with("::notice file=p,line=1,col=2,"),
+            "github maps levels and orders diagnostics: contract lines[1].starts_with(\"::notice file=p,line=1,col=2,\") failed; observed lines={:?}",
+            lines
+        );
     }
 }

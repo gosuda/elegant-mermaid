@@ -56,6 +56,26 @@ pub fn connect(g: &mut Graph, input: &Input) {
 pub fn ranking(g: &Graph, input: &Input) -> (Graph, Vec<Cluster>) {
     let mut ranked = g.clone();
     ranked.edges.retain(|edge| edge.decl != i32::MAX);
+    let clusters = ranking_clusters(&mut ranked, g, input);
+    redirect_cluster_edges(&mut ranked.edges, g, input, &clusters);
+    for cluster in &clusters {
+        let members = connect_ranked_members(&mut ranked.edges, g, input, cluster);
+        let members =
+            connect_ranked_clusters(&mut ranked.edges, g, input, cluster, &clusters, members);
+        if members == 0 {
+            ranked.edges.push(Edge {
+                tail: cluster.node,
+                head: cluster.bottom,
+                min_len: 1,
+                decl: i32::MAX,
+                reversed: false,
+            });
+        }
+    }
+    (ranked, clusters)
+}
+
+fn ranking_clusters(ranked: &mut Graph, g: &Graph, input: &Input) -> Vec<Cluster> {
     let mut clusters = Vec::new();
     for (node, n) in g.nodes.iter().enumerate() {
         if !input.groups.iter().any(|group| group.id == n.id) {
@@ -78,74 +98,82 @@ pub fn ranking(g: &Graph, input: &Input) -> (Graph, Vec<Cluster>) {
             right: Vec::new(),
         });
     }
-    redirect_cluster_edges(&mut ranked.edges, g, input, &clusters);
-    for cluster in &clusters {
-        let mut members = 0;
-        for (child, other) in g.nodes.iter().enumerate() {
-            if !ancestors(input, &other.id)
-                .iter()
-                .any(|&i| input.boxes[i].id == g.nodes[cluster.node].id)
-            {
-                continue;
-            }
-            if input
-                .boxes
-                .iter()
-                .any(|b| b.id == other.id && b.role == BoxRole::Group)
-            {
-                continue;
-            }
-            ranked.edges.push(Edge {
-                tail: cluster.node,
-                head: child,
-                min_len: 1,
-                decl: i32::MAX,
-                reversed: false,
-            });
-            ranked.edges.push(Edge {
-                tail: child,
-                head: cluster.bottom,
-                min_len: 1,
-                decl: i32::MAX,
-                reversed: false,
-            });
-            members += 1;
+    clusters
+}
+
+fn connect_ranked_members(
+    edges: &mut Vec<Edge>,
+    g: &Graph,
+    input: &Input,
+    cluster: &Cluster,
+) -> i32 {
+    let mut members = 0;
+    for (child, other) in g.nodes.iter().enumerate() {
+        if !ancestors(input, &other.id)
+            .iter()
+            .any(|&i| input.boxes[i].id == g.nodes[cluster.node].id)
+        {
+            continue;
         }
-        for child in &clusters {
-            if !input
-                .boxes
-                .iter()
-                .any(|b| b.id == g.nodes[child.node].id && b.parent == g.nodes[cluster.node].id)
-            {
-                continue;
-            }
-            ranked.edges.push(Edge {
-                tail: cluster.node,
-                head: child.node,
-                min_len: 1,
-                decl: i32::MAX,
-                reversed: false,
-            });
-            ranked.edges.push(Edge {
-                tail: child.bottom,
-                head: cluster.bottom,
-                min_len: 1,
-                decl: i32::MAX,
-                reversed: false,
-            });
-            members += 1;
+        if input
+            .boxes
+            .iter()
+            .any(|b| b.id == other.id && b.role == BoxRole::Group)
+        {
+            continue;
         }
-        if members == 0 {
-            ranked.edges.push(Edge {
-                tail: cluster.node,
-                head: cluster.bottom,
-                min_len: 1,
-                decl: i32::MAX,
-                reversed: false,
-            });
-        }
+        edges.push(Edge {
+            tail: cluster.node,
+            head: child,
+            min_len: 1,
+            decl: i32::MAX,
+            reversed: false,
+        });
+        edges.push(Edge {
+            tail: child,
+            head: cluster.bottom,
+            min_len: 1,
+            decl: i32::MAX,
+            reversed: false,
+        });
+        members += 1;
     }
-    (ranked, clusters)
+    members
+}
+
+fn connect_ranked_clusters(
+    edges: &mut Vec<Edge>,
+    g: &Graph,
+    input: &Input,
+    cluster: &Cluster,
+    clusters: &[Cluster],
+    mut members: i32,
+) -> i32 {
+    for child in clusters {
+        if !input
+            .boxes
+            .iter()
+            .any(|b| b.id == g.nodes[child.node].id && b.parent == g.nodes[cluster.node].id)
+        {
+            continue;
+        }
+        edges.push(Edge {
+            tail: cluster.node,
+            head: child.node,
+            min_len: 1,
+            decl: i32::MAX,
+            reversed: false,
+        });
+        edges.push(Edge {
+            tail: child.bottom,
+            head: cluster.bottom,
+            min_len: 1,
+            decl: i32::MAX,
+            reversed: false,
+        });
+        members += 1;
+    }
+    members
 }
 
 fn redirect_cluster_edges(edges: &mut [Edge], g: &Graph, input: &Input, clusters: &[Cluster]) {
@@ -204,13 +232,100 @@ pub fn borders(
             .filter_map(|index| g.nodes.iter().position(|n| n.id == input.boxes[index].id))
             .collect::<Vec<_>>()
     };
-    let mut paths: Vec<_> = p.nodes.iter().map(|n| path(&n.node.id)).collect();
-    let mut boundary = vec![0; p.nodes.len()];
+    let mut borders = BorderPaths {
+        paths: p.nodes.iter().map(|n| path(&n.node.id)).collect(),
+        boundary: vec![0; p.nodes.len()],
+    };
     for cluster in clusters {
-        let mut own = path(&g.nodes[cluster.node].id);
-        own.push(cluster.node);
-        paths[cluster.node] = own.clone();
-        paths[cluster.bottom] = own.clone();
+        borders.add_cluster(
+            p,
+            &BorderInput {
+                graph: g,
+                input,
+                titles,
+            },
+            cluster,
+            width,
+            &path,
+        )?;
+    }
+    for (i, node) in p.nodes.iter().enumerate() {
+        if node.edge < 0 {
+            continue;
+        }
+        let edge = usize::try_from(node.edge).map_err(|_| LayoutError::Domain)?;
+        let Some(chain) = p.chains.get(edge) else {
+            continue;
+        };
+        let Some((&first, &last)) = chain.first().zip(chain.last()) else {
+            continue;
+        };
+        borders.paths[i] = borders.paths[first]
+            .iter()
+            .zip(&borders.paths[last])
+            .take_while(|(a, b)| a == b)
+            .map(|(a, _)| *a)
+            .collect();
+    }
+    p.out = vec![Vec::new(); p.nodes.len()];
+    p.r#in = vec![Vec::new(); p.nodes.len()];
+    for (i, e) in p.edges.iter().enumerate() {
+        p.out[e.tail].push(i);
+        p.r#in[e.head].push(i);
+    }
+    Ok((borders.paths, borders.boundary))
+}
+
+struct BorderPaths {
+    paths: Vec<Vec<usize>>,
+    boundary: Vec<i8>,
+}
+
+fn cluster_path(mut ancestors: Vec<usize>, node: usize) -> Vec<usize> {
+    ancestors.push(node);
+    ancestors
+}
+
+impl BorderPaths {
+    fn add_cluster(
+        &mut self,
+        p: &mut Proper,
+        context: &BorderInput<'_>,
+        cluster: &mut Cluster,
+        width: i32,
+        path: &impl Fn(&str) -> Vec<usize>,
+    ) -> Result<(), LayoutError> {
+        let g = context.graph;
+        let own = cluster_path(path(&g.nodes[cluster.node].id), cluster.node);
+        self.paths[cluster.node] = own.clone();
+        self.paths[cluster.bottom] = own.clone();
+        self.add_title(p, context, cluster, &own)?;
+        self.add_sides(p, g, cluster, width, &own);
+        for side in [&cluster.left, &cluster.right] {
+            for pair in side.windows(2) {
+                p.edges.push(ProperEdge {
+                    tail: pair[0],
+                    head: pair[1],
+                    decl: g.nodes[cluster.node].decl,
+                    original: usize::MAX,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    fn add_title(
+        &mut self,
+        p: &mut Proper,
+        context: &BorderInput<'_>,
+        cluster: &mut Cluster,
+        own: &[usize],
+    ) -> Result<(), LayoutError> {
+        let BorderInput {
+            graph: g,
+            input,
+            titles,
+        } = context;
         p.nodes[cluster.node].edge = -4;
         p.nodes[cluster.bottom].edge = -4;
         cluster.title = p.nodes.len();
@@ -233,8 +348,19 @@ pub fn borders(
             edge: -5,
         });
         p.rank.push(p.rank[cluster.node]);
-        paths.push(own.clone());
-        boundary.push(0);
+        self.paths.push(own.to_vec());
+        self.boundary.push(0);
+        Ok(())
+    }
+
+    fn add_sides(
+        &mut self,
+        p: &mut Proper,
+        g: &Graph,
+        cluster: &mut Cluster,
+        width: i32,
+        own: &[usize],
+    ) {
         for rank in p.rank[cluster.node]..=p.rank[cluster.bottom] {
             let left = p.nodes.len();
             for side in [1i8, 2i8] {
@@ -250,48 +376,13 @@ pub fn borders(
                     edge: -i32::from(side) - 1,
                 });
                 p.rank.push(rank);
-                paths.push(own.clone());
-                boundary.push(side);
+                self.paths.push(own.to_vec());
+                self.boundary.push(side);
             }
             cluster.left.push(left);
             cluster.right.push(left + 1);
         }
-        for side in [&cluster.left, &cluster.right] {
-            for pair in side.windows(2) {
-                p.edges.push(ProperEdge {
-                    tail: pair[0],
-                    head: pair[1],
-                    decl: g.nodes[cluster.node].decl,
-                    original: usize::MAX,
-                });
-            }
-        }
     }
-    for (i, node) in p.nodes.iter().enumerate() {
-        if node.edge < 0 {
-            continue;
-        }
-        let edge = usize::try_from(node.edge).map_err(|_| LayoutError::Domain)?;
-        let Some(chain) = p.chains.get(edge) else {
-            continue;
-        };
-        let Some((&first, &last)) = chain.first().zip(chain.last()) else {
-            continue;
-        };
-        paths[i] = paths[first]
-            .iter()
-            .zip(&paths[last])
-            .take_while(|(a, b)| a == b)
-            .map(|(a, _)| *a)
-            .collect();
-    }
-    p.out = vec![Vec::new(); p.nodes.len()];
-    p.r#in = vec![Vec::new(); p.nodes.len()];
-    for (i, e) in p.edges.iter().enumerate() {
-        p.out[e.tail].push(i);
-        p.r#in[e.head].push(i);
-    }
-    Ok((paths, boundary))
 }
 
 pub fn ports(clusters: &[Cluster], p: &mut Proper, x: &mut [i32]) -> Result<(), LayoutError> {

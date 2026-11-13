@@ -216,7 +216,7 @@ mod machine_golden {
     fn document_sarif_github_match_go_goldens() {
         let index = LineIndex::new("a😀b\n");
         let empty = LineIndex::new("");
-        let mut list = vec![
+        let list = vec![
             Diagnostic {
                 code: "common/empty-source",
                 severity: Severity::Info,
@@ -290,9 +290,8 @@ mod machine_golden {
         out.clear();
         push_github(&mut out, "<stdin>", &index, &list);
         assert_eq!(out, GOLDEN_GITHUB);
-        list.clear();
         out.clear();
-        push_github(&mut out, "empty", &index, &list);
+        push_github(&mut out, "empty", &index, &[]);
         assert_eq!(out, "");
     }
 }

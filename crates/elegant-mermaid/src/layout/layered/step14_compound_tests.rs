@@ -22,17 +22,37 @@ fn boundary(point: Point, rect: Rect) -> bool {
 }
 
 fn assert_frame_contains(frame: Rect, member: Rect) {
-    assert!(member.x >= frame.x);
-    assert!(member.y >= frame.y);
-    assert!(i64::from(member.x) + i64::from(member.w) <= i64::from(frame.x) + i64::from(frame.w));
-    assert!(i64::from(member.y) + i64::from(member.h) <= i64::from(frame.y) + i64::from(frame.h));
+    assert!(
+        member.x >= frame.x,
+        "assert_frame_contains: input violates member.x >= frame.x; observed {:?}",
+        (frame, member)
+    );
+    assert!(
+        member.y >= frame.y,
+        "assert_frame_contains: input violates member.y >= frame.y; observed {:?}",
+        (frame, member)
+    );
+    assert!(
+        i64::from(member.x) + i64::from(member.w) <= i64::from(frame.x) + i64::from(frame.w),
+        "assert_frame_contains: input violates i64::from(member.x) + i64::from(member.w) <= i64::from(frame.x) + i64::from(frame.w); observed {:?}",
+        (frame, member)
+    );
+    assert!(
+        i64::from(member.y) + i64::from(member.h) <= i64::from(frame.y) + i64::from(frame.h),
+        "assert_frame_contains: input violates i64::from(member.y) + i64::from(member.h) <= i64::from(frame.y) + i64::from(frame.h); observed {:?}",
+        (frame, member)
+    );
 }
 
 #[test]
 fn compound_frame_contains_members_and_routes_use_ports() -> Result<(), Box<dyn std::error::Error>>
 {
     let document = crate::parse("graph TB\nsubgraph one\nA --> B\nend\n");
-    assert!(!document.has_errors());
+    assert!(
+        !document.has_errors(),
+        "compound_frame_contains_members_and_routes_use_ports: input violates !document.has_errors(); observed {:?}",
+        document.diagnostics()
+    );
     for profile in [crate::Profile::Vector, crate::Profile::Cell] {
         let scene = crate::layout(
             &document,
@@ -46,7 +66,11 @@ fn compound_frame_contains_members_and_routes_use_ports() -> Result<(), Box<dyn 
             dump.boxes.iter().map(|b| b.id.as_str()).collect::<Vec<_>>(),
             ["one", "A", "B"]
         );
-        assert!(dump.labels.is_empty());
+        assert!(
+            dump.labels.is_empty(),
+            "compound_frame_contains_members_and_routes_use_ports: input violates dump.labels.is_empty(); observed {:?}",
+            dump.labels
+        );
         let frame = dump.boxes[0].rect;
         for member in &dump.boxes[1..] {
             assert_eq!(member.parent, "one");
@@ -55,24 +79,34 @@ fn compound_frame_contains_members_and_routes_use_ports() -> Result<(), Box<dyn 
         assert_eq!(dump.routes.len(), 1);
         let route = &dump.routes[0];
         assert_eq!((&*route.from, &*route.to), ("A", "B"));
-        assert!(route.points.len() >= 2);
+        assert!(
+            route.points.len() >= 2,
+            "compound_frame_contains_members_and_routes_use_ports: input violates route.points.len() >= 2; observed {:?}",
+            route.points.len()
+        );
         assert!(
             route
                 .points
                 .first()
-                .is_some_and(|&point| boundary(point, dump.boxes[1].rect))
+                .is_some_and(|&point| boundary(point, dump.boxes[1].rect)),
+            "compound_frame_contains_members_and_routes_use_ports: input violates route .points .first() .is_some_and(|&point| boundary(point, dump.boxes[1].rect)); observed {:?}",
+            route
         );
         assert!(
             route
                 .points
                 .last()
-                .is_some_and(|&point| boundary(point, dump.boxes[2].rect))
+                .is_some_and(|&point| boundary(point, dump.boxes[2].rect)),
+            "compound_frame_contains_members_and_routes_use_ports: input violates route .points .last() .is_some_and(|&point| boundary(point, dump.boxes[2].rect)); observed {:?}",
+            route
         );
         assert!(
             route
                 .points
                 .windows(2)
-                .all(|p| p[0].x == p[1].x || p[0].y == p[1].y)
+                .all(|p| p[0].x == p[1].x || p[0].y == p[1].y),
+            "compound_frame_contains_members_and_routes_use_ports: input violates route .points .windows(2) .all(|p| p[0].x == p[1].x || p[0].y == p[1].y); observed {:?}",
+            route
         );
     }
     Ok(())

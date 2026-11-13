@@ -15,7 +15,12 @@ fn pipeline_demo_geometry_equations() -> Result<(), Box<dyn std::error::Error>> 
     ] {
         let input = demo_input(profile);
         let rendered = layout::families::layout(&input)?.0;
-        assert!(rendered.check()?);
+        assert!(
+            rendered.check()?,
+            "{}; observed: {:?}",
+            "Invariant failed: rendered.check()?",
+            rendered.dump()
+        );
         assert_eq!(
             rendered
                 .boxes()
@@ -30,9 +35,24 @@ fn pipeline_demo_geometry_equations() -> Result<(), Box<dyn std::error::Error>> 
         }
         let boxes = rendered.boxes();
         assert_eq!(boxes[0].rect.x, margin);
-        assert!(boxes[1].rect.x >= boxes[0].rect.x + boxes[0].rect.w + rank_gap);
-        assert!(boxes[2].rect.x >= boxes[1].rect.x + boxes[1].rect.w + 2 * rank_gap);
-        assert!(rendered.canvas().w >= boxes[2].rect.x + boxes[2].rect.w + margin);
+        assert!(
+            boxes[1].rect.x >= boxes[0].rect.x + boxes[0].rect.w + rank_gap,
+            "{}; observed: {:?}",
+            "Invariant failed: boxes[1].rect.x >= boxes[0].rect.x + boxes[0].rect.w + rank_gap",
+            boxes
+        );
+        assert!(
+            boxes[2].rect.x >= boxes[1].rect.x + boxes[1].rect.w + 2 * rank_gap,
+            "{}; observed: {:?}",
+            "Invariant failed: boxes[2].rect.x >= boxes[1].rect.x + boxes[1].rect.w + 2 * rank_gap",
+            boxes
+        );
+        assert!(
+            rendered.canvas().w >= boxes[2].rect.x + boxes[2].rect.w + margin,
+            "{}; observed: {:?}",
+            "Invariant failed: rendered.canvas().w >= boxes[2].rect.x + boxes[2].rect.w + margin",
+            boxes
+        );
         assert_eq!(rendered.dump(), layout::families::layout(&input)?.0.dump());
     }
     Ok(())
@@ -61,9 +81,7 @@ fn pipeline_demo_preserves_node_and_route_text() -> Result<(), Box<dyn std::erro
                         group.owner.as_str(),
                         text.lines
                             .iter()
-                            .map(|line| {
-                                line.iter().map(|run| run.text.as_str()).collect::<String>()
-                            })
+                            .map(|line| line_text(line))
                             .collect::<Vec<_>>()
                             .join("\n"),
                     )),
@@ -81,6 +99,10 @@ fn pipeline_demo_preserves_node_and_route_text() -> Result<(), Box<dyn std::erro
         );
     }
     Ok(())
+}
+
+fn line_text(line: &[scene::Run]) -> String {
+    line.iter().map(|run| run.text.as_str()).collect()
 }
 
 #[test]
@@ -105,7 +127,10 @@ fn pipeline_demo_routes_join_boundaries_and_clear_nodes() -> Result<(), Box<dyn 
                 route
                     .points
                     .windows(2)
-                    .all(|p| p[0].x == p[1].x || p[0].y == p[1].y)
+                    .all(|p| p[0].x == p[1].x || p[0].y == p[1].y),
+                "{}; observed: {:?}",
+                "Invariant failed: route .points .windows(2) .all(|p| p[0].x == p[1].x || p[0].y == p[1].y)",
+                route
             );
         }
         let reversed = &rendered.routes()[2].points;
@@ -117,9 +142,17 @@ fn pipeline_demo_routes_join_boundaries_and_clear_nodes() -> Result<(), Box<dyn 
                     .iter()
                     .map(|b| b.rect.y + b.rect.h)
                     .max()
-                    .ok_or("missing boxes")?
+                    .ok_or("missing boxes")?,
+            "{}; observed: {:?}",
+            "Invariant failed: reversed[2].y > boxes .iter() .map(|b| b.rect.y + b.rect.h) .max() .ok_or(\"missing boxes\")?",
+            reversed
         );
-        assert!(rendered.canvas().h > reversed[2].y);
+        assert!(
+            rendered.canvas().h > reversed[2].y,
+            "{}; observed: {:?}",
+            "Invariant failed: rendered.canvas().h > reversed[2].y",
+            reversed
+        );
     }
     Ok(())
 }
@@ -225,7 +258,12 @@ fn pipeline_flowchart_edge_scene() -> Result<(), Box<dyn std::error::Error>> {
     invisible.routes[0].line = "invisible".into();
     let s = layout::families::layout(&invisible)?.0;
     assert_eq!(s.routes().len(), 1);
-    assert!(s.items()[0].items.is_empty());
+    assert!(
+        s.items()[0].items.is_empty(),
+        "{}; observed: {:?}",
+        "Invariant failed: s.items()[0].items.is_empty()",
+        s.items()
+    );
     Ok(())
 }
 
@@ -287,7 +325,12 @@ fn step14_ranks_follow_labels_not_stroke_count() -> Result<(), Box<dyn std::erro
             parsed.diagnostics
         );
         let (model, diagnostics) = model::flowchart::resolve(&source, &parsed.document);
-        assert!(diagnostics.is_empty());
+        assert!(
+            diagnostics.is_empty(),
+            "{}; observed: {:?}",
+            "Invariant failed: diagnostics.is_empty()",
+            diagnostics
+        );
         let input = layout::flowchart::from_flowchart(
             &model,
             scene::Profile::Vector,
@@ -305,9 +348,19 @@ fn step14_ranks_follow_labels_not_stroke_count() -> Result<(), Box<dyn std::erro
     }
     let source = "flowchart LR\nA -->|yes| B\n";
     let parsed = syntax::flowchart::parse(source, &[]);
-    assert!(parsed.diagnostics.is_empty());
+    assert!(
+        parsed.diagnostics.is_empty(),
+        "{}; observed: {:?}",
+        "Invariant failed: parsed.diagnostics.is_empty()",
+        parsed.diagnostics
+    );
     let (model, diagnostics) = model::flowchart::resolve(source, &parsed.document);
-    assert!(diagnostics.is_empty());
+    assert!(
+        diagnostics.is_empty(),
+        "{}; observed: {:?}",
+        "Invariant failed: diagnostics.is_empty()",
+        diagnostics
+    );
     let input = layout::flowchart::from_flowchart(
         &model,
         scene::Profile::Vector,
@@ -315,10 +368,25 @@ fn step14_ranks_follow_labels_not_stroke_count() -> Result<(), Box<dyn std::erro
     );
     let s = layout::families::layout(&input)?.0;
     let gap = s.boxes()[1].rect.x - s.boxes()[0].rect.x - s.boxes()[0].rect.w;
-    assert!(Some(gap) > unlabelled_gap);
+    assert!(
+        Some(gap) > unlabelled_gap,
+        "{}; observed: {:?}",
+        "Invariant failed: Some(gap) > unlabelled_gap",
+        (gap, unlabelled_gap)
+    );
     let label = &s.labels()[0];
-    assert!(s.boxes()[0].rect.x + s.boxes()[0].rect.w <= label.rect.x);
-    assert!(label.rect.x + label.rect.w <= s.boxes()[1].rect.x);
+    assert!(
+        s.boxes()[0].rect.x + s.boxes()[0].rect.w <= label.rect.x,
+        "{}; observed: {:?}",
+        "Invariant failed: s.boxes()[0].rect.x + s.boxes()[0].rect.w <= label.rect.x",
+        label
+    );
+    assert!(
+        label.rect.x + label.rect.w <= s.boxes()[1].rect.x,
+        "{}; observed: {:?}",
+        "Invariant failed: label.rect.x + label.rect.w <= s.boxes()[1].rect.x",
+        label
+    );
     Ok(())
 }
 

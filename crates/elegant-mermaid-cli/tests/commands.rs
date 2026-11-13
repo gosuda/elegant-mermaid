@@ -73,24 +73,42 @@ fn command_contract() -> TestResult {
     ] {
         let output = invoke(&args, "")?;
         assert_eq!(output.status.code(), Some(code));
-        assert!(output.stdout.is_empty());
+        assert!(
+            output.stdout.is_empty(),
+            "command_contract: required output.stdout.is_empty(); observed: {:?}",
+            output.stdout
+        );
         assert_eq!(String::from_utf8(output.stderr)?, format!("{message}\n"));
     }
     let output = invoke(&["--version"], "")?;
-    assert!(output.status.success());
+    assert!(
+        output.status.success(),
+        "command_contract: required output.status.success(); observed: {:?}",
+        output.status
+    );
     assert_eq!(output.stdout, b"emd 0.1.0\n");
-    assert!(output.stderr.is_empty());
+    assert!(
+        output.stderr.is_empty(),
+        "command_contract: required output.stderr.is_empty(); observed: {:?}",
+        output.stderr
+    );
     Ok(())
 }
 #[test]
 fn stdin_diagnostic_path() -> TestResult {
     let output = invoke(&["check", "-"], "flowchart LR\n  A[Start --> B\n")?;
     assert_eq!(output.status.code(), Some(1));
+    let observed = String::from_utf8(output.stdout)?;
     assert!(
-        String::from_utf8(output.stdout)?
-            .starts_with("<stdin>:2:4: error[flowchart/unclosed-node-bracket]:")
+        observed.starts_with("<stdin>:2:4: error[flowchart/unclosed-node-bracket]:"),
+        "stdin_diagnostic_path: required String::from_utf8(output.stdout)?\n            .starts_with(\"<stdin>:2:4: error[flowchart/unclosed-node-bracket]:\"); observed: {:?}",
+        observed
     );
-    assert!(output.stderr.is_empty());
+    assert!(
+        output.stderr.is_empty(),
+        "stdin_diagnostic_path: required output.stderr.is_empty(); observed: {:?}",
+        output.stderr
+    );
     Ok(())
 }
 #[test]
@@ -103,17 +121,46 @@ fn help_and_version() -> TestResult {
         vec!["layout", "--help"],
     ] {
         let output = invoke(&args, "")?;
-        assert!(output.status.success());
-        assert!(output.stderr.is_empty());
+        assert!(
+            output.status.success(),
+            "help_and_version: required output.status.success(); observed: {:?}",
+            output.status
+        );
+        assert!(
+            output.stderr.is_empty(),
+            "help_and_version: required output.stderr.is_empty(); observed: {:?}",
+            output.stderr
+        );
         let text = String::from_utf8(output.stdout)?;
-        assert!(text.contains("Usage: emd"));
-        assert!(!text.contains("kernel-eval"));
-        assert!(!text.contains("--stage"));
+        assert!(
+            text.contains("Usage: emd"),
+            "help_and_version: required text.contains(\"Usage: emd\"); observed: {:?}",
+            text
+        );
+        assert!(
+            !text.contains("kernel-eval"),
+            "help_and_version: required !text.contains(\"kernel-eval\"); observed: {:?}",
+            text
+        );
+        assert!(
+            !text.contains("--stage"),
+            "help_and_version: required !text.contains(\"--stage\"); observed: {:?}",
+            text
+        );
     }
     let output = invoke(&[], "")?;
     assert_eq!(output.status.code(), Some(2));
-    assert!(output.stdout.is_empty());
-    assert!(String::from_utf8(output.stderr)?.starts_with("Usage: emd"));
+    assert!(
+        output.stdout.is_empty(),
+        "help_and_version: required output.stdout.is_empty(); observed: {:?}",
+        output.stdout
+    );
+    let observed = String::from_utf8(output.stderr)?;
+    assert!(
+        observed.starts_with("Usage: emd"),
+        "help_and_version: required String::from_utf8(output.stderr)?.starts_with(\"Usage: emd\"); observed: {:?}",
+        observed
+    );
     Ok(())
 }
 #[test]
@@ -125,7 +172,11 @@ fn check_json_exact() -> TestResult {
     let want = "{\"version\":1,\"files\":[{\"path\":\"<stdin>\",\"kind\":\"flowchart\",\"diagnostics\":[{\"code\":\"flowchart/unclosed-node-bracket\",\"severity\":\"error\",\"message\":\"node bracket [ is never closed\",\"span\":{\"start\":16,\"end\":29},\"line\":2,\"column\":4,\"end_line\":3,\"end_column\":1,\"related\":[],\"help\":\"Add the closing bracket that matches the opening bracket.\",\"fixes\":[{\"title\":\"Add the closing bracket\",\"safety\":\"unsafe\",\"edits\":[{\"span\":{\"start\":29,\"end\":29},\"new_text\":\"]\"}]}]}]}],\"summary\":{\"files\":1,\"errors\":1,\"warnings\":0,\"info\":0}}\n";
     assert_eq!(output.stdout, want.as_bytes());
     assert_eq!(output.status.code(), Some(1));
-    assert!(output.stderr.is_empty());
+    assert!(
+        output.stderr.is_empty(),
+        "check_json_exact: required output.stderr.is_empty(); observed: {:?}",
+        output.stderr
+    );
     Ok(())
 }
 
@@ -144,17 +195,32 @@ fn files_order_outputs_and_empty_scan() -> TestResult {
         .arg("check")
         .current_dir(&dir)
         .output()?;
-    assert!(implicit.status.success());
-    assert!(implicit.stdout.is_empty());
+    assert!(
+        implicit.status.success(),
+        "files_order_outputs_and_empty_scan: required implicit.status.success(); observed: {:?}",
+        implicit.status
+    );
+    assert!(
+        implicit.stdout.is_empty(),
+        "files_order_outputs_and_empty_scan: required implicit.stdout.is_empty(); observed: {:?}",
+        implicit.stdout
+    );
     assert_eq!(implicit.stderr, b"no Mermaid files found in .\n");
     let source = "flowchart LR\n A --> B\n";
     for name in ["b.mmd", "a.mermaid"] {
         std::fs::write(dir.join(name), source)?;
     }
     let output = invoke(&["check", path, "--output-format", "json"], "")?;
-    assert!(output.status.success());
+    assert!(
+        output.status.success(),
+        "files_order_outputs_and_empty_scan: required output.status.success(); observed: {:?}",
+        output.status
+    );
     let text = String::from_utf8(output.stdout)?;
-    assert!(text.find("a.mermaid") < text.find("b.mmd"));
+    assert!(
+        text.find("a.mermaid") < text.find("b.mmd"),
+        "directory check must report a.mermaid before b.mmd for {path:?}: {text:?}"
+    );
     std::fs::remove_dir_all(dir)?;
     Ok(())
 }
@@ -174,7 +240,11 @@ fn render_argument_order_and_output_files() -> TestResult {
     ] {
         let output = invoke(&args, "")?;
         assert!(output.status.success(), "{:?}", output.stderr);
-        assert!(output.stderr.is_empty());
+        assert!(
+            output.stderr.is_empty(),
+            "render_argument_order_and_output_files: required output.stderr.is_empty(); observed: {:?}",
+            output.stderr
+        );
         if !previous.is_empty() {
             assert_eq!(previous, output.stdout);
         }
@@ -192,13 +262,29 @@ fn render_argument_order_and_output_files() -> TestResult {
             "",
         )?;
         assert!(output.status.success(), "{:?}", output.stderr);
-        assert!(output.stdout.is_empty());
+        assert!(
+            output.stdout.is_empty(),
+            "render_argument_order_and_output_files: required output.stdout.is_empty(); observed: {:?}",
+            output.stdout
+        );
         let bytes = std::fs::read(&destination)?;
-        assert!(!bytes.is_empty());
+        assert!(
+            !bytes.is_empty(),
+            "render_argument_order_and_output_files: required !bytes.is_empty(); observed: {:?}",
+            bytes
+        );
         if ext == "svg" {
             let svg = String::from_utf8(bytes)?;
-            assert!(svg.contains("graphics-document document"));
-            assert!(!svg.contains("foreignObject"));
+            assert!(
+                svg.contains("graphics-document document"),
+                "render_argument_order_and_output_files: required svg.contains(\"graphics-document document\"); observed: {:?}",
+                svg
+            );
+            assert!(
+                !svg.contains("foreignObject"),
+                "render_argument_order_and_output_files: required !svg.contains(\"foreignObject\"); observed: {:?}",
+                svg
+            );
         }
     }
     std::fs::remove_dir_all(dir)?;
@@ -348,7 +434,12 @@ fn binary_inference_cli_23_cli_24() -> TestResult {
             if ext == "txt" {
                 assert_eq!(bytes, "\n ┌───┐\n │ A │\n └───┘\n\n".as_bytes());
             } else {
-                assert!(String::from_utf8(bytes)?.contains("<svg"));
+                let observed = String::from_utf8(bytes)?;
+                assert!(
+                    observed.contains("<svg"),
+                    "binary_inference_cli_23_cli_24: required String::from_utf8(bytes)?.contains(\"<svg\"); observed: {:?}",
+                    observed
+                );
             }
         }
     }
@@ -396,7 +487,12 @@ fn binary_explicit_format_cli_23() -> TestResult {
     assert_eq!(output.status.code(), Some(0));
     assert_eq!(output.stdout, b"");
     assert_eq!(output.stderr, b"");
-    assert!(std::fs::read_to_string(&path)?.contains("<svg"));
+    let observed = std::fs::read_to_string(&path)?;
+    assert!(
+        observed.contains("<svg"),
+        "binary_explicit_format_cli_23: required std::fs::read_to_string(&path)?.contains(\"<svg\"); observed: {:?}",
+        observed
+    );
     std::fs::remove_file(path)?;
     Ok(())
 }
@@ -411,14 +507,34 @@ fn invalid_utf8_rejected_by_source_commands() -> TestResult {
         let output = invoke_bytes(&["check", "-", "--output-format", "json"], &source)?;
         assert_eq!(output.status.code(), Some(1));
         let json = String::from_utf8(output.stdout)?;
-        assert!(json.contains("\"code\":\"source/invalid-utf8\""));
-        assert!(json.contains("\"severity\":\"error\""));
-        assert!(json.contains(&format!("\"message\":\"invalid UTF-8 at byte {start}\"")));
-        assert!(json.contains(&format!(
-            "\"span\":{{\"start\":{start},\"end\":{}}}",
-            start + 3
-        )));
-        assert!(json.contains("\"help\":\"Save the source as UTF-8.\""));
+        assert!(
+            json.contains("\"code\":\"source/invalid-utf8\""),
+            "invalid_utf8_rejected_by_source_commands: required json.contains(\"\\\"code\\\":\\\"source/invalid-utf8\\\"\"); observed: {:?}",
+            json
+        );
+        assert!(
+            json.contains("\"severity\":\"error\""),
+            "invalid_utf8_rejected_by_source_commands: required json.contains(\"\\\"severity\\\":\\\"error\\\"\"); observed: {:?}",
+            json
+        );
+        assert!(
+            json.contains(&format!("\"message\":\"invalid UTF-8 at byte {start}\"")),
+            "invalid_utf8_rejected_by_source_commands: required json.contains(&format!(\"\\\"message\\\":\\\"invalid UTF-8 at byte {{start}}\\\"\")); observed: {:?}",
+            json
+        );
+        assert!(
+            json.contains(&format!(
+                "\"span\":{{\"start\":{start},\"end\":{}}}",
+                start + 3
+            )),
+            "invalid_utf8_rejected_by_source_commands: required json.contains(&format!(\n            \"\\\"span\\\":{{{{\\\"start\\\":{{start}},\\\"end\\\":{{}}}}}}\",\n            start + 3\n        )); observed: {:?}",
+            json
+        );
+        assert!(
+            json.contains("\"help\":\"Save the source as UTF-8.\""),
+            "invalid_utf8_rejected_by_source_commands: required json.contains(\"\\\"help\\\":\\\"Save the source as UTF-8.\\\"\"); observed: {:?}",
+            json
+        );
         for args in [
             vec!["render", "-e", "svg"],
             vec!["render", "-e", "text"],
@@ -430,8 +546,16 @@ fn invalid_utf8_rejected_by_source_commands() -> TestResult {
             assert!(output.stdout.is_empty(), "{args:?}");
             let stderr = String::from_utf8(output.stderr)?;
             assert!(stderr.contains("error[source/invalid-utf8]"), "{stderr}");
-            assert!(stderr.contains(&format!("invalid UTF-8 at byte {start}")));
-            assert!(stderr.contains("Save the source as UTF-8."));
+            assert!(
+                stderr.contains(&format!("invalid UTF-8 at byte {start}")),
+                "invalid_utf8_rejected_by_source_commands: required stderr.contains(&format!(\"invalid UTF-8 at byte {{start}}\")); observed: {:?}",
+                stderr
+            );
+            assert!(
+                stderr.contains("Save the source as UTF-8."),
+                "invalid_utf8_rejected_by_source_commands: required stderr.contains(\"Save the source as UTF-8.\"); observed: {:?}",
+                stderr
+            );
         }
     }
     Ok(())
@@ -447,8 +571,18 @@ fn valid_non_ascii_source_commands() -> TestResult {
     ] {
         let output = invoke(&args, "flowchart LR\n  %% café 日本語 😀\n  A --> B\n")?;
         assert_eq!(output.status.code(), Some(0), "{args:?}");
-        assert!(!String::from_utf8(output.stdout)?.contains("source/invalid-utf8"));
-        assert!(!String::from_utf8(output.stderr)?.contains("source/invalid-utf8"));
+        let observed = String::from_utf8(output.stdout)?;
+        assert!(
+            !observed.contains("source/invalid-utf8"),
+            "valid_non_ascii_source_commands: required !String::from_utf8(output.stdout)?.contains(\"source/invalid-utf8\"); observed: {:?}",
+            observed
+        );
+        let observed = String::from_utf8(output.stderr)?;
+        assert!(
+            !observed.contains("source/invalid-utf8"),
+            "valid_non_ascii_source_commands: required !String::from_utf8(output.stderr)?.contains(\"source/invalid-utf8\"); observed: {:?}",
+            observed
+        );
     }
     Ok(())
 }
@@ -477,14 +611,38 @@ fn svg_accessibility_metadata() -> TestResult {
         let output = invoke(&["render", "-e", "svg"], &source)?;
         assert_eq!(output.status.code(), Some(0));
         let svg = String::from_utf8(output.stdout)?;
-        assert!(svg.contains("aria-labelledby='title'"));
-        assert!(svg.contains(&format!("<title id='title'>{title}</title>")));
+        assert!(
+            svg.contains("aria-labelledby='title'"),
+            "svg_accessibility_metadata: required svg.contains(\"aria-labelledby='title'\"); observed: {:?}",
+            svg
+        );
+        assert!(
+            svg.contains(&format!("<title id='title'>{title}</title>")),
+            "svg_accessibility_metadata: required svg.contains(&format!(\"<title id='title'>{{title}}</title>\")); observed: {:?}",
+            svg
+        );
         if let Some(description) = description {
-            assert!(svg.contains("aria-describedby='desc'"));
-            assert!(svg.contains(&format!("<desc id='desc'>{description}</desc>")));
+            assert!(
+                svg.contains("aria-describedby='desc'"),
+                "svg_accessibility_metadata: required svg.contains(\"aria-describedby='desc'\"); observed: {:?}",
+                svg
+            );
+            assert!(
+                svg.contains(&format!("<desc id='desc'>{description}</desc>")),
+                "svg_accessibility_metadata: required svg.contains(&format!(\"<desc id='desc'>{{description}}</desc>\")); observed: {:?}",
+                svg
+            );
         } else {
-            assert!(!svg.contains("aria-describedby="));
-            assert!(!svg.contains("<desc"));
+            assert!(
+                !svg.contains("aria-describedby="),
+                "svg_accessibility_metadata: required !svg.contains(\"aria-describedby=\"); observed: {:?}",
+                svg
+            );
+            assert!(
+                !svg.contains("<desc"),
+                "svg_accessibility_metadata: required !svg.contains(\"<desc\"); observed: {:?}",
+                svg
+            );
         }
     }
     Ok(())

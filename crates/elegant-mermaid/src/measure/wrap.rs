@@ -226,12 +226,32 @@ mod tests {
             }
             let mut offset = 0;
             for line in lines {
-                assert!(boundaries.contains(&offset));
+                assert!(
+                    boundaries.contains(&offset),
+                    "measure wrap properties: contract boundaries.contains(&offset) failed; observed offset={:?}, boundaries={:?}",
+                    offset,
+                    boundaries
+                );
                 offset += line.text.len();
-                assert!(boundaries.contains(&offset));
-                assert!(line.width <= target || segment(line.text).len() == 1);
+                assert!(
+                    boundaries.contains(&offset),
+                    "measure wrap properties: contract boundaries.contains(&offset) failed; observed offset={:?}, boundaries={:?}",
+                    offset,
+                    boundaries
+                );
+                assert!(
+                    line.width <= target || segment(line.text).len() == 1,
+                    "measure wrap properties: contract line.width <= target || segment(line.text).len() == 1 failed; observed text={:?}, target={:?}",
+                    text,
+                    target
+                );
                 offset += line.separator.len();
-                assert!(boundaries.contains(&offset));
+                assert!(
+                    boundaries.contains(&offset),
+                    "measure wrap properties: contract boundaries.contains(&offset) failed; observed offset={:?}, boundaries={:?}",
+                    offset,
+                    boundaries
+                );
             }
         }
         Ok(())

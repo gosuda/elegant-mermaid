@@ -135,15 +135,25 @@ mod tests {
         let mut angle = 16;
         while angle <= 16_384 {
             let value = sin_q15(angle);
-            assert!(value >= previous);
-            assert!((-32_768..=32_768).contains(&value));
+            assert!(
+                value >= previous,
+                "first-quadrant sine must be monotone: angle={angle}, previous={previous}, value={value}"
+            );
+            assert!(
+                (-32_768..=32_768).contains(&value),
+                "Q15 sine must stay in [-32768, 32768]: angle={angle}, value={value}"
+            );
             previous = value;
             angle += 16;
         }
         for case in 0..2000usize {
             let mut rng = Xorshift32::new(case);
             let angle = rng.i32_in(-200_000, 200_000);
-            assert!((-32_768..=32_768).contains(&sin_q15(angle)));
+            let value = sin_q15(angle);
+            assert!(
+                (-32_768..=32_768).contains(&value),
+                "Q15 sine must stay in [-32768, 32768]: angle={angle}, value={value}"
+            );
         }
     }
 

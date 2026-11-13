@@ -214,7 +214,11 @@ mod tests {
             .find("\"id\":\"")
             .map(|at| at + rules_at + 6)
             .unwrap_or(0);
-        assert!(out[first_rule..].starts_with("flowchart/duplicate-ids"));
+        assert!(
+            out[first_rule..].starts_with("flowchart/duplicate-ids"),
+            "sarif orders rules by registry and maps levels: contract out[first_rule..].starts_with(\"flowchart/duplicate-ids\") failed; observed out={:?}",
+            out
+        );
         assert_eq!(level(Severity::Info), "note");
         assert_eq!(level(Severity::Error), "error");
     }
@@ -230,7 +234,11 @@ mod tests {
         }];
         let mut out = String::new();
         push_sarif(&mut out, "v", &files);
-        assert!(!out.contains("relatedLocations"));
+        assert!(
+            !out.contains("relatedLocations"),
+            "sarif omits related locations when empty: contract !out.contains(\"relatedLocations\") failed; observed out={:?}",
+            out
+        );
     }
 }
 
@@ -269,9 +277,17 @@ mod ordering_tests {
         ];
         let mut out = String::new();
         push_sarif(&mut out, "v", &files);
-        assert!(out.contains("\"rules\":[{\"id\":\"unknown/a\",\"shortDescription\":{\"text\":\"\"},\"help\":{\"text\":\"\"}},{\"id\":\"unknown/z\""));
-        assert!(out.contains("\"results\":[{\"ruleId\":\"unknown/a\""));
-        assert!(out.contains("\"startColumn\":1,\"endLine\":1,\"endColumn\":3"));
+        assert!(out.contains("\"rules\":[{\"id\":\"unknown/a\",\"shortDescription\":{\"text\":\"\"},\"help\":{\"text\":\"\"}},{\"id\":\"unknown/z\""), "sarif orders files and unknown rules and handles empty: contract out.contains(\"\\\"rules\\\":[{{\\\"id\\\":\\\"unknown/a\\\",\\\"shortDescription\\\":{{\\\"text\\\":\\\"\\\"}},\\\"help\\\":{{\\\"text\\\":\\\"\\\"}}}},{{\\\"id\\\":\\\"unknown/z\\\"\") failed; observed out={:?}", out);
+        assert!(
+            out.contains("\"results\":[{\"ruleId\":\"unknown/a\""),
+            "sarif orders files and unknown rules and handles empty: contract out.contains(\"\\\"results\\\":[{{\\\"ruleId\\\":\\\"unknown/a\\\"\") failed; observed out={:?}",
+            out
+        );
+        assert!(
+            out.contains("\"startColumn\":1,\"endLine\":1,\"endColumn\":3"),
+            "sarif orders files and unknown rules and handles empty: contract out.contains(\"\\\"startColumn\\\":1,\\\"endLine\\\":1,\\\"endColumn\\\":3\") failed; observed out={:?}",
+            out
+        );
         out.clear();
         push_sarif(&mut out, "v", &[]);
         assert_eq!(

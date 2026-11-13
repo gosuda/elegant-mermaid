@@ -111,7 +111,11 @@ mod tests {
                 reversed: false,
             });
         }
-        assert!(break_cycles(&g)?.iter().all(|v| !v));
+        assert!(
+            break_cycles(&g)?.iter().all(|v| !v),
+            "layered_cycles_chain_and_back_edge: input violates break_cycles(&g)?.iter().all(|v| !v); observed {:?}",
+            g
+        );
         g.edges.push(Edge {
             tail: 1999,
             head: 0,
