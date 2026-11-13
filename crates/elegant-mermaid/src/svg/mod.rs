@@ -1,11 +1,14 @@
 //! Deterministic integer SVG serialization of the vector display list.
 use crate::{
     geom::{Point, Rect},
+    interaction::OwnerLink,
     scene::*,
     theme::{self, Colour, TextChoice, Theme, Token},
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 mod geometry;
+#[cfg(test)]
+mod link_tests;
 #[cfg(test)]
 mod markers_tests;
 #[cfg(test)]
@@ -30,6 +33,7 @@ pub struct Options<'a> {
     pub description: &'a str,
     pub kind: &'a str,
     pub font_family: &'a str,
+    pub links: &'a [OwnerLink<'a>],
 }
 /// Invalid renderer configuration or a marker coordinate outside the integer range.
 #[derive(Debug, thiserror::Error)]
@@ -68,19 +72,7 @@ pub fn write(out: &mut String, scene: &Scene, opts: &Options<'_>) -> Result<(), 
         Colour::parse_hex(opts.background)?
     }
     .hex();
-    let mut body = String::new();
-    for (i, g) in scene.items().iter().enumerate() {
-        body.push_str(&format!(
-            "<g class='emd-{}' id='{}g{}'>\n",
-            g.role.as_str(),
-            opts.id_prefix,
-            i
-        ));
-        for p in &g.items {
-            body.push_str(&r.primitive(p)?);
-        }
-        body.push_str("</g>\n");
-    }
+    let body = group_body(&mut r, scene, opts)?;
     let w = geometry::number(i64::from(scene.canvas().w));
     let h = geometry::number(i64::from(scene.canvas().h));
     let mut result = header(opts, &w, &h);
@@ -94,6 +86,41 @@ pub fn write(out: &mut String, scene: &Scene, opts: &Options<'_>) -> Result<(), 
     result.push_str("</svg>\n");
     out.push_str(&result);
     Ok(())
+}
+
+fn group_body(
+    renderer: &mut Renderer,
+    scene: &Scene,
+    opts: &Options<'_>,
+) -> Result<String, ConfigError> {
+    let mut body = String::new();
+    let mut links = BTreeMap::new();
+    for link in opts.links {
+        links.insert(link.owner, link);
+    }
+    for (i, g) in scene.items().iter().enumerate() {
+        let link = links.get(g.owner.as_str());
+        if let Some(link) = link {
+            body.push_str(&format!("<a href='{}'>\n", escape(link.url.as_str())));
+            if let Some(tooltip) = link.tooltip {
+                body.push_str(&format!("<title>{}</title>\n", escape(tooltip)));
+            }
+        }
+        body.push_str(&format!(
+            "<g class='emd-{}' id='{}g{}'>\n",
+            g.role.as_str(),
+            opts.id_prefix,
+            i
+        ));
+        for p in &g.items {
+            body.push_str(&renderer.primitive(p)?);
+        }
+        body.push_str("</g>\n");
+        if link.is_some() {
+            body.push_str("</a>\n");
+        }
+    }
+    Ok(body)
 }
 fn invalid(s: impl Into<String>) -> ConfigError {
     ConfigError::Invalid(s.into())

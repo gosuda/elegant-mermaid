@@ -99,6 +99,7 @@ pub fn render_svg(document: &Document<'_>, options: &SvgOptions) -> Result<Strin
             description,
             kind,
             font_family: "",
+            links: &[],
         },
     )
     .map_err(|error| match error {

@@ -55,6 +55,7 @@ pub mod diag;
 pub mod error;
 pub(crate) mod r#gen;
 pub mod geom;
+pub mod interaction;
 pub mod kind;
 pub mod layout;
 pub mod markdown;
