@@ -73,6 +73,7 @@ This file defines the layered layout family: its conventions, its pipeline phase
 
 - layered-13: The cycle phase MUST set self-loops aside. A graph without protected cluster constraints MUST use depth-first search, with roots and out-edges in declaration order, and reverse an edge when its target is on the DFS stack. [just lean-parity]
     For a compound graph, the phase MUST start with the immutable synthetic constraint DAG and insert semantic edges once in declaration order. It MUST reverse `u -> v` exactly when the current graph has a path `v -> u`. An inserted edge MUST NOT change direction again. Synthetic constraints MUST NOT reverse. The same protected insertion rule MUST constrain the greedy portfolio candidate. This bounded compound case takes `O(edges * (nodes + edges))`; the model limits MUST apply before it runs.
+    The cycle rule MUST depend on the constraints in the current component. A cluster in another component MUST NOT disable depth-first cycle breaking.
     A reversed edge MUST retain its original endpoints for drawing. The routing phase MUST place self-loops under spec/layout/routing.md.
 
 ## Ranking

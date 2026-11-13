@@ -15,6 +15,25 @@ fn input(source: &str, profile: Profile) -> layout::input::Input {
 }
 
 #[test]
+fn empty_subgraph_does_not_skip_disconnected_cycle_breaking() -> TestResult {
+    let source = include_str!("../../../spec/golden/empty-subgraph-cycle.mmd");
+    for profile in [Profile::Vector, Profile::Cell] {
+        let mut model = input(source, profile);
+        for direction in [Direction::Tb, Direction::Bt, Direction::Lr, Direction::Rl] {
+            model.direction = direction;
+            for thoroughness in 1..=5 {
+                model.options.thoroughness = thoroughness;
+                let scene = layout::families::layout(&model)?.0;
+                assert!(scene.check()?);
+                assert_eq!(scene.boxes().len(), 3);
+                assert_eq!(scene.routes().len(), 2);
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn step14_route_labels_are_measured_ranked_and_drawn() -> TestResult {
     for profile in [Profile::Vector, Profile::Cell] {
         let model = input("flowchart TB\nA -->|a substantial edge label| B\n", profile);

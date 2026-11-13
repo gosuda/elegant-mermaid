@@ -477,12 +477,6 @@ pub(super) fn layout_unisolated(
     let sizes = edge_sizes(&g, &measurements.route_stacks)?;
     super::loops::size_nodes(&mut g, &sizes)?;
     super::clusters::connect(&mut g, input);
-    if input.groups.is_empty() {
-        let reversed = cycles::break_cycles(&g)?;
-        for (e, reversed) in g.edges.iter_mut().zip(reversed) {
-            e.reversed = reversed;
-        }
-    }
     let mut dump = blank_dump(input);
     let mut canvas = Size { w: 0, h: 0 };
     let mut placed_titles = Vec::new();
@@ -647,7 +641,17 @@ fn place_components(
     let mut parts = Vec::new();
     let mut sizes = Vec::new();
     for members in rank::components(graph)? {
-        let component = component(graph, &members);
+        let mut component = component(graph, &members);
+        if !component
+            .nodes
+            .iter()
+            .any(|node| input.groups.iter().any(|group| group.id == node.id))
+        {
+            let reversed = cycles::break_cycles(&component)?;
+            for (edge, reversed) in component.edges.iter_mut().zip(reversed) {
+                edge.reversed = reversed;
+            }
+        }
         let layout = super::portfolio::layout(&component, input, measurements)?;
         let bounds = bounds(layout.packing_rects(), &layout.routes)?;
         sizes.push(Size {
