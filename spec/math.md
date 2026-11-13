@@ -74,8 +74,8 @@ This file fixes the styled Markdown runs inside labels and the TeX subset that a
     |`\Psi`|U+03A8|
     |`\Omega`|U+03A9|
 
-- math-17: `tools/specgen` MUST check each Greek code point against the `cmap` of `Inter-Regular.ttf`; when Inter lacks U+03F5, U+03D1, or U+03D5, the name MUST map to U+03B5, U+03B8, or U+03C6 instead, and the generated table MUST record the code point in use. [just gen-check]
-- math-18: `tools/specgen` MUST fail when Inter lacks a glyph that the math subset needs. [just gen-check]
+- math-17: `tools/specgen` MUST check each Greek code point against the `cmap` of `Inter-Regular.ttf`; when Inter lacks U+03F5, U+03D1, or U+03D5, the name MUST map to U+03B5, U+03B8, or U+03C6 instead, and the generated table MUST record the code point in use. For `\cdot`, the vector output MUST draw the logical code point U+22C5 when Inter maps U+22C5; when Inter lacks U+22C5, the vector output MUST select U+00B7 from the font. `tools/specgen` MUST validate the selected code point against the same `cmap` and MUST record the logical-to-font substitution in the generated glyph mapping table. [just gen-check]
+- math-18: `tools/specgen` MUST fail when Inter lacks a glyph that the math subset needs; for `\cdot` it MUST fail when Inter maps neither U+22C5 nor U+00B7. The Greek fallbacks and the `\cdot` mapping MUST be the only substitutions, and the `\cdot` mapping MUST apply to the vector output only: the Unicode cell form of `\cdot` MUST stay U+22C5, and the ASCII form MUST stay `.`. [just gen-check]
 
 ## Script characters
 

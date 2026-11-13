@@ -17,6 +17,8 @@ pub(crate) mod layoutconst;
 pub(crate) mod lin16;
 pub(crate) mod lintrules;
 pub(crate) mod markers;
+pub(crate) mod mathglyph;
+pub(crate) mod mathgreek;
 pub(crate) mod scripts;
 pub(crate) mod seriestext;
 pub(crate) mod shapes;

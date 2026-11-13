@@ -26,6 +26,8 @@ func buildGeneratedTables(in *inputs) ([]renderable, error) {
 		computed.kinds,
 		computed.advances,
 		computed.upem,
+		computed.mathGreek,
+		computed.mathGlyph,
 		computed.width,
 		computed.graphemes,
 		computed.incb,
@@ -38,6 +40,8 @@ func buildGeneratedTables(in *inputs) ([]renderable, error) {
 type computedTables struct {
 	kinds       *table
 	advances    *table
+	mathGreek   *table
+	mathGlyph   *table
 	upem        *arrayTable
 	width       *table
 	graphemes   *table
@@ -49,45 +53,56 @@ type computedTables struct {
 }
 
 func computeStartingTables(in *inputs) (*computedTables, error) {
-	sine, err := sineTable()
-	if err != nil {
-		return nil, fmt.Errorf("sine table: %w", err)
+	sine, sineErr := sineTable()
+	if sineErr != nil {
+		return nil, fmt.Errorf("sine table: %w", sineErr)
 	}
-	lin16, err := lin16Table()
-	if err != nil {
-		return nil, fmt.Errorf("lin16 table: %w", err)
+	lin16, lin16Err := lin16Table()
+	if lin16Err != nil {
+		return nil, fmt.Errorf("lin16 table: %w", lin16Err)
 	}
-	advances, upems, err := buildAdvances(in.regularTTF, in.semiboldTTF)
-	if err != nil {
-		return nil, fmt.Errorf("advances: %w", err)
+	advances, upems, advanceErr := buildAdvances(in.regularTTF, in.semiboldTTF)
+	if advanceErr != nil {
+		return nil, fmt.Errorf("advances: %w", advanceErr)
 	}
-	widths, err := buildUnicodeWidth(map[string][]byte{
+	hasMathGlyph := regularMathGlyphs(advances)
+	mathGreek, greekErr := mathGreekTable(hasMathGlyph)
+	if greekErr != nil {
+		return nil, greekErr
+	}
+	mathGlyph, glyphErr := mathGlyphTable(hasMathGlyph)
+	if glyphErr != nil {
+		return nil, glyphErr
+	}
+	widths, widthErr := buildUnicodeWidth(map[string][]byte{
 		"EastAsianWidth.txt":        in.eaw,
 		"emoji-data.txt":            in.emoji,
 		"GraphemeBreakProperty.txt": in.gbp,
 	})
-	if err != nil {
-		return nil, err
+	if widthErr != nil {
+		return nil, widthErr
 	}
-	graphemes, err := buildGraphemes(in.gbp, in.emoji)
-	if err != nil {
-		return nil, err
+	graphemes, graphemeErr := buildGraphemes(in.gbp, in.emoji)
+	if graphemeErr != nil {
+		return nil, graphemeErr
 	}
-	incb, err := buildIncb(in.derived)
-	if err != nil {
-		return nil, err
+	incb, incbErr := buildIncb(in.derived)
+	if incbErr != nil {
+		return nil, incbErr
 	}
-	ideographic, err := buildIdeographic(in.propList)
-	if err != nil {
-		return nil, err
+	ideographic, ideographicErr := buildIdeographic(in.propList)
+	if ideographicErr != nil {
+		return nil, ideographicErr
 	}
-	kinds, err := buildKindTable(in.kinds)
-	if err != nil {
-		return nil, err
+	kinds, kindErr := buildKindTable(in.kinds)
+	if kindErr != nil {
+		return nil, kindErr
 	}
 	return &computedTables{
 		kinds:       kinds,
 		advances:    buildAdvancesTable(advances),
+		mathGreek:   mathGreek,
+		mathGlyph:   mathGlyph,
 		upem:        newArrayTable(arraySpec{name: "advancesupem", goName: "AdvancesUpem", rsName: "ADVANCES_UPEM", leanName: "advancesUpem", goElem: "int32", rsElem: "i32", leanElem: "Int", values: upemValues(upems)}),
 		width:       buildWidthTable(widths),
 		graphemes:   buildGraphemeTable(graphemes),

@@ -29,6 +29,16 @@ func writeKindsFixture(t *testing.T, root string) {
 	writeFile(t, filepath.Join(root, "spec", "data", "kinds.json"), string(data))
 }
 
+func writeFontFixture(t *testing.T, root string) {
+	t.Helper()
+	fontRoot := filepath.Join(dataRoot(t), "spec", "data", "fonts")
+	for _, name := range []string{"Inter-Regular.ttf", "Inter-SemiBold.ttf"} {
+		data, err := os.ReadFile(filepath.Join(fontRoot, name))
+		require.NoError(t, err)
+		writeFile(t, filepath.Join(root, "spec", "data", "fonts", name), string(data))
+	}
+}
+
 func TestStrictJSONRejectsDuplicateKeys(t *testing.T) {
 	var target map[string]int
 	err := unmarshalStrict([]byte(`{"a":1,"a":2}`), &target)
@@ -86,6 +96,7 @@ func TestRequirementRejectsLineWithoutID(t *testing.T) {
 func TestCheckDetectsHandEditedGeneratedFile(t *testing.T) {
 	root := t.TempDir()
 	writeKindsFixture(t, root)
+	writeFontFixture(t, root)
 	require.NoError(t, generateRoot(root, discard{}))
 	require.NoError(t, checkRoot(root, discard{}))
 
@@ -102,6 +113,7 @@ func TestCheckDetectsHandEditedGeneratedFile(t *testing.T) {
 
 func TestAbsentInputsGenerateEmptyTables(t *testing.T) {
 	root := t.TempDir()
+	writeFontFixture(t, root)
 	require.NoError(t, generateRoot(root, discard{}))
 	for _, name := range []string{"kinds", "markers", "glyphjoin", "seriestext", "strokeok", "entities"} {
 		data, err := os.ReadFile(filepath.Join(root, "internal", "gen", name+".go"))
@@ -113,6 +125,7 @@ func TestAbsentInputsGenerateEmptyTables(t *testing.T) {
 
 func TestGenerateIsIdempotent(t *testing.T) {
 	root := t.TempDir()
+	writeFontFixture(t, root)
 	writeFile(t, filepath.Join(root, "spec", "data", "scripts.json"), `[{"base":"U+0031","sup":"U+00B9","sub":"U+2081"}]`)
 	require.NoError(t, generateRoot(root, discard{}))
 	first, err := os.ReadFile(filepath.Join(root, "internal", "gen", "scripts.go"))
