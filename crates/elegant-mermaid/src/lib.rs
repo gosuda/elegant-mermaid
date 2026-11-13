@@ -57,6 +57,7 @@ pub(crate) mod r#gen;
 pub mod geom;
 pub mod interaction;
 pub mod kind;
+pub mod label;
 pub mod layout;
 pub mod markdown;
 pub mod measure;
