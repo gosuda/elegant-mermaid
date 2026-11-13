@@ -536,7 +536,8 @@ def placeComponent (P : Params) (cg : Graph) (run : Run) (cursor : Int)
   let labelRects := placedLabels P cg run labels
   let extents : List Rect := rects.zipIdx.map fun q =>
     ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩
-  let b := boundsOf (rects ++ extents ++ labelBounds P cg run labels)
+  let b := boundsOf (rects ++ extents ++ labelBounds P cg run labels ++
+    (componentTitles P cg run).map (·.2))
     (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))
   let dx := cursor - b.minX
   let dy := 0 - b.minY
@@ -571,7 +572,7 @@ def placePart (comp : List Nat) (cg : Graph) (run : Run) (P : Params) (acc : Acc
   let loops ← componentLoops P cg run labels
   let part₀ := placeComponent P cg run 0 labels loops
   let part := { part₀ with
-    area := partArea (part₀.rects ++ labelBounds P cg run labels ++
+    area := partArea (part₀.rects ++ part₀.titles.map (·.2) ++ labelBounds P cg run labels ++
       ((List.range cg.nodes.length).map fun v =>
         let rect := nodeRect cg run v
         ⟨rect.x + rect.w, rect.y, Loops.extent cg.slot

@@ -38,20 +38,58 @@ def append (target gap : Int) (s : State) (item : Item) : Except LayoutError Sta
          occupied := true
          boxes := s.boxes ++ [⟨x, y, item.width, item.height⟩] }
 
+structure Shelf where
+  x : Int := 0
+  y : Int := 0
+  rowHeight : Int := 0
+  width : Int := 0
+  occupied : Bool := false
+
+def shelfPlace (target gap : Int) (s : Shelf) (item : Item) : Shelf :=
+  let wrap := s.occupied && decide (target < s.x + item.width)
+  let x := if wrap then 0 else s.x
+  let y := if wrap then s.y + s.rowHeight + gap else s.y
+  { x := x + item.width + gap
+    y := y
+    rowHeight := if wrap then max 0 item.height else max s.rowHeight item.height
+    width := max s.width (x + item.width)
+    occupied := true }
+
+def shelfArea (items : List Item) (gap target : Int) : Except LayoutError Int := do
+  let s := items.foldl (shelfPlace target gap) {}
+  let area := s.width * (s.y + s.rowHeight)
+  if 9223372036854775807 < area then throw .overflow
+  pure area
+
+def minAreaTarget (items : List Item) (gap aspect : Int) : Except LayoutError Int := do
+  let initialArea ← shelfArea items gap aspect
+  let result ← items.foldlM (fun (state : Int × Int × Int) item => do
+    let prefixWidth := state.1 + item.width + gap
+    let area ← shelfArea items gap prefixWidth
+    pure (prefixWidth, if area < state.2.2 then (prefixWidth, area) else state.2))
+    (-gap, aspect, initialArea)
+  pure result.2.1
+
 def targetWidth (maxWidth : Nat) (aspectNum aspectDen : Int) (items : List Item) :
     Except LayoutError Int := do
   if maxWidth > 0 then pure (maxWidth : Int)
   else
-    if aspectNum < 0 ∨ aspectDen ≤ 0 ∨ items.any (fun i => i.area < 0) then throw .domain
+    if aspectNum ≤ 0 ∨ aspectDen ≤ 0 ∨ items.any (fun i => i.area < 0) then throw .domain
     let area := items.foldl (fun n i => n + i.area) 0
     let product := area * aspectNum
     if 9223372036854775807 < product then throw .overflow
     Rect.isqrt (Int.fdiv product aspectDen)
 
+def packingTarget (maxWidth : Nat) (gap aspectNum aspectDen : Int) (items : List Item) :
+    Except LayoutError Int := do
+  let aspect ← targetWidth maxWidth aspectNum aspectDen items
+  if maxWidth > 0 ∨ items.length < 2 then pure aspect
+  else minAreaTarget items gap aspect
+
 def pack (maxWidth : Nat) (gap margin aspectNum aspectDen : Int) (items : List Item) :
     Except LayoutError State := do
   if gap < 0 ∨ margin < 0 then throw .domain
-  let target ← targetWidth maxWidth aspectNum aspectDen items
+  let target ← packingTarget maxWidth gap aspectNum aspectDen items
   let result ← items.foldlM (append target gap) {}
   let width := result.width + 2 * margin
   let height := result.height + 2 * margin
@@ -128,7 +166,7 @@ theorem pack_bounds {maxWidth : Nat} {gap margin aspectNum aspectDen : Int}
   split at h
   · simp at h
   · rename_i hn
-    cases ht : targetWidth maxWidth aspectNum aspectDen items with
+    cases ht : packingTarget maxWidth gap aspectNum aspectDen items with
     | error e => simp [ht] at h
     | ok target =>
       simp only [ht] at h
@@ -188,7 +226,7 @@ theorem pack_dimensions {maxWidth : Nat} {gap margin aspectNum aspectDen : Int}
   simp only [bind, Except.bind, pure, Except.pure] at h
   split at h
   · simp at h
-  · cases ht : targetWidth maxWidth aspectNum aspectDen items with
+  · cases ht : packingTarget maxWidth gap aspectNum aspectDen items with
     | error e => simp [ht] at h
     | ok target =>
       simp only [ht] at h
