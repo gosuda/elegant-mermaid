@@ -672,6 +672,8 @@ fn place_components(
                 .iter()
                 .map(|route| route.points.as_slice())
         }),
+        &sizes,
+        graph.params.node_gap,
     )?;
     for (part, origin) in
         parts

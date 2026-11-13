@@ -153,7 +153,72 @@ func packingTarget(parts []Layout, opts PackOptions) (int64, error) {
 	if area > math.MaxInt64/int64(opts.AspectNum) {
 		return 0, geom.ErrOverflow
 	}
-	return geom.Isqrt(area * int64(opts.AspectNum) / int64(opts.AspectDen))
+	aspect, err := geom.Isqrt(area * int64(opts.AspectNum) / int64(opts.AspectDen))
+	if err != nil || len(parts) < 2 {
+		return aspect, err
+	}
+	return minAreaTarget(parts, int64(opts.Gap), aspect)
+}
+
+type shelf struct {
+	gap, target, x, y, rowHeight, width int64
+	items                               int
+}
+
+func (s *shelf) place(w, h int64) (int64, int64) {
+	if s.items > 0 && s.x+w > s.target {
+		s.x = 0
+		s.y += s.rowHeight + s.gap
+		s.rowHeight = 0
+		s.items = 0
+	}
+	x, y := s.x, s.y
+	s.x += w + s.gap
+	s.width = max(s.width, x+w)
+	s.rowHeight = max(s.rowHeight, h)
+	s.items++
+	return x, y
+}
+func (s *shelf) area() (int64, error) {
+	height := s.y + s.rowHeight
+	if s.width != 0 && height > math.MaxInt64/s.width {
+		return 0, geom.ErrOverflow
+	}
+	return s.width * height, nil
+}
+func shelfArea(sizes []geom.Size, gap, target int64) (int64, error) {
+	s := shelf{gap: gap, target: target}
+	for _, size := range sizes {
+		s.place(int64(size.W), int64(size.H))
+	}
+	return s.area()
+}
+func minAreaTarget(parts []Layout, gap, aspect int64) (int64, error) {
+	sizes := make([]geom.Size, len(parts))
+	for i, part := range parts {
+		bounds, err := layoutBounds(part)
+		if err != nil {
+			return 0, err
+		}
+		sizes[i] = geom.Size{W: bounds.W, H: bounds.H}
+	}
+	best := aspect
+	bestArea, err := shelfArea(sizes, gap, aspect)
+	if err != nil {
+		return 0, err
+	}
+	prefix := -gap
+	for _, size := range sizes {
+		prefix += int64(size.W) + gap
+		area, err := shelfArea(sizes, gap, prefix)
+		if err != nil {
+			return 0, err
+		}
+		if area < bestArea {
+			best, bestArea = prefix, area
+		}
+	}
+	return best, nil
 }
 func Pack(parts []Layout, opts PackOptions) (Layout, error) {
 	if opts.MaxWidth < 0 || opts.Gap < 0 {
@@ -164,19 +229,13 @@ func Pack(parts []Layout, opts PackOptions) (Layout, error) {
 		return Layout{}, err
 	}
 	var out Layout
-	var x, y, rowHeight int64
-	rowItems := 0
+	sh := shelf{gap: int64(opts.Gap), target: target}
 	for _, part := range parts {
 		bounds, err := layoutBounds(part)
 		if err != nil {
 			return out, err
 		}
-		if rowItems > 0 && x+int64(bounds.W) > target {
-			x = 0
-			y += rowHeight + int64(opts.Gap)
-			rowHeight = 0
-			rowItems = 0
-		}
+		x, y := sh.place(int64(bounds.W), int64(bounds.H))
 		if err := translateLayout(&part, x-int64(bounds.X), y-int64(bounds.Y)); err != nil {
 			return out, err
 		}
@@ -187,9 +246,6 @@ func Pack(parts []Layout, opts PackOptions) (Layout, error) {
 		out.Titles = append(out.Titles, part.Titles...)
 		out.LabelReservations = append(out.LabelReservations, part.LabelReservations...)
 		out.BudgetExhausted = out.BudgetExhausted || part.BudgetExhausted
-		x += int64(bounds.W) + int64(opts.Gap)
-		rowHeight = max(rowHeight, int64(bounds.H))
-		rowItems++
 	}
 	bounds, err := layoutBounds(out)
 	out.Width = bounds.W
