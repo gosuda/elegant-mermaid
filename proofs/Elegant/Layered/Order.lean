@@ -617,10 +617,304 @@ def constrainedLayer (p : Proper) (key : OrderKey) (nb : Nat → List Nat)
         (clusterBlockKey p key nb pos layer initial level a)
         (clusterBlockKey p key nb pos layer initial level b)) (depth + 1) 0 layer
 
-def initOrder (p : Proper) : List (List Nat) :=
+namespace Sibling
+
+abbrev Row := Nat × Nat × Int
+
+def clusterRows (p : Proper) : List (Nat × Option Nat) :=
+  p.nodes.filterMap fun n =>
+    if n.node.border == -1 then
+      n.node.clusterPath.getLast?.map fun c => (c, n.node.clusterPath.dropLast.getLast?)
+    else none
+
+def clusterIds (p : Proper) : List Nat :=
+  ((clusterRows p).map Prod.fst).eraseDups.mergeSort (fun a b => decide (a ≤ b))
+
+def parentOf (p : Proper) (c : Nat) : Option Nat :=
+  (List.lookup c (clusterRows p)).getD none
+
+def lbRows (p : Proper) (pos : Nat → Int) : List Row :=
+  p.nodes.zipIdx.filterMap fun q =>
+    if q.1.node.border == -1 then
+      q.1.node.clusterPath.getLast?.map fun c => (c, lay p q.2, pos q.2)
+    else none
+
+def lbAt (rows : List Row) (c r : Nat) : Option Int :=
+  (rows.reverse.find? fun t => t.1 == c && t.2.1 == r).map fun t => t.2.2
+
+def lbSpan (rows : List Row) (c : Nat) : Option (Nat × Nat) :=
+  match rows.filter (fun t => t.1 == c) with
+  | [] => none
+  | t :: ts => some (ts.foldl (fun s u => (min s.1 u.2.1, max s.2 u.2.1)) (t.2.1, t.2.1))
+
+def meanKey (cell : Nat → Nat → Option Int) (span : Option (Nat × Nat)) (c : Nat) : Int × Int :=
+  match span with
+  | none => (0, 1)
+  | some (f, l) =>
+    (((List.range (l + 1 - f)).map fun k => (cell c (f + k)).getD 0).sum,
+      ((l + 1 - f : Nat) : Int))
+
+def votes (cell : Nat → Nat → Option Int) (spanA spanB : Option (Nat × Nat)) (a b : Nat) :
+    Nat × Nat :=
+  match spanA, spanB with
+  | some (fa, la), some (fb, lb) =>
+    (List.range (min la lb + 1 - max fa fb)).foldl (fun (acc : Nat × Nat) k =>
+      match cell a (max fa fb + k), cell b (max fa fb + k) with
+      | some pa, some pb => if pa < pb then (acc.1 + 1, acc.2) else (acc.1, acc.2 + 1)
+      | _, _ => acc) (0, 0)
+  | _, _ => (0, 0)
+
+def precedes (v : Nat × Nat) (a b : Nat) : Bool :=
+  if v.1 = v.2 then decide (a < b) && decide (0 < v.1 + v.2) else decide (v.2 < v.1)
+
+def sibLess (key : Nat → Int × Int) (a b : Nat) : Bool :=
+  if (key a).1 * (key b).2 = (key b).1 * (key a).2 then decide (a < b)
+  else decide ((key a).1 * (key b).2 < (key b).1 * (key a).2)
+
+def pickMin (less : Nat → Nat → Bool) : List Nat → Option Nat
+  | [] => none
+  | x :: xs => some (xs.foldl (fun y z => if less z y then z else y) x)
+
+def kahnOrder (pre less : Nat → Nat → Bool) : Nat → List Nat → List Nat
+  | 0, _ => []
+  | fuel + 1, remaining =>
+    let ready := remaining.filter fun c => remaining.all fun d => !pre d c
+    match pickMin less (if ready.isEmpty then remaining else ready) with
+    | none => []
+    | some c => c :: kahnOrder pre less fuel (remaining.erase c)
+
+def siblingOrders (p : Proper) (pos : Nat → Int) : List (Option Nat × List Nat) :=
+  let rows := lbRows p pos
+  let ids := clusterIds p
+  let spans := ids.map fun c => (c, lbSpan rows c)
+  let spanOf := fun c => (List.lookup c spans).getD none
+  let keys := ids.map fun c => (c, meanKey (lbAt rows) (spanOf c) c)
+  let keyOf := fun c => (List.lookup c keys).getD (0, 1)
+  let pre := fun a b => precedes (votes (lbAt rows) (spanOf a) (spanOf b) a b) a b
+  (ids.map (parentOf p)).eraseDups.map fun P =>
+    let group := ids.filter fun c => parentOf p c == P
+    (P, kahnOrder pre (sibLess keyOf) group.length group)
+
+def siblingNumber (p : Proper) (orders : List (Option Nat × List Nat)) (c : Nat) : Nat :=
+  ((List.lookup (parentOf p c) orders).getD []).idxOf c
+
+abbrev Item := Option Nat × List Nat
+
+def place : List Item → List Item → List Item
+  | [], _ => []
+  | t :: ts, sorted =>
+    match t.1, sorted with
+    | some _, b :: bs => b :: place ts bs
+    | _, _ => t :: place ts sorted
+
+def sibSorted (num : Nat → Nat) (items : List Item) : List Item :=
+  (items.filter fun t => t.1.isSome).mergeSort
+    fun a b => decide (num (a.1.getD 0) ≤ num (b.1.getD 0))
+
+def sibMerge (num : Nat → Nat) (items : List Item) : List Nat :=
+  ((place items (sibSorted num items)).map Prod.snd).flatten
+
+def sibLevel (num : Nat → Nat) (path : Nat → List Nat) :
+    Nat → List Nat → List Nat
+  | 0, nodes => nodes
+  | fuel + 1, nodes =>
+    sibMerge num ((clusterBlocks (fun v => (path v).head?) (nodes.length + 1) nodes).map fun it =>
+      ((path (it.headD 0)).head?,
+        if ((path (it.headD 0)).head?).isSome then
+          sibLevel num (fun v => (path v).tail) fuel it
+        else it))
+
+theorem place_perm : ∀ (items sorted : List Item),
+    sorted.length = (items.filter fun t => t.1.isSome).length →
+    (place items sorted).Perm ((items.filter fun t => !t.1.isSome) ++ sorted) := by
+  intro items
+  induction items with
+  | nil =>
+    intro sorted h
+    have hs : sorted = [] := List.eq_nil_of_length_eq_zero (by simpa using h)
+    subst hs
+    simp [place]
+  | cons t ts ih =>
+    intro sorted h
+    rcases t with ⟨k, ns⟩
+    cases k with
+    | none =>
+      have h' : sorted.length = (ts.filter fun t => t.1.isSome).length := by
+        simpa [List.filter_cons] using h
+      have := ih sorted h'
+      simp only [place, List.filter_cons]
+      simpa using this.cons (none, ns)
+    | some c =>
+      cases sorted with
+      | nil => simp at h
+      | cons b bs =>
+        have h' : bs.length = (ts.filter fun t => t.1.isSome).length := by
+          simpa [List.filter_cons] using h
+        have := ih bs h'
+        simp only [place, List.filter_cons]
+        simp only [Option.isSome_some, Bool.not_true, Bool.false_eq_true, ite_false]
+        exact (this.cons b).trans List.perm_middle.symm
+
+theorem place_perm_items (items sorted : List Item)
+    (hsorted : sorted.Perm (items.filter fun t => t.1.isSome)) :
+    (place items sorted).Perm items :=
+  (place_perm items sorted hsorted.length_eq).trans
+    (((List.Perm.append_left _ hsorted).trans List.perm_append_comm).trans
+      (List.filter_append_perm (fun t => t.1.isSome) items))
+
+theorem sibPlaced_perm (num : Nat → Nat) (items : List Item) :
+    (place items (sibSorted num items)).Perm items :=
+  place_perm_items _ _ (List.mergeSort_perm _ _)
+
+theorem sibMerge_perm (num : Nat → Nat) (items : List Item) :
+    (sibMerge num items).Perm (items.map Prod.snd).flatten :=
+  ((sibPlaced_perm num items).map Prod.snd).flatten
+
+theorem sublist_sibMerge (num : Nat → Nat) {items : List Item} {t : Item} (ht : t ∈ items) :
+    t.2.Sublist (sibMerge num items) :=
+  List.sublist_flatten_of_mem
+    (List.mem_map.mpr ⟨t, (sibPlaced_perm num items).mem_iff.mpr ht, rfl⟩)
+
+theorem sibLevel_perm (num : Nat → Nat) :
+    ∀ (fuel : Nat) (path : Nat → List Nat) (nodes : List Nat),
+      (sibLevel num path fuel nodes).Perm nodes := by
+  intro fuel
+  induction fuel with
+  | zero => intro path nodes; exact List.Perm.refl _
+  | succ fuel ih =>
+    intro path nodes
+    unfold sibLevel
+    refine (sibMerge_perm num _).trans ?_
+    rw [List.map_map]
+    refine (flatten_map_perm _ _ (fun b => ?_)).trans (clusterBlocks_perm _ _ _)
+    dsimp only [Function.comp]
+    split
+    · exact ih _ _
+    · exact List.Perm.refl _
+
+theorem sibLevel_contiguous (num : Nat → Nat) :
+    ∀ (fuel : Nat) (path : Nat → List Nat) (nodes pref : List Nat), pref.length ≤ fuel →
+      ((sibLevel num path fuel nodes).filter (fun v => pref.isPrefixOf (path v))).IsInfix
+        (sibLevel num path fuel nodes) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro path nodes pref hf
+    have hp : pref = [] := List.eq_nil_of_length_eq_zero (by omega)
+    subst hp
+    change (nodes.filter (fun _ => true)).IsInfix nodes
+    rw [List.filter_eq_self.mpr (by simp)]
+    exact List.infix_refl _
+  | succ fuel ih =>
+    intro path nodes pref hf
+    cases pref with
+    | nil =>
+      change ((sibLevel num path (fuel + 1) nodes).filter (fun _ => true)).IsInfix _
+      rw [List.filter_eq_self.mpr (by simp)]
+      exact List.infix_refl _
+    | cons c cs =>
+      let blocks := clusterBlocks (fun v => (path v).head?) (nodes.length + 1) nodes
+      let f : List Nat → List Nat := fun it =>
+        if ((path (it.headD 0)).head?).isSome then
+          sibLevel num (fun v => (path v).tail) fuel it
+        else it
+      have hperm : ∀ b, (f b).Perm b := by
+        intro b
+        dsimp only [f]
+        split
+        · exact sibLevel_perm _ _ _ _
+        · exact List.Perm.refl _
+      have hsep := clusterBlocks_separate (fun v => (path v).head?) (nodes.length + 1) nodes
+        (Nat.le_succ _)
+      have hsep' := clusterSeparate_map _ blocks f hperm hsep
+      unfold sibLevel
+      generalize hI : (blocks.map fun it =>
+          ((path (it.headD 0)).head?,
+            if ((path (it.headD 0)).head?).isSome then
+              sibLevel num (fun v => (path v).tail) fuel it
+            else it)) = items
+      have hmap : items.map Prod.snd = blocks.map f := by
+        rw [← hI, List.map_map]
+        rfl
+      have hpl := sibPlaced_perm num items
+      have hsepP : List.Pairwise (ClusterSeparate (fun v => (path v).head?))
+          ((place items (sibSorted num items)).map Prod.snd) := by
+        rw [← hmap] at hsep'
+        exact hsep'.perm (hpl.map Prod.snd).symm (fun h => ClusterSeparate.symm h)
+      change (((place items (sibSorted num items)).map Prod.snd).flatten.filter
+        (fun v => (c :: cs).isPrefixOf (path v))).IsInfix _
+      apply filter_infix_of_subordinate (fun v => (path v).head?) c _ _ (prefix_head path c cs)
+        hsepP
+      intro b hb
+      have hb' : b ∈ blocks.map f := by
+        rw [← hmap]
+        exact (hpl.map Prod.snd).mem_iff.mp hb
+      obtain ⟨orig, ho, rfl⟩ := List.mem_map.mp hb'
+      have hu := clusterBlocks_uniform (fun v => (path v).head?) (nodes.length + 1) nodes
+        (Nat.le_succ _) orig ho
+      by_cases hempty : orig = []
+      · subst hempty
+        have hz : f [] = [] := List.perm_nil.mp (hperm [])
+        rw [hz]
+        simp
+      · have hhead : orig.headD 0 ∈ orig := by
+          cases orig with
+          | nil => exact absurd rfl hempty
+          | cons x rest => exact List.mem_cons_self
+        by_cases hc : (path (orig.headD 0)).head? = some c
+        · have hall : ∀ v ∈ orig, (path v).head? = some c := by
+            intro v hv
+            exact (hu v hv _ hhead).trans hc
+          have hf' : f orig = sibLevel num (fun v => (path v).tail) fuel orig := by
+            dsimp only [f]
+            rw [hc]
+            rfl
+          rw [hf']
+          have hrec := ih (fun v => (path v).tail) orig cs (by simp at hf; omega)
+          have heq : (sibLevel num (fun v => (path v).tail) fuel orig).filter
+                (fun v => (c :: cs).isPrefixOf (path v)) =
+              (sibLevel num (fun v => (path v).tail) fuel orig).filter
+                (fun v => cs.isPrefixOf ((path v).tail)) := by
+            apply List.filter_congr
+            intro v hv
+            have hv' := (sibLevel_perm num _ _ _).mem_iff.mp hv
+            have hh := hall v hv'
+            cases hp : path v with
+            | nil => simp [hp] at hh
+            | cons a rest =>
+              have ha : a = c := by simpa [hp] using hh
+              subst ha
+              simp [List.isPrefixOf]
+          rw [heq]
+          exact hrec
+        · have hnil : (f orig).filter (fun v => (c :: cs).isPrefixOf (path v)) = [] := by
+            apply List.filter_eq_nil_iff.mpr
+            intro v hv hp
+            have hv' := (hperm orig).mem_iff.mp hv
+            exact hc ((hu _ hhead v hv').trans (prefix_head path c cs v hp))
+          rw [hnil]
+          exact List.nil_infix
+
+end Sibling
+
+def sibFuel (p : Proper) (layer : List Nat) : Nat :=
+  layer.foldl (fun d v => max d (nodePath p v).length) 0 + 1
+
+def siblingLayer (p : Proper) (num : Nat → Nat) (layer : List Nat) : List Nat :=
+  Sibling.sibLevel num (nodePath p) (sibFuel p layer) layer
+
+def siblingNormalise (p : Proper) (L : List (List Nat)) : List (List Nat) :=
+  if (Sibling.clusterIds p).isEmpty then L
+  else
+    let orders := Sibling.siblingOrders p (posOf p L)
+    L.map (siblingLayer p (Sibling.siblingNumber p orders))
+
+def initBase (p : Proper) : List (List Nat) :=
   (List.range (layerCount p)).map fun r =>
     let layer := layerNodes p r
     constrainedLayer p .barycentre (fun _ => []) (fun v => (layer.idxOf v : Int)) layer true
+
+def initOrder (p : Proper) : List (List Nat) := siblingNormalise p (initBase p)
 
 def sortLayer (p : Proper) (nb : Nat → List Nat) (pos : Nat → Int) (layer : List Nat)
     (key : OrderKey := .barycentre) : List Nat :=
@@ -694,7 +988,7 @@ def runFrom (p : Proper) (limit stallLimit : Nat) :
     Nat → Nat → List (List Nat) → Nat → Nat → OrderResult
   | 0, _, best, _, _ => ⟨best, false⟩
   | fuel + 1, sweep, best, score, stall =>
-    let trial := transpose p (sweepLayers p sweep best)
+    let trial := siblingNormalise p (transpose p (sweepLayers p sweep best))
     let next := crossCount p trial
     let improved := decide (next < score)
     let best' := if improved then trial else best
@@ -707,7 +1001,7 @@ def runKey (p : Proper) (key : OrderKey) (limit stallLimit : Nat) :
     Nat → Nat → List (List Nat) → Nat → Nat → OrderResult
   | 0, _, best, _, _ => ⟨best, false⟩
   | fuel + 1, sweep, best, score, stall =>
-    let trial := transpose p (sweepLayers p sweep best key)
+    let trial := siblingNormalise p (transpose p (sweepLayers p sweep best key))
     let next := crossCount p trial
     let improved := decide (next < score)
     let best' := if improved then trial else best
@@ -739,10 +1033,13 @@ def startLayer (p : Proper) (start : OrderStart) (layer : List Nat) : List Nat :
     let discovery := breadthDiscovery p
     layer.mergeSort (fun a b => decide (discovery.idxOf a ≤ discovery.idxOf b))
 
-def seedLayers (p : Proper) (start : OrderStart) : List (List Nat) :=
+def seedBase (p : Proper) (start : OrderStart) : List (List Nat) :=
   ((List.range (layerCount p)).map (layerNodes p)).map fun layer =>
     let started := startLayer p start layer
     constrainedLayer p .barycentre (fun _ => []) (fun v => (started.idxOf v : Int)) started true
+
+def seedLayers (p : Proper) (start : OrderStart) : List (List Nat) :=
+  siblingNormalise p (seedBase p start)
 
 def seedBest (p : Proper) (start : OrderStart) : List (List Nat) :=
   let candidate := seedLayers p start
@@ -904,13 +1201,64 @@ theorem constrainedLayer_perm (p : Proper) (key : OrderKey) (nb : Nat → List N
   · exact List.mergeSort_perm _ _
   · exact clusterTree_perm _ _ _ _ _
 
-theorem layering_init (p : Proper) : Layering p (initOrder p) := by
-  refine ⟨by simp [initOrder], ?_⟩
+theorem initBase_layering (p : Proper) : Layering p (initBase p) := by
+  refine ⟨by simp [initBase], ?_⟩
   intro r hr
-  have hr' : r < layerCount p := by simpa [initOrder] using hr
-  simpa [initOrder, List.getD_eq_getElem?_getD, hr'] using
+  have hr' : r < layerCount p := by simpa [initBase] using hr
+  simpa [initBase, List.getD_eq_getElem?_getD, hr'] using
     constrainedLayer_perm p .barycentre (fun _ => [])
       (fun v => ((layerNodes p r).idxOf v : Int)) (layerNodes p r) true
+
+theorem layering_map (p : Proper) (L : List (List Nat)) (hL : Layering p L)
+    (f : List Nat → List Nat) (hf : ∀ l, (f l).Perm l) : Layering p (L.map f) := by
+  refine ⟨by simpa using hL.1, ?_⟩
+  intro r hr
+  have hr' : r < L.length := by simpa using hr
+  have h := (hf L[r]).trans (by
+    simpa [List.getD_eq_getElem?_getD, hr'] using hL.2 r hr')
+  simpa [List.getD_eq_getElem?_getD, hr'] using h
+
+theorem siblingLayer_perm (p : Proper) (num : Nat → Nat) (layer : List Nat) :
+    (siblingLayer p num layer).Perm layer :=
+  Sibling.sibLevel_perm _ _ _ _
+
+theorem siblingNormalise_cases (p : Proper) (L : List (List Nat)) :
+    siblingNormalise p L = L ∨
+      ∃ num : Nat → Nat, siblingNormalise p L = L.map (siblingLayer p num) := by
+  unfold siblingNormalise
+  split
+  · exact Or.inl rfl
+  · exact Or.inr ⟨_, rfl⟩
+
+theorem siblingNormalise_length (p : Proper) (L : List (List Nat)) :
+    (siblingNormalise p L).length = L.length := by
+  rcases siblingNormalise_cases p L with h | ⟨num, h⟩
+  · rw [h]
+  · rw [h, List.length_map]
+
+theorem siblingNormalise_perm (p : Proper) (L : List (List Nat)) :
+    (siblingNormalise p L).length = L.length ∧
+      ∀ i, ((siblingNormalise p L).getD i []).Perm (L.getD i []) := by
+  refine ⟨siblingNormalise_length p L, fun i => ?_⟩
+  rcases siblingNormalise_cases p L with h | ⟨num, h⟩
+  · rw [h]
+  · rw [h]
+    by_cases hi : i < L.length
+    · simp only [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hi,
+        Option.map_some, Option.getD_some]
+      exact siblingLayer_perm p num _
+    · simp [List.getD_eq_getElem?_getD, List.getElem?_eq_none (Nat.le_of_not_lt hi)]
+
+theorem siblingNormalise_layering {p : Proper} {L : List (List Nat)} (hL : Layering p L) :
+    Layering p (siblingNormalise p L) := by
+  rcases siblingNormalise_cases p L with h | ⟨num, h⟩
+  · rw [h]
+    exact hL
+  · rw [h]
+    exact layering_map p L hL _ (siblingLayer_perm p num)
+
+theorem layering_init (p : Proper) : Layering p (initOrder p) :=
+  siblingNormalise_layering (initBase_layering p)
 
 theorem layering_set {p : Proper} {L : List (List Nat)} (hL : Layering p L) {r : Nat}
     {x : List Nat} (hx : x.Perm (L.getD r [])) : Layering p (L.set r x) := by
@@ -992,11 +1340,11 @@ theorem runFrom_spec (p : Proper) (limit stallLimit : Nat) :
     exact ⟨hb, Nat.le_refl _⟩
   | succ f ih =>
     intro sweep best score stall hb hs
-    have htrial : Layering p (transpose p (sweepLayers p sweep best)) :=
-      transpose_layering (sweepLayers_layering hb sweep)
+    have htrial : Layering p (siblingNormalise p (transpose p (sweepLayers p sweep best))) :=
+      siblingNormalise_layering (transpose_layering (sweepLayers_layering hb sweep))
     unfold runFrom
     simp only
-    by_cases himp : crossCount p (transpose p (sweepLayers p sweep best)) < score
+    by_cases himp : crossCount p (siblingNormalise p (transpose p (sweepLayers p sweep best))) < score
     · simp only [himp, decide_true, ite_true]
       split
       · exact ⟨htrial, by dsimp only; omega⟩
@@ -1012,15 +1360,6 @@ theorem runFrom_spec (p : Proper) (limit stallLimit : Nat) :
         · obtain ⟨h1, h2⟩ := ih (sweep + 1) best score (stall + 1) hb hs
           exact ⟨h1, h2⟩
 
-theorem layering_map (p : Proper) (L : List (List Nat)) (hL : Layering p L)
-    (f : List Nat → List Nat) (hf : ∀ l, (f l).Perm l) : Layering p (L.map f) := by
-  refine ⟨by simpa using hL.1, ?_⟩
-  intro r hr
-  have hr' : r < L.length := by simpa using hr
-  have h := (hf L[r]).trans (by
-    simpa [List.getD_eq_getElem?_getD, hr'] using hL.2 r hr')
-  simpa [List.getD_eq_getElem?_getD, hr'] using h
-
 theorem startLayer_perm (p : Proper) (start : OrderStart) (layer : List Nat) :
     (startLayer p start layer).Perm layer := by
   cases start with
@@ -1035,10 +1374,14 @@ theorem declaration_layering (p : Proper) :
   have hr' : r < layerCount p := by simpa using hr
   simp [List.getD_eq_getElem?_getD, hr']
 
-theorem seedLayers_layering (p : Proper) (start : OrderStart) :
-    Layering p (seedLayers p start) :=
+theorem seedBase_layering (p : Proper) (start : OrderStart) :
+    Layering p (seedBase p start) :=
   layering_map p _ (declaration_layering p) _ (fun layer =>
     (constrainedLayer_perm _ _ _ _ _ true).trans (startLayer_perm p start layer))
+
+theorem seedLayers_layering (p : Proper) (start : OrderStart) :
+    Layering p (seedLayers p start) :=
+  siblingNormalise_layering (seedBase_layering p start)
 
 theorem seedBest_spec (p : Proper) (start : OrderStart) :
     Layering p (seedBest p start) ∧
@@ -1062,11 +1405,11 @@ theorem runKey_spec (p : Proper) (key : OrderKey) (limit stallLimit : Nat) :
     exact ⟨hb, Nat.le_refl _⟩
   | succ f ih =>
     intro sweep best score stall hb hs
-    have htrial : Layering p (transpose p (sweepLayers p sweep best key)) :=
-      transpose_layering (sweepLayers_layering hb sweep key)
+    have htrial : Layering p (siblingNormalise p (transpose p (sweepLayers p sweep best key))) :=
+      siblingNormalise_layering (transpose_layering (sweepLayers_layering hb sweep key))
     unfold runKey
     simp only
-    by_cases himp : crossCount p (transpose p (sweepLayers p sweep best key)) < score
+    by_cases himp : crossCount p (siblingNormalise p (transpose p (sweepLayers p sweep best key))) < score
     · simp only [himp, decide_true, ite_true]
       split
       · exact ⟨htrial, by dsimp only; omega⟩
@@ -1835,12 +2178,11 @@ theorem order_perm (p : Proper) (opts : OrderOptions) (L : List (List Nat))
   obtain ⟨r, hr, rfl⟩ := ok_layers h
   have hL := (orderWithBudget_spec p opts r hr).1
   have hlen : r.layers.length = (initOrder p).length := by
-    rw [hL.1]
-    simp [initOrder]
+    rw [hL.1, (layering_init p).1]
   refine ⟨hlen, fun i => ?_⟩
   by_cases hi : i < r.layers.length
   · have hi' : i < layerCount p := by rw [← hL.1]; exact hi
-    have hinit := (layering_init p).2 i (by simpa [initOrder] using hi')
+    have hinit := (layering_init p).2 i (by rw [(layering_init p).1]; exact hi')
     exact (hL.2 i hi).trans hinit.symm
   · rw [getD_nil_of_le (by omega), getD_nil_of_le (by omega)]
 
@@ -2013,16 +2355,51 @@ theorem transpose_contiguous (p : Proper) (L : List (List Nat))
     · exact hpass L h
     · exact ih _ (hpass L h)
 
-theorem initOrder_contiguous (p : Proper) : LayersContiguous p (initOrder p) := by
+theorem siblingLayer_contiguous (p : Proper) (num : Nat → Nat) (layer pref : List Nat) :
+    ((siblingLayer p num layer).filter (fun v => pref.isPrefixOf (nodePath p v))).IsInfix
+      (siblingLayer p num layer) := by
+  unfold siblingLayer sibFuel
+  by_cases hf : pref.length ≤ layer.foldl (fun d v => max d (nodePath p v).length) 0 + 1
+  · exact Sibling.sibLevel_contiguous num _ _ _ _ hf
+  · have hz : (Sibling.sibLevel num (nodePath p)
+        (layer.foldl (fun d v => max d (nodePath p v).length) 0 + 1) layer).filter
+          (fun v => pref.isPrefixOf (nodePath p v)) = [] := by
+      apply List.filter_eq_nil_iff.mpr
+      intro v hv hp
+      have hv' := (Sibling.sibLevel_perm _ _ _ _).mem_iff.mp hv
+      have hl := (fold_max_lower (fun v => (nodePath p v).length) layer 0).2 v hv'
+      have hp' := (List.isPrefixOf_iff_prefix.mp hp).length_le
+      omega
+    rw [hz]
+    exact List.nil_infix
+
+theorem siblingNormalise_contiguous {p : Proper} {L : List (List Nat)}
+    (h : LayersContiguous p L) : LayersContiguous p (siblingNormalise p L) := by
+  rcases siblingNormalise_cases p L with e | ⟨num, e⟩
+  · rw [e]
+    exact h
+  · rw [e]
+    intro layer hl pref
+    obtain ⟨original, _, rfl⟩ := List.mem_map.mp hl
+    exact siblingLayer_contiguous p num original pref
+
+theorem initBase_contiguous (p : Proper) : LayersContiguous p (initBase p) := by
   intro layer hl
   obtain ⟨r, _, rfl⟩ := List.mem_map.mp hl
   exact constrainedLayer_contiguous _ _ _ _ _ true
 
-theorem seedLayers_contiguous (p : Proper) (start : OrderStart) :
-    LayersContiguous p (seedLayers p start) := by
+theorem initOrder_contiguous (p : Proper) : LayersContiguous p (initOrder p) :=
+  siblingNormalise_contiguous (initBase_contiguous p)
+
+theorem seedBase_contiguous (p : Proper) (start : OrderStart) :
+    LayersContiguous p (seedBase p start) := by
   intro layer hl
   obtain ⟨original, _, rfl⟩ := List.mem_map.mp hl
   exact constrainedLayer_contiguous _ _ _ _ _ true
+
+theorem seedLayers_contiguous (p : Proper) (start : OrderStart) :
+    LayersContiguous p (seedLayers p start) :=
+  siblingNormalise_contiguous (seedBase_contiguous p start)
 
 theorem seedBest_contiguous (p : Proper) (start : OrderStart) :
     LayersContiguous p (seedBest p start) := by
@@ -2041,10 +2418,11 @@ theorem runKey_contiguous (p : Proper) (key : OrderKey) (limit stallLimit : Nat)
   | zero => intro sweep best score stall h; exact h
   | succ fuel ih =>
     intro sweep best score stall h
-    have ht := transpose_contiguous p _ (sweepLayers_contiguous p sweep best key h)
+    have ht := siblingNormalise_contiguous
+      (transpose_contiguous p _ (sweepLayers_contiguous p sweep best key h))
     unfold runKey
     dsimp only
-    by_cases himp : crossCount p (transpose p (sweepLayers p sweep best key)) < score
+    by_cases himp : crossCount p (siblingNormalise p (transpose p (sweepLayers p sweep best key))) < score
     · simp only [himp, decide_true, ite_true]
       split
       · exact ht
@@ -2405,18 +2783,413 @@ theorem clusterTree_border_order (np : Nat → List Nat) (bd : Nat → Int)
     rw [hnest] at hsub
     exact ⟨fun h => (hrec.1 h).trans hsub, fun h => (hrec.2 h).trans hsub⟩
 
+namespace Sibling
+
+theorem clusterBlocks_sublist (key : Nat → Option Nat) :
+    ∀ (fuel : Nat) (xs : List Nat), ∀ X ∈ clusterBlocks key fuel xs, X.Sublist xs := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro xs X hX
+    simp only [clusterBlocks, List.mem_singleton] at hX
+    subst hX
+    exact List.Sublist.refl _
+  | succ fuel ih =>
+    intro xs X hX
+    cases xs with
+    | nil => simp [clusterBlocks] at hX
+    | cons v vs =>
+      simp only [clusterBlocks] at hX
+      split at hX
+      · rcases List.mem_cons.mp hX with rfl | hX
+        · exact List.singleton_sublist.mpr List.mem_cons_self
+        · exact (ih vs X hX).cons v
+      · rcases List.mem_cons.mp hX with rfl | hX
+        · exact List.Sublist.cons_cons v List.filter_sublist
+        · exact ((ih _ X hX).trans List.filter_sublist).cons v
+
+theorem sub_pair_restrict : ∀ {X l : List Nat}, X.Sublist l → l.Nodup →
+    ∀ {a b : Nat}, a ∈ X → b ∈ X → [a, b].Sublist l → [a, b].Sublist X := by
+  intro X l hs
+  induction hs with
+  | slnil => intro _ a b ha; simp at ha
+  | cons y h ih =>
+    intro hnd a b ha hb hab
+    rw [List.nodup_cons] at hnd
+    rcases List.sublist_cons_iff.mp hab with h1 | ⟨r, hr, _⟩
+    · exact ih hnd.2 ha hb h1
+    · have hay : a = y := by
+        have := congrArg List.head? hr
+        simpa using this
+      exact absurd (hay ▸ h.subset ha) hnd.1
+  | cons_cons y h ih =>
+    intro hnd a b ha hb hab
+    rw [List.nodup_cons] at hnd
+    rcases List.sublist_cons_iff.mp hab with h1 | ⟨r, hr, h2⟩
+    · have hal := h1.subset (by simp : a ∈ [a, b])
+      have hbl := h1.subset (by simp : b ∈ [a, b])
+      have ha' := (List.mem_cons.mp ha).resolve_left (fun h => hnd.1 (h ▸ hal))
+      have hb' := (List.mem_cons.mp hb).resolve_left (fun h => hnd.1 (h ▸ hbl))
+      exact (ih hnd.2 ha' hb' h1).cons y
+    · have hr' : a = y ∧ [b] = r := by simpa using hr
+      obtain ⟨rfl, rfl⟩ := hr'
+      have hbl : b ∈ _ := List.singleton_sublist.mp h2
+      have hb' := (List.mem_cons.mp hb).resolve_left (fun h => hnd.1 (h ▸ hbl))
+      exact List.Sublist.cons_cons a (List.singleton_sublist.mpr hb')
+
+theorem place_append_loose (t : Item) (ht : t.1 = none) :
+    ∀ (ts sorted : List Item), place (ts ++ [t]) sorted = place ts sorted ++ [t] := by
+  intro ts
+  induction ts with
+  | nil =>
+    intro sorted
+    obtain ⟨k, ns⟩ := t
+    simp only at ht
+    subst ht
+    simp [place]
+  | cons t' ts ih =>
+    intro sorted
+    obtain ⟨k', ns'⟩ := t'
+    cases k' <;> cases sorted <;> simp [place, ih]
+
+theorem clusterBlocks_snoc_loose (key : Nat → Option Nat) (a : Nat) (hka : key a = none) :
+    ∀ (fuel : Nat) (xs : List Nat), a ∉ xs → xs.length + 2 ≤ fuel →
+      ∃ pre, clusterBlocks key fuel (xs ++ [a]) = pre ++ [[a]] := by
+  intro fuel
+  induction fuel with
+  | zero => intro xs _ h; omega
+  | succ fuel ih =>
+    intro xs hnot hlen
+    cases xs with
+    | nil =>
+      obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by simp at hlen; omega⟩
+      exact ⟨[], by simp [clusterBlocks, hka]⟩
+    | cons v vs =>
+      have hnot' : a ∉ vs := fun h => hnot (List.mem_cons_of_mem _ h)
+      have hlen' : vs.length + 2 ≤ fuel := by simp at hlen; omega
+      simp only [List.cons_append, clusterBlocks]
+      split
+      · obtain ⟨pre, hpre⟩ := ih vs hnot' hlen'
+        exact ⟨[v] :: pre, by rw [hpre]; rfl⟩
+      · rename_i c hc
+        have h1 : ((vs ++ [a]).filter fun w => key w == some c) =
+            vs.filter fun w => key w == some c := by
+          simp [List.filter_append, hka]
+        have h2 : ((vs ++ [a]).filter fun w => key w != some c) =
+            (vs.filter fun w => key w != some c) ++ [a] := by
+          simp [List.filter_append, hka]
+        rw [h1, h2]
+        have hnot'' : a ∉ vs.filter fun w => key w != some c :=
+          fun h => hnot' (List.mem_filter.mp h).1
+        have hlen'' : (vs.filter fun w => key w != some c).length + 2 ≤ fuel :=
+          Nat.le_trans (Nat.add_le_add_right (List.length_filter_le _ _) 2) hlen'
+        obtain ⟨pre, hpre⟩ := ih _ hnot'' hlen''
+        exact ⟨(v :: vs.filter fun w => key w == some c) :: pre, by rw [hpre]; rfl⟩
+
+theorem place_filter : ∀ (items sorted : List Item),
+    sorted.length = (items.filter fun t => t.1.isSome).length →
+    (∀ t ∈ sorted, t.1.isSome = true) →
+    (place items sorted).filter (fun t => t.1.isSome) = sorted := by
+  intro items
+  induction items with
+  | nil =>
+    intro sorted h _
+    have hs : sorted = [] := List.eq_nil_of_length_eq_zero (by simpa using h)
+    subst hs
+    simp [place]
+  | cons t ts ih =>
+    intro sorted h hs
+    obtain ⟨k, ns⟩ := t
+    cases k with
+    | none =>
+      have h' : sorted.length = (ts.filter fun t => t.1.isSome).length := by
+        simpa [List.filter_cons] using h
+      simp only [place, List.filter_cons, Option.isSome_none, Bool.false_eq_true, ite_false]
+      exact ih sorted h' hs
+    | some c =>
+      cases sorted with
+      | nil => simp at h
+      | cons b bs =>
+        have h' : bs.length = (ts.filter fun t => t.1.isSome).length := by
+          simpa [List.filter_cons] using h
+        have hb := hs b List.mem_cons_self
+        simp only [place, List.filter_cons, hb, ite_true]
+        rw [ih bs h' (fun t ht => hs t (List.mem_cons_of_mem _ ht))]
+
+theorem head_of_pair_sublist {l : List Nat} {a : Nat} (hnd : l.Nodup) (ha : a ∈ l)
+    (h : ∀ x ∈ l, x ≠ a → [a, x].Sublist l) : ∃ rest, l = a :: rest := by
+  cases l with
+  | nil => simp at ha
+  | cons x xs =>
+    by_cases hxa : x = a
+    · exact ⟨xs, by rw [hxa]⟩
+    · have h1 := h x List.mem_cons_self hxa
+      rw [List.nodup_cons] at hnd
+      rcases List.sublist_cons_iff.mp h1 with h2 | ⟨r, hr, _⟩
+      · exact absurd (h2.subset (by simp)) hnd.1
+      · have : a = x := by
+          have := congrArg List.head? hr
+          simpa using this
+        exact absurd this.symm hxa
+
+theorem last_of_pair_sublist {l : List Nat} {a : Nat} (hnd : l.Nodup) (ha : a ∈ l)
+    (h : ∀ x ∈ l, x ≠ a → [x, a].Sublist l) : ∃ pre, l = pre ++ [a] := by
+  have h' : ∀ x ∈ l.reverse, x ≠ a → [a, x].Sublist l.reverse := by
+    intro x hx hxa
+    have h2 := List.reverse_sublist.mpr (h x (List.mem_reverse.mp hx) hxa)
+    simpa using h2
+  obtain ⟨rest, hrest⟩ := head_of_pair_sublist ((List.reverse_perm l).nodup_iff.mpr hnd)
+    (List.mem_reverse.mpr ha) h'
+  refine ⟨rest.reverse, ?_⟩
+  have := congrArg List.reverse hrest
+  simpa using this
+
+theorem sibMerge_cons_loose (num : Nat → Nat) (ns : List Nat) (tl : List Item) :
+    sibMerge num ((none, ns) :: tl) = ns ++ sibMerge num tl := by
+  simp [sibMerge, sibSorted, place]
+
+theorem sibMerge_append_loose (num : Nat → Nat) (ns : List Nat) (X : List Item) :
+    sibMerge num (X ++ [(none, ns)]) = sibMerge num X ++ ns := by
+  simp [sibMerge, sibSorted, List.filter_append, place_append_loose (none, ns) rfl]
+
+def BBp (path : Nat → List Nat) (bd : Nat → Int) (l : List Nat) : Prop :=
+  ∀ a b, a ∈ l → b ∈ l → a ≠ b → path a <+: path b →
+    (bd a = -1 → [a, b].Sublist l) ∧ (bd a = 1 → [b, a].Sublist l)
+
+theorem sibLevel_bb (num : Nat → Nat) (bd : Nat → Int) :
+    ∀ (fuel : Nat) (path : Nat → List Nat) (nodes : List Nat), nodes.Nodup →
+      BBp path bd nodes → BBp path bd (sibLevel num path fuel nodes) := by
+  intro fuel
+  induction fuel with
+  | zero => intro path nodes _ h; exact h
+  | succ fuel ih =>
+    intro path nodes hnd hbb a b ha hb hab hpre
+    have hperm := sibLevel_perm num (fuel + 1) path nodes
+    have ha' : a ∈ nodes := hperm.mem_iff.mp ha
+    have hb' : b ∈ nodes := hperm.mem_iff.mp hb
+    let key : Nat → Option Nat := fun v => (path v).head?
+    let blocks := clusterBlocks key (nodes.length + 1) nodes
+    let g : List Nat → Item := fun it =>
+      ((path (it.headD 0)).head?,
+        if ((path (it.headD 0)).head?).isSome then
+          sibLevel num (fun v => (path v).tail) fuel it
+        else it)
+    have hdef : sibLevel num path (fuel + 1) nodes = sibMerge num (blocks.map g) := rfl
+    rw [hdef] at hb ha ⊢
+    rcases hk : (path a).head? with _ | q
+    · have hpa : path a = [] := List.head?_eq_none_iff.mp hk
+      have hall : ∀ x ∈ nodes, x ≠ a →
+          (bd a = -1 → [a, x].Sublist nodes) ∧ (bd a = 1 → [x, a].Sublist nodes) :=
+        fun x hx hxa => hbb a x ha' hx (Ne.symm hxa) (by rw [hpa]; exact List.nil_prefix)
+      have hga : g [a] = (none, [a]) := by simp [g, hpa]
+      constructor
+      · intro h1
+        obtain ⟨rest, hrest⟩ := head_of_pair_sublist hnd ha'
+          (fun x hx hxa => (hall x hx hxa).1 h1)
+        have hcb : blocks = [a] :: clusterBlocks key (rest.length + 1) rest := by
+          subst hrest
+          simp [blocks, clusterBlocks, key, hk]
+        have hout : sibMerge num (blocks.map g) = a :: sibMerge num ((clusterBlocks key
+            (rest.length + 1) rest).map g) := by
+          rw [hcb, List.map_cons, hga, sibMerge_cons_loose]
+          rfl
+        rw [hout] at hb ⊢
+        have hbT : b ∈ sibMerge num ((clusterBlocks key (rest.length + 1) rest).map g) :=
+          (List.mem_cons.mp hb).resolve_left (fun h => hab h.symm)
+        exact List.Sublist.cons_cons a (List.singleton_sublist.mpr hbT)
+      · intro h1
+        obtain ⟨pre, hpre'⟩ := last_of_pair_sublist hnd ha'
+          (fun x hx hxa => (hall x hx hxa).2 h1)
+        have hna : a ∉ pre := by
+          have := hnd
+          rw [hpre', List.nodup_append] at this
+          exact fun h => this.2.2 a h a (by simp) rfl
+        obtain ⟨pre', hcb⟩ := clusterBlocks_snoc_loose key a (by simp [key, hk]) (nodes.length + 1)
+          pre hna (by rw [hpre']; simp)
+        have hblocks : blocks = pre' ++ [[a]] := by
+          simp only [blocks]
+          rw [← hcb]
+          congr 2 <;> rw [hpre']
+        have hout : sibMerge num (blocks.map g) = sibMerge num (pre'.map g) ++ [a] := by
+          rw [hblocks, List.map_append, List.map_cons, List.map_nil, hga, sibMerge_append_loose]
+        rw [hout] at hb ⊢
+        have hbT : b ∈ sibMerge num (pre'.map g) :=
+          (List.mem_append.mp hb).resolve_right (fun h => hab (List.mem_singleton.mp h).symm)
+        exact List.Sublist.append (List.singleton_sublist.mpr hbT) (List.Sublist.refl _)
+    · obtain ⟨ta, hta⟩ : ∃ ta, path a = q :: ta := by
+        cases h : path a with
+        | nil => rw [h] at hk; simp at hk
+        | cons x xs =>
+          rw [h] at hk
+          simp only [List.head?_cons, Option.some.injEq] at hk
+          exact ⟨xs, by rw [hk]⟩
+      obtain ⟨tb, htb, hpt⟩ : ∃ tb, path b = q :: tb ∧ ta <+: tb := by
+        cases h : path b with
+        | nil => rw [h, hta] at hpre; simp at hpre
+        | cons y ys =>
+          rw [h, hta, List.cons_prefix_cons] at hpre
+          obtain ⟨rfl, hpre'⟩ := hpre
+          exact ⟨ys, rfl, hpre'⟩
+      obtain ⟨Xa, hXa, haX⟩ := clusterBlocks_mem_block key (nodes.length + 1) nodes ha'
+      obtain ⟨Xb, hXb, hbX⟩ := clusterBlocks_mem_block key (nodes.length + 1) nodes hb'
+      have hXY : Xa = Xb :=
+        clusterBlocks_same_block key (nodes.length + 1) nodes (Nat.le_succ _) hXa hXb haX hbX
+          (c := q) (by simp [key, hta]) (by simp [key, htb])
+      subst hXY
+      have huni := clusterBlocks_uniform key (nodes.length + 1) nodes (Nat.le_succ _) Xa hXa
+      have hXh : Xa.headD 0 ∈ Xa := headD_mem_of_ne_nil (List.ne_nil_of_mem haX)
+      have hall : ∀ v ∈ Xa, (path v).head? = some q := fun v hv =>
+        (huni v hv a haX).trans (by simp [key, hta])
+      have hXhead : (path (Xa.headD 0)).head? = some q := hall _ hXh
+      have hcons : ∀ v ∈ Xa, path v = q :: (path v).tail := by
+        intro v hv
+        have h := hall v hv
+        cases hp : path v with
+        | nil => rw [hp] at h; simp at h
+        | cons x xs =>
+          rw [hp] at h
+          simp only [List.head?_cons, Option.some.injEq] at h
+          simp [h]
+      have hXnd : Xa.Nodup := clusterBlocks_nodup key (nodes.length + 1) nodes hnd Xa hXa
+      have hsub : Xa.Sublist nodes := clusterBlocks_sublist key (nodes.length + 1) nodes Xa hXa
+      have hBBX : BBp (fun v => (path v).tail) bd Xa := by
+        intro a' b' ha'X hb'X hne hpre'
+        have hpre'' : path a' <+: path b' := by
+          rw [hcons a' ha'X, hcons b' hb'X]
+          exact List.cons_prefix_cons.mpr ⟨rfl, hpre'⟩
+        obtain ⟨h1, h2⟩ := hbb a' b' (hsub.subset ha'X) (hsub.subset hb'X) hne hpre''
+        exact ⟨fun h => sub_pair_restrict hsub hnd ha'X hb'X (h1 h),
+          fun h => sub_pair_restrict hsub hnd hb'X ha'X (h2 h)⟩
+      have hrec := ih (fun v => (path v).tail) Xa hXnd hBBX a b
+        ((sibLevel_perm _ _ _ _).mem_iff.mpr haX) ((sibLevel_perm _ _ _ _).mem_iff.mpr hbX) hab
+        (by show (path a).tail <+: (path b).tail; rw [hta, htb]; exact hpt)
+      have hmem : (some q, sibLevel num (fun v => (path v).tail) fuel Xa) ∈ blocks.map g := by
+        refine List.mem_map.mpr ⟨Xa, hXa, ?_⟩
+        simp only [g]
+        rw [hXhead]
+        rfl
+      have hsubm := sublist_sibMerge num hmem
+      exact ⟨fun h => (hrec.1 h).trans hsubm, fun h => (hrec.2 h).trans hsubm⟩
+
+theorem sibLevel_order (num : Nat → Nat) :
+    ∀ (P : List Nat) (fuel : Nat) (path : Nat → List Nat) (nodes : List Nat)
+      (u v A B : Nat) (ru rv : List Nat),
+      P.length < fuel → u ∈ nodes → v ∈ nodes → path u = P ++ A :: ru → path v = P ++ B :: rv →
+      A ≠ B → num A < num B → [u, v].Sublist (sibLevel num path fuel nodes) := by
+  intro P
+  induction P with
+  | nil =>
+    intro fuel path nodes u v A B ru rv hf hu hv hpu hpv hAB hnum
+    obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by simp at hf; omega⟩
+    let key : Nat → Option Nat := fun w => (path w).head?
+    let blocks := clusterBlocks key (nodes.length + 1) nodes
+    let g : List Nat → Item := fun it =>
+      ((path (it.headD 0)).head?,
+        if ((path (it.headD 0)).head?).isSome then
+          sibLevel num (fun w => (path w).tail) f it
+        else it)
+    have hdef : sibLevel num path (f + 1) nodes = sibMerge num (blocks.map g) := rfl
+    rw [hdef]
+    have hku : key u = some A := by simp [key, hpu]
+    have hkv : key v = some B := by simp [key, hpv]
+    obtain ⟨Xu, hXu, huX⟩ := clusterBlocks_mem_block key (nodes.length + 1) nodes hu
+    obtain ⟨Xv, hXv, hvX⟩ := clusterBlocks_mem_block key (nodes.length + 1) nodes hv
+    have hUu := clusterBlocks_uniform key (nodes.length + 1) nodes (Nat.le_succ _) Xu hXu
+    have hUv := clusterBlocks_uniform key (nodes.length + 1) nodes (Nat.le_succ _) Xv hXv
+    have hXuh : Xu.headD 0 ∈ Xu := headD_mem_of_ne_nil (List.ne_nil_of_mem huX)
+    have hXvh : Xv.headD 0 ∈ Xv := headD_mem_of_ne_nil (List.ne_nil_of_mem hvX)
+    have hhu : (path (Xu.headD 0)).head? = some A := (hUu _ hXuh u huX).trans hku
+    have hhv : (path (Xv.headD 0)).head? = some B := (hUv _ hXvh v hvX).trans hkv
+    have htu : g Xu = (some A, sibLevel num (fun w => (path w).tail) f Xu) := by
+      simp only [g]; rw [hhu]; rfl
+    have htv : g Xv = (some B, sibLevel num (fun w => (path w).tail) f Xv) := by
+      simp only [g]; rw [hhv]; rfl
+    have hmu : g Xu ∈ blocks.map g := List.mem_map.mpr ⟨Xu, hXu, rfl⟩
+    have hmv : g Xv ∈ blocks.map g := List.mem_map.mpr ⟨Xv, hXv, rfl⟩
+    have hsu : g Xu ∈ sibSorted num (blocks.map g) :=
+      (List.mergeSort_perm _ _).mem_iff.mpr (List.mem_filter.mpr ⟨hmu, by simp [htu]⟩)
+    have hsv : g Xv ∈ sibSorted num (blocks.map g) :=
+      (List.mergeSort_perm _ _).mem_iff.mpr (List.mem_filter.mpr ⟨hmv, by simp [htv]⟩)
+    have hsorted : (sibSorted num (blocks.map g)).Pairwise
+        (fun x y => ((num (x.1.getD 0) : Nat) : Int) ≤ ((num (y.1.getD 0) : Nat) : Int)) :=
+      mergeSort_border_bands
+        (fun a b : Item => decide (num (a.1.getD 0) ≤ num (b.1.getD 0)))
+        (fun a : Item => ((num (a.1.getD 0) : Nat) : Int))
+        (fun a b h => by simpa using h)
+        (fun a b h => by
+          have := of_decide_eq_false h
+          omega) _
+    have hlt : ((num ((g Xu).1.getD 0) : Nat) : Int) < ((num ((g Xv).1.getD 0) : Nat) : Int) := by
+      rw [htu, htv]
+      simp only [Option.getD_some]
+      exact_mod_cast hnum
+    have hne : g Xu ≠ g Xv := by
+      intro h
+      rw [h] at hlt
+      exact Int.lt_irrefl _ hlt
+    have hpair := sorted_before_of_band_lt
+      (fun a : Item => ((num (a.1.getD 0) : Nat) : Int)) _ hsorted _ _ hsu hsv hne hlt
+    have hplace : (place (blocks.map g) (sibSorted num (blocks.map g))).filter
+        (fun t => t.1.isSome) = sibSorted num (blocks.map g) :=
+      place_filter _ _ (List.mergeSort_perm _ _).length_eq
+        (fun t ht => (List.mem_filter.mp ((List.mergeSort_perm _ _).mem_iff.mp ht)).2)
+    have hpair' : [g Xu, g Xv].Sublist (place (blocks.map g) (sibSorted num (blocks.map g))) := by
+      refine hpair.trans ?_
+      have hf := List.filter_sublist (p := fun t : Item => t.1.isSome)
+        (l := place (blocks.map g) (sibSorted num (blocks.map g)))
+      rw [hplace] at hf
+      exact hf
+    have hmap := hpair'.map Prod.snd
+    have huX' : u ∈ (g Xu).2 := by
+      rw [htu]
+      exact (sibLevel_perm _ _ _ _).mem_iff.mpr huX
+    have hvX' : v ∈ (g Xv).2 := by
+      rw [htv]
+      exact (sibLevel_perm _ _ _ _).mem_iff.mpr hvX
+    exact pair_sublist_flatten _ _ _ u v hmap huX' hvX'
+  | cons q P' ih =>
+    intro fuel path nodes u v A B ru rv hf hu hv hpu hpv hAB hnum
+    obtain ⟨f, rfl⟩ : ∃ f, fuel = f + 1 := ⟨fuel - 1, by simp at hf; omega⟩
+    let key : Nat → Option Nat := fun w => (path w).head?
+    let blocks := clusterBlocks key (nodes.length + 1) nodes
+    let g : List Nat → Item := fun it =>
+      ((path (it.headD 0)).head?,
+        if ((path (it.headD 0)).head?).isSome then
+          sibLevel num (fun w => (path w).tail) f it
+        else it)
+    have hdef : sibLevel num path (f + 1) nodes = sibMerge num (blocks.map g) := rfl
+    rw [hdef]
+    have hku : key u = some q := by simp [key, hpu]
+    have hkv : key v = some q := by simp [key, hpv]
+    obtain ⟨Xu, hXu, huX⟩ := clusterBlocks_mem_block key (nodes.length + 1) nodes hu
+    obtain ⟨Xv, hXv, hvX⟩ := clusterBlocks_mem_block key (nodes.length + 1) nodes hv
+    have hXY : Xu = Xv :=
+      clusterBlocks_same_block key (nodes.length + 1) nodes (Nat.le_succ _) hXu hXv huX hvX
+        (c := q) hku hkv
+    subst hXY
+    have huni := clusterBlocks_uniform key (nodes.length + 1) nodes (Nat.le_succ _) Xu hXu
+    have hXh : Xu.headD 0 ∈ Xu := headD_mem_of_ne_nil (List.ne_nil_of_mem huX)
+    have hXhead : (path (Xu.headD 0)).head? = some q := (huni _ hXh u huX).trans hku
+    have hrec := ih f (fun w => (path w).tail) Xu u v A B ru rv
+      (by simp at hf; omega) huX hvX
+      (by simp [hpu]) (by simp [hpv]) hAB hnum
+    have hmem : (some q, sibLevel num (fun w => (path w).tail) f Xu) ∈ blocks.map g := by
+      refine List.mem_map.mpr ⟨Xu, hXu, ?_⟩
+      simp only [g]
+      rw [hXhead]
+      rfl
+    exact hrec.trans (sublist_sibMerge num hmem)
+
+end Sibling
+
 def BorderBefore (p : Proper) (l : List Nat) : Prop :=
-  ∀ (a b : Nat) (na nb : ProperNode), a ∈ l → b ∈ l →
-    p.nodes[a]? = some na → p.nodes[b]? = some nb → a ≠ b →
-    na.dummy = false → nb.dummy = false →
-    na.node.clusterPath <+: nb.node.clusterPath →
-    (na.node.border = -1 → [a, b].Sublist l) ∧ (na.node.border = 1 → [b, a].Sublist l)
+  Sibling.BBp (nodePath p) (fun v => (p.nodes.getD v default).node.border) l
 
 def LayersBB (p : Proper) (L : List (List Nat)) : Prop :=
   ∀ layer ∈ L, BorderBefore p layer
 
 theorem borderBefore_nil (p : Proper) : BorderBefore p [] := by
-  intro a b na nb ha
+  intro a b ha
   simp at ha
 
 theorem nodePath_of_nondummy {p : Proper} {a : Nat} {na : ProperNode}
@@ -2460,24 +3233,44 @@ theorem border_unique_in_layer {p : Proper} (hwf : BordersWellFormed p) {layer :
       rw [← hpb, ← hpa]; exact hnp
     exact hne (hwf.2.1 a b na nb hna hnb hbd hbeq hpath (hlay a ha b hb)).symm
 
+theorem border_node {p : Proper} (hwf : BordersWellFormed p) {a : Nat}
+    (h : (p.nodes.getD a default).node.border = -1 ∨
+      (p.nodes.getD a default).node.border = 1) :
+    ∃ na : ProperNode, p.nodes[a]? = some na ∧ na.dummy = false ∧
+      na.node.border = (p.nodes.getD a default).node.border := by
+  cases hna : p.nodes[a]? with
+  | none =>
+    have h0 : p.nodes.getD a default = default := by simp [List.getD_eq_getElem?_getD, hna]
+    rw [h0] at h
+    have h1 : (default : ProperNode).node.border = 0 := rfl
+    omega
+  | some na =>
+    refine ⟨na, rfl, ?_, (getD_border hna).symm⟩
+    cases hd : na.dummy with
+    | false => rfl
+    | true =>
+      have := hwf.2.2 a na hna hd
+      have hb := getD_border hna
+      omega
+
 theorem constrainedLayer_borderBefore (p : Proper) (key : OrderKey) (nb : Nat → List Nat)
     (pos : Nat → Int) (layer : List Nat) (initial : Bool) (hwf : BordersWellFormed p)
     (hnd : layer.Nodup) (hlay : ∀ u ∈ layer, ∀ v ∈ layer, lay p u = lay p v) :
     BorderBefore p (constrainedLayer p key nb pos layer initial) := by
-  intro a b na nb' ha hb hna hnb hab hda hdb hpre
+  intro a b ha hb hab hpre
   have hperm := constrainedLayer_perm p key nb pos layer initial
   have ha' : a ∈ layer := hperm.mem_iff.mp ha
   have hb' : b ∈ layer := hperm.mem_iff.mp hb
-  have hpa := nodePath_of_nondummy hna hda
-  have hpb := nodePath_of_nondummy hnb hdb
-  have hbdA : (p.nodes.getD a default).node.border = na.node.border := getD_border hna
   refine ⟨fun h1 => ?_, fun h1 => ?_⟩ <;> unfold constrainedLayer <;> split
   · rename_i hflat
+    obtain ⟨na, hna, hda, hbdA⟩ := border_node hwf (Or.inl h1)
+    have hpa := nodePath_of_nondummy hna hda
     have he := List.all_eq_true.mp hflat a ha'
     have he' : nodePath p a = [] := by simpa using he
-    exact absurd (hpa ▸ he') (hwf.1 a na hna (Or.inl h1))
+    exact absurd (hpa ▸ he') (hwf.1 a na hna (Or.inl (hbdA.trans h1)))
   · rename_i hflat
     dsimp only
+    obtain ⟨na, hna, hda, hbdA⟩ := border_node hwf (Or.inl h1)
     have hcmp := clusterTree_border_order (nodePath p)
       (fun v => (p.nodes.getD v default).node.border)
       (fun level x y => blockKeyLe (clusterBlockKey p key nb pos layer initial level x)
@@ -2489,15 +3282,18 @@ theorem constrainedLayer_borderBefore (p : Proper) (key : OrderKey) (nb : Nat �
       (fun v => by simp) hnd ha' rfl
       (by have := (fold_max_lower (fun v => (nodePath p v).length) layer 0).2 a ha'; omega)
       (fun v _ => by simp)
-      (border_unique_in_layer hwf hlay hna ha' hda (Or.inl h1))
-      (Or.inl (hbdA.trans h1)) b hb' hab.symm (by rw [hpa, hpb]; exact hpre)
-    exact hcmp.1 (hbdA.trans h1)
+      (border_unique_in_layer hwf hlay hna ha' hda (Or.inl (hbdA.trans h1)))
+      (Or.inl h1) b hb' hab.symm hpre
+    exact hcmp.1 h1
   · rename_i hflat
+    obtain ⟨na, hna, hda, hbdA⟩ := border_node hwf (Or.inr h1)
+    have hpa := nodePath_of_nondummy hna hda
     have he := List.all_eq_true.mp hflat a ha'
     have he' : nodePath p a = [] := by simpa using he
-    exact absurd (hpa ▸ he') (hwf.1 a na hna (Or.inr h1))
+    exact absurd (hpa ▸ he') (hwf.1 a na hna (Or.inr (hbdA.trans h1)))
   · rename_i hflat
     dsimp only
+    obtain ⟨na, hna, hda, hbdA⟩ := border_node hwf (Or.inr h1)
     have hcmp := clusterTree_border_order (nodePath p)
       (fun v => (p.nodes.getD v default).node.border)
       (fun level x y => blockKeyLe (clusterBlockKey p key nb pos layer initial level x)
@@ -2509,9 +3305,9 @@ theorem constrainedLayer_borderBefore (p : Proper) (key : OrderKey) (nb : Nat �
       (fun v => by simp) hnd ha' rfl
       (by have := (fold_max_lower (fun v => (nodePath p v).length) layer 0).2 a ha'; omega)
       (fun v _ => by simp)
-      (border_unique_in_layer hwf hlay hna ha' hda (Or.inr h1))
-      (Or.inr (hbdA.trans h1)) b hb' hab.symm (by rw [hpa, hpb]; exact hpre)
-    exact hcmp.2 (hbdA.trans h1)
+      (border_unique_in_layer hwf hlay hna ha' hda (Or.inr (hbdA.trans h1)))
+      (Or.inr h1) b hb' hab.symm hpre
+    exact hcmp.2 h1
 
 theorem pair_sublist_swap {u v c x : Nat} (post : List Nat) (hne : ¬ (u = c ∧ v = x))
     (h : [u, v].Sublist (c :: x :: post)) : [u, v].Sublist (x :: c :: post) := by
@@ -2553,17 +3349,18 @@ theorem borderBefore_swap (p : Proper) (pre post : List Nat) (c x : Nat)
     (hx : (p.nodes.getD x default).node.border = 0)
     (h : BorderBefore p (pre ++ c :: x :: post)) :
     BorderBefore p (pre ++ x :: c :: post) := by
-  intro a b na nb ha hb hna hnb hab hda hdb hpre
+  intro a b ha hb hab hpre
   have hperm : (pre ++ x :: c :: post).Perm (pre ++ c :: x :: post) :=
     List.Perm.append_left pre (List.Perm.swap c x post)
-  obtain ⟨h1, h2⟩ := h a b na nb (hperm.mem_iff.mp ha) (hperm.mem_iff.mp hb) hna hnb hab hda hdb hpre
-  have hbdA : (p.nodes.getD a default).node.border = na.node.border := getD_border hna
+  obtain ⟨h1, h2⟩ := h a b (hperm.mem_iff.mp ha) (hperm.mem_iff.mp hb) hab hpre
   refine ⟨fun hb1 => ?_, fun hb1 => ?_⟩
   · refine pair_sublist_swap_append pre post (fun hh => ?_) (h1 hb1)
-    rw [hh.1, hc] at hbdA
+    have hb1' : (p.nodes.getD a default).node.border = -1 := hb1
+    rw [hh.1, hc] at hb1'
     omega
   · refine pair_sublist_swap_append pre post (fun hh => ?_) (h2 hb1)
-    rw [hh.2, hx] at hbdA
+    have hb1' : (p.nodes.getD a default).node.border = 1 := hb1
+    rw [hh.2, hx] at hb1'
     omega
 
 theorem scanGo_borderBefore (p : Proper) (pos : Nat → Int) :
@@ -2647,6 +3444,24 @@ theorem sweepLayers_bb {p : Proper} (hwf : BordersWellFormed p) {L : List (List 
   · exact (foldl_inv (fun M => Layering p M ∧ LayersBB p M) _ _ L ⟨hL, h⟩
       (fun a ha k _ => ⟨sweepStep_layering ha.1 _ _ key, sweepStep_bb hwf _ ha.1 _ key ha.2⟩)).2
 
+theorem layering_mem_nodup {p : Proper} {L : List (List Nat)} (hL : Layering p L)
+    {layer : List Nat} (hl : layer ∈ L) : layer.Nodup := by
+  obtain ⟨k, hk, rfl⟩ := List.mem_iff_getElem.mp hl
+  have h1 := layer_nodup hL hk
+  have h2 : L.getD k [] = L[k] := by simp [List.getD_eq_getElem?_getD, hk]
+  rw [h2] at h1
+  exact h1
+
+theorem siblingNormalise_bb {p : Proper} {L : List (List Nat)} (hL : Layering p L)
+    (h : LayersBB p L) : LayersBB p (siblingNormalise p L) := by
+  rcases siblingNormalise_cases p L with e | ⟨num, e⟩
+  · rw [e]
+    exact h
+  · rw [e]
+    intro layer hl
+    obtain ⟨original, horig, rfl⟩ := List.mem_map.mp hl
+    exact Sibling.sibLevel_bb num _ _ _ _ (layering_mem_nodup hL horig) (h original horig)
+
 theorem runKey_bb {p : Proper} (hwf : BordersWellFormed p) (key : OrderKey)
     (limit stallLimit : Nat) :
     ∀ (fuel sweep : Nat) (best : List (List Nat)) (score stall : Nat),
@@ -2659,12 +3474,13 @@ theorem runKey_bb {p : Proper} (hwf : BordersWellFormed p) (key : OrderKey)
     exact h
   | succ fuel ih =>
     intro sweep best score stall hb h
-    have htrial : Layering p (transpose p (sweepLayers p sweep best key)) :=
+    have htl : Layering p (transpose p (sweepLayers p sweep best key)) :=
       transpose_layering (sweepLayers_layering hb sweep key)
-    have ht := transpose_bb p _ (sweepLayers_bb hwf hb sweep key h)
+    have htrial := siblingNormalise_layering htl
+    have ht := siblingNormalise_bb htl (transpose_bb p _ (sweepLayers_bb hwf hb sweep key h))
     unfold runKey
     dsimp only
-    by_cases himp : crossCount p (transpose p (sweepLayers p sweep best key)) < score
+    by_cases himp : crossCount p (siblingNormalise p (transpose p (sweepLayers p sweep best key))) < score
     · simp only [himp, decide_true, ite_true]
       split
       · exact ht
@@ -2678,15 +3494,19 @@ theorem runKey_bb {p : Proper} (hwf : BordersWellFormed p) (key : OrderKey)
         · exact h
         · exact ih _ _ _ _ hb h
 
-theorem initOrder_bb {p : Proper} (hwf : BordersWellFormed p) :
-    LayersBB p (initOrder p) := by
+theorem initBase_bb {p : Proper} (hwf : BordersWellFormed p) :
+    LayersBB p (initBase p) := by
   intro layer hl
   obtain ⟨r, _, rfl⟩ := List.mem_map.mp hl
   exact constrainedLayer_borderBefore p _ _ _ _ true hwf (layerNodes_nodup p r)
     (fun u hu v hv => (mem_layerNodes.mp hu).2.trans (mem_layerNodes.mp hv).2.symm)
 
-theorem seedLayers_bb {p : Proper} (hwf : BordersWellFormed p) (start : OrderStart) :
-    LayersBB p (seedLayers p start) := by
+theorem initOrder_bb {p : Proper} (hwf : BordersWellFormed p) :
+    LayersBB p (initOrder p) :=
+  siblingNormalise_bb (initBase_layering p) (initBase_bb hwf)
+
+theorem seedBase_bb {p : Proper} (hwf : BordersWellFormed p) (start : OrderStart) :
+    LayersBB p (seedBase p start) := by
   intro layer hl
   obtain ⟨original, horig, rfl⟩ := List.mem_map.mp hl
   obtain ⟨r, _, rfl⟩ := List.mem_map.mp horig
@@ -2695,6 +3515,10 @@ theorem seedLayers_bb {p : Proper} (hwf : BordersWellFormed p) (start : OrderSta
     (hperm.nodup_iff.mpr (layerNodes_nodup p r))
     (fun u hu v hv => (mem_layerNodes.mp (hperm.mem_iff.mp hu)).2.trans
       (mem_layerNodes.mp (hperm.mem_iff.mp hv)).2.symm)
+
+theorem seedLayers_bb {p : Proper} (hwf : BordersWellFormed p) (start : OrderStart) :
+    LayersBB p (seedLayers p start) :=
+  siblingNormalise_bb (seedBase_layering p start) (seedBase_bb hwf start)
 
 theorem seedBest_bb {p : Proper} (hwf : BordersWellFormed p) (start : OrderStart) :
     LayersBB p (seedBest p start) := by
@@ -2731,16 +3555,12 @@ theorem order_border_ends (p : Proper) (opts : OrderOptions) (L : List (List Nat
       · simp at hr
     · simp at hr
   intro layer hl i j a b na nb hi hj hna hnb hab hda hdb hpre
-  have hnd : layer.Nodup := by
-    obtain ⟨k, hk, rfl⟩ := List.mem_iff_getElem.mp hl
-    have h1 := layer_nodup hspec.1 hk
-    have h2 : r.layers.getD k [] = r.layers[k] := by simp [List.getD_eq_getElem?_getD, hk]
-    rw [h2] at h1
-    exact h1
-  have hbb' := hbb layer hl a b na nb (List.mem_of_getElem? hi) (List.mem_of_getElem? hj)
-    hna hnb hab hda hdb hpre
-  exact ⟨fun h1 => index_lt_of_pair_sublist hnd (hbb'.1 h1) hab hi hj,
-    fun h1 => index_lt_of_pair_sublist hnd (hbb'.2 h1) hab.symm hj hi⟩
+  have hnd : layer.Nodup := layering_mem_nodup hspec.1 hl
+  have hbb' := hbb layer hl a b (List.mem_of_getElem? hi) (List.mem_of_getElem? hj) hab
+    (by rw [nodePath_of_nondummy hna hda, nodePath_of_nondummy hnb hdb]; exact hpre)
+  have hbdA : (p.nodes.getD a default).node.border = na.node.border := getD_border hna
+  exact ⟨fun h1 => index_lt_of_pair_sublist hnd (hbb'.1 (hbdA.trans h1)) hab hi hj,
+    fun h1 => index_lt_of_pair_sublist hnd (hbb'.2 (hbdA.trans h1)) hab.symm hj hi⟩
 
 def extraKey (e : ProperNode × Int) : Int × List Nat × Int :=
   (e.1.node.border, e.1.node.clusterPath, e.2)
@@ -2991,6 +3811,334 @@ theorem addClusterBorders_bordersWellFormed (p : Proper) (borderWidth : Int)
       rw [this] at hd
       exact absurd hd (by simp)
 
+theorem idxOf_pair_lt : ∀ {l : List Nat} {x y : Nat}, l.Nodup → [x, y].Sublist l →
+    l.idxOf x < l.idxOf y := by
+  intro l
+  induction l with
+  | nil => intro x y _ h; simp at h
+  | cons a l ih =>
+    intro x y hnd h
+    rw [List.nodup_cons] at hnd
+    rcases List.sublist_cons_iff.mp h with h1 | ⟨r, hr, h2⟩
+    · have hx : x ∈ l := h1.subset (by simp)
+      have hy : y ∈ l := h1.subset (by simp)
+      have hxa : x ≠ a := fun e => hnd.1 (e ▸ hx)
+      have hya : y ≠ a := fun e => hnd.1 (e ▸ hy)
+      rw [List.idxOf_cons, List.idxOf_cons]
+      simp only [beq_iff_eq, Ne.symm hxa, Ne.symm hya, ite_false]
+      have := ih hnd.2 h1
+      omega
+    · obtain ⟨rfl, rfl⟩ : x = a ∧ [y] = r := by simpa using hr
+      have hy : y ∈ l := h2.subset (by simp)
+      have hya : y ≠ x := fun e => hnd.1 (e ▸ hy)
+      rw [List.idxOf_cons, List.idxOf_cons]
+      simp only [beq_iff_eq, Ne.symm hya, ite_false, ite_true]
+      omega
+
+theorem lookup_map_pair {α β : Type} [BEq α] [LawfulBEq α] (g : α → β) :
+    ∀ (l : List α) (k : α), k ∈ l → (l.map fun P => (P, g P)).lookup k = some (g k)
+  | [], k, h => by simp at h
+  | P :: ps, k, h => by
+    by_cases hk : k = P
+    · subst hk
+      simp
+    · have hps : k ∈ ps := by simpa [hk] using h
+      have hb : (k == P) = false := by simpa using hk
+      rw [List.map_cons, List.lookup_cons, hb]
+      exact lookup_map_pair g ps k hps
+
+theorem foldl_pick_mem (less : Nat → Nat → Bool) :
+    ∀ (xs : List Nat) (x : Nat), xs.foldl (fun y z => if less z y then z else y) x ∈ x :: xs := by
+  intro xs
+  induction xs with
+  | nil => intro x; simp
+  | cons z zs ih =>
+    intro x
+    simp only [List.foldl]
+    have h := ih (if less z x then z else x)
+    by_cases hl : less z x = true
+    · simp only [hl, ite_true, List.mem_cons] at h ⊢
+      rcases h with h | h
+      · exact Or.inr (Or.inl h)
+      · exact Or.inr (Or.inr h)
+    · have hl' : less z x = false := by simpa using hl
+      simp only [hl', Bool.false_eq_true, ite_false, List.mem_cons] at h ⊢
+      rcases h with h | h
+      · exact Or.inl h
+      · exact Or.inr (Or.inr h)
+
+theorem pickMin_mem (less : Nat → Nat → Bool) {l : List Nat} {c : Nat}
+    (h : Sibling.pickMin less l = some c) : c ∈ l := by
+  cases l with
+  | nil => simp [Sibling.pickMin] at h
+  | cons x xs =>
+    simp only [Sibling.pickMin, Option.some.injEq] at h
+    rw [← h]
+    exact foldl_pick_mem less xs x
+
+theorem kahnOrder_perm (pre less : Nat → Nat → Bool) :
+    ∀ (fuel : Nat) (remaining : List Nat), remaining.length ≤ fuel →
+      (Sibling.kahnOrder pre less fuel remaining).Perm remaining := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro remaining h
+    have : remaining = [] := List.eq_nil_of_length_eq_zero (by omega)
+    subst this
+    simp [Sibling.kahnOrder]
+  | succ n ih =>
+    intro remaining h
+    simp only [Sibling.kahnOrder]
+    generalize hq : (if (List.filter (fun c => remaining.all fun d => !pre d c) remaining).isEmpty = true
+      then remaining else List.filter (fun c => remaining.all fun d => !pre d c) remaining) = q
+    have hqsub : ∀ c ∈ q, c ∈ remaining := by
+      intro c hc
+      rw [← hq] at hc
+      split at hc
+      · exact hc
+      · exact (List.mem_filter.mp hc).1
+    cases hpm : Sibling.pickMin less q with
+    | none =>
+      have hq0 : q = [] := by
+        cases q with
+        | nil => rfl
+        | cons x xs => simp [Sibling.pickMin] at hpm
+      subst hq0
+      have hr0 : remaining = [] := by
+        split at hq
+        · exact hq
+        · rename_i hne
+          exact absurd (by rw [hq]; rfl) hne
+      subst hr0
+      simp
+    | some c =>
+      have hc : c ∈ remaining := hqsub c (pickMin_mem less hpm)
+      have hlen : (remaining.erase c).length ≤ n := by
+        rw [List.length_erase_of_mem hc]
+        omega
+      exact ((ih _ hlen).cons c).trans (List.perm_cons_erase hc).symm
+
+theorem le_foldl_layerCount (xs : List Int) :
+    ∀ s : Nat, s ≤ xs.foldl (fun m r => max m (r.toNat + 1)) s := by
+  induction xs with
+  | nil => intro s; exact Nat.le_refl s
+  | cons x xs ih =>
+    intro s
+    simp only [List.foldl]
+    exact Nat.le_trans (Nat.le_max_left s (x.toNat + 1)) (ih _)
+
+theorem mem_foldl_layerCount (xs : List Int) :
+    ∀ (s : Nat), ∀ r ∈ xs, r.toNat + 1 ≤ xs.foldl (fun m r => max m (r.toNat + 1)) s := by
+  induction xs with
+  | nil => intro s r hr; simp at hr
+  | cons x xs ih =>
+    intro s r hr
+    simp only [List.foldl]
+    rcases List.mem_cons.mp hr with rfl | hr
+    · exact Nat.le_trans (Nat.le_max_right s (r.toNat + 1)) (le_foldl_layerCount xs _)
+    · exact ih _ r hr
+
+theorem lay_lt_layerCount (p : Proper) {v : Nat} (hv : v < p.rank.length) :
+    lay p v < layerCount p := by
+  have hm : p.rank[v] ∈ p.rank := List.getElem_mem hv
+  have := mem_foldl_layerCount p.rank 0 _ hm
+  have h : lay p v = p.rank[v].toNat := by
+    simp [lay, rk, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hv]
+  unfold layerCount
+  omega
+
+theorem idxOf_inj_of_mem {l : List Nat} {a b : Nat} (ha : a ∈ l) (hb : b ∈ l)
+    (h : l.idxOf a = l.idxOf b) : a = b := by
+  have h1 := List.idxOf_lt_length_of_mem ha
+  have h2 := List.idxOf_lt_length_of_mem hb
+  calc a = l[l.idxOf a] := (List.getElem_idxOf h1).symm
+    _ = l[l.idxOf b] := by simp only [h]
+    _ = b := List.getElem_idxOf h2
+
+theorem siblingNumber_ne (p : Proper) (pos : Nat → Int) {A B : Nat}
+    (hA : A ∈ Sibling.clusterIds p) (hB : B ∈ Sibling.clusterIds p) (hAB : A ≠ B)
+    (hpar : Sibling.parentOf p A = Sibling.parentOf p B) :
+    Sibling.siblingNumber p (Sibling.siblingOrders p pos) A ≠
+      Sibling.siblingNumber p (Sibling.siblingOrders p pos) B := by
+  have hmem : Sibling.parentOf p B ∈
+      ((Sibling.clusterIds p).map (Sibling.parentOf p)).eraseDups :=
+    List.mem_eraseDups.mpr (List.mem_map.mpr ⟨B, hB, rfl⟩)
+  obtain ⟨K, hK, hKperm⟩ : ∃ K, List.lookup (Sibling.parentOf p B) (Sibling.siblingOrders p pos) = some K ∧
+      K.Perm ((Sibling.clusterIds p).filter fun c => Sibling.parentOf p c == Sibling.parentOf p B) :=
+    ⟨_, lookup_map_pair _ _ _ hmem, kahnOrder_perm _ _ _ _ (Nat.le_refl _)⟩
+  have hAK : A ∈ K := hKperm.mem_iff.mpr (List.mem_filter.mpr ⟨hA, by simp [hpar]⟩)
+  have hBK : B ∈ K := hKperm.mem_iff.mpr (List.mem_filter.mpr ⟨hB, by simp⟩)
+  unfold Sibling.siblingNumber
+  rw [hpar, hK]
+  intro h
+  exact hAB (idxOf_inj_of_mem hAK hBK h)
+
+def ClusterPathsFunctional (p : Proper) : Prop :=
+  ∀ (a b : Nat) (na nb : ProperNode), p.nodes[a]? = some na → p.nodes[b]? = some nb →
+    na.node.border = -1 → nb.node.border = -1 →
+    na.node.clusterPath.getLast? = nb.node.clusterPath.getLast? →
+    na.node.clusterPath = nb.node.clusterPath
+
+theorem mem_clusterRows {p : Proper} {a : Nat} {na : ProperNode} {P : List Nat} {A : Nat}
+    (hna : p.nodes[a]? = some na) (hb : na.node.border = -1)
+    (hp : na.node.clusterPath = P ++ [A]) :
+    (A, P.getLast?) ∈ Sibling.clusterRows p := by
+  unfold Sibling.clusterRows
+  refine List.mem_filterMap.mpr ⟨na, List.mem_of_getElem? hna, ?_⟩
+  simp [hb, hp]
+
+theorem clusterIds_mem {p : Proper} {a : Nat} {na : ProperNode} {P : List Nat} {A : Nat}
+    (hna : p.nodes[a]? = some na) (hb : na.node.border = -1)
+    (hp : na.node.clusterPath = P ++ [A]) : A ∈ Sibling.clusterIds p := by
+  have h := mem_clusterRows hna hb hp
+  unfold Sibling.clusterIds
+  rw [(List.mergeSort_perm _ _).mem_iff, List.mem_eraseDups]
+  exact List.mem_map.mpr ⟨_, h, rfl⟩
+
+theorem parentOf_eq {p : Proper} (hfun : ClusterPathsFunctional p) {a : Nat} {na : ProperNode}
+    {P : List Nat} {A : Nat} (hna : p.nodes[a]? = some na) (hb : na.node.border = -1)
+    (hp : na.node.clusterPath = P ++ [A]) : Sibling.parentOf p A = P.getLast? := by
+  have h := mem_clusterRows hna hb hp
+  unfold Sibling.parentOf
+  cases hl : List.lookup A (Sibling.clusterRows p) with
+  | none =>
+    have := List.lookup_eq_none_iff.mp hl _ h
+    simp at this
+  | some par =>
+    obtain ⟨l₁, l₂, he, _⟩ := List.lookup_eq_some_iff.mp hl
+    have hmem : (A, par) ∈ Sibling.clusterRows p := by
+      rw [he]
+      simp
+    obtain ⟨n', hn', hf⟩ := List.mem_filterMap.mp (by unfold Sibling.clusterRows at hmem; exact hmem)
+    obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hn'
+    have hb' : n'.node.border = -1 := by
+      by_cases hne : n'.node.border = -1
+      · exact hne
+      · exfalso
+        simp [hne] at hf
+    have hf' : n'.node.clusterPath.getLast? = some A ∧
+        par = n'.node.clusterPath.dropLast.getLast? := by
+      simp only [hb', beq_self_eq_true, ite_true] at hf
+      cases hc : n'.node.clusterPath.getLast? with
+      | none => simp [hc] at hf
+      | some c =>
+        simp only [hc, Option.map_some, Option.some.injEq, Prod.mk.injEq] at hf
+        exact ⟨by rw [hf.1], hf.2.symm⟩
+    have hpath := hfun i a n' na hi hna hb' hb (by rw [hf'.1, hp]; simp)
+    simp only [Option.getD_some]
+    rw [hf'.2, hpath, hp]
+    simp
+
+def LeftBorderOf (p : Proper) (v : Nat) (path : List Nat) : Prop :=
+  ∃ n : ProperNode, p.nodes[v]? = some n ∧ n.node.border = -1 ∧ n.node.clusterPath = path
+
+theorem siblingNormalise_getD {p : Proper} {L : List (List Nat)}
+    (h : (Sibling.clusterIds p).isEmpty = false) {r : Nat} (hr : r < L.length) :
+    (siblingNormalise p L).getD r [] =
+      siblingLayer p (Sibling.siblingNumber p (Sibling.siblingOrders p (posOf p L)))
+        (L.getD r []) := by
+  unfold siblingNormalise
+  simp [h, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hr]
+
+theorem siblingLayer_pair {p : Proper} {num : Nat → Nat} {layer : List Nat} {P : List Nat}
+    {A B u v : Nat} (hu : u ∈ layer) (hv : v ∈ layer) (hpu : nodePath p u = P ++ [A])
+    (hpv : nodePath p v = P ++ [B]) (hAB : A ≠ B) (hnum : num A < num B) :
+    [u, v].Sublist (siblingLayer p num layer) := by
+  have hfuel : P.length < sibFuel p layer := by
+    have := (fold_max_lower (fun v => (nodePath p v).length) layer 0).2 u hu
+    simp only [hpu, List.length_append, List.length_singleton] at this
+    unfold sibFuel
+    omega
+  exact Sibling.sibLevel_order num P (sibFuel p layer) (nodePath p) layer u v A B [] []
+    hfuel hu hv hpu hpv hAB hnum
+
+theorem nodePath_of_node {p : Proper} {v : Nat} {n : ProperNode} (hv : p.nodes[v]? = some n)
+    (hd : n.dummy = false) : nodePath p v = n.node.clusterPath := by
+  simp [nodePath, List.getD_eq_getElem?_getD, hv, hd]
+
+theorem order_siblings_consistent {p : Proper} {L : List (List Nat)} (hL : Layering p L)
+    (hn : p.nodes.length = p.rank.length) (hwf : BordersWellFormed p)
+    (hfun : ClusterPathsFunctional p) {P : List Nat} {A B a b a' b' : Nat} (hAB : A ≠ B)
+    (ha : LeftBorderOf p a (P ++ [A])) (hb : LeftBorderOf p b (P ++ [B]))
+    (ha' : LeftBorderOf p a' (P ++ [A])) (hb' : LeftBorderOf p b' (P ++ [B]))
+    (hr : lay p a = lay p b) (hr' : lay p a' = lay p b')
+    (hlt : posOf p (siblingNormalise p L) a < posOf p (siblingNormalise p L) b) :
+    posOf p (siblingNormalise p L) a' < posOf p (siblingNormalise p L) b' := by
+  obtain ⟨na, hna, hba, hpa⟩ := ha
+  obtain ⟨nb, hnb, hbb, hpb⟩ := hb
+  obtain ⟨na', hna', hba', hpa'⟩ := ha'
+  obtain ⟨nb', hnb', hbb', hpb'⟩ := hb'
+  have hdum : ∀ {v : Nat} {n : ProperNode}, p.nodes[v]? = some n → n.node.border = -1 →
+      n.dummy = false := by
+    intro v n hv hbv
+    cases hd : n.dummy with
+    | false => rfl
+    | true =>
+      have := hwf.2.2 v n hv hd
+      omega
+  have hAid := clusterIds_mem hna hba hpa
+  have hBid := clusterIds_mem hnb hbb hpb
+  have hne : (Sibling.clusterIds p).isEmpty = false := by
+    cases hl : Sibling.clusterIds p with
+    | nil => simp [hl] at hAid
+    | cons => rfl
+  have hpar : Sibling.parentOf p A = Sibling.parentOf p B := by
+    rw [parentOf_eq hfun hna hba hpa, parentOf_eq hfun hnb hbb hpb]
+  have hnum := siblingNumber_ne p (posOf p L) hAid hBid hAB hpar
+  have hvr : ∀ {v : Nat} {n : ProperNode}, p.nodes[v]? = some n → v < p.rank.length := by
+    intro v n hv
+    rw [← hn]
+    exact (List.getElem?_eq_some_iff.mp hv).1
+  have hlay : ∀ {v : Nat}, v < p.rank.length → lay p v < L.length := by
+    intro v hv
+    rw [hL.1]
+    exact lay_lt_layerCount p hv
+  have hmem : ∀ {v : Nat} {n : ProperNode}, p.nodes[v]? = some n →
+      v ∈ L.getD (lay p v) [] := by
+    intro v n hv
+    exact (layer_mem hL (hlay (hvr hv))).mpr ⟨hvr hv, rfl⟩
+  have hpath : ∀ {v : Nat} {n : ProperNode}, p.nodes[v]? = some n → n.node.border = -1 →
+      nodePath p v = n.node.clusterPath := fun hv hbv => nodePath_of_node hv (hdum hv hbv)
+  have hnd : ∀ {v : Nat}, v < p.rank.length →
+      (siblingLayer p (Sibling.siblingNumber p (Sibling.siblingOrders p (posOf p L)))
+        (L.getD (lay p v) [])).Nodup := by
+    intro v hv
+    exact (siblingLayer_perm _ _ _).nodup_iff.mpr (layer_nodup hL (hlay hv))
+  have hpos : ∀ v : Nat, v < p.rank.length → posOf p (siblingNormalise p L) v =
+      ((siblingLayer p (Sibling.siblingNumber p (Sibling.siblingOrders p (posOf p L)))
+        (L.getD (lay p v) [])).idxOf v : Nat) := by
+    intro v hv
+    have hdef : posOf p (siblingNormalise p L) v =
+        (((siblingNormalise p L).getD (lay p v) []).idxOf v : Nat) := rfl
+    rw [hdef, siblingNormalise_getD hne (hlay hv)]
+  have hava := hvr hna
+  have hbvb := hvr hnb
+  have hava' := hvr hna'
+  have hbvb' := hvr hnb'
+  rw [hpos _ hava, hpos _ hbvb] at hlt
+  rw [hpos _ hava', hpos _ hbvb']
+  rcases Nat.lt_or_gt_of_ne hnum with hlt2 | hgt2
+  · have ha'mem : a' ∈ L.getD (lay p a') [] := hmem hna'
+    have hb'mem : b' ∈ L.getD (lay p a') [] := by
+      rw [hr']
+      exact hmem hnb'
+    have hsub := siblingLayer_pair ha'mem hb'mem ((hpath hna' hba').trans hpa')
+      ((hpath hnb' hbb').trans hpb') hAB hlt2
+    have hlt3 := idxOf_pair_lt (hnd hava') hsub
+    rw [← hr']
+    exact Int.ofNat_lt.mpr hlt3
+  · exfalso
+    have hamem : a ∈ L.getD (lay p a) [] := hmem hna
+    have hbmem : b ∈ L.getD (lay p a) [] := by
+      rw [hr]
+      exact hmem hnb
+    have hsub := siblingLayer_pair hbmem hamem ((hpath hnb hbb).trans hpb)
+      ((hpath hna hba).trans hpa) (Ne.symm hAB) hgt2
+    have hlt3 := idxOf_pair_lt (hnd hava) hsub
+    rw [← hr] at hlt
+    have := Int.ofNat_lt.mp hlt
+    omega
+
 end OrderImpl
 
 theorem order_clusters_contiguous (p : Proper) (opts : OrderOptions)
@@ -3040,6 +4188,34 @@ theorem crossCount_eq_naive (p : Proper) (L : List (List Nat)) :
 theorem order_valid_layering (p : Proper) (opts : OrderOptions) (L : List (List Nat))
     (h : order p opts = .ok L) : OrderImpl.Valid p ∧ OrderImpl.Layering p L :=
   OrderImpl.order_valid_layering p opts L h
+
+theorem siblingNormalise_perm (p : Proper) (L : List (List Nat)) :
+    (OrderImpl.siblingNormalise p L).length = L.length ∧
+      ∀ i, ((OrderImpl.siblingNormalise p L).getD i []).Perm (L.getD i []) :=
+  OrderImpl.siblingNormalise_perm p L
+
+theorem siblingNormalise_layering {p : Proper} {L : List (List Nat)}
+    (hL : OrderImpl.Layering p L) : OrderImpl.Layering p (OrderImpl.siblingNormalise p L) :=
+  OrderImpl.siblingNormalise_layering hL
+
+theorem siblingNormalise_contiguous {p : Proper} {L : List (List Nat)}
+    (h : OrderImpl.LayersContiguous p L) :
+    OrderImpl.LayersContiguous p (OrderImpl.siblingNormalise p L) :=
+  OrderImpl.siblingNormalise_contiguous h
+
+theorem order_siblings_consistent {p : Proper} {L : List (List Nat)}
+    (hL : OrderImpl.Layering p L) (hn : p.nodes.length = p.rank.length)
+    (hwf : OrderImpl.BordersWellFormed p) (hfun : OrderImpl.ClusterPathsFunctional p)
+    {P : List Nat} {A B a b a' b' : Nat} (hAB : A ≠ B)
+    (ha : OrderImpl.LeftBorderOf p a (P ++ [A])) (hb : OrderImpl.LeftBorderOf p b (P ++ [B]))
+    (ha' : OrderImpl.LeftBorderOf p a' (P ++ [A]))
+    (hb' : OrderImpl.LeftBorderOf p b' (P ++ [B]))
+    (hr : OrderImpl.lay p a = OrderImpl.lay p b) (hr' : OrderImpl.lay p a' = OrderImpl.lay p b')
+    (hlt : OrderImpl.posOf p (OrderImpl.siblingNormalise p L) a <
+      OrderImpl.posOf p (OrderImpl.siblingNormalise p L) b) :
+    OrderImpl.posOf p (OrderImpl.siblingNormalise p L) a' <
+      OrderImpl.posOf p (OrderImpl.siblingNormalise p L) b' :=
+  OrderImpl.order_siblings_consistent hL hn hwf hfun hAB ha hb ha' hb' hr hr' hlt
 
 theorem transpose_crossings_le_of_order (p : Proper) (opts : OrderOptions)
     (L : List (List Nat)) (h : order p opts = .ok L) :

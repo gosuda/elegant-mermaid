@@ -124,14 +124,29 @@ def isDummy (p : Proper) (v : Nat) : Bool :=
   | some n => n.dummy
   | none => false
 
-def crossesInner (p : Proper) (pos : Array Nat) (e : ProperEdge) : Bool :=
+def borderChain (p : Proper) (e : ProperEdge) : Bool :=
+  match p.nodes[e.tail]?, p.nodes[e.head]? with
+  | some a, some b =>
+    (a.node.border == -1 || a.node.border == 1) && a.node.border == b.node.border &&
+      a.node.clusterPath == b.node.clusterPath
+  | _, _ => false
+
+def innerEdge (p : Proper) (f : ProperEdge) : Bool :=
+  isDummy p f.tail && isDummy p f.head
+
+def crossesAmong (p : Proper) (pos : Array Nat) (among : ProperEdge → Bool)
+    (e : ProperEdge) : Bool :=
   p.edges.any fun f =>
-    rk p.rank e.tail == rk p.rank f.tail && isDummy p f.tail && isDummy p f.head &&
+    among f && rk p.rank e.tail == rk p.rank f.tail &&
       decide (((pos[e.tail]! : Int) - pos[f.tail]!) * ((pos[e.head]! : Int) - pos[f.head]!) < 0)
+
+def crossesInner (p : Proper) (pos : Array Nat) (e : ProperEdge) : Bool :=
+  crossesAmong p pos (innerEdge p) e
 
 def typeOneConflicts (p : Proper) (pos : Array Nat) : Array Bool :=
   (p.edges.map fun e =>
-    !(isDummy p e.tail && isDummy p e.head) && crossesInner p pos e).toArray
+    !borderChain p e &&
+      (crossesAmong p pos (borderChain p) e || (!innerEdge p e && crossesInner p pos e))).toArray
 
 def upd {α : Type} (f : Nat → α) (i : Nat) (v : α) : Nat → α := fun j => if j = i then v else f j
 

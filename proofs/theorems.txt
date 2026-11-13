@@ -93,3 +93,7 @@ Elegant.Kinds.Class.classPrimitives_inside
 Elegant.Kinds.Class.layout_spec
 Elegant.Kinds.Class.layout_ids
 Elegant.Kinds.Class.layout_valid_of_family
+Elegant.Layered.siblingNormalise_perm
+Elegant.Layered.siblingNormalise_layering
+Elegant.Layered.siblingNormalise_contiguous
+Elegant.Layered.order_siblings_consistent
