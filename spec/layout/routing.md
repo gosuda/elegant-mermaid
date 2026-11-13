@@ -32,9 +32,13 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
 - routing-13: A segment MUST be a horizontal run from `x_src` (source port) to `x_tgt` (target port), with the interval `[min(x_src, x_tgt), max(x_src, x_tgt)]`. [just lean-parity]
     A segment with `x_src = x_tgt` is straight. A straight segment takes no slot and conflicts with nothing.
 - routing-14: Two non-straight segments in one channel MUST count as conflicting exactly when their closed intervals intersect and they do not share a trunk (same source triple and same target triple). [just lean-parity]
-- routing-15: A conflict arc MUST point from `a` to `b` when `(x_src(a), decl(a))` is lexicographically lower than `(x_src(b), decl(b))`, and the arc means `slot(a) < slot(b)`. [just lean-parity]
-    No cycle guard runs. A segment's `decl` is the lowest `decl` of its edges. Arcs run in the total order `(x_src, decl)` on segments, so they form no cycle.
-    The source-end run MUST precede the target-end run when both reversed-edge runs have the same `x_src` and `decl` in one channel. This final tie MUST also apply to the ready queue.
+- routing-15: A conflict arc MUST point from `a` to `b` when `key(a)` is lexicographically lower than `key(b)`, and the arc means `slot(a) < slot(b)`. [just lean-parity]
+    The key of a segment `s` is `key(s) = (c, k, decl, run)`. `c` is 1 for a right-going segment (`x_tgt > x_src`) and 0 for any other segment. `k` is `-x_src` when `c` is 1 and `x_src` when `c` is 0. `decl` is the lowest `decl` of the edges of `s`. `run` is 0 for a chain segment and for the source-end run of a reversed edge, and 1 for the target-end run.
+    A left-going segment takes a lower slot than every right-going segment that conflicts with it. Left-going segments take slots in ascending `x_src`. Right-going segments take slots in descending `x_src`.
+    The key MUST apply to every segment of a channel, including the two runs of a reversed edge. Both runs reach a lane on the trailing side, so both are right-going.
+    A straight segment has no arc, because it conflicts with nothing (routing-13). It takes `c = 0`, and its key has no effect.
+    Two different segments of one channel never have equal keys. Different edges have different `decl`. The two runs of one reversed edge differ in `run`. No cycle guard runs, because the arcs follow the total order `key`, so they form no cycle.
+    The source-end run MUST precede the target-end run when both reversed-edge runs have the same `c`, `k`, and `decl` in one channel. This final tie MUST also apply to the ready queue.
 - routing-16: Slot numbering MUST use Kahn's algorithm, taking the ready segment with the lowest `decl` first. [just lean-parity]
     A segment with no predecessor gets slot 0. Any other segment gets `1 + max slot(predecessor)`.
 - routing-17: `S_r` MUST be `max slot + 1` over the non-straight segments of the channel, or 0 when there are none. [just lean-parity]
@@ -79,6 +83,6 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
     |---|---|
     |Port order|neighbour `x`, then neighbour declaration index|
     |Slot assignment|number slots in topological order of the conflict arcs, lowest declaration index first; the arcs form no cycle, so no cycle removal runs|
-    |Slot arc|a conflict arc points from `a` to `b` when `(x_src(a), decl(a))` is lower than `(x_src(b), decl(b))`; the arc means `slot(a) < slot(b)`|
+    |Slot arc|a conflict arc points from `a` to `b` when `(c, k, decl, run)` of `a` is lower than that of `b`, with `c = 1` for a right-going segment and 0 otherwise, `k = x_src` for a left-going segment and `-x_src` for a right-going one, and `run` 0 for a source-end run and every chain segment, 1 for a target-end run; the arc means `slot(a) < slot(b)`|
     |Reversed lanes|lane index follows declaration order of the reversed edges|
     |Self-loops|loop index follows declaration order at the node|

@@ -79,6 +79,11 @@ fn conflict(a: &RoutingSegment, b: &RoutingSegment) -> bool {
         && a.source_x.min(a.target_x).max(b.source_x.min(b.target_x))
             <= a.source_x.max(a.target_x).min(b.source_x.max(b.target_x))
 }
+fn arc_key(s: &RoutingSegment, index: usize) -> (bool, i64, i32, usize) {
+    let right = s.target_x > s.source_x;
+    let x = i64::from(s.source_x);
+    (right, if right { -x } else { x }, s.decl, index)
+}
 pub(crate) fn number_gap(g: &mut RoutingGap) -> Result<(), LayoutError> {
     let n = g.segments.len();
     let mut incoming = vec![0; n];
@@ -86,7 +91,7 @@ pub(crate) fn number_gap(g: &mut RoutingGap) -> Result<(), LayoutError> {
     let mut done = vec![false; n];
     for (i, a) in g.segments.iter().enumerate() {
         for (j, b) in g.segments.iter().enumerate() {
-            if (a.source_x, a.decl, i) < (b.source_x, b.decl, j) && conflict(a, b) {
+            if arc_key(a, i) < arc_key(b, j) && conflict(a, b) {
                 out[i].push(j);
                 incoming[j] += 1;
             }
@@ -341,6 +346,142 @@ mod tests {
             [1488, 2000, 2512]
         );
         Ok(())
+    }
+    fn seg(source_x: i32, target_x: i32, decl: i32) -> RoutingSegment {
+        RoutingSegment {
+            tail: 0,
+            head: 0,
+            decl,
+            slot: -1,
+            source_x,
+            target_x,
+            edges: Vec::new(),
+        }
+    }
+    #[test]
+    fn layered_arc_key_direction() {
+        let cases = [
+            (seg(900, 100, 5), seg(100, 900, 0)),
+            (seg(300, 0, 1), seg(400, 100, 0)),
+            (seg(400, 900, 1), seg(300, 800, 0)),
+            (seg(300, 900, 0), seg(300, 800, 1)),
+            (seg(300, 900, 4), seg(300, 800, 4)),
+            (seg(300, 300, 7), seg(100, 900, 0)),
+        ];
+        for (a, b) in &cases {
+            assert!(arc_key(a, 0) < arc_key(b, 1), "{a:?} {b:?}");
+            assert!(arc_key(b, 1) > arc_key(a, 0), "{a:?} {b:?}");
+        }
+    }
+    #[test]
+    fn layered_gap_direction() -> Result<(), LayoutError> {
+        let mut g = RoutingGap {
+            segments: vec![
+                seg(100, 900, 3),
+                seg(100, 900, 3),
+                seg(700, 200, 0),
+                seg(300, 300, 1),
+            ],
+            slots: 0,
+        };
+        number_gap(&mut g)?;
+        let slots: Vec<i32> = g.segments.iter().map(|s| s.slot).collect();
+        assert_eq!(slots, [1, 2, 0, -1]);
+        assert_eq!(g.slots, 3);
+        Ok(())
+    }
+    fn number_by_old_key(g: &mut RoutingGap) {
+        let mut order: Vec<usize> = (0..g.segments.len()).collect();
+        order.sort_by_key(|&i| (g.segments[i].source_x, g.segments[i].decl, i));
+        g.slots = 0;
+        for (n, &i) in order.iter().enumerate() {
+            if g.segments[i].source_x == g.segments[i].target_x {
+                continue;
+            }
+            let slot = order[..n]
+                .iter()
+                .filter(|&&u| conflict(&g.segments[u], &g.segments[i]))
+                .map(|&u| g.segments[u].slot + 1)
+                .max()
+                .unwrap_or(0);
+            g.segments[i].slot = slot;
+            g.slots = g.slots.max(slot + 1);
+        }
+    }
+    fn orient(a: Point, b: Point, c: Point) -> i64 {
+        let cross = (i64::from(b.x) - i64::from(a.x)) * (i64::from(c.y) - i64::from(a.y))
+            - (i64::from(b.y) - i64::from(a.y)) * (i64::from(c.x) - i64::from(a.x));
+        cross.signum()
+    }
+    fn crosses(s: &[Point], t: &[Point]) -> bool {
+        orient(s[0], s[1], t[0]) * orient(s[0], s[1], t[1]) == -1
+            && orient(t[0], t[1], s[0]) * orient(t[0], t[1], s[1]) == -1
+    }
+    fn crossings(routes: &[EdgeRoute]) -> usize {
+        let mut count = 0;
+        for (i, a) in routes.iter().enumerate() {
+            for b in &routes[i + 1..] {
+                count += a
+                    .points
+                    .windows(2)
+                    .flat_map(|s| b.points.windows(2).filter(move |t| crosses(s, t)))
+                    .count();
+            }
+        }
+        count
+    }
+    fn edge_slots(p: &Proper, r: &Routing) -> Result<Vec<i32>, LayoutError> {
+        (0..p.edges.len())
+            .map(|i| {
+                let gap =
+                    usize::try_from(p.rank[p.edges[i].tail]).map_err(|_| LayoutError::Domain)?;
+                Ok(r.gaps[gap].segments[r.segment[i]].slot)
+            })
+            .collect()
+    }
+    fn routed_crossings(
+        p: &Proper,
+        l: &[Vec<usize>],
+        x: &[i32],
+        r: &Routing,
+    ) -> Result<usize, LayoutError> {
+        let (y, t) = rank_coords(p, l, r)?;
+        let (routes, _) = route_points(p, l, x, &y, &t, r)?;
+        Ok(crossings(&routes))
+    }
+    fn fan(
+        edges: &[(usize, usize)],
+        x: &[i32],
+        want: &[i32],
+        old: &[i32],
+    ) -> Result<(), LayoutError> {
+        let (p, l) = hand(5, edges)?;
+        let r = route(&p, &l, x)?;
+        assert_eq!(edge_slots(&p, &r)?, want);
+        assert_eq!(routed_crossings(&p, &l, x, &r)?, 0);
+        let mut r = route(&p, &l, x)?;
+        r.gaps.iter_mut().for_each(number_by_old_key);
+        assert_eq!(edge_slots(&p, &r)?, old);
+        assert_eq!(routed_crossings(&p, &l, x, &r)?, 2);
+        Ok(())
+    }
+    #[test]
+    fn layered_fan_out_slot_order() -> Result<(), LayoutError> {
+        fan(
+            &[(0, 1), (0, 2), (0, 3), (0, 4)],
+            &[5000, 0, 2000, 8000, 10000],
+            &[0, 1, 1, 0],
+            &[0, 1, 0, 1],
+        )
+    }
+    #[test]
+    fn layered_fan_in_slot_order() -> Result<(), LayoutError> {
+        fan(
+            &[(0, 4), (1, 4), (2, 4), (3, 4)],
+            &[0, 2000, 8000, 10000, 5000],
+            &[1, 0, 0, 1],
+            &[0, 1, 0, 1],
+        )
     }
     #[test]
     fn layered_coordinate_overflow() -> Result<(), LayoutError> {

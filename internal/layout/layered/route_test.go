@@ -1,8 +1,10 @@
 package layered
 
 import (
+	"cmp"
 	"fmt"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/gosuda/elegant-mermaid/internal/geom"
@@ -23,9 +25,18 @@ func routeCase(t *testing.T, p *Proper, layers [][]int32) routedCase {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return routeWith(t, p, layers, x, nil)
+}
+func routeWith(t *testing.T, p *Proper, layers [][]int32, x []int32, renumber func(*RoutingGap)) routedCase {
+	t.Helper()
 	r, err := Route(p, layers, x)
 	if err != nil {
 		t.Fatal(err)
+	}
+	for i := range r.Gaps {
+		if renumber != nil {
+			renumber(&r.Gaps[i])
+		}
 	}
 	y, top, err := RankCoords(p, layers, r)
 	if err != nil {
@@ -178,5 +189,121 @@ func TestThreePorts(t *testing.T) {
 	}
 	if !reflect.DeepEqual(r.SourceX, []int32{1488, 2000, 2512}) {
 		t.Fatal(r.SourceX)
+	}
+}
+func slotSegment(source, target, decl, order int32) RoutingSegment {
+	return RoutingSegment{Tail: -1, Head: -1, Decl: decl, Slot: -1, SourceX: source, TargetX: target, Order: order}
+}
+func TestSegmentOrderKey(t *testing.T) {
+	cases := []struct {
+		name string
+		a, b RoutingSegment
+	}{
+		{"left-going before right-going", slotSegment(900, 100, 5, 1), slotSegment(100, 900, 0, 0)},
+		{"left-going by ascending source", slotSegment(300, 0, 1, 0), slotSegment(400, 100, 0, 0)},
+		{"right-going by descending source", slotSegment(400, 900, 1, 0), slotSegment(300, 800, 0, 0)},
+		{"decl after equal source", slotSegment(300, 900, 0, 1), slotSegment(300, 800, 1, 0)},
+		{"run after equal decl", slotSegment(300, 900, 4, 0), slotSegment(300, 800, 4, 1)},
+		{"straight takes the left-going class", slotSegment(300, 300, 7, 0), slotSegment(100, 900, 0, 0)},
+	}
+	for _, c := range cases {
+		if segmentOrder(c.a, c.b) != -1 || segmentOrder(c.b, c.a) != 1 {
+			t.Errorf("%s: %d %d", c.name, segmentOrder(c.a, c.b), segmentOrder(c.b, c.a))
+		}
+	}
+	if segmentOrder(slotSegment(1, 2, 3, 4), slotSegment(1, 2, 3, 4)) != 0 {
+		t.Error("equal keys must compare equal")
+	}
+}
+func TestNumberRoutingGapDirection(t *testing.T) {
+	gap := RoutingGap{Segments: []RoutingSegment{
+		slotSegment(100, 900, 3, 0),
+		slotSegment(100, 900, 3, 1),
+		slotSegment(700, 200, 0, 0),
+		slotSegment(300, 300, 1, 0),
+	}}
+	numberRoutingGap(&gap)
+	var slots []int32
+	for _, s := range gap.Segments {
+		slots = append(slots, s.Slot)
+	}
+	if !reflect.DeepEqual(slots, []int32{1, 2, 0, -1}) || gap.Slots != 3 {
+		t.Fatalf("slots %v count %d", slots, gap.Slots)
+	}
+}
+func routesCrossings(t *testing.T, routes []EdgeRoute) int64 {
+	t.Helper()
+	var total int64
+	for i, a := range routes {
+		for _, b := range routes[i+1:] {
+			n, err := routeCrossings(a.Points, b.Points)
+			if err != nil {
+				t.Fatal(err)
+			}
+			total += n
+		}
+	}
+	return total
+}
+func numberByOldKey(gap *RoutingGap) {
+	order := make([]int, len(gap.Segments))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(i, j int) int {
+		a, b := gap.Segments[i], gap.Segments[j]
+		return cmp.Or(cmp.Compare(a.SourceX, b.SourceX), cmp.Compare(a.Decl, b.Decl), cmp.Compare(a.Order, b.Order))
+	})
+	gap.Slots = 0
+	for n, i := range order {
+		s := &gap.Segments[i]
+		if s.SourceX == s.TargetX {
+			continue
+		}
+		s.Slot = 0
+		for _, u := range order[:n] {
+			if routingConflict(gap.Segments[u], *s) {
+				s.Slot = max(s.Slot, gap.Segments[u].Slot+1)
+			}
+		}
+		gap.Slots = max(gap.Slots, s.Slot+1)
+	}
+}
+func edgeSlots(c routedCase) []int32 {
+	slots := make([]int32, len(c.p.Edges))
+	for i := range slots {
+		slots[i] = c.r.Gaps[c.p.Rank[c.p.Edges[i].Tail]].Segments[c.r.Segment[i]].Slot
+	}
+	return slots
+}
+func checkFan(t *testing.T, c routedCase, slots []int32, crossings int64) {
+	t.Helper()
+	if got := edgeSlots(c); !reflect.DeepEqual(got, slots) {
+		t.Fatalf("slots %v want %v", got, slots)
+	}
+	if n := routesCrossings(t, c.routes); n != crossings {
+		t.Fatalf("%d crossings among the routes of one fan, want %d", n, crossings)
+	}
+}
+func TestFanSlotOrder(t *testing.T) {
+	cases := []struct {
+		name       string
+		edges      [][2]int32
+		x          []int32
+		slots, old []int32
+	}{
+		{"fan-out", [][2]int32{{0, 1}, {0, 2}, {0, 3}, {0, 4}}, []int32{5000, 0, 2000, 8000, 10000}, []int32{0, 1, 1, 0}, []int32{0, 1, 0, 1}},
+		{"fan-in", [][2]int32{{0, 4}, {1, 4}, {2, 4}, {3, 4}}, []int32{0, 2000, 8000, 10000, 5000}, []int32{1, 0, 0, 1}, []int32{0, 1, 0, 1}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p, l := handProper(t, 5, tc.edges)
+			c := routeWith(t, p, l, tc.x, nil)
+			checkFan(t, c, tc.slots, 0)
+			for _, route := range c.routes {
+				checkRoute(t, c, route)
+			}
+			checkFan(t, routeWith(t, p, l, tc.x, numberByOldKey), tc.old, 2)
+		})
 	}
 }

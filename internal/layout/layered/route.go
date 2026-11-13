@@ -131,14 +131,22 @@ func routingConflict(a, b RoutingSegment) bool {
 	}
 	return max(min(a.SourceX, a.TargetX), min(b.SourceX, b.TargetX)) <= min(max(a.SourceX, a.TargetX), max(b.SourceX, b.TargetX))
 }
+func directionClass(s RoutingSegment) int {
+	if s.TargetX > s.SourceX {
+		return 1
+	}
+	return 0
+}
 func segmentOrder(a, b RoutingSegment) int {
-	if d := cmp.Compare(a.SourceX, b.SourceX); d != 0 {
-		return d
+	class := cmp.Compare(directionClass(a), directionClass(b))
+	if class != 0 {
+		return class
 	}
-	if d := cmp.Compare(a.Decl, b.Decl); d != 0 {
-		return d
+	source := cmp.Compare(a.SourceX, b.SourceX)
+	if directionClass(a) == 1 {
+		source = -source
 	}
-	return cmp.Compare(a.Order, b.Order)
+	return cmp.Or(source, cmp.Compare(a.Decl, b.Decl), cmp.Compare(a.Order, b.Order))
 }
 func numberRoutingGap(gap *RoutingGap) {
 	n := len(gap.Segments)
