@@ -160,6 +160,24 @@ parity *ARGS:
     go_version="$(bin/emd-go --version)"; rs_version="$(bin/emd-rs --version)"; test "$go_version" = "$rs_version"
     just _each _parity-one {{ ARGS }}
 
+_accept-one FILE:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    f={{ quote(FILE) }}
+    for engine in bin/emd-go bin/emd-rs; do
+      if report="$("$engine" check --output-format json "$f")"; then continue; fi
+      printf '%s\n%s\n' "acceptance: $engine check failed for $f" "$report" >&2
+      exit 1
+    done
+
+layered-random-check JOBS='2': build
+    go run ./tools/randgraph
+    test "$(wc -l < corpus/.cache/random/layered.txt)" -eq 2000
+    test "$(LC_ALL=C sort -u corpus/.cache/random/layered.txt | wc -l)" -eq 2000
+    just _each _accept-one FILES=corpus/.cache/random/layered.txt JOBS={{ quote(trim_start_match(JOBS, 'JOBS=')) }}
+    just parity FILES=corpus/.cache/random/layered.txt JOBS={{ quote(trim_start_match(JOBS, 'JOBS=')) }}
+    echo "layered-random-check: 2000 accepted and parity-checked cases"
+
 _validate-one FILE:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -236,6 +254,7 @@ verify:
     just model
     just oracle
     just parity
+    just layered-random-check
     just kernel-diff
     just validate
     just lean-parity

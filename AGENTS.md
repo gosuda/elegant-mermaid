@@ -19,7 +19,7 @@ CI runs `gen-check go-check rust-check build parity`.
 
 `pages.yml` runs `playground-wasm`.
 
-Every other recipe is local only. The local-only recipes are `gen`, `proofs`, `model`, `oracle`, `kernel-diff`, `validate`, `lean-parity`, `quality`, `theme-check`, `d3-check`, `fuzz-smoke`, `slop`, `playground-check`, `playground-e2e`, `wasm-parity`, `verify`, `check-fast`, `mutants`, `coverage`, and `bench`.
+Every other recipe is local only. The local-only recipes are `gen`, `proofs`, `model`, `oracle`, `layered-random-check`, `kernel-diff`, `validate`, `lean-parity`, `quality`, `theme-check`, `d3-check`, `fuzz-smoke`, `slop`, `playground-check`, `playground-e2e`, `wasm-parity`, `verify`, `check-fast`, `mutants`, `coverage`, and `bench`.
 
 The reasons are:
 
