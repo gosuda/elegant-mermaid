@@ -21,6 +21,7 @@ pub fn from_class(
         groups: Vec::new(),
         sizes: Vec::new(),
         attachments: Vec::new(),
+        region_sets: Vec::new(),
     };
     append_classes(&mut input, model, profile)?;
     append_notes(&mut input, model);

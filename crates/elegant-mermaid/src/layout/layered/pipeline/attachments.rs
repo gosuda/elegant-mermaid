@@ -4,11 +4,18 @@ use super::attachment_geometry::{self as geometry, Footprint, FootprintInput, No
 use super::attachment_parts::{Fragment, FragmentInput};
 use super::*;
 
+struct AttachedNote {
+    node: usize,
+    fragment: Fragment,
+    side: crate::layout::input::AttachmentSide,
+}
+
 struct Bundle {
     target: usize,
     target_part: Fragment,
-    notes: Vec<(usize, Fragment)>,
+    notes: Vec<AttachedNote>,
     footprint: Footprint,
+    growth: Size,
 }
 
 struct Contraction {
@@ -88,7 +95,6 @@ fn build_bundle(
     let members = super::attachment_parts::subtree(context.graph, context.input, target);
     let target_part = context.build(members, declaration)?;
     let mut notes = Vec::new();
-    let mut sizes = Vec::new();
     for attachment in context
         .input
         .attachments
@@ -98,12 +104,19 @@ fn build_bundle(
         let note_decl = i32::try_from(attachment.note).map_err(|_| LayoutError::Overflow)?;
         let note = *declarations.get(&note_decl).ok_or(LayoutError::Domain)?;
         let fragment = context.build(vec![note], declaration)?;
-        sizes.push(NoteSize {
-            size: fragment.size,
+        notes.push(AttachedNote {
+            node: note,
+            fragment,
             side: attachment.side,
         });
-        notes.push((note, fragment));
     }
+    let sizes: Vec<_> = notes
+        .iter()
+        .map(|note| NoteSize {
+            size: note.fragment.size,
+            side: note.side,
+        })
+        .collect();
     let footprint = geometry::footprint(FootprintInput {
         target: target_part.size,
         notes: &sizes,
@@ -115,6 +128,7 @@ fn build_bundle(
         target_part,
         notes,
         footprint,
+        growth: Size { w: 0, h: 0 },
     })
 }
 
@@ -133,24 +147,163 @@ fn nested(
     })
 }
 
-fn contract(graph: &Graph, input: &Input, bundles: &[Bundle]) -> Result<Contraction, LayoutError> {
-    let mut projected = input.clone();
-    projected
-        .sizes
-        .resize(input.boxes.len(), SizeRule::Measured);
-    let mut representative: Vec<_> = (0..graph.nodes.len()).collect();
+fn project_groups(
+    input: &Input,
+    graph: &Graph,
+    bundles: &[Bundle],
+) -> Result<
+    (
+        Vec<crate::layout::input::Group>,
+        Vec<crate::layout::input::RegionSet>,
+    ),
+    LayoutError,
+> {
+    let metadata = super::super::regions::Metadata::validate(input)?;
+    let absorbed: Vec<_> = input
+        .groups
+        .iter()
+        .map(|group| {
+            bundles.iter().any(|bundle| {
+                bundle
+                    .target_part
+                    .members
+                    .iter()
+                    .any(|&member| graph.nodes[member].id == group.id)
+            })
+        })
+        .collect();
+    let scoped = super::super::regions::Metadata {
+        parents: metadata.parents,
+        sets: metadata
+            .sets
+            .into_iter()
+            .filter(|set| !absorbed[set.parent])
+            .collect(),
+    };
+    let mut retained: Vec<_> = absorbed.iter().map(|absorbed| !absorbed).collect();
+    for set in &scoped.sets {
+        for &region in &set.regions {
+            retained[region] = true;
+        }
+    }
+    let sets = scoped.project(&retained)?;
+    let groups = input
+        .groups
+        .iter()
+        .zip(retained)
+        .filter(|(_, retained)| *retained)
+        .map(|(group, _)| group.clone())
+        .collect();
+    Ok((groups, sets))
+}
+
+impl Bundle {
+    fn fit_final_frame(
+        &mut self,
+        reservation: Rect,
+        graph: &Graph,
+        input: &Input,
+    ) -> Result<(), LayoutError> {
+        let growth = self.target_growth(reservation, input.direction)?;
+        self.target_part
+            .grow_root(super::attachment_parts::FrameGrowth {
+                root: self.target,
+                amount: growth,
+                graph,
+                input,
+            })?;
+        let notes: Vec<_> = self
+            .notes
+            .iter()
+            .map(|note| NoteSize {
+                size: note.fragment.size,
+                side: note.side,
+            })
+            .collect();
+        self.footprint = geometry::footprint(FootprintInput {
+            target: self.target_part.size,
+            notes: &notes,
+            direction: input.direction,
+            gap: narrow(2 * i64::from(graph.params.slot) + 2)?,
+        })?;
+        if self.footprint.size.w != reservation.w || self.footprint.size.h != reservation.h {
+            return Err(LayoutError::Domain);
+        }
+        self.growth = growth;
+        Ok(())
+    }
+
+    fn target_growth(&self, reservation: Rect, direction: Direction) -> Result<Size, LayoutError> {
+        let mut growth = Size {
+            w: narrow(i64::from(reservation.w) - i64::from(self.footprint.size.w))?,
+            h: narrow(i64::from(reservation.h) - i64::from(self.footprint.size.h))?,
+        };
+        if growth.w < 0 || growth.h < 0 {
+            return Err(LayoutError::Domain);
+        }
+        let (height_growth, target_height, note_height) = match direction {
+            Direction::Lr | Direction::Rl => (
+                &mut growth.w,
+                self.target_part.size.w,
+                self.notes
+                    .iter()
+                    .map(|note| note.fragment.size.w)
+                    .max()
+                    .unwrap_or(0),
+            ),
+            Direction::Tb | Direction::Bt => (
+                &mut growth.h,
+                self.target_part.size.h,
+                self.notes
+                    .iter()
+                    .map(|note| note.fragment.size.h)
+                    .max()
+                    .unwrap_or(0),
+            ),
+        };
+        if *height_growth > 0 {
+            *height_growth = narrow(
+                i64::from(*height_growth) + i64::from((note_height - target_height).max(0)),
+            )?;
+        }
+        Ok(growth)
+    }
+}
+
+fn absorb_members(
+    representative: &mut [usize],
+    projected: &mut Input,
+    input: &Input,
+    graph: &Graph,
+    bundles: &[Bundle],
+) -> Result<(), LayoutError> {
     for bundle in bundles {
+        let target =
+            usize::try_from(graph.nodes[bundle.target].decl).map_err(|_| LayoutError::Domain)?;
         let members = bundle
             .target_part
             .members
             .iter()
             .copied()
-            .chain(bundle.notes.iter().map(|(index, _)| *index));
+            .chain(bundle.notes.iter().map(|note| note.node));
         for member in members {
             representative[member] = bundle.target;
-            let id = &graph.nodes[member].id;
-            projected.groups.retain(|group| group.id != *id);
+            let declaration =
+                usize::try_from(graph.nodes[member].decl).map_err(|_| LayoutError::Domain)?;
+            projected.boxes[declaration].parent = input.boxes[target].parent.clone();
         }
+    }
+    Ok(())
+}
+
+fn pin_targets(
+    projected: &mut Input,
+    input: &Input,
+    graph: &Graph,
+    bundles: &[Bundle],
+    groups: &[crate::layout::input::Group],
+) -> Result<(), LayoutError> {
+    for bundle in bundles {
         let node = &graph.nodes[bundle.target];
         let declaration = usize::try_from(node.decl).map_err(|_| LayoutError::Domain)?;
         let mut size = bundle.footprint.size;
@@ -158,20 +311,43 @@ fn contract(graph: &Graph, input: &Input, bundles: &[Bundle]) -> Result<Contract
             std::mem::swap(&mut size.w, &mut size.h);
         }
         projected.sizes[declaration] = SizeRule::Exact(size);
-        projected.boxes[declaration].role = BoxRole::Node;
+        projected.boxes[declaration].role = if groups.iter().any(|group| group.id == node.id) {
+            BoxRole::Group
+        } else {
+            BoxRole::Node
+        };
     }
-    let kept: Vec<_> = representative
-        .iter()
-        .enumerate()
-        .filter_map(|(index, &owner)| (index == owner).then_some(index))
-        .collect();
-    let mut mapping = vec![0; graph.nodes.len()];
+    Ok(())
+}
+
+fn projection_mapping(representative: &[usize], kept: &[usize]) -> Vec<usize> {
+    let mut mapping = vec![0; representative.len()];
     for (new, &old) in kept.iter().enumerate() {
         mapping[old] = new;
     }
     for (index, &owner) in representative.iter().enumerate() {
         mapping[index] = mapping[owner];
     }
+    mapping
+}
+
+fn contract(graph: &Graph, input: &Input, bundles: &[Bundle]) -> Result<Contraction, LayoutError> {
+    let (groups, region_sets) = project_groups(input, graph, bundles)?;
+    let mut projected = input.clone();
+    projected
+        .sizes
+        .resize(input.boxes.len(), SizeRule::Measured);
+    let mut representative: Vec<_> = (0..graph.nodes.len()).collect();
+    absorb_members(&mut representative, &mut projected, input, graph, bundles)?;
+    pin_targets(&mut projected, input, graph, bundles, &groups)?;
+    projected.region_sets = region_sets;
+    projected.groups = groups;
+    let kept: Vec<_> = representative
+        .iter()
+        .enumerate()
+        .filter_map(|(index, &owner)| (index == owner).then_some(index))
+        .collect();
+    let mapping = projection_mapping(&representative, &kept);
     let mut edges = Vec::new();
     let projected_edges = graph
         .edges
@@ -238,6 +414,12 @@ impl Expansion<'_> {
             .iter()
             .map(|&index| envelopes[index])
             .collect();
+        result.titles.retain(|(node, _)| {
+            !self
+                .bundles
+                .iter()
+                .any(|bundle| bundle.target == self.contraction.kept[*node])
+        });
         for (node, _) in &mut result.titles {
             *node = self.contraction.kept[*node];
         }
@@ -258,6 +440,7 @@ impl Expansion<'_> {
         }
         for bundle in &mut self.bundles {
             let envelope = envelopes[self.contraction.mapping[bundle.target]];
+            bundle.fit_final_frame(envelope, self.graph, self.input)?;
             place_fragment(
                 &mut result,
                 &mut bundle.target_part,
@@ -269,10 +452,10 @@ impl Expansion<'_> {
                     },
                 )?,
             )?;
-            for ((_, fragment), &rect) in bundle.notes.iter_mut().zip(&bundle.footprint.notes) {
+            for (note, &rect) in bundle.notes.iter_mut().zip(&bundle.footprint.notes) {
                 place_fragment(
                     &mut result,
-                    fragment,
+                    &mut note.fragment,
                     geometry::translated(
                         rect,
                         Point {
@@ -289,6 +472,7 @@ impl Expansion<'_> {
     }
 
     fn reconnect(&self, result: &mut Component) -> Result<(), LayoutError> {
+        let regions = super::super::regions::ComponentSets::new(self.input, self.graph)?;
         let obstacles: Vec<_> = result
             .labels
             .iter()
@@ -300,6 +484,7 @@ impl Expansion<'_> {
             input: self.input,
             boxes: &result.boxes,
             labels: &obstacles,
+            regions: &regions,
         };
         for &index in &self.contraction.edges {
             let edge = &self.graph.edges[index];
@@ -309,11 +494,21 @@ impl Expansion<'_> {
             result.routes[index].points = routing.route(edge)?;
         }
         for (index, edge) in self.graph.edges.iter().enumerate() {
-            if edge.decl != i32::MAX && result.routes[index].points.is_empty() {
+            if edge.decl != i32::MAX
+                && (result.routes[index].points.is_empty() || self.resized_endpoint(edge))
+            {
                 result.routes[index].points = routing.route(edge)?;
             }
         }
         Ok(())
+    }
+
+    fn resized_endpoint(&self, edge: &Edge) -> bool {
+        edge.tail != edge.head
+            && self.bundles.iter().any(|bundle| {
+                (bundle.growth.w > 0 || bundle.growth.h > 0)
+                    && (edge.tail == bundle.target || edge.head == bundle.target)
+            })
     }
 
     fn affected(&self, edge: &Edge) -> bool {
@@ -323,7 +518,7 @@ impl Expansion<'_> {
                 || bundle
                     .notes
                     .iter()
-                    .any(|(note, _)| *note == edge.tail || *note == edge.head)
+                    .any(|note| note.node == edge.tail || note.node == edge.head)
         })
     }
 }

@@ -18,6 +18,7 @@ pub fn layout(
     input: &Input,
     edges: &[EdgeOptions<'_>],
 ) -> Result<Option<(Scene, bool)>, LayoutError> {
+    super::regions::Metadata::validate(input)?;
     let selected = select_isolated_groups(input);
     if selected.is_empty() {
         return Ok(None);
@@ -54,7 +55,9 @@ fn layout_children(
         let (child, child_edges) = child_input(input, edges, group, ids)?;
         let (scene, exhausted) = pipeline::layout_family(&child, &child_edges)?;
         budget |= exhausted;
-        children.push((group.id.clone(), without_margin(scene, input.profile)?));
+        let scene = without_margin(scene, input.profile)?;
+        let scene = strip_isolated_region_root(scene, &group.id);
+        children.push((group.id.clone(), scene));
     }
     Ok((children, budget))
 }
@@ -65,6 +68,16 @@ fn child_input<'a>(
     group: &crate::layout::input::Group,
     ids: &[String],
 ) -> Result<(Input, Vec<EdgeOptions<'a>>), LayoutError> {
+    let metadata = super::regions::Metadata::validate(input)?;
+    let owns_regions = input
+        .region_sets
+        .iter()
+        .any(|set| input.groups[set.parent].id == group.id);
+    let retained_groups: Vec<_> = input
+        .groups
+        .iter()
+        .map(|item| ids.contains(&item.id) || (owns_regions && item.id == group.id))
+        .collect();
     let (routes, child_edges): (Vec<_>, Vec<_>) = input
         .routes
         .iter()
@@ -83,10 +96,10 @@ fn child_input<'a>(
     let boxes = input
         .boxes
         .iter()
-        .filter(|item| ids.contains(&item.id))
+        .filter(|item| ids.contains(&item.id) || (owns_regions && item.id == group.id))
         .map(|item| {
             let mut item = item.clone();
-            if item.parent == group.id {
+            if item.id == group.id || (!owns_regions && item.parent == group.id) {
                 item.parent.clear();
             }
             item
@@ -95,11 +108,14 @@ fn child_input<'a>(
     let groups = input
         .groups
         .iter()
-        .filter(|item| ids.contains(&item.id))
+        .filter(|item| ids.contains(&item.id) || (owns_regions && item.id == group.id))
         .map(|item| {
             let mut item = item.clone();
-            if item.parent == group.id {
+            if item.id == group.id || (!owns_regions && item.parent == group.id) {
                 item.parent.clear();
+            }
+            if item.id == group.id {
+                item.direction.clear();
             }
             item
         })
@@ -117,7 +133,7 @@ fn child_input<'a>(
             .boxes
             .iter()
             .enumerate()
-            .filter(|(_, item)| ids.contains(&item.id))
+            .filter(|(_, item)| ids.contains(&item.id) || (owns_regions && item.id == group.id))
             .map(|(index, _)| input.sizes.get(index).copied().unwrap_or_default())
             .collect(),
         attachments: pipeline::attachment_metadata::project(
@@ -125,9 +141,10 @@ fn child_input<'a>(
             &input
                 .boxes
                 .iter()
-                .map(|item| ids.contains(&item.id))
+                .map(|item| ids.contains(&item.id) || (owns_regions && item.id == group.id))
                 .collect::<Vec<_>>(),
         )?,
+        region_sets: metadata.project(&retained_groups)?,
     };
     Ok((child, child_edges))
 }
@@ -162,6 +179,12 @@ fn parent_input<'a>(
     parent.groups.retain(|g| {
         !hidden.contains(&g.id) && !selected.iter().any(|(selected, _)| selected.id == g.id)
     });
+    let retained_groups: Vec<_> = input
+        .groups
+        .iter()
+        .map(|g| parent.groups.iter().any(|kept| kept.id == g.id))
+        .collect();
+    parent.region_sets = super::regions::Metadata::validate(input)?.project(&retained_groups)?;
     let mut parent_edges = Vec::new();
     parent.routes = input
         .routes
@@ -296,6 +319,14 @@ impl ComposedChildren {
     }
 }
 
+fn strip_isolated_region_root(scene: Scene, id: &str) -> Scene {
+    let mut dump = scene.dump_part().clone();
+    dump.boxes.retain(|b| b.id != id);
+    let mut items = scene.items().to_vec();
+    items.retain(|group| group.owner != id);
+    Scene::new(scene.canvas(), dump, items)
+}
+
 fn without_margin(scene: Scene, profile: Profile) -> Result<Scene, LayoutError> {
     let margin = pipeline::constant(profile, "canvas_margin");
     let by = Point {
@@ -338,6 +369,13 @@ fn without_margin(scene: Scene, profile: Profile) -> Result<Scene, LayoutError> 
 fn select_isolated_groups(input: &Input) -> Vec<(&crate::layout::input::Group, Vec<String>)> {
     let mut selected: Vec<(&crate::layout::input::Group, Vec<String>)> = Vec::new();
     for group in &input.groups {
+        if input
+            .region_sets
+            .iter()
+            .any(|set| set.regions.iter().any(|&r| input.groups[r].id == group.id))
+        {
+            continue;
+        }
         if group.direction.is_empty() || selected.iter().any(|(_, ids)| ids.contains(&group.id)) {
             continue;
         }
@@ -481,6 +519,7 @@ mod sizing_tests {
             groups: Vec::new(),
             sizes: vec![SizeRule::Measured, SizeRule::Exact(Size { w: 1, h: 1 })],
             attachments: Vec::new(),
+            region_sets: Vec::new(),
         };
         let ids = vec!["fixed".into(), "trailing".into()];
         let (child, _) = child_input(&input, &[], &group, &ids)?;

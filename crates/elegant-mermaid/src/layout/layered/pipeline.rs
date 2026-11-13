@@ -1,5 +1,5 @@
 use super::{
-    LayoutError, coords, cycles,
+    LayoutError, cycles,
     graph::{Edge, Graph, Node, Params},
     normalize, order, rank, route,
 };
@@ -23,8 +23,12 @@ mod attachment_parts;
 mod attachment_routes;
 #[path = "pipeline/attachments.rs"]
 mod attachments;
+#[path = "pipeline/component_core.rs"]
+mod component_core;
 #[path = "pipeline/component_input.rs"]
 mod component_input;
+use component_core::component_core;
+pub(super) use component_core::{Component, Measurements};
 
 #[derive(Clone, Copy)]
 pub struct EdgeOptions<'a> {
@@ -225,33 +229,6 @@ fn component(g: &Graph, members: &[usize]) -> Graph {
         params: g.params,
     }
 }
-pub(super) struct Measurements<'text, 'scene> {
-    pub route_lines: Vec<Vec<measure::Line<'text>>>,
-    pub titles: Vec<Size>,
-    pub route_stacks: Vec<super::labels::Stack>,
-    pub fixed: &'scene [super::isolate::Fixed<'scene>],
-}
-
-pub(super) struct Component {
-    pub boxes: Vec<Rect>,
-    pub routes: Vec<route::EdgeRoute>,
-    pub labels: Vec<(usize, Rect)>,
-    pub titles: Vec<(usize, Rect)>,
-    pub loop_extents: Vec<Rect>,
-    pub label_reservations: Vec<(usize, Rect)>,
-    pub budget: bool,
-}
-
-impl Component {
-    fn packing_rects(&self) -> impl Iterator<Item = &Rect> {
-        self.boxes
-            .iter()
-            .chain(self.label_reservations.iter().map(|(_, rect)| rect))
-            .chain(self.titles.iter().map(|(_, rect)| rect))
-            .chain(self.loop_extents.iter())
-    }
-}
-
 pub(super) fn component_layout(
     g: &Graph,
     input: &Input,
@@ -261,179 +238,6 @@ pub(super) fn component_layout(
     attachments::layout(g, input, measurements, options)
 }
 
-fn component_core(
-    g: &Graph,
-    input: &Input,
-    measurements: &Measurements<'_, '_>,
-    options: order::OrderOptions,
-) -> Result<Component, LayoutError> {
-    let component_input::Prepared {
-        semantic,
-        proper: mut p,
-        clusters,
-        label_nodes,
-        gutter,
-        paths,
-        boundary,
-        budget,
-    } = component_input::prepare(g, input, measurements)?;
-    let ordered = order::order_compound(&p, options, &paths, &boundary)?;
-    let sizes = edge_sizes(g, &measurements.route_stacks)?;
-    let extents = super::loops::extents(g, &sizes, input)?;
-    let mut proper_extents = extents.clone();
-    proper_extents.resize(p.nodes.len(), 0);
-    for cluster in &clusters {
-        let extent = proper_extents[cluster.node];
-        proper_extents[cluster.node] = 0;
-        for &border in &cluster.right {
-            proper_extents[border] = extent;
-        }
-    }
-    let mut separated = p.clone();
-    for (node, extent) in separated.nodes.iter_mut().zip(&proper_extents) {
-        node.node.w = narrow(i64::from(node.node.w) + 2 * i64::from(*extent))?;
-    }
-    let mut x = coords::cross_coords_compound(&separated, &ordered.layers, &paths)?;
-    super::clusters::ports(&clusters, &mut p, &mut x)?;
-    let mut drawn = p.clone();
-    drawn
-        .edges
-        .retain(|e| semantic.edges.get(e.original).is_some());
-    let all = route::route(&drawn, &ordered.layers, &x)?;
-    let reversed: Vec<_> = semantic.edges.iter().map(|edge| edge.reversed).collect();
-    let mut r = route::route_selected(&drawn, &ordered.layers, &x, &reversed)?;
-    super::gutters::number(&clusters, &drawn, &x, &mut r)?;
-    let lanes = super::lanes::number(
-        super::lanes::LaneInput {
-            graph: &semantic,
-            proper: &drawn,
-            x: &x,
-            extents: &proper_extents,
-            sizes: &sizes,
-        },
-        &mut r,
-        &all,
-    )?;
-    let (mut y, mut top) = coords::rank_coords(&p, &ordered.layers, &r)?;
-    super::loops::reserve_ranks(
-        g,
-        input,
-        &sizes,
-        super::loops::RankPlacement {
-            proper: &p,
-            layers: &ordered.layers,
-            y: &mut y,
-            top: &mut top,
-        },
-    )?;
-    super::clusters::anchors(&clusters, &p, &ordered.layers, &top, &mut y)?;
-    let node_placement = super::labels::Placement {
-        proper: &p,
-        x: &x,
-        y: &y,
-        gutter,
-    };
-    let (mut routes, _) = route::route_points(&drawn, &ordered.layers, &x, &y, &top, &r)?;
-    let mut placed = super::labels::place(
-        label_nodes,
-        super::labels::Placement {
-            proper: &p,
-            x: &x,
-            y: &y,
-            gutter,
-        },
-        &measurements.route_stacks,
-    )?;
-    let boxes = component_boxes(g, node_placement, &clusters)?;
-    routes.truncate(g.edges.len());
-    let reversed_labels = super::lanes::place(
-        super::lanes::LanePlacement {
-            graph: &semantic,
-            proper: &p,
-            layers: &ordered.layers,
-            y: &y,
-            top: &top,
-            routing: &r,
-            sizes: &sizes,
-        },
-        &lanes,
-        &mut routes,
-    )?;
-    super::labels::replace(g, &measurements.route_stacks, reversed_labels, &mut placed)?;
-    let loop_labels = super::loops::place(g, &boxes, &sizes, &mut routes, input)?;
-    super::labels::replace(g, &measurements.route_stacks, loop_labels, &mut placed)?;
-    let super::labels::Placed {
-        labels,
-        reservations: label_reservations,
-    } = placed;
-    super::gutters::place(&clusters, &semantic, &boxes, &mut routes);
-    let pad = constant(input.profile, "cluster_pad");
-    let mut titles = Vec::new();
-    for (index, node) in g.nodes.iter().enumerate() {
-        let declaration = usize::try_from(node.decl).map_err(|_| LayoutError::Domain)?;
-        if input.boxes[declaration].role != BoxRole::Group {
-            continue;
-        }
-        let size = measurements.titles[declaration];
-        if let Some(fixed) = measurements.fixed.iter().find(|fixed| fixed.id == node.id) {
-            let (_, mut title) = fixed_geometry(fixed, size, input.direction, pad)?;
-            title.x = narrow(i64::from(title.x) + i64::from(boxes[index].x))?;
-            title.y = narrow(i64::from(title.y) + i64::from(boxes[index].y))?;
-            titles.push((index, title));
-            continue;
-        }
-        let cluster = clusters.iter().find(|cluster| cluster.node == index);
-        let origin_x = if let Some(cluster) = cluster {
-            i64::from(x[cluster.title]) - i64::from(size.w) / 2
-        } else {
-            i64::from(boxes[index].x)
-                + crate::geom::floor_div(i64::from(boxes[index].w) - i64::from(size.w), 2)
-        };
-        let origin_y = cluster.map_or(boxes[index].y, |cluster| y[cluster.title]);
-        titles.push((
-            index,
-            Rect {
-                x: narrow(origin_x)?,
-                y: narrow(i64::from(origin_y) + i64::from(pad))?,
-                w: size.w,
-                h: size.h,
-            },
-        ));
-    }
-    let loop_extents = super::loops::reservations(g, &boxes, &sizes, &extents, input)?;
-    Ok(Component {
-        boxes,
-        routes,
-        labels,
-        titles,
-        loop_extents,
-        label_reservations,
-        budget: budget || ordered.budget_exhausted,
-    })
-}
-
-fn component_boxes(
-    g: &Graph,
-    placement: super::labels::Placement<'_>,
-    clusters: &[super::clusters::Cluster],
-) -> Result<Vec<Rect>, LayoutError> {
-    let super::labels::Placement {
-        proper: p, x, y, ..
-    } = placement;
-    let mut boxes: Vec<_> = g
-        .nodes
-        .iter()
-        .enumerate()
-        .map(|(i, _)| Rect {
-            x: x[i] - p.nodes[i].node.w / 2,
-            y: y[i],
-            w: p.nodes[i].node.w,
-            h: p.nodes[i].node.h,
-        })
-        .collect();
-    super::clusters::frames(clusters, p, x, y, &mut boxes)?;
-    Ok(boxes)
-}
 pub(super) fn bounds<'a>(
     boxes: impl IntoIterator<Item = &'a Rect>,
     routes: &[route::EdgeRoute],

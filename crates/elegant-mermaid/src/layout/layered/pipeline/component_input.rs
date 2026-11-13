@@ -10,6 +10,8 @@ pub(super) struct Prepared {
     pub paths: Vec<Vec<usize>>,
     pub boundary: Vec<i8>,
     pub budget: bool,
+    pub region_sets: super::super::regions::ComponentSets,
+    pub region_constraints: super::super::regions::Constraints,
 }
 
 pub(super) fn prepare(
@@ -17,16 +19,17 @@ pub(super) fn prepare(
     input: &Input,
     measurements: &Measurements<'_, '_>,
 ) -> Result<Prepared, LayoutError> {
+    let region_sets = super::super::regions::ComponentSets::new(input, g)?;
     let (mut ranked, mut clusters) = clusters::ranking(g, input);
-    if !clusters.is_empty() {
+    if !clusters.is_empty() && region_sets.sets.is_empty() {
         let reversed = cycles::break_cycles(&ranked)?;
         for (edge, reversed) in ranked.edges.iter_mut().zip(reversed) {
             edge.reversed = reversed;
         }
     }
+    let ranks = region_sets.rank(input, &mut ranked, &clusters)?;
     let mut semantic = ranked.clone();
     semantic.edges.retain(|edge| edge.decl != i32::MAX);
-    let ranks = rank::rank(&ranked)?;
     let mut p = normalize::normalize(&semantic, &ranks.ranks)?;
     let gutter = if input.profile == Profile::Cell {
         g.params.slot
@@ -51,6 +54,13 @@ pub(super) fn prepare(
         },
         &mut clusters,
     )?;
+    let region_constraints = region_sets.constraints(super::super::regions::Footprints {
+        input,
+        graph: g,
+        proper: &p,
+        clusters: &clusters,
+        paths: &paths,
+    })?;
     Ok(Prepared {
         semantic,
         proper: p,
@@ -60,5 +70,7 @@ pub(super) fn prepare(
         paths,
         boundary,
         budget: ranks.budget_exhausted,
+        region_sets,
+        region_constraints,
     })
 }

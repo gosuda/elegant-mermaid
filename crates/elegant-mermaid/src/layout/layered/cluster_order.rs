@@ -121,3 +121,13 @@ impl Blocks<'_> {
         Ok((sum, count))
     }
 }
+
+pub fn pin(layers: &mut [Vec<usize>], keys: &[Vec<usize>]) -> Result<(), LayoutError> {
+    for layer in layers {
+        if layer.iter().any(|&node| node >= keys.len()) {
+            return Err(LayoutError::Domain);
+        }
+        layer.sort_by(|&a, &b| keys[a].cmp(&keys[b]));
+    }
+    Ok(())
+}

@@ -341,7 +341,11 @@ impl BorderPaths {
                     i64::from(size.h)
                         + i64::from(super::pipeline::constant(input.profile, "cluster_pad")),
                 )?
-                .max(g.nodes[cluster.node].h),
+                .max(if input.region_sets.is_empty() {
+                    g.nodes[cluster.node].h
+                } else {
+                    0
+                }),
             },
             dummy: false,
             label: false,
@@ -467,4 +471,47 @@ pub fn frames(
         };
     }
     Ok(())
+}
+
+/// Reserves algorithmic group footprints separately from visible title nodes.
+pub(super) fn reserve_footprints(
+    p: &mut Proper,
+    footprints: &[(usize, crate::geom::Size)],
+) -> Result<(), LayoutError> {
+    for &(node, size) in footprints {
+        let target = p.nodes.get_mut(node).ok_or(LayoutError::Domain)?;
+        if size.w < 0 || size.h < 0 {
+            return Err(LayoutError::Domain);
+        }
+        target.node.h = target.node.h.max(size.h);
+    }
+    Ok(())
+}
+
+pub(super) fn reserved_ports(
+    clusters: &[Cluster],
+    p: &mut Proper,
+    placement: &mut super::regions::Placement,
+) -> Result<(), LayoutError> {
+    ports(clusters, p, &mut placement.x)?;
+    for (&(node, left, right), &(band_node, band_left, band_right)) in
+        placement.frames.iter().zip(&placement.bands)
+    {
+        if node != band_node || left < band_left || right > band_right {
+            return Err(LayoutError::Domain);
+        }
+        let width = p.nodes[node].node.w;
+        let actual_left = placement.x[node]
+            .checked_sub(width / 2)
+            .ok_or(LayoutError::Overflow)?;
+        if actual_left != left
+            || actual_left
+                .checked_add(width)
+                .ok_or(LayoutError::Overflow)?
+                != right
+        {
+            return Err(LayoutError::Domain);
+        }
+    }
+    reserve_footprints(p, &placement.group_footprints)
 }

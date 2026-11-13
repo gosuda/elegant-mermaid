@@ -76,6 +76,7 @@ fn embedded_nodes_and_routes_change_the_parent_cost_denominator() -> Result<(), 
         groups: Vec::new(),
         sizes: Vec::new(),
         attachments: Vec::new(),
+        region_sets: Vec::new(),
     };
     let graph = Graph {
         nodes: vec![Node {

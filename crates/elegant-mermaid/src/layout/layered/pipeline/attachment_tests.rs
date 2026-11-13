@@ -19,6 +19,7 @@ fn input(profile: Profile, direction: Direction) -> Input {
         groups: Vec::new(),
         sizes: Vec::new(),
         attachments: Vec::new(),
+        region_sets: Vec::new(),
     }
 }
 
@@ -245,4 +246,215 @@ fn malformed_attachment_indices_and_ownership_return_domain() {
         attachment_metadata::validate(&input),
         Err(LayoutError::Domain)
     );
+}
+
+fn concurrent_regions(
+    input: &mut Input,
+    parent: &str,
+    regions: &[&str],
+) -> Result<(), LayoutError> {
+    let index = |id: &str| {
+        input
+            .groups
+            .iter()
+            .position(|group| group.id == id)
+            .ok_or(LayoutError::Domain)
+    };
+    let set = crate::layout::input::RegionSet {
+        parent: index(parent)?,
+        regions: regions
+            .iter()
+            .map(|id| index(id))
+            .collect::<Result<Vec<_>, _>>()?,
+    };
+    input.region_sets.push(set);
+    Ok(())
+}
+
+fn regional_attachments(
+    profile: Profile,
+    direction: Direction,
+    target_id: &str,
+) -> Result<Input, LayoutError> {
+    let mut input = input(profile, direction);
+    regional_groups(&mut input);
+    regional_nodes(&mut input);
+    regional_regions(&mut input)?;
+    regional_target_attachments(&mut input, target_id)?;
+    Ok(input)
+}
+
+fn regional_groups(input: &mut Input) {
+    for (id, parent) in [
+        ("prefix", ""),
+        ("prefix-empty", "prefix"),
+        ("prefix-live", "prefix"),
+        ("outer", ""),
+        ("first", "outer"),
+        ("second", "outer"),
+        ("second-empty", "second"),
+        ("second-live", "second"),
+        ("last", "outer"),
+    ] {
+        group(input, id, parent);
+    }
+}
+
+fn regional_nodes(input: &mut Input) {
+    for (id, parent) in [
+        ("prefix-node", "prefix-live"),
+        ("state", "first"),
+        ("other", "second-live"),
+        ("tall", "second-live"),
+        ("outside", ""),
+    ] {
+        node(input, id, parent);
+    }
+}
+
+fn regional_regions(input: &mut Input) -> Result<(), LayoutError> {
+    concurrent_regions(input, "prefix", &["prefix-empty", "prefix-live"])?;
+    node(input, "internal", "first");
+    concurrent_regions(input, "outer", &["first", "second", "last"])?;
+    concurrent_regions(input, "second", &["second-empty", "second-live"])?;
+    Ok(())
+}
+
+fn regional_target_attachments(input: &mut Input, target_id: &str) -> Result<(), LayoutError> {
+    let prefix_note = node(input, "prefix-note", "");
+    attach(input, 0, prefix_note, AttachmentSide::Left);
+    let target = input
+        .boxes
+        .iter()
+        .position(|item| item.id == target_id)
+        .ok_or(LayoutError::Domain)?;
+    let parent = input.boxes[target].parent.clone();
+    let left = node(input, "left", &parent);
+    let right = node(input, "right", &parent);
+    attach(input, target, left, AttachmentSide::Left);
+    attach(input, target, right, AttachmentSide::Right);
+    for (from, to, label) in [
+        ("prefix-node", "outside", "prefix exit"),
+        ("outside", "state", "entry"),
+        ("state", "other", "cross-region"),
+        ("state", "internal", "internal forward label"),
+        ("internal", "state", "internal return label"),
+        ("other", "tall", "unequal sibling content"),
+        ("tall", "outside", "exit"),
+        (target_id, target_id, "target loop"),
+    ] {
+        edge(input, from, to, label);
+    }
+    Ok(())
+}
+
+fn assert_region_membership(input: &Input, scene: &Scene) -> Result<(), LayoutError> {
+    let dump = scene.dump_part();
+    for (actual, semantic) in dump.boxes.iter().zip(&input.boxes) {
+        assert_eq!(
+            (&actual.id, &actual.parent),
+            (&semantic.id, &semantic.parent),
+            "attachment expansion must preserve original box identity and membership"
+        );
+    }
+    let frame = |group: usize| {
+        dump.boxes
+            .iter()
+            .find(|item| item.id == input.groups[group].id)
+            .map(|item| item.rect)
+            .ok_or(LayoutError::Domain)
+    };
+    for set in &input.region_sets {
+        for &region in &set.regions {
+            let rect = frame(region)?;
+            assert!(
+                rect.w > 0 && rect.h > 0,
+                "every region, including empty regions, needs a positive frame: region={}, frame={rect:?}",
+                input.groups[region].id
+            );
+            assert_internal_region_routes(input, scene, region, rect)?;
+        }
+        for adjacent in set.regions.windows(2) {
+            let before = frame(adjacent[0])?;
+            let after = frame(adjacent[1])?;
+            let separated = match input.direction {
+                Direction::Tb | Direction::Bt => {
+                    i64::from(before.x) + i64::from(before.w) <= i64::from(after.x)
+                }
+                Direction::Lr | Direction::Rl => {
+                    i64::from(before.y) + i64::from(before.h) <= i64::from(after.y)
+                }
+            };
+            assert!(
+                separated,
+                "region frames must remain disjoint in declaration order after atomic expansion: before={before:?}, after={after:?}"
+            );
+        }
+    }
+    Ok(())
+}
+
+fn inside_region(input: &Input, id: &str, region: &str) -> bool {
+    let mut parent = input
+        .boxes
+        .iter()
+        .find(|item| item.id == id)
+        .map(|item| item.parent.as_str());
+    while let Some(id) = parent {
+        if id == region {
+            return true;
+        }
+        parent = input
+            .boxes
+            .iter()
+            .find(|item| item.id == id)
+            .map(|item| item.parent.as_str());
+    }
+    false
+}
+
+fn assert_internal_region_routes(
+    input: &Input,
+    scene: &Scene,
+    region: usize,
+    frame: Rect,
+) -> Result<(), LayoutError> {
+    let id = &input.groups[region].id;
+    for semantic in &input.routes {
+        if !inside_region(input, &semantic.from, id) || !inside_region(input, &semantic.to, id) {
+            continue;
+        }
+        let route = scene
+            .dump_part()
+            .routes
+            .iter()
+            .find(|route| route.id == semantic.id)
+            .ok_or(LayoutError::Domain)?;
+        for point in &route.points {
+            assert!(
+                frame.x <= point.x
+                    && i64::from(point.x) <= i64::from(frame.x) + i64::from(frame.w)
+                    && frame.y <= point.y
+                    && i64::from(point.y) <= i64::from(frame.y) + i64::from(frame.h),
+                "same-region routes must remain inside the final physical region frame: region={id}, route={}, point={point:?}, frame={frame:?}",
+                route.id
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn attachments_preserve_concurrent_regions_across_subtree_contraction() -> Result<(), LayoutError> {
+    for profile in [Profile::Cell, Profile::Vector] {
+        for direction in [Direction::Tb, Direction::Bt, Direction::Lr, Direction::Rl] {
+            for target in ["state", "second"] {
+                let input = regional_attachments(profile, direction, target)?;
+                let scene = render(&input)?;
+                assert_attachments(&input, &scene)?;
+                assert_region_membership(&input, &scene)?;
+            }
+        }
+    }
+    Ok(())
 }

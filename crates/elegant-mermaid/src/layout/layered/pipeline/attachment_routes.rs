@@ -11,6 +11,7 @@ pub(super) struct EndpointRouting<'a> {
     pub input: &'a Input,
     pub boxes: &'a [Rect],
     pub labels: &'a [(usize, Rect)],
+    pub regions: &'a super::super::regions::ComponentSets,
 }
 
 impl EndpointRouting<'_> {
@@ -21,8 +22,53 @@ impl EndpointRouting<'_> {
         obstacles.extend(self.labels.iter().map(|(_, rect)| *rect));
         let starts = ports(from)?;
         let ends = ports(to)?;
-        let grid = VisibilityGrid::new(&obstacles, &starts, &ends)?;
+        let grid = VisibilityGrid::new(&obstacles, &starts, &ends, self.region_frame(edge)?)?;
         grid.shortest(&starts, &ends)
+    }
+
+    fn region_frame(&self, edge: &Edge) -> Result<Option<Rect>, LayoutError> {
+        let tail = self.region_ancestors(edge.tail)?;
+        let head = self.region_ancestors(edge.head)?;
+        let shared = tail.into_iter().find(|region| {
+            head.contains(region)
+                && self
+                    .regions
+                    .sets
+                    .iter()
+                    .any(|set| set.regions.contains(region))
+        });
+        let Some(region) = shared else {
+            return Ok(None);
+        };
+        let group = self.regions.groups[region];
+        let node = self
+            .graph
+            .nodes
+            .iter()
+            .position(|node| node.id == self.input.groups[group].id)
+            .ok_or(LayoutError::Domain)?;
+        Ok(Some(self.boxes[node]))
+    }
+
+    fn region_ancestors(&self, node: usize) -> Result<Vec<usize>, LayoutError> {
+        let declaration =
+            usize::try_from(self.graph.nodes[node].decl).map_err(|_| LayoutError::Domain)?;
+        let item = self
+            .input
+            .boxes
+            .get(declaration)
+            .ok_or(LayoutError::Domain)?;
+        let mut parent = self
+            .regions
+            .groups
+            .iter()
+            .position(|&group| self.input.groups[group].id == item.parent);
+        let mut ancestors = Vec::new();
+        while let Some(group) = parent {
+            ancestors.push(group);
+            parent = self.regions.parents[group];
+        }
+        Ok(ancestors)
     }
 
     fn obstacles(&self, edge: &Edge) -> Vec<Rect> {
@@ -62,10 +108,16 @@ struct VisibilityGrid<'a> {
     x: Vec<i32>,
     y: Vec<i32>,
     obstacles: &'a [Rect],
+    bound: Option<Rect>,
 }
 
 impl<'a> VisibilityGrid<'a> {
-    fn new(obstacles: &'a [Rect], starts: &[Point], ends: &[Point]) -> Result<Self, LayoutError> {
+    fn new(
+        obstacles: &'a [Rect],
+        starts: &[Point],
+        ends: &[Point],
+        bound: Option<Rect>,
+    ) -> Result<Self, LayoutError> {
         let mut x = Vec::new();
         let mut y = Vec::new();
         for rect in obstacles {
@@ -84,11 +136,24 @@ impl<'a> VisibilityGrid<'a> {
             x.push(point.x);
             y.push(point.y);
         }
+        if let Some(frame) = bound {
+            let right = narrow(i64::from(frame.x) + i64::from(frame.w))?;
+            let bottom = narrow(i64::from(frame.y) + i64::from(frame.h))?;
+            x.extend([frame.x, right]);
+            y.extend([frame.y, bottom]);
+            x.retain(|&value| frame.x <= value && value <= right);
+            y.retain(|&value| frame.y <= value && value <= bottom);
+        }
         x.sort();
         x.dedup();
         y.sort();
         y.dedup();
-        Ok(Self { x, y, obstacles })
+        Ok(Self {
+            x,
+            y,
+            obstacles,
+            bound,
+        })
     }
 
     fn point(&self, vertex: Vertex) -> Point {
@@ -115,6 +180,9 @@ impl<'a> VisibilityGrid<'a> {
         let mut distances = BTreeMap::new();
         let mut previous = BTreeMap::new();
         for &point in starts {
+            if !self.inside(point) {
+                continue;
+            }
             let vertex = self.vertex(point)?;
             frontier.push(Reverse(((0_i64, 0_usize), vertex)));
             distances.insert(vertex, (0, 0));
@@ -165,7 +233,16 @@ impl<'a> VisibilityGrid<'a> {
     }
 
     fn clear(&self, a: Point, b: Point) -> bool {
-        !self.obstacles.iter().any(|rect| hits(a, b, *rect))
+        self.inside(a) && self.inside(b) && !self.obstacles.iter().any(|rect| hits(a, b, *rect))
+    }
+
+    fn inside(&self, point: Point) -> bool {
+        self.bound.is_none_or(|frame| {
+            frame.x <= point.x
+                && i64::from(point.x) <= i64::from(frame.x) + i64::from(frame.w)
+                && frame.y <= point.y
+                && i64::from(point.y) <= i64::from(frame.y) + i64::from(frame.h)
+        })
     }
 
     fn reconstruct(&self, mut vertex: Vertex, previous: &BTreeMap<Vertex, Vertex>) -> Vec<Point> {

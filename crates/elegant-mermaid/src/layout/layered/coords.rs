@@ -334,6 +334,16 @@ pub fn cross_coords_compound(
     }
     balance(passes)
 }
+
+pub(super) fn cross_coords_regions(
+    layers: &mut [Vec<usize>],
+    context: super::regions::CoordinateInput<'_>,
+) -> Result<super::regions::Placement, LayoutError> {
+    let tree = super::regions::CrossTree::new(&context)?;
+    tree.pin(&context, layers)?;
+    let desired = cross_coords_compound(context.proper, layers, context.paths)?;
+    super::regions::Placement::solve(context, desired, tree)
+}
 fn balance(mut passes: Vec<Vec<i64>>) -> Result<Vec<i32>, LayoutError> {
     let widths: Vec<_> = passes
         .iter()

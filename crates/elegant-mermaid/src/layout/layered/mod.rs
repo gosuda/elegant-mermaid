@@ -15,6 +15,7 @@ pub mod pack;
 pub mod pipeline;
 pub mod portfolio;
 pub mod rank;
+mod regions;
 pub mod route;
 mod sibling_order;
 
@@ -22,3 +23,6 @@ pub use crate::geom::GeomError as LayoutError;
 
 #[cfg(test)]
 mod proxy_span_tests;
+
+#[cfg(test)]
+mod region_tests;

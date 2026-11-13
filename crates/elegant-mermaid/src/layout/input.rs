@@ -27,6 +27,14 @@ pub struct Input {
     pub sizes: Vec<SizeRule>,
     /// Side constraints over original box indices; envelopes never enter the dump.
     pub attachments: Vec<Attachment>,
+    pub region_sets: Vec<RegionSet>,
+}
+
+/// Ordered child groups of one concurrent composite, using group indices.
+#[derive(Debug, Clone, Default)]
+pub struct RegionSet {
+    pub parent: usize,
+    pub regions: Vec<usize>,
 }
 
 /// A note and its target share a semantic parent. A target may have several notes.

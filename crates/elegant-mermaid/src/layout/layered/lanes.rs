@@ -21,6 +21,11 @@ pub struct LaneInput<'a> {
     pub x: &'a [i32],
     pub extents: &'a [i32],
     pub sizes: &'a [(i32, i32)],
+    /// Per-original-edge reserved lane x, indexed by `graph.edges` position.
+    /// `None` keeps the ordinary global lane placement. A `Some` slice must
+    /// hold exactly `graph.edges.len()` entries; only reversed non-self-loop
+    /// edges with a `Some` entry use their reserved x, the rest fall back.
+    pub reserved_x: Option<&'a [Option<i32>]>,
 }
 pub struct LanePlacement<'a> {
     pub graph: &'a Graph,
@@ -46,7 +51,13 @@ pub fn number(
         x,
         extents,
         sizes,
+        ..
     } = input;
+    if let Some(reserved) = input.reserved_x
+        && reserved.len() != g.edges.len()
+    {
+        return Err(LayoutError::Domain);
+    }
     let mut right = 0i64;
     for (i, n) in p.nodes.iter().enumerate() {
         right = right.max(
@@ -64,19 +75,7 @@ pub fn number(
         .max()
         .unwrap_or(0);
     let mut lanes = Vec::new();
-    collect_lanes(
-        &mut lanes,
-        LaneInput {
-            graph: g,
-            proper: p,
-            x,
-            extents,
-            sizes,
-        },
-        r,
-        all,
-        (right, max_label),
-    )?;
+    collect_lanes(&mut lanes, input, r, all, (right, max_label))?;
     for gap in &mut r.gaps {
         gap.slots = 0;
         for segment in &mut gap.segments {
@@ -98,9 +97,11 @@ fn collect_lanes(
         graph: g,
         proper: p,
         x,
+        reserved_x,
         ..
     } = input;
     let (right, max_label) = spacing;
+    let mut fallback = 0usize;
     for (i, edge) in g
         .edges
         .iter()
@@ -121,12 +122,19 @@ fn collect_lanes(
         let target = all.source_x[first];
         let upper = usize::try_from(p.rank[edge.tail] - 1).map_err(|_| LayoutError::Domain)?;
         let lower = usize::try_from(p.rank[edge.head]).map_err(|_| LayoutError::Domain)?;
-        let lane = narrow(
-            right
-                + i64::from(g.params.slot)
-                + i64::try_from(lanes.len()).map_err(|_| LayoutError::Overflow)?
-                    * (2 * i64::from(g.params.slot) + i64::from(max_label)),
-        )?;
+        let lane = match reserved_x.and_then(|rx| rx[i]) {
+            Some(reserved) => reserved,
+            None => {
+                let lane = narrow(
+                    right
+                        + i64::from(g.params.slot)
+                        + i64::try_from(fallback).map_err(|_| LayoutError::Overflow)?
+                            * (2 * i64::from(g.params.slot) + i64::from(max_label)),
+                )?;
+                fallback += 1;
+                lane
+            }
+        };
         let source_run = r.gaps[upper].segments.len();
         r.gaps[upper].segments.push(RoutingSegment {
             tail: edge.tail,
