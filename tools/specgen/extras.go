@@ -26,7 +26,11 @@ func buildExtras(in *inputs) ([]outFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	files := []outFile{tokens}
+	palette, err := sixelPaletteOutput()
+	if err != nil {
+		return nil, err
+	}
+	files := []outFile{tokens, palette}
 	if readme != nil {
 		files = append(files, outFile{path: "README.md", content: readme})
 	}
