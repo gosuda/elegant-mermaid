@@ -69,7 +69,37 @@ func PNG(s *mermaid.Scene, o Options) ([]byte, error) {
 	}
 	return encodeScene(value, o)
 }
+
+type RGBAOptions struct {
+	Options
+	Theme string
+}
+
+// RGBA renders an owned pixel buffer for terminal compositing.
+func RGBA(s *mermaid.Scene, o RGBAOptions) (*image.RGBA, error) {
+	if s == nil {
+		return nil, badConfig("nil scene")
+	}
+	value, ok := scenelink.Scene(s)
+	if !ok {
+		return nil, badConfig("invalid scene")
+	}
+	return drawScene(value, o)
+}
 func encodeScene(s scene.Scene, o Options) ([]byte, error) {
+	pixels, err := drawScene(s, RGBAOptions{Options: o})
+	if err != nil {
+		return nil, err
+	}
+	var out bytes.Buffer
+	encoder := png.Encoder{CompressionLevel: png.BestCompression}
+	if err := encoder.Encode(&out, pixels); err != nil {
+		return nil, &RasterError{Kind: Encode, Message: err.Error()}
+	}
+	return out.Bytes(), nil
+}
+
+func drawScene(s scene.Scene, o RGBAOptions) (*image.RGBA, error) {
 	r, err := newRenderer(s, o)
 	if err != nil {
 		return nil, err
@@ -79,12 +109,7 @@ func encodeScene(s scene.Scene, o Options) ([]byte, error) {
 			return nil, err
 		}
 	}
-	var out bytes.Buffer
-	encoder := png.Encoder{CompressionLevel: png.BestCompression}
-	if err := encoder.Encode(&out, r.image); err != nil {
-		return nil, &RasterError{Kind: Encode, Message: err.Error()}
-	}
-	return out.Bytes(), nil
+	return r.image, nil
 }
 
 type renderer struct {
@@ -93,7 +118,7 @@ type renderer struct {
 	scale float64
 }
 
-func newRenderer(s scene.Scene, o Options) (*renderer, error) {
+func newRenderer(s scene.Scene, o RGBAOptions) (*renderer, error) {
 	if o.Scale == 0 {
 		o.Scale = 2
 	}
@@ -104,7 +129,7 @@ func newRenderer(s scene.Scene, o Options) (*renderer, error) {
 	if err != nil {
 		return nil, err
 	}
-	t, err := theme.Resolve("")
+	t, err := theme.Resolve(o.Theme)
 	if err != nil {
 		return nil, badConfig(err.Error())
 	}
