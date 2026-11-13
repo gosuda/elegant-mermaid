@@ -32,10 +32,10 @@ func TestLabelNodes(t *testing.T) {
 	if len(s.Labels) != 1 || s.Labels[0].Text != "yes" {
 		t.Fatalf("labels: %v", s.Labels)
 	}
-	if s.Labels[0].Rect != (geom.Rect{X: 2, Y: 8, W: 3, H: 1}) {
+	if s.Labels[0].Rect != (geom.Rect{X: 2, Y: 7, W: 3, H: 1}) {
 		t.Fatalf("label rectangle: %v", s.Labels[0].Rect)
 	}
-	if s.Boxes[1].Rect.Y != 13 || s.Canvas != (geom.Size{W: 7, H: 17}) {
+	if s.Boxes[1].Rect.Y != 11 || s.Canvas != (geom.Size{W: 7, H: 15}) {
 		t.Fatalf("label rank gap/canvas: %v %v", s.Boxes, s.Canvas)
 	}
 }

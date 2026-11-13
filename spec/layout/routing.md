@@ -26,7 +26,7 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
 
 - routing-10: In a layered kind, between rank `r` and rank `r + 1`, each chain edge MUST be one route: a stub from its source bottom port down to the slot line of its segment, one horizontal run on that line, and a stub from the line down to its target top port. [just lean-parity]
 - routing-11: The slot line of slot index `s` in `0 .. S_r - 1` MUST be `ys(s) = rank_top[r] + H_r + slot * (s + 1) + floor_div(slot, 2)`. [just lean-parity]
-    Every slot line lies above `rank_top[r + 1]`, because `floor_div(slot, 2) < rank_gap` in both profiles.
+    Every slot line lies above `rank_top[r + 1]`. The distance `rank_top[r + 1] - (rank_top[r] + H_r)` is `g_r + slot * S_r` with `g_r >= ceil_div(rank_gap, 2)` (layered-51), and `floor_div(slot, 2) < ceil_div(rank_gap, 2)` in both profiles.
 - routing-12: The stub length MUST be the distance from the port to its slot line, and it MUST be at least `slot`. [just lean-parity]
     `ys(0) - (rank_top[r] + H_r)` is at least `slot`.
 - routing-13: A segment MUST be a horizontal run from `x_src` (source port) to `x_tgt` (target port), with the interval `[min(x_src, x_tgt), max(x_src, x_tgt)]`. [just lean-parity]

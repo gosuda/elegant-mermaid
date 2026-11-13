@@ -58,10 +58,10 @@ func labelledGoldenArithmetic(t *testing.T) goldenExpectations {
 	wa, wb := a+padding, b+padding
 	lh := goldenConstant(t, "line_h")
 	h := lh + 2*goldenConstant(t, "node_pad_y") + 2*goldenConstant(t, "node_border")
-	slot, gap, margin := goldenConstant(t, "slot"), goldenConstant(t, "rank_gap"), goldenConstant(t, "canvas_margin")
+	slot, labelGap, margin := goldenConstant(t, "slot"), (goldenConstant(t, "rank_gap")+1)/2, goldenConstant(t, "canvas_margin")
 	center := max(wa/2, wb/2, label/2) + margin
-	labelTop := h + gap + slot
-	targetTop := labelTop + lh + gap + slot
+	labelTop := h + labelGap + slot
+	targetTop := labelTop + lh + labelGap + slot
 	left := center - label/2
 	firstChannel := h + slot + slot/2 + margin
 	secondChannel := labelTop + lh + slot + slot/2 + margin

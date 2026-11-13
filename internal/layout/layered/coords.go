@@ -444,7 +444,7 @@ func RankCoords(p *Proper, layers [][]int32, r *Routing) ([]int32, []int32, erro
 		return nil, nil, ErrGraph
 	}
 	h := rankHeights(p, layers)
-	top, err := rankBandTops(h, r, params)
+	top, err := rankBandTops(h, r, params, labelRanks(p, layers))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -466,10 +466,31 @@ func RankCoords(p *Proper, layers [][]int32, r *Routing) ([]int32, []int32, erro
 	return y, top, nil
 }
 
-func rankBandTops(h []int32, r *Routing, params Params) ([]int32, error) {
+func labelRanks(p *Proper, layers [][]int32) []bool {
+	out := make([]bool, len(layers))
+	for i, layer := range layers {
+		labels, chains := 0, len(layer) > 0
+		for _, v := range layer {
+			n := &p.Nodes[v]
+			switch {
+			case n.Label != nil:
+				labels++
+			case !n.Dummy:
+				chains = false
+			}
+		}
+		out[i] = chains && labels > 0
+	}
+	return out
+}
+func rankBandTops(h []int32, r *Routing, params Params, labelRank []bool) ([]int32, error) {
 	top := make([]int32, len(h))
 	for i := 1; i < len(top); i++ {
-		n := int64(top[i-1]) + int64(h[i-1]) + int64(params.RankGap) + int64(params.Slot)*int64(r.Gaps[i-1].Slots)
+		gap := int64(params.RankGap)
+		if labelRank[i-1] || labelRank[i] {
+			gap = (gap + 1) / 2
+		}
+		n := int64(top[i-1]) + int64(h[i-1]) + gap + int64(params.Slot)*int64(r.Gaps[i-1].Slots)
 		if n > math.MaxInt32 {
 			return nil, geom.ErrOverflow
 		}

@@ -40,7 +40,7 @@ This file defines the layered layout family: its conventions, its pipeline phase
     |`portfolio_max`|5|5|portfolio|
     |`portfolio_replace_num`|97|97|portfolio|
     |`portfolio_replace_den`|100|100|portfolio|
-    Derived values, not keys: `loop_band`, `wsep`, `E_v`, `rank_top`, `H_r`, `G_r`, `S_r`, `lane_i`. `max_width` and `thoroughness` are options, not constants.
+    Derived values, not keys: `loop_band`, `wsep`, `E_v`, `rank_top`, `H_r`, `g_r`, `G_r`, `S_r`, `lane_i`. `max_width` and `thoroughness` are options, not constants.
 
 ## Direction
 
@@ -167,8 +167,9 @@ This file defines the layered layout family: its conventions, its pipeline phase
 
 - layered-50: `H_r` MUST be the largest `h` among the nodes of rank `r`, or 0 when the rank has none. [just lean-parity]
     Border, dummy, and loop heights enter through `h`.
-- layered-51: The gap below rank `r` MUST be `G_r = rank_gap + slot * S_r`, where `S_r` is the slot count of spec/layout/routing.md. [just lean-parity]
-    `rank_top[0] = 0` and `rank_top[r + 1] = rank_top[r] + H_r + G_r`.
+- layered-51: The gap below rank `r` MUST be `G_r = g_r + slot * S_r`, where `S_r` is the slot count of spec/layout/routing.md, `g_r = ceil_div(rank_gap, 2)` when rank `r` or rank `r + 1` is a label rank, and `g_r = rank_gap` otherwise. [just lean-parity]
+    `rank_top[0] = 0` and `rank_top[r + 1] = rank_top[r] + H_r + G_r`. A label rank is a non-empty rank whose nodes are all dummy nodes of edge chains, and at least one of them is the label node of its chain. A real node and every border node (cluster top, bottom, left, right, and title) are not dummy nodes, so a rank that holds one of them is not a label rank. In the cell profile `rank_gap` is 3 and `ceil_div(3, 2)` is 2 rows.
+    Hard-constraint side conditions: `ceil_div(rank_gap, 2) >= 1` because `rank_gap >= 1`, so every `G_r` is at least 1 and the rank bands stay disjoint. Every slot line stays above `rank_top[r + 1]` because `floor_div(slot, 2) < ceil_div(rank_gap, 2)` in both profiles: 6 px is less than 24 px in the vector profile, and 0 is less than 2 in the cell profile. The slot line formula of routing-11 and the stub bound of routing-12 therefore stay unchanged.
 - layered-52: A node's top MUST be `y = rank_top[r] + floor_div(H_r - h, 2)`, so its bottom is `y + h`. [just lean-parity]
     Structural cluster anchors MUST be exceptions to node centering: `T_C.y = rank_top[rank[T_C]]` and `B_C.y = rank_top[rank[B_C]] + H_rank[B_C]`. These anchors MUST be the frame's top and bottom. The strict hierarchy ranks and the existing rank gap MUST preserve title and bottom clearance without a separate title stack.
 

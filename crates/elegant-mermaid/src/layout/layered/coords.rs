@@ -367,6 +367,19 @@ pub(crate) fn heights(p: &Proper, layers: &[Vec<usize>]) -> Vec<i32> {
         .map(|l| l.iter().map(|&v| p.nodes[v].node.h).max().unwrap_or(0))
         .collect()
 }
+fn label_ranks(p: &Proper, layers: &[Vec<usize>]) -> Vec<bool> {
+    layers
+        .iter()
+        .map(|layer| {
+            !layer.is_empty()
+                && layer.iter().all(|&v| p.nodes[v].dummy)
+                && layer.iter().any(|&v| p.nodes[v].label)
+        })
+        .collect()
+}
+fn half_gap(rank_gap: i32) -> i64 {
+    (i64::from(rank_gap) + 1) / 2
+}
 pub fn rank_coords(
     p: &Proper,
     layers: &[Vec<usize>],
@@ -378,16 +391,19 @@ pub fn rank_coords(
         return Err(LayoutError::Domain);
     }
     let h = heights(p, layers);
+    let label_rank = label_ranks(p, layers);
     let mut top = vec![0; layers.len()];
     for i in 1..top.len() {
+        let gap = if label_rank[i - 1] || label_rank[i] {
+            half_gap(d.rank_gap)
+        } else {
+            i64::from(d.rank_gap)
+        };
         let slots = i64::from(d.slot)
             .checked_mul(i64::from(r.gaps[i - 1].slots))
             .ok_or(LayoutError::Overflow)?;
         top[i] = narrow(add(
-            add(
-                add(i64::from(top[i - 1]), i64::from(h[i - 1]))?,
-                i64::from(d.rank_gap),
-            )?,
+            add(add(i64::from(top[i - 1]), i64::from(h[i - 1]))?, gap)?,
             slots,
         )?)?;
     }
@@ -935,6 +951,96 @@ mod tests {
                 );
             }
             println!("case {i}: x={x:?} y={y:?} top={top:?} routes={routes:?}");
+        }
+    }
+
+    fn label_node(p: &mut Proper, v: usize) {
+        p.nodes[v].label = true;
+        p.nodes[v].node.w = 1024;
+        p.nodes[v].node.h = 1280;
+    }
+    fn tops(p: &Proper, layers: &[Vec<usize>]) -> Vec<i32> {
+        let x = cross_coords(p, layers).unwrap();
+        let r = route(p, layers, &x).unwrap();
+        rank_coords(p, layers, &r).unwrap().1
+    }
+    fn two_nodes(min_len: i32) -> Graph {
+        let node = |decl: i32| Node {
+            id: String::new(),
+            decl,
+            w: 2048,
+            h: 1280,
+        };
+        Graph {
+            nodes: vec![node(0), node(1)],
+            edges: vec![Edge {
+                tail: 0,
+                head: 1,
+                min_len,
+                decl: 0,
+                reversed: false,
+            }],
+            params: Params::for_profile("vector").unwrap(),
+        }
+    }
+    #[test]
+    fn label_rank_halves_rank_gap() {
+        let graph = two_nodes(2);
+        let layers = vec![vec![0], vec![2], vec![1]];
+        let mut p = normalize(&graph, &[0, 2]).unwrap();
+        assert_eq!(tops(&p, &layers), [0, 4352, 7424]);
+        label_node(&mut p, 2);
+        assert_eq!(tops(&p, &layers), [0, 3584, 7168]);
+    }
+    #[test]
+    fn real_node_keeps_full_rank_gap() {
+        let node = |decl: i32| Node {
+            id: String::new(),
+            decl,
+            w: 2048,
+            h: 1280,
+        };
+        let edge = |tail, head, decl| Edge {
+            tail,
+            head,
+            min_len: 1,
+            decl,
+            reversed: false,
+        };
+        let graph = Graph {
+            nodes: vec![node(0), node(1), node(2)],
+            edges: vec![edge(0, 1, 0), edge(1, 2, 1), edge(0, 2, 2)],
+            params: Params::for_profile("vector").unwrap(),
+        };
+        let mut p = normalize(&graph, &[0, 1, 2]).unwrap();
+        label_node(&mut p, 3);
+        assert_eq!(tops(&p, &[vec![0], vec![1, 3], vec![2]])[1], 5120);
+    }
+    #[test]
+    fn half_gap_keeps_slot_lines_above_next_rank() {
+        for profile in ["vector", "cell"] {
+            let params = Params::for_profile(profile).unwrap();
+            assert!(params.slot / 2 < (params.rank_gap + 1) / 2, "{profile}");
+        }
+        for i in 0..100 {
+            let (mut p, ls) = case(i);
+            let middles: Vec<usize> = p
+                .chains
+                .iter()
+                .filter(|chain| chain.len() >= 3)
+                .map(|chain| chain[(chain.len() - 1) / 2])
+                .collect();
+            for v in middles {
+                label_node(&mut p, v);
+            }
+            let x = cross_coords(&p, &ls).unwrap();
+            let r = route(&p, &ls, &x).unwrap();
+            let (_, top) = rank_coords(&p, &ls, &r).unwrap();
+            let h = heights(&p, &ls);
+            for (k, gap) in r.gaps.iter().enumerate() {
+                let line = top[k] + h[k] + p.params.slot * gap.slots + p.params.slot / 2;
+                assert!(gap.slots == 0 || line < top[k + 1], "case {i} gap {k}");
+            }
         }
     }
 }
