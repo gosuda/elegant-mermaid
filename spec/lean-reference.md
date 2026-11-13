@@ -34,7 +34,7 @@ This file fixes the scope, project layout, gates, proof hygiene, fuel scheme, wo
     proofs/ElegantGeometry/Crossings.lean   Segment, segments_cross, count_inversions, inversions_eq_crossings
     proofs/ElegantGeometry/Route.lean       Polyline, is_orthogonal, polyline_hits_rect
     proofs/ElegantGeometry/Trig.lean        sin_q15, cos_q15 over the generated table `proofs/Elegant/Gen/Sine.lean`, imported as `Elegant.Gen.Sine`
-    proofs/ElegantGeometry/Validator.lean   LayoutDump, WellFormed of a layout dump, the seven clauses, validate, check, Validator.sound
+    proofs/ElegantGeometry/Validator.lean   LayoutDump, WellFormed of a layout dump, the eight clauses, validate, check, Validator.sound
     proofs/ElegantGeometry/DumpReader.lean  parses the canonical layout dump (`Lean.Json`) into `LayoutDump`; used by `geomcheck validate`
     proofs/Elegant/Gen/*.lean        generated tables: advances, Unicode widths, grapheme classes, glyph join, layout constants, sine (Sine.lean), themes needed by cells
     proofs/Elegant/Model.lean        model-stage dump types, `WellFormed` and `WithinLimits` of a model

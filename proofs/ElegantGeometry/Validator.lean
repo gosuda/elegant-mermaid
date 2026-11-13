@@ -1,14 +1,14 @@
 import ElegantGeometry.Route
 
-/-! The layout validator: the layout dump structures, `WellFormed`, the seven
+/-! The layout validator: the layout dump structures, `WellFormed`, the eight
 hard-constraint clauses with their fixed order and messages, and `Validator.sound`.
 
-Each clause has a Boolean test (`c1` to `c7`) and a predicate (`C1` to `C7`). The predicate
+Each clause has a Boolean test (`c1` to `c8`) and a predicate (`C1` to `C8`). The predicate
 is stated in the vocabulary of `spec/layout-dump.md`: containment, `Disjoint`,
-`Polyline.isOrthogonal`, `on_boundary`, `Polyline.hitsRect`, and ancestors. The Boolean
-test is the executable form, and `c1_iff` to `c7_iff` prove that the test is `true`
-exactly when the predicate holds. `Validator.sound` then follows by unfolding `check`
-and rewriting each test to its predicate. -/
+`StrictInside`, `Polyline.isOrthogonal`, `on_boundary`, `Polyline.hitsRect`, and
+ancestors. The Boolean test is the executable form, and `c1_iff` to `c8_iff` prove that
+the test is `true` exactly when the predicate holds. `Validator.sound` then follows by
+unfolding `check` and rewriting each test to its predicate. -/
 
 set_option autoImplicit false
 
@@ -233,6 +233,10 @@ theorem wellFormedReason_eq_none_iff (d : LayoutDump) :
   rw [dite_eq_left h10]
   exact ⟨fun _ => ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10⟩, fun _ => rfl⟩
 
+/-- `i` lies strictly inside `o`: it keeps a positive distance from every side of `o`. -/
+abbrev Rect.StrictInside (o i : Rect) : Prop :=
+  o.x < i.x ∧ i.x + i.w < o.x + o.w ∧ o.y < i.y ∧ i.y + i.h < o.y + o.h
+
 namespace Validator
 
 /-- The canvas rectangle. -/
@@ -276,6 +280,21 @@ abbrev C6 (d : LayoutDump) : Prop :=
 abbrev C7 (d : LayoutDump) : Prop :=
   ∀ l ∈ d.labels, ∀ b ∈ d.boxes, b.exclusive = true → b.id ∉ d.labelOwnerAnc l →
     ¬ l.rect.meetsInterior b.rect
+
+/-- Clause 8, condition 1: a group frame is disjoint from every other box that is neither
+its ancestor nor its descendant. -/
+abbrev C8a (d : LayoutDump) : Prop :=
+  ∀ g ∈ d.boxes, g.role = "group" → ∀ b ∈ d.boxes, b.id ≠ g.id →
+    g.id ∉ d.ancestors b.id → b.id ∉ d.ancestors g.id → Disjoint g.rect b.rect
+
+/-- Clause 8, condition 2: a group frame is disjoint from every label or strictly contains
+it. -/
+abbrev C8b (d : LayoutDump) : Prop :=
+  ∀ g ∈ d.boxes, g.role = "group" → ∀ l ∈ d.labels,
+    Disjoint g.rect l.rect ∨ g.rect.StrictInside l.rect
+
+/-- Clause 8: no group frame overlaps a foreign box or label. -/
+abbrev C8 (d : LayoutDump) : Prop := C8a d ∧ C8b d
 
 /-- Clause 1 as a Boolean test. -/
 def c1 (d : LayoutDump) : Bool :=
@@ -323,6 +342,22 @@ def labelClear (d : LayoutDump) (l : Label) (b : Box) : Bool :=
 
 /-- Clause 7 as a Boolean test. -/
 def c7 (d : LayoutDump) : Bool := d.labels.all (fun l => d.boxes.all (labelClear d l))
+
+/-- The frame test of one group candidate `g` against one box `b`. The rectangle test comes
+first, so the ancestor walks run only for overlapping pairs. -/
+def frameBoxClear (d : LayoutDump) (g b : Box) : Bool :=
+  g.role != "group" || b.id == g.id || !(decide (g.rect.meetsInterior b.rect)) ||
+    (d.ancestors b.id).contains g.id || (d.ancestors g.id).contains b.id
+
+/-- The frame test of one group candidate `g` against one label `l`. -/
+def frameLabelClear (g : Box) (l : Label) : Bool :=
+  g.role != "group" || !(decide (g.rect.meetsInterior l.rect)) ||
+    decide (g.rect.StrictInside l.rect)
+
+/-- Clause 8 as a Boolean test. -/
+def c8 (d : LayoutDump) : Bool :=
+  d.boxes.all (fun g => d.boxes.all (frameBoxClear d g)) &&
+    d.boxes.all (fun g => d.labels.all (frameLabelClear g))
 
 theorem c1_iff (d : LayoutDump) : c1 d = true ↔ C1 d := decide_eq_true_iff
 
@@ -410,45 +445,82 @@ theorem c7_iff (d : LayoutDump) : c7 d = true ↔ C7 d := by
       · exact Or.inr (h l hl b hb hex hmem)
     · exact Or.inl (Or.inl (by simpa using hex))
 
+theorem c8_iff (d : LayoutDump) : c8 d = true ↔ C8 d := by
+  unfold c8 C8 C8a C8b frameBoxClear frameLabelClear
+  simp only [Bool.and_eq_true, List.all_eq_true, Bool.or_eq_true, Bool.not_eq_true',
+    bne_iff_ne, beq_iff_eq, List.contains_iff_mem, decide_eq_true_eq,
+    decide_eq_false_iff_not, Disjoint]
+  constructor
+  · rintro ⟨h1, h2⟩
+    refine ⟨fun g hg hr b hb hne hn1 hn2 => ?_, fun g hg hr l hl => ?_⟩
+    · rcases (h1 g hg b hb) with ((((h | h) | h) | h) | h)
+      · exact absurd hr h
+      · exact absurd h hne
+      · exact h
+      · exact absurd h hn1
+      · exact absurd h hn2
+    · rcases (h2 g hg l hl) with ((h | h) | h)
+      · exact absurd hr h
+      · exact Or.inl h
+      · exact Or.inr h
+  · rintro ⟨h1, h2⟩
+    refine ⟨fun g hg b hb => ?_, fun g hg l hl => ?_⟩
+    · by_cases hr : g.role = "group"
+      · by_cases hne : b.id = g.id
+        · exact Or.inl (Or.inl (Or.inl (Or.inr hne)))
+        · by_cases hn1 : g.id ∈ d.ancestors b.id
+          · exact Or.inl (Or.inr hn1)
+          · by_cases hn2 : b.id ∈ d.ancestors g.id
+            · exact Or.inr hn2
+            · exact Or.inl (Or.inl (Or.inr (h1 g hg hr b hb hne hn1 hn2)))
+      · exact Or.inl (Or.inl (Or.inl (Or.inl hr)))
+    · by_cases hr : g.role = "group"
+      · rcases h2 g hg hr l hl with h | h
+        · exact Or.inl (Or.inr h)
+        · exact Or.inr h
+      · exact Or.inl (Or.inl hr)
+
 end Validator
 
-/-- The conjunction of the seven clause predicates. -/
+/-- The conjunction of the eight clause predicates. -/
 abbrev HardConstraints (d : LayoutDump) : Prop :=
   Validator.C1 d ∧ Validator.C2 d ∧ Validator.C3 d ∧ Validator.C4 d ∧ Validator.C5 d ∧
-    Validator.C6 d ∧ Validator.C7 d
+    Validator.C6 d ∧ Validator.C7 d ∧ Validator.C8 d
 
 namespace Validator
 
 /-- Every clause passes. -/
 def check (d : LayoutDump) : Bool :=
-  c1 d && c2 d && c3 d && c4 d && c5 d && c6 d && c7 d
+  c1 d && c2 d && c3 d && c4 d && c5 d && c6 d && c7 d && c8 d
 
 /-- The fixed clause ids, in clause order. -/
 def clauseIds : List String :=
   ["canvas", "exclusive-siblings", "parent", "orthogonal", "ports", "route-clearance",
-   "label-clearance"]
+   "label-clearance", "frame-clearance"]
 
 /-- The fixed clause messages, in clause order. -/
 def clauseMessages : List String :=
   ["box outside canvas", "exclusive sibling boxes overlap", "box outside its parent",
    "orthogonal route has a diagonal segment", "route end is off its box boundary",
-   "route crosses an exclusive box", "label overlaps an exclusive box"]
+   "route crosses an exclusive box", "label overlaps an exclusive box",
+   "group frame overlaps a foreign box or label"]
 
 /-- The Boolean tests, in clause order. -/
 def clauseTests (d : LayoutDump) : List Bool :=
-  [c1 d, c2 d, c3 d, c4 d, c5 d, c6 d, c7 d]
+  [c1 d, c2 d, c3 d, c4 d, c5 d, c6 d, c7 d, c8 d]
 
 /-- The first failing clause, as an index, or none. -/
 def firstFailure (d : LayoutDump) : Option Nat :=
-  match c1 d, c2 d, c3 d, c4 d, c5 d, c6 d, c7 d with
-  | false, _, _, _, _, _, _ => some 0
-  | _, false, _, _, _, _, _ => some 1
-  | _, _, false, _, _, _, _ => some 2
-  | _, _, _, false, _, _, _ => some 3
-  | _, _, _, _, false, _, _ => some 4
-  | _, _, _, _, _, false, _ => some 5
-  | _, _, _, _, _, _, false => some 6
-  | true, true, true, true, true, true, true => none
+  match c1 d, c2 d, c3 d, c4 d, c5 d, c6 d, c7 d, c8 d with
+  | false, _, _, _, _, _, _, _ => some 0
+  | _, false, _, _, _, _, _, _ => some 1
+  | _, _, false, _, _, _, _, _ => some 2
+  | _, _, _, false, _, _, _, _ => some 3
+  | _, _, _, _, false, _, _, _ => some 4
+  | _, _, _, _, _, false, _, _ => some 5
+  | _, _, _, _, _, _, false, _ => some 6
+  | _, _, _, _, _, _, _, false => some 7
+  | true, true, true, true, true, true, true, true => none
 
 /-- The id and message of a clause index. -/
 def failureOf (i : Nat) : Option (String × String) :=
@@ -463,19 +535,20 @@ def validate (d : LayoutDump) : Option (String × String) :=
   | none => none
   | some i => failureOf i
 
-/-- Seven `&&` values are true exactly when the seven right-nested propositions hold. -/
-theorem and7 (a b c d e f g : Bool) :
-    (a && b && c && d && e && f && g) = true ↔
-      (a = true ∧ b = true ∧ c = true ∧ d = true ∧ e = true ∧ f = true ∧ g = true) := by
+/-- Eight `&&` values are true exactly when the eight right-nested propositions hold. -/
+theorem and8 (a b c d e f g h : Bool) :
+    (a && b && c && d && e && f && g && h) = true ↔
+      (a = true ∧ b = true ∧ c = true ∧ d = true ∧ e = true ∧ f = true ∧ g = true ∧
+        h = true) := by
   simp only [Bool.and_eq_true]
   constructor
-  · intro ⟨⟨⟨⟨⟨⟨ha, hb⟩, hc⟩, hd⟩, he⟩, hf⟩, hg⟩; exact ⟨ha, hb, hc, hd, he, hf, hg⟩
-  · intro ⟨ha, hb, hc, hd, he, hf, hg⟩; exact ⟨⟨⟨⟨⟨⟨ha, hb⟩, hc⟩, hd⟩, he⟩, hf⟩, hg⟩
+  · intro ⟨⟨⟨⟨⟨⟨⟨ha, hb⟩, hc⟩, hd⟩, he⟩, hf⟩, hg⟩, hh⟩; exact ⟨ha, hb, hc, hd, he, hf, hg, hh⟩
+  · intro ⟨ha, hb, hc, hd, he, hf, hg, hh⟩; exact ⟨⟨⟨⟨⟨⟨⟨ha, hb⟩, hc⟩, hd⟩, he⟩, hf⟩, hg⟩, hh⟩
 
 /-- `check` is exactly `HardConstraints`. -/
 theorem check_iff (d : LayoutDump) : check d = true ↔ HardConstraints d := by
   unfold check
-  rw [and7, c1_iff, c2_iff, c3_iff, c4_iff, c5_iff, c6_iff, c7_iff]
+  rw [and8, c1_iff, c2_iff, c3_iff, c4_iff, c5_iff, c6_iff, c7_iff, c8_iff]
 
 /-- `Validator.sound`: on a well-formed dump, a passing check implies the hard
 constraints. The check is exact on every dump, so the well-formedness hypothesis is not
@@ -490,7 +563,7 @@ theorem validate_none_iff (d : LayoutDump) : validate d = none ↔ HardConstrain
   rw [← check_iff]
   unfold validate firstFailure check
   cases h1 : c1 d <;> cases h2 : c2 d <;> cases h3 : c3 d <;> cases h4 : c4 d <;>
-    cases h5 : c5 d <;> cases h6 : c6 d <;> cases h7 : c7 d <;>
+    cases h5 : c5 d <;> cases h6 : c6 d <;> cases h7 : c7 d <;> cases h8 : c8 d <;>
     simp_all [failureOf, clauseIds, clauseMessages]
 
 end Validator
