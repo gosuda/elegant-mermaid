@@ -60,6 +60,7 @@ pub mod kind;
 pub mod label;
 pub mod layout;
 pub mod markdown;
+pub mod math;
 pub mod measure;
 pub mod model;
 pub mod options;
