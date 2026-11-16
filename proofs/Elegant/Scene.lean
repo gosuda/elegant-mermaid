@@ -284,6 +284,296 @@ theorem Scene.primitiveBounds_item {s : Scene} (h : s.PrimitiveBounds)
     exact h.2
   exact (List.all_eq_true.mp (List.all_eq_true.mp hs group hg)) item hi
 
+namespace Scene
+
+private theorem mem_of_head? {α : Type} {l : List α} {a : α} (h : l.head? = some a) : a ∈ l := by
+  cases l with
+  | nil => contradiction
+  | cons x xs =>
+    simp only [List.head?, Option.some.injEq] at h
+    subst h
+    exact List.Mem.head xs
+
+private theorem mem_of_mem_zipIdx {α : Type} {l : List α} {x : α} {i : Nat} (h : (x, i) ∈ l.zipIdx) :
+    x ∈ l :=
+  List.mem_of_getElem? (List.mem_zipIdx_iff_getElem?.mp h)
+
+private theorem containsCell_mix (extent : Size) (p1 p2 : Point)
+    (h1 : Size.containsCell extent p1 = true) (h2 : Size.containsCell extent p2 = true) :
+    Size.containsCell extent ⟨p1.x, p2.y⟩ = true := by
+  unfold Size.containsCell at *
+  simp only [decide_eq_true_iff] at *
+  omega
+
+private theorem appendPoint_mem (ps : List Point) (p q : Point) :
+    q ∈ appendPoint ps p ↔ q ∈ ps ∨ q = p := by
+  unfold appendPoint
+  split
+  · rename_i heq
+    have hq_in : p ∈ ps := List.mem_of_getLast? heq
+    constructor
+    · intro hq
+      exact Or.inl hq
+    · intro hq
+      rcases hq with h | rfl
+      · exact h
+      · exact hq_in
+  · simp only [List.mem_append, List.mem_singleton]
+
+private theorem appendPoint_containsCell {extent : Size} {ps : List Point} {p : Point}
+    (hps : ∀ q ∈ ps, Size.containsCell extent q = true)
+    (hp : Size.containsCell extent p = true) :
+    ∀ q ∈ appendPoint ps p, Size.containsCell extent q = true := by
+  intro q hq
+  rw [appendPoint_mem] at hq
+  rcases hq with h | rfl
+  · exact hps q h
+  · exact hp
+
+private theorem containsCell_mix_ite {extent : Size} {p1 p2 : Point} {h : Bool}
+    (h1 : Size.containsCell extent p1 = true) (h2 : Size.containsCell extent p2 = true) :
+    Size.containsCell extent (if h then ⟨p1.x, p2.y⟩ else ⟨p2.x, p1.y⟩) = true := by
+  cases h with
+  | false => exact containsCell_mix extent p2 p1 h2 h1
+  | true => exact containsCell_mix extent p1 p2 h1 h2
+
+private theorem ite_appendPoint_containsCell {extent : Size} {out : List Point} {bend : Point} {cond : Prop} [Decidable cond]
+    (hout : ∀ p ∈ out, Size.containsCell extent p = true)
+    (hbend : Size.containsCell extent bend = true) :
+    ∀ p ∈ (if cond then appendPoint out bend else out), Size.containsCell extent p = true := by
+  intro p hp
+  by_cases h : cond
+  · rw [ite_eq_left h] at hp
+    rw [appendPoint_mem] at hp
+    rcases hp with hp | rfl
+    · exact hout p hp
+    · exact hbend
+  · rw [ite_eq_right h] at hp
+    exact hout p hp
+
+private theorem foldl_projectLine_step_containsCell (ps : List Point) (a b : Point) (count : Nat) (extent : Size)
+    (ha : Size.containsCell extent a = true)
+    (hb : Size.containsCell extent b = true)
+    (hps : ∀ p ∈ ps, Size.containsCell extent p = true)
+    (l : List Nat) (out : List Point)
+    (hout : ∀ p ∈ out, Size.containsCell extent p = true) :
+    ∀ p ∈ l.foldl (fun out j =>
+      let i := j + 1
+      let prev := (out.getLast?).getD a
+      let oldA := (ps[i - 1]?).getD b
+      let oldB := (ps[min i (ps.length - 1)]?).getD oldA
+      let next := if i = count - 1 then b else oldB
+      let horizontal := oldA.y == oldB.y
+      let horizontal := if i = count - 1 ∧ i ≠ 1 then !horizontal else horizontal
+      let out := if (oldA.x = oldB.x ∨ oldA.y = oldB.y) ∧
+          prev.x ≠ next.x ∧ prev.y ≠ next.y then
+        appendPoint out (if horizontal then ⟨next.x, prev.y⟩ else ⟨prev.x, next.y⟩)
+        else out
+      appendPoint out next) out, Size.containsCell extent p = true := by
+  induction l generalizing out with
+  | nil =>
+    intro p hp
+    exact hout p hp
+  | cons j js ih =>
+    simp only [List.foldl_cons]
+    apply ih
+    simp only [Nat.add_sub_cancel]
+    intro p hp
+    have hprev : Size.containsCell extent ((out.getLast?).getD a) = true := by
+      cases hg : out.getLast? with
+      | none => simp only [Option.getD_none]; exact ha
+      | some q =>
+        simp only [Option.getD_some]
+        exact hout q (List.mem_of_getLast? hg)
+    have holdA : Size.containsCell extent ((ps[j]?).getD b) = true := by
+      cases hopt : ps[j]? with
+      | none => simp only [Option.getD_none]; exact hb
+      | some pt =>
+        simp only [Option.getD_some]
+        exact hps pt (List.mem_of_getElem? hopt)
+    have holdB : Size.containsCell extent ((ps[min (j + 1) (ps.length - 1)]?).getD ((ps[j]?).getD b)) = true := by
+      cases hopt : ps[min (j + 1) (ps.length - 1)]? with
+      | none => simp only [Option.getD_none]; exact holdA
+      | some pt =>
+        simp only [Option.getD_some]
+        exact hps pt (List.mem_of_getElem? hopt)
+    have hnext : Size.containsCell extent (if j + 1 = count - 1 then b else ((ps[min (j + 1) (ps.length - 1)]?).getD ((ps[j]?).getD b))) = true := by
+      split
+      · exact hb
+      · exact holdB
+    exact appendPoint_containsCell
+      (ite_appendPoint_containsCell hout (containsCell_mix_ite hnext hprev))
+      hnext p hp
+
+private theorem projectLine_mem_containsCell (ps : List Point) (a b : Point) (extent : Size)
+    (ha : Size.containsCell extent a = true)
+    (hb : Size.containsCell extent b = true)
+    (hps : ∀ p ∈ ps, Size.containsCell extent p = true) :
+    ∀ p ∈ projectLine ps a b, Size.containsCell extent p = true := by
+  unfold projectLine
+  dsimp only
+  apply foldl_projectLine_step_containsCell ps a b (max 2 ps.length) extent ha hb hps
+  intro p hp
+  simp only [List.mem_singleton] at hp
+  subst hp
+  exact ha
+
+theorem projectLine_cellBounds (ps : List Point) (a b : Point) (extent : Size)
+    (ha : Size.containsCell extent a = true)
+    (hb : Size.containsCell extent b = true)
+    (hps : ps.all (Size.containsCell extent) = true) :
+    (projectLine ps a b).all (Size.containsCell extent) = true := by
+  rw [List.all_eq_true]
+  have hps_mem : ∀ p ∈ ps, Size.containsCell extent p = true := by
+    rw [← List.all_eq_true]
+    exact hps
+  exact projectLine_mem_containsCell ps a b extent ha hb hps_mem
+
+theorem attachment_containsCell (s : Scene) (hc1 : Validator.C1 s.layoutDump)
+    (id : String) (p : Point) (hp : Size.containsCell s.canvas p = true) :
+    Size.containsCell s.canvas (attachment s id p) = true := by
+  unfold attachment
+  cases hbox : s.boxes.find? (fun b => b.id == id) with
+  | none => exact hp
+  | some b =>
+    dsimp only
+    split
+    · rename_i hcond
+      have hmem : b ∈ s.layoutDump.boxes := List.mem_of_find?_eq_some hbox
+      have hcont := hc1 b hmem
+      dsimp [Validator.canvasRect, Rect.Contained, Scene.layoutDump] at hcont
+      unfold Size.containsCell at hp ⊢
+      simp only [decide_eq_true_iff] at hp ⊢
+      obtain ⟨hw_pos, hh_pos, hx_lo, hx_hi, hy_lo, hy_hi⟩ := hcond
+      obtain ⟨hbx_ge, hbx_le, hby_ge, hby_le⟩ := hcont
+      split <;> split <;> omega
+    · exact hp
+
+theorem projectPrimitive_cellBounds (s : Scene) (markers : List RouteMarkers)
+    (hc1 : Validator.C1 s.layoutDump)
+    (grp : Group) (index : Nat) (p : Primitive)
+    (hp : p.cellBounds s.canvas = true) :
+    (projectPrimitive s markers grp index p).cellBounds s.canvas = true := by
+  unfold projectPrimitive
+  split
+  · exact hp
+  · cases hroute : s.routes.find? (fun r => r.id == grp.owner) with
+    | none => exact hp
+    | some r =>
+      dsimp only
+      cases hfirst : r.points.head? with
+      | none =>
+        dsimp only
+        exact hp
+      | some first =>
+        cases hlast : r.points.getLast? with
+        | none =>
+          dsimp only
+          exact hp
+        | some last =>
+          dsimp only
+          cases p with
+          | rect r paint => exact hp
+          | roundRect r rad paint => exact hp
+          | ellipse cx cy rx ry paint => exact hp
+          | polygon ps paint => exact hp
+          | polyline ps corner paint =>
+            dsimp only
+            by_cases hcond : ps.head? = some first ∧ ps.getLast? = some last ∧
+                (attachment s r.fromId first ≠ first ∨ attachment s r.toId last ≠ last)
+            · simp only [hcond]
+              dsimp only [Primitive.cellBounds]
+              obtain ⟨hhead, hlast_pt, _⟩ := hcond
+              have hfirst_in : first ∈ ps := mem_of_head? hhead
+              have hlast_in : last ∈ ps := List.mem_of_getLast? hlast_pt
+              have hp_all : ps.all (Size.containsCell s.canvas) = true := hp
+              have hps_all : ∀ pt ∈ ps, Size.containsCell s.canvas pt = true := by
+                rw [← List.all_eq_true]
+                exact hp_all
+              have hfirst_cell : Size.containsCell s.canvas first = true := hps_all first hfirst_in
+              have hlast_cell : Size.containsCell s.canvas last = true := hps_all last hlast_in
+              have ha_cell := attachment_containsCell s hc1 r.fromId first hfirst_cell
+              have hb_cell := attachment_containsCell s hc1 r.toId last hlast_cell
+              exact projectLine_cellBounds ps _ _ s.canvas ha_cell hb_cell hp_all
+            · simp only [hcond]
+              exact hp
+          | path cs paint => exact hp
+          | text t => exact hp
+          | markerRef name pos axis =>
+            dsimp only [Primitive.cellBounds]
+            have hp_cell : Size.containsCell s.canvas pos = true := hp
+            by_cases hfl : pos = first ∧ pos = last
+            · rw [ite_eq_left hfl]
+              obtain ⟨hfirst, hlast⟩ := hfl
+              have hlast_cell : Size.containsCell s.canvas last = true := by
+                rw [← hlast]
+                exact hp_cell
+              have hfirst_cell : Size.containsCell s.canvas first = true := by
+                rw [← hfirst]
+                exact hp_cell
+              have hb_cell := attachment_containsCell s hc1 r.toId last hlast_cell
+              have ha_cell := attachment_containsCell s hc1 r.fromId first hfirst_cell
+              split <;> split <;> assumption
+            · rw [ite_eq_right hfl]
+              by_cases hfirst' : pos = first
+              · rw [ite_eq_left hfirst']
+                have hfirst_cell : Size.containsCell s.canvas first = true := by
+                  rw [← hfirst']
+                  exact hp_cell
+                exact attachment_containsCell s hc1 r.fromId first hfirst_cell
+              · rw [ite_eq_right hfirst']
+                by_cases hlast' : pos = last
+                · rw [ite_eq_left hlast']
+                  have hlast_cell : Size.containsCell s.canvas last = true := by
+                    rw [← hlast']
+                    exact hp_cell
+                  exact attachment_containsCell s hc1 r.toId last hlast_cell
+                · rw [ite_eq_right hlast']
+                  exact hp_cell
+          | symbolRef sym pt st => exact hp
+
+theorem projectCellAttachments_primitiveBounds_of_c1 (s : Scene) (markers : List RouteMarkers)
+    (hc1 : Validator.C1 s.layoutDump) (hp : s.PrimitiveBounds) :
+    (projectCellAttachments s markers).PrimitiveBounds := by
+  unfold Scene.PrimitiveBounds Scene.primitiveBoundsCheck at hp ⊢
+  simp only [Bool.and_eq_true_iff, decide_eq_true_iff] at hp ⊢
+  obtain ⟨hcanvas, hitems⟩ := hp
+  refine ⟨?_, ?_⟩
+  · rw [projectCellAttachments_canvas]
+    exact hcanvas
+  · by_cases hprof : s.profile = .cell
+    · rw [projectCellAttachments_items s markers hprof]
+      rw [List.all_eq_true] at hitems ⊢
+      intro grp hgrp
+      simp only [List.mem_map] at hgrp
+      obtain ⟨origGrp, horigGrp, rfl⟩ := hgrp
+      simp only [List.all_eq_true]
+      intro item hitem
+      simp only [List.mem_map] at hitem
+      obtain ⟨⟨p, idx⟩, hzip, rfl⟩ := hitem
+      have hp_mem : p ∈ origGrp.items := mem_of_mem_zipIdx hzip
+      have hp_bounds : p.cellBounds s.canvas = true := by
+        have := hitems origGrp horigGrp
+        rw [List.all_eq_true] at this
+        exact this p hp_mem
+      have hprim := projectPrimitive_cellBounds s markers hc1 origGrp idx p hp_bounds
+      rw [projectCellAttachments_canvas]
+      exact hprim
+    · rw [projectCellAttachments_vector s markers hprof]
+      exact hitems
+
+theorem projectCellAttachments_primitiveBounds (s : Scene) (markers : List RouteMarkers)
+    (hhc : HardConstraints s.layoutDump) (hp : s.PrimitiveBounds) :
+    (projectCellAttachments s markers).PrimitiveBounds :=
+  projectCellAttachments_primitiveBounds_of_c1 s markers hhc.1 hp
+
+theorem projectCellAttachments_primitiveBounds_of_check (s : Scene) (markers : List RouteMarkers)
+    (hcheck : Validator.check s.layoutDump = true) (hp : s.PrimitiveBounds) :
+    (projectCellAttachments s markers).PrimitiveBounds :=
+  projectCellAttachments_primitiveBounds s markers ((Validator.check_iff s.layoutDump).mp hcheck) hp
+
+end Scene
+
 def softCost (scene : Scene) : Except LayoutError Int := do
   let allRects := scene.boxes.map (·.rect) ++ scene.labels.map (·.rect)
   if !allRects.all (fun r => decide r.Valid) then throw .domain

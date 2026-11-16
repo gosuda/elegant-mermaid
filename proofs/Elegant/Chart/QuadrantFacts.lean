@@ -1,3 +1,64 @@
+import Elegant.Chart.Quadrant
+
+set_option autoImplicit false
+
+namespace Elegant.Chart.Quadrant
+
+theorem quadrant_point_in_plot (plot : Rect) (edge : Int) (p : InputPoint)
+    (he : 0 ≤ edge) (hw : edge ≤ plot.w) (hh : edge ≤ plot.h)
+    (hx : 0 ≤ p.x ∧ p.x ≤ 1000) (hy : 0 ≤ p.y ∧ p.y ≤ 1000) :
+    plot.x ≤ (centre plot edge p).x ∧ (centre plot edge p).x ≤ plot.x + plot.w ∧
+    plot.y ≤ (centre plot edge p).y ∧ (centre plot edge p).y ≤ plot.y + plot.h := by
+  have bx := fdiv_scaled_between p.x 1000 (max (plot.w - 3 * edge) 0) (by omega) hx.1 hx.2
+  have by_ := fdiv_scaled_between p.y 1000 (max (plot.h - 3 * edge) 0) (by omega) hy.1 hy.2
+  simp only [centre]
+  have wx : 0 ≤ max (plot.w - 3 * edge) 0 := Int.le_max_right _ _
+  have wy : 0 ≤ max (plot.h - 3 * edge) 0 := Int.le_max_right _ _
+  rw [Int.min_eq_left wx, Int.max_eq_right wx] at bx
+  rw [Int.min_eq_left wy, Int.max_eq_right wy] at by_
+  omega
+
+theorem quadrant_x_monotone (plot : Rect) (edge : Int) (a b : InputPoint)
+    (h : a.x ≤ b.x) : (centre plot edge a).x ≤ (centre plot edge b).x := by
+  have hm := Int.mul_le_mul_of_nonneg_right h (Int.le_max_right (plot.w - 3 * edge) 0)
+  have hf := fdiv_mono (D := 1000) (by omega) hm
+  simp only [centre]
+  omega
+
+theorem quadrant_split_monotone (plot : Rect) (edge : Int) (p : InputPoint)
+    (hx : 500 ≤ p.x) :
+    plot.x + edge + Int.fdiv (500 * max (plot.w - 3 * edge) 0) 1000 ≤
+      (centre plot edge p).x := by
+  exact quadrant_x_monotone plot edge ⟨500, p.y, p.radius⟩ p hx
+
+theorem quadrant_split_counterexample :
+    let plot : Rect := ⟨1, 1, 60, 30⟩
+    let p : InputPoint := ⟨500, 500, -1⟩
+    500 ≤ p.x ∧ (centre plot 1 p).x < plot.x + Int.fdiv plot.w 2 := by
+  decide
+
+theorem within_contained (r outer : Rect)
+    (hx : r.x ≤ outer.x + outer.w) (hy : r.y ≤ outer.y + outer.h)
+    (hw : 0 ≤ outer.w) (hh : 0 ≤ outer.h) :
+    Rect.Contained outer (within r outer) := by
+  simp only [within, Rect.Contained]
+  omega
+
+theorem tile_contained (plot : Rect) (i : Nat)
+    (hw : 0 ≤ plot.w) (hh : 0 ≤ plot.h) :
+    Rect.Contained plot (tile plot i) := by
+  have bw := fdiv_between plot.w 2 0 plot.w (by omega) (by omega) (by omega)
+  have bh := fdiv_between plot.h 2 0 plot.h (by omega) (by omega) (by omega)
+  simp only [tile, Rect.Contained]
+  split <;> split <;> omega
+
+theorem plot_contained (canvas : Size) (plot : Rect)
+    (hx : 0 ≤ plot.x) (hy : 0 ≤ plot.y)
+    (hw : plot.x + plot.w ≤ canvas.w) (hh : plot.y + plot.h ≤ canvas.h) :
+    Rect.Contained ⟨0, 0, canvas.w, canvas.h⟩ plot := by
+  simp only [Rect.Contained, Int.zero_add]
+  exact ⟨hx, hw, hy, hh⟩
+
 theorem sceneOf_routes_empty (m : Model) (c : Constants) (g : Geometry)
     (ps : List Placement) : (sceneOf m c g ps).routes = [] := by
   rfl
@@ -497,3 +558,5 @@ theorem successful_no_group_frames (m : Model) (s : Scene)
     exact False.elim (hroles b hb hg)
   · intro b hb hg
     exact False.elim (hroles b hb hg)
+
+end Elegant.Chart.Quadrant

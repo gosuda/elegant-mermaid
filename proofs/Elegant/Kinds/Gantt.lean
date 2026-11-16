@@ -1,3 +1,10 @@
+import Elegant.Kinds.Common
+import Elegant.Chart.GanttCalendar
+
+set_option autoImplicit false
+
+namespace Elegant.Kinds.Gantt
+
 def admittedConfig (m : Model) : Bool :=
   m.options.config.all fun entry =>
     match entry.2 with
@@ -7,7 +14,12 @@ def admittedConfig (m : Model) : Bool :=
       else true
     | _ => true
 
+def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
   if !admittedConfig m then throw (.geometry .domain)
+  match Chart.Gantt.layout m with
+  | .error error => throw (.geometry error)
+  | .ok (scene, capped) => pure { scene := scene, budgetExhausted := capped }
+
 
 theorem successful_config (m : Model) (result : Layered.FamilyResult)
     (h : layout m = .ok result) : admittedConfig m = true := by
@@ -99,3 +111,4 @@ theorem gantt_c5 (m : Model) (result : Layered.FamilyResult)
 theorem gantt_c6 (m : Model) (result : Layered.FamilyResult)
     (h : layout m = .ok result) : Validator.C6 result.scene.layoutDump := by
   simp [Validator.C6, Scene.layoutDump, successful_routes_empty m result h]
+end Elegant.Kinds.Gantt

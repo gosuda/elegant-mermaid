@@ -31,15 +31,9 @@ def I64_MAX : Int := 9223372036854775807
 
 def chk (o : Bool) (v : Int) : Bool := o || decide (v < I64_MIN) || decide (I64_MAX < v)
 
-opaque defaultNodeGap : Option Int :=
-  match layoutconst.find? (fun c => c.name == "vector.node_gap") with
-  | some c => some c.value
-  | none => none
+opaque defaultNodeGap : Option Int := some LayoutConst.node_gap.vector
 
-opaque defaultRankGap : Option Int :=
-  match layoutconst.find? (fun c => c.name == "vector.rank_gap") with
-  | some c => some c.value
-  | none => none
+opaque defaultRankGap : Option Int := some LayoutConst.rank_gap.vector
 
 def nodeW (p : Proper) (v : Nat) : Int :=
   match p.nodes[v]? with

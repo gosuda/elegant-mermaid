@@ -1,14 +1,14 @@
-import Elegant.Model
-import Elegant.Layered.Pipeline
+import Elegant.Kinds.Common
 
 set_option autoImplicit false
 
 /-! Class model adapter. A class box carries its three compartments (heading, attributes,
 methods) in its box label, joined by blank lines. The adapter recovers them from the label
 text at the last two blank lines, because members are single nonempty lines and only the
-heading can hold a blank line. It sizes the box as a compartment table (class-051, class-052),
-runs the layered family with those sizes, and replaces each class group's drawing by the
-table drawing. Every other node box is a note. -/
+heading can hold a blank line. It measures each compartment as styled text (the heading as a
+label, the members as body text), sizes the box as a compartment table (class-051, class-052),
+runs the layered family with those sizes, and replaces each class group's drawing by the table
+drawing. Every other node box is a note. -/
 
 namespace Elegant
 namespace Kinds
@@ -73,32 +73,68 @@ def tableOfText (text : String) : Option Table := tableOfChars text.toList
 
 /-! ### Size -/
 
-def constant (profile : Profile) (name : String) : Int :=
-  (Layered.PipelineImpl.constantOf profile name).getD 0
 
-def metricOf : Profile → Except LayoutError Measure.Metric
-  | .vector => Measure.Role.label.metric
-  | .cell => pure Measure.Metric.cell
+/-- The metric of compartment `index`: the cell metric in the cell profile; in the vector profile
+the heading (compartment 0) is label text and the member compartments are body text. -/
+def compartmentMetric : Profile → Nat → Except LayoutError Measure.Metric
+  | .cell, _ => pure Measure.Metric.cell
+  | .vector, 0 => Measure.Role.label.metric
+  | .vector, _ => Measure.Role.body.metric
 
-/-- The widest value of `f` over a list, `start` included; the first error stops it. -/
-def maxWidthM {α : Type} (f : α → Except LayoutError Int) (xs : List α) (start : Int) :
-    Except LayoutError Int :=
-  xs.foldlM (fun acc a => do pure (max acc (← f a))) start
+/-- The lines of one row, wrapped without a width limit; a row with no line keeps one empty line. -/
+def rowLines (metric : Measure.Metric) (row : String) : Except LayoutError (List Measure.Line) :=
+  match Common.unwrapped metric row with
+  | .error e => .error e
+  | .ok lines => .ok (if lines.isEmpty then [⟨[], [], 0⟩] else lines)
 
-def compartmentWidth (m : Measure.Metric) (rows : List String) : Except LayoutError Int :=
-  maxWidthM (fun row => Measure.textWidth m row.toList) rows 0
+/-- The lines of the rows of one compartment, in row order; the first failing row stops it. -/
+def measureCompartment (metric : Measure.Metric) :
+    List String → Except LayoutError (List Measure.Line)
+  | [] => .ok []
+  | row :: rows =>
+    match rowLines metric row with
+    | .error e => .error e
+    | .ok lines =>
+      match measureCompartment metric rows with
+      | .error e => .error e
+      | .ok rest => .ok (lines ++ rest)
 
-/-- Widest row of any compartment, no padding. -/
-def tableWidth (m : Measure.Metric) (compartments : List (List String)) :
-    Except LayoutError Int :=
-  maxWidthM (compartmentWidth m) compartments 0
+/-- The measured lines of the heading, attribute, and method compartments, measured in order. -/
+def measureTable (profile : Profile) (t : Table) :
+    Except LayoutError (List (List Measure.Line)) :=
+  match compartmentMetric profile 0 with
+  | .error e => .error e
+  | .ok m0 =>
+    match measureCompartment m0 t.head with
+    | .error e => .error e
+    | .ok head =>
+      match compartmentMetric profile 1 with
+      | .error e => .error e
+      | .ok m1 =>
+        match measureCompartment m1 t.attributes with
+        | .error e => .error e
+        | .ok attributes =>
+          match compartmentMetric profile 2 with
+          | .error e => .error e
+          | .ok m2 =>
+            match measureCompartment m2 t.methods with
+            | .error e => .error e
+            | .ok methods => .ok [head, attributes, methods]
+
+/-- The widest line of one compartment, 0 for none. -/
+def compartmentWidth (lines : List Measure.Line) : Int :=
+  lines.foldl (fun w l => max w l.width) 0
+
+/-- Widest line of any compartment, no padding. -/
+def tableWidth (compartments : List (List Measure.Line)) : Int :=
+  compartments.foldl (fun w c => max w (compartmentWidth c)) 0
 
 /-- An empty compartment keeps one row. -/
-def compartmentHeight (lineH : Int) (compartment : List String) : Int :=
+def compartmentHeight {α : Type} (lineH : Int) (compartment : List α) : Int :=
   (max 1 compartment.length : Int) * lineH
 
 /-- Sum of compartment heights. -/
-def tableHeight (lineH : Int) : List (List String) → Int
+def tableHeight {α : Type} (lineH : Int) : List (List α) → Int
   | [] => 0
   | c :: cs => compartmentHeight lineH c + tableHeight lineH cs
 
@@ -106,19 +142,19 @@ def tableHeight (lineH : Int) : List (List String) → Int
 def checkSize (width height : Int) : Except LayoutError Size :=
   if I32_MAX < width ∨ I32_MAX < height then .error .overflow else .ok ⟨width, height⟩
 
-/-- class-051 and class-052: widest row plus twice the padding, the compartment heights, one
+/-- class-051 and class-052: widest line plus twice the padding, the compartment heights, one
 separator between compartments, and two border rows in the cell profile. -/
+def tableSize (profile : Profile) (compartments : List (List Measure.Line)) :
+    Except LayoutError Size :=
+  checkSize (tableWidth compartments + 2 * LayoutConst.class_padding.get profile)
+    (tableHeight (LayoutConst.line_h.get profile) compartments +
+      ((compartments.length : Int) - 1) * LayoutConst.class_separator.get profile +
+      (if profile = .cell then 2 else 0))
+
 def classSize (profile : Profile) (t : Table) : Except LayoutError Size :=
-  match metricOf profile with
+  match measureTable profile t with
   | .error e => .error e
-  | .ok metric =>
-    match tableWidth metric t.compartments with
-    | .error e => .error e
-    | .ok widest =>
-      checkSize (widest + 2 * constant profile "class.padding")
-        (tableHeight (constant profile "line_h") t.compartments +
-          ((t.compartments.length : Int) - 1) * constant profile "class.separator" +
-          (if profile = .cell then 2 else 0))
+  | .ok compartments => tableSize profile compartments
 
 /-- The compartments of a node box, none for a note. -/
 def boxTable (m : Model) (b : ModelBox) : Option Table :=
@@ -131,8 +167,8 @@ def classSizes (m : Model) : Except LayoutError (List (String × Size)) :=
     | none => pure none
     | some t =>
       let size ← classSize m.options.profile t
-      let minW := (Layered.PipelineImpl.constantOf m.options.profile "node_min_w").getD 0
-      let minH := (Layered.PipelineImpl.constantOf m.options.profile "node_min_h").getD 0
+      let minW := LayoutConst.node_min_w.get m.options.profile
+      let minH := LayoutConst.node_min_h.get m.options.profile
       pure (some (b.id, ⟨max size.w minW, max size.h minH⟩))
 
 def sceneMarker (name : String) : String :=
@@ -153,50 +189,69 @@ def input (m : Model) (sizes : List (String × Size)) : Layered.Input :=
 /-! ### Drawing -/
 
 /-- Top of each compartment's text: the first at `y`, then one separator below each bottom. -/
-def tops (lineH separator : Int) : Int → List (List String) → List Int
+def tops {α : Type} (lineH separator : Int) : Int → List (List α) → List Int
   | _, [] => []
   | y, c :: cs => y :: tops lineH separator (y + compartmentHeight lineH c + separator) cs
 
+/-- The text role of compartment `index`: the heading is a label, the members are body text. -/
+def compartmentRole (index : Nat) : TextRole := if index = 0 then .label else .body
+
+/-- The left-aligned text of one compartment, whose top is `q.1`. -/
+def compartmentText (padding lineH : Int) (rect : Rect) (q : Int × List Measure.Line)
+    (index : Nat) : Primitive :=
+  .text { rect := ⟨rect.x + padding, q.1, rect.w - 2 * padding, compartmentHeight lineH q.2⟩
+          role := compartmentRole index
+          size := 14
+          align := .start
+          style := "text"
+          lines := q.2.map fun l => [⟨String.ofList l.text, false, false⟩] }
+
 /-- The drawing of a class: the frame, one rule between neighbouring compartments, and one
-left-aligned text per compartment. The cell profile insets the table by its border rows. -/
-def classPrimitives (profile : Profile) (rect : Rect) (t : Table) : List Primitive :=
-  let padding := constant profile "class.padding"
-  let separator := constant profile "class.separator"
-  let lineH := constant profile "line_h"
+text per compartment. The cell profile insets the table by its border rows. -/
+def classPrimitives (profile : Profile) (rect : Rect) (compartments : List (List Measure.Line)) :
+    List Primitive :=
+  let padding := LayoutConst.class_padding.get profile
+  let separator := LayoutConst.class_separator.get profile
+  let lineH := LayoutConst.line_h.get profile
   let top := if profile = .cell then rect.y + 1 else rect.y
   let right := if profile = .cell then rect.x + rect.w - 1 else rect.x + rect.w
-  let ys := tops lineH separator top t.compartments
+  let ys := tops lineH separator top compartments
   [.rect rect { style := "node" }] ++
   ys.tail.map (fun y =>
     .polyline [⟨rect.x, y - separator⟩, ⟨right, y - separator⟩] 0 { style := "rule" }) ++
-  (ys.zip t.compartments).map fun q =>
-    .text { rect := ⟨rect.x + padding, q.1, rect.w - 2 * padding, compartmentHeight lineH q.2⟩
-            role := .label
-            size := 14
-            align := .start
-            style := "text"
-            lines := q.2.map fun s => [⟨s, false, false⟩] }
+  (ys.zip compartments).zipIdx.map fun x => compartmentText padding lineH rect x.1 x.2
 
 def noteStyle : Primitive → Primitive
   | .rect r paint => .rect r { paint with style := "note" }
   | item => item
 
+/-- Replace the drawing of one class box and restyle note frames. -/
+def decorateGroup (m : Model) (s : Scene) (group : Group) : Except LayoutError Group :=
+  match m.boxes.find? (fun b => b.id == group.owner),
+      s.boxes.find? (fun b => b.id == group.owner) with
+  | some b, some placed =>
+    match boxTable m b with
+    | some t =>
+      if group.role = .node then
+        match measureTable m.options.profile t with
+        | .error e => .error e
+        | .ok compartments =>
+          .ok { group with items := classPrimitives m.options.profile placed.rect compartments }
+      else .ok group
+    | none =>
+      if b.role = .node ∧ group.role = .node then
+        .ok { group with items := group.items.map noteStyle }
+      else .ok group
+  | _, _ => .ok group
+
 /-- Replace the drawing of class boxes and restyle note frames. -/
-def decorate (m : Model) (s : Scene) : Scene :=
-  { s with items := s.items.map fun group =>
-      match m.boxes.find? (fun b => b.id == group.owner),
-          s.boxes.find? (fun b => b.id == group.owner) with
-      | some b, some placed =>
-        match boxTable m b with
-        | some t =>
-          if group.role = .node then
-            { group with items := classPrimitives m.options.profile placed.rect t }
-          else group
-        | none =>
-          if b.role = .node ∧ group.role = .node then
-            { group with items := group.items.map noteStyle }
-          else group
-      | _, _ => group }
+def decorate (m : Model) (s : Scene) : Except LayoutError Scene :=
+  match s.items.mapM (decorateGroup m s) with
+  | .error e => .error e
+  | .ok items => .ok { s with items := items }
+
+def routeMarkers (m : Model) : List RouteMarkers :=
+  m.routes.map fun r => ⟨r.id, sceneMarker r.markerStart, sceneMarker r.markerEnd⟩
 
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
   match classSizes m with
@@ -205,9 +260,9 @@ def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
     match Layered.layoutFamily (input m sizes) m.options with
     | .error e => .error e
     | .ok result =>
-      let markers : List RouteMarkers := m.routes.map fun r =>
-        ⟨r.id, sceneMarker r.markerStart, sceneMarker r.markerEnd⟩
-      .ok { result with scene := decorate m (result.scene.projectCellAttachments markers) }
+      match decorate m (result.scene.projectCellAttachments (routeMarkers m)) with
+      | .error e => .error (.geometry e)
+      | .ok scene => .ok { result with scene := scene }
 
 end Class
 end Kinds

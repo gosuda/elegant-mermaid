@@ -36,6 +36,25 @@ def placement (node : Rect) (slot loopBand : Int) (count index : Nat)
     label := ⟨right + slot * ((count : Int) + 1),
       centre - Int.fdiv label.height 2, label.width, label.height⟩ }
 
+def exactExtent (slot : Int) (labels : List LoopLabel) : Int :=
+  let widest := labels.foldl (fun w l => max w l.width) 0
+  if labels.isEmpty then widest else slot * (2 * (labels.length : Int) + 1) + widest
+
+def exactPlacement (node : Rect) (slot loopBand : Int) (count index : Nat)
+    (label : LoopLabel) : LoopPlacement :=
+  let right := node.x + node.w
+  let denominator := 2 * (count : Int) + 1
+  let endA := node.y + Int.fdiv ((2 * (index : Int) + 1) * node.h) denominator
+  let endB := node.y + Int.fdiv ((2 * (index : Int) + 2) * node.h) denominator
+  let laneA := right + slot * (2 * (index : Int) + 1)
+  let laneB := right + slot * (2 * (index : Int) + 2)
+  let centre := node.y + (index : Int) * loopBand + Int.fdiv loopBand 2
+  let turn := centre + slot
+  { points := [⟨right, endA⟩, ⟨laneA, endA⟩, ⟨laneA, turn⟩,
+      ⟨laneB, turn⟩, ⟨laneB, endB⟩, ⟨right, endB⟩]
+    label := ⟨right + slot * denominator,
+      centre - Int.fdiv label.height 2, label.width, label.height⟩ }
+
 def validPlacement (p : LoopPlacement) : Bool :=
   p.points.all (fun q => decide (I32_MIN ≤ q.x ∧ q.x ≤ I32_MAX ∧
     I32_MIN ≤ q.y ∧ q.y ≤ I32_MAX)) && decide (Rect.Valid p.label)
@@ -50,6 +69,50 @@ def loops (node : Rect) (slot : Int) (labels : List LoopLabel) :
   let placements := labels.zipIdx.map fun q =>
     placement node slot (band slot labels) labels.length q.2 q.1
   if placements.all validPlacement then pure placements else throw .overflow
+
+def exactLoops (node : Rect) (slot : Int) (labels : List LoopLabel) :
+    Except LayoutError (List LoopPlacement) := do
+  if ¬ node.Valid then throw .domain
+  if slot < 0 ∨ labels.any (fun l => l.width < 0 || l.height < 0) then
+    throw .domain
+  if I32_MAX < exactExtent slot labels then throw .overflow
+  let placements := labels.zipIdx.map fun q =>
+    exactPlacement node slot (band slot labels) labels.length q.2 q.1
+  if placements.all validPlacement then pure placements else throw .overflow
+
+theorem exactPlacement_outside_node (node : Rect) (slot loopBand : Int)
+    (count index : Nat) (label : LoopLabel) (hslot : 0 ≤ slot) :
+    ¬ Polyline.hitsRect (exactPlacement node slot loopBand count index label).points node :=
+  let ha : node.x + node.w ≤ node.x + node.w + slot * (2 * (index : Int) + 1) :=
+    Int.le_add_of_nonneg_right (Int.mul_nonneg hslot (by omega))
+  let hb : node.x + node.w ≤ node.x + node.w + slot * (2 * (index : Int) + 2) :=
+    Int.le_add_of_nonneg_right (Int.mul_nonneg hslot (by omega))
+  fun hit => hit.2.2
+    ⟨Or.inr (Or.inl (Int.le_min.mpr ⟨Int.le_refl _, ha⟩)),
+      Or.inr (Or.inl (Int.le_min.mpr ⟨ha, ha⟩)),
+      Or.inr (Or.inl (Int.le_min.mpr ⟨ha, hb⟩)),
+      Or.inr (Or.inl (Int.le_min.mpr ⟨hb, hb⟩)),
+      Or.inr (Or.inl (Int.le_min.mpr ⟨hb, Int.le_refl _⟩)), True.intro⟩
+
+theorem exactLoops_result_outside_node {node : Rect} {slot : Int} {labels : List LoopLabel}
+    {out : List LoopPlacement} (h : exactLoops node slot labels = .ok out) :
+    ∀ p ∈ out, ¬ Polyline.hitsRect p.points node := by
+  unfold exactLoops at h
+  dsimp only at h
+  split at h
+  · contradiction
+  · split at h
+    · contradiction
+    · next hs =>
+      split at h
+      · contradiction
+      · split at h
+        · cases h
+          intro p hp
+          obtain ⟨q, _, rfl⟩ := List.mem_map.mp hp
+          exact exactPlacement_outside_node node slot (band slot labels)
+            labels.length q.2 q.1 (by omega)
+        · contradiction
 
 theorem loops_outside_node (node : Rect) (slot loopBand : Int) (count index : Nat)
     (label : LoopLabel) (hslot : 0 ≤ slot) :

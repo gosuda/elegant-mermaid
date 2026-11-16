@@ -1,3 +1,16 @@
+import Elegant.Kinds.Common
+import Elegant.Chart.Info
+
+set_option autoImplicit false
+
+namespace Elegant.Kinds.Info
+
+def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
+  let text := (m.labels.find? (fun l => l.id == "version")).map (·.text) |>.getD "v0.1.0"
+  match Chart.Info.layout m.profile text with
+  | .error e => throw (.geometry e)
+  | .ok r => pure { scene := Chart.Info.sceneOf m r, budgetExhausted := false }
+
 theorem info_lines_in_canvas {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) :
     ∀ label ∈ result.scene.labels,
@@ -33,3 +46,5 @@ theorem info_valid {m : Model} {result : Layered.FamilyResult}
       simpa only [layout, hr, Pure.pure, Except.pure, Except.ok.injEq] using h
     cases he
     exact Chart.Info.info_valid m r
+
+end Elegant.Kinds.Info

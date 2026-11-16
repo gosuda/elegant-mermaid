@@ -51,14 +51,28 @@ structure Options where
   config : List (String × ConfigValue) := []
   deriving DecidableEq, Repr, Inhabited
 
+inductive Side where
+  | none | top | bottom | left | right
+  deriving DecidableEq, Repr, Inhabited
+
+def Side.id : Side → String
+  | .none => "" | .top => "T" | .bottom => "B" | .left => "L" | .right => "R"
+
+/-- `shape`, `icon`, and `text` are model-stage extras of the per-kind adapters: the shape token,
+nonempty resolved icon presence, and box text when no `<id>.label` label exists (ER tables). -/
 structure ModelBox where
   id : String
   role : BoxRole := .node
   parent : String := ""
   exclusive : Bool := true
   direction : String := ""
+  shape : String := ""
+  icon : Bool := false
+  text : Option String := none
   deriving DecidableEq, Repr
 
+/-- `fromSide` and `toSide` pin the port side at each end (`Side.none` leaves it free);
+`minLength` is the minimum rank span the kind asks for. -/
 structure ModelRoute where
   id : String
   fromId : String
@@ -67,6 +81,9 @@ structure ModelRoute where
   markerStart : String := "none"
   markerEnd : String := "point"
   stroke : String := "normal"
+  fromSide : Side := .none
+  toSide : Side := .none
+  minLength : Int := 1
   deriving DecidableEq, Repr
 
 structure ModelLabel where
@@ -76,6 +93,13 @@ structure ModelLabel where
   lines : List String := []
   deriving DecidableEq, Repr
 
+/-- One frontend region set, verbatim: its parent index and its region integers (`-1` for an absent
+index). The kind defines the meaning (`spec/model-dump.md`, model-dump-25). -/
+structure ModelRegionSet where
+  parent : Int
+  regions : List Int
+  deriving DecidableEq, Repr
+
 structure Model where
   kind : String
   profile : Profile := .vector
@@ -83,6 +107,7 @@ structure Model where
   boxes : List ModelBox := []
   routes : List ModelRoute := []
   labels : List ModelLabel := []
+  regionSets : List ModelRegionSet := []
   deriving DecidableEq, Repr
 
 private def parentTerminates (boxes : List ModelBox) : Nat → String → Bool

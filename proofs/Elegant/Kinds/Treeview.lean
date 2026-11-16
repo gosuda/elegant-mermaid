@@ -1,3 +1,18 @@
+import Elegant.Treeview
+import Elegant.Kinds.Common
+
+namespace Elegant.Kinds.Treeview
+
+def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
+  if m.boxes.length > m.options.limits.maxNodes then
+    throw (.tooLarge m.options.limits.maxNodes m.boxes.length)
+  let bytes := m.labels.foldl (fun n l => n + l.text.utf8ByteSize) 0
+  if bytes > m.options.limits.maxTextBytes then
+    throw (.tooLarge m.options.limits.maxTextBytes bytes)
+  match Elegant.Treeview.layout m with
+  | .error error => throw (.geometry error)
+  | .ok scene => pure { scene := scene, budgetExhausted := false }
+
 /-- Public success is success of the same native scene, not of a replacement
     tree or a scene with rewritten containment metadata. -/
 theorem successful_native_layout {m : Model} {result : Layered.FamilyResult}
@@ -16,6 +31,7 @@ theorem successful_native_layout {m : Model} {result : Layered.FamilyResult}
         simp only [hn, pure, Except.pure, Except.ok.injEq] at h
         subst result
         rfl
+
 theorem successful_empty_parents {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) :
     m.boxes.any (fun b => b.parent != "") = false :=
@@ -47,3 +63,5 @@ theorem treeview_valid {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) : HardConstraints result.scene.layoutDump :=
   Elegant.Treeview.treeview_valid hwf hlimits (successful_native_layout h)
 
+
+end Elegant.Kinds.Treeview

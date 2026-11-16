@@ -11,6 +11,98 @@ namespace Elegant
 namespace Layered
 namespace PipelineImpl
 
+private theorem mapM_index_record {α β : Type} (f : α → Except LayoutError β) :
+    ∀ (xs : List α) (ys : List β), xs.mapM f = .ok ys →
+      xs.length = ys.length ∧
+      ∀ (i : Nat) (y : β), ys[i]? = some y →
+        ∃ x, xs[i]? = some x ∧ f x = .ok y := by
+  intro xs
+  induction xs with
+  | nil =>
+    intro ys h
+    change Except.ok [] = Except.ok ys at h
+    injection h with heq
+    subst ys
+    refine ⟨rfl, ?_⟩
+    intro i y hy
+    simp at hy
+  | cons x xs ih =>
+    intro ys h
+    simp only [List.mapM_cons] at h
+    cases hf : f x with
+    | error e =>
+      rw [hf] at h
+      change Except.error e = Except.ok ys at h
+      cases h
+    | ok y =>
+      cases ht : xs.mapM f with
+      | error e =>
+        rw [hf, ht] at h
+        change Except.error e = Except.ok ys at h
+        cases h
+      | ok tail =>
+        rw [hf, ht] at h
+        change Except.ok (y :: tail) = Except.ok ys at h
+        injection h with heq
+        subst ys
+        obtain ⟨hlen, hget⟩ := ih tail ht
+        refine ⟨by simp [hlen], ?_⟩
+        intro i z hz
+        cases i with
+        | zero =>
+          simp only [List.getElem?_cons_zero, Option.some.injEq] at hz
+          subst z
+          exact ⟨x, rfl, hf⟩
+        | succ i =>
+          simp only [List.getElem?_cons_succ] at hz
+          obtain ⟨a, ha, he⟩ := hget i z hz
+          exact ⟨a, by simpa using ha, he⟩
+
+private theorem sizedNodes_index_metadata {P : Params}
+    {lines : List (List Measure.Line)} {nodes : List Node}
+    (h : sizedNodes P lines = .ok nodes) :
+    nodes.length = lines.length ∧
+      ∀ (i : Nat) (n : Node), nodes[i]? = some n → n.decl = i ∧ n.border = 0 := by
+  unfold sizedNodes at h
+  obtain ⟨hlen, hget⟩ := mapM_index_record
+    (fun (q : List Measure.Line × Nat) => sizedNode P q.2 q.1)
+    lines.zipIdx nodes h
+  refine ⟨by simpa using hlen.symm, ?_⟩
+  intro i n hn
+  obtain ⟨q, hq, hs⟩ := hget i n hn
+  have hi : i < lines.length := by
+    obtain ⟨hi, _⟩ := List.getElem?_eq_some_iff.mp hq
+    simpa using hi
+  have hqi : q.2 = i := by
+    have hq' : lines.zipIdx[i]? = some (lines[i], i) := by simp [hi]
+    rw [hq] at hq'
+    exact congrArg Prod.snd (Option.some.inj hq')
+  unfold sizedNode at hs
+  cases hh : nodeSize P q.1 with
+  | error e =>
+    rw [hh] at hs
+    change Except.error e = Except.ok n at hs
+    cases hs
+  | ok size =>
+    rw [hh] at hs
+    change Except.ok { decl := q.2, w := size.1, h := size.2, loopExtent := 0 } =
+      Except.ok n at hs
+    injection hs with heq
+    subst n
+    exact ⟨hqi, rfl⟩
+
+private theorem componentCandidate_nodes_record (g : Graph) (comp : List Nat) (index : Nat) :
+    (componentCandidate g comp index).nodes =
+      comp.map (fun v => g.nodes.getD v default) := by
+  unfold componentCandidate
+  dsimp only
+  split
+  · split
+    · rfl
+    · rfl
+  · unfold cycleGraph
+    split <;> rfl
+
 theorem route_label_stack_disjoint (cg : Graph) (labels : List MeasuredLabel)
     (edge : Nat) (x y : Int) (hg : 0 ≤ cg.slot)
     (hh : ∀ l ∈ routeLabels labels edge, 0 ≤ l.height) :
@@ -24,8 +116,11 @@ theorem route_label_stack_disjoint (cg : Graph) (labels : List MeasuredLabel)
 
 theorem nodeLoops_outside_node {cg : Graph} {run : Run} {labels : List MeasuredLabel}
     {v : Nat} {out : List LoopPlacement} (h : nodeLoops cg run labels v = .ok out) :
-    ∀ p ∈ out, ¬ Polyline.hitsRect p.points (nodeRect cg run v) :=
-  Loops.loops_result_outside_node h
+    ∀ p ∈ out, ¬ Polyline.hitsRect p.points (nodeRect cg run v) := by
+  unfold nodeLoops at h
+  split at h
+  · exact Loops.exactLoops_result_outside_node h
+  · exact Loops.loops_result_outside_node h
 
 theorem bind_ok {α β : Type} {x : Except LayoutError α} {f : α → Except LayoutError β} {b : β}
     (h : x >>= f = .ok b) : ∃ a, x = .ok a ∧ f a = .ok b := by
@@ -36,8 +131,8 @@ theorem bind_ok {α β : Type} {x : Except LayoutError α} {f : α → Except La
 theorem packAcc_components_disjoint {P : Params} {o : Options} {acc out : Acc}
     (h : packAcc P o acc = .ok out) :
     ∃ packed, Pack.pack (if o.profile == .cell then o.maxWidth else 0)
-      P.nodeGap 0 ((constantOf o.profile "component_aspect_num").getD 1)
-      ((constantOf o.profile "component_aspect_den").getD 1)
+      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
       (acc.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed ∧
       packed.boxes.Pairwise Disjoint := by
   unfold packAcc at h
@@ -139,6 +234,127 @@ theorem measuredGraph_decls_nodup {P : Params} {inp : Input} {o : Options}
   subst h
   rw [Compound.prepare_decls]
   exact graphEdges_decls_nodup he
+private theorem measuredGraph_title_metadata {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {g : Graph}
+    (hg : measuredGraph P inp o lines = .ok g) {j : Nat} {top : Node}
+    (htop : g.nodes[j]? = some top) (hborder : top.border = -2) :
+    j < lines.length ∧ top.decl = j ∧
+      ∃ box, inp.boxes[j]? = some box ∧ box.role = .group ∧
+        inp.fixedSizes.any (fun fixed => fixed.1 == box.id) = false ∧
+        top.w = (match o.direction with
+          | .LR | .RL => (max 1 (lines.getD j []).length : Int) * P.lineH
+          | .TB | .BT => (lines.getD j []).foldl (fun w line => max w line.width) 0) ∧
+        (match o.direction with
+          | .LR | .RL => (lines.getD j []).foldl (fun w line => max w line.width) 0
+          | .TB | .BT => (max 1 (lines.getD j []).length : Int) * P.lineH) +
+            P.clusterPad ≤ top.h := by
+  unfold measuredGraph at hg
+  obtain ⟨initial, hinitial, hg⟩ := bind_ok hg
+  obtain ⟨edges, _, hg⟩ := bind_ok hg
+  obtain ⟨metric, _, hg⟩ := bind_ok hg
+  obtain ⟨labels, _, hg⟩ := bind_ok hg
+  obtain ⟨nodes, hnodes, hg⟩ := bind_ok hg
+  have hg' := Except.ok.inj hg
+  subst g
+  obtain ⟨hlen, hinit⟩ := sizedNodes_index_metadata hinitial
+  obtain ⟨hprocessed, hget⟩ := mapM_index_record _ _ _ hnodes
+  have hnodeslen : nodes.length = lines.length := by simpa [hlen] using hprocessed.symm
+  have hj : j < nodes.length := by
+    by_cases hj : j < nodes.length
+    · exact hj
+    · have hb := Compound.prepare_bottom_of_index _ _ _ _ j (by dsimp only; omega) htop
+      omega
+  obtain ⟨before, hbefore, hstep⟩ := hget j (nodes[j]) (by simp [hj])
+  have hjinit : j < initial.length := by
+    obtain ⟨hi, _⟩ := List.getElem?_eq_some_iff.mp hbefore
+    simpa using hi
+  have hbeforeEq : before = (orientNode o.direction initial[j], j) := by
+    have he : ((initial.map (orientNode o.direction)).zipIdx)[j]? =
+        some (orientNode o.direction initial[j], j) := by simp [hjinit]
+    rw [hbefore] at he
+    exact Option.some.inj he
+  subst before
+  have hmeta := hinit j initial[j] (by simp [hjinit])
+  have hz : nodes[j].decl = j ∧ nodes[j].border = 0 := by
+    dsimp only at hstep
+    simp only [bind, Except.bind, pure, Except.pure] at hstep
+    split at hstep
+    · simp at hstep
+    · split at hstep <;> (try split at hstep) <;>
+        (try split at hstep) <;> (try split at hstep) <;>
+        first
+        | (have he := Except.ok.inj hstep
+           rw [← he]
+           cases o.direction <;> simpa [orientNode] using hmeta)
+        | (simp [throw, throwThe, MonadExceptOf.throw] at hstep)
+  obtain ⟨box, hb, hrole, hdecl, hw, hh, _, _⟩ :=
+    Compound.prepare_group_title_of_border _ _ _ _ hj htop hborder
+      (by dsimp only; rw [hz.2]; decide)
+  cases horiginal : inp.boxes[j]? with
+  | none => simp [List.getElem?_map, horiginal] at hb
+  | some original =>
+    simp only [List.getElem?_map, horiginal, Option.map_some, Option.some.injEq] at hb
+    have heq := hb
+    have hfixed : inp.fixedSizes.any (fun fixed => fixed.1 == original.id) = false := by
+      cases hf : inp.fixedSizes.any (fun fixed => fixed.1 == original.id) with
+      | false => rfl
+      | true =>
+        have hr := hrole
+        rw [← heq] at hr
+        simp [hf] at hr
+    have hbox : original = box := by simpa [hfixed] using heq
+    clear hb heq
+    subst box
+    have hjlines : j < lines.length := by omega
+    refine ⟨hjlines, hdecl.trans hz.1, original, rfl, hrole, hfixed, ?_, ?_⟩
+    · cases hd : o.direction <;>
+        simpa [List.getD, List.getElem?_map, hjlines, hd] using hw
+    · cases hd : o.direction <;>
+        simpa [List.getD, List.getElem?_map, hjlines, hd] using hh
+
+theorem actual_title_metadata {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {g : Graph}
+    (hg : measuredGraph P inp o lines = .ok g)
+    {comp : List Nat} {index i : Nat} {top : Node} {box : ModelBox}
+    (htop : (componentCandidate g comp index).nodes[i]? = some top)
+    (hborder : top.border = -2)
+    (hbox : inp.boxes[comp.getD i 0]? = some box) :
+    ∃ j, comp[i]? = some j ∧ comp.getD i 0 = j ∧
+      g.nodes[j]? = some top ∧ top.decl = j ∧ j < lines.length ∧
+      box.role = .group ∧
+      inp.fixedSizes.any (fun fixed => fixed.1 == box.id) = false ∧
+      top.w = (match o.direction with
+        | .LR | .RL => (max 1 (lines.getD j []).length : Int) * P.lineH
+        | .TB | .BT => (lines.getD j []).foldl (fun w line => max w line.width) 0) ∧
+      (match o.direction with
+        | .LR | .RL => (lines.getD j []).foldl (fun w line => max w line.width) 0
+        | .TB | .BT => (max 1 (lines.getD j []).length : Int) * P.lineH) +
+          P.clusterPad ≤ top.h := by
+  rw [componentCandidate_nodes_record] at htop
+  cases hc : comp[i]? with
+  | none => simp [List.getElem?_map, hc] at htop
+  | some j =>
+    have hcD : comp.getD i 0 = j := by simp [List.getD, hc]
+    have hv : g.nodes.getD j default = top := by
+      simpa [List.getElem?_map, hc] using htop
+    have hj : j < g.nodes.length := by
+      by_cases hj : j < g.nodes.length
+      · exact hj
+      · have hnone : g.nodes[j]? = none := List.getElem?_eq_none_iff.mpr (by omega)
+        have hdefault : (default : Node) = top := by simpa [List.getD, hnone] using hv
+        rw [← hdefault] at hborder
+        have hz : (default : Node).border = 0 := rfl
+        rw [hz] at hborder
+        omega
+    have hget : g.nodes[j]? = some top := by
+      have he : g.nodes[j] = top := by simpa [List.getD, hj] using hv
+      simpa [hj] using congrArg some he
+    obtain ⟨hlt, hdecl, original, horiginal, hrole, hfixed, hw, hh⟩ :=
+      measuredGraph_title_metadata hg hget hborder
+    rw [hcD] at hbox
+    have hsame : original = box := Option.some.inj (horiginal.symm.trans hbox)
+    subst original
+    exact ⟨j, rfl, hcD, hget, hdecl, hlt, hrole, hfixed, hw, hh⟩
 
 theorem actual_title_caption_fit {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {g : Graph}
@@ -217,6 +433,7 @@ theorem actual_title_dims_nonneg {P : Params} {inp : Input} {o : Options}
     have hh0 : 0 ≤ (max 1 (lines.getD j []).length : Int) * P.lineH :=
       Int.mul_nonneg (by omega) hline
     cases hd : o.direction <;> simp only [hd] at hw hh <;> constructor <;> omega
+
 
 theorem foldlM_ok_mem {α β : Type} (f : β → α → Except LayoutError β) :
     ∀ (l : List α) (a b : β), l.foldlM f a = .ok b → ∀ x ∈ l, ∃ a' b', f a' x = .ok b' := by
@@ -1501,8 +1718,8 @@ theorem componentRun_facts {P : Params} (hP : P.Valid) {cg : Graph} {run : Run}
   rw [hroute] at hF
   exact hF
 
-theorem checkedParams_valid {profile : Profile} {P : Params}
-    (h : checkedParams profile = .ok P) : P.Valid := by
+theorem checkedParams_valid {profile : Profile} {kind : String} {P : Params}
+    (h : checkedParams profile kind = .ok P) : P.Valid := by
   unfold checkedParams at h
   split at h
   · simp at h
@@ -1515,7 +1732,7 @@ theorem checkedParams_valid {profile : Profile} {P : Params}
     · simp at h
 
 def ComponentFacts (inp : Input) (o : Options) : Prop :=
-  ∃ P lines measured g0, checkedParams o.profile = .ok P ∧ measuredGraph P inp o lines = .ok g0 ∧
+  ∃ P lines measured g0, checkedParams o.profile inp.kind = .ok P ∧ measuredGraph P inp o lines = .ok g0 ∧
     ∀ comp ∈ components g0, ∃ index run, index < 5 ∧
       componentRun P (componentCandidate g0 comp index) measured (candidateOrder index) =
         .ok run ∧
@@ -1570,6 +1787,1745 @@ theorem layout_ids {inp : Input} {o : Options} {res : FamilyResult}
     subst h
     simp only [sceneOf, List.map_map]
     exact ⟨zipIdx_map_comp (·.id) inp.boxes 0, zipIdx_map_comp (·.id) inp.routes 0⟩
+
+/-! ### Bounds fold and component placement geometry -/
+
+theorem foldl_stepRect_minX_le :
+    ∀ (rects : List Rect) (b : Bounds),
+      (rects.foldl (fun b r => ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩) b).minX ≤ b.minX
+  | [], b => Int.le_refl b.minX
+  | r :: rs, b => by
+    simp only [List.foldl_cons]
+    have h := foldl_stepRect_minX_le rs ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩
+    exact Int.le_trans h (Int.min_le_left b.minX r.x)
+
+theorem foldl_stepRect_minY_le :
+    ∀ (rects : List Rect) (b : Bounds),
+      (rects.foldl (fun b r => ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩) b).minY ≤ b.minY
+  | [], b => Int.le_refl b.minY
+  | r :: rs, b => by
+    simp only [List.foldl_cons]
+    have h := foldl_stepRect_minY_le rs ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩
+    exact Int.le_trans h (Int.min_le_left b.minY r.y)
+
+theorem foldl_stepRect_le_right :
+    ∀ (rects : List Rect) (b : Bounds),
+      b.right ≤ (rects.foldl (fun b r => ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩) b).right
+  | [], b => Int.le_refl b.right
+  | r :: rs, b => by
+    simp only [List.foldl_cons]
+    have h := foldl_stepRect_le_right rs ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩
+    exact Int.le_trans (Int.le_max_left b.right (r.x + r.w)) h
+
+theorem foldl_stepRect_le_bottom :
+    ∀ (rects : List Rect) (b : Bounds),
+      b.bottom ≤ (rects.foldl (fun b r => ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩) b).bottom
+  | [], b => Int.le_refl b.bottom
+  | r :: rs, b => by
+    simp only [List.foldl_cons]
+    have h := foldl_stepRect_le_bottom rs ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩
+    exact Int.le_trans (Int.le_max_left b.bottom (r.y + r.h)) h
+
+theorem foldl_stepRect_minX_le_mem :
+    ∀ (rects : List Rect) (b : Bounds) (r : Rect),
+      r ∈ rects →
+        (rects.foldl (fun b r => ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩) b).minX ≤ r.x
+  | [], b, r, hr => by simp at hr
+  | r0 :: rs, b, r, hr => by
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · have h := foldl_stepRect_minX_le rs ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩
+      exact Int.le_trans h (Int.min_le_right b.minX r.x)
+    · exact foldl_stepRect_minX_le_mem rs ⟨min b.minX r0.x, min b.minY r0.y, max b.right (r0.x + r0.w), max b.bottom (r0.y + r0.h)⟩ r hr'
+
+theorem foldl_stepRect_minY_le_mem :
+    ∀ (rects : List Rect) (b : Bounds) (r : Rect),
+      r ∈ rects →
+        (rects.foldl (fun b r => ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩) b).minY ≤ r.y
+  | [], b, r, hr => by simp at hr
+  | r0 :: rs, b, r, hr => by
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · have h := foldl_stepRect_minY_le rs ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩
+      exact Int.le_trans h (Int.min_le_right b.minY r.y)
+    · exact foldl_stepRect_minY_le_mem rs ⟨min b.minX r0.x, min b.minY r0.y, max b.right (r0.x + r0.w), max b.bottom (r0.y + r0.h)⟩ r hr'
+
+theorem foldl_stepRect_right_ge_mem :
+    ∀ (rects : List Rect) (b : Bounds) (r : Rect),
+      r ∈ rects →
+        r.x + r.w ≤ (rects.foldl (fun b r => ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩) b).right
+  | [], b, r, hr => by simp at hr
+  | r0 :: rs, b, r, hr => by
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · have h := foldl_stepRect_le_right rs ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩
+      exact Int.le_trans (Int.le_max_right b.right (r.x + r.w)) h
+    · exact foldl_stepRect_right_ge_mem rs ⟨min b.minX r0.x, min b.minY r0.y, max b.right (r0.x + r0.w), max b.bottom (r0.y + r0.h)⟩ r hr'
+
+theorem foldl_stepRect_bottom_ge_mem :
+    ∀ (rects : List Rect) (b : Bounds) (r : Rect),
+      r ∈ rects →
+        r.y + r.h ≤ (rects.foldl (fun b r => ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩) b).bottom
+  | [], b, r, hr => by simp at hr
+  | r0 :: rs, b, r, hr => by
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hr with rfl | hr'
+    · have h := foldl_stepRect_le_bottom rs ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w), max b.bottom (r.y + r.h)⟩
+      exact Int.le_trans (Int.le_max_right b.bottom (r.y + r.h)) h
+    · exact foldl_stepRect_bottom_ge_mem rs ⟨min b.minX r0.x, min b.minY r0.y, max b.right (r0.x + r0.w), max b.bottom (r0.y + r0.h)⟩ r hr'
+
+theorem foldl_stepPoint_minX_le :
+    ∀ (pts : List Point) (b : Bounds),
+      (pts.foldl (fun b p => ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩) b).minX ≤ b.minX
+  | [], b => Int.le_refl b.minX
+  | p :: ps, b => by
+    simp only [List.foldl_cons]
+    have h := foldl_stepPoint_minX_le ps ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩
+    exact Int.le_trans h (Int.min_le_left b.minX p.x)
+
+theorem foldl_stepPoint_minY_le :
+    ∀ (pts : List Point) (b : Bounds),
+      (pts.foldl (fun b p => ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩) b).minY ≤ b.minY
+  | [], b => Int.le_refl b.minY
+  | p :: ps, b => by
+    simp only [List.foldl_cons]
+    have h := foldl_stepPoint_minY_le ps ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩
+    exact Int.le_trans h (Int.min_le_left b.minY p.y)
+
+theorem foldl_stepPoint_le_right :
+    ∀ (pts : List Point) (b : Bounds),
+      b.right ≤ (pts.foldl (fun b p => ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩) b).right
+  | [], b => Int.le_refl b.right
+  | p :: ps, b => by
+    simp only [List.foldl_cons]
+    have h := foldl_stepPoint_le_right ps ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩
+    exact Int.le_trans (Int.le_max_left b.right p.x) h
+
+theorem foldl_stepPoint_le_bottom :
+    ∀ (pts : List Point) (b : Bounds),
+      b.bottom ≤ (pts.foldl (fun b p => ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩) b).bottom
+  | [], b => Int.le_refl b.bottom
+  | p :: ps, b => by
+    simp only [List.foldl_cons]
+    have h := foldl_stepPoint_le_bottom ps ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩
+    exact Int.le_trans (Int.le_max_left b.bottom p.y) h
+
+theorem foldl_stepPoint_minX_le_mem :
+    ∀ (pts : List Point) (b : Bounds) (p : Point),
+      p ∈ pts →
+        (pts.foldl (fun b p => ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩) b).minX ≤ p.x
+  | [], b, p, hp => by simp at hp
+  | p0 :: ps, b, p, hp => by
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hp with rfl | hp'
+    · have h := foldl_stepPoint_minX_le ps ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩
+      exact Int.le_trans h (Int.min_le_right b.minX p.x)
+    · exact foldl_stepPoint_minX_le_mem ps ⟨min b.minX p0.x, min b.minY p0.y, max b.right p0.x, max b.bottom p0.y⟩ p hp'
+
+theorem foldl_stepPoint_minY_le_mem :
+    ∀ (pts : List Point) (b : Bounds) (p : Point),
+      p ∈ pts →
+        (pts.foldl (fun b p => ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩) b).minY ≤ p.y
+  | [], b, p, hp => by simp at hp
+  | p0 :: ps, b, p, hp => by
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hp with rfl | hp'
+    · have h := foldl_stepPoint_minY_le ps ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩
+      exact Int.le_trans h (Int.min_le_right b.minY p.y)
+    · exact foldl_stepPoint_minY_le_mem ps ⟨min b.minX p0.x, min b.minY p0.y, max b.right p0.x, max b.bottom p0.y⟩ p hp'
+
+theorem foldl_stepPoint_right_ge_mem :
+    ∀ (pts : List Point) (b : Bounds) (p : Point),
+      p ∈ pts →
+        p.x ≤ (pts.foldl (fun b p => ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩) b).right
+  | [], b, p, hp => by simp at hp
+  | p0 :: ps, b, p, hp => by
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hp with rfl | hp'
+    · have h := foldl_stepPoint_le_right ps ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩
+      exact Int.le_trans (Int.le_max_right b.right p.x) h
+    · exact foldl_stepPoint_right_ge_mem ps ⟨min b.minX p0.x, min b.minY p0.y, max b.right p0.x, max b.bottom p0.y⟩ p hp'
+
+theorem foldl_stepPoint_bottom_ge_mem :
+    ∀ (pts : List Point) (b : Bounds) (p : Point),
+      p ∈ pts →
+        p.y ≤ (pts.foldl (fun b p => ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩) b).bottom
+  | [], b, p, hp => by simp at hp
+  | p0 :: ps, b, p, hp => by
+    simp only [List.foldl_cons]
+    rcases List.mem_cons.mp hp with rfl | hp'
+    · have h := foldl_stepPoint_le_bottom ps ⟨min b.minX p.x, min b.minY p.y, max b.right p.x, max b.bottom p.y⟩
+      exact Int.le_trans (Int.le_max_right b.bottom p.y) h
+    · exact foldl_stepPoint_bottom_ge_mem ps ⟨min b.minX p0.x, min b.minY p0.y, max b.right p0.x, max b.bottom p0.y⟩ p hp'
+
+theorem boundsOf_minX_le_rect_x (rects : List Rect) (pts : List Point) (r : Rect)
+    (hr : r ∈ rects) :
+    (boundsOf rects pts).minX ≤ r.x := by
+  unfold boundsOf
+  dsimp only
+  exact Int.le_trans (foldl_stepPoint_minX_le pts _) (foldl_stepRect_minX_le_mem rects _ r hr)
+
+theorem boundsOf_minY_le_rect_y (rects : List Rect) (pts : List Point) (r : Rect)
+    (hr : r ∈ rects) :
+    (boundsOf rects pts).minY ≤ r.y := by
+  unfold boundsOf
+  dsimp only
+  exact Int.le_trans (foldl_stepPoint_minY_le pts _) (foldl_stepRect_minY_le_mem rects _ r hr)
+
+theorem rect_right_le_boundsOf_right (rects : List Rect) (pts : List Point) (r : Rect)
+    (hr : r ∈ rects) :
+    r.x + r.w ≤ (boundsOf rects pts).right := by
+  unfold boundsOf
+  dsimp only
+  exact Int.le_trans (foldl_stepRect_right_ge_mem rects _ r hr) (foldl_stepPoint_le_right pts _)
+
+theorem rect_bottom_le_boundsOf_bottom (rects : List Rect) (pts : List Point) (r : Rect)
+    (hr : r ∈ rects) :
+    r.y + r.h ≤ (boundsOf rects pts).bottom := by
+  unfold boundsOf
+  dsimp only
+  exact Int.le_trans (foldl_stepRect_bottom_ge_mem rects _ r hr) (foldl_stepPoint_le_bottom pts _)
+
+theorem boundsOf_contains_rect (rects : List Rect) (pts : List Point) (r : Rect)
+    (hr : r ∈ rects) :
+    (boundsOf rects pts).minX ≤ r.x ∧
+    r.x + r.w ≤ (boundsOf rects pts).right ∧
+    (boundsOf rects pts).minY ≤ r.y ∧
+    r.y + r.h ≤ (boundsOf rects pts).bottom :=
+  ⟨boundsOf_minX_le_rect_x rects pts r hr,
+   rect_right_le_boundsOf_right rects pts r hr,
+   boundsOf_minY_le_rect_y rects pts r hr,
+   rect_bottom_le_boundsOf_bottom rects pts r hr⟩
+
+theorem boundsOf_minX_le_point_x (rects : List Rect) (pts : List Point) (p : Point)
+    (hp : p ∈ pts) :
+    (boundsOf rects pts).minX ≤ p.x := by
+  unfold boundsOf
+  dsimp only
+  exact foldl_stepPoint_minX_le_mem pts _ p hp
+
+theorem point_x_le_boundsOf_right (rects : List Rect) (pts : List Point) (p : Point)
+    (hp : p ∈ pts) :
+    p.x ≤ (boundsOf rects pts).right := by
+  unfold boundsOf
+  dsimp only
+  exact foldl_stepPoint_right_ge_mem pts _ p hp
+
+theorem boundsOf_minY_le_point_y (rects : List Rect) (pts : List Point) (p : Point)
+    (hp : p ∈ pts) :
+    (boundsOf rects pts).minY ≤ p.y := by
+  unfold boundsOf
+  dsimp only
+  exact foldl_stepPoint_minY_le_mem pts _ p hp
+
+theorem point_y_le_boundsOf_bottom (rects : List Rect) (pts : List Point) (p : Point)
+    (hp : p ∈ pts) :
+    p.y ≤ (boundsOf rects pts).bottom := by
+  unfold boundsOf
+  dsimp only
+  exact foldl_stepPoint_bottom_ge_mem pts _ p hp
+
+theorem boundsOf_contains_point (rects : List Rect) (pts : List Point) (p : Point)
+    (hp : p ∈ pts) :
+    (boundsOf rects pts).minX ≤ p.x ∧
+    p.x ≤ (boundsOf rects pts).right ∧
+    (boundsOf rects pts).minY ≤ p.y ∧
+    p.y ≤ (boundsOf rects pts).bottom :=
+  ⟨boundsOf_minX_le_point_x rects pts p hp,
+   point_x_le_boundsOf_right rects pts p hp,
+   boundsOf_minY_le_point_y rects pts p hp,
+   point_y_le_boundsOf_bottom rects pts p hp⟩
+
+theorem boundsOf_minX_le_right_of_rect {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) (hw : 0 ≤ r.w) :
+    (boundsOf rects pts).minX ≤ (boundsOf rects pts).right := by
+  have h1 := boundsOf_minX_le_rect_x rects pts r hr
+  have h2 := rect_right_le_boundsOf_right rects pts r hr
+  omega
+
+theorem boundsOf_minY_le_bottom_of_rect {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) (hh : 0 ≤ r.h) :
+    (boundsOf rects pts).minY ≤ (boundsOf rects pts).bottom := by
+  have h1 := boundsOf_minY_le_rect_y rects pts r hr
+  have h2 := rect_bottom_le_boundsOf_bottom rects pts r hr
+  omega
+
+theorem boundsOf_minX_le_right_of_point {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) :
+    (boundsOf rects pts).minX ≤ (boundsOf rects pts).right := by
+  have h1 := boundsOf_minX_le_point_x rects pts p hp
+  have h2 := point_x_le_boundsOf_right rects pts p hp
+  omega
+
+theorem boundsOf_minY_le_bottom_of_point {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) :
+    (boundsOf rects pts).minY ≤ (boundsOf rects pts).bottom := by
+  have h1 := boundsOf_minY_le_point_y rects pts p hp
+  have h2 := point_y_le_boundsOf_bottom rects pts p hp
+  omega
+
+theorem boundsOf_nil_nil : boundsOf [] [] = ⟨0, 0, 0, 0⟩ :=
+  rfl
+
+theorem boundsOf_width_nonneg_of_rect {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) (hw : 0 ≤ r.w) :
+    0 ≤ (boundsOf rects pts).right - (boundsOf rects pts).minX := by
+  have := boundsOf_minX_le_right_of_rect (pts := pts) hr hw
+  omega
+
+theorem boundsOf_height_nonneg_of_rect {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) (hh : 0 ≤ r.h) :
+    0 ≤ (boundsOf rects pts).bottom - (boundsOf rects pts).minY := by
+  have := boundsOf_minY_le_bottom_of_rect (pts := pts) hr hh
+  omega
+
+theorem boundsOf_width_nonneg_of_point {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) :
+    0 ≤ (boundsOf rects pts).right - (boundsOf rects pts).minX := by
+  have := boundsOf_minX_le_right_of_point (rects := rects) hp
+  omega
+
+theorem boundsOf_height_nonneg_of_point {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) :
+    0 ≤ (boundsOf rects pts).bottom - (boundsOf rects pts).minY := by
+  have := boundsOf_minY_le_bottom_of_point (rects := rects) hp
+  omega
+
+theorem boundsOf_width_nonneg_of_empty :
+    0 ≤ (boundsOf [] []).right - (boundsOf [] []).minX :=
+  Int.le_refl _
+
+theorem boundsOf_height_nonneg_of_empty :
+    0 ≤ (boundsOf [] []).bottom - (boundsOf [] []).minY :=
+  Int.le_refl _
+
+theorem boundsOf_width_nonneg {rects : List Rect} {pts : List Point}
+    (h : (∃ r ∈ rects, 0 ≤ r.w) ∨ pts ≠ [] ∨ (rects = [] ∧ pts = [])) :
+    0 ≤ (boundsOf rects pts).right - (boundsOf rects pts).minX := by
+  rcases h with ⟨r, hr, hw⟩ | hpts | ⟨rfl, rfl⟩
+  · exact boundsOf_width_nonneg_of_rect hr hw
+  · cases pts with
+    | nil => contradiction
+    | cons p ps => exact boundsOf_width_nonneg_of_point List.mem_cons_self
+  · exact boundsOf_width_nonneg_of_empty
+
+theorem boundsOf_height_nonneg {rects : List Rect} {pts : List Point}
+    (h : (∃ r ∈ rects, 0 ≤ r.h) ∨ pts ≠ [] ∨ (rects = [] ∧ pts = [])) :
+    0 ≤ (boundsOf rects pts).bottom - (boundsOf rects pts).minY := by
+  rcases h with ⟨r, hr, hh⟩ | hpts | ⟨rfl, rfl⟩
+  · exact boundsOf_height_nonneg_of_rect hr hh
+  · cases pts with
+    | nil => contradiction
+    | cons p ps => exact boundsOf_height_nonneg_of_point List.mem_cons_self
+  · exact boundsOf_height_nonneg_of_empty
+
+theorem shiftRect_cursor_bounds (rects : List Rect) (pts : List Point) (r : Rect)
+    (hr : r ∈ rects) (cursor : Int) :
+    cursor ≤ (shiftRect (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) r).x ∧
+    (shiftRect (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) r).x +
+        (shiftRect (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) r).w ≤
+      cursor + ((boundsOf rects pts).right - (boundsOf rects pts).minX) ∧
+    0 ≤ (shiftRect (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) r).y ∧
+    (shiftRect (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) r).y +
+        (shiftRect (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) r).h ≤
+      (boundsOf rects pts).bottom - (boundsOf rects pts).minY := by
+  have hx := boundsOf_minX_le_rect_x rects pts r hr
+  have hrw := rect_right_le_boundsOf_right rects pts r hr
+  have hy := boundsOf_minY_le_rect_y rects pts r hr
+  have hrh := rect_bottom_le_boundsOf_bottom rects pts r hr
+  dsimp only [shiftRect]
+  omega
+
+theorem shiftPoint_cursor_bounds (rects : List Rect) (pts : List Point) (p : Point)
+    (hp : p ∈ pts) (cursor : Int) :
+    cursor ≤ (shiftPoint (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) p).x ∧
+    (shiftPoint (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) p).x ≤
+      cursor + ((boundsOf rects pts).right - (boundsOf rects pts).minX) ∧
+    0 ≤ (shiftPoint (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) p).y ∧
+    (shiftPoint (cursor - (boundsOf rects pts).minX) (0 - (boundsOf rects pts).minY) p).y ≤
+      (boundsOf rects pts).bottom - (boundsOf rects pts).minY := by
+  have hx := boundsOf_minX_le_point_x rects pts p hp
+  have hxr := point_x_le_boundsOf_right rects pts p hp
+  have hy := boundsOf_minY_le_point_y rects pts p hp
+  have hyb := point_y_le_boundsOf_bottom rects pts p hp
+  dsimp only [shiftPoint]
+  omega
+
+theorem shiftRect_origin_bounds (rects : List Rect) (pts : List Point) (r : Rect)
+    (hr : r ∈ rects) :
+    0 ≤ (shiftRect (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) r).x ∧
+    (shiftRect (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) r).x +
+        (shiftRect (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) r).w ≤
+      (boundsOf rects pts).right - (boundsOf rects pts).minX ∧
+    0 ≤ (shiftRect (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) r).y ∧
+    (shiftRect (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) r).y +
+        (shiftRect (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) r).h ≤
+      (boundsOf rects pts).bottom - (boundsOf rects pts).minY := by
+  have hx := boundsOf_minX_le_rect_x rects pts r hr
+  have hrw := rect_right_le_boundsOf_right rects pts r hr
+  have hy := boundsOf_minY_le_rect_y rects pts r hr
+  have hrh := rect_bottom_le_boundsOf_bottom rects pts r hr
+  dsimp only [shiftRect]
+  omega
+
+theorem shiftPoint_origin_bounds (rects : List Rect) (pts : List Point) (p : Point)
+    (hp : p ∈ pts) :
+    0 ≤ (shiftPoint (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) p).x ∧
+    (shiftPoint (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) p).x ≤
+      (boundsOf rects pts).right - (boundsOf rects pts).minX ∧
+    0 ≤ (shiftPoint (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) p).y ∧
+    (shiftPoint (-(boundsOf rects pts).minX) (-(boundsOf rects pts).minY) p).y ≤
+      (boundsOf rects pts).bottom - (boundsOf rects pts).minY := by
+  have hx := boundsOf_minX_le_point_x rects pts p hp
+  have hxr := point_x_le_boundsOf_right rects pts p hp
+  have hy := boundsOf_minY_le_point_y rects pts p hp
+  have hyb := point_y_le_boundsOf_bottom rects pts p hp
+  dsimp only [shiftPoint]
+  omega
+
+theorem placeComponent_rects_bounds (P : Params) (cg : Graph) (run : Run) (cursor : Int)
+    (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement)) :
+    ∀ r' ∈ (placeComponent P cg run cursor labels loops).rects,
+      cursor ≤ r'.x ∧
+      r'.x + r'.w ≤ cursor + (placeComponent P cg run cursor labels loops).width ∧
+      0 ≤ r'.y ∧
+      r'.y + r'.h ≤ (placeComponent P cg run cursor labels loops).height := by
+  intro r' hr'
+  unfold placeComponent at hr' ⊢
+  dsimp only at hr' ⊢
+  obtain ⟨r, hr, rfl⟩ := List.mem_map.mp hr'
+  have hmem : r ∈ ((List.range cg.nodes.length).map (frameRect P cg run) ++
+      ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+        ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+      labelBounds P cg run labels ++
+      (componentTitles P cg run).map (·.2)) :=
+    List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _ hr))
+  exact shiftRect_cursor_bounds _ _ r hmem cursor
+
+theorem placeComponent_titles_bounds (P : Params) (cg : Graph) (run : Run) (cursor : Int)
+    (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement)) :
+    ∀ t' ∈ (placeComponent P cg run cursor labels loops).titles,
+      cursor ≤ t'.2.x ∧
+      t'.2.x + t'.2.w ≤ cursor + (placeComponent P cg run cursor labels loops).width ∧
+      0 ≤ t'.2.y ∧
+      t'.2.y + t'.2.h ≤ (placeComponent P cg run cursor labels loops).height := by
+  intro t' ht'
+  unfold placeComponent at ht' ⊢
+  dsimp only at ht' ⊢
+  obtain ⟨q, hq, rfl⟩ := List.mem_map.mp ht'
+  dsimp only
+  have hmem : q.2 ∈ ((List.range cg.nodes.length).map (frameRect P cg run) ++
+      ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+        ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+      labelBounds P cg run labels ++
+      (componentTitles P cg run).map (·.2)) :=
+    List.mem_append_right _ (List.mem_map_of_mem hq)
+  exact shiftRect_cursor_bounds _ _ q.2 hmem cursor
+
+theorem placeComponent_rects_bounds_zero (P : Params) (cg : Graph) (run : Run)
+    (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement)) :
+    ∀ r' ∈ (placeComponent P cg run 0 labels loops).rects,
+      0 ≤ r'.x ∧
+      r'.x + r'.w ≤ (placeComponent P cg run 0 labels loops).width ∧
+      0 ≤ r'.y ∧
+      r'.y + r'.h ≤ (placeComponent P cg run 0 labels loops).height := by
+  intro r' hr'
+  have h := placeComponent_rects_bounds P cg run 0 labels loops r' hr'
+  omega
+
+theorem placeComponent_titles_bounds_zero (P : Params) (cg : Graph) (run : Run)
+    (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement)) :
+    ∀ t' ∈ (placeComponent P cg run 0 labels loops).titles,
+      0 ≤ t'.2.x ∧
+      t'.2.x + t'.2.w ≤ (placeComponent P cg run 0 labels loops).width ∧
+      0 ≤ t'.2.y ∧
+      t'.2.y + t'.2.h ≤ (placeComponent P cg run 0 labels loops).height := by
+  intro t' ht'
+  have h := placeComponent_titles_bounds P cg run 0 labels loops t' ht'
+  omega
+
+theorem placeComponent_shifted_point_bounds (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (p : Point)
+    (hp : p ∈ run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points)) :
+    cursor ≤ (shiftPoint (cursor - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minX)
+      (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minY) p).x ∧
+    (shiftPoint (cursor - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minX)
+      (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minY) p).x ≤
+      cursor + (placeComponent P cg run cursor labels loops).width ∧
+    0 ≤ (shiftPoint (cursor - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minX)
+      (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minY) p).y ∧
+    (shiftPoint (cursor - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minX)
+      (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minY) p).y ≤
+      (placeComponent P cg run cursor labels loops).height := by
+  have h := shiftPoint_cursor_bounds ((List.range cg.nodes.length).map (frameRect P cg run) ++
+      ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+        ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+      labelBounds P cg run labels ++
+      (componentTitles P cg run).map (·.2))
+    (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points)) p hp cursor
+  unfold placeComponent
+  dsimp only
+  exact h
+
+theorem placeComponent_shifted_point_bounds_zero (P : Params) (cg : Graph) (run : Run)
+    (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (p : Point)
+    (hp : p ∈ run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points)) :
+    0 ≤ (shiftPoint (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minX)
+      (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minY) p).x ∧
+    (shiftPoint (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minX)
+      (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minY) p).x ≤
+      (placeComponent P cg run 0 labels loops).width ∧
+    0 ≤ (shiftPoint (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minX)
+      (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minY) p).y ∧
+    (shiftPoint (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minX)
+      (0 - (boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+          ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+            ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+          labelBounds P cg run labels ++
+          (componentTitles P cg run).map (·.2))
+        (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))).minY) p).y ≤
+      (placeComponent P cg run 0 labels loops).height := by
+  have h := placeComponent_shifted_point_bounds P cg run 0 labels loops p hp
+  omega
+
+theorem placeComponent_width_nonneg_of_nodeIdx (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (v : Nat) (hv : v < cg.nodes.length) (hw : 0 ≤ (frameRect P cg run v).w) :
+    0 ≤ (placeComponent P cg run cursor labels loops).width := by
+  unfold placeComponent
+  dsimp only
+  have h0 : v ∈ List.range cg.nodes.length := List.mem_range.mpr hv
+  have hr : frameRect P cg run v ∈ (List.range cg.nodes.length).map (frameRect P cg run) :=
+    List.mem_map_of_mem h0
+  have hmem : frameRect P cg run v ∈ ((List.range cg.nodes.length).map (frameRect P cg run) ++
+      ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+        ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+      labelBounds P cg run labels ++
+      (componentTitles P cg run).map (·.2)) :=
+    List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _ hr))
+  exact boundsOf_width_nonneg_of_rect hmem hw
+
+theorem placeComponent_height_nonneg_of_nodeIdx (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (v : Nat) (hv : v < cg.nodes.length) (hh : 0 ≤ (frameRect P cg run v).h) :
+    0 ≤ (placeComponent P cg run cursor labels loops).height := by
+  unfold placeComponent
+  dsimp only
+  have h0 : v ∈ List.range cg.nodes.length := List.mem_range.mpr hv
+  have hr : frameRect P cg run v ∈ (List.range cg.nodes.length).map (frameRect P cg run) :=
+    List.mem_map_of_mem h0
+  have hmem : frameRect P cg run v ∈ ((List.range cg.nodes.length).map (frameRect P cg run) ++
+      ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+        ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+      labelBounds P cg run labels ++
+      (componentTitles P cg run).map (·.2)) :=
+    List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _ hr))
+  exact boundsOf_height_nonneg_of_rect hmem hh
+
+theorem placeComponent_width_nonneg_of_node (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (hn : 0 < cg.nodes.length) (hw : 0 ≤ (frameRect P cg run 0).w) :
+    0 ≤ (placeComponent P cg run cursor labels loops).width :=
+  placeComponent_width_nonneg_of_nodeIdx P cg run cursor labels loops 0 hn hw
+
+theorem placeComponent_height_nonneg_of_node (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (hn : 0 < cg.nodes.length) (hh : 0 ≤ (frameRect P cg run 0).h) :
+    0 ≤ (placeComponent P cg run cursor labels loops).height :=
+  placeComponent_height_nonneg_of_nodeIdx P cg run cursor labels loops 0 hn hh
+
+theorem placeComponent_width_nonneg_of_point (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (p : Point)
+    (hp : p ∈ run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points)) :
+    0 ≤ (placeComponent P cg run cursor labels loops).width := by
+  unfold placeComponent
+  dsimp only
+  exact boundsOf_width_nonneg_of_point hp
+
+theorem placeComponent_height_nonneg_of_point (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (p : Point)
+    (hp : p ∈ run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points)) :
+    0 ≤ (placeComponent P cg run cursor labels loops).height := by
+  unfold placeComponent
+  dsimp only
+  exact boundsOf_height_nonneg_of_point hp
+
+/-! ### Producer identity bridge
+
+`componentRun` produces `run.routes` through `RouteImpl.routePointsWithLanes`, which maps
+`RouteImpl.laneRouteOf` over `List.range run.proper.chains.length`. The theorems below
+derive the positional identity of that produced list from the producer expression itself:
+its length, the route at each covered position together with its original index, the
+`edgePoints` positional lookup without the default, and the decl-keyed `placeComponent`
+route entry that consumes the produced points. Coverage of every `cg.edges` index
+(`i < cg.edges.length → i < run.proper.chains.length`) is derived by `componentRun_proper_chains_length`
+via `normalize_chains_length`. -/
+
+theorem zipIdx_getElem? {α : Type} :
+    ∀ (l : List α) (k i : Nat), (l.zipIdx k)[i]? = (l[i]?).map (fun a => (a, k + i))
+  | [], _, _ => rfl
+  | _ :: _, _, 0 => rfl
+  | _ :: _, k, i + 1 => by
+    rw [List.zipIdx_cons, List.getElem?_cons_succ]
+    simpa only [List.getElem?_cons_succ, Nat.add_assoc, Nat.add_comm 1 i] using
+      zipIdx_getElem? _ (k + 1) i
+
+theorem loops_find?_none_of_ne {loops : List (Nat × LoopPlacement)} {d : Nat}
+    (h : ∀ l ∈ loops, l.1 ≠ d) :
+    loops.find? (fun l => l.1 == d) = none := by
+  cases hl : loops.find? (fun l => l.1 == d) with
+  | none => rfl
+  | some l =>
+    have hmem : l ∈ loops := List.mem_of_find?_eq_some hl
+    have hval : l.1 = d := by simpa using List.find?_some hl
+    exact absurd hval (h l hmem)
+
+/-- The placement bounds of `placeComponent`, named so that route-entry statements stay
+readable. This is exactly the `boundsOf` argument that `placeComponent` itself builds. -/
+def placeBounds (P : Params) (cg : Graph) (run : Run) (labels : List MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) : Bounds :=
+  boundsOf ((List.range cg.nodes.length).map (frameRect P cg run) ++
+      ((List.range cg.nodes.length).map (frameRect P cg run)).zipIdx.map (fun q =>
+        ⟨q.1.x + q.1.w, q.1.y, Loops.extent cg.slot (loopSizes cg.edges labels q.2 cg.slot), q.1.h⟩) ++
+      labelBounds P cg run labels ++
+      (componentTitles P cg run).map (·.2))
+    (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))
+
+theorem proxyWidths_chains {p q : Proper} {xs xs' : List Int}
+    (h : proxyWidths p xs = .ok (q, xs')) : q.chains = p.chains := by
+  unfold proxyWidths at h
+  obtain ⟨updated, _, h⟩ := bind_ok h
+  have h := Except.ok.inj h
+  injection h with hq _
+  have hq' : q = { p with nodes := updated.map (·.1) } := hq.symm
+  rw [hq']
+
+theorem coordinateGraph_chains (P : Params) (p : Proper) :
+    (coordinateGraph P p).chains = p.chains := by
+  unfold coordinateGraph materializeDummyPaths clearProxyExtents
+  exact (OrderImpl.addClusterBorders_metadata (titleReservations (sizeProperPorts P p)) P.clusterBorderW).2.1
+
+theorem componentRun_proper_chains_length {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (h : componentRun P cg labels orderOptions = .ok run) :
+    run.proper.chains.length = cg.edges.length := by
+  obtain ⟨ranks, p0, labeled, q0, hn, hlabels, hproper, _, _, hprox, hdrop, _⟩ :=
+    componentRun_spec h
+  have hdropC : run.proper.chains = q0.chains := by
+    rw [← hdrop, OrderImpl.dropSynthetic_chains]
+  have hproxC : q0.chains = run.coordinateProper.chains := proxyWidths_chains hprox
+  have hcoordC : run.coordinateProper.chains = labeled.chains := by
+    rw [← hproper]
+    exact coordinateGraph_chains P labeled
+  obtain ⟨_, _, hlblC, _⟩ := Labels.addLabelNodes_metadata hlabels
+  have hnorm : p0.chains.length = cg.edges.length := normalize_chains_length hn
+  rw [hdropC, hproxC, hcoordC, hlblC, hnorm]
+
+theorem componentRun_routes_length {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (h : componentRun P cg labels orderOptions = .ok run) :
+    run.routes.length = run.proper.chains.length := by
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hroutes⟩ := componentRun_spec h
+  unfold RouteImpl.routePointsWithLanes at hroutes
+  split at hroutes
+  · simp at hroutes
+  · simpa using RouteImpl.mapOk_length _ _ _ hroutes
+
+theorem componentRun_route_of_index {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (h : componentRun P cg labels orderOptions = .ok run) {i : Nat}
+    (hi : i < cg.edges.length) :
+    ∃ rt : EdgeRoute, run.routes[i]? = some rt ∧ rt.original = i ∧
+      RouteImpl.laneRouteOf P.slot run.proper run.ys run.top
+        (run.layers.map (RouteImpl.layerHeight run.proper)) run.lanes i = .ok rt := by
+  have hcov : i < run.proper.chains.length := by
+    rw [componentRun_proper_chains_length h]
+    exact hi
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hroutes⟩ := componentRun_spec h
+  unfold RouteImpl.routePointsWithLanes at hroutes
+  split at hroutes
+  · simp at hroutes
+  · have hrange : i < (List.range run.proper.chains.length).length := by
+      simpa only [List.length_range] using hcov
+    obtain ⟨rt, hget, hok⟩ := RouteImpl.mapOk_getElem _ _ _ hroutes i hrange
+    have hri : (List.range run.proper.chains.length)[i] = i := by simp
+    rw [hri] at hok
+    exact ⟨rt, hget, RouteImpl.laneRouteOf_original hok, hok⟩
+
+theorem componentRun_edgePoints_of_index {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions} {e : Edge}
+    (h : componentRun P cg labels orderOptions = .ok run) {i : Nat}
+    (hi : i < cg.edges.length) :
+    edgePoints run i e = (run.routes[i]'(by
+      rw [componentRun_routes_length h, componentRun_proper_chains_length h]
+      exact hi)).points := by
+  obtain ⟨rt, hget, _, _⟩ := componentRun_route_of_index h hi
+  have hir : i < run.routes.length := (List.getElem?_eq_some_iff.mp hget).1
+  have hrt : run.routes[i]'hir = rt := (List.getElem?_eq_some_iff.mp hget).2
+  simp only [edgePoints, List.getD_eq_getElem?_getD, hget, Option.getD_some, hrt]
+
+theorem placeComponent_route_key_decl (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (i : Nat) (hi : i < cg.edges.length) :
+    ((placeComponent P cg run cursor labels loops).routes[i]?).map (·.1) =
+      some (cg.edges[i]).decl := by
+  unfold placeComponent
+  dsimp only
+  simp only [List.getElem?_map, zipIdx_getElem?, List.getElem?_eq_getElem hi,
+    Option.map_some]
+
+theorem placeComponent_route_points_of_noLoop (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (i : Nat) (hi : i < cg.edges.length)
+    (hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl) :
+    ((placeComponent P cg run cursor labels loops).routes[i]?).map (·.2) =
+      some ((edgePoints run i (cg.edges[i])).map
+        (shiftPoint (cursor - (placeBounds P cg run labels loops).minX)
+          (0 - (placeBounds P cg run labels loops).minY))) := by
+  have hfind := loops_find?_none_of_ne hloop
+  unfold placeComponent placeBounds
+  dsimp only
+  simp only [List.getElem?_map, zipIdx_getElem?, List.getElem?_eq_getElem hi,
+    Option.map_some, hfind, Option.map_none, Option.getD_none, Nat.zero_add]
+
+theorem placeComponent_route_entry_of_producer {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (h : componentRun P cg labels orderOptions = .ok run)
+    (cursor : Int) (loops : List (Nat × LoopPlacement)) (i : Nat)
+    (hi : i < cg.edges.length)
+    (hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl) :
+    (placeComponent P cg run cursor labels loops).routes[i]? =
+      some ((cg.edges[i]).decl,
+        (run.routes[i]'(by
+          rw [componentRun_routes_length h, componentRun_proper_chains_length h]
+          exact hi)).points.map
+          (shiftPoint (cursor - (placeBounds P cg run labels loops).minX)
+            (0 - (placeBounds P cg run labels loops).minY))) := by
+  have hk := placeComponent_route_key_decl P cg run cursor labels loops i hi
+  have hp := placeComponent_route_points_of_noLoop P cg run cursor labels loops i hi hloop
+  cases hri : (placeComponent P cg run cursor labels loops).routes[i]? with
+  | none => rw [hri] at hk; simp at hk
+  | some entry =>
+    obtain ⟨k, pts⟩ := entry
+    have hk' : k = (cg.edges[i]).decl := by
+      simpa only [hri, Option.map_some, Option.some.injEq] using hk
+    have hp' : pts = (edgePoints run i (cg.edges[i])).map
+        (shiftPoint (cursor - (placeBounds P cg run labels loops).minX)
+          (0 - (placeBounds P cg run labels loops).minY)) := by
+      simpa only [hri, Option.map_some, Option.some.injEq] using hp
+    rw [hk', hp', componentRun_edgePoints_of_index h hi]
+
+theorem mem_range'_lt : ∀ {k n x : Nat}, x ∈ List.range' k n → x < k + n
+  | _, 0, _, h => by simp at h
+  | k, n + 1, x, h => by
+    rw [List.range'_succ] at h
+    rcases List.mem_cons.mp h with rfl | hm
+    · omega
+    · have := mem_range'_lt hm
+      omega
+
+theorem graphEdges_edge_decl_lt {inp : Input} {es : List Edge}
+    (h : graphEdges inp = .ok es) {e : Edge} (he : e ∈ es) :
+    e.decl < inp.routes.length := by
+  unfold graphEdges at h
+  have hd := graphEdgesFrom_decls inp inp.routes 0 es h
+  have hmem : e.decl ∈ es.map (·.decl) := List.mem_map_of_mem he
+  rw [hd] at hmem
+  have hlt := mem_range'_lt hmem
+  omega
+
+theorem measuredGraph_edge_decl_lt {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {g0 : Graph}
+    (h : measuredGraph P inp o lines = .ok g0) {e : Edge} (he : e ∈ g0.edges) :
+    e.decl < inp.routes.length := by
+  unfold measuredGraph at h
+  obtain ⟨_, _, h⟩ := bind_ok h
+  obtain ⟨edges, he_edges, h⟩ := bind_ok h
+  obtain ⟨_, _, h⟩ := bind_ok h
+  obtain ⟨_, _, h⟩ := bind_ok h
+  obtain ⟨_, _, h⟩ := bind_ok h
+  have h := Except.ok.inj h
+  subst h
+  unfold Compound.prepare at he
+  dsimp only at he
+  obtain ⟨orig, horig, rfl⟩ := List.mem_map.mp he
+  rw [Compound.aliasEdge_decl]
+  exact graphEdges_edge_decl_lt he_edges horig
+
+theorem componentGraph_edge_decl_lt (g : Graph) (comp : List Nat) {N : Nat}
+    (hlt : ∀ e ∈ g.edges, e.decl < N) {e : Edge}
+    (he : e ∈ (componentGraph g comp).edges) : e.decl < N := by
+  unfold componentGraph at he
+  dsimp only at he
+  obtain ⟨orig, horig, rfl⟩ := List.mem_map.mp he
+  simp only [List.mem_filter] at horig
+  exact hlt orig horig.1
+
+theorem componentCandidate_edge_decl_lt (g : Graph) (comp : List Nat) (index : Nat) {N : Nat}
+    (hlt : ∀ e ∈ g.edges, e.decl < N) {e : Edge}
+    (he : e ∈ (componentCandidate g comp index).edges) : e.decl < N := by
+  have hd : (componentCandidate g comp index).edges.map (·.decl) =
+      (componentGraph g comp).edges.map (·.decl) :=
+    componentCandidate_decls g comp index
+  have hmem : e.decl ∈ (componentCandidate g comp index).edges.map (·.decl) :=
+    List.mem_map_of_mem he
+  rw [hd] at hmem
+  obtain ⟨e', he', he_decl⟩ := List.mem_map.mp hmem
+  rw [← he_decl]
+  exact componentGraph_edge_decl_lt g comp hlt he'
+
+theorem componentCandidate_edge_index_decl_lt {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {g0 : Graph}
+    (hg0 : measuredGraph P inp o lines = .ok g0)
+    (comp : List Nat) (index : Nat) {i : Nat}
+    (hi : i < (componentCandidate g0 comp index).edges.length) :
+    ((componentCandidate g0 comp index).edges[i]).decl < inp.routes.length := by
+  have he : (componentCandidate g0 comp index).edges[i] ∈ (componentCandidate g0 comp index).edges :=
+    List.getElem_mem hi
+  exact componentCandidate_edge_decl_lt g0 comp index (fun e he => measuredGraph_edge_decl_lt hg0 he) he
+
+theorem routes_foldl_size {α β : Type} (f : β → α) (entries : List (Nat × β)) (a : Array α) :
+    (entries.foldl (fun arr q => arr.set! q.1 (f q.2)) a).size = a.size := by
+  induction entries generalizing a with
+  | nil => rfl
+  | cons q rest ih =>
+    simp only [List.foldl_cons]
+    rw [ih (a.set! q.1 (f q.2))]
+    rw [Array.set!_eq_setIfInBounds, Array.size_setIfInBounds]
+
+theorem routes_foldl_getD_ne {α β : Type} (f : β → α) (entries : List (Nat × β)) (a : Array α)
+    (k : Nat) (d : α) (hk : k ∉ entries.map (·.1)) :
+    (entries.foldl (fun arr q => arr.set! q.1 (f q.2)) a).getD k d = a.getD k d := by
+  induction entries generalizing a with
+  | nil => rfl
+  | cons q rest ih =>
+    simp only [List.foldl_cons]
+    have hne : k ≠ q.1 := by
+      intro h
+      subst h
+      exact hk List.mem_cons_self
+    have hrest : k ∉ rest.map (·.1) := by
+      intro h
+      exact hk (List.mem_cons_of_mem _ h)
+    rw [ih (a.set! q.1 (f q.2)) hrest]
+    rw [RankImpl.getD_set!]
+    have hcond : ¬ (q.1 = k ∧ q.1 < a.size) := fun h => hne h.1.symm
+    simp only [hcond, ite_false]
+
+theorem routes_foldl_getD_mem {α β : Type} (f : β → α) (entries : List (Nat × β)) (a : Array α)
+    (i : Nat) (k : Nat) (v : β) (d : α)
+    (hget : entries[i]? = some (k, v))
+    (hnodup : (entries.map (·.1)).Nodup)
+    (hsize : k < a.size) :
+    (entries.foldl (fun arr q => arr.set! q.1 (f q.2)) a).getD k d = f v := by
+  induction entries generalizing a i with
+  | nil => simp at hget
+  | cons q rest ih =>
+    simp only [List.foldl_cons]
+    simp only [List.map_cons, List.nodup_cons] at hnodup
+    cases i with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hget
+      subst hget
+      have hnot : k ∉ rest.map (·.1) := hnodup.1
+      rw [routes_foldl_getD_ne f rest (a.set! k (f v)) k d hnot]
+      rw [RankImpl.getD_set!]
+      simp [hsize]
+    | succ j =>
+      simp only [List.getElem?_cons_succ] at hget
+      have hsize' : k < (a.set! q.1 (f q.2)).size := by
+        rw [Array.set!_eq_setIfInBounds, Array.size_setIfInBounds]
+        exact hsize
+      exact ih (a.set! q.1 (f q.2)) j hget hnodup.2 hsize'
+
+theorem placeComponent_routes_length (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement)) :
+    (placeComponent P cg run cursor labels loops).routes.length = cg.edges.length := by
+  unfold placeComponent
+  dsimp only
+  simp only [List.length_map, List.length_zipIdx]
+
+theorem placeComponent_routes_decls (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement)) :
+    (placeComponent P cg run cursor labels loops).routes.map (·.1) = cg.edges.map (·.decl) := by
+  unfold placeComponent
+  dsimp only
+  rw [List.map_map]
+  exact zipIdx_map_comp (·.decl) cg.edges 0
+
+theorem placeComponent_routes_decls_nodup (P : Params) (cg : Graph) (run : Run)
+    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
+    (hnd : (cg.edges.map (·.decl)).Nodup) :
+    ((placeComponent P cg run cursor labels loops).routes.map (·.1)).Nodup := by
+  rw [placeComponent_routes_decls]
+  exact hnd
+
+theorem placePart_routes_size {comp : List Nat} {cg : Graph} {run : Run}
+    {P : Params} {acc res : Acc} {labels : List MeasuredLabel}
+    (hplace : placePart comp cg run P acc labels = .ok res) :
+    res.routes.size = acc.routes.size := by
+  unfold placePart at hplace
+  dsimp only at hplace
+  obtain ⟨loops, _, hplace⟩ := bind_ok hplace
+  split at hplace
+  · simp at hplace
+  · have hres := Except.ok.inj hplace
+    subst hres
+    dsimp only
+    exact routes_foldl_size id _ acc.routes
+
+theorem placePart_routes_getD {comp : List Nat} {cg : Graph} {run : Run}
+    {P : Params} {acc res : Acc} {labels : List MeasuredLabel}
+    {loops : List (Nat × LoopPlacement)}
+    (hplace : placePart comp cg run P acc labels = .ok res)
+    (hloops : componentLoops P cg run labels = .ok loops)
+    (i : Nat) (k : Nat) (pts : List Point) (d : List Point)
+    (hget : (placeComponent P cg run 0 labels loops).routes[i]? = some (k, pts))
+    (hnd : (cg.edges.map (·.decl)).Nodup)
+    (hsize : k < acc.routes.size) :
+    res.routes.getD k d = pts := by
+  unfold placePart at hplace
+  dsimp only at hplace
+  obtain ⟨loops', hl', hplace⟩ := bind_ok hplace
+  have heq_loops : loops' = loops := by
+    rw [hloops] at hl'
+    exact (Except.ok.inj hl').symm
+  subst loops'
+  split at hplace
+  · simp at hplace
+  · have hres := Except.ok.inj hplace
+    subst hres
+    dsimp only
+    have hnd_routes := placeComponent_routes_decls_nodup P cg run 0 labels loops hnd
+    have hget_id : (placeComponent P cg run 0 labels loops).routes[i]? = some (k, id pts) := hget
+    exact routes_foldl_getD_mem id (placeComponent P cg run 0 labels loops).routes acc.routes i k pts d hget_id hnd_routes hsize
+
+theorem placePart_route_points_of_producer {comp : List Nat} {cg : Graph} {run : Run}
+    {P : Params} {acc res : Acc} {labels : List MeasuredLabel}
+    {orderOptions : OrderOptions} {loops : List (Nat × LoopPlacement)}
+    (hplace : placePart comp cg run P acc labels = .ok res)
+    (hloops : componentLoops P cg run labels = .ok loops)
+    (hrun : componentRun P cg labels orderOptions = .ok run)
+    (hnd : (cg.edges.map (·.decl)).Nodup)
+    {i : Nat} (hi : i < cg.edges.length)
+    (hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl)
+    (hsize : (cg.edges[i]).decl < acc.routes.size)
+    (d : List Point) :
+    res.routes.getD (cg.edges[i]).decl d =
+      (run.routes[i]'(by
+        rw [componentRun_routes_length hrun, componentRun_proper_chains_length hrun]
+        exact hi)).points.map
+        (shiftPoint (0 - (placeBounds P cg run labels loops).minX)
+          (0 - (placeBounds P cg run labels loops).minY)) := by
+  have hget := placeComponent_route_entry_of_producer hrun 0 loops i hi hloop
+  exact placePart_routes_getD hplace hloops i (cg.edges[i]).decl _ d hget hnd hsize
+
+theorem packAcc_routes_eq_foldl (pairs : List ((List Nat × Part) × Rect)) (init : Acc) :
+    (pairs.foldl (fun out q =>
+      let comp := q.1.1
+      let part := q.1.2
+      let dx := q.2.x
+      let dy := q.2.y
+      { out with
+        rects := (comp.zip part.rects).foldl
+          (fun a r => if r.1 < a.size then a.set! r.1 (shiftRect dx dy r.2) else a) out.rects
+        routes := part.routes.foldl
+          (fun a r => a.set! r.1 (r.2.map (shiftPoint dx dy))) out.routes
+        labels := part.labels.foldl
+          (fun a r => a.set! r.1 (shiftRect dx dy r.2)) out.labels
+        titles := out.titles ++ part.titles.map
+          (fun r => (comp.getD r.1 0, shiftRect dx dy r.2)) }) init).routes =
+    pairs.foldl (fun arr q => q.1.2.routes.foldl
+      (fun a r => a.set! r.1 (r.2.map (shiftPoint q.2.x q.2.y))) arr) init.routes := by
+  induction pairs generalizing init with
+  | nil => rfl
+  | cons q pairs ih =>
+    simp only [List.foldl_cons]
+    rw [ih]
+
+theorem packRoutes_foldl_size (pairs : List ((List Nat × Part) × Rect)) (arr : Array (List Point)) :
+    (pairs.foldl (fun arr q => q.1.2.routes.foldl
+      (fun a r => a.set! r.1 (r.2.map (shiftPoint q.2.x q.2.y))) arr) arr).size = arr.size := by
+  induction pairs generalizing arr with
+  | nil => rfl
+  | cons q pairs ih =>
+    simp only [List.foldl_cons]
+    rw [ih]
+    exact routes_foldl_size (fun r2 => r2.map (shiftPoint q.2.x q.2.y)) q.1.2.routes arr
+
+theorem packRoutes_foldl_getD_ne (pairs : List ((List Nat × Part) × Rect)) (arr : Array (List Point))
+    (k : Nat) (d : List Point)
+    (hnot : ∀ q ∈ pairs, k ∉ q.1.2.routes.map (·.1)) :
+    (pairs.foldl (fun arr q => q.1.2.routes.foldl
+      (fun a r => a.set! r.1 (r.2.map (shiftPoint q.2.x q.2.y))) arr) arr).getD k d = arr.getD k d := by
+  induction pairs generalizing arr with
+  | nil => rfl
+  | cons q pairs ih =>
+    simp only [List.foldl_cons]
+    have hq_not : k ∉ q.1.2.routes.map (·.1) := hnot q List.mem_cons_self
+    have hrest_not : ∀ q' ∈ pairs, k ∉ q'.1.2.routes.map (·.1) :=
+      fun q' hq' => hnot q' (List.mem_cons_of_mem _ hq')
+    rw [ih _ hrest_not]
+    exact routes_foldl_getD_ne (fun r2 => r2.map (shiftPoint q.2.x q.2.y)) q.1.2.routes arr k d hq_not
+
+theorem packRoutes_foldl_getD_mem (pairs : List ((List Nat × Part) × Rect)) (arr : Array (List Point))
+    (c : Nat) (q : (List Nat × Part) × Rect)
+    (hget_pair : pairs[c]? = some q)
+    (i : Nat) (k : Nat) (pts : List Point) (d : List Point)
+    (hget_route : q.1.2.routes[i]? = some (k, pts))
+    (hnodup : (q.1.2.routes.map (·.1)).Nodup)
+    (hsize : k < arr.size)
+    (hnot_after : ∀ q' ∈ pairs.drop (c + 1), k ∉ q'.1.2.routes.map (·.1)) :
+    (pairs.foldl (fun arr q => q.1.2.routes.foldl
+      (fun a r => a.set! r.1 (r.2.map (shiftPoint q.2.x q.2.y))) arr) arr).getD k d =
+      pts.map (shiftPoint q.2.x q.2.y) := by
+  induction pairs generalizing arr c with
+  | nil => simp at hget_pair
+  | cons p rest ih =>
+    simp only [List.foldl_cons]
+    cases c with
+    | zero =>
+      simp only [List.getElem?_cons_zero, Option.some.injEq] at hget_pair
+      subst p
+      simp only [List.drop_succ_cons, List.drop_zero] at hnot_after
+      rw [packRoutes_foldl_getD_ne rest _ k d hnot_after]
+      exact routes_foldl_getD_mem (fun r2 => r2.map (shiftPoint q.2.x q.2.y))
+        q.1.2.routes arr i k pts d hget_route hnodup hsize
+    | succ c' =>
+      simp only [List.getElem?_cons_succ] at hget_pair
+      simp only [List.drop_succ_cons] at hnot_after
+      have hsize' : k < (p.1.2.routes.foldl (fun a r => a.set! r.1 (r.2.map (shiftPoint p.2.x p.2.y))) arr).size := by
+        rw [routes_foldl_size]
+        exact hsize
+      exact ih _ c' hget_pair hsize' hnot_after
+
+theorem packAcc_routes_size {P : Params} {o : Options} {acc out : Acc}
+    (hpack : packAcc P o acc = .ok out) :
+    out.routes.size = acc.routes.size := by
+  unfold packAcc at hpack
+  obtain ⟨packed, _, hpack⟩ := bind_ok hpack
+  have h := Except.ok.inj hpack
+  subst h
+  rw [packAcc_routes_eq_foldl]
+  dsimp only
+  exact packRoutes_foldl_size _ _
+
+theorem packAcc_routes_getD {P : Params} {o : Options} {acc out : Acc}
+    (hpack : packAcc P o acc = .ok out)
+    (packed : Pack.State)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (acc.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed)
+    (c : Nat) (q : (List Nat × Part) × Rect)
+    (hget_pair : (acc.parts.zip packed.boxes)[c]? = some q)
+    (i : Nat) (k : Nat) (pts : List Point) (d : List Point)
+    (hget_route : q.1.2.routes[i]? = some (k, pts))
+    (hnodup : (q.1.2.routes.map (·.1)).Nodup)
+    (hsize : k < acc.routes.size)
+    (hnot_after : ∀ q' ∈ (acc.parts.zip packed.boxes).drop (c + 1), k ∉ q'.1.2.routes.map (·.1)) :
+    out.routes.getD k d = pts.map (shiftPoint q.2.x q.2.y) := by
+  unfold packAcc at hpack
+  obtain ⟨packed', hp', hpack⟩ := bind_ok hpack
+  have heq : packed' = packed := by
+    rw [hpacked] at hp'
+    exact (Except.ok.inj hp').symm
+  subst packed'
+  have h := Except.ok.inj hpack
+  subst h
+  rw [packAcc_routes_eq_foldl]
+  dsimp only
+  exact packRoutes_foldl_getD_mem (acc.parts.zip packed.boxes) acc.routes c q hget_pair i k pts d hget_route hnodup hsize hnot_after
+
+theorem packAcc_routes_getD_single {P : Params} {o : Options} {acc out : Acc}
+    (hpack : packAcc P o acc = .ok out)
+    (packed : Pack.State)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (acc.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed)
+    (q : (List Nat × Part) × Rect)
+    (hpairs : acc.parts.zip packed.boxes = [q])
+    (i : Nat) (k : Nat) (pts : List Point) (d : List Point)
+    (hget_route : q.1.2.routes[i]? = some (k, pts))
+    (hnodup : (q.1.2.routes.map (·.1)).Nodup)
+    (hsize : k < acc.routes.size) :
+    out.routes.getD k d = pts.map (shiftPoint q.2.x q.2.y) := by
+  have hget : (acc.parts.zip packed.boxes)[0]? = some q := by rw [hpairs]; rfl
+  have hnot : ∀ q' ∈ (acc.parts.zip packed.boxes).drop 1, k ∉ q'.1.2.routes.map (·.1) := by
+    rw [hpairs]
+    intro q' hq'
+    simp at hq'
+  exact packAcc_routes_getD hpack packed hpacked 0 q hget i k pts d hget_route hnodup hsize hnot
+
+def routePointTransport (margin : Int) (d : Direction) (h : Int) (boxX boxY minX minY : Int) (p : Point) : Point :=
+  shiftPoint margin margin (orientPoint d h (shiftPoint (boxX - minX) (boxY - minY) p))
+
+theorem routePointTransport_eq (margin : Int) (d : Direction) (h : Int) (boxX boxY minX minY : Int) (pts : List Point) :
+    ((pts.map (shiftPoint (0 - minX) (0 - minY))).map (shiftPoint boxX boxY)).map
+      (fun p => shiftPoint margin margin (orientPoint d h p)) =
+    pts.map (routePointTransport margin d h boxX boxY minX minY) := by
+  simp only [List.map_map]
+  congr 1
+  funext p
+  have hs : shiftPoint boxX boxY (shiftPoint (0 - minX) (0 - minY) p) =
+      shiftPoint (boxX - minX) (boxY - minY) p := by
+    cases p
+    simp only [shiftPoint, Point.mk.injEq]
+    constructor <;> omega
+  exact congrArg (fun q => shiftPoint margin margin (orientPoint d h q)) hs
+
+theorem sceneOf_routes_length (P : Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : Acc) (measured : List MeasuredLabel) :
+    (sceneOf P inp o lines acc measured).routes.length = inp.routes.length := by
+  unfold sceneOf
+  dsimp only
+  simp only [List.length_map, List.length_zipIdx]
+
+theorem sceneOf_routes_getElem? (P : Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : Acc) (measured : List MeasuredLabel)
+    (k : Nat) (hk : k < inp.routes.length) :
+    (sceneOf P inp o lines acc measured).routes[k]? =
+      some ⟨(inp.routes[k]).id, (inp.routes[k]).fromId, (inp.routes[k]).toId, (inp.routes[k]).orthogonal,
+        (acc.routes.getD k []).map (fun p =>
+          shiftPoint P.canvasMargin
+            P.canvasMargin
+            (orientPoint o.direction acc.canvasH p))⟩ := by
+  unfold sceneOf
+  dsimp only
+  simp only [List.getElem?_map, zipIdx_getElem?, List.getElem?_eq_getElem hk,
+    Option.map_some, Nat.zero_add]
+
+theorem sceneOf_route_id (P : Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : Acc) (measured : List MeasuredLabel)
+    (k : Nat) (hk : k < inp.routes.length) :
+    ((sceneOf P inp o lines acc measured).routes[k]?).map (·.id) =
+      some (inp.routes[k]).id := by
+  rw [sceneOf_routes_getElem? P inp o lines acc measured k hk]
+  rfl
+
+theorem sceneOf_route_points (P : Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : Acc) (measured : List MeasuredLabel)
+    (k : Nat) (hk : k < inp.routes.length) :
+    ((sceneOf P inp o lines acc measured).routes[k]?).map (·.points) =
+      some ((acc.routes.getD k []).map (fun p =>
+        shiftPoint P.canvasMargin
+          P.canvasMargin
+          (orientPoint o.direction acc.canvasH p))) := by
+  rw [sceneOf_routes_getElem? P inp o lines acc measured k hk]
+  rfl
+
+theorem sceneOf_routes_ids (P : Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : Acc) (measured : List MeasuredLabel) :
+    (sceneOf P inp o lines acc measured).routes.map (·.id) = inp.routes.map (·.id) := by
+  unfold sceneOf
+  dsimp only
+  rw [List.map_map]
+  exact zipIdx_map_comp (·.id) inp.routes 0
+
+theorem sceneOf_route_of_pack (P : Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (out : Acc) (measured : List MeasuredLabel)
+    (k : Nat) (hk : k < inp.routes.length)
+    (pts : List Point)
+    (hroutes : out.routes.getD k [] = pts) :
+    (sceneOf P inp o lines out measured).routes[k]? =
+      some ⟨(inp.routes[k]).id, (inp.routes[k]).fromId, (inp.routes[k]).toId, (inp.routes[k]).orthogonal,
+        pts.map (fun p =>
+          shiftPoint P.canvasMargin
+            P.canvasMargin
+            (orientPoint o.direction out.canvasH p))⟩ := by
+  rw [sceneOf_routes_getElem? P inp o lines out measured k hk, hroutes]
+
+theorem sceneOf_route_entry_of_producer {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    {loops : List (Nat × LoopPlacement)}
+    (hrun : componentRun P cg labels orderOptions = .ok run)
+    (i : Nat) (hi : i < cg.edges.length)
+    (_hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl)
+    (out : Acc) (measured : List MeasuredLabel)
+    (b : Bounds) (hb : b = placeBounds P cg run labels loops)
+    (box : Rect)
+    (hroutes : out.routes.getD (cg.edges[i]).decl [] =
+      ((run.routes[i]'(by
+        rw [componentRun_routes_length hrun, componentRun_proper_chains_length hrun]
+        exact hi)).points.map
+        (shiftPoint (0 - b.minX) (0 - b.minY))).map (shiftPoint box.x box.y))
+    (hk : (cg.edges[i]).decl < inp.routes.length) :
+    let margin := P.canvasMargin
+    (sceneOf P inp o lines out measured).routes[(cg.edges[i]).decl]? =
+      some ⟨(inp.routes[(cg.edges[i]).decl]).id,
+        (inp.routes[(cg.edges[i]).decl]).fromId,
+        (inp.routes[(cg.edges[i]).decl]).toId,
+        (inp.routes[(cg.edges[i]).decl]).orthogonal,
+        (run.routes[i]'(by
+          rw [componentRun_routes_length hrun, componentRun_proper_chains_length hrun]
+          exact hi)).points.map
+          (routePointTransport margin o.direction out.canvasH box.x box.y b.minX b.minY)⟩ := by
+  have hscene := sceneOf_routes_getElem? P inp o lines out measured (cg.edges[i]).decl hk
+  rw [hscene]
+  dsimp only
+  rw [hroutes, hb]
+  rw [routePointTransport_eq]
+
+theorem sceneOf_route_entry_of_single_part {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {comp : List Nat} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    {loops : List (Nat × LoopPlacement)}
+    {acc out : Acc} (packed : Pack.State)
+    (box : Rect)
+    (hpack : packAcc P o acc = .ok out)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (acc.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed)
+    (part : Part)
+    (hpairs : acc.parts.zip packed.boxes = [((comp, part), box)])
+    (hpart_routes : part.routes = (placeComponent P cg run 0 labels loops).routes)
+    (hrun : componentRun P cg labels orderOptions = .ok run)
+    (hnd : (cg.edges.map (·.decl)).Nodup)
+    (i : Nat) (hi : i < cg.edges.length)
+    (hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl)
+    (hsize : (cg.edges[i]).decl < acc.routes.size)
+    (hk : (cg.edges[i]).decl < inp.routes.length)
+    (measured : List MeasuredLabel) :
+    let margin := P.canvasMargin
+    let b := placeBounds P cg run labels loops
+    (sceneOf P inp o lines out measured).routes[(cg.edges[i]).decl]? =
+      some ⟨(inp.routes[(cg.edges[i]).decl]).id,
+        (inp.routes[(cg.edges[i]).decl]).fromId,
+        (inp.routes[(cg.edges[i]).decl]).toId,
+        (inp.routes[(cg.edges[i]).decl]).orthogonal,
+        (run.routes[i]'(by
+          rw [componentRun_routes_length hrun, componentRun_proper_chains_length hrun]
+          exact hi)).points.map
+          (routePointTransport margin o.direction out.canvasH box.x box.y b.minX b.minY)⟩ := by
+  have hget_entry := placeComponent_route_entry_of_producer hrun 0 loops i hi hloop
+  rw [← hpart_routes] at hget_entry
+  have hnd_part : (part.routes.map (·.1)).Nodup := by
+    rw [hpart_routes]
+    exact placeComponent_routes_decls_nodup P cg run 0 labels loops hnd
+  have hget_out := packAcc_routes_getD_single hpack packed hpacked ((comp, part), box)
+    hpairs i (cg.edges[i]).decl _ [] hget_entry hnd_part hsize
+  exact sceneOf_route_entry_of_producer hrun i hi hloop out measured (placeBounds P cg run labels loops) rfl box hget_out hk
+
+/-! ### Actual components: partition, noninterference, and declaration ownership
+
+`components g` partitions the node indices by the union-find labels of
+`labelsFix (g.edges ++ Compound.constraints g)`; `componentGraph g comp` filters `g.edges` by
+tail membership only, so every candidate edge of `comp` is an original edge whose tail lies in
+`comp`. These facts give cross-component route-key ownership from the declaration `Nodup` of
+`measuredGraph`, without assuming label convergence, output lookup, or singleton components. -/
+
+/-- The union-find label array `components` builds, stated once so every component fact reuses
+the runtime label expression instead of restating the fixpoint. -/
+def componentLab (g : Graph) : Array Nat :=
+  labelsFix (g.edges ++ Compound.constraints g) (g.nodes.length + 1) (Array.range g.nodes.length)
+
+theorem components_eq (g : Graph) :
+    components g =
+      ((List.range g.nodes.length).filter (fun v => (componentLab g)[v]! == v)).map
+        (fun r => (List.range g.nodes.length).filter (fun v => (componentLab g)[v]! == r)) := by
+  unfold components componentLab
+  rfl
+
+theorem mem_componentRoots {g : Graph} {r : Nat} :
+    r ∈ (List.range g.nodes.length).filter (fun v => (componentLab g)[v]! == v) ↔
+      r < g.nodes.length ∧ (componentLab g)[r]! = r := by
+  rw [List.mem_filter, List.mem_range]
+  simp
+
+theorem mem_componentOf {g : Graph} {r v : Nat} :
+    v ∈ (List.range g.nodes.length).filter (fun w => (componentLab g)[w]! == r) ↔
+      v < g.nodes.length ∧ (componentLab g)[v]! = r := by
+  rw [List.mem_filter, List.mem_range]
+  simp
+
+theorem mem_components_eq {g : Graph} {comp : List Nat} (hcomp : comp ∈ components g) :
+    ∃ r, comp = (List.range g.nodes.length).filter (fun w => (componentLab g)[w]! == r) := by
+  unfold components at hcomp
+  obtain ⟨r, _, rfl⟩ := List.mem_map.mp hcomp
+  exact ⟨r, rfl⟩
+
+theorem nodup_map_eq_of_mem {α : Type} {f : α → Nat} {l : List α}
+    (hn : (l.map f).Nodup) {x y : α} (hx : x ∈ l) (hy : y ∈ l) (h : f x = f y) : x = y := by
+  obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hx
+  obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hy
+  have hij := nodup_map_inj f hn hi hj h
+  subst hij
+  rw [hi] at hj
+  exact Option.some.inj hj
+
+theorem components_entries_nodup (g : Graph) : (components g).Nodup := by
+  rw [components_eq g, List.nodup_iff_pairwise_ne, List.pairwise_map]
+  refine List.Pairwise.imp_of_mem ?_
+    (List.Pairwise.sublist List.filter_sublist List.nodup_range)
+  intro a b ha hb hne hcon
+  obtain ⟨ha1, ha2⟩ := (mem_componentRoots (g := g)).mp ha
+  have hmem_fa : a ∈ (List.range g.nodes.length).filter (fun v => (componentLab g)[v]! == a) :=
+    (mem_componentOf).mpr ⟨ha1, ha2⟩
+  rw [hcon] at hmem_fa
+  exact hne (ha2.symm.trans ((mem_componentOf).mp hmem_fa).2)
+
+theorem components_shared_member_eq {g : Graph} {a b : List Nat}
+    (ha : a ∈ components g) (hb : b ∈ components g) {v : Nat} (hva : v ∈ a) (hvb : v ∈ b) :
+    a = b := by
+  obtain ⟨r, rfl⟩ := mem_components_eq ha
+  obtain ⟨s, rfl⟩ := mem_components_eq hb
+  have hr : (componentLab g)[v]! = r := ((mem_componentOf).mp hva).2
+  have hs : (componentLab g)[v]! = s := ((mem_componentOf).mp hvb).2
+  have hrs : r = s := hr.symm.trans hs
+  subst hrs
+  rfl
+
+theorem components_disjoint {g : Graph} {a b : List Nat} (ha : a ∈ components g)
+    (hb : b ∈ components g) (hne : a ≠ b) {v : Nat} (hv : v ∈ a) : v ∉ b := by
+  intro hvb
+  obtain ⟨r, rfl⟩ := mem_components_eq ha
+  obtain ⟨s, rfl⟩ := mem_components_eq hb
+  have hr : (componentLab g)[v]! = r := ((mem_componentOf).mp hv).2
+  have hs : (componentLab g)[v]! = s := ((mem_componentOf).mp hvb).2
+  have hrs : r = s := hr.symm.trans hs
+  subst hrs
+  exact hne rfl
+
+theorem componentGraph_edge_decl (e : Edge) (t h : Nat) :
+    ({ e with tail := t, head := h }).decl = e.decl := rfl
+
+/-- Composition of `componentCandidate_decls` and `componentGraph_decls_nodup`. -/
+theorem componentCandidate_decls_nodup (g : Graph) (comp : List Nat) (index : Nat)
+    (h : (g.edges.map (·.decl)).Nodup) :
+    ((componentCandidate g comp index).edges.map (·.decl)).Nodup := by
+  rw [componentCandidate_decls]
+  exact componentGraph_decls_nodup _ _ h
+
+/-- Declaration ownership: an original `g.edges` entry whose tail lies in `comp` carries
+declaration `d`. -/
+def ownsDecl (g : Graph) (comp : List Nat) (d : Nat) : Prop :=
+  ∃ e ∈ g.edges, e.tail ∈ comp ∧ e.decl = d
+
+/-- Every candidate edge of an actual filter component owns its declaration: derived from the
+decl-list equality of `componentCandidate_decls` and the tail filter of `componentGraph`. -/
+theorem componentCandidate_edge_owns {g : Graph} {comp : List Nat} {index : Nat} {e : Edge}
+    (he : e ∈ (componentCandidate g comp index).edges) : ownsDecl g comp e.decl := by
+  have hd : (componentCandidate g comp index).edges.map (·.decl) =
+      (componentGraph g comp).edges.map (·.decl) := componentCandidate_decls g comp index
+  have hmem : e.decl ∈ (componentGraph g comp).edges.map (·.decl) := by
+    rw [← hd]
+    exact List.mem_map_of_mem he
+  unfold componentGraph at hmem
+  dsimp only at hmem
+  obtain ⟨x, hxmem, hxdecl⟩ := List.mem_map.mp hmem
+  obtain ⟨e', he'ge, hfx⟩ := List.mem_map.mp hxmem
+  subst hfx
+  dsimp only at hxdecl
+  obtain ⟨he'ge, htail⟩ := List.mem_filter.mp he'ge
+  exact ⟨e', he'ge, List.contains_iff_mem.mp htail, hxdecl⟩
+
+/-- Ownership uniqueness across actual components: the declaring edge is pinned by declaration
+`Nodup`, and its tail then pins the component. -/
+theorem ownsDecl_unique {g : Graph} {a b : List Nat} {d : Nat}
+    (hnd : (g.edges.map (·.decl)).Nodup)
+    (ha : a ∈ components g) (hb : b ∈ components g)
+    (h1 : ownsDecl g a d) (h2 : ownsDecl g b d) : a = b := by
+  unfold ownsDecl at h1 h2
+  obtain ⟨e1, he1, ht1, hd1⟩ := h1
+  obtain ⟨e2, he2, ht2, hd2⟩ := h2
+  have hsame : e1 = e2 := nodup_map_eq_of_mem hnd he1 he2 (hd1.trans hd2.symm)
+  subst hsame
+  exact components_shared_member_eq ha hb ht1 ht2
+
+/-- Route-key noninterference: distinct actual components never share a declaration owner. -/
+theorem components_ownsDecl_disjoint {g : Graph} {a b : List Nat} {d : Nat}
+    (hnd : (g.edges.map (·.decl)).Nodup)
+    (ha : a ∈ components g) (hb : b ∈ components g) (hne : a ≠ b)
+    (h1 : ownsDecl g a d) : ¬ ownsDecl g b d := by
+  intro h2
+  exact hne (ownsDecl_unique hnd ha hb h1 h2)
+
+/-- The composition instantiated at `measuredGraph` success. -/
+theorem componentCandidate_decls_nodup_of_measuredGraph {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {g0 : Graph}
+    (h : measuredGraph P inp o lines = .ok g0) (comp : List Nat) (index : Nat) :
+    ((componentCandidate g0 comp index).edges.map (·.decl)).Nodup :=
+  componentCandidate_decls_nodup g0 comp index (measuredGraph_decls_nodup h)
+
+def ActualPart (P : Params) (inp : Input) (o : Options) (g : Graph)
+    (labels : List MeasuredLabel) (q : List Nat × Part) : Prop :=
+  ∃ index chosen run loops,
+    index < 5 ∧
+    Portfolio.portfolio o.thoroughness (componentTrial P inp o g q.1 labels) = .ok chosen ∧
+    chosen.value = (componentCandidate g q.1 index, run) ∧
+    componentRun P (componentCandidate g q.1 index) labels (candidateOrder index) = .ok run ∧
+    componentLoops P (componentCandidate g q.1 index) run labels = .ok loops ∧
+    q.2.routes = (placeComponent P (componentCandidate g q.1 index) run 0 labels loops).routes
+
+theorem placePart_parts {comp : List Nat} {cg : Graph} {run : Run}
+    {P : Params} {acc out : Acc} {labels : List MeasuredLabel}
+    (h : placePart comp cg run P acc labels = .ok out) :
+    ∃ loops part, componentLoops P cg run labels = .ok loops ∧
+      out.parts = acc.parts ++ [(comp, part)] ∧
+      part.routes = (placeComponent P cg run 0 labels loops).routes := by
+  unfold placePart at h
+  obtain ⟨loops, hl, h⟩ := bind_ok h
+  dsimp only at h
+  split at h
+  · simp at h
+  · have he := Except.ok.inj h
+    subst out
+    exact ⟨loops, _, hl, rfl, rfl⟩
+
+theorem layoutComponent_parts {P : Params} {inp : Input} {o : Options} {g : Graph}
+    {acc out : Acc} {comp : List Nat} {labels : List MeasuredLabel}
+    (h : layoutComponent P inp o g acc comp labels = .ok out) :
+    ∃ part, out.parts = acc.parts ++ [(comp, part)] ∧
+      ActualPart P inp o g labels (comp, part) := by
+  unfold layoutComponent at h
+  obtain ⟨chosen, hc, h⟩ := bind_ok h
+  obtain ⟨placed, hp, h⟩ := bind_ok h
+  obtain ⟨metric, _, h⟩ := bind_ok h
+  obtain ⟨areas, _, h⟩ := bind_ok h
+  obtain ⟨loops, part, hl, hparts, hroutes⟩ := placePart_parts hp
+  obtain ⟨index, trial, hi, ht, hv, _⟩ := Portfolio.portfolio_selected hc
+  unfold componentTrial at ht
+  obtain ⟨run, hrun, ht⟩ := bind_ok ht
+  obtain ⟨scene, _, ht⟩ := bind_ok ht
+  have htrial := Except.ok.inj ht
+  subst trial
+  dsimp only at hv
+  have he := Except.ok.inj h
+  subst out
+  let childArea := inp.fixedAreas.foldl (fun total child =>
+    if chosen.scene.boxes.any (fun box => box.id == child.1) then total + child.2 else total) 0
+  let augmented := { part with area := part.area + childArea + areas.sum }
+  refine ⟨augmented, ?_, ?_⟩
+  · simp [hparts, augmented, childArea]
+  · unfold ActualPart
+    refine ⟨index, chosen, run, loops, hi, hc, hv, hrun, ?_, ?_⟩
+    · simpa only [hv] using hl
+    · simpa only [hv] using hroutes
+
+theorem actualPart_owns {P : Params} {inp : Input} {o : Options} {g : Graph}
+    {labels : List MeasuredLabel} {q : List Nat × Part}
+    (h : ActualPart P inp o g labels q) :
+    ∀ d ∈ q.2.routes.map (·.1), ownsDecl g q.1 d := by
+  obtain ⟨index, _, run, loops, _, _, _, _, _, hr⟩ := h
+  rw [hr, placeComponent_routes_decls]
+  intro d hd
+  obtain ⟨e, he, rfl⟩ := List.mem_map.mp hd
+  exact componentCandidate_edge_owns he
+
+theorem foldlM_layout_components_parts (P : Params) (inp : Input) (o : Options)
+    (g : Graph) (labels : List MeasuredLabel) :
+    ∀ (comps : List (List Nat)) (start out : Acc),
+      comps.foldlM (fun acc comp => layoutComponent P inp o g acc comp labels) start = .ok out →
+      ∃ parts, out.parts = start.parts ++ parts ∧ parts.map (·.1) = comps ∧
+        ∀ q ∈ parts, ActualPart P inp o g labels q := by
+  intro comps
+  induction comps with
+  | nil =>
+    intro start out h
+    simp only [List.foldlM_nil] at h
+    have hout : start = out := Except.ok.inj h
+    subst out
+    exact ⟨[], by simp, rfl, by simp⟩
+  | cons comp comps ih =>
+    intro start out h
+    rw [List.foldlM_cons] at h
+    obtain ⟨next, hn, hrest⟩ := bind_ok h
+    obtain ⟨part, hp, hprod⟩ := layoutComponent_parts hn
+    obtain ⟨parts, hout, hmap, hall⟩ := ih next out hrest
+    refine ⟨(comp, part) :: parts, ?_, ?_, ?_⟩
+    · rw [hout, hp]
+      simp only [List.append_assoc, List.singleton_append]
+    · simp only [List.map_cons, hmap]
+    · intro q hq
+      rcases List.mem_cons.mp hq with rfl | hq
+      · exact hprod
+      · exact hall q hq
+
+theorem actual_components_parts {P : Params} {inp : Input} {o : Options} {g : Graph}
+    {labels : List MeasuredLabel} {start out : Acc} (hempty : start.parts = [])
+    (h : (components g).foldlM
+      (fun acc comp => layoutComponent P inp o g acc comp labels) start = .ok out) :
+    out.parts.map (·.1) = components g ∧
+      ∀ q ∈ out.parts, ActualPart P inp o g labels q := by
+  obtain ⟨parts, hp, hm, hall⟩ := foldlM_layout_components_parts P inp o g labels _ _ _ h
+  simp only [hempty, List.nil_append] at hp
+  subst parts
+  exact ⟨hm, hall⟩
+
+private def ActualPartGeometry (P : Params) (inp : Input) (o : Options) (g : Graph)
+    (labels : List MeasuredLabel) (q : List Nat × Part) : Prop :=
+  ∃ index chosen run loops area,
+    index < 5 ∧
+    Portfolio.portfolio o.thoroughness (componentTrial P inp o g q.1 labels) = .ok chosen ∧
+    chosen.value = (componentCandidate g q.1 index, run) ∧
+    componentRun P (componentCandidate g q.1 index) labels (candidateOrder index) = .ok run ∧
+    componentLoops P (componentCandidate g q.1 index) run labels = .ok loops ∧
+    q.2 = { placeComponent P (componentCandidate g q.1 index) run 0 labels loops
+      with area := area }
+
+private theorem placePart_parts_geometry {comp : List Nat} {cg : Graph} {run : Run}
+    {P : Params} {acc out : Acc} {labels : List MeasuredLabel}
+    (h : placePart comp cg run P acc labels = .ok out) :
+    ∃ loops area,
+      componentLoops P cg run labels = .ok loops ∧
+      out.parts = acc.parts ++ [(comp,
+        { placeComponent P cg run 0 labels loops with area := area })] := by
+  unfold placePart at h
+  obtain ⟨loops, hl, h⟩ := bind_ok h
+  dsimp only at h
+  split at h
+  · simp at h
+  · have he := Except.ok.inj h
+    subst out
+    exact ⟨loops, _, hl, rfl⟩
+
+private theorem layoutComponent_parts_geometry {P : Params} {inp : Input} {o : Options}
+    {g : Graph} {acc out : Acc} {comp : List Nat} {labels : List MeasuredLabel}
+    (h : layoutComponent P inp o g acc comp labels = .ok out) :
+    ∃ part, out.parts = acc.parts ++ [(comp, part)] ∧
+      ActualPartGeometry P inp o g labels (comp, part) := by
+  unfold layoutComponent at h
+  obtain ⟨chosen, hc, h⟩ := bind_ok h
+  obtain ⟨placed, hp, h⟩ := bind_ok h
+  obtain ⟨metric, _, h⟩ := bind_ok h
+  obtain ⟨areas, _, h⟩ := bind_ok h
+  obtain ⟨loops, area, hl, hparts⟩ := placePart_parts_geometry hp
+  obtain ⟨index, trial, hi, ht, hv, _⟩ := Portfolio.portfolio_selected hc
+  unfold componentTrial at ht
+  obtain ⟨run, hrun, ht⟩ := bind_ok ht
+  obtain ⟨scene, _, ht⟩ := bind_ok ht
+  have htrial := Except.ok.inj ht
+  subst trial
+  dsimp only at hv
+  have he := Except.ok.inj h
+  subst out
+  let childArea := inp.fixedAreas.foldl (fun total child =>
+    if chosen.scene.boxes.any (fun box => box.id == child.1) then total + child.2 else total) 0
+  let base := placeComponent P chosen.value.1 chosen.value.2 0 labels loops
+  let augmented := { base with area := area + childArea + areas.sum }
+  refine ⟨augmented, ?_, ?_⟩
+  · simp [hparts, augmented, base, childArea]
+  · unfold ActualPartGeometry
+    refine ⟨index, chosen, run, loops, area + childArea + areas.sum,
+      hi, hc, hv, hrun, ?_, ?_⟩
+    · simpa only [hv] using hl
+    · simp only [augmented, base, hv]
+
+private theorem foldlM_layout_components_parts_geometry
+    (P : Params) (inp : Input) (o : Options) (g : Graph) (labels : List MeasuredLabel) :
+    ∀ (comps : List (List Nat)) (start out : Acc),
+      comps.foldlM (fun acc comp => layoutComponent P inp o g acc comp labels) start = .ok out →
+      ∃ parts, out.parts = start.parts ++ parts ∧ parts.map (·.1) = comps ∧
+        ∀ q ∈ parts, ActualPartGeometry P inp o g labels q := by
+  intro comps
+  induction comps with
+  | nil =>
+    intro start out h
+    simp only [List.foldlM_nil] at h
+    have hout : start = out := Except.ok.inj h
+    subst out
+    exact ⟨[], by simp, rfl, by simp⟩
+  | cons comp comps ih =>
+    intro start out h
+    rw [List.foldlM_cons] at h
+    obtain ⟨next, hn, hrest⟩ := bind_ok h
+    obtain ⟨part, hp, hprod⟩ := layoutComponent_parts_geometry hn
+    obtain ⟨parts, hout, hmap, hall⟩ := ih next out hrest
+    refine ⟨(comp, part) :: parts, ?_, ?_, ?_⟩
+    · rw [hout, hp]
+      simp only [List.append_assoc, List.singleton_append]
+    · simp only [List.map_cons, hmap]
+    · intro q hq
+      rcases List.mem_cons.mp hq with rfl | hq
+      · exact hprod
+      · exact hall q hq
+
+theorem actual_components_parts_geometry {P : Params} {inp : Input} {o : Options}
+    {g : Graph} {labels : List MeasuredLabel} {start out : Acc}
+    (hempty : start.parts = [])
+    (h : (components g).foldlM
+      (fun acc comp => layoutComponent P inp o g acc comp labels) start = .ok out) :
+    out.parts.map (·.1) = components g ∧
+      ∀ q ∈ out.parts, ∃ index chosen run loops area,
+        index < 5 ∧
+        Portfolio.portfolio o.thoroughness (componentTrial P inp o g q.1 labels) = .ok chosen ∧
+        chosen.value = (componentCandidate g q.1 index, run) ∧
+        componentRun P (componentCandidate g q.1 index) labels (candidateOrder index) = .ok run ∧
+        componentLoops P (componentCandidate g q.1 index) run labels = .ok loops ∧
+        q.2 = { placeComponent P (componentCandidate g q.1 index) run 0 labels loops
+          with area := area } := by
+  obtain ⟨parts, hp, hm, hall⟩ :=
+    foldlM_layout_components_parts_geometry P inp o g labels _ _ _ h
+  simp only [hempty, List.nil_append] at hp
+  subst parts
+  exact ⟨hm, hall⟩
+
+theorem actual_components_route_keys_disjoint {P : Params} {inp : Input} {o : Options}
+    {g : Graph} {labels : List MeasuredLabel} {start out : Acc}
+    (hempty : start.parts = [])
+    (hfold : (components g).foldlM
+      (fun acc comp => layoutComponent P inp o g acc comp labels) start = .ok out)
+    (hnd : (g.edges.map (·.decl)).Nodup)
+    {a b : List Nat × Part} (ha : a ∈ out.parts) (hb : b ∈ out.parts)
+    (hne : a.1 ≠ b.1) {d : Nat} (hd : d ∈ a.2.routes.map (·.1)) :
+    d ∉ b.2.routes.map (·.1) := by
+  obtain ⟨hm, hall⟩ := actual_components_parts hempty hfold
+  have hca : a.1 ∈ components g := by
+    rw [← hm]
+    exact List.mem_map_of_mem ha
+  have hcb : b.1 ∈ components g := by
+    rw [← hm]
+    exact List.mem_map_of_mem hb
+  intro hd'
+  exact components_ownsDecl_disjoint hnd hca hcb hne
+    (actualPart_owns (hall a ha) d hd) (actualPart_owns (hall b hb) d hd')
+
+theorem actual_components_later_route_key_ne {P : Params} {inp : Input} {o : Options}
+    {g : Graph} {labels : List MeasuredLabel} {start out : Acc}
+    (hempty : start.parts = [])
+    (hfold : (components g).foldlM
+      (fun acc comp => layoutComponent P inp o g acc comp labels) start = .ok out)
+    (hnd : (g.edges.map (·.decl)).Nodup)
+    {i j : Nat} {a b : List Nat × Part}
+    (ha : out.parts[i]? = some a) (hb : out.parts[j]? = some b) (hij : i < j)
+    {d : Nat} (hd : d ∈ a.2.routes.map (·.1)) :
+    d ∉ b.2.routes.map (·.1) := by
+  obtain ⟨hm, _⟩ := actual_components_parts hempty hfold
+  have hn : (out.parts.map (·.1)).Nodup := by
+    rw [hm]
+    exact components_entries_nodup g
+  obtain ⟨hi, hai⟩ := List.getElem?_eq_some_iff.mp ha
+  obtain ⟨hj, hbj⟩ := List.getElem?_eq_some_iff.mp hb
+  have hne : a.1 ≠ b.1 := by
+    have hpair := List.pairwise_iff_getElem.mp hn
+    have hnij := hpair i j (by simpa using hi) (by simpa using hj) hij
+    simpa [hai, hbj] using hnij
+  exact actual_components_route_keys_disjoint hempty hfold hnd
+    (List.mem_iff_getElem?.mpr ⟨i, ha⟩) (List.mem_iff_getElem?.mpr ⟨j, hb⟩) hne hd
+
+/-- Structural transport: a pair selected from the packed zip projects to the part selected
+from `parts` at the same index. Zip truncation is honest: the hypothesis is about the zip
+itself, so a pair at index `c` exists only when `c` is in range for both sides. -/
+theorem zip_getElem?_left {α β : Type} {xs : List α} {ys : List β}
+    {c : Nat} {x : α} {y : β} (h : (xs.zip ys)[c]? = some (x, y)) :
+    xs[c]? = some x :=
+  (List.getElem?_zip_eq_some.mp h).1
+
+/-- Structural transport: a member of the packed zip strictly after index `c` projects to a
+part at a strictly later index. Duplicate parts are handled by indexed membership: the index
+`j` comes from the concrete occurrence of `q` in the zip, so no uniqueness of part values is
+assumed. Truncation of `ys` is honest: `q` occurs in the zip only where both lists have an
+entry at that index. -/
+theorem zip_drop_mem_later_getElem? {α β : Type} {xs : List α} {ys : List β}
+    {c : Nat} {q : α × β} (h : q ∈ (xs.zip ys).drop (c + 1)) :
+    ∃ j, c < j ∧ xs[j]? = some q.1 := by
+  obtain ⟨n, hn⟩ := List.mem_iff_getElem?.mp h
+  rw [List.getElem?_drop] at hn
+  exact ⟨c + 1 + n, by omega, (List.getElem?_zip_eq_some.mp hn).1⟩
+
+/-- For the actual component fold output, a route declaration owned by the part selected from
+the packed zip cannot occur in any part occurring strictly later in the same zip. This turns
+the fold, the edge declaration Nodup, and the selected zip pair into the `hnot_after` premise
+of `PipelineImpl.packAcc_routes_getD`; no bound or overwrite assumption is added. -/
+theorem actual_components_zip_later_route_key_ne
+    {P : Params} {inp : Input} {o : Options} {g : Graph} {labels : List MeasuredLabel}
+    {start out : Acc} {positions : List Rect}
+    (hempty : start.parts = [])
+    (hfold : (components g).foldlM
+      (fun acc comp => layoutComponent P inp o g acc comp labels) start = .ok out)
+    (hnd : (g.edges.map (·.decl)).Nodup)
+    {c : Nat} {a : List Nat × Part} {pos : Rect}
+    (hsel : (out.parts.zip positions)[c]? = some (a, pos))
+    {d : Nat} (hd : d ∈ a.2.routes.map (·.1))
+    {q' : (List Nat × Part) × Rect}
+    (hq' : q' ∈ (out.parts.zip positions).drop (c + 1)) :
+    d ∉ q'.1.2.routes.map (·.1) := by
+  obtain ⟨j, hjlt, hjget⟩ :=
+    zip_drop_mem_later_getElem? (xs := out.parts) (ys := positions) hq'
+  exact actual_components_later_route_key_ne hempty hfold hnd
+    (zip_getElem?_left hsel) hjget hjlt hd
 
 end PipelineImpl
 
@@ -1672,6 +3628,598 @@ theorem layoutFamily_ids {inp : Input} {o : Options} {res : FamilyResult}
   simp only [Bool.and_eq_true, List.contains_iff_mem, List.mem_map] at hr'
   exact ⟨hr'.1, hr'.2⟩
 
+theorem boundsOf_contains_rect {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) :
+    (PipelineImpl.boundsOf rects pts).minX ≤ r.x ∧
+    r.x + r.w ≤ (PipelineImpl.boundsOf rects pts).right ∧
+    (PipelineImpl.boundsOf rects pts).minY ≤ r.y ∧
+    r.y + r.h ≤ (PipelineImpl.boundsOf rects pts).bottom :=
+  PipelineImpl.boundsOf_contains_rect rects pts r hr
+
+theorem boundsOf_contains_point {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) :
+    (PipelineImpl.boundsOf rects pts).minX ≤ p.x ∧
+    p.x ≤ (PipelineImpl.boundsOf rects pts).right ∧
+    (PipelineImpl.boundsOf rects pts).minY ≤ p.y ∧
+    p.y ≤ (PipelineImpl.boundsOf rects pts).bottom :=
+  PipelineImpl.boundsOf_contains_point rects pts p hp
+
+theorem boundsOf_minX_le_rect_x {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) : (PipelineImpl.boundsOf rects pts).minX ≤ r.x :=
+  PipelineImpl.boundsOf_minX_le_rect_x rects pts r hr
+
+theorem rect_right_le_boundsOf_right {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) : r.x + r.w ≤ (PipelineImpl.boundsOf rects pts).right :=
+  PipelineImpl.rect_right_le_boundsOf_right rects pts r hr
+
+theorem boundsOf_minY_le_rect_y {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) : (PipelineImpl.boundsOf rects pts).minY ≤ r.y :=
+  PipelineImpl.boundsOf_minY_le_rect_y rects pts r hr
+
+theorem rect_bottom_le_boundsOf_bottom {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) : r.y + r.h ≤ (PipelineImpl.boundsOf rects pts).bottom :=
+  PipelineImpl.rect_bottom_le_boundsOf_bottom rects pts r hr
+
+theorem boundsOf_minX_le_point_x {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) : (PipelineImpl.boundsOf rects pts).minX ≤ p.x :=
+  PipelineImpl.boundsOf_minX_le_point_x rects pts p hp
+
+theorem point_x_le_boundsOf_right {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) : p.x ≤ (PipelineImpl.boundsOf rects pts).right :=
+  PipelineImpl.point_x_le_boundsOf_right rects pts p hp
+
+theorem boundsOf_minY_le_point_y {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) : (PipelineImpl.boundsOf rects pts).minY ≤ p.y :=
+  PipelineImpl.boundsOf_minY_le_point_y rects pts p hp
+
+theorem point_y_le_boundsOf_bottom {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) : p.y ≤ (PipelineImpl.boundsOf rects pts).bottom :=
+  PipelineImpl.point_y_le_boundsOf_bottom rects pts p hp
+
+theorem boundsOf_width_nonneg_of_rect {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) (hw : 0 ≤ r.w) :
+    0 ≤ (PipelineImpl.boundsOf rects pts).right - (PipelineImpl.boundsOf rects pts).minX :=
+  PipelineImpl.boundsOf_width_nonneg_of_rect hr hw
+
+theorem boundsOf_height_nonneg_of_rect {rects : List Rect} {pts : List Point} {r : Rect}
+    (hr : r ∈ rects) (hh : 0 ≤ r.h) :
+    0 ≤ (PipelineImpl.boundsOf rects pts).bottom - (PipelineImpl.boundsOf rects pts).minY :=
+  PipelineImpl.boundsOf_height_nonneg_of_rect hr hh
+
+theorem boundsOf_width_nonneg_of_point {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) :
+    0 ≤ (PipelineImpl.boundsOf rects pts).right - (PipelineImpl.boundsOf rects pts).minX :=
+  PipelineImpl.boundsOf_width_nonneg_of_point hp
+
+theorem boundsOf_height_nonneg_of_point {rects : List Rect} {pts : List Point} {p : Point}
+    (hp : p ∈ pts) :
+    0 ≤ (PipelineImpl.boundsOf rects pts).bottom - (PipelineImpl.boundsOf rects pts).minY :=
+  PipelineImpl.boundsOf_height_nonneg_of_point hp
+
+theorem shiftRect_cursor_bounds (rects : List Rect) (pts : List Point) (r : Rect)
+    (hr : r ∈ rects) (cursor : Int) :
+    cursor ≤ (PipelineImpl.shiftRect (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) r).x ∧
+    (PipelineImpl.shiftRect (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) r).x +
+        (PipelineImpl.shiftRect (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) r).w ≤
+      cursor + ((PipelineImpl.boundsOf rects pts).right - (PipelineImpl.boundsOf rects pts).minX) ∧
+    0 ≤ (PipelineImpl.shiftRect (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) r).y ∧
+    (PipelineImpl.shiftRect (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) r).y +
+        (PipelineImpl.shiftRect (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) r).h ≤
+      (PipelineImpl.boundsOf rects pts).bottom - (PipelineImpl.boundsOf rects pts).minY :=
+  PipelineImpl.shiftRect_cursor_bounds rects pts r hr cursor
+
+theorem shiftPoint_cursor_bounds (rects : List Rect) (pts : List Point) (p : Point)
+    (hp : p ∈ pts) (cursor : Int) :
+    cursor ≤ (PipelineImpl.shiftPoint (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) p).x ∧
+    (PipelineImpl.shiftPoint (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) p).x ≤
+      cursor + ((PipelineImpl.boundsOf rects pts).right - (PipelineImpl.boundsOf rects pts).minX) ∧
+    0 ≤ (PipelineImpl.shiftPoint (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) p).y ∧
+    (PipelineImpl.shiftPoint (cursor - (PipelineImpl.boundsOf rects pts).minX)
+        (0 - (PipelineImpl.boundsOf rects pts).minY) p).y ≤
+      (PipelineImpl.boundsOf rects pts).bottom - (PipelineImpl.boundsOf rects pts).minY :=
+  PipelineImpl.shiftPoint_cursor_bounds rects pts p hp cursor
+
+theorem shiftRect_origin_bounds (rects : List Rect) (pts : List Point) (r : Rect)
+    (hr : r ∈ rects) :
+    0 ≤ (PipelineImpl.shiftRect (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) r).x ∧
+    (PipelineImpl.shiftRect (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) r).x +
+        (PipelineImpl.shiftRect (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) r).w ≤
+      (PipelineImpl.boundsOf rects pts).right - (PipelineImpl.boundsOf rects pts).minX ∧
+    0 ≤ (PipelineImpl.shiftRect (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) r).y ∧
+    (PipelineImpl.shiftRect (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) r).y +
+        (PipelineImpl.shiftRect (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) r).h ≤
+      (PipelineImpl.boundsOf rects pts).bottom - (PipelineImpl.boundsOf rects pts).minY :=
+  PipelineImpl.shiftRect_origin_bounds rects pts r hr
+
+theorem shiftPoint_origin_bounds (rects : List Rect) (pts : List Point) (p : Point)
+    (hp : p ∈ pts) :
+    0 ≤ (PipelineImpl.shiftPoint (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) p).x ∧
+    (PipelineImpl.shiftPoint (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) p).x ≤
+      (PipelineImpl.boundsOf rects pts).right - (PipelineImpl.boundsOf rects pts).minX ∧
+    0 ≤ (PipelineImpl.shiftPoint (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) p).y ∧
+    (PipelineImpl.shiftPoint (-(PipelineImpl.boundsOf rects pts).minX)
+        (-(PipelineImpl.boundsOf rects pts).minY) p).y ≤
+      (PipelineImpl.boundsOf rects pts).bottom - (PipelineImpl.boundsOf rects pts).minY :=
+  PipelineImpl.shiftPoint_origin_bounds rects pts p hp
+
+theorem placeComponent_rects_bounds (P : PipelineImpl.Params) (cg : Graph)
+    (run : PipelineImpl.Run) (cursor : Int) (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) :
+    ∀ r' ∈ (PipelineImpl.placeComponent P cg run cursor labels loops).rects,
+      cursor ≤ r'.x ∧
+      r'.x + r'.w ≤ cursor + (PipelineImpl.placeComponent P cg run cursor labels loops).width ∧
+      0 ≤ r'.y ∧
+      r'.y + r'.h ≤ (PipelineImpl.placeComponent P cg run cursor labels loops).height :=
+  PipelineImpl.placeComponent_rects_bounds P cg run cursor labels loops
+
+theorem placeComponent_titles_bounds (P : PipelineImpl.Params) (cg : Graph)
+    (run : PipelineImpl.Run) (cursor : Int) (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) :
+    ∀ t' ∈ (PipelineImpl.placeComponent P cg run cursor labels loops).titles,
+      cursor ≤ t'.2.x ∧
+      t'.2.x + t'.2.w ≤ cursor + (PipelineImpl.placeComponent P cg run cursor labels loops).width ∧
+      0 ≤ t'.2.y ∧
+      t'.2.y + t'.2.h ≤ (PipelineImpl.placeComponent P cg run cursor labels loops).height :=
+  PipelineImpl.placeComponent_titles_bounds P cg run cursor labels loops
+
+theorem placeComponent_rects_bounds_zero (P : PipelineImpl.Params) (cg : Graph)
+    (run : PipelineImpl.Run) (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) :
+    ∀ r' ∈ (PipelineImpl.placeComponent P cg run 0 labels loops).rects,
+      0 ≤ r'.x ∧
+      r'.x + r'.w ≤ (PipelineImpl.placeComponent P cg run 0 labels loops).width ∧
+      0 ≤ r'.y ∧
+      r'.y + r'.h ≤ (PipelineImpl.placeComponent P cg run 0 labels loops).height :=
+  PipelineImpl.placeComponent_rects_bounds_zero P cg run labels loops
+
+theorem placeComponent_titles_bounds_zero (P : PipelineImpl.Params) (cg : Graph)
+    (run : PipelineImpl.Run) (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) :
+    ∀ t' ∈ (PipelineImpl.placeComponent P cg run 0 labels loops).titles,
+      0 ≤ t'.2.x ∧
+      t'.2.x + t'.2.w ≤ (PipelineImpl.placeComponent P cg run 0 labels loops).width ∧
+      0 ≤ t'.2.y ∧
+      t'.2.y + t'.2.h ≤ (PipelineImpl.placeComponent P cg run 0 labels loops).height :=
+  PipelineImpl.placeComponent_titles_bounds_zero P cg run labels loops
+
+theorem componentRun_routes_length {P : PipelineImpl.Params} {cg : Graph}
+    {run : PipelineImpl.Run} {labels : List PipelineImpl.MeasuredLabel}
+    {orderOptions : OrderOptions}
+    (h : PipelineImpl.componentRun P cg labels orderOptions = .ok run) :
+    run.routes.length = run.proper.chains.length :=
+  PipelineImpl.componentRun_routes_length h
+
+theorem componentRun_proper_chains_length {P : PipelineImpl.Params} {cg : Graph}
+    {run : PipelineImpl.Run} {labels : List PipelineImpl.MeasuredLabel}
+    {orderOptions : OrderOptions}
+    (h : PipelineImpl.componentRun P cg labels orderOptions = .ok run) :
+    run.proper.chains.length = cg.edges.length :=
+  PipelineImpl.componentRun_proper_chains_length h
+
+theorem componentRun_route_of_index {P : PipelineImpl.Params} {cg : Graph}
+    {run : PipelineImpl.Run} {labels : List PipelineImpl.MeasuredLabel}
+    {orderOptions : OrderOptions}
+    (h : PipelineImpl.componentRun P cg labels orderOptions = .ok run) {i : Nat}
+    (hi : i < cg.edges.length) :
+    ∃ rt : EdgeRoute, run.routes[i]? = some rt ∧ rt.original = i ∧
+      RouteImpl.laneRouteOf P.slot run.proper run.ys run.top
+        (run.layers.map (RouteImpl.layerHeight run.proper)) run.lanes i = .ok rt :=
+  PipelineImpl.componentRun_route_of_index h hi
+
+theorem componentRun_edgePoints_of_index {P : PipelineImpl.Params} {cg : Graph}
+    {run : PipelineImpl.Run} {labels : List PipelineImpl.MeasuredLabel}
+    {orderOptions : OrderOptions} {e : Edge}
+    (h : PipelineImpl.componentRun P cg labels orderOptions = .ok run) {i : Nat}
+    (hi : i < cg.edges.length) :
+    PipelineImpl.edgePoints run i e = (run.routes[i]'(by
+      rw [PipelineImpl.componentRun_routes_length h, PipelineImpl.componentRun_proper_chains_length h]
+      exact hi)).points :=
+  PipelineImpl.componentRun_edgePoints_of_index h hi
+
+theorem placeComponent_route_key_decl {P : PipelineImpl.Params} (cg : Graph)
+    (run : PipelineImpl.Run) (cursor : Int) (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) (i : Nat) (hi : i < cg.edges.length) :
+    ((PipelineImpl.placeComponent P cg run cursor labels loops).routes[i]?).map (·.1) =
+      some (cg.edges[i]).decl :=
+  PipelineImpl.placeComponent_route_key_decl P cg run cursor labels loops i hi
+
+theorem placeComponent_route_points_of_noLoop {P : PipelineImpl.Params} (cg : Graph)
+    (run : PipelineImpl.Run) (cursor : Int) (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) (i : Nat) (hi : i < cg.edges.length)
+    (hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl) :
+    ((PipelineImpl.placeComponent P cg run cursor labels loops).routes[i]?).map (·.2) =
+      some ((PipelineImpl.edgePoints run i (cg.edges[i])).map
+        (PipelineImpl.shiftPoint (cursor - (PipelineImpl.placeBounds P cg run labels loops).minX)
+          (0 - (PipelineImpl.placeBounds P cg run labels loops).minY))) :=
+  PipelineImpl.placeComponent_route_points_of_noLoop P cg run cursor labels loops i hi
+    hloop
+
+theorem placeComponent_route_entry_of_producer {P : PipelineImpl.Params} {cg : Graph}
+    {run : PipelineImpl.Run} {labels : List PipelineImpl.MeasuredLabel}
+    {orderOptions : OrderOptions}
+    (h : PipelineImpl.componentRun P cg labels orderOptions = .ok run)
+    (cursor : Int) (loops : List (Nat × LoopPlacement)) (i : Nat)
+    (hi : i < cg.edges.length)
+    (hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl) :
+    (PipelineImpl.placeComponent P cg run cursor labels loops).routes[i]? =
+      some ((cg.edges[i]).decl,
+        (run.routes[i]'(by
+          rw [PipelineImpl.componentRun_routes_length h, PipelineImpl.componentRun_proper_chains_length h]
+          exact hi)).points.map
+          (PipelineImpl.shiftPoint (cursor - (PipelineImpl.placeBounds P cg run labels loops).minX)
+            (0 - (PipelineImpl.placeBounds P cg run labels loops).minY))) :=
+  PipelineImpl.placeComponent_route_entry_of_producer h cursor loops i hi hloop
+
+theorem componentCandidate_edge_index_decl_lt {P : PipelineImpl.Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {g0 : Graph}
+    (hg0 : PipelineImpl.measuredGraph P inp o lines = .ok g0)
+    (comp : List Nat) (index : Nat) {i : Nat}
+    (hi : i < (PipelineImpl.componentCandidate g0 comp index).edges.length) :
+    ((PipelineImpl.componentCandidate g0 comp index).edges[i]).decl < inp.routes.length :=
+  PipelineImpl.componentCandidate_edge_index_decl_lt hg0 comp index hi
+
+theorem routes_foldl_size {α β : Type} (f : β → α) (entries : List (Nat × β)) (a : Array α) :
+    (entries.foldl (fun arr q => arr.set! q.1 (f q.2)) a).size = a.size :=
+  PipelineImpl.routes_foldl_size f entries a
+
+theorem routes_foldl_getD_ne {α β : Type} (f : β → α) (entries : List (Nat × β)) (a : Array α)
+    (k : Nat) (d : α) (hk : k ∉ entries.map (·.1)) :
+    (entries.foldl (fun arr q => arr.set! q.1 (f q.2)) a).getD k d = a.getD k d :=
+  PipelineImpl.routes_foldl_getD_ne f entries a k d hk
+
+theorem routes_foldl_getD_mem {α β : Type} (f : β → α) (entries : List (Nat × β)) (a : Array α)
+    (i : Nat) (k : Nat) (v : β) (d : α)
+    (hget : entries[i]? = some (k, v))
+    (hnodup : (entries.map (·.1)).Nodup)
+    (hsize : k < a.size) :
+    (entries.foldl (fun arr q => arr.set! q.1 (f q.2)) a).getD k d = f v :=
+  PipelineImpl.routes_foldl_getD_mem f entries a i k v d hget hnodup hsize
+
+theorem placeComponent_routes_length (P : PipelineImpl.Params) (cg : Graph)
+    (run : PipelineImpl.Run) (cursor : Int) (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) :
+    (PipelineImpl.placeComponent P cg run cursor labels loops).routes.length = cg.edges.length :=
+  PipelineImpl.placeComponent_routes_length P cg run cursor labels loops
+
+theorem placeComponent_routes_decls (P : PipelineImpl.Params) (cg : Graph)
+    (run : PipelineImpl.Run) (cursor : Int) (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) :
+    (PipelineImpl.placeComponent P cg run cursor labels loops).routes.map (·.1) = cg.edges.map (·.decl) :=
+  PipelineImpl.placeComponent_routes_decls P cg run cursor labels loops
+
+theorem placeComponent_routes_decls_nodup (P : PipelineImpl.Params) (cg : Graph)
+    (run : PipelineImpl.Run) (cursor : Int) (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement))
+    (hnd : (cg.edges.map (·.decl)).Nodup) :
+    ((PipelineImpl.placeComponent P cg run cursor labels loops).routes.map (·.1)).Nodup :=
+  PipelineImpl.placeComponent_routes_decls_nodup P cg run cursor labels loops hnd
+
+theorem placePart_routes_size {comp : List Nat} {cg : Graph} {run : PipelineImpl.Run}
+    {P : PipelineImpl.Params} {acc res : PipelineImpl.Acc} {labels : List PipelineImpl.MeasuredLabel}
+    (hplace : PipelineImpl.placePart comp cg run P acc labels = .ok res) :
+    res.routes.size = acc.routes.size :=
+  PipelineImpl.placePart_routes_size hplace
+
+theorem placePart_routes_getD {comp : List Nat} {cg : Graph} {run : PipelineImpl.Run}
+    {P : PipelineImpl.Params} {acc res : PipelineImpl.Acc} {labels : List PipelineImpl.MeasuredLabel}
+    {loops : List (Nat × LoopPlacement)}
+    (hplace : PipelineImpl.placePart comp cg run P acc labels = .ok res)
+    (hloops : PipelineImpl.componentLoops P cg run labels = .ok loops)
+    (i : Nat) (k : Nat) (pts : List Point) (d : List Point)
+    (hget : (PipelineImpl.placeComponent P cg run 0 labels loops).routes[i]? = some (k, pts))
+    (hnd : (cg.edges.map (·.decl)).Nodup)
+    (hsize : k < acc.routes.size) :
+    res.routes.getD k d = pts :=
+  PipelineImpl.placePart_routes_getD hplace hloops i k pts d hget hnd hsize
+
+theorem placePart_route_points_of_producer {comp : List Nat} {cg : Graph} {run : PipelineImpl.Run}
+    {P : PipelineImpl.Params} {acc res : PipelineImpl.Acc} {labels : List PipelineImpl.MeasuredLabel}
+    {orderOptions : OrderOptions} {loops : List (Nat × LoopPlacement)}
+    (hplace : PipelineImpl.placePart comp cg run P acc labels = .ok res)
+    (hloops : PipelineImpl.componentLoops P cg run labels = .ok loops)
+    (hrun : PipelineImpl.componentRun P cg labels orderOptions = .ok run)
+    (hnd : (cg.edges.map (·.decl)).Nodup)
+    {i : Nat} (hi : i < cg.edges.length)
+    (hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl)
+    (hsize : (cg.edges[i]).decl < acc.routes.size)
+    (d : List Point) :
+    res.routes.getD (cg.edges[i]).decl d =
+      (run.routes[i]'(by
+        rw [PipelineImpl.componentRun_routes_length hrun, PipelineImpl.componentRun_proper_chains_length hrun]
+        exact hi)).points.map
+        (PipelineImpl.shiftPoint (0 - (PipelineImpl.placeBounds P cg run labels loops).minX)
+          (0 - (PipelineImpl.placeBounds P cg run labels loops).minY)) :=
+  PipelineImpl.placePart_route_points_of_producer hplace hloops hrun hnd hi hloop hsize d
+
+theorem packAcc_routes_size {P : PipelineImpl.Params} {o : Options} {acc out : PipelineImpl.Acc}
+    (hpack : PipelineImpl.packAcc P o acc = .ok out) :
+    out.routes.size = acc.routes.size :=
+  PipelineImpl.packAcc_routes_size hpack
+
+theorem packAcc_routes_getD {P : PipelineImpl.Params} {o : Options} {acc out : PipelineImpl.Acc}
+    (hpack : PipelineImpl.packAcc P o acc = .ok out)
+    (packed : Pack.State)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (acc.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed)
+    (c : Nat) (q : (List Nat × PipelineImpl.Part) × Rect)
+    (hget_pair : (acc.parts.zip packed.boxes)[c]? = some q)
+    (i : Nat) (k : Nat) (pts : List Point) (d : List Point)
+    (hget_route : q.1.2.routes[i]? = some (k, pts))
+    (hnodup : (q.1.2.routes.map (·.1)).Nodup)
+    (hsize : k < acc.routes.size)
+    (hnot_after : ∀ q' ∈ (acc.parts.zip packed.boxes).drop (c + 1), k ∉ q'.1.2.routes.map (·.1)) :
+    out.routes.getD k d = pts.map (PipelineImpl.shiftPoint q.2.x q.2.y) :=
+  PipelineImpl.packAcc_routes_getD hpack packed hpacked c q hget_pair i k pts d hget_route hnodup hsize hnot_after
+
+theorem packAcc_routes_getD_single {P : PipelineImpl.Params} {o : Options} {acc out : PipelineImpl.Acc}
+    (hpack : PipelineImpl.packAcc P o acc = .ok out)
+    (packed : Pack.State)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (acc.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed)
+    (q : (List Nat × PipelineImpl.Part) × Rect)
+    (hpairs : acc.parts.zip packed.boxes = [q])
+    (i : Nat) (k : Nat) (pts : List Point) (d : List Point)
+    (hget_route : q.1.2.routes[i]? = some (k, pts))
+    (hnodup : (q.1.2.routes.map (·.1)).Nodup)
+    (hsize : k < acc.routes.size) :
+    out.routes.getD k d = pts.map (PipelineImpl.shiftPoint q.2.x q.2.y) :=
+  PipelineImpl.packAcc_routes_getD_single hpack packed hpacked q hpairs i k pts d hget_route hnodup hsize
+
+/-- Corollary of `packAcc_routes_getD`: the `hnot_after` premise is discharged from the actual
+component fold, the edge declaration Nodup, and the selected zip pair, via
+`PipelineImpl.actual_components_zip_later_route_key_ne`. The packed positions list may be
+shorter than the parts; the derivation uses indexed membership and assumes no overwrite or
+ownership premise. -/
+theorem actual_components_packAcc_routes_getD
+    {P : PipelineImpl.Params} {inp : Input} {o : Options} {g : Graph}
+    {labels : List PipelineImpl.MeasuredLabel} {start mid out : PipelineImpl.Acc}
+    (hempty : start.parts = [])
+    (hfold : (PipelineImpl.components g).foldlM
+      (fun acc comp => PipelineImpl.layoutComponent P inp o g acc comp labels) start = .ok mid)
+    (hnd : (g.edges.map (·.decl)).Nodup)
+    (packed : Pack.State)
+    (hpack : PipelineImpl.packAcc P o mid = .ok out)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (mid.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed)
+    (c : Nat) (q : (List Nat × PipelineImpl.Part) × Rect)
+    (hget_pair : (mid.parts.zip packed.boxes)[c]? = some q)
+    (i : Nat) (k : Nat) (pts : List Point) (d : List Point)
+    (hget_route : q.1.2.routes[i]? = some (k, pts))
+    (hnodup : (q.1.2.routes.map (·.1)).Nodup)
+    (hsize : k < mid.routes.size) :
+    out.routes.getD k d = pts.map (PipelineImpl.shiftPoint q.2.x q.2.y) := by
+  have hsel : (mid.parts.zip packed.boxes)[c]? = some (q.1, q.2) := hget_pair
+  have hmem : k ∈ q.1.2.routes.map (·.1) := by
+    have hp : (k, pts) ∈ q.1.2.routes := List.mem_iff_getElem?.mpr ⟨i, hget_route⟩
+    exact List.mem_map_of_mem hp
+  refine packAcc_routes_getD hpack packed hpacked c q hget_pair i k pts d hget_route hnodup hsize ?_
+  intro q' hq'
+  exact PipelineImpl.actual_components_zip_later_route_key_ne hempty hfold hnd hsel hmem hq'
+
+def routePointTransport := PipelineImpl.routePointTransport
+
+theorem routePointTransport_eq (margin : Int) (d : Direction) (h : Int) (boxX boxY minX minY : Int) (pts : List Point) :
+    ((pts.map (PipelineImpl.shiftPoint (0 - minX) (0 - minY))).map (PipelineImpl.shiftPoint boxX boxY)).map
+      (fun p => PipelineImpl.shiftPoint margin margin (PipelineImpl.orientPoint d h p)) =
+    pts.map (routePointTransport margin d h boxX boxY minX minY) :=
+  PipelineImpl.routePointTransport_eq margin d h boxX boxY minX minY pts
+
+theorem sceneOf_routes_length (P : PipelineImpl.Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : PipelineImpl.Acc) (measured : List PipelineImpl.MeasuredLabel) :
+    (PipelineImpl.sceneOf P inp o lines acc measured).routes.length = inp.routes.length :=
+  PipelineImpl.sceneOf_routes_length P inp o lines acc measured
+
+theorem sceneOf_routes_getElem? (P : PipelineImpl.Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : PipelineImpl.Acc) (measured : List PipelineImpl.MeasuredLabel)
+    (k : Nat) (hk : k < inp.routes.length) :
+    (PipelineImpl.sceneOf P inp o lines acc measured).routes[k]? =
+      some ⟨(inp.routes[k]).id, (inp.routes[k]).fromId, (inp.routes[k]).toId, (inp.routes[k]).orthogonal,
+        (acc.routes.getD k []).map (fun p =>
+          PipelineImpl.shiftPoint P.canvasMargin
+            P.canvasMargin
+            (PipelineImpl.orientPoint o.direction acc.canvasH p))⟩ :=
+  PipelineImpl.sceneOf_routes_getElem? P inp o lines acc measured k hk
+
+theorem sceneOf_route_id (P : PipelineImpl.Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : PipelineImpl.Acc) (measured : List PipelineImpl.MeasuredLabel)
+    (k : Nat) (hk : k < inp.routes.length) :
+    ((PipelineImpl.sceneOf P inp o lines acc measured).routes[k]?).map (·.id) =
+      some (inp.routes[k]).id :=
+  PipelineImpl.sceneOf_route_id P inp o lines acc measured k hk
+
+theorem sceneOf_route_points (P : PipelineImpl.Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : PipelineImpl.Acc) (measured : List PipelineImpl.MeasuredLabel)
+    (k : Nat) (hk : k < inp.routes.length) :
+    ((PipelineImpl.sceneOf P inp o lines acc measured).routes[k]?).map (·.points) =
+      some ((acc.routes.getD k []).map (fun p =>
+        PipelineImpl.shiftPoint P.canvasMargin
+          P.canvasMargin
+          (PipelineImpl.orientPoint o.direction acc.canvasH p))) :=
+  PipelineImpl.sceneOf_route_points P inp o lines acc measured k hk
+
+theorem sceneOf_routes_ids (P : PipelineImpl.Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : PipelineImpl.Acc) (measured : List PipelineImpl.MeasuredLabel) :
+    (PipelineImpl.sceneOf P inp o lines acc measured).routes.map (·.id) = inp.routes.map (·.id) :=
+  PipelineImpl.sceneOf_routes_ids P inp o lines acc measured
+
+theorem sceneOf_route_of_pack (P : PipelineImpl.Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (out : PipelineImpl.Acc) (measured : List PipelineImpl.MeasuredLabel)
+    (k : Nat) (hk : k < inp.routes.length)
+    (pts : List Point)
+    (hroutes : out.routes.getD k [] = pts) :
+    (PipelineImpl.sceneOf P inp o lines out measured).routes[k]? =
+      some ⟨(inp.routes[k]).id, (inp.routes[k]).fromId, (inp.routes[k]).toId, (inp.routes[k]).orthogonal,
+        pts.map (fun p =>
+          PipelineImpl.shiftPoint P.canvasMargin
+            P.canvasMargin
+            (PipelineImpl.orientPoint o.direction out.canvasH p))⟩ :=
+  PipelineImpl.sceneOf_route_of_pack P inp o lines out measured k hk pts hroutes
+
+theorem sceneOf_route_entry_of_producer {P : PipelineImpl.Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {cg : Graph} {run : PipelineImpl.Run}
+    {labels : List PipelineImpl.MeasuredLabel} {orderOptions : OrderOptions}
+    {loops : List (Nat × LoopPlacement)}
+    (hrun : PipelineImpl.componentRun P cg labels orderOptions = .ok run)
+    (i : Nat) (hi : i < cg.edges.length)
+    (hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl)
+    (out : PipelineImpl.Acc) (measured : List PipelineImpl.MeasuredLabel)
+    (b : PipelineImpl.Bounds) (hb : b = PipelineImpl.placeBounds P cg run labels loops)
+    (box : Rect)
+    (hroutes : out.routes.getD (cg.edges[i]).decl [] =
+      ((run.routes[i]'(by
+        rw [PipelineImpl.componentRun_routes_length hrun, PipelineImpl.componentRun_proper_chains_length hrun]
+        exact hi)).points.map
+        (PipelineImpl.shiftPoint (0 - b.minX) (0 - b.minY))).map (PipelineImpl.shiftPoint box.x box.y))
+    (hk : (cg.edges[i]).decl < inp.routes.length) :
+    let margin := P.canvasMargin
+    (PipelineImpl.sceneOf P inp o lines out measured).routes[(cg.edges[i]).decl]? =
+      some ⟨(inp.routes[(cg.edges[i]).decl]).id,
+        (inp.routes[(cg.edges[i]).decl]).fromId,
+        (inp.routes[(cg.edges[i]).decl]).toId,
+        (inp.routes[(cg.edges[i]).decl]).orthogonal,
+        (run.routes[i]'(by
+          rw [PipelineImpl.componentRun_routes_length hrun, PipelineImpl.componentRun_proper_chains_length hrun]
+          exact hi)).points.map
+          (routePointTransport margin o.direction out.canvasH box.x box.y b.minX b.minY)⟩ :=
+  PipelineImpl.sceneOf_route_entry_of_producer hrun i hi hloop out measured b hb box hroutes hk
+
+theorem sceneOf_route_entry_of_single_part {P : PipelineImpl.Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {comp : List Nat} {cg : Graph} {run : PipelineImpl.Run}
+    {labels : List PipelineImpl.MeasuredLabel} {orderOptions : OrderOptions}
+    {loops : List (Nat × LoopPlacement)}
+    {acc out : PipelineImpl.Acc} (packed : Pack.State)
+    (box : Rect)
+    (hpack : PipelineImpl.packAcc P o acc = .ok out)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (acc.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed)
+    (part : PipelineImpl.Part)
+    (hpairs : acc.parts.zip packed.boxes = [((comp, part), box)])
+    (hpart_routes : part.routes = (PipelineImpl.placeComponent P cg run 0 labels loops).routes)
+    (hrun : PipelineImpl.componentRun P cg labels orderOptions = .ok run)
+    (hnd : (cg.edges.map (·.decl)).Nodup)
+    (i : Nat) (hi : i < cg.edges.length)
+    (hloop : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl)
+    (hsize : (cg.edges[i]).decl < acc.routes.size)
+    (hk : (cg.edges[i]).decl < inp.routes.length)
+    (measured : List PipelineImpl.MeasuredLabel) :
+    let margin := P.canvasMargin
+    let b := PipelineImpl.placeBounds P cg run labels loops
+    (PipelineImpl.sceneOf P inp o lines out measured).routes[(cg.edges[i]).decl]? =
+      some ⟨(inp.routes[(cg.edges[i]).decl]).id,
+        (inp.routes[(cg.edges[i]).decl]).fromId,
+        (inp.routes[(cg.edges[i]).decl]).toId,
+        (inp.routes[(cg.edges[i]).decl]).orthogonal,
+        (run.routes[i]'(by
+          rw [PipelineImpl.componentRun_routes_length hrun, PipelineImpl.componentRun_proper_chains_length hrun]
+          exact hi)).points.map
+          (routePointTransport margin o.direction out.canvasH box.x box.y b.minX b.minY)⟩ :=
+  PipelineImpl.sceneOf_route_entry_of_single_part packed box hpack hpacked part hpairs hpart_routes hrun hnd i hi hloop hsize hk measured
+
+/-- Actual multi-part scene entry. For the part selected from the packed zip of the actual
+component fold output, `ActualPart` supplies the run and loop witnesses of the candidate that
+the portfolio selected for that part's own component, together with the equality between the
+selected part's routes and that run's placed routes. The packed route array entry of a queried
+component edge is that placed route shifted by the part's packed position, so the emitted scene
+route entry carries the actual run's points under `routePointTransport`. The inner `∀` retains
+exactly the conditions of `sceneOf_route_entry_of_single_part`: the component-edge index bound,
+the non-loop condition of the queried edge, the packed route-array bound, and the input
+route-array bound. The selected part's route-key `Nodup` is derived from the actual candidate
+construction and the global edge declaration `Nodup`, and later noninterference is discharged by
+the actual fold, so no singleton zip premise, no assumed `out.routes` lookup, and no
+`hnot_after` premise is used. -/
+theorem actual_components_sceneOf_route_entry
+    {P : PipelineImpl.Params} {inp : Input} {o : Options} {g : Graph}
+    {labels : List PipelineImpl.MeasuredLabel} {start mid out : PipelineImpl.Acc}
+    (hempty : start.parts = [])
+    (hfold : (PipelineImpl.components g).foldlM
+      (fun acc comp => PipelineImpl.layoutComponent P inp o g acc comp labels) start = .ok mid)
+    (hnd : (g.edges.map (·.decl)).Nodup)
+    (packed : Pack.State)
+    (hpack : PipelineImpl.packAcc P o mid = .ok out)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (mid.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed)
+    (c : Nat) (q : (List Nat × PipelineImpl.Part) × Rect)
+    (hget_pair : (mid.parts.zip packed.boxes)[c]? = some q)
+    (lines : List (List Measure.Line))
+    (measured : List PipelineImpl.MeasuredLabel) :
+    ∃ index run loops,
+      PipelineImpl.componentRun P (PipelineImpl.componentCandidate g q.1.1 index) labels
+          (candidateOrder index) = .ok run ∧
+      PipelineImpl.componentLoops P (PipelineImpl.componentCandidate g q.1.1 index) run labels
+          = .ok loops ∧
+      q.1.2.routes =
+        (PipelineImpl.placeComponent P (PipelineImpl.componentCandidate g q.1.1 index) run 0
+          labels loops).routes ∧
+      ∀ (i : Nat) (hi : i < (PipelineImpl.componentCandidate g q.1.1 index).edges.length),
+        (∀ l ∈ loops,
+          l.1 ≠ ((PipelineImpl.componentCandidate g q.1.1 index).edges[i]).decl) →
+        ((PipelineImpl.componentCandidate g q.1.1 index).edges[i]).decl < mid.routes.size →
+        ∀ (hk : ((PipelineImpl.componentCandidate g q.1.1 index).edges[i]).decl <
+          inp.routes.length),
+        let margin := P.canvasMargin
+        let b := PipelineImpl.placeBounds P (PipelineImpl.componentCandidate g q.1.1 index)
+          run labels loops
+        (PipelineImpl.sceneOf P inp o lines out measured).routes[
+            ((PipelineImpl.componentCandidate g q.1.1 index).edges[i]).decl]? =
+          some ⟨(inp.routes[((PipelineImpl.componentCandidate g q.1.1 index).edges[i]).decl]'hk).id,
+            (inp.routes[((PipelineImpl.componentCandidate g q.1.1 index).edges[i]).decl]'hk).fromId,
+            (inp.routes[((PipelineImpl.componentCandidate g q.1.1 index).edges[i]).decl]'hk).toId,
+            (inp.routes[
+              ((PipelineImpl.componentCandidate g q.1.1 index).edges[i]).decl]'hk).orthogonal,
+            (PipelineImpl.edgePoints run i
+              ((PipelineImpl.componentCandidate g q.1.1 index).edges[i])).map
+              (routePointTransport margin o.direction out.canvasH q.2.x q.2.y b.minX b.minY)⟩ := by
+  obtain ⟨_, hall⟩ := PipelineImpl.actual_components_parts hempty hfold
+  have hparts : mid.parts[c]? = some q.1 := PipelineImpl.zip_getElem?_left hget_pair
+  have hactual : PipelineImpl.ActualPart P inp o g labels q.1 :=
+    hall q.1 (List.mem_iff_getElem?.mpr ⟨c, hparts⟩)
+  obtain ⟨index, _, run, loops, _, _, _, hrun, hloops, hproutes⟩ := hactual
+  refine ⟨index, run, loops, hrun, hloops, hproutes, ?_⟩
+  intro i hi hloop hsize hk
+  dsimp only
+  have hnd_cand : ((PipelineImpl.componentCandidate g q.1.1 index).edges.map (·.decl)).Nodup :=
+    PipelineImpl.componentCandidate_decls_nodup g q.1.1 index hnd
+  have hnd_part : (q.1.2.routes.map (·.1)).Nodup := by
+    rw [hproutes]
+    exact PipelineImpl.placeComponent_routes_decls_nodup P
+      (PipelineImpl.componentCandidate g q.1.1 index) run 0 labels loops hnd_cand
+  have hget_entry :=
+    PipelineImpl.placeComponent_route_entry_of_producer hrun 0 loops i hi hloop
+  rw [← hproutes] at hget_entry
+  have hout := actual_components_packAcc_routes_getD hempty hfold hnd packed hpack hpacked
+    c q hget_pair i _ _ [] hget_entry hnd_part hsize
+  simpa only [PipelineImpl.componentRun_edgePoints_of_index hrun hi] using
+    (sceneOf_route_entry_of_producer hrun i hi hloop out measured
+      (PipelineImpl.placeBounds P (PipelineImpl.componentCandidate g q.1.1 index) run labels loops)
+      rfl q.2 hout hk)
 /-- Every point actually emitted by component placement belongs to the bounds
 used for that placement. The non-loop case uses the successful route-array
 correspondence, rather than assuming that `edgePoints` selected a real route. -/

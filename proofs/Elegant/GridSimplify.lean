@@ -1,3 +1,1360 @@
+import Elegant.GridDij
+
+set_option autoImplicit false
+
+/-! `simplify` drops repeated points and the middle of three collinear points. It keeps the
+first and the last point, and it keeps every relation that survives the merge of two collinear
+steps: axis alignment, and a miss of a rectangle of positive size. -/
+
+namespace Elegant
+namespace Grid
+
+local instance : Inhabited ModelBox := ⟨{ id := "" }⟩
+
+/-- A relation that two collinear steps merge into one. -/
+def Mrg (R : Point → Point → Prop) : Prop :=
+  ∀ a b p, collinear a b p = true → R a b → R b p → R a p
+
+theorem collinear_iff (a b c : Point) :
+    collinear a b c = true ↔ (a.x = b.x ∧ b.x = c.x) ∨ (a.y = b.y ∧ b.y = c.y) := by
+  unfold collinear
+  simp only [Bool.or_eq_true, Bool.and_eq_true, beq_iff_eq]
+
+theorem mrg_aligned : Mrg Aligned := by
+  intro a b p h _ _
+  rw [collinear_iff] at h
+  unfold Aligned
+  omega
+
+theorem mrg_axmiss {o : Rect} (hw : 0 < o.w) (hh : 0 < o.h) : Mrg (AxMiss o) := by
+  intro a b p h h1 h2
+  rw [collinear_iff] at h
+  unfold AxMiss at *
+  omega
+
+/-- The accumulator of `simplify` holds the points in reverse order. -/
+def RChain (R : Point → Point → Prop) : List Point → Prop
+  | b :: a :: rest => R a b ∧ RChain R (a :: rest)
+  | _ => True
+
+theorem chain_reverse {R : Point → Point → Prop} : ∀ {l : List Point}, RChain R l →
+    Chain R l.reverse
+  | [], _ => trivial
+  | [_], _ => trivial
+  | b :: a :: rest, h => by
+    have ih := chain_reverse h.2
+    have hl : (a :: rest).reverse.getLast? = some a := by simp
+    have := chain_snoc ih hl h.1
+    simpa using this
+
+theorem popCollinear_spec {R : Point → Point → Prop} (hm : Mrg R) (p : Point) :
+    ∀ (acc : List Point), RChain R acc → (∀ b, acc.head? = some b → R b p) →
+      RChain R (popCollinear acc p) ∧
+        (∀ b, acc.head? = some b → ∃ h, (popCollinear acc p).head? = some h ∧ R h p) ∧
+        (popCollinear acc p).getLast? = acc.getLast? := by
+  intro acc
+  induction acc with
+  | nil => intro _ _; simp [popCollinear, RChain]
+  | cons b rest ih =>
+    intro hc hp
+    cases rest with
+    | nil =>
+      change RChain R [b] ∧
+        (∀ b', some b = some b' → ∃ h, some b = some h ∧ R h p) ∧
+        ([b] : List Point).getLast? = [b].getLast?
+      refine ⟨hc, fun b' hb' => ⟨b, rfl, ?_⟩, rfl⟩
+      have := hp b (by simp)
+      have hb := Option.some.inj hb'
+      subst hb
+      exact this
+    | cons a rest' =>
+      by_cases hcol : collinear a b p = true
+      · have hrab := hc.1
+        have hbp := hp b (by simp)
+        have hap := hm a b p hcol hrab hbp
+        have hdef : popCollinear (b :: a :: rest') p = popCollinear (a :: rest') p := by
+          simp [popCollinear, hcol]
+        rw [hdef]
+        obtain ⟨i1, i2, i3⟩ := ih hc.2 (fun x hx => by
+          have := Option.some.inj hx
+          subst this
+          exact hap)
+        refine ⟨i1, fun b' _ => i2 a rfl, ?_⟩
+        rw [i3]
+        simp
+      · have hdef : popCollinear (b :: a :: rest') p = b :: a :: rest' := by
+          simp [popCollinear, hcol]
+        rw [hdef]
+        refine ⟨hc, fun b' hb' => ⟨b, rfl, ?_⟩, rfl⟩
+        have hb := Option.some.inj hb'
+        subst hb
+        exact hp b (by simp)
+
+def simplifyStep (acc : List Point) (p : Point) : List Point :=
+  if acc.head? = some p then acc else p :: popCollinear acc p
+
+theorem simplifyStep_chain {R : Point → Point → Prop} (hm : Mrg R)
+    {acc : List Point} {p : Point} (hc : RChain R acc)
+    (hp : ∀ b, acc.head? = some b → R b p) :
+    RChain R (simplifyStep acc p) := by
+  unfold simplifyStep
+  split
+  · exact hc
+  · obtain ⟨hchain, hnext, _⟩ := popCollinear_spec hm p acc hc hp
+    cases he : popCollinear acc p with
+    | nil => trivial
+    | cons b rest =>
+      refine ⟨?_, ?_⟩
+      · cases ha : acc with
+        | nil => simp [ha, popCollinear] at he
+        | cons a tail =>
+          obtain ⟨b', hb', hr⟩ := hnext a (by rw [ha]; rfl)
+          rw [he] at hb'
+          have hbb : b = b' := Option.some.inj hb'
+          simpa only [hbb] using hr
+      · simpa only [he] using hchain
+
+theorem simplifyStep_head (acc : List Point) (p : Point) :
+    (simplifyStep acc p).head? = some p := by
+  unfold simplifyStep
+  split
+  · assumption
+  · rfl
+
+theorem simplifyStep_last (acc : List Point) (p : Point) :
+    (simplifyStep acc p).getLast? = (if acc = [] then some p else acc.getLast?) := by
+  cases acc with
+  | nil => simp [simplifyStep, popCollinear]
+  | cons a rest =>
+    have hlast := (popCollinear_spec (R := fun _ _ => True)
+      (fun _ _ _ _ _ _ => trivial) p (a :: rest) (by
+        induction rest generalizing a with
+        | nil => trivial
+        | cons b tail ih => exact ⟨trivial, ih b⟩)
+      (fun _ _ => trivial)).2.2
+    have hne : (a :: rest : List Point) ≠ [] := by simp
+    simp only [hne, ↓reduceIte]
+    unfold simplifyStep
+    split
+    · rfl
+    · cases he : popCollinear (a :: rest) p with
+      | nil =>
+        have hnone : (a :: rest).getLast? = none := by
+          rw [← hlast, he]
+          rfl
+        exact False.elim (hne (List.getLast?_eq_none_iff.mp hnone))
+      | cons b tail =>
+        simpa only [he, List.getLast?_cons_cons] using hlast
+
+theorem simplifyFold_chain {R : Point → Point → Prop} (hm : Mrg R) :
+    ∀ (ps acc : List Point), RChain R acc → Chain R ps →
+      (∀ p, ps.head? = some p → ∀ b, acc.head? = some b → R b p) →
+      RChain R (ps.foldl simplifyStep acc) := by
+  intro ps
+  induction ps with
+  | nil => intro acc hc _ _; exact hc
+  | cons p ps ih =>
+    intro acc hc hps hp
+    simp only [List.foldl_cons]
+    apply ih _ (simplifyStep_chain hm hc (hp p rfl))
+    · cases ps with
+      | nil => trivial
+      | cons q tail => exact hps.2
+    · intro q hq b hb
+      rw [simplifyStep_head] at hb
+      have hpb : p = b := Option.some.inj hb
+      subst b
+      cases ps with
+      | nil => simp at hq
+      | cons q' tail =>
+        have he : q' = q := Option.some.inj hq
+        subst q
+        exact hps.1
+
+theorem simplify_chain {R : Point → Point → Prop} (hm : Mrg R)
+    {ps : List Point} (hc : Chain R ps) : Chain R (simplify ps) := by
+  unfold simplify
+  apply chain_reverse
+  exact simplifyFold_chain hm ps [] trivial hc (by
+    intro p _ b hb
+    simp at hb)
+
+theorem simplify_aligned {ps : List Point} (h : Chain Aligned ps) :
+    Chain Aligned (simplify ps) :=
+  simplify_chain mrg_aligned h
+
+theorem simplify_misses {o : Rect} (hw : 0 < o.w) (hh : 0 < o.h)
+    {ps : List Point} (h : Chain (AxMiss o) ps) :
+    Chain (AxMiss o) (simplify ps) :=
+  simplify_chain (mrg_axmiss hw hh) h
+
+theorem simplifyFold_head :
+    ∀ (ps acc : List Point), (ps.foldl simplifyStep acc).head? =
+      (match ps.getLast? with | some p => some p | none => acc.head?) := by
+  intro ps
+  induction ps with
+  | nil => intro acc; rfl
+  | cons p ps ih =>
+    intro acc
+    simp only [List.foldl_cons, ih]
+    cases ps with
+    | nil => exact simplifyStep_head acc p
+    | cons q tail =>
+      simp only [List.getLast?_cons_cons]
+      cases hl : (q :: tail).getLast? with
+      | none =>
+        have hempty := List.getLast?_eq_none_iff.mp hl
+        contradiction
+      | some _last => rfl
+
+theorem simplifyFold_last :
+    ∀ (ps acc : List Point), (ps.foldl simplifyStep acc).getLast? =
+      (if acc = [] then ps.head? else acc.getLast?) := by
+  intro ps
+  induction ps with
+  | nil =>
+    intro acc
+    cases acc <;> simp
+  | cons p ps ih =>
+    intro acc
+    rw [List.foldl_cons, ih]
+    have hnonempty : simplifyStep acc p ≠ [] := by
+      intro he
+      have hh := simplifyStep_head acc p
+      rw [he] at hh
+      contradiction
+    simp only [hnonempty, ite_false]
+    rw [simplifyStep_last]
+    cases acc <;> simp
+
+theorem simplify_endpoints (ps : List Point) :
+    (simplify ps).head? = ps.head? ∧ (simplify ps).getLast? = ps.getLast? := by
+  unfold simplify
+  constructor
+  · rw [List.head?_reverse]
+    exact simplifyFold_last ps []
+  · change (ps.foldl simplifyStep []).reverse.getLast? = ps.getLast?
+    rw [List.getLast?_reverse, simplifyFold_head]
+    cases ps.getLast? <;> rfl
+
+theorem LatStep.geometry {lat : Lat} (hs : lat.Sorted) {o : Rect}
+    (ho : o ∈ lat.leaves) {p q : Point} (h : LatStep lat p q) :
+    AxMiss o p q ∧ Aligned p q := by
+  obtain ⟨v, d, u, len, hstep, hp, hq⟩ := h
+  rw [← hp, ← hq]
+  exact Lat.step_geom hs hstep ho
+
+theorem lattice_chain_geometry {lat : Lat} (hs : lat.Sorted) {o : Rect}
+    (ho : o ∈ lat.leaves) {ps : List Point} (hc : Chain (LatStep lat) ps) :
+    Chain (AxMiss o) ps ∧ Chain Aligned ps :=
+  ⟨Chain.mono (fun _ _ h => (LatStep.geometry hs ho h).1) hc,
+    Chain.mono (fun _ _ h => (LatStep.geometry hs ho h).2) hc⟩
+
+/-- Search's unsimplified result is a source stub, a lattice walk, and a target stub.
+The caller supplies the two stub facts, independently of Dijkstra's chosen walk. -/
+theorem search_chain {r : Router} {used used' : Used} {cur : Nat}
+    {sources targets : List End} {route : List Point}
+    {R : Point → Point → Prop} (hm : Mrg R)
+    (hl : ∀ p q, LatStep r.lat p q → R p q)
+    (hsrc : ∀ s, s < 4 → R (sources.getD s default).port
+      (r.lat.point (sources.getD s default).vertex))
+    (htgt : ∀ s, s < 4 → R (r.lat.point (targets.getD s default).vertex)
+      (targets.getD s default).port)
+    (h : search r used cur sources targets = some (route, used')) :
+    Chain R route := by
+  obtain ⟨pts, s, t, mid, hr, hs, ht, hpts, hhead, hlast, hc⟩ := search_spec h
+  rw [hr, hpts]
+  apply simplify_chain hm
+  have hmid := Chain.mono hl hc
+  have htail := chain_snoc hmid hlast (htgt t ht)
+  cases mid with
+  | nil => simp at hhead
+  | cons p rest =>
+    have hp : p = r.lat.point (sources.getD s default).vertex := Option.some.inj hhead
+    exact ⟨by simpa only [hp] using hsrc s hs, htail⟩
+
+theorem search_endpoints {r : Router} {used used' : Used} {cur : Nat}
+    {sources targets : List End} {route : List Point}
+    (h : search r used cur sources targets = some (route, used')) :
+    ∃ s t, s < 4 ∧ t < 4 ∧
+      route.head? = some (sources.getD s default).port ∧
+      route.getLast? = some (targets.getD t default).port := by
+  obtain ⟨pts, s, t, mid, hr, hs, ht, hpts, _, _, _⟩ := search_spec h
+  refine ⟨s, t, hs, ht, ?_, ?_⟩
+  · rw [hr, (simplify_endpoints pts).1, hpts]
+    rfl
+  · rw [hr, (simplify_endpoints pts).2, hpts]
+    have last_append (xs : List Point) (p : Point) :
+        (xs ++ [p]).getLast? = some p := by
+      induction xs with
+      | nil => rfl
+      | cons x xs ih =>
+        cases xs with
+        | nil => rfl
+        | cons y ys => exact ih
+    exact last_append ((sources.getD s default).port :: mid) _
+
+theorem Chain.orthogonal : ∀ {ps : List Point}, Chain Aligned ps →
+    Polyline.isOrthogonal ps = true
+  | [], _ => rfl
+  | [_], _ => rfl
+  | p :: q :: rest, h => by
+    rw [Polyline.isOrthogonal_cons, Bool.and_eq_true]
+    refine ⟨?_, Chain.orthogonal h.2⟩
+    simpa only [Aligned, Bool.or_eq_true, decide_eq_true_eq] using h.1
+
+theorem Chain.misses {o : Rect} : ∀ {ps : List Point}, Chain (AxMiss o) ps →
+    Polyline.allSegsMiss ps o
+  | [], _ => trivial
+  | [_], _ => trivial
+  | _ :: _ :: _, h => ⟨h.1.segMisses, Chain.misses h.2⟩
+
+theorem Chain.not_hits {o : Rect} {ps : List Point} (h : Chain (AxMiss o) ps) :
+    ¬ Polyline.hitsRect ps o := by
+  intro hit
+  exact hit.2.2 (Chain.misses h)
+
+def PointIn (r : Rect) (p : Point) : Prop :=
+  r.x ≤ p.x ∧ p.x ≤ r.x + r.w ∧ r.y ≤ p.y ∧ p.y ≤ r.y + r.h
+
+theorem portOf_boundary (pad gx gy : Int) (r : Rect) (side : Nat)
+    (hw : 0 ≤ r.w) (hh : 0 ≤ r.h) :
+    Validator.onBoundary (portOf pad gx gy r side).1 r := by
+  have hwd := fdiv_fmod_nonneg (pos := r.w) (columns := 2) hw (by omega)
+  have hhd := fdiv_fmod_nonneg (pos := r.h) (columns := 2) hh (by omega)
+  obtain rfl | rfl | rfl | hs : side = 0 ∨ side = 1 ∨ side = 2 ∨ 3 ≤ side := by omega
+  · simp [portOf, Validator.onBoundary]
+    omega
+  · simp [portOf, Validator.onBoundary]
+    omega
+  · simp [portOf, Validator.onBoundary]
+    omega
+  · obtain ⟨k, rfl⟩ : ∃ k, side = k + 3 := ⟨side - 3, by omega⟩
+    simp [portOf, Validator.onBoundary]
+    omega
+
+theorem portOf_aligned (pad gx gy : Int) (r : Rect) (side : Nat) :
+    Aligned (portOf pad gx gy r side).1 (portOf pad gx gy r side).2 := by
+  obtain rfl | rfl | rfl | hs : side = 0 ∨ side = 1 ∨ side = 2 ∨ 3 ≤ side := by omega
+  · exact Or.inl rfl
+  · exact Or.inl rfl
+  · exact Or.inr rfl
+  · obtain ⟨k, rfl⟩ : ∃ k, side = k + 3 := ⟨side - 3, by omega⟩
+    exact Or.inr rfl
+
+theorem portOf_grown (pad gx gy : Int) (r : Rect) (side : Nat)
+    (hw : 0 ≤ r.w) (hh : 0 ≤ r.h) (hp : 0 ≤ pad)
+    (hx : pad ≤ gx) (hy : pad ≤ gy) :
+    PointIn (grow r gx gy) (portOf pad gx gy r side).1 ∧
+      PointIn (grow r gx gy) (portOf pad gx gy r side).2 := by
+  have hwd := fdiv_fmod_nonneg (pos := r.w) (columns := 2) hw (by omega)
+  have hhd := fdiv_fmod_nonneg (pos := r.h) (columns := 2) hh (by omega)
+  obtain rfl | rfl | rfl | hs : side = 0 ∨ side = 1 ∨ side = 2 ∨ 3 ≤ side := by omega
+  · simp only [portOf, PointIn, grow]
+    omega
+  · simp only [portOf, PointIn, grow]
+    omega
+  · simp only [portOf, PointIn, grow]
+    omega
+  · obtain ⟨k, rfl⟩ : ∃ k, side = k + 3 := ⟨side - 3, by omega⟩
+    simp only [portOf, PointIn, grow]
+    omega
+
+theorem Sep.segment_misses {o band : Rect} {p q : Point}
+    (hs : Sep o band) (hp : PointIn band p) (hq : PointIn band q) :
+    AxMiss o p q := by
+  unfold Sep at hs
+  unfold PointIn at hp hq
+  unfold AxMiss
+  omega
+
+theorem portOf_misses {o r : Rect} {pad gx gy : Int} {side : Nat}
+    (hw : 0 ≤ r.w) (hh : 0 ≤ r.h) (hp : 0 ≤ pad)
+    (hx : pad ≤ gx) (hy : pad ≤ gy) (hsep : Sep o (grow r gx gy)) :
+    AxMiss o (portOf pad gx gy r side).1 (portOf pad gx gy r side).2 := by
+  have hb := portOf_grown pad gx gy r side hw hh hp hx hy
+  exact hsep.segment_misses hb.1 hb.2
+
+theorem Lat.vertex_point {lat : Lat} {p : Point} {v : Nat}
+    (h : lat.vertex p = some v) : lat.point v = p := by
+  unfold Lat.vertex at h
+  cases hx : lat.xs.findIdx? (· == p.x) with
+  | none => simp [hx] at h
+  | some i =>
+    cases hy : lat.ys.findIdx? (· == p.y) with
+    | none => simp [hx, hy] at h
+    | some j =>
+      have hv : i * lat.ny + j = v := Option.some.inj (by simpa [hx, hy] using h)
+      obtain ⟨hi, hxi, _⟩ := Array.findIdx?_eq_some_iff_getElem.mp hx
+      obtain ⟨hj, hyj, _⟩ := Array.findIdx?_eq_some_iff_getElem.mp hy
+      rw [← hv, Lat.point_vertex lat hj]
+      have hxi' : lat.xs.getD i 0 = p.x := by
+        simpa only [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hi,
+          Option.getD_some, beq_iff_eq] using hxi
+      have hyj' : lat.ys.getD j 0 = p.y := by
+        simpa only [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hj,
+          Option.getD_some, beq_iff_eq] using hyj
+      rw [hxi', hyj']
+
+theorem endsOf_spec {lat : Lat} {pad gx gy : Int} {rect : Rect} {ends : List End}
+    (h : endsOf lat pad gx gy rect = some ends) :
+    ends.length = 4 ∧ ∀ side, side < 4 →
+      (ends.getD side default).port = (portOf pad gx gy rect side).1 ∧
+      lat.point (ends.getD side default).vertex = (portOf pad gx gy rect side).2 := by
+  cases h0 : lat.vertex (portOf pad gx gy rect 0).2 with
+  | none => simp [endsOf, List.range_succ, h0] at h
+  | some v0 =>
+    cases h1 : lat.vertex (portOf pad gx gy rect 1).2 with
+    | none => simp [endsOf, List.range_succ, h0, h1] at h
+    | some v1 =>
+      cases h2 : lat.vertex (portOf pad gx gy rect 2).2 with
+      | none => simp [endsOf, List.range_succ, h0, h1, h2] at h
+      | some v2 =>
+        cases h3 : lat.vertex (portOf pad gx gy rect 3).2 with
+        | none => simp [endsOf, List.range_succ, h0, h1, h2, h3] at h
+        | some v3 =>
+          simp [endsOf, List.range_succ, h0, h1, h2, h3] at h
+          subst ends
+          refine ⟨rfl, ?_⟩
+          intro side hs
+          obtain rfl | rfl | rfl | rfl : side = 0 ∨ side = 1 ∨ side = 2 ∨ side = 3 := by omega
+          · exact ⟨rfl, Lat.vertex_point h0⟩
+          · exact ⟨rfl, Lat.vertex_point h1⟩
+          · exact ⟨rfl, Lat.vertex_point h2⟩
+          · exact ⟨rfl, Lat.vertex_point h3⟩
+
+theorem overlaps_false_sep {a b : Rect} (h : overlaps a b = false) : Sep a b := by
+  have hnot : ¬ (a.x < b.x + b.w ∧ b.x < a.x + a.w ∧
+      a.y < b.y + b.h ∧ b.y < a.y + a.h) := by
+    intro hp
+    have ht : overlaps a b = true := by
+      simpa only [overlaps, Bool.and_eq_true, decide_eq_true_eq, and_assoc] using hp
+    rw [h] at ht
+    contradiction
+  unfold Sep
+  omega
+
+theorem Site.vacant_leaf {s : Site} {thick : Int} {r o : Rect}
+    (hv : s.vacant thick r = true) (ho : o ∈ s.leaves) : Sep r o := by
+  apply overlaps_false_sep
+  cases he : overlaps r o with
+  | false => rfl
+  | true =>
+    have hany : s.leaves.any (fun b => overlaps r b) = true :=
+      List.any_eq_true.mpr ⟨o, ho, he⟩
+    simp [Site.vacant, hany] at hv
+
+theorem Site.vacant_placed {s : Site} {thick : Int} {r o : Rect}
+    (hv : s.vacant thick r = true) (ho : o ∈ s.placed) : Sep r o := by
+  apply overlaps_false_sep
+  cases he : overlaps r o with
+  | false => rfl
+  | true =>
+    have hany : s.placed.any (fun b => overlaps r b) = true :=
+      List.any_eq_true.mpr ⟨o, ho, he⟩
+    simp [Site.vacant, hany] at hv
+
+theorem loopOf_orthogonal (pad : Int) (r : Rect) :
+    Polyline.isOrthogonal (loopOf pad r) = true := by
+  apply Chain.orthogonal
+  apply simplify_aligned
+  simp only [Chain, Aligned]
+  exact ⟨Or.inr True.intro, Or.inl True.intro, Or.inr True.intro, trivial⟩
+
+theorem loopOf_ports (pad : Int) (r : Rect) (hw : 0 ≤ r.w) (hh : 0 ≤ r.h) :
+    ∃ p q, (loopOf pad r).head? = some p ∧ (loopOf pad r).getLast? = some q ∧
+      Validator.onBoundary p r ∧ Validator.onBoundary q r := by
+  have hthird := fdiv_fmod_nonneg (pos := r.h) (columns := 3) hh (by omega)
+  have htwo := fdiv_fmod_nonneg (pos := 2 * r.h) (columns := 3) (by omega) (by omega)
+  refine ⟨⟨r.x + r.w, r.y + Int.fdiv r.h 3⟩,
+    ⟨r.x + r.w, r.y + Int.fdiv (2 * r.h) 3⟩, ?_, ?_, ?_, ?_⟩
+  · exact (simplify_endpoints _).1
+  · change (simplify _).getLast? = _
+    rw [(simplify_endpoints _).2]
+    rfl
+  · simp [Validator.onBoundary]
+    omega
+  · simp [Validator.onBoundary]
+    omega
+
+theorem loopOf_not_hits {pad gx gy : Int} {r o : Rect}
+    (hw : 0 ≤ r.w) (hh : 0 ≤ r.h) (hp : 0 ≤ pad)
+    (hx : pad ≤ gx) (hy : 0 ≤ gy) (hsep : Sep o (grow r gx gy)) :
+    ¬ Polyline.hitsRect (loopOf pad r) o := by
+  by_cases how : 0 < o.w
+  · by_cases hoh : 0 < o.h
+    · apply Chain.not_hits
+      apply simplify_misses how hoh
+      have hthird := fdiv_fmod_nonneg (pos := r.h) (columns := 3) hh (by omega)
+      have htwo := fdiv_fmod_nonneg (pos := 2 * r.h) (columns := 3) (by omega) (by omega)
+      have h1 : PointIn (grow r gx gy) ⟨r.x + r.w, r.y + Int.fdiv r.h 3⟩ := by
+        dsimp [PointIn, grow]
+        omega
+      have h2 : PointIn (grow r gx gy) ⟨r.x + r.w + pad, r.y + Int.fdiv r.h 3⟩ := by
+        dsimp [PointIn, grow]
+        omega
+      have h3 : PointIn (grow r gx gy) ⟨r.x + r.w + pad, r.y + Int.fdiv (2 * r.h) 3⟩ := by
+        dsimp [PointIn, grow]
+        omega
+      have h4 : PointIn (grow r gx gy) ⟨r.x + r.w, r.y + Int.fdiv (2 * r.h) 3⟩ := by
+        dsimp [PointIn, grow]
+        omega
+      exact ⟨hsep.segment_misses h1 h2, hsep.segment_misses h2 h3,
+        hsep.segment_misses h3 h4, trivial⟩
+    · intro hit
+      exact hoh hit.2.1
+  · intro hit
+    exact how hit.1
+
+theorem search_orthogonal {r : Router} {used used' : Used} {cur : Nat}
+    {sources targets : List End} {route : List Point} {a b : Rect} {pad gx gy : Int}
+    (ha : endsOf r.lat pad gx gy a = some sources)
+    (hb : endsOf r.lat pad gx gy b = some targets)
+    (h : search r used cur sources targets = some (route, used')) :
+    Polyline.isOrthogonal route = true := by
+  apply Chain.orthogonal
+  apply search_chain mrg_aligned
+  · intro p q hpq
+    obtain ⟨v, d, u, len, hs, hp, hq⟩ := hpq
+    rw [← hp, ← hq]
+    exact Lat.step_aligned hs
+  · intro side hs
+    have he := (endsOf_spec ha).2 side hs
+    rw [he.1, he.2]
+    exact portOf_aligned pad gx gy a side
+  · intro side hs
+    have he := (endsOf_spec hb).2 side hs
+    rw [he.1, he.2]
+    rcases portOf_aligned pad gx gy b side with h | h
+    · exact Or.inl h.symm
+    · exact Or.inr h.symm
+  · exact h
+
+theorem search_ports {r : Router} {used used' : Used} {cur : Nat}
+    {sources targets : List End} {route : List Point} {a b : Rect} {pad gx gy : Int}
+    (ha : endsOf r.lat pad gx gy a = some sources)
+    (hb : endsOf r.lat pad gx gy b = some targets)
+    (haw : 0 ≤ a.w) (hah : 0 ≤ a.h) (hbw : 0 ≤ b.w) (hbh : 0 ≤ b.h)
+    (h : search r used cur sources targets = some (route, used')) :
+    ∃ p q, route.head? = some p ∧ route.getLast? = some q ∧
+      Validator.onBoundary p a ∧ Validator.onBoundary q b := by
+  obtain ⟨s, t, hs, ht, hfirst, hlast⟩ := search_endpoints h
+  refine ⟨_, _, hfirst, hlast, ?_, ?_⟩
+  · rw [((endsOf_spec ha).2 s hs).1]
+    exact portOf_boundary pad gx gy a s haw hah
+  · rw [((endsOf_spec hb).2 t ht).1]
+    exact portOf_boundary pad gx gy b t hbw hbh
+
+theorem search_not_hits {r : Router} {used used' : Used} {cur : Nat}
+    {sources targets : List End} {route : List Point} {a b o : Rect} {pad gx gy : Int}
+    (hsorted : r.lat.Sorted) (ho : o ∈ r.lat.leaves)
+    (ha : endsOf r.lat pad gx gy a = some sources)
+    (hb : endsOf r.lat pad gx gy b = some targets)
+    (haw : 0 ≤ a.w) (hah : 0 ≤ a.h) (hbw : 0 ≤ b.w) (hbh : 0 ≤ b.h)
+    (hp : 0 ≤ pad) (hx : pad ≤ gx) (hy : pad ≤ gy)
+    (hasep : Sep o (grow a gx gy)) (hbsep : Sep o (grow b gx gy))
+    (h : search r used cur sources targets = some (route, used')) :
+    ¬ Polyline.hitsRect route o := by
+  by_cases hw : 0 < o.w
+  · by_cases hh : 0 < o.h
+    · apply Chain.not_hits
+      apply search_chain (mrg_axmiss hw hh)
+      · intro p q hpq
+        exact (LatStep.geometry hsorted ho hpq).1
+      · intro side hs
+        have he := (endsOf_spec ha).2 side hs
+        rw [he.1, he.2]
+        exact portOf_misses haw hah hp hx hy hasep
+      · intro side hs
+        have he := (endsOf_spec hb).2 side hs
+        rw [he.1, he.2]
+        exact (portOf_misses hbw hbh hp hx hy hbsep).symm
+      · exact h
+    · intro hit
+      exact hh hit.2.1
+  · intro hit
+    exact hw hit.1
+
+theorem routeEdges_orthogonal {inp : RouteIn} {r : Router} :
+    ∀ (es : List Edge) (k : Nat) (used : Used) (acc out : List (List Point)),
+      (∀ pts ∈ acc, Polyline.isOrthogonal pts = true) →
+      routeEdges inp r k es used acc = some out →
+      ∀ pts ∈ out, Polyline.isOrthogonal pts = true := by
+  intro es
+  induction es with
+  | nil =>
+    intro k used acc out hacc h pts hpts
+    simp only [routeEdges, Option.some.injEq] at h
+    subst out
+    exact hacc pts (List.mem_reverse.mp hpts)
+  | cons e es ih =>
+    intro k used acc out hacc h
+    by_cases heq : e.fromBox = e.toBox
+    · simp only [routeEdges, heq, ↓reduceIte] at h
+      apply ih (k + 1) used _ out _ h
+      intro pts hpts
+      rcases List.mem_cons.mp hpts with hloop | hpts
+      · subst pts
+        exact loopOf_orthogonal inp.pad (inp.rects.getD e.toBox default)
+      · exact hacc pts hpts
+    · simp only [routeEdges, heq, ↓reduceIte] at h
+      cases hsrc : endsOf r.lat inp.pad inp.gapX inp.gapY
+          (inp.rects.getD e.fromBox default) with
+      | none => simp only [List.getD_eq_getElem?_getD] at hsrc; simp [hsrc] at h
+      | some src =>
+        cases htgt : endsOf r.lat inp.pad inp.gapX inp.gapY
+            (inp.rects.getD e.toBox default) with
+        | none =>
+          simp only [List.getD_eq_getElem?_getD] at hsrc htgt
+          simp [hsrc, htgt] at h
+        | some tgt =>
+          simp only [hsrc, htgt] at h
+          cases hs : search r used k src tgt with
+          | none => simp [hs] at h
+          | some pair =>
+            obtain ⟨path, used'⟩ := pair
+            simp only [hs] at h
+            apply ih (k + 1) used' _ out _ h
+            intro pts hpts
+            rcases List.mem_cons.mp hpts with hpath | hpts
+            · subst pts
+              exact search_orthogonal hsrc htgt hs
+            · exact hacc pts hpts
+
+theorem routes_orthogonal {inp : RouteIn} {out : List (List Point)}
+    (h : routes inp = .ok out) :
+    ∀ pts ∈ out, Polyline.isOrthogonal pts = true := by
+  unfold routes at h
+  cases he : inp.edges with
+  | nil => simp [he] at h; subst out; simp
+  | cons e es =>
+    simp only [he] at h
+    cases hl : buildLat inp with
+    | error err => simp [hl] at h
+    | ok lat =>
+      simp only [hl] at h
+      cases hr : routeEdges inp ⟨lat, inp.bend, (e :: es).map fun e => (e.fromBox, e.toBox)⟩
+          0 (e :: es) (Used.empty lat.cells) [] with
+      | none => simp only [List.map_cons] at hr; simp [hr] at h
+      | some paths =>
+        simp only [hr, Except.ok.injEq] at h
+        subst out
+        exact routeEdges_orthogonal _ _ _ _ _ (by simp) hr
+
+theorem strictlyInside_contained {outer inner : Rect}
+    (h : strictlyInside outer inner = true) : outer.Contained inner := by
+  simp only [strictlyInside, Bool.and_eq_true, decide_eq_true_eq] at h
+  unfold Rect.Contained
+  omega
+
+theorem Site.vacant_inside {s : Site} {thick : Int} {r : Rect}
+    (h : s.vacant thick r = true) : s.canvas.Contained r := by
+  apply strictlyInside_contained
+  cases hi : strictlyInside s.canvas r with
+  | false => simp [Site.vacant, hi] at h
+  | true => rfl
+
+theorem fitLabel_vacant {s : Site} {pad thick : Int} {route : List Point}
+    {size : Size} {rect : Rect} (h : fitLabel s pad thick route size = some rect) :
+    s.vacant thick rect = true :=
+  List.find?_some h
+
+theorem fitLabel_clear {s : Site} {pad thick : Int} {route : List Point}
+    {size : Size} {rect : Rect} (h : fitLabel s pad thick route size = some rect) :
+    s.canvas.Contained rect ∧ (∀ o ∈ s.leaves, Disjoint rect o) ∧
+      (∀ o ∈ s.placed, Disjoint rect o) := by
+  have hv := fitLabel_vacant h
+  exact ⟨Site.vacant_inside hv,
+    fun _ ho => (Site.vacant_leaf hv ho).disjoint,
+    fun _ ho => (Site.vacant_placed hv ho).disjoint⟩
+
+theorem routeEdges_length {inp : RouteIn} {r : Router} :
+    ∀ (es : List Edge) (k : Nat) (used : Used) (acc out : List (List Point)),
+      routeEdges inp r k es used acc = some out →
+      out.length = es.length + acc.length := by
+  intro es
+  induction es with
+  | nil =>
+    intro k used acc out h
+    simp only [routeEdges, Option.some.injEq] at h
+    subst out
+    simp
+  | cons e es ih =>
+    intro k used acc out h
+    by_cases heq : e.fromBox = e.toBox
+    · simp only [routeEdges, heq, ↓reduceIte] at h
+      have hi := ih (k + 1) used _ out h
+      simp only [List.length_cons] at hi ⊢
+      omega
+    · simp only [routeEdges, heq, ↓reduceIte] at h
+      cases hsrc : endsOf r.lat inp.pad inp.gapX inp.gapY
+          (inp.rects.getD e.fromBox default) with
+      | none => simp only [List.getD_eq_getElem?_getD] at hsrc; simp [hsrc] at h
+      | some src =>
+        cases htgt : endsOf r.lat inp.pad inp.gapX inp.gapY
+            (inp.rects.getD e.toBox default) with
+        | none =>
+          simp only [List.getD_eq_getElem?_getD] at hsrc htgt
+          simp [hsrc, htgt] at h
+        | some tgt =>
+          simp only [hsrc, htgt] at h
+          cases hs : search r used k src tgt with
+          | none => simp [hs] at h
+          | some pair =>
+            obtain ⟨path, used'⟩ := pair
+            simp only [hs] at h
+            have hi := ih (k + 1) used' (path :: acc) out h
+            simp only [List.length_cons] at hi ⊢
+            omega
+
+theorem block_routes_orthogonal {inp : GInput} {p : GParams} {res : GLayout}
+    (h : block inp p = .ok res) :
+    ∀ pts ∈ res.routes, Polyline.isOrthogonal pts = true := by
+  by_cases hv : inp.valid p.padding = true
+  · simp only [block, hv, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+    split at h
+    · cases h
+    · split at h
+      · cases h
+      · split at h
+        · cases h
+        · split at h
+          · cases h
+          · rename_i rts hr
+            split at h
+            · cases h
+            · injection h with he
+              subst res
+              exact routes_orthogonal hr
+  · have hf : inp.valid p.padding = false := by
+      cases he : inp.valid p.padding
+      · rfl
+      · exact False.elim (hv he)
+    simp [block, hf] at h
+
+theorem BlockPlan.scene_orthogonal {pl : BlockPlan} {res : GLayout}
+    (h : block pl.input pl.params = .ok res) :
+    Validator.C4 (pl.scene res).layoutDump := by
+  intro route hroute _horthogonal
+  change route ∈ (pl.m.routes.zip res.routes).map
+    (fun (r, pts) => (⟨r.id, r.fromId, r.toId, true, pts⟩ : Route)) at hroute
+  obtain ⟨⟨modelRoute, points⟩, hzip, heq⟩ := List.mem_map.mp hroute
+  subst route
+  exact block_routes_orthogonal h points (List.of_mem_zip hzip).2
+
+theorem layout_orthogonal {m : Model} {s : Scene} (h : layout m = .ok s) :
+    Validator.C4 s.layoutDump := by
+  unfold layout at h
+  cases hb : BlockPlan.build m with
+  | error err => simp [hb] at h
+  | ok pl =>
+    simp only [hb, except_bind_ok] at h
+    cases hr : block pl.input pl.params with
+    | error err => simp [hr] at h
+    | ok res =>
+      simp only [hr, except_bind_ok, except_pure, Except.ok.injEq] at h
+      subst s
+      exact BlockPlan.scene_orthogonal hr
+
+/-- A composite endpoint's stub is outside its frame, so it also misses every
+descendant leaf inside that frame. -/
+theorem portOf_misses_contained {r o : Rect} {pad gx gy : Int} {side : Nat}
+    (hp : 0 ≤ pad) (hx : pad ≤ gx) (hy : pad ≤ gy) (hcontained : r.Contained o) :
+    AxMiss o (portOf pad gx gy r side).1 (portOf pad gx gy r side).2 := by
+  unfold Rect.Contained at hcontained
+  obtain rfl | rfl | rfl | hs : side = 0 ∨ side = 1 ∨ side = 2 ∨ 3 ≤ side := by omega
+  · simp only [portOf, AxMiss]
+    omega
+  · simp only [portOf, AxMiss]
+    omega
+  · simp only [portOf, AxMiss]
+    omega
+  · obtain ⟨k, rfl⟩ : ∃ k, side = k + 3 := ⟨side - 3, by omega⟩
+    simp only [portOf, AxMiss]
+    omega
+
+theorem loopOf_not_hits_contained {r o : Rect} {pad : Int}
+    (hp : 0 ≤ pad) (hcontained : r.Contained o) :
+    ¬ Polyline.hitsRect (loopOf pad r) o := by
+  by_cases hw : 0 < o.w
+  · by_cases hh : 0 < o.h
+    · apply Chain.not_hits
+      apply simplify_misses hw hh
+      unfold Rect.Contained at hcontained
+      change Chain (AxMiss o)
+        [⟨r.x + r.w, r.y + Int.fdiv r.h 3⟩,
+         ⟨r.x + r.w + pad, r.y + Int.fdiv r.h 3⟩,
+         ⟨r.x + r.w + pad, r.y + Int.fdiv (2 * r.h) 3⟩,
+         ⟨r.x + r.w, r.y + Int.fdiv (2 * r.h) 3⟩]
+      refine ⟨Or.inr (Or.inl ?_), Or.inr (Or.inl ?_),
+        Or.inr (Or.inl ?_), True.intro⟩ <;>
+        dsimp <;> omega
+    · intro hit
+      exact hh hit.2.1
+  · intro hit
+    exact hw hit.1
+
+theorem Ctx.stub_misses_leaf {c : Ctx} (hc : c.Wf) {i j side : Nat} {pad : Int}
+    (hi : i < c.n) (hj : j < c.n) (hne : i ≠ j)
+    (hkind : (c.box j).kind = Kind.leaf)
+    (hp : 0 ≤ pad) (hx : pad ≤ c.gapX) (hy : pad ≤ c.gapY) :
+    AxMiss (c.rect j) (portOf pad c.gapX c.gapY (c.rect i) side).1
+      (portOf pad c.gapX c.gapY (c.rect i) side).2 := by
+  by_cases hij : c.Up i j
+  · exact portOf_misses_contained hp hx hy (c.rect_inside_ancestor hc hi hj hij)
+  · have hji : ¬ c.Up j i := by
+      intro hup
+      have hcomposite := c.up_composite hc hup hne.symm hj
+      rw [hkind] at hcomposite
+      cases hcomposite
+    have hsep := c.grown_sep hc j i hi hj hij hji
+    have hf := c.rect_facts hc hi
+    exact portOf_misses hf.wNonneg hf.hNonneg hp hx hy hsep
+
+theorem Ctx.loop_misses_leaf {c : Ctx} (hc : c.Wf) {i j : Nat} {pad : Int}
+    (hi : i < c.n) (hj : j < c.n) (hne : i ≠ j)
+    (hkind : (c.box j).kind = Kind.leaf)
+    (hp : 0 ≤ pad) (hx : pad ≤ c.gapX) :
+    ¬ Polyline.hitsRect (loopOf pad (c.rect i)) (c.rect j) := by
+  by_cases hij : c.Up i j
+  · exact loopOf_not_hits_contained hp (c.rect_inside_ancestor hc hi hj hij)
+  · have hji : ¬ c.Up j i := by
+      intro hup
+      have hcomposite := c.up_composite hc hup hne.symm hj
+      rw [hkind] at hcomposite
+      cases hcomposite
+    have hsep := c.grown_sep hc j i hi hj hij hji
+    have hf := c.rect_facts hc hi
+    exact loopOf_not_hits hf.wNonneg hf.hNonneg hp hx hc.gapY hsep
+
+theorem routeEdges_pairs {inp : RouteIn} {r : Router}
+    {R : Edge → List Point → Prop}
+    (hself : ∀ e, e.fromBox = e.toBox → R e (loopOf inp.pad (inp.rects.getD e.fromBox default)))
+    (hsearch : ∀ e used k src tgt pts used',
+      endsOf r.lat inp.pad inp.gapX inp.gapY (inp.rects.getD e.fromBox default) = some src →
+      endsOf r.lat inp.pad inp.gapX inp.gapY (inp.rects.getD e.toBox default) = some tgt →
+      search r used k src tgt = some (pts, used') → R e pts) :
+    ∀ (es : List Edge) (k : Nat) (used : Used) (acc out : List (List Point)),
+      routeEdges inp r k es used acc = some out →
+      ∃ emitted, out = acc.reverse ++ emitted ∧ emitted.length = es.length ∧
+        ∀ e pts, (e, pts) ∈ es.zip emitted → R e pts := by
+  intro es
+  induction es with
+  | nil =>
+    intro k used acc out h
+    simp only [routeEdges, Option.some.injEq] at h
+    exact ⟨[], by simpa using h.symm, rfl, by simp⟩
+  | cons e es ih =>
+    intro k used acc out h
+    have nextCase : ∀ pts used', R e pts →
+        routeEdges inp r (k + 1) es used' (pts :: acc) = some out →
+        ∃ emitted, out = acc.reverse ++ emitted ∧ emitted.length = (e :: es).length ∧
+          ∀ edge path, (edge, path) ∈ (e :: es).zip emitted → R edge path := by
+      intro pts used' hp hn
+      obtain ⟨tail, hout, hlen, hrel⟩ := ih (k + 1) used' (pts :: acc) out hn
+      refine ⟨pts :: tail, ?_, by simp only [List.length_cons, hlen], ?_⟩
+      · simpa only [List.reverse_cons, List.append_assoc, List.singleton_append] using hout
+      · intro edge path hm
+        simp only [List.zip_cons_cons, List.mem_cons] at hm
+        rcases hm with heq | hm
+        · cases heq
+          exact hp
+        · exact hrel edge path hm
+    by_cases heq : e.fromBox = e.toBox
+    · simp only [routeEdges, heq, ↓reduceIte] at h
+      apply nextCase _ used (hself e heq)
+      simpa only [heq] using h
+    · simp only [routeEdges, heq, ↓reduceIte] at h
+      cases hsrc : endsOf r.lat inp.pad inp.gapX inp.gapY
+          (inp.rects.getD e.fromBox default) with
+      | none => simp only [List.getD_eq_getElem?_getD] at hsrc; simp [hsrc] at h
+      | some src =>
+        cases htgt : endsOf r.lat inp.pad inp.gapX inp.gapY
+            (inp.rects.getD e.toBox default) with
+        | none =>
+          simp only [List.getD_eq_getElem?_getD] at hsrc htgt
+          simp [hsrc, htgt] at h
+        | some tgt =>
+          simp only [hsrc, htgt] at h
+          cases hs : search r used k src tgt with
+          | none => simp [hs] at h
+          | some pair =>
+            obtain ⟨path, used'⟩ := pair
+            simp only [hs] at h
+            exact nextCase path used' (hsearch e used k src tgt path used' hsrc htgt hs) h
+
+theorem Ctx.routeIn_rect {c : Ctx} {p : GParams} {i : Nat} (hi : i < c.n) :
+    (c.routeIn p).rects.getD i default = c.rect i := by
+  change ((List.range c.n).map c.rect).getD i default = c.rect i
+  rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi]
+  rfl
+
+theorem Ctx.routeIn_leaf {c : Ctx} {p : GParams} {i : Nat}
+    (hi : i < c.n) (hk : (c.box i).kind = Kind.leaf) :
+    c.rect i ∈ (c.routeIn p).leaves := by
+  change c.rect i ∈ ((List.range c.n).filter fun j => (c.box j).kind = Kind.leaf).map c.rect
+  apply List.mem_map.mpr
+  refine ⟨i, List.mem_filter.mpr ⟨List.mem_range.mpr hi, ?_⟩, rfl⟩
+  simp [hk]
+
+theorem Ctx.search_misses_leaf {c : Ctx} (hc : c.Wf) {p : GParams}
+    {r : Router} {used used' : Used} {cur i j k : Nat}
+    {sources targets : List End} {route : List Point}
+    (hi : i < c.n) (hj : j < c.n) (hk : k < c.n)
+    (hki : i ≠ k) (hkj : j ≠ k) (hkind : (c.box k).kind = Kind.leaf)
+    (hp : 0 ≤ p.padding) (hx : p.padding ≤ c.gapX) (hy : p.padding ≤ c.gapY)
+    (hsorted : r.lat.Sorted) (hleaves : r.lat.leaves = (c.routeIn p).leaves)
+    (ha : endsOf r.lat p.padding c.gapX c.gapY (c.rect i) = some sources)
+    (hb : endsOf r.lat p.padding c.gapX c.gapY (c.rect j) = some targets)
+    (h : search r used cur sources targets = some (route, used')) :
+    ¬ Polyline.hitsRect route (c.rect k) := by
+  by_cases hw : 0 < (c.rect k).w
+  · by_cases hh : 0 < (c.rect k).h
+    · apply Chain.not_hits
+      apply search_chain (mrg_axmiss hw hh)
+      · intro a b hab
+        apply (LatStep.geometry hsorted ?_ hab).1
+        rw [hleaves]
+        exact c.routeIn_leaf hk hkind
+      · intro side hs
+        have he := (endsOf_spec ha).2 side hs
+        rw [he.1, he.2]
+        exact c.stub_misses_leaf hc hi hk hki hkind hp hx hy
+      · intro side hs
+        have he := (endsOf_spec hb).2 side hs
+        rw [he.1, he.2]
+        exact (c.stub_misses_leaf hc hj hk hkj hkind hp hx hy).symm
+      · exact h
+    · intro hit
+      exact hh hit.2.1
+  · intro hit
+    exact hw hit.1
+
+structure EdgeGeometry (c : Ctx) (e : Edge) (pts : List Point) : Prop where
+  orthogonal : Polyline.isOrthogonal pts = true
+  ports : ∃ a b, pts.head? = some a ∧ pts.getLast? = some b ∧
+    Validator.onBoundary a (c.rect e.fromBox) ∧ Validator.onBoundary b (c.rect e.toBox)
+  clearance : ∀ k, k < c.n → (c.box k).kind = Kind.leaf →
+    e.fromBox ≠ k → e.toBox ≠ k → ¬ Polyline.hitsRect pts (c.rect k)
+
+theorem Ctx.routeEdges_geometry {c : Ctx} (hc : c.Wf) {p : GParams} {r : Router}
+    {used : Used} {paths : List (List Point)}
+    (hbound : ∀ e ∈ c.inp.edges, e.fromBox < c.n ∧ e.toBox < c.n)
+    (hp : 0 ≤ p.padding) (hx : p.padding ≤ c.gapX) (hy : p.padding ≤ c.gapY)
+    (hsorted : r.lat.Sorted) (hleaves : r.lat.leaves = (c.routeIn p).leaves)
+    (h : routeEdges (c.routeIn p) r 0 c.inp.edges used [] = some paths) :
+    ∀ e pts, (e, pts) ∈ c.inp.edges.zip paths → EdgeGeometry c e pts := by
+  have hself : ∀ (e : Edge), e.fromBox = e.toBox →
+      (e ∈ c.inp.edges → EdgeGeometry c e
+        (loopOf (c.routeIn p).pad ((c.routeIn p).rects.getD e.fromBox default))) := by
+    intro e heq he
+    have hb := hbound e he
+    rw [c.routeIn_rect hb.1]
+    have hf := c.rect_facts hc hb.1
+    refine ⟨loopOf_orthogonal p.padding _, ?_, ?_⟩
+    · rw [← heq]
+      exact loopOf_ports p.padding _ hf.wNonneg hf.hNonneg
+    · intro k hk hkind hne _hne'
+      exact c.loop_misses_leaf hc hb.1 hk hne hkind hp hx
+  have hsearch : ∀ (e : Edge) used cur src tgt pts used',
+      endsOf r.lat (c.routeIn p).pad (c.routeIn p).gapX (c.routeIn p).gapY
+        ((c.routeIn p).rects.getD e.fromBox default) = some src →
+      endsOf r.lat (c.routeIn p).pad (c.routeIn p).gapX (c.routeIn p).gapY
+        ((c.routeIn p).rects.getD e.toBox default) = some tgt →
+      search r used cur src tgt = some (pts, used') →
+      (e ∈ c.inp.edges → EdgeGeometry c e pts) := by
+    intro e used cur src tgt pts used' ha hb hs he
+    have hends := hbound e he
+    rw [c.routeIn_rect hends.1] at ha
+    rw [c.routeIn_rect hends.2] at hb
+    have hf := c.rect_facts hc hends.1
+    have ht := c.rect_facts hc hends.2
+    refine ⟨search_orthogonal ha hb hs,
+      search_ports ha hb hf.wNonneg hf.hNonneg ht.wNonneg ht.hNonneg hs, ?_⟩
+    intro k hk hkind hki hkj
+    exact c.search_misses_leaf hc hends.1 hends.2 hk hki hkj hkind hp hx hy
+      hsorted hleaves ha hb hs
+  obtain ⟨emitted, hout, _hlen, hrel⟩ := routeEdges_pairs hself hsearch _ _ _ _ _ h
+  have heq : paths = emitted := by simpa only [List.reverse_nil, List.nil_append] using hout
+  subst emitted
+  intro e pts hm
+  exact hrel e pts hm (List.of_mem_zip hm).1
+
+theorem Ctx.routes_geometry {c : Ctx} (hc : c.Wf) {p : GParams}
+    {paths : List (List Point)}
+    (hbound : ∀ e ∈ c.inp.edges, e.fromBox < c.n ∧ e.toBox < c.n)
+    (hp : 0 ≤ p.padding) (hx : p.padding ≤ c.gapX) (hy : p.padding ≤ c.gapY)
+    (h : routes (c.routeIn p) = .ok paths) :
+    ∀ e pts, (e, pts) ∈ c.inp.edges.zip paths → EdgeGeometry c e pts := by
+  unfold routes at h
+  change (match c.inp.edges with
+    | [] => Except.ok []
+    | edges =>
+      match buildLat (c.routeIn p) with
+      | .error err => .error err
+      | .ok lat =>
+        match routeEdges (c.routeIn p)
+            ⟨lat, (c.routeIn p).bend, edges.map fun (e : Edge) => (e.fromBox, e.toBox)⟩
+            0 edges (Used.empty lat.cells) [] with
+        | some rs => .ok rs
+        | none => .error .domain) = .ok paths at h
+  cases he : c.inp.edges with
+  | nil =>
+    intro e pts hm
+    simp only [List.zip_nil_left, List.not_mem_nil] at hm
+  | cons edge rest =>
+    rw [he] at h
+    cases hl : buildLat (c.routeIn p) with
+    | error err => rw [hl] at h; cases h
+    | ok lat =>
+      rw [hl] at h
+      cases hr : routeEdges (c.routeIn p)
+          ⟨lat, (c.routeIn p).bend, (edge :: rest).map fun e => (e.fromBox, e.toBox)⟩
+          0 (edge :: rest) (Used.empty lat.cells) [] with
+      | none =>
+        dsimp only at h
+        rw [hr] at h
+        cases h
+      | some out =>
+        simp only [hr, Except.ok.injEq] at h
+        subst paths
+        have hroute : routeEdges (c.routeIn p)
+            ⟨lat, (c.routeIn p).bend, c.inp.edges.map fun e => (e.fromBox, e.toBox)⟩
+            0 c.inp.edges (Used.empty lat.cells) [] = some out := by
+          simpa only [he] using hr
+        simpa only [he] using c.routeEdges_geometry hc hbound hp hx hy
+          (buildLat_sorted hl) (buildLat_leaves hl) hroute
+
+theorem placeAll_canvas {inp : RouteIn} {rts : List (List Point)} {canvas out : Rect}
+    {labels : List Rect} (h : placeAll inp rts canvas = .ok (labels, out)) :
+    out.x = canvas.x ∧ out.y = canvas.y ∧ canvas.w ≤ out.w ∧ canvas.h ≤ out.h := by
+  unfold placeAll at h
+  dsimp only at h
+  split at h
+  · cases h
+  · rename_i st hf
+    have hout : st.canvas = out := (Prod.mk.inj (Except.ok.inj h)).2
+    rw [← hout]
+    refine foldlM_preserves _
+      (fun st : Spill => st.canvas.x = canvas.x ∧ st.canvas.y = canvas.y ∧
+        canvas.w ≤ st.canvas.w ∧ canvas.h ≤ st.canvas.h) ?_ _ _ _ ?_ hf
+    · intro before ke after hbefore hstep
+      split at hstep
+      · injection hstep with heq
+        subst after
+        exact hbefore
+      · split at hstep
+        · injection hstep with heq
+          subst after
+          exact hbefore
+        · split at hstep
+          · cases hstep
+          · injection hstep with heq
+            subst after
+            dsimp only
+            exact ⟨hbefore.1, hbefore.2.1,
+              Int.le_trans hbefore.2.2.1 (Int.le_max_left ..),
+              Int.le_trans hbefore.2.2.2 (Int.le_max_left ..)⟩
+    · exact ⟨rfl, rfl, Int.le_refl _, Int.le_refl _⟩
+
+theorem block_canvas_contains_rects {inp : GInput} {p : GParams} {res : GLayout}
+    (h : block inp p = .ok res) :
+    ∀ rect ∈ res.rects, (⟨0, 0, res.canvas.w, res.canvas.h⟩ : Rect).Contained rect := by
+  by_cases hv : inp.valid p.padding = true
+  · let c : Ctx := ⟨inp, (gapsOf inp p.padding).1, (gapsOf inp p.padding).2⟩
+    have hc : c.Wf := Ctx.wf_of_valid hv
+    simp only [block, hv, Bool.not_true, Bool.false_eq_true, ↓reduceIte] at h
+    split at h
+    · cases h
+    · split at h
+      · cases h
+      · split at h
+        · cases h
+        · split at h
+          · cases h
+          · split at h
+            · cases h
+            · rename_i labels canvas hplace
+              injection h with he
+              subst res
+              have hcan := placeAll_canvas hplace
+              change ∀ rect ∈ (c.routeIn p).rects,
+                (⟨0, 0, canvas.w, canvas.h⟩ : Rect).Contained rect
+              intro rect hrect
+              change rect ∈ (List.range c.n).map c.rect at hrect
+              obtain ⟨i, hi, heq⟩ := List.mem_map.mp hrect
+              subst rect
+              have hold := c.rect_inside_root hc (List.mem_range.mp hi)
+              simp only [Ctx.frame, ↓reduceIte, Ctx.rootFrame, Rect.Contained] at hold
+              dsimp only [Ctx.rootFrame] at hcan
+              have hsize : c.rootPlan.width ≤ canvas.w ∧ c.rootPlan.height ≤ canvas.h := by
+                simpa only [c] using hcan.2.2
+              dsimp [Rect.Contained]
+              omega
+  · have hf : inp.valid p.padding = false := by
+      cases he : inp.valid p.padding
+      · rfl
+      · exact False.elim (hv he)
+    simp [block, hf] at h
+
+theorem BlockPlan.scene_canvas {pl : BlockPlan} {res : GLayout}
+    (h : block pl.input pl.params = .ok res) :
+    Validator.C1 (pl.scene res).layoutDump := by
+  intro box hb
+  change box ∈ (pl.m.boxes.zip
+    ((⟨0, 0, res.canvas.w, res.canvas.h⟩ : Rect) :: res.rects)).map
+      (fun (b, r) => (⟨b.id, b.role.id, r, b.parent, b.exclusive⟩ : Box)) at hb
+  obtain ⟨⟨modelBox, rect⟩, hzip, heq⟩ := List.mem_map.mp hb
+  subst box
+  have hrect := (List.of_mem_zip hzip).2
+  rcases List.mem_cons.mp hrect with heq | hmem
+  · subst rect
+    exact Rect.Contained.refl _
+  · exact block_canvas_contains_rects h rect hmem
+
+theorem Site.vacant_frame {s : Site} {thick : Int} {r frame : Rect}
+    (h : s.vacant thick r = true) (hf : frame ∈ s.frames) :
+    Disjoint frame r ∨ frame.StrictInside r := by
+  have hall : (s.frames.all fun f => !overlaps f r || strictlyInside f r) = true := by
+    cases he : (s.frames.all fun f => !overlaps f r || strictlyInside f r) with
+    | false => simp [Site.vacant, he] at h
+    | true => rfl
+  have hrow := List.all_eq_true.mp hall frame hf
+  by_cases ho : overlaps frame r = true
+  · right
+    have hs : strictlyInside frame r = true := by simpa [ho] using hrow
+    simp only [strictlyInside, Bool.and_eq_true, decide_eq_true_eq] at hs
+    unfold Rect.StrictInside
+    omega
+  · left
+    have ho' : overlaps frame r = false := by
+      cases he : overlaps frame r
+      · rfl
+      · exact False.elim (ho he)
+    exact (overlaps_false_sep ho').disjoint
+
+theorem fitLabel_frame_clear {s : Site} {pad thick : Int} {route : List Point}
+    {size : Size} {rect frame : Rect} (h : fitLabel s pad thick route size = some rect)
+    (hf : frame ∈ s.frames) :
+    Disjoint frame rect ∨ frame.StrictInside rect :=
+  Site.vacant_frame (fitLabel_vacant h) hf
+
+theorem layout_canvas {m : Model} {s : Scene} (h : layout m = .ok s) :
+    Validator.C1 s.layoutDump := by
+  unfold layout at h
+  cases hb : BlockPlan.build m with
+  | error err => simp [hb] at h
+  | ok pl =>
+    simp only [hb, except_bind_ok] at h
+    cases hr : block pl.input pl.params with
+    | error err => simp [hr] at h
+    | ok res =>
+      simp only [hr, except_bind_ok, except_pure, Except.ok.injEq] at h
+      subst s
+      exact BlockPlan.scene_canvas hr
+
+theorem BlockPlan.sibling_rects {m : Model} {pl : BlockPlan} {res : GLayout}
+    (hb : BlockPlan.build m = .ok pl) (hr : block pl.input pl.params = .ok res)
+    {i j : Nat} (hi : i < pl.input.boxes.length) (hj : j < pl.input.boxes.length)
+    (hne : i ≠ j)
+    (hparent : (m.boxes.getD (i + 1) default).parent =
+      (m.boxes.getD (j + 1) default).parent) :
+    let c : Ctx := ⟨pl.input, (gapsOf pl.input pl.params.padding).1,
+      (gapsOf pl.input pl.params.padding).2⟩
+    Disjoint (c.rect i) (c.rect j) := by
+  let c : Ctx := ⟨pl.input, (gapsOf pl.input pl.params.padding).1,
+    (gapsOf pl.input pl.params.padding).2⟩
+  have hw : c.Wf := (block_rects hr).1
+  have hpa := gridBox_same_parent (BlockPlan.gridBox_at hb hi)
+    (BlockPlan.gridBox_at hb hj) hparent
+  have hs : c.slotOf i = c.slotOf j := by
+    unfold Ctx.slotOf Ctx.box
+    rw [hpa]
+  exact (c.rect_sep hw hi hj hne hs).disjoint
+
+theorem BlockPlan.scene_box_index {m : Model} {pl : BlockPlan} {res : GLayout}
+    (hb : BlockPlan.build m = .ok pl) (_hr : block pl.input pl.params = .ok res)
+    {box : Box} (hbox : box ∈ (pl.scene res).boxes) :
+    ∃ i, i < m.boxes.length ∧
+      box.id = (m.boxes.getD i default).id ∧
+      box.parent = (m.boxes.getD i default).parent ∧
+      box.exclusive = (m.boxes.getD i default).exclusive ∧
+      box.role = (m.boxes.getD i default).role.id ∧
+      box.rect = ((⟨0, 0, res.canvas.w, res.canvas.h⟩ : Rect) :: res.rects).getD i default := by
+  change box ∈ (pl.m.boxes.zip
+    ((⟨0, 0, res.canvas.w, res.canvas.h⟩ : Rect) :: res.rects)).map
+      (fun (b, r) => (⟨b.id, b.role.id, r, b.parent, b.exclusive⟩ : Box)) at hbox
+  rw [BlockPlan.success_model hb] at hbox
+  obtain ⟨pair, hpair, heq⟩ := List.mem_map.mp hbox
+  obtain ⟨i, hi, hget⟩ := List.mem_iff_getElem.mp hpair
+  have him : i < m.boxes.length := by
+    have := hi
+    simp only [List.length_zip] at this
+    omega
+  have hir : i < ((⟨0, 0, res.canvas.w, res.canvas.h⟩ : Rect) :: res.rects).length := by
+    have := hi
+    simp only [List.length_zip] at this
+    omega
+  have hleft : pair.1 = m.boxes.getD i default := by
+    rw [← hget]
+    simp only [List.getElem_zip, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem him,
+      Option.getD_some]
+  have hright : pair.2 =
+      ((⟨0, 0, res.canvas.w, res.canvas.h⟩ : Rect) :: res.rects).getD i default := by
+    rw [← hget]
+    simp only [List.getElem_zip, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hir,
+      Option.getD_some]
+  subst box
+  exact ⟨i, him, by simp only [← hleft], by simp only [← hleft],
+    by simp only [← hleft], by simp only [← hleft], hright⟩
+
+theorem BlockPlan.scene_siblings {m : Model} {pl : BlockPlan} {res : GLayout}
+    (hb : BlockPlan.build m = .ok pl) (hr : block pl.input pl.params = .ok res)
+    (hwf : WellFormed m) : Validator.C2 (pl.scene res).layoutDump := by
+  intro a ha b hbm hab hax hbx hparent
+  obtain ⟨i, hi, hai, hpa, hxa, _hra, hra⟩ := BlockPlan.scene_box_index hb hr ha
+  obtain ⟨j, hj, hbi, hpb, hxb, _hrb, hrb⟩ := BlockPlan.scene_box_index hb hr hbm
+  have hroot := BlockPlan.root_nonexclusive hb hwf
+  have hi0 : i ≠ 0 := by
+    intro heq
+    rw [heq, hroot] at hxa
+    rw [hxa] at hax
+    contradiction
+  have hj0 : j ≠ 0 := by
+    intro heq
+    rw [heq, hroot] at hxb
+    rw [hxb] at hbx
+    contradiction
+  obtain ⟨i', rfl⟩ : ∃ i', i = i' + 1 := ⟨i - 1, by omega⟩
+  obtain ⟨j', rfl⟩ : ∃ j', j = j' + 1 := ⟨j - 1, by omega⟩
+  have hc := BlockPlan.success_box_count hb
+  have hi' : i' < pl.input.boxes.length := by omega
+  have hj' : j' < pl.input.boxes.length := by omega
+  have hij : i' ≠ j' := by
+    intro heq
+    rw [heq] at hai
+    exact hab (hai.trans hbi.symm)
+  have hp : (m.boxes.getD (i' + 1) default).parent =
+      (m.boxes.getD (j' + 1) default).parent := by
+    rw [← hpa, ← hpb]
+    exact hparent
+  have hsep := BlockPlan.sibling_rects hb hr hi' hj' hij hp
+  have hrects := (block_rects hr).2
+  rw [hra, hrb]
+  simp only [List.getD_cons_succ]
+  rw [hrects]
+  have hlookup : ∀ k, k < pl.input.boxes.length →
+      ((List.range pl.input.boxes.length).map
+        (⟨pl.input, (gapsOf pl.input pl.params.padding).1,
+          (gapsOf pl.input pl.params.padding).2⟩ : Ctx).rect).getD k default =
+        (⟨pl.input, (gapsOf pl.input pl.params.padding).1,
+          (gapsOf pl.input pl.params.padding).2⟩ : Ctx).rect k := by
+    intro k hk
+    rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hk]
+    rfl
+  simp only [Ctx.n] at *
+  rw [hlookup i' hi', hlookup j' hj']
+  exact hsep
+
+theorem layout_siblings {m : Model} {s : Scene} (hwf : WellFormed m)
+    (h : layout m = .ok s) : Validator.C2 s.layoutDump := by
+  unfold layout at h
+  cases hb : BlockPlan.build m with
+  | error err => simp [hb] at h
+  | ok pl =>
+    simp only [hb, except_bind_ok] at h
+    cases hr : block pl.input pl.params with
+    | error err => simp [hr] at h
+    | ok res =>
+      simp only [hr, except_bind_ok, except_pure, Except.ok.injEq] at h
+      subst s
+      exact BlockPlan.scene_siblings hb hr hwf
+
+theorem block_rect_at {input : GInput} {params : GParams} {res : GLayout}
+    (h : block input params = .ok res) {i : Nat} (hi : i < input.boxes.length) :
+    res.rects.getD i default =
+      (⟨input, (gapsOf input params.padding).1,
+        (gapsOf input params.padding).2⟩ : Ctx).rect i := by
+  rw [(block_rects h).2]
+  simp only [Ctx.n, List.getD_eq_getElem?_getD, List.getElem?_map,
+    List.getElem?_range hi, Option.map_some, Option.getD_some]
+
+theorem block_parent_contains_rect {input : GInput} {params : GParams} {res : GLayout}
+    (h : block input params = .ok res) {i : Nat} (hi : i < input.boxes.length) :
+    let c : Ctx := ⟨input, (gapsOf input params.padding).1,
+      (gapsOf input params.padding).2⟩
+    (c.frame (c.slotOf i)).Contained (res.rects.getD i default) := by
+  let c : Ctx := ⟨input, (gapsOf input params.padding).1,
+    (gapsOf input params.padding).2⟩
+  have hw : c.Wf := (block_rects h).1
+  rw [block_rect_at h hi]
+  exact c.rect_contained hw hi
+
+theorem BlockPlan.scene_parent {m : Model} {pl : BlockPlan} {res : GLayout}
+    (hb : BlockPlan.build m = .ok pl) (hr : block pl.input pl.params = .ok res)
+    (hwf : WellFormed m) : Validator.C3 (pl.scene res).layoutDump := by
+  intro b hbm hnon p hp
+  have hpm : p ∈ (pl.scene res).boxes := List.mem_of_find?_eq_some hp
+  have hpid : p.id = b.parent := by
+    simpa only [beq_iff_eq] using List.find?_some hp
+  obtain ⟨i, hi, _hid, hparent, _hex, _hrole, hrect⟩ :=
+    BlockPlan.scene_box_index hb hr hbm
+  obtain ⟨j, hj, hjid, _hjparent, _hjex, _hjrole, hjrect⟩ :=
+    BlockPlan.scene_box_index hb hr hpm
+  have hi0 : i ≠ 0 := by
+    intro he
+    apply hnon
+    rw [hparent, he, BlockPlan.root_parent hb]
+  obtain ⟨k, hik⟩ : ∃ k, i = k + 1 := ⟨i - 1, by omega⟩
+  subst i
+  have hcount := BlockPlan.success_box_count hb
+  have hk : k < pl.input.boxes.length := by omega
+  obtain ⟨mb, parent, hmb, hlookup, _hn, hslot⟩ := BlockPlan.parent_slot hb hk
+  have hmbD : m.boxes.getD (k + 1) default = mb := by
+    rw [List.getD_eq_getElem?_getD, hmb]
+    rfl
+  have hpj : parent = j := by
+    apply model_box_index_unique hwf (indexOf_lt hlookup) hj
+    rw [indexOf_id hlookup, ← hmbD, ← hparent, ← hpid, hjid]
+  subst parent
+  by_cases hj0 : j = 0
+  · rw [hjrect, hj0]
+    simp only [List.getD_cons_zero]
+    exact BlockPlan.scene_canvas hr b hbm
+  · obtain ⟨q, hjq⟩ : ∃ q, j = q + 1 := ⟨j - 1, by omega⟩
+    subst j
+    have hq : q < pl.input.boxes.length := by omega
+    let c : Ctx := ⟨pl.input, (gapsOf pl.input pl.params.padding).1,
+      (gapsOf pl.input pl.params.padding).2⟩
+    have hc : c.Wf := (block_rects hr).1
+    have hs : c.slotOf k = q := by
+      have hzero : q + 1 ≠ 0 := by omega
+      simpa only [hzero, ite_false, Nat.add_sub_cancel] using hslot c rfl
+    have hqn : q ≠ c.n := by
+      change q ≠ pl.input.boxes.length
+      omega
+    have hcontained := c.rect_contained hc hk
+    rw [hs] at hcontained
+    simp only [Ctx.frame, hqn, ite_false] at hcontained
+    rw [hjrect, hrect]
+    simp only [List.getD_cons_succ]
+    rw [block_rect_at hr hq, block_rect_at hr hk]
+    exact hcontained
+
+theorem layout_parent {m : Model} {s : Scene} (hwf : WellFormed m)
+    (h : layout m = .ok s) : Validator.C3 s.layoutDump := by
+  unfold layout at h
+  cases hb : BlockPlan.build m with
+  | error err => simp [hb] at h
+  | ok pl =>
+    simp only [hb, except_bind_ok] at h
+    cases hr : block pl.input pl.params with
+    | error err => simp [hr] at h
+    | ok res =>
+      simp only [hr, except_bind_ok, except_pure, Except.ok.injEq] at h
+      subst s
+      exact BlockPlan.scene_parent hb hr hwf
+
 theorem block_routes_geometry {inp : GInput} {p : GParams} {res : GLayout}
     (h : block inp p = .ok res) :
     let c : Ctx := ⟨inp, (gapsOf inp p.padding).1, (gapsOf inp p.padding).2⟩
@@ -993,3 +2350,6 @@ theorem layout_frame_clearance {m : Model} {s : Scene} (hwf : WellFormed m)
       simp only [hr, except_bind_ok, except_pure, Except.ok.injEq] at h
       subst s
       exact BlockPlan.scene_frame_clearance hb hr hwf
+
+end Grid
+end Elegant

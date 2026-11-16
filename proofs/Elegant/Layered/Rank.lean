@@ -724,9 +724,7 @@ def simplex (g : Graph) : Nat → List Bool → List Int → Except LayoutError 
         simplex g fuel ((tree.set leave false).set enter true) (shiftBy side delta r)
 
 opaque pivotFactor : Option Nat :=
-  match layoutconst.find? (fun c => c.name == "vector.pivot_factor") with
-  | some c => if 0 < c.value then some c.value.toNat else none
-  | none => none
+  if 0 < LayoutConst.pivot_factor.vector then some LayoutConst.pivot_factor.vector.toNat else none
 
 def startRanks (g : Graph) : Except LayoutError TT :=
   if g.rankable = true then

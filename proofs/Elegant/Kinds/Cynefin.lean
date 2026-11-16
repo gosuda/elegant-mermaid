@@ -1,3 +1,10 @@
+import Elegant.Kinds.Common
+import Elegant.Chart.Cynefin
+
+set_option autoImplicit false
+
+namespace Elegant.Kinds.Cynefin
+
 def admitted (m : Model) : Bool :=
   let c := Chart.Cynefin.constants m
   decide (0 ≤ c.width ∧ 0 ≤ c.height) &&
@@ -28,7 +35,14 @@ where
             q.y ≤ top - c.boxPad ∧ top + total + c.boxPad ≤ q.y + q.h)
       else true
 
+def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
   if admitted m = false then throw (.geometry .domain)
+  match Chart.Cynefin.layout m with
+  | .error e => throw (.geometry e)
+  | .ok scene => pure {
+      scene := scene.projectCellAttachments (Common.routeMarkers m)
+      budgetExhausted := false }
+
 theorem layout_dump_of_success {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) :
     ∃ scene, Chart.Cynefin.layout m = .ok scene ∧
@@ -233,3 +247,5 @@ theorem negativeHeightWitness_rejected :
   apply rejected_of_not_admitted
   simp [admitted, Chart.Cynefin.negativeHeightWitness,
     Chart.Cynefin.constants, Chart.Cynefin.integer]
+
+end Elegant.Kinds.Cynefin

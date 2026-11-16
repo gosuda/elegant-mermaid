@@ -1,6 +1,7 @@
 import Elegant.Model
 import Elegant.Scene
 import Elegant.Measure
+import Elegant.StyledMeasure
 import Elegant.Gen.Layoutconst
 import Elegant.Layered.Cycles
 import Elegant.Layered.Rank
@@ -74,6 +75,8 @@ structure Params where
   cornerRadius : Int
   clusterPad : Int
   clusterBorderW : Int
+  wrapWidth : Int
+  canvasMargin : Int
 deriving Repr, Inhabited
 
 def Params.Valid (P : Params) : Prop :=
@@ -84,24 +87,44 @@ instance (P : Params) : Decidable P.Valid := by
   unfold Params.Valid
   infer_instance
 
+/-- Name-keyed lookup in the generated table, for names assembled at run time (`kindConstant`,
+the kind adapters). The table is opaque to proofs; a proof that needs a value reads the
+`LayoutConst` definitions. -/
 def constantOf (profile : Profile) (name : String) : Option Int :=
   (layoutconst.find? fun c => c.name == profile.id ++ "." ++ name).map (·.value)
 
-opaque paramsOf (profile : Profile) : Option Params :=
-  match constantOf profile "node_pad_x", constantOf profile "node_pad_y",
-      constantOf profile "node_border", constantOf profile "line_h",
-      constantOf profile "node_min_w", constantOf profile "node_min_h",
-      constantOf profile "port_gap", constantOf profile "node_gap",
-      constantOf profile "rank_gap", constantOf profile "slot",
-      constantOf profile "corner_radius" with
-  | some a, some b, some c, some d, some e, some f, some g, some h, some i, some j, some k =>
-    some ⟨a, b, c, d, e, f, g, h, i, j, k,
-      (constantOf profile "cluster_pad").getD 0,
-      (constantOf profile "cluster_border_w").getD 0⟩
-  | _, _, _, _, _, _, _, _, _, _, _ => none
+/-- A per-kind constant `<kind>.<name>`; zero when the kind has none. -/
+def kindConstant (profile : Profile) (kind name : String) : Int :=
+  (constantOf profile (kind ++ "." ++ name)).getD 0
 
-def checkedParams (profile : Profile) : Except LayoutError Params :=
-  match paramsOf profile with
+/-- A positive kind constant overrides a family default; the corpus table holds no other kind. -/
+def kindOverride (profile : Profile) (kind name : String) (dflt : Int) : Int :=
+  if 0 < kindConstant profile kind name then kindConstant profile kind name else dflt
+
+def canvasMarginOf (profile : Profile) (kind : String) : Int :=
+  kindOverride profile kind "diagram_padding" (LayoutConst.canvas_margin.get profile)
+
+def baseParams (profile : Profile) : Option Params :=
+  some ⟨LayoutConst.node_pad_x.get profile, LayoutConst.node_pad_y.get profile,
+    LayoutConst.node_border.get profile, LayoutConst.line_h.get profile,
+    LayoutConst.node_min_w.get profile, LayoutConst.node_min_h.get profile,
+    LayoutConst.port_gap.get profile, LayoutConst.node_gap.get profile,
+    LayoutConst.rank_gap.get profile, LayoutConst.slot.get profile,
+    LayoutConst.corner_radius.get profile, LayoutConst.cluster_pad.get profile,
+    LayoutConst.cluster_border_w.get profile, 0, 0⟩
+
+def Params.forKind (profile : Profile) (kind : String) (P : Params) : Params :=
+  { P with
+    nodeGap := kindOverride profile kind "node_spacing" P.nodeGap
+    rankGap := kindOverride profile kind "rank_spacing" P.rankGap
+    wrapWidth := kindConstant profile kind "wrapping_width"
+    canvasMargin := canvasMarginOf profile kind }
+
+def paramsOf (profile : Profile) (kind : String := "") : Option Params :=
+  (baseParams profile).map (Params.forKind profile kind)
+
+def checkedParams (profile : Profile) (kind : String := "") : Except LayoutError Params :=
+  match paramsOf profile kind with
   | none => .error .domain
   | some P => if P.Valid then .ok P else .error .domain
 
@@ -109,54 +132,17 @@ def metricOf : Profile → Except LayoutError Measure.Metric
   | .vector => Measure.Role.label.metric
   | .cell => .ok Measure.Metric.cell
 
-def breakTokens : List (List Char) := ["<br>".toList, "<br/>".toList, "<br />".toList]
-
-def tokenAt (s t : List Char) : Bool :=
-  decide (t.length ≤ s.length) && (t.zip s).all fun q => q.1.toLower == q.2.toLower
-
-def forcedAt (s : List Char) : Option (List Char) := breakTokens.find? (tokenAt s)
-
-def splitForced : Nat → List Char → List Char → List (List Char × List Char)
-  | 0, acc, rest => [(acc.reverse ++ rest, [])]
-  | _ + 1, acc, [] => [(acc.reverse, [])]
-  | f + 1, acc, c :: cs =>
-    match forcedAt (c :: cs) with
-    | some t => (acc.reverse, t) :: splitForced f [] ((c :: cs).drop t.length)
-    | none => splitForced f (c :: acc) cs
-
-def appendForced (lines partLines : List Measure.Line) (forced : List Char) :
-    List Measure.Line :=
-  match forced with
-  | [] => lines ++ partLines
-  | _ =>
-    match partLines.getLast? with
-    | none => lines ++ [⟨[], forced, 0⟩]
-    | some l => lines ++ (partLines.dropLast ++ [{ l with sep := l.sep ++ forced }])
-
-def wrapForced (m : Measure.Metric) (target : Int) (s : List Char) :
-    Except LayoutError (List Measure.Line) :=
-  (splitForced (s.length + 1) [] s).foldlM
-    (fun lines part => do
-      let partLines ← Measure.wrap m target part.1
-      pure (appendForced lines partLines part.2))
-    []
-
 def nodeSize (P : Params) (lines : List Measure.Line) : Except LayoutError (Int × Int) :=
   let w := lines.foldl (fun acc l => max acc l.width) 0 + 2 * P.nodePadX + 2 * P.nodeBorder
   let h := (lines.length : Int) * P.lineH + 2 * P.nodePadY + 2 * P.nodeBorder
   if I32_MAX < w ∨ I32_MAX < h then .error .overflow
   else .ok (max w P.nodeMinW, max h P.nodeMinH)
 
-def cellText (text : String) : String :=
-  String.ofList (text.toList.map fun c =>
-    if c.toNat < 32 || (127 ≤ c.toNat && c.toNat ≤ 159) then '\uFFFD' else c)
-
 def boxLines (m : Measure.Metric) (target : Int) (inp : Input) :
     Except LayoutError (List (List Measure.Line)) :=
   inp.boxes.zipIdx.mapM fun q =>
     let text := inp.texts.getD q.2 q.1.id
-    let displayed := if m.profile == .cell then cellText text else text
-    wrapForced m target displayed.toList
+    StyledMeasure.wrap m target text.toList
 
 def sizedNode (P : Params) (decl : Nat) (lines : List Measure.Line) : Except LayoutError Node := do
   let size ← nodeSize P lines
@@ -180,8 +166,7 @@ def measureLabels (P : Params) (m : Measure.Metric) (target : Int) (inp : Input)
     match inp.routes.findIdx? (fun r => r.id == q.1.owner) with
     | none => pure none
     | some edge =>
-      let text := if m.profile == .cell then cellText q.1.text else q.1.text
-      let lines ← wrapForced m target text.toList
+      let lines ← StyledMeasure.wrap m target q.1.text.toList
       let width := lines.foldl (fun w l => max w l.width) 0
       let height := (lines.length : Int) * P.lineH
       let gutter := if m.profile == .cell then P.slot else 0
@@ -244,7 +229,7 @@ def measuredGraph (P : Params) (inp : Input) (o : Options) (lines : List (List M
   let edges ← graphEdges inp
   let m ← metricOf o.profile
   let labels ← measureLabels P m
-    (Measure.wrapTarget m.profile 0 (if o.profile == .cell then o.maxWidth else 0)) inp o.direction
+    (Measure.wrapTarget m.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) inp o.direction
   let nodes ← (nodes.map (orientNode o.direction)).zipIdx.mapM fun q => do
       let sizes := loopSizes edges labels q.2 P.slot
       let extent := Loops.extent P.slot sizes
@@ -315,6 +300,7 @@ structure Run where
   coordinateProper : Proper := default
   coordinateXs : List Int := []
   coordinateYs : List Int := []
+  exact : List Nat := []
 def sizeProperPorts (P : Params) (p : Proper) : Proper :=
   { p with nodes := p.nodes.zipIdx.map fun q =>
     if q.1.dummy || q.1.node.border != 0 then q.1
@@ -405,7 +391,7 @@ def componentRun (P : Params) (cg : Graph) (labels : List MeasuredLabel := [])
   let ys := proxyYs p ord.layers yt.2 yt.1
   let routes ← RouteImpl.routePointsWithLanes P.slot routeProper ord.layers xs ys yt.2 lanes
   pure ⟨routeProper, ord.layers, xs, ys, yt.2, r, routes,
-    rr.budgetExhausted || ord.budgetExhausted, lanes, p, coordinateXs, yt.1⟩
+    rr.budgetExhausted || ord.budgetExhausted, lanes, p, coordinateXs, yt.1, []⟩
 
 def nodeRect (_cg : Graph) (run : Run) (i : Nat) : Rect :=
   let n := (run.proper.nodes.getD i default).node
@@ -459,8 +445,8 @@ def labelEnvelope (P : Params) (cg : Graph) (run : Run) (labels : List MeasuredL
     let loops := loopEdges cg.edges e.tail
     let sizes := loopSizes cg.edges labels e.tail cg.slot
     let index := (loops.map (·.decl)).idxOf e.decl
-    let placement := Loops.placement (frameRect P cg run e.tail) cg.slot
-      (Loops.band cg.slot sizes) loops.length index size
+    let placement := (if run.exact.contains e.tail then Loops.exactPlacement else Loops.placement)
+      (frameRect P cg run e.tail) cg.slot (Loops.band cg.slot sizes) loops.length index size
     pure placement.label
   else if e.reversed then do
     let lane ← run.lanes.runs.find? (fun lane => lane.original == edge)
@@ -510,14 +496,16 @@ def shiftPoint (dx dy : Int) (p : Point) : Point := ⟨p.x + dx, p.y + dy⟩
 def shiftRect (dx dy : Int) (r : Rect) : Rect := ⟨r.x + dx, r.y + dy, r.w, r.h⟩
 def nodeLoops (cg : Graph) (run : Run) (labels : List MeasuredLabel) (v : Nat) :
     Except LayoutError (List LoopPlacement) :=
-  Loops.loops (nodeRect cg run v) cg.slot (loopSizes cg.edges labels v cg.slot)
+  (if run.exact.contains v then Loops.exactLoops else Loops.loops)
+    (nodeRect cg run v) cg.slot (loopSizes cg.edges labels v cg.slot)
 
 
 
 def componentLoops (P : Params) (cg : Graph) (run : Run) (labels : List MeasuredLabel) :
     Except LayoutError (List (Nat × LoopPlacement)) := do
   let groups ← (List.range cg.nodes.length).mapM fun v => do
-    let out ← Loops.loops (frameRect P cg run v) cg.slot (loopSizes cg.edges labels v cg.slot)
+    let out ← (if run.exact.contains v then Loops.exactLoops else Loops.loops)
+      (frameRect P cg run v) cg.slot (loopSizes cg.edges labels v cg.slot)
     pure (((loopEdges cg.edges v).zip out).map fun q => (q.1.decl, q.2))
   pure groups.flatten
 
@@ -551,6 +539,31 @@ def placeComponent (P : Params) (cg : Graph) (run : Run) (cursor : Int)
     height := b.bottom - b.minY
     titles := (componentTitles P cg run).map (fun q => (q.1, shiftRect dx dy q.2)) }
 
+def placeComponentExact (P : Params) (cg : Graph) (run : Run) (cursor : Int)
+    (labels : List MeasuredLabel := []) (loops : List (Nat × LoopPlacement) := []) : Part :=
+  let rects := (List.range cg.nodes.length).map (frameRect P cg run)
+  let labelRects := placedLabels P cg run labels
+  let extents : List Rect := rects.zipIdx.map fun q =>
+    let sizes := loopSizes cg.edges labels q.2 cg.slot
+    let width := if run.exact.contains q.2 then Loops.exactExtent cg.slot sizes
+      else Loops.extent cg.slot sizes
+    let height := if run.exact.contains q.2 then
+      max q.1.h ((sizes.length : Int) * Loops.band cg.slot sizes) else q.1.h
+    ⟨q.1.x + q.1.w, q.1.y, width, height⟩
+  let b := boundsOf (rects ++ extents ++ labelBounds P cg run labels ++
+    (componentTitles P cg run).map (·.2))
+    (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))
+  let dx := cursor - b.minX
+  let dy := -b.minY
+  { labels := labelRects.map (fun q => (q.1, shiftRect dx dy q.2))
+    rects := rects.map (shiftRect dx dy)
+    routes := cg.edges.zipIdx.map fun q =>
+      (q.1.decl, (((loops.find? (fun l => l.1 == q.1.decl)).map
+        (fun l => l.2.points)).getD (edgePoints run q.2 q.1)).map (shiftPoint dx dy))
+    width := b.right - b.minX
+    height := b.bottom - b.minY
+    titles := (componentTitles P cg run).map (fun q => (q.1, shiftRect dx dy q.2)) }
+
 def partArea (rects : List Rect) (routes : List (Nat × List Point)) : Int :=
   rects.foldl (fun total r => total + r.w * r.h) 0 +
     routes.foldl (fun total route =>
@@ -568,18 +581,21 @@ structure Acc where
   parts : List (List Nat × Part) := []
   titles : List (Nat × Rect) := []
 
-def placePart (comp : List Nat) (cg : Graph) (run : Run) (P : Params) (acc : Acc) (labels : List MeasuredLabel := []) :
-    Except LayoutError Acc := do
+def placePart (comp : List Nat) (cg : Graph) (run : Run) (P : Params) (acc : Acc) (labels : List MeasuredLabel := [])
+    (place : Params → Graph → Run → Int → List MeasuredLabel → List (Nat × LoopPlacement) → Part :=
+      @placeComponent) (exactFootprints : Bool := false) : Except LayoutError Acc := do
   let loops ← componentLoops P cg run labels
-  let part₀ := placeComponent P cg run 0 labels loops
+  let part₀ := place P cg run 0 labels loops
   let part := { part₀ with
     area := partArea (part₀.rects ++ part₀.titles.map (·.2) ++ labelBounds P cg run labels ++
       ((List.range cg.nodes.length).map fun v =>
         let rect := nodeRect cg run v
-        ⟨rect.x + rect.w, rect.y, Loops.extent cg.slot
-          (loopSizes cg.edges labels v cg.slot),
-          ((loopEdges cg.edges v).length : Int) *
-            Loops.band cg.slot (loopSizes cg.edges labels v cg.slot)⟩)) part₀.routes }
+        ⟨rect.x + rect.w, rect.y,
+          (if exactFootprints && run.exact.contains v then Loops.exactExtent else Loops.extent)
+            cg.slot (loopSizes cg.edges labels v cg.slot),
+          (if exactFootprints && run.exact.contains v then max rect.h else id)
+            (((loopEdges cg.edges v).length : Int) *
+              Loops.band cg.slot (loopSizes cg.edges labels v cg.slot))⟩)) part₀.routes }
   if I32_MAX < acc.cursor + part.width + P.nodeGap then .error .overflow
   else
     .ok { cursor := acc.cursor + part.width + P.nodeGap
@@ -597,8 +613,8 @@ def placePart (comp : List Nat) (cg : Graph) (run : Run) (P : Params) (acc : Acc
 
 def packAcc (P : Params) (o : Options) (acc : Acc) : Except LayoutError Acc := do
   let packed ← Pack.pack (if o.profile == .cell then o.maxWidth else 0)
-    P.nodeGap 0 ((constantOf o.profile "component_aspect_num").getD 1)
-    ((constantOf o.profile "component_aspect_den").getD 1)
+    P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+    (LayoutConst.component_aspect_den.get o.profile)
     (acc.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩)
   pure ((acc.parts.zip packed.boxes).foldl (fun out q =>
     let comp := q.1.1
@@ -729,7 +745,7 @@ def groupTitles (groups : List Group) : List (String × Rect) :=
 def sceneOf (P : Params) (inp : Input) (o : Options) (lines : List (List Measure.Line))
     (acc : Acc) (measured : List MeasuredLabel := []) : Scene :=
   let h := acc.canvasH
-  let margin := (constantOf o.profile "canvas_margin").getD 0
+  let margin := P.canvasMargin
   let boxes := inp.boxes.zipIdx.map fun q =>
     ⟨q.1.id, q.1.role.id, shiftRect margin margin (orientRect o.direction h (acc.rects.getD q.2 default)), q.1.parent,
       q.1.exclusive⟩
@@ -809,10 +825,10 @@ def expandedComponentCost (P : Params) (inp : Input) (o : Options) (scene : Scen
     | some frame =>
       let metric ← metricOf o.profile
       let index := (inp.boxes.findIdx? (fun box => box.id == child.1)).getD 0
-      let lines ← wrapForced metric
-        (Measure.wrapTarget metric.profile 0 (if o.profile == .cell then o.maxWidth else 0))
+      let lines ← StyledMeasure.wrap metric
+        (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
         (inp.texts.getD index child.1).toList
-      let margin := (constantOf o.profile "canvas_margin").getD 0
+      let margin := P.canvasMargin
       let direction := ((inp.boxes[index]?).map (·.direction)).getD ""
       let titleWidth := lines.foldl (fun width line => max width line.width) 0
       let inset := childInset direction P.clusterPad titleWidth
@@ -828,9 +844,11 @@ def expandedComponentCost (P : Params) (inp : Input) (o : Options) (scene : Scen
           { label with rect := shiftRect dx dy label.rect }) }) scene
 
 def componentScene (P : Params) (inp : Input) (o : Options) (cg : Graph)
-    (run : Run) (labels : List MeasuredLabel) : Except LayoutError Scene := do
+    (run : Run) (labels : List MeasuredLabel)
+    (place : Params → Graph → Run → Int → List MeasuredLabel → List (Nat × LoopPlacement) → Part :=
+      @placeComponent) : Except LayoutError Scene := do
   let loops ← componentLoops P cg run labels
-  let part := placeComponent P cg run 0 labels loops
+  let part := place P cg run 0 labels loops
   let boxes := cg.nodes.zipIdx.filterMap fun q =>
     match inp.boxes[q.1.decl]? with
     | none => none
@@ -859,8 +877,8 @@ def componentScene (P : Params) (inp : Input) (o : Options) (cg : Graph)
     match boxes.find? (fun box => box.id == model.owner && !box.exclusive) with
     | none => pure none
     | some frame =>
-      let lines ← wrapForced metric
-        (Measure.wrapTarget metric.profile 0 (if o.profile == .cell then o.maxWidth else 0)) model.text.toList
+      let lines ← StyledMeasure.wrap metric
+        (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) model.text.toList
       pure (some ({
         id := model.id, owner := model.owner, text := model.text
         rect := ownedTextRect P frame lines
@@ -896,8 +914,8 @@ def layoutComponent (P : Params) (inp : Input) (o : Options) (g : Graph) (acc : 
   let metric ← metricOf o.profile
   let titleAreas ← (inp.boxes.zipIdx.filter fun q =>
     q.1.role == .group && chosen.scene.boxes.any (fun box => box.id == q.1.id)).mapM fun q => do
-      let lines ← wrapForced metric
-        (Measure.wrapTarget metric.profile 0 (if o.profile == .cell then o.maxWidth else 0))
+      let lines ← StyledMeasure.wrap metric
+        (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
         (inp.texts.getD q.2 q.1.id).toList
       pure ((lines.foldl (fun width line => max width line.width) 0) *
         ((max 1 lines.length : Int) * P.lineH))
@@ -906,12 +924,12 @@ def layoutComponent (P : Params) (inp : Input) (o : Options) (g : Graph) (acc : 
     parts := acc.parts ++ ((result.parts.drop acc.parts.length).map fun placed =>
       (placed.1, { placed.2 with area := placed.2.area + childArea + titleAreas.sum })) }
 def layout (inp : Input) (o : Options) : Except LayoutError FamilyResult := do
-  let P ← checkedParams o.profile
+  let P ← checkedParams o.profile inp.kind
   let m ← metricOf o.profile
   let lines ← boxLines m
-    (Measure.wrapTarget m.profile 0 (if o.profile == .cell then o.maxWidth else 0)) inp
+    (Measure.wrapTarget m.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) inp
   let measured ← measureLabels P m
-    (Measure.wrapTarget m.profile 0 (if o.profile == .cell then o.maxWidth else 0)) inp o.direction
+    (Measure.wrapTarget m.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) inp o.direction
   let g0 ← measuredGraph P inp o lines
   let g := g0
   let start : Acc :=
@@ -949,11 +967,11 @@ def expandChild (P : Params) (inp : Input) (o : Options) (group : ModelBox)
   let frame ← match parent.scene.boxes.find? (fun box => box.id == group.id) with
     | none => .error .domain
     | some frame => .ok frame
-  let margin := (constantOf o.profile "canvas_margin").getD 0
+  let margin := P.canvasMargin
   let metric ← metricOf o.profile
   let index := (inp.boxes.findIdx? (fun box => box.id == group.id)).getD 0
-  let titleLines ← wrapForced metric
-    (Measure.wrapTarget metric.profile 0 (if o.profile == .cell then o.maxWidth else 0))
+  let titleLines ← StyledMeasure.wrap metric
+    (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
     (inp.texts.getD index group.id).toList
   let titleWidth := titleLines.foldl (fun width line => max width line.width) 0
   let inset := childInset group.direction P.clusterPad titleWidth titleHeight
@@ -977,7 +995,7 @@ def expandChild (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     pure (if model.owner == group.id then { label with rect := titleRect } else label)
   let metric ← metricOf o.profile
   let lines ← boxLines metric
-    (Measure.wrapTarget metric.profile 0 (if o.profile == .cell then o.maxWidth else 0)) inp
+    (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) inp
   let titles := (group.id, childTitleRect group.direction P.clusterPad
     titleWidth titleHeight frame.rect) ::
     ((groupTitles child.scene.items).map (fun title => (title.1, shiftRect dx dy title.2)) ++
@@ -997,18 +1015,18 @@ def layoutRecursive : Nat → Input → Options → Except LayoutError FamilyRes
           !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) with
     | none => layout inp o
     | some group =>
-      let P ← checkedParams o.profile
+      let P ← checkedParams o.profile inp.kind
       let metric ← metricOf o.profile
       let childInput := selectInput inp
         (fun box => Compound.inside inp.boxes group.id box.id) group.id
       let child ← layoutRecursive fuel childInput { o with direction := directionOf group.direction }
       let index := inp.boxes.findIdx? (fun box => box.id == group.id)
       let title := inp.texts.getD (index.getD 0) group.id
-      let titleLines ← wrapForced metric
-        (Measure.wrapTarget metric.profile 0 (if o.profile == .cell then o.maxWidth else 0)) title.toList
+      let titleLines ← StyledMeasure.wrap metric
+        (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) title.toList
       let titleWidth := titleLines.foldl (fun width line => max width line.width) 0
       let titleHeight := (max 1 titleLines.length : Int) * P.lineH
-      let margin := (constantOf o.profile "canvas_margin").getD 0
+      let margin := P.canvasMargin
       let size := childFrameSize group.direction P.clusterPad titleWidth titleHeight
         ⟨child.scene.canvas.w - 2 * margin, child.scene.canvas.h - 2 * margin⟩
       let parentInput := selectInput inp

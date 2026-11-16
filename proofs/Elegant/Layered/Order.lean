@@ -110,6 +110,34 @@ def nodePath (p : Proper) (v : Nat) : List Nat :=
       commonPath ((p.nodes.getD (chain.headD v) default).node.clusterPath)
         ((p.nodes.getD (chain.getLastD v) default).node.clusterPath)
 
+def clusterFree (p : Proper) : Bool := p.nodes.all fun n => n.node.clusterPath.isEmpty
+
+def flatSort (p : Proper) (key : OrderKey) : Bool := clusterFree p && key == .barycentre
+
+theorem clusterPath_nil_of_clusterFree {p : Proper} (h : clusterFree p = true) (v : Nat) :
+    (p.nodes.getD v default).node.clusterPath = [] := by
+  by_cases hv : v < p.nodes.length
+  · have hm := List.all_eq_true.mp h (p.nodes[v]) (List.getElem_mem hv)
+    simpa [List.getD_eq_getElem?_getD, hv] using hm
+  · have hn : p.nodes[v]? = none := List.getElem?_eq_none (by omega)
+    simp [List.getD_eq_getElem?_getD, hn]
+    rfl
+
+theorem nodePath_nil_of_clusterFree {p : Proper} (h : clusterFree p = true) (v : Nat) :
+    nodePath p v = [] := by
+  unfold nodePath
+  simp only [clusterPath_nil_of_clusterFree h]
+  split
+  · rfl
+  · split
+    · rfl
+    · rfl
+
+theorem clusterFree_of_flatSort {p : Proper} {key : OrderKey} (h : flatSort p key = true) :
+    clusterFree p = true := by
+  unfold flatSort at h
+  simpa using (Bool.and_eq_true_iff.mp h).1
+
 def borderLinks (next decl offset : Nat) : List ProperEdge :=
   if offset = 0 then [] else
     [{ tail := next - 2, head := next, decl := decl, original := 0, synthetic := true },
@@ -398,7 +426,7 @@ def clusterTree (path : Nat → List Nat) (cmp : Nat → List Nat → List Nat �
     Nat → Nat → List Nat → List Nat
   | 0, _, layer => layer
   | fuel + 1, depth, layer =>
-    let blocks := clusterBlocks (fun v => (path v).head?) layer.length layer
+    let blocks := clusterBlocks (fun v => (path v).head?) (layer.length + 1) layer
     let nested := blocks.map fun block =>
       if ((path (block.headD 0)).head?).isSome then
         clusterTree (fun v => (path v).tail) cmp fuel (depth + 1) block else block
@@ -491,7 +519,7 @@ theorem clusterTree_contiguous (path : Nat → List Nat) (cmp : Nat → List Nat
       rw [List.filter_eq_self.mpr (by simp)]
       exact List.infix_refl _
     | cons c cs =>
-      let blocks := clusterBlocks (fun v => (path v).head?) layer.length layer
+      let blocks := clusterBlocks (fun v => (path v).head?) (layer.length + 1) layer
       let f := fun block => if ((path (block.headD 0)).head?).isSome then
         clusterTree (fun v => (path v).tail) cmp fuel (depth + 1) block else block
       have hperm : ∀ b, (f b).Perm b := by
@@ -500,7 +528,7 @@ theorem clusterTree_contiguous (path : Nat → List Nat) (cmp : Nat → List Nat
         split
         · exact clusterTree_perm _ _ _ _ _
         · exact List.Perm.refl _
-      have hsep := clusterBlocks_separate (fun v => (path v).head?) layer.length layer (Nat.le_refl _)
+      have hsep := clusterBlocks_separate (fun v => (path v).head?) (layer.length + 1) layer (Nat.le_succ _)
       have hsep' := clusterSeparate_map _ blocks f hperm hsep
       have hsorted := hsep'.perm (List.mergeSort_perm (blocks.map f) (cmp depth)).symm (fun h => ClusterSeparate.symm h)
       change (((blocks.map f).mergeSort (cmp depth)).flatten.filter
@@ -509,7 +537,7 @@ theorem clusterTree_contiguous (path : Nat → List Nat) (cmp : Nat → List Nat
       intro b hb
       have hb' := (List.mergeSort_perm _ _).mem_iff.mp hb
       obtain ⟨orig,ho,rfl⟩ := List.mem_map.mp hb'
-      have hu := clusterBlocks_uniform (fun v => (path v).head?) layer.length layer (Nat.le_refl _) orig ho
+      have hu := clusterBlocks_uniform (fun v => (path v).head?) (layer.length + 1) layer (Nat.le_succ _) orig ho
       by_cases hempty : orig = []
       · subst hempty
         have hz : f [] = [] := List.perm_nil.mp (hperm [])
@@ -608,7 +636,7 @@ def clusterBlockKey (p : Proper) (key : OrderKey) (nb : Nat → List Nat)
 
 def constrainedLayer (p : Proper) (key : OrderKey) (nb : Nat → List Nat)
     (pos : Nat → Int) (layer : List Nat) (initial : Bool := false) : List Nat :=
-  if layer.all (fun v => (nodePath p v).isEmpty) then
+  if flatSort p key then
     layer.mergeSort (fun a b => fracLe (nodeKey key nb pos a) (nodeKey key nb pos b))
   else
     let depth := layer.foldl (fun d v => max d (nodePath p v).length) 0
@@ -975,14 +1003,10 @@ def transpose (p : Proper) (L : List (List Nat)) : List (List Nat) :=
   transposeLoop p (crossCount p L + 1) L
 
 opaque sweepMax : Nat :=
-  match layoutconst.find? (fun c => c.name == "vector.sweep_max") with
-  | some c => if 0 < c.value then c.value.toNat else 0
-  | none => 0
+  if 0 < LayoutConst.sweep_max.vector then LayoutConst.sweep_max.vector.toNat else 0
 
 opaque sweepStall : Nat :=
-  match layoutconst.find? (fun c => c.name == "vector.sweep_stall") with
-  | some c => if 0 < c.value then c.value.toNat else 0
-  | none => 0
+  if 0 < LayoutConst.sweep_stall.vector then LayoutConst.sweep_stall.vector.toNat else 0
 
 def runFrom (p : Proper) (limit stallLimit : Nat) :
     Nat → Nat → List (List Nat) → Nat → Nat → OrderResult
@@ -2267,8 +2291,8 @@ theorem constrainedLayer_contiguous (p : Proper) (key : OrderKey) (nb : Nat → 
         apply List.filter_eq_nil_iff.mpr
         intro v hv hp
         have hv' := (List.mergeSort_perm _ _).mem_iff.mp hv
-        have he := List.all_eq_true.mp hflat v hv'
-        have he' : nodePath p v = [] := by simpa using he
+        have he' : nodePath p v = [] :=
+          nodePath_nil_of_clusterFree (clusterFree_of_flatSort hflat) v
         simp [he'] at hp
       rw [hz]
       exact List.nil_infix
@@ -2564,7 +2588,7 @@ def ctNested (path : Nat → List Nat) (cmp : Nat → List Nat → List Nat → 
 theorem clusterTree_succ (path : Nat → List Nat) (cmp : Nat → List Nat → List Nat → Bool)
     (f depth : Nat) (layer : List Nat) :
     clusterTree path cmp (f + 1) depth layer =
-      (((clusterBlocks (fun v => (path v).head?) layer.length layer).map
+      (((clusterBlocks (fun v => (path v).head?) (layer.length + 1) layer).map
         (ctNested path cmp f depth)).mergeSort (cmp depth)).flatten := rfl
 
 theorem ctNested_perm (path : Nat → List Nat) (cmp : Nat → List Nat → List Nat → Bool)
@@ -2612,14 +2636,14 @@ theorem clusterTree_base_order (np : Nat → List Nat) (bd : Nat → Int)
     rw [hpath v, List.head?_drop]
   rw [clusterTree_succ]
   have hmem := fun v (hv : v ∈ layer) =>
-    clusterBlocks_mem_block (fun v => (path v).head?) layer.length layer hv
+    clusterBlocks_mem_block (fun v => (path v).head?) (layer.length + 1) layer hv
   have hsing := fun (block : List Nat) (c : Nat)
-      (hb : block ∈ clusterBlocks (fun v => (path v).head?) layer.length layer)
+      (hb : block ∈ clusterBlocks (fun v => (path v).head?) (layer.length + 1) layer)
       (hc : c ∈ block) (hn : (path c).head? = none) =>
-    clusterBlocks_boundary_singleton (fun v => (path v).head?) layer.length layer block c
-      (Nat.le_refl _) hb hc hn
-  have huni := clusterBlocks_uniform (fun v => (path v).head?) layer.length layer (Nat.le_refl _)
-  generalize clusterBlocks (fun v => (path v).head?) layer.length layer = blocks at hmem hsing huni ⊢
+    clusterBlocks_boundary_singleton (fun v => (path v).head?) (layer.length + 1) layer block c
+      (Nat.le_succ _) hb hc hn
+  have huni := clusterBlocks_uniform (fun v => (path v).head?) (layer.length + 1) layer (Nat.le_succ _)
+  generalize clusterBlocks (fun v => (path v).head?) (layer.length + 1) layer = blocks at hmem hsing huni ⊢
   have hSsorted := mergeSort_border_bands (cmp depth)
     (fun m => borderBand np bd depth (m.headD 0)) (htrue depth) (hfalse depth)
     (blocks.map (ctNested path cmp f depth))
@@ -2745,18 +2769,18 @@ theorem clusterTree_border_order (np : Nat → List Nat) (bd : Nat → Int)
         exact ⟨ds, rfl, hpre'⟩
     rw [clusterTree_succ]
     obtain ⟨X, hX, haX⟩ :=
-      clusterBlocks_mem_block (fun v => (path v).head?) layer.length layer ha
+      clusterBlocks_mem_block (fun v => (path v).head?) (layer.length + 1) layer ha
     obtain ⟨Y, hY, hbY⟩ :=
-      clusterBlocks_mem_block (fun v => (path v).head?) layer.length layer hb
+      clusterBlocks_mem_block (fun v => (path v).head?) (layer.length + 1) layer hb
     have hXY : X = Y :=
-      clusterBlocks_same_block (fun v => (path v).head?) layer.length layer (Nat.le_refl _)
+      clusterBlocks_same_block (fun v => (path v).head?) (layer.length + 1) layer (Nat.le_succ _)
         hX hY haX hbY (c := c) (by simp [hpa]) (by simp [hpb])
     have hbX : b ∈ X := hXY ▸ hbY
-    have huniX := clusterBlocks_uniform (fun v => (path v).head?) layer.length layer
-      (Nat.le_refl _) X hX
-    have hXnd := clusterBlocks_nodup (fun v => (path v).head?) layer.length layer hnd X hX
+    have huniX := clusterBlocks_uniform (fun v => (path v).head?) (layer.length + 1) layer
+      (Nat.le_succ _) X hX
+    have hXnd := clusterBlocks_nodup (fun v => (path v).head?) (layer.length + 1) layer hnd X hX
     have hXlayer : ∀ v ∈ X, v ∈ layer := fun v hv =>
-      clusterBlocks_mem_of_block (fun v => (path v).head?) layer.length layer hX hv
+      clusterBlocks_mem_of_block (fun v => (path v).head?) (layer.length + 1) layer hX hv
     have hXh : X.headD 0 ∈ X := headD_mem_of_ne_nil (List.ne_nil_of_mem haX)
     have hXhead : (path (X.headD 0)).head? = some c :=
       (huniX (X.headD 0) hXh a haX).trans (by simp [hpa])
@@ -2776,7 +2800,7 @@ theorem clusterTree_border_order (np : Nat → List Nat) (bd : Nat → Int)
       hbd b hbX hba
       (by show (path a).tail <+: (path b).tail; rw [hpa, hpb]; exact hcs)
     have hFS : ctNested path cmp f depth X ∈
-        ((clusterBlocks (fun v => (path v).head?) layer.length layer).map
+        ((clusterBlocks (fun v => (path v).head?) (layer.length + 1) layer).map
           (ctNested path cmp f depth)).mergeSort (cmp depth) :=
       (List.mergeSort_perm _ _).mem_iff.mpr (List.mem_map.mpr ⟨X, hX, rfl⟩)
     have hsub := List.sublist_flatten_of_mem hFS
@@ -3265,8 +3289,8 @@ theorem constrainedLayer_borderBefore (p : Proper) (key : OrderKey) (nb : Nat �
   · rename_i hflat
     obtain ⟨na, hna, hda, hbdA⟩ := border_node hwf (Or.inl h1)
     have hpa := nodePath_of_nondummy hna hda
-    have he := List.all_eq_true.mp hflat a ha'
-    have he' : nodePath p a = [] := by simpa using he
+    have he' : nodePath p a = [] :=
+      nodePath_nil_of_clusterFree (clusterFree_of_flatSort hflat) a
     exact absurd (hpa ▸ he') (hwf.1 a na hna (Or.inl (hbdA.trans h1)))
   · rename_i hflat
     dsimp only
@@ -3288,8 +3312,8 @@ theorem constrainedLayer_borderBefore (p : Proper) (key : OrderKey) (nb : Nat �
   · rename_i hflat
     obtain ⟨na, hna, hda, hbdA⟩ := border_node hwf (Or.inr h1)
     have hpa := nodePath_of_nondummy hna hda
-    have he := List.all_eq_true.mp hflat a ha'
-    have he' : nodePath p a = [] := by simpa using he
+    have he' : nodePath p a = [] :=
+      nodePath_nil_of_clusterFree (clusterFree_of_flatSort hflat) a
     exact absurd (hpa ▸ he') (hwf.1 a na hna (Or.inr (hbdA.trans h1)))
   · rename_i hflat
     dsimp only

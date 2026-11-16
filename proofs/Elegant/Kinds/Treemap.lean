@@ -1,7 +1,22 @@
+import Elegant.Kinds.Common
+import Elegant.Chart.TreemapAdapter
+
+namespace Elegant.Kinds.Treemap
+
+def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
+  if m.boxes.length > m.options.limits.maxNodes then
+    throw (.tooLarge m.options.limits.maxNodes m.boxes.length)
+  let bytes := m.labels.foldl (fun n l => n + l.text.utf8ByteSize) 0
+  if bytes > m.options.limits.maxTextBytes then
+    throw (.tooLarge m.options.limits.maxTextBytes bytes)
   if (Elegant.Treemap.constants m).width < 0 then
     throw (.geometry .domain)
   if (Elegant.Treemap.constants m).height < 0 then
     throw (.geometry .domain)
+  match Elegant.Treemap.layout m with
+  | .error e => throw (.geometry e)
+  | .ok scene => pure { scene, budgetExhausted := false }
+
 theorem layout_adapter_success (m : Model) (result : Layered.FamilyResult)
     (h : layout m = .ok result) :
     Elegant.Treemap.layout m = .ok result.scene := by
@@ -53,3 +68,5 @@ theorem treemap_c6 (m : Model) (result : Layered.FamilyResult)
   intro route hr
   rw [layout_routes_eq_nil m result h] at hr
   simp at hr
+
+end Elegant.Kinds.Treemap

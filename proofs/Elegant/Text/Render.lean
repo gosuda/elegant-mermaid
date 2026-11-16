@@ -301,17 +301,131 @@ def drawCanvas (s : Scene) (charset : Charset) : Except LayoutError Canvas :=
   | .ok g => drawAll charset g (scenePrimitives s)
   | .error e => .error e
 
-/-- The canvas of a cell scene after drawing and label placement, with the number of label
-clusters that could not be written. Another profile or out-of-bounds primitive geometry is a
-domain error. Drawing errors retain their original checked-error precedence. -/
+def vectorStroke (g : Canvas) (pts : List Point) : Except LayoutError Canvas := do
+  let dots ← Braille.stroke pts
+  return dots.foldl putDot g
+
+def vectorFilled (p : Paint) : Bool :=
+  ((styles.find? fun s => s.name == p.style).map
+    fun s => s.cell == 2 && s.fill != "none").getD false
+
+def vectorStroked (p : Paint) : Bool :=
+  ((styles.find? fun s => s.name == p.style).map
+    fun s => s.cell != 0 && s.stroke != "none").getD true
+
+def vectorFill (g : Canvas) (rings : List (List Point)) : Except LayoutError Canvas :=
+  (List.range (4 * g.H)).foldlM (fun g (j : Nat) =>
+    (List.range (2 * g.W)).foldlM (fun g (i : Nat) => do
+      let d : Braille.Dot := ((i : Int), (j : Int))
+      let sample := Braille.sample d
+      let inside ← rings.foldlM (fun parity ring => do
+        let hit ← Braille.polygonInside ring sample.1 sample.2
+        return bne parity hit) false
+      return if inside then putDot g d else g) g) g
+
+def vectorRings (g : Canvas) (rings : List (List Point)) (p : Paint)
+    (closed : Bool := true) : Except LayoutError Canvas := do
+  let g ← if vectorFilled p then vectorFill g rings else pure g
+  if vectorStroked p then
+    rings.foldlM (fun g ps => vectorStroke g
+      (if closed then (closeLoop (ps.map pointPair)).map pairPoint else ps)) g
+  else pure g
+
+structure VectorPath where
+  paths : List (List Point × Bool) := []
+  current : Point := ⟨0, 0⟩
+  start : Point := ⟨0, 0⟩
+
+def vectorExtend (st : VectorPath) (ps : List Point) : VectorPath :=
+  let paths := match st.paths.reverse with
+    | [] => [(ps, false)]
+    | (last, closed) :: rest => rest.reverse ++ [(last ++ ps, closed)]
+  { st with paths := paths, current := ps.getLast?.getD st.current }
+
+def vectorPathStep (st : VectorPath) (cmd : PathCommand) :
+    Except LayoutError VectorPath := do
+  match cmd with
+  | .M p => return { st with paths := st.paths ++ [([p], false)], current := p, start := p }
+  | .L p => return vectorExtend st [p]
+  | .C a b p =>
+    let ps ← Braille.cubic st.current a b p
+    return vectorExtend st (ps.drop 1)
+  | .A c r a sweep =>
+    let ps ← Braille.arc c r a sweep
+    return vectorExtend st ps
+  | .Z =>
+    let paths := match st.paths.reverse with
+      | [] => []
+      | (ps, _) :: rest => rest.reverse ++ [(ps, true)]
+    return { st with paths := paths, current := st.start }
+
+def vectorMarker (g : Canvas) (name : String) (pos : Point) (axis : MarkerAxis) :
+    Except LayoutError Canvas := do
+  match markers.find? (fun m => m.name == name) with
+  | none => return g
+  | some m =>
+    let ps ← m.points.mapM fun v =>
+      let x := v.1 - m.ref.1
+      let y := v.2 - m.ref.2
+      let q := match axis with
+        | .positiveX => (x, y)
+        | .negativeX => (-x, -y)
+        | .positiveY => (-y, x)
+        | .negativeY => (y, -x)
+      Braille.checkedPoint (pos.x + q.1) (pos.y + q.2)
+    let starts := 0 :: m.breaks
+    let parts := starts.zip (m.breaks ++ [ps.length])
+    let rings := parts.map fun (a, b) => (ps.drop a).take (b - a)
+    vectorRings g rings
+      { style := if m.paint = "filled" then "mark" else if m.paint = "hollow" then
+          "mark-hollow" else "edge" } (m.paint != "open")
+
+def drawVectorPrimitive (g : Canvas) : Primitive → Except LayoutError Canvas
+  | .rect r p | .roundRect r _ p => do
+    let far ← Braille.checkedPoint (r.x + r.w) (r.y + r.h)
+    vectorRings g [[⟨r.x, r.y⟩, ⟨far.x, r.y⟩, far, ⟨r.x, far.y⟩]] p
+  | .ellipse cx cy rx ry p => do
+    if rx < 0 ∨ ry < 0 then return g
+    let ps ← Braille.ellipse ⟨cx, cy⟩ rx ry
+    vectorRings g [ps] p
+  | .polygon ps p => vectorRings g [ps] p
+  | .polyline ps _ p => if vectorStroked p then vectorStroke g ps else .ok g
+  | .path cmds p => do
+    let st ← cmds.foldlM vectorPathStep {}
+    let g ← if vectorFilled p then vectorFill g (st.paths.map (·.1)) else pure g
+    if vectorStroked p then
+      st.paths.foldlM (fun g (ps, closed) =>
+        vectorStroke g (if closed then
+          (closeLoop (ps.map pointPair)).map pairPoint else ps)) g
+    else pure g
+  | .markerRef name pos axis => vectorMarker g name pos axis
+  | .symbolRef _ _ _ => .error .domain
+  | .text _ => .ok g
+
+def vectorLabels (ts : List SceneText) : List SceneText :=
+  ts.flatMap fun t =>
+    t.lines.zipIdx |>.map fun (line, k) =>
+      let x := Int.fdiv t.rect.x 512
+      let w := Int.fdiv (t.rect.x + t.rect.w + 511) 512 - x
+      let lh := if t.role = .title then 1536 else 1280
+      let rect : Rect := ⟨x, Int.fdiv (t.rect.y + (k : Int) * lh) 1024, w, 1⟩
+      { t with rect := rect, lines := [line] }
+
+def renderVectorCanvas (s : Scene) : Except LayoutError (Canvas × Nat) := do
+  if s.canvas.w < 0 ∨ s.canvas.h < 0 then throw .domain
+  let g := Canvas.new (Int.fdiv (s.canvas.w + 511) 512).toNat
+    (Int.fdiv (s.canvas.h + 1023) 1024).toNat
+  let g ← (scenePrimitives s).foldlM drawVectorPrimitive g
+  return Place.placeAll g (vectorLabels (sceneLabels s))
+
+/-- Draw the supplied geometry without clamping it. Canvas writes clip individually;
+drawing errors retain their checked-error precedence before label placement. -/
 def renderCanvas (s : Scene) (charset : Charset) : Except LayoutError (Canvas × Nat) :=
   if s.profile = .cell then
     match drawCanvas s charset with
-    | .ok g =>
-      if s.primitiveBoundsCheck then .ok (Place.placeAll g (sceneLabels s))
-      else .error .domain
+    | .ok g => .ok (Place.placeAll g (sceneLabels s))
     | .error e => .error e
-  else .error .domain
+  else renderVectorCanvas s
 
 /-- The renderer depends only on its display list, profile, and canvas, never on canonical
 relations, ownership metadata, or layout options. -/
@@ -319,8 +433,7 @@ theorem renderCanvas_eq_of_inputs (s t : Scene) (charset : Charset)
     (hi : s.items = t.items) (hp : s.profile = t.profile) (hc : s.canvas = t.canvas) :
     renderCanvas s charset = renderCanvas t charset := by
   simp only [renderCanvas, drawCanvas, sceneCanvas, scenePrimitives, sceneLabels,
-    Scene.primitiveBoundsCheck, hi, hp, hc]
-  rfl
+    renderVectorCanvas, hi, hp, hc]
 
 /-- The text of one cell: nothing for a continuation, the cluster of a label, the symbol, the
 arm glyph, or the braille glyph, which is a space for a blank cell. -/
@@ -609,28 +722,206 @@ theorem renderCanvas_ok {s : Scene} {charset : Charset} (hp : s.profile = .cell)
   simp only [hp, ↓reduceIte] at h
   split at h
   · rename_i g1 hd
-    split at h
-    · simp only [Except.ok.injEq] at h
-      unfold drawCanvas at hd
-      split at hd
-      · rename_i g0 h0
-        exact ⟨g0, g1, h0, hd, h⟩
-      · simp at hd
-    · simp at h
+    simp only [Except.ok.injEq] at h
+    unfold drawCanvas at hd
+    split at hd
+    · rename_i g0 h0
+      exact ⟨g0, g1, h0, hd, h⟩
+    · simp at hd
   · simp at h
 
-/-- Successful rendering certifies geometry, not merely clipping of attempted writes.
-The check follows drawing so existing checked arithmetic errors keep their precedence. -/
-theorem renderCanvas_primitiveBounds {s : Scene} {charset : Charset}
-    (hp : s.profile = .cell) {g : Canvas} {n : Nat}
-    (h : renderCanvas s charset = .ok (g, n)) : s.PrimitiveBounds := by
-  unfold renderCanvas at h
-  simp only [hp, ↓reduceIte] at h
-  split at h
-  · split at h
-    · assumption
-    · simp at h
-  · simp at h
+
+/-- A primitive is cell-supported when it belongs to the actual classes emitted by the cell
+layout engines (rectangles, rounded rectangles, orthogonal polylines, text, markers, symbols)
+or has unpainted stroke and fill (`paintCell = 0`). -/
+def _root_.Elegant.Primitive.CellSupported : Primitive → Prop
+  | .rect _ _ => True
+  | .roundRect _ _ _ => True
+  | .polyline pts _ q => Polyline.isOrthogonal pts = true ∨ Render.paintCell q = 0
+  | .polygon _ q => Render.paintCell q = 0
+  | .ellipse _ _ _ _ q => Render.paintCell q = 0
+  | .path _ q => Render.paintCell q = 0
+  | .text _ => True
+  | .markerRef _ _ _ => True
+  | .symbolRef _ _ _ => True
+
+/-- Every primitive emitted in the scene display list is cell-supported. -/
+def _root_.Elegant.Scene.CellSupported (s : Scene) : Prop :=
+  ∀ p ∈ scenePrimitives s, p.CellSupported
+
+theorem drawRectangle_ok (charset : Charset) (g : Canvas) (r : Rect) (p : Paint) (base : Nat)
+    (hx : 0 ≤ r.x) (hy : 0 ≤ r.y) (hw : 0 ≤ r.w) (hh : 0 ≤ r.h)
+    (hxm : r.x + r.w ≤ I32_MAX) (hym : r.y + r.h ≤ I32_MAX) :
+    ∃ g', drawRectangle charset g r p base = .ok g' := by
+  unfold drawRectangle
+  have hcp : Braille.checkedPoint (r.x + r.w) (r.y + r.h) = .ok ⟨r.x + r.w, r.y + r.h⟩ := by
+    unfold Braille.checkedPoint
+    have h1 : I32_MIN ≤ r.x + r.w := by unfold I32_MIN; omega
+    have h2 : I32_MIN ≤ r.y + r.h := by unfold I32_MIN; omega
+    have h3 : r.x + r.w ≤ I32_MAX := hxm
+    have h4 : r.y + r.h ≤ I32_MAX := hym
+    have hc : I32_MIN ≤ r.x + r.w ∧ r.x + r.w ≤ I32_MAX ∧
+        I32_MIN ≤ r.y + r.h ∧ r.y + r.h ≤ I32_MAX := ⟨h1, h3, h2, h4⟩
+    rw [ite_eq_left hc]
+  rw [hcp]
+  dsimp only
+  by_cases h0 : paintCell p = 0 ∨ r.w ≤ 0 ∨ r.h ≤ 0
+  · rw [ite_eq_left h0]
+    exact ⟨g, rfl⟩
+  · rw [ite_eq_right h0]
+    by_cases h1 : min r.w r.h = 1
+    · rw [ite_eq_left h1]
+      exact ⟨thinRect charset g r p, rfl⟩
+    · rw [ite_eq_right h1]
+      exact ⟨sides g r (lineStyle p base), rfl⟩
+
+theorem drawPolyline_orthogonal_ok (g : Canvas) (pts : List Point) (p : Paint)
+    (ho : Polyline.isOrthogonal pts = true ∨ paintCell p = 0) :
+    ∃ g', drawPolyline g pts p = .ok g' := by
+  unfold drawPolyline
+  by_cases hp : paintCell p = 0
+  · rw [ite_eq_left hp]
+    exact ⟨g, rfl⟩
+  · rw [ite_eq_right hp]
+    cases ho with
+    | inl horth =>
+      rw [ite_eq_left horth]
+      exact ⟨_, rfl⟩
+    | inr hp0 =>
+      exact False.elim (hp hp0)
+
+theorem drawPolygon_paintZero_ok (charset : Charset) (g : Canvas) (pts : List Point) (p : Paint)
+    (hp : paintCell p = 0) : drawPolygon charset g pts p = .ok g := by
+  unfold drawPolygon
+  cases Braille.bounds pts with
+  | none => rfl
+  | some bounds =>
+    rcases bounds with ⟨x0, x1, y0, y1⟩
+    dsimp only
+    rw [ite_eq_left hp]
+
+theorem drawEllipse_paintZero_ok (charset : Charset) (g : Canvas) (cx cy rx ry : Int) (p : Paint)
+    (hp : paintCell p = 0) : drawEllipse charset g cx cy rx ry p = .ok g := by
+  unfold drawEllipse
+  rw [ite_eq_left hp]
+
+theorem drawPath_paintZero_ok (g : Canvas) (cmds : List PathCommand) (p : Paint)
+    (hp : paintCell p = 0) : drawPath g cmds p = .ok g := by
+  unfold drawPath
+  rw [ite_eq_left hp]
+
+theorem drawPrimitive_ok (charset : Charset) (g : Canvas) (p : Primitive) (extent : Size)
+    (hb : p.cellBounds extent = true) (hw : extent.w ≤ I32_MAX) (hh : extent.h ≤ I32_MAX)
+    (hs : p.CellSupported) :
+    ∃ g', drawPrimitive charset g p = .ok g' := by
+  cases p with
+  | text t =>
+    exact ⟨g, rfl⟩
+  | markerRef name pos axis =>
+    exact ⟨drawMarker charset g name pos axis, rfl⟩
+  | symbolRef name pos style =>
+    exact ⟨symbolAt charset g pos name, rfl⟩
+  | rect r q =>
+    simp only [Primitive.cellBounds, Size.containsCellRect, decide_eq_true_iff] at hb
+    have hxm : r.x + r.w ≤ I32_MAX := by omega
+    have hym : r.y + r.h ≤ I32_MAX := by omega
+    exact drawRectangle_ok charset g r q styleLight hb.1 hb.2.1 hb.2.2.1 hb.2.2.2.1 hxm hym
+  | roundRect r cr q =>
+    simp only [Primitive.cellBounds, Size.containsCellRect, decide_eq_true_iff] at hb
+    have hxm : r.x + r.w ≤ I32_MAX := by omega
+    have hym : r.y + r.h ≤ I32_MAX := by omega
+    exact drawRectangle_ok charset g r q styleRounded hb.1 hb.2.1 hb.2.2.1 hb.2.2.2.1 hxm hym
+  | polyline pts cr q =>
+    exact drawPolyline_orthogonal_ok g pts q hs
+  | polygon pts q =>
+    exact ⟨g, drawPolygon_paintZero_ok charset g pts q hs⟩
+  | ellipse cx cy rx ry q =>
+    exact ⟨g, drawEllipse_paintZero_ok charset g cx cy rx ry q hs⟩
+  | path cmds q =>
+    exact ⟨g, drawPath_paintZero_ok g cmds q hs⟩
+
+theorem drawAll_ok (charset : Charset) (ps : List Primitive) (extent : Size)
+    (hb : ∀ p ∈ ps, p.cellBounds extent = true)
+    (hw : extent.w ≤ I32_MAX) (hh : extent.h ≤ I32_MAX)
+    (hs : ∀ p ∈ ps, p.CellSupported) (g : Canvas) :
+    ∃ g', drawAll charset g ps = .ok g' := by
+  induction ps generalizing g with
+  | nil =>
+    exact ⟨g, rfl⟩
+  | cons p ps ih =>
+    have hpb : p.cellBounds extent = true := hb p List.mem_cons_self
+    have hps : p.CellSupported := hs p List.mem_cons_self
+    obtain ⟨g1, hg1⟩ := drawPrimitive_ok charset g p extent hpb hw hh hps
+    have hb_rest : ∀ q ∈ ps, q.cellBounds extent = true :=
+      fun q hq => hb q (List.mem_cons_of_mem p hq)
+    have hs_rest : ∀ q ∈ ps, q.CellSupported :=
+      fun q hq => hs q (List.mem_cons_of_mem p hq)
+    obtain ⟨g', hg'⟩ := ih hb_rest hs_rest g1
+    refine ⟨g', ?_⟩
+    change (p :: ps).foldlM (drawPrimitive charset) g = .ok g'
+    rw [List.foldlM_cons, hg1]
+    dsimp only [bind, Except.bind]
+    exact hg'
+
+theorem drawCanvas_ok (s : Scene) (charset : Charset)
+    (hb : s.PrimitiveBounds)
+    (hw : s.canvas.w ≤ I32_MAX) (hh : s.canvas.h ≤ I32_MAX)
+    (hs : s.CellSupported) :
+    ∃ g', drawCanvas s charset = .ok g' := by
+  have hpb := hb
+  simp only [Scene.PrimitiveBounds, Scene.primitiveBoundsCheck, Bool.and_eq_true_iff,
+    decide_eq_true_iff] at hpb
+  obtain ⟨⟨hw0, hh0⟩, _⟩ := hpb
+  have hcanvas : sceneCanvas s = .ok (Canvas.new s.canvas.w.toNat s.canvas.h.toNat) := by
+    unfold sceneCanvas
+    have hc : 0 ≤ s.canvas.w ∧ 0 ≤ s.canvas.h := ⟨hw0, hh0⟩
+    simp [hc]
+  have hprims : ∀ p ∈ scenePrimitives s, p.cellBounds s.canvas = true := by
+    intro p hp
+    simp only [scenePrimitives, List.mem_flatMap] at hp
+    obtain ⟨grp, hgrp, hp_grp⟩ := hp
+    exact Scene.primitiveBounds_item hb hgrp hp_grp
+  have hsupp : ∀ p ∈ scenePrimitives s, p.CellSupported := hs
+  obtain ⟨g1, hg1⟩ := drawAll_ok charset (scenePrimitives s) s.canvas hprims hw hh hsupp
+    (Canvas.new s.canvas.w.toNat s.canvas.h.toNat)
+  refine ⟨g1, ?_⟩
+  unfold drawCanvas
+  rw [hcanvas]
+  exact hg1
+
+/-- Input-invariant-to-success theorem for actual emitted cell scenes:
+when the canvas fits within int32 and primitives belong to the emitted cell classes,
+the public renderer succeeds on any scene satisfying `PrimitiveBounds`. -/
+theorem renderCanvas_of_cellSupported (s : Scene) (charset : Charset)
+    (hp : s.profile = .cell)
+    (hb : s.PrimitiveBounds)
+    (hw : s.canvas.w ≤ I32_MAX) (hh : s.canvas.h ≤ I32_MAX)
+    (hs : s.CellSupported) :
+    ∃ g n, renderCanvas s charset = .ok (g, n) := by
+  obtain ⟨g1, hg1⟩ := drawCanvas_ok s charset hb hw hh hs
+  unfold renderCanvas
+  simp only [hp, ↓reduceIte]
+  rw [hg1]
+  exact ⟨_, _, rfl⟩
+
+/-- Obstruction to unconditioned totality: a scene can satisfy `PrimitiveBounds` yet fail
+`renderCanvas` because checked arithmetic overflows on extents larger than `I32_MAX`. -/
+theorem renderCanvas_counterexample :
+    ∃ s : Scene, s.profile = .cell ∧ s.PrimitiveBounds ∧
+      renderCanvas s .unicode = .error .overflow :=
+  ⟨{ kind := "counter", profile := .cell, canvas := ⟨3000000000, 0⟩,
+     items := [⟨.decor, "", [.rect ⟨2500000000, 0, 10, 0⟩ { style := "node" }]⟩] },
+   rfl, rfl, rfl⟩
+
+/-- Universal totality across arbitrary scenes without canvas bounds is unprovable. -/
+theorem not_renderCanvas_totality_of_primitiveBounds :
+    ¬ (∀ (s : Scene) (charset : Charset), s.profile = .cell → s.PrimitiveBounds →
+        ∃ g n, renderCanvas s charset = .ok (g, n)) := by
+  intro h
+  obtain ⟨s, hp, hb, herr⟩ := renderCanvas_counterexample
+  obtain ⟨g, n, hok⟩ := h s .unicode hp hb
+  rw [herr] at hok
+  cases hok
 
 end Render
 
@@ -660,13 +951,12 @@ theorem canvas_size_eq_scene_extent (s : Scene) (charset : Charset) (hp : s.prof
   rw [hW, hH]
   exact ⟨Int.toNat_of_nonneg hw, Int.toNat_of_nonneg hh⟩
 
-/-- A successful cell rendering certifies the bounds of every actual scene primitive,
-including decor, as well as canvas confinement and unique label ownership. Dump hard
-constraints alone cannot establish primitive bounds because the dump omits scene items. -/
+/-- Successful cell rendering preserves canvas dimensions, confines every changed cell,
+and gives each occupied label cell a unique owner. Input control hulls need not lie
+inside the canvas: attempted writes outside it are clipped by `Canvas.put`. -/
 theorem text_valid (s : Scene) (charset : Charset) (hp : s.profile = .cell)
     (_hv : HardConstraints s.layoutDump) (g : Canvas) (n : Nat)
     (h : Render.renderCanvas s charset = .ok (g, n)) :
-    s.PrimitiveBounds ∧
     ((g.W : Int) = s.canvas.w ∧ (g.H : Int) = s.canvas.h) ∧
       (Canvas.new g.W g.H).Confined g ∧
       ∃ g1, Render.drawCanvas s charset = .ok g1 ∧
@@ -680,8 +970,7 @@ theorem text_valid (s : Scene) (charset : Charset) (hp : s.profile = .cell)
   have hdr := Render.drawAll_drawn charset _ g0 g1 h1
   have hgeq : g = Place.placeCanvas g1 (Render.sceneLabels s) := (congrArg Prod.fst h2).symm
   have hpl := Place.placeCanvas_placing (Render.sceneLabels s) g1
-  refine ⟨Render.renderCanvas_primitiveBounds hp h,
-    canvas_size_eq_scene_extent s charset hp g n h, ?_, g1, ?_, h2, ?_⟩
+  refine ⟨canvas_size_eq_scene_extent s charset hp g n h, ?_, g1, ?_, h2, ?_⟩
   · have hc := confined_trans hdr.1 hpl.confined
     have hW : g.W = g0.W := by rw [hgeq]; exact hpl.1.trans hdr.1.1
     have hH : g.H = g0.H := by rw [hgeq]; exact hpl.2.1.trans hdr.1.2.1
@@ -702,10 +991,101 @@ theorem text_valid (s : Scene) (charset : Charset) (hp : s.profile = .cell)
     obtain ⟨i, hi, hpl', huniq, _⟩ := Place.place_labels_disjoint g1 (Render.sceneLabels s) hg1 c r hlab
     exact ⟨i, hi, hpl', huniq⟩
 
+/-- A successful cell rendering never overwrites border masks or symbols with label text:
+any cell that holds label text had no border mask and no symbol after drawing, and label
+placement leaves every border mask and symbol unchanged. -/
+theorem renderCanvas_label_never_overwrites_border (s : Scene) (charset : Charset)
+    (hp : s.profile = .cell) (g : Canvas) (n : Nat)
+    (h : Render.renderCanvas s charset = .ok (g, n)) :
+    ∃ g1, Render.drawCanvas s charset = .ok g1 ∧
+      Place.placeAll g1 (Render.sceneLabels s) = (g, n) ∧
+      ∀ c r, ((g.cellAt c r).label ≠ Label.empty →
+          (g1.cellAt c r).mask = 0 ∧ (g1.cellAt c r).symbol = 0) ∧
+        (g.cellAt c r).mask = (g1.cellAt c r).mask ∧
+        (g.cellAt c r).symbol = (g1.cellAt c r).symbol := by
+  obtain ⟨g0, g1, h0, h1, h2⟩ := Render.renderCanvas_ok hp h
+  obtain ⟨_, _, hg0⟩ := Render.sceneCanvas_ok h0
+  have hdr := Render.drawAll_drawn charset _ g0 g1 h1
+  have hg1 : ∀ c r, (g1.cellAt c r).label = Label.empty := fun c r => by
+    rw [hdr.2 c r, hg0, new_cellAt]
+    rfl
+  have hgeq : (Place.placeAll g1 (Render.sceneLabels s)).1 = g := congrArg Prod.fst h2
+  refine ⟨g1, ?_, h2, fun c r => ?_⟩
+  · unfold Render.drawCanvas
+    rw [h0]
+    exact h1
+  · have hborder := Place.label_never_overwrites_border g1 (Render.sceneLabels s) hg1 c r
+    rw [hgeq] at hborder
+    exact hborder
+
 /-- A canvas with no rows serialises to no bytes. -/
 theorem serialise_zero_rows (charset : Charset) (g : Canvas) (h : g.H = 0) :
     Render.serialise charset g = "" := by
   simp [Render.serialise, h]
+
+/-- Input-invariant-to-success theorem: for any cell-profile scene satisfying the
+primitive bounds invariant whose canvas fits int32 and whose primitives belong to the
+classes emitted by cell layout engines, public canvas rendering succeeds. -/
+theorem renderCanvas_of_cellSupported (s : Scene) (charset : Charset)
+    (hp : s.profile = .cell)
+    (hb : s.PrimitiveBounds)
+    (hw : s.canvas.w ≤ I32_MAX) (hh : s.canvas.h ≤ I32_MAX)
+    (hs : s.CellSupported) :
+    ∃ g n, Render.renderCanvas s charset = .ok (g, n) :=
+  Render.renderCanvas_of_cellSupported s charset hp hb hw hh hs
+
+/-- End-to-end rendered-cell validity from sufficient input premises:
+a bounded cell-supported scene succeeds and produces a confined canvas with uniquely
+owned labels and preserved extents, without assuming successful rendering. -/
+theorem text_valid_of_cellSupported (s : Scene) (charset : Charset) (hp : s.profile = .cell)
+    (hv : HardConstraints s.layoutDump)
+    (hb : s.PrimitiveBounds)
+    (hw : s.canvas.w ≤ I32_MAX) (hh : s.canvas.h ≤ I32_MAX)
+    (hs : s.CellSupported) :
+    ∃ g n,
+      ((g.W : Int) = s.canvas.w ∧ (g.H : Int) = s.canvas.h) ∧
+      (Canvas.new g.W g.H).Confined g ∧
+      ∃ g1, Render.drawCanvas s charset = .ok g1 ∧
+        Place.placeAll g1 (Render.sceneLabels s) = (g, n) ∧
+        ∀ c r, (g.cellAt c r).label ≠ Label.empty →
+          ∃ i, i < (Render.sceneLabels s).length ∧
+            Place.Placed g1 (Render.sceneLabels s) i c r ∧
+            ∀ j, Place.Placed g1 (Render.sceneLabels s) j c r → j = i := by
+  obtain ⟨g, n, h_ok⟩ := renderCanvas_of_cellSupported s charset hp hb hw hh hs
+  have tv := text_valid s charset hp hv g n h_ok
+  exact ⟨g, n, tv.1, tv.2.1, tv.2.2⟩
+
+/-- End-to-end border non-overwriting corollary from input premises only:
+a cell-profile scene satisfying the primitive bounds invariant, int32 canvas extent,
+and emitted cell primitive classes succeeds in rendering, never overwriting border masks
+or symbols with label text. -/
+theorem renderCanvas_label_never_overwrites_border_of_cellSupported
+    (s : Scene) (charset : Charset) (hp : s.profile = .cell)
+    (hb : s.PrimitiveBounds)
+    (hw : s.canvas.w ≤ I32_MAX) (hh : s.canvas.h ≤ I32_MAX)
+    (hs : s.CellSupported) :
+    ∃ g n, ∃ g1, Render.drawCanvas s charset = .ok g1 ∧
+      Place.placeAll g1 (Render.sceneLabels s) = (g, n) ∧
+      ∀ c r, ((g.cellAt c r).label ≠ Label.empty →
+          (g1.cellAt c r).mask = 0 ∧ (g1.cellAt c r).symbol = 0) ∧
+        (g.cellAt c r).mask = (g1.cellAt c r).mask ∧
+        (g.cellAt c r).symbol = (g1.cellAt c r).symbol := by
+  obtain ⟨g, n, h_ok⟩ := renderCanvas_of_cellSupported s charset hp hb hw hh hs
+  have hborder := renderCanvas_label_never_overwrites_border s charset hp g n h_ok
+  exact ⟨g, n, hborder⟩
+
+/-- Obstruction to unconditioned totality: a scene can satisfy `PrimitiveBounds` yet fail
+`renderCanvas` because `drawCanvas` executes before the bounds check and integer overflow
+guards in `checkedPoint` trigger on canvas extents larger than `I32_MAX`. -/
+theorem renderCanvas_counterexample :
+    ∃ s : Scene, s.profile = .cell ∧ s.PrimitiveBounds ∧
+      Render.renderCanvas s .unicode = .error .overflow :=
+  Render.renderCanvas_counterexample
+
+theorem not_renderCanvas_totality_of_primitiveBounds :
+    ¬ (∀ (s : Scene) (charset : Charset), s.profile = .cell → s.PrimitiveBounds →
+        ∃ g n, Render.renderCanvas s charset = .ok (g, n)) :=
+  Render.not_renderCanvas_totality_of_primitiveBounds
 
 section Oracles
 
@@ -759,12 +1139,14 @@ private def dashedEmphasis : Paint := { style := "edge", line := .dashed, width 
   some ("╶┄┄┄╴\n", 0)
 #guard rendered (cellScene 5 1 [.polyline [pt 0 0, pt 4 0] 0 dashedEmphasis]) .ascii ==
   some (".....\n", 0)
-#guard rendered { cellScene 1 1 [] with profile := .vector } .unicode == none
+#guard rendered { cellScene 513 1025 [] with profile := .vector } .unicode == some ("\n\n", 0)
 #guard rendered (cellScene 0 0 []) .unicode == some ("", 0)
 #guard rendered (cellScene (-1) 3 []) .unicode == none
-#guard rendered (cellScene 1 1 [.symbolRef "disc" (pt 10 10) "ink"]) .unicode == none
+#guard rendered (cellScene 1 1 [.symbolRef "disc" (pt 10 10) "ink"]) .unicode == some ("\n", 0)
 #guard rendered (cellScene 1 1 [.symbolRef "disc" (pt 0 0) "ink"]) .unicode ==
   some ("●\n", 0)
+#guard (cellScene 3000000000 0 [.rect ⟨2500000000, 0, 10, 0⟩ { style := "node" }]).primitiveBoundsCheck == true
+#guard rendered (cellScene 3000000000 0 [.rect ⟨2500000000, 0, 10, 0⟩ { style := "node" }]) .unicode == none
 
 end Oracles
 

@@ -95,7 +95,7 @@ def textMain (charset : Elegant.Text.Charset) : IO UInt32 :=
     match (Elegant.kindLayout (cellModel m)).getD (.error (.geometry .domain)) with
     | .error e => familyFailure e
     | .ok result =>
-      match Elegant.Text.render result.scene charset with
+      match Elegant.Text.renderScene result.scene charset with
       | .error e => layoutFailure e
       | .ok (text, _) => do
         layoutDiagnostic result.budgetExhausted

@@ -244,40 +244,30 @@ theorem tableOfChars_chars {t : Table} (h : t.WellFormed) : tableOfChars t.chars
 
 /-! ### Size (class-051, class-052) -/
 
-theorem maxWidthM_spec {α : Type} (f : α → Except LayoutError Int) :
-    ∀ (xs : List α) (w0 w : Int), maxWidthM f xs w0 = .ok w →
-      w0 ≤ w ∧ ∀ a ∈ xs, ∃ x, f a = .ok x ∧ x ≤ w
-  | [], w0, w, h => by
-    simp only [maxWidthM, List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
-    subst h
-    exact ⟨Int.le_refl _, by simp⟩
-  | a :: xs, w0, w, h => by
-    simp only [maxWidthM, List.foldlM_cons, bind, Except.bind] at h
-    cases hfa : f a with
-    | error e => simp [hfa] at h
-    | ok x =>
-      simp only [hfa, pure, Except.pure] at h
-      have ih := maxWidthM_spec f xs (max w0 x) w h
-      refine ⟨by omega, ?_⟩
-      intro b hb
-      rcases List.mem_cons.mp hb with rfl | hb
-      · exact ⟨x, hfa, by omega⟩
-      · exact ih.2 b hb
+theorem foldl_max_spec {α : Type} (f : α → Int) :
+    ∀ (xs : List α) (w0 : Int), w0 ≤ xs.foldl (fun w a => max w (f a)) w0 ∧
+      ∀ a ∈ xs, f a ≤ xs.foldl (fun w a => max w (f a)) w0
+  | [], w0 => ⟨Int.le_refl _, fun a ha => by simp at ha⟩
+  | a :: xs, w0 => by
+    obtain ⟨h1, h2⟩ := foldl_max_spec f xs (max w0 (f a))
+    simp only [List.foldl_cons]
+    refine ⟨by omega, fun b hb => ?_⟩
+    rcases List.mem_cons.mp hb with rfl | hb
+    · omega
+    · exact h2 b hb
 
-theorem compartmentWidth_spec {m : Measure.Metric} {rows : List String} {w : Int}
-    (h : compartmentWidth m rows = .ok w) :
-    0 ≤ w ∧ ∀ row ∈ rows, ∃ x, Measure.textWidth m row.toList = .ok x ∧ x ≤ w :=
-  maxWidthM_spec (fun row : String => Measure.textWidth m row.toList) rows 0 w h
+theorem compartmentWidth_spec (lines : List Measure.Line) :
+    0 ≤ compartmentWidth lines ∧ ∀ l ∈ lines, l.width ≤ compartmentWidth lines :=
+  foldl_max_spec (fun l : Measure.Line => l.width) lines 0
 
-theorem tableWidth_spec {m : Measure.Metric} {cs : List (List String)} {w : Int}
-    (h : tableWidth m cs = .ok w) :
-    0 ≤ w ∧ ∀ c ∈ cs, ∀ row ∈ c, ∃ x, Measure.textWidth m row.toList = .ok x ∧ x ≤ w := by
-  obtain ⟨h0, h1⟩ := maxWidthM_spec (compartmentWidth m) cs 0 w h
-  refine ⟨h0, fun c hc row hr => ?_⟩
-  obtain ⟨x, hx, hxw⟩ := h1 c hc
-  obtain ⟨_, hrow⟩ := compartmentWidth_spec hx
-  obtain ⟨y, hy, hyx⟩ := hrow row hr
-  exact ⟨y, hy, by omega⟩
+theorem tableWidth_spec (cs : List (List Measure.Line)) :
+    0 ≤ tableWidth cs ∧ ∀ c ∈ cs, ∀ l ∈ c, l.width ≤ tableWidth cs := by
+  unfold tableWidth
+  obtain ⟨h0, h1⟩ := foldl_max_spec compartmentWidth cs 0
+  refine ⟨h0, fun c hc l hl => ?_⟩
+  have h2 := (compartmentWidth_spec c).2 l hl
+  have h3 := h1 c hc
+  omega
 
 theorem checkSize_spec {w h : Int} {s : Size} (hs : checkSize w h = .ok s) :
     s.w = w ∧ s.h = h := by
@@ -288,50 +278,105 @@ theorem checkSize_spec {w h : Int} {s : Size} (hs : checkSize w h = .ok s) :
     subst hs
     exact ⟨rfl, rfl⟩
 
-/-- class-051 and class-052 as a closed form: the width is the widest row plus twice the padding;
+theorem tableSize_spec {p : Profile} {cs : List (List Measure.Line)} {s : Size}
+    (h : tableSize p cs = .ok s) :
+    s.w = tableWidth cs + 2 * LayoutConst.class_padding.get p ∧
+      s.h = tableHeight (LayoutConst.line_h.get p) cs +
+        ((cs.length : Int) - 1) * LayoutConst.class_separator.get p + (if p = .cell then 2 else 0) := by
+  unfold tableSize at h
+  exact checkSize_spec h
+
+/-- The three compartments are measured in order, each under the metric of its index. -/
+theorem measureTable_spec {p : Profile} {t : Table} {cs : List (List Measure.Line)}
+    (h : measureTable p t = .ok cs) :
+    ∃ m0 m1 m2 head attributes methods,
+      compartmentMetric p 0 = .ok m0 ∧ compartmentMetric p 1 = .ok m1 ∧
+      compartmentMetric p 2 = .ok m2 ∧ measureCompartment m0 t.head = .ok head ∧
+      measureCompartment m1 t.attributes = .ok attributes ∧
+      measureCompartment m2 t.methods = .ok methods ∧ cs = [head, attributes, methods] := by
+  unfold measureTable at h
+  split at h
+  · simp at h
+  · rename_i m0 h0
+    split at h
+    · simp at h
+    · rename_i head hh
+      split at h
+      · simp at h
+      · rename_i m1 h1
+        split at h
+        · simp at h
+        · rename_i attributes ha
+          split at h
+          · simp at h
+          · rename_i m2 h2
+            split at h
+            · simp at h
+            · rename_i methods hm
+              simp only [Except.ok.injEq] at h
+              exact ⟨m0, m1, m2, head, attributes, methods, h0, h1, h2, hh, ha, hm, h.symm⟩
+
+/-- Every row of a compartment contributes its lines to the compartment. -/
+theorem measureCompartment_covers (metric : Measure.Metric) :
+    ∀ (rows : List String) (out : List Measure.Line), measureCompartment metric rows = .ok out →
+      ∀ row ∈ rows, ∃ ls, rowLines metric row = .ok ls ∧ ∀ l ∈ ls, l ∈ out
+  | [], _, _, row, hr => by simp at hr
+  | r :: rs, out, h, row, hr => by
+    simp only [measureCompartment] at h
+    split at h
+    · simp at h
+    · rename_i ls hls
+      split at h
+      · simp at h
+      · rename_i rest hrest
+        simp only [Except.ok.injEq] at h
+        subst h
+        rcases List.mem_cons.mp hr with rfl | hr
+        · exact ⟨ls, hls, fun l hl => List.mem_append_left _ hl⟩
+        · obtain ⟨ls', h1, h2⟩ := measureCompartment_covers metric rs rest hrest row hr
+          exact ⟨ls', h1, fun l hl => List.mem_append_right _ (h2 l hl)⟩
+
+/-- class-051 and class-052 as a closed form: the width is the widest line plus twice the padding;
 the height is the compartment heights, one separator between neighbouring compartments (two for
 three compartments), and two border rows in the cell profile. -/
 theorem classSize_spec {p : Profile} {t : Table} {s : Size} (h : classSize p t = .ok s) :
-    ∃ m widest, metricOf p = .ok m ∧ tableWidth m t.compartments = .ok widest ∧
-      s.w = widest + 2 * constant p "class.padding" ∧
-      s.h = tableHeight (constant p "line_h") t.compartments +
-        2 * constant p "class.separator" + (if p = .cell then 2 else 0) := by
+    ∃ cs, measureTable p t = .ok cs ∧ cs.length = 3 ∧
+      s.w = tableWidth cs + 2 * LayoutConst.class_padding.get p ∧
+      s.h = tableHeight (LayoutConst.line_h.get p) cs + 2 * LayoutConst.class_separator.get p +
+        (if p = .cell then 2 else 0) := by
   unfold classSize at h
-  cases hm : metricOf p with
+  cases hm : measureTable p t with
   | error e => rw [hm] at h; simp at h
-  | ok m =>
+  | ok cs =>
     rw [hm] at h
     dsimp only at h
-    cases hw : tableWidth m t.compartments with
-    | error e => rw [hw] at h; simp at h
-    | ok widest =>
-      rw [hw] at h
-      dsimp only at h
-      obtain ⟨hs1, hs2⟩ := checkSize_spec h
-      refine ⟨m, widest, rfl, hw, hs1, ?_⟩
-      rw [hs2]
-      simp only [Table.compartments, List.length_cons, List.length_nil]
-      omega
+    obtain ⟨hw, hh⟩ := tableSize_spec h
+    obtain ⟨_, _, _, head, attributes, methods, _, _, _, _, _, _, hcs⟩ := measureTable_spec hm
+    have hlen : cs.length = 3 := by rw [hcs]; rfl
+    refine ⟨cs, rfl, hlen, hw, ?_⟩
+    rw [hh, hlen]
+    omega
 
-theorem compartmentHeight_nonneg {lineH : Int} (hl : 0 ≤ lineH) (c : List String) :
+theorem compartmentHeight_nonneg {α : Type} {lineH : Int} (hl : 0 ≤ lineH) (c : List α) :
     0 ≤ compartmentHeight lineH c :=
   Int.mul_nonneg (by omega) hl
 
 /-- An empty compartment retains one row. -/
-theorem compartmentHeight_empty (lineH : Int) : compartmentHeight lineH [] = lineH := by
-  have : (max 1 ([] : List String).length : Int) = 1 := rfl
+theorem compartmentHeight_empty {α : Type} (lineH : Int) :
+    compartmentHeight lineH ([] : List α) = lineH := by
+  have : (max 1 ([] : List α).length : Int) = 1 := rfl
   unfold compartmentHeight
   rw [this, Int.one_mul]
 
-theorem compartmentHeight_ge {lineH : Int} (hl : 0 ≤ lineH) (c : List String) :
+theorem compartmentHeight_ge {α : Type} {lineH : Int} (hl : 0 ≤ lineH) (c : List α) :
     lineH ≤ compartmentHeight lineH c := by
   unfold compartmentHeight
   have : (1 : Int) ≤ (max 1 c.length : Int) := by omega
   calc lineH = 1 * lineH := (Int.one_mul _).symm
     _ ≤ _ := Int.mul_le_mul_of_nonneg_right this hl
 
-theorem tableHeight_nonneg {lineH : Int} (hl : 0 ≤ lineH) :
-    ∀ cs : List (List String), 0 ≤ tableHeight lineH cs
+theorem tableHeight_nonneg {α : Type} {lineH : Int} (hl : 0 ≤ lineH) :
+    ∀ cs : List (List α), 0 ≤ tableHeight lineH cs
   | [] => Int.le_refl _
   | c :: cs => by
     have := tableHeight_nonneg hl cs
@@ -340,8 +385,8 @@ theorem tableHeight_nonneg {lineH : Int} (hl : 0 ≤ lineH) :
     omega
 
 /-- Every compartment takes at least one row. -/
-theorem tableHeight_ge {lineH : Int} (hl : 0 ≤ lineH) :
-    ∀ cs : List (List String), (cs.length : Int) * lineH ≤ tableHeight lineH cs
+theorem tableHeight_ge {α : Type} {lineH : Int} (hl : 0 ≤ lineH) :
+    ∀ cs : List (List α), (cs.length : Int) * lineH ≤ tableHeight lineH cs
   | [] => by simp [tableHeight]
   | c :: cs => by
     have ih := tableHeight_ge hl cs
@@ -351,19 +396,47 @@ theorem tableHeight_ge {lineH : Int} (hl : 0 ≤ lineH) :
     simp only [tableHeight]
     omega
 
-/-- Every row of every compartment fits in the table between its paddings. -/
+/-- Every line of every row of every compartment fits in the table between its paddings. -/
 theorem classSize_covers_rows {p : Profile} {t : Table} {s : Size} (h : classSize p t = .ok s) :
-    ∀ c ∈ t.compartments, ∀ row ∈ c, ∃ m x, metricOf p = .ok m ∧
-      Measure.textWidth m row.toList = .ok x ∧ x + 2 * constant p "class.padding" ≤ s.w := by
-  obtain ⟨m, widest, hm, hw, hsw, _⟩ := classSize_spec h
-  intro c hc row hr
-  obtain ⟨x, hx, hxw⟩ := (tableWidth_spec hw).2 c hc row hr
-  exact ⟨m, x, hm, hx, by omega⟩
+    ∀ index c, t.compartments[index]? = some c → ∀ row ∈ c, ∃ m ls,
+      compartmentMetric p index = .ok m ∧ rowLines m row = .ok ls ∧
+      ∀ l ∈ ls, l.width + 2 * LayoutConst.class_padding.get p ≤ s.w := by
+  obtain ⟨cs, hm, _, hw, _⟩ := classSize_spec h
+  obtain ⟨m0, m1, m2, head, attributes, methods, hm0, hm1, hm2, hh, ha, hme, hcs⟩ :=
+    measureTable_spec hm
+  have hmax := tableWidth_spec cs
+  subst hcs
+  intro index c hc row hr
+  match index, hc with
+  | 0, hc =>
+    simp only [Table.compartments, List.getElem?_cons_zero, Option.some.injEq] at hc
+    subst hc
+    obtain ⟨ls, hl, hls⟩ := measureCompartment_covers m0 t.head head hh row hr
+    refine ⟨m0, ls, hm0, hl, fun l hl' => ?_⟩
+    have := hmax.2 head (by simp) l (hls l hl')
+    omega
+  | 1, hc =>
+    simp only [Table.compartments, List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.some.injEq] at hc
+    subst hc
+    obtain ⟨ls, hl, hls⟩ := measureCompartment_covers m1 t.attributes attributes ha row hr
+    refine ⟨m1, ls, hm1, hl, fun l hl' => ?_⟩
+    have := hmax.2 attributes (by simp) l (hls l hl')
+    omega
+  | 2, hc =>
+    simp only [Table.compartments, List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.some.injEq] at hc
+    subst hc
+    obtain ⟨ls, hl, hls⟩ := measureCompartment_covers m2 t.methods methods hme row hr
+    refine ⟨m2, ls, hm2, hl, fun l hl' => ?_⟩
+    have := hmax.2 methods (by simp) l (hls l hl')
+    omega
+  | n + 3, hc => simp [Table.compartments] at hc
 
 /-! ### Drawing stays inside the placed box (class-052) -/
 
-theorem tops_ge {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep) :
-    ∀ (cs : List (List String)) (y : Int), ∀ y' ∈ tops lineH sep y cs, y ≤ y'
+theorem tops_ge {α : Type} {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep) :
+    ∀ (cs : List (List α)) (y : Int), ∀ y' ∈ tops lineH sep y cs, y ≤ y'
   | [], y, y', h => by simp [tops] at h
   | c :: cs, y, y', h => by
     have hc := compartmentHeight_nonneg hl c
@@ -373,8 +446,8 @@ theorem tops_ge {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep) :
     · have := tops_ge hl hs cs (y + compartmentHeight lineH c + sep) y' h
       omega
 
-theorem tops_tail_ge {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep)
-    (cs : List (List String)) (y : Int) : ∀ y' ∈ (tops lineH sep y cs).tail, y + sep ≤ y' := by
+theorem tops_tail_ge {α : Type} {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep)
+    (cs : List (List α)) (y : Int) : ∀ y' ∈ (tops lineH sep y cs).tail, y + sep ≤ y' := by
   cases cs with
   | nil => simp [tops]
   | cons c cs =>
@@ -383,8 +456,8 @@ theorem tops_tail_ge {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep)
     have := tops_ge hl hs cs (y + compartmentHeight lineH c + sep) y' h
     omega
 
-theorem tops_le {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep) :
-    ∀ (cs : List (List String)) (y : Int), ∀ y' ∈ tops lineH sep y cs,
+theorem tops_le {α : Type} {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep) :
+    ∀ (cs : List (List α)) (y : Int), ∀ y' ∈ tops lineH sep y cs,
       y' ≤ y + tableHeight lineH cs + ((cs.length : Int) - 1) * sep
   | [], y, y', h => by simp [tops] at h
   | c :: cs, y, y', h => by
@@ -402,8 +475,8 @@ theorem tops_le {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep) :
       simp only [tableHeight, e1]
       omega
 
-theorem tops_bound {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep) :
-    ∀ (cs : List (List String)) (y : Int), ∀ q ∈ (tops lineH sep y cs).zip cs,
+theorem tops_bound {α : Type} {lineH sep : Int} (hl : 0 ≤ lineH) (hs : 0 ≤ sep) :
+    ∀ (cs : List (List α)) (y : Int), ∀ q ∈ (tops lineH sep y cs).zip cs,
       y ≤ q.1 ∧ q.1 + compartmentHeight lineH q.2 ≤
         y + tableHeight lineH cs + ((cs.length : Int) - 1) * sep
   | [], y, q, h => by simp [tops] at h
@@ -435,52 +508,58 @@ def _root_.Elegant.Primitive.insideBox (b : Int) (r : Rect) : Primitive → Prop
 
 /-- class-052: for a box at least as large as its table, every frame, rule, and text of the
 class drawing lies inside the box; rules span from the left to the right border. -/
-theorem classPrimitives_inside {p : Profile} {rect : Rect} {t : Table} {s : Size}
-    (hs : classSize p t = .ok s)
-    (hpad : 1 ≤ constant p "class.padding") (hsep : 0 ≤ constant p "class.separator")
-    (hline : 0 ≤ constant p "line_h") (hw : s.w ≤ rect.w) (hh : s.h ≤ rect.h) :
-    ∀ item ∈ classPrimitives p rect t, item.insideBox (if p = .cell then 1 else 0) rect := by
-  obtain ⟨m, widest, _, htw, hsw, hsh⟩ := classSize_spec hs
-  have hwidest := (tableWidth_spec htw).1
+theorem classPrimitives_inside {p : Profile} {rect : Rect} {cs : List (List Measure.Line)}
+    {s : Size} (hs : tableSize p cs = .ok s)
+    (hpad : 1 ≤ LayoutConst.class_padding.get p) (hsep : 0 ≤ LayoutConst.class_separator.get p)
+    (hline : 0 ≤ LayoutConst.line_h.get p) (hw : s.w ≤ rect.w) (hh : s.h ≤ rect.h) :
+    ∀ item ∈ classPrimitives p rect cs, item.insideBox (if p = .cell then 1 else 0) rect := by
+  obtain ⟨hsw, hsh⟩ := tableSize_spec hs
+  have hwidest := (tableWidth_spec cs).1
   obtain ⟨b, hb⟩ : ∃ b : Int, b = if p = .cell then 1 else 0 := ⟨_, rfl⟩
   have hb2 : (if p = .cell then (2 : Int) else 0) = 2 * b := by
     rw [hb]; split <;> simp
   have hb0 : 0 ≤ b ∧ b ≤ 1 := by rw [hb]; split <;> omega
   rw [← hb]
   rw [hb2] at hsh
-  generalize hP : constant p "class.padding" = pad at *
-  generalize hS : constant p "class.separator" = sep at *
-  generalize hL : constant p "line_h" = lineH at *
+  generalize hP : LayoutConst.class_padding.get p = pad at *
+  generalize hS : LayoutConst.class_separator.get p = sep at *
+  generalize hL : LayoutConst.line_h.get p = lineH at *
   have htop : (if p = .cell then rect.y + 1 else rect.y) = rect.y + b := by
     rw [hb]; split <;> simp
   have hright : (if p = .cell then rect.x + rect.w - 1 else rect.x + rect.w) =
       rect.x + rect.w - b := by
     rw [hb]; split <;> simp
-  have hbound := tops_bound hline hsep t.compartments (rect.y + b)
-  have hle := tops_le hline hsep t.compartments (rect.y + b)
-  have hge := tops_tail_ge hline hsep t.compartments (rect.y + b)
-  have hcomp : t.compartments.length = 3 := rfl
-  have hlen : ((t.compartments.length : Int) - 1) = 2 := by rw [hcomp]; rfl
-  rw [hlen] at hbound hle
+  have hbound := tops_bound hline hsep cs (rect.y + b)
+  have hle := tops_le hline hsep cs (rect.y + b)
+  have hge := tops_tail_ge hline hsep cs (rect.y + b)
   intro item hi
   unfold classPrimitives at hi
   simp only [htop, hright, hP, hS, hL, List.mem_append, List.mem_cons, List.mem_map,
     List.not_mem_nil, or_false] at hi
-  rcases hi with (rfl | ⟨y, hy, rfl⟩) | ⟨q, hq, rfl⟩
+  rcases hi with (rfl | ⟨y, hy, rfl⟩) | ⟨x, hx, rfl⟩
   · rfl
   · intro pt hpt
     simp only [List.mem_cons, List.not_mem_nil, or_false] at hpt
     have h1 := hge y hy
     have h2 := hle y (List.mem_of_mem_tail hy)
     rcases hpt with rfl | rfl <;> simp only [] <;> omega
-  · have h := hbound q hq
-    simp only [Primitive.insideBox]
+  · have h := hbound x.1 (List.fst_mem_of_mem_zipIdx hx)
+    simp only [compartmentText, Primitive.insideBox]
     omega
 
 /-! ### Adapter facts -/
 
-theorem decorate_layoutDump (m : Model) (s : Scene) :
-    (decorate m s).layoutDump = s.layoutDump := rfl
+/-- The drawing replacement changes the display list only. -/
+theorem decorate_layoutDump {m : Model} {s s' : Scene} (h : decorate m s = .ok s') :
+    s'.layoutDump = s.layoutDump := by
+  unfold decorate at h
+  cases hm : s.items.mapM (decorateGroup m s) with
+  | error e => rw [hm] at h; simp at h
+  | ok items =>
+    rw [hm] at h
+    simp only [Except.ok.injEq] at h
+    subst h
+    rfl
 
 /-- The adapter's scene has the family's dump and budget flag; only the display list differs. -/
 theorem layout_spec {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r) :
@@ -498,12 +577,14 @@ theorem layout_spec {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r
     | ok res =>
       rw [hr] at h
       dsimp only at h
-      simp only [Except.ok.injEq] at h
-      subst h
-      refine ⟨sizes, res, rfl, hr, ?_, rfl⟩
-      show (decorate m _).layoutDump = _
-      rw [decorate_layoutDump]
-      exact Scene.projectCellAttachments_layoutDump _ _
+      cases hd : decorate m (res.scene.projectCellAttachments (routeMarkers m)) with
+      | error e => rw [hd] at h; simp at h
+      | ok scene =>
+        rw [hd] at h
+        simp only [Except.ok.injEq] at h
+        subst h
+        exact ⟨sizes, res, rfl, hr,
+          (decorate_layoutDump hd).trans (Scene.projectCellAttachments_layoutDump _ _), rfl⟩
 
 /-- Box and route ids keep the model's declaration order. -/
 theorem layout_ids {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r) :

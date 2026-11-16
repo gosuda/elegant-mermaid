@@ -1,3 +1,218 @@
+import Elegant.Scene
+import Elegant.Gen.Layoutconst
+import Elegant.StyledMeasure
+
+set_option autoImplicit false
+
+namespace Elegant.GridPacket
+
+structure Params where
+  bits : Int
+  width : Int
+  height : Int
+  padX : Int
+  padY : Int
+  showPad : Int
+  margin : Int
+  lineHeight : Int
+  showBits : Bool := true
+  descending : Bool := false
+  deriving Repr
+
+def defaults (p : Profile) : Params :=
+  ⟨LayoutConst.packet_bits_per_row.get p, LayoutConst.packet_bit_width.get p,
+   LayoutConst.packet_row_height.get p, LayoutConst.packet_padding_x.get p,
+   LayoutConst.packet_padding_y.get p, LayoutConst.packet_show_bits_pad.get p,
+   LayoutConst.packet_margin_x.get p, LayoutConst.line_h.get p, true, false⟩
+
+def configure (profile : Profile) (p : Params) (entry : String × ConfigValue) : Params :=
+  match entry with
+  | ("showBits", .boolean b) => { p with showBits := b }
+  | ("bitOrder", .string s) => { p with descending := s == "descending" }
+  | ("bitsPerRow", .integer n) => { p with bits := n }
+  | ("bitWidth", .integer n) => if profile == .vector then { p with width := n * 64 } else p
+  | ("rowHeight", .integer n) => if profile == .vector then { p with height := n * 64 } else p
+  | ("paddingX", .integer n) => if profile == .vector then { p with padX := n * 64 } else p
+  | ("paddingY", .integer n) => if profile == .vector then { p with padY := n * 64 } else p
+  | _ => p
+
+def Params.valid (p : Params) : Prop :=
+  0 < p.bits ∧ 0 < p.width ∧ 0 < p.height ∧ 0 ≤ p.padX ∧ 0 ≤ p.padY ∧
+  0 ≤ p.showPad ∧ 0 ≤ p.margin ∧ 0 ≤ p.lineHeight
+instance (p : Params) : Decidable p.valid := inferInstanceAs (Decidable (_ ∧ _))
+
+def padding (p : Params) : Int := p.padY + if p.showBits then p.showPad else 0
+
+def pitch (p : Params) : Int := p.height + padding p
+
+structure Piece where
+  first : Int
+  last : Int
+  deriving DecidableEq, Repr
+
+def row (p : Params) (f : Piece) : Int := Int.fdiv f.first p.bits
+
+def column (p : Params) (f : Piece) : Int := Int.fmod f.first p.bits
+
+def count (f : Piece) : Int := f.last - f.first + 1
+
+def fits (p : Params) (f : Piece) : Prop :=
+  0 ≤ f.first ∧ f.first ≤ f.last ∧ column p f + count f ≤ p.bits
+instance (p : Params) (f : Piece) : Decidable (fits p f) := inferInstanceAs (Decidable (_ ∧ _))
+
+def rect (p : Params) (f : Piece) : Rect :=
+  let c := if p.descending then p.bits - column p f - count f else column p f
+  ⟨c * p.width + p.margin, row p f * pitch p + padding p,
+    max (count f * p.width - p.padX) 0, p.height⟩
+
+def bitRect (p : Params) (f : Piece) (w : Int) (trail : Bool) : Rect :=
+  if !p.showBits then ⟨0, 0, 0, 0⟩ else
+  let r := rect p f
+  let h := min p.lineHeight (padding p)
+  ⟨if trail then max (r.x + r.w - w) 0
+    else if count f = 1 then max (r.x + Int.fdiv r.w 2 - Int.fdiv w 2) 0 else r.x,
+    r.y - h, w, h⟩
+
+/-- Field splitting is a model-stage operation. These consecutive half-open ranges
+are its mathematical partition, independently of the display padding. -/
+def bitRange (start length : Nat) : List Nat := (List.range length).map (start + ·)
+
+theorem packet_bits_partitioned (start length : Nat) (b : Nat) :
+    b ∈ bitRange start length ↔ start ≤ b ∧ b < start + length := by
+  simp only [bitRange, List.mem_map, List.mem_range]
+  constructor
+  · rintro ⟨i, hi, rfl⟩; omega
+  · intro h
+    exact ⟨b - start, by omega, by omega⟩
+
+theorem packet_rows_fit (p : Params) (f : Piece) (h : fits p f) :
+    column p f + count f ≤ p.bits := h.2.2
+
+def pieceBitWidths (pieces : List Piece) : Int := (pieces.map count).sum
+
+theorem packet_piece_widths_sum (pieces : List Piece) (total : Int)
+    (partition : (pieces.map count).sum = total) : pieceBitWidths pieces = total := partition
+
+theorem packet_piece_widths_append (a b : List Piece) :
+    pieceBitWidths (a ++ b) = pieceBitWidths a + pieceBitWidths b := by
+  simp [pieceBitWidths, List.map_append, List.sum_append]
+
+structure Span where
+  start : Nat
+  length : Nat
+  deriving DecidableEq, Repr
+
+/-- The next row boundary clips the current field, preserving its remaining
+bits for the following row. Zero row width is treated as one only in this
+standalone splitter; the layout rejects it before geometry is computed. -/
+def splitField (bits start remaining : Nat) : List Span :=
+  if remaining = 0 then [] else
+    let n := min remaining (max 1 bits - start % max 1 bits)
+    ⟨start, n⟩ :: splitField bits (start + n) (remaining - n)
+termination_by remaining
+decreasing_by
+  have hm := Nat.mod_lt start (by omega : 0 < max 1 bits)
+  have : 0 < min remaining (max 1 bits - start % max 1 bits) := by omega
+  omega
+
+theorem splitField_widths_sum (bits start remaining : Nat) :
+    ((splitField bits start remaining).map (·.length)).sum = remaining := by
+  rw [splitField]
+  split
+  · rename_i h; simp [h]
+  · rename_i h
+    simp only [List.map_cons, List.sum_cons]
+    rw [splitField_widths_sum]
+    have hm := Nat.mod_lt start (by omega : 0 < max 1 bits)
+    have hn : min remaining (max 1 bits - start % max 1 bits) ≤ remaining := Nat.min_le_left _ _
+    omega
+termination_by remaining
+decreasing_by
+  have hm := Nat.mod_lt start (by omega : 0 < max 1 bits)
+  have : 0 < min remaining (max 1 bits - start % max 1 bits) := by omega
+  omega
+
+theorem splitField_coverage (bits start remaining b : Nat) :
+    (∃ s ∈ splitField bits start remaining, s.start ≤ b ∧ b < s.start + s.length) ↔
+      start ≤ b ∧ b < start + remaining := by
+  rw [splitField]
+  split
+  · rename_i h; simp [h]
+  · rename_i h
+    simp only [List.mem_cons, exists_eq_or_imp]
+    rw [splitField_coverage]
+    have hn : min remaining (max 1 bits - start % max 1 bits) ≤ remaining := Nat.min_le_left _ _
+    constructor
+    · intro hmem
+      rcases hmem with hmem | hmem <;> omega
+    · intro hb
+      by_cases hb' : b < start + min remaining (max 1 bits - start % max 1 bits)
+      · exact Or.inl ⟨hb.1, hb'⟩
+      · exact Or.inr ⟨by omega, by omega⟩
+termination_by remaining
+decreasing_by
+  have hm := Nat.mod_lt start (by omega : 0 < max 1 bits)
+  have : 0 < min remaining (max 1 bits - start % max 1 bits) := by omega
+  omega
+
+theorem splitField_rows_fit (bits start remaining : Nat) :
+    ∀ s ∈ splitField bits start remaining,
+      s.start % max 1 bits + s.length ≤ max 1 bits := by
+  rw [splitField]
+  split
+  · simp
+  · intro s hs
+    simp only [List.mem_cons] at hs
+    rcases hs with rfl | hs
+    · dsimp
+      have hm := Nat.mod_lt start (by omega : 0 < max 1 bits)
+      have hn := Nat.min_le_right remaining (max 1 bits - start % max 1 bits)
+      omega
+    · exact splitField_rows_fit bits _ _ s hs
+termination_by remaining
+decreasing_by
+  have hm := Nat.mod_lt start (by omega : 0 < max 1 bits)
+  have : 0 < min remaining (max 1 bits - start % max 1 bits) := by omega
+  omega
+
+theorem splitField_bounds (bits start remaining : Nat) :
+    ∀ s ∈ splitField bits start remaining,
+      start ≤ s.start ∧ s.start + s.length ≤ start + remaining ∧ 0 < s.length := by
+  rw [splitField]
+  split
+  · simp
+  · rename_i h
+    intro s hs
+    simp only [List.mem_cons] at hs
+    have hm := Nat.mod_lt start (by omega : 0 < max 1 bits)
+    have hn : min remaining (max 1 bits - start % max 1 bits) ≤ remaining := Nat.min_le_left _ _
+    have hp : 0 < min remaining (max 1 bits - start % max 1 bits) := by omega
+    rcases hs with rfl | hs
+    · dsimp; omega
+    · have ih := splitField_bounds bits _ _ s hs
+      omega
+termination_by remaining
+decreasing_by
+  have _hm := Nat.mod_lt start (by omega : 0 < max 1 bits)
+  have : 0 < min remaining (max 1 bits - start % max 1 bits) := by omega
+  omega
+
+theorem splitField_disjoint (bits start remaining : Nat) :
+    (splitField bits start remaining).Pairwise
+      (fun a b => a.start + a.length ≤ b.start) := by
+  rw [splitField]
+  split
+  · exact List.Pairwise.nil
+  · apply List.Pairwise.cons
+    · intro s hs
+      exact (splitField_bounds bits _ _ s hs).1
+    · exact splitField_disjoint bits _ _
+termination_by remaining
+decreasing_by
+  have hm := Nat.mod_lt start (by omega : 0 < max 1 bits)
+  have : 0 < min remaining (max 1 bits - start % max 1 bits) := by omega
+  omega
+
 theorem padding_nonneg (p : Params) (hp : p.valid) : 0 ≤ padding p := by
   obtain ⟨_, _, _, _, hy, hs, _, _⟩ := hp
   unfold padding
@@ -195,3 +410,4 @@ theorem bitRect_avoids_title (p : Params) (f : Piece) (rows w : Int)
     simp only [bitRect, hs, Bool.not_true, Bool.false_eq_true, ↓reduceIte,
       rect, Rect.meetsInterior]
     omega
+end Elegant.GridPacket

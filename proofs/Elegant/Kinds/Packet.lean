@@ -1,3 +1,63 @@
+import Elegant.GridPacket
+import Elegant.Kinds.Common
+
+set_option autoImplicit false
+
+namespace Elegant.Kinds.Packet
+open GridPacket
+
+structure Entry where
+  box : ModelBox
+  piece : Piece
+  title : Bool
+  lines : List Measure.Line
+  textHeight : Int
+  lead : Option (ModelLabel × List Measure.Line × Int)
+  trail : Option (ModelLabel × List Measure.Line × Int)
+
+private def measure (profile : Profile) (title body : Bool) (text : String) :
+    Except LayoutError (List Measure.Line) := do
+  let metric ← if profile == .cell then pure Measure.Metric.cell
+    else (if title then Measure.Role.title else if body then Measure.Role.body else Measure.Role.label).metric
+  StyledMeasure.wrap metric I32_MAX text.toList
+
+private def width (lines : List Measure.Line) : Int := lines.foldl (fun n l => max n l.width) 0
+private def lineText (l : Measure.Line) : String := String.ofList l.text
+
+private def decode (b : ModelBox) (next : Int) : Except LayoutError (Piece × Bool) := do
+  if b.role != .node then throw .domain
+  if b.shape == "title" then return (⟨0, 0⟩, true)
+  if b.shape.isEmpty then return (⟨next, next⟩, false)
+  match b.shape.splitOn ";" with
+  | ["field", a, z] =>
+    if !a.startsWith "start=" || !z.startsWith "end=" then throw .domain
+    match (a.drop 6).toString.toInt?, (z.drop 4).toString.toInt? with
+    | some first, some last => return (⟨first, last⟩, false)
+    | _, _ => throw .domain
+  | _ => throw .domain
+
+private def entries (m : Model) : Except LayoutError (List Entry) := do
+  let (_, out) ← m.boxes.foldlM (fun (state : Int × List Entry) b => do
+    let (piece, title) ← decode b state.1
+    let caption := m.labels.find? (fun l => l.owner == b.id && l.id == b.id ++ ".label")
+    let text := match caption with
+      | some l => l.text
+      | none => match b.text with | some t => if t.isEmpty then b.id else t | none => b.id
+    let lines ← measure m.profile title false text
+    let mut lead := none
+    let mut trail := none
+    for l in m.labels.filter (fun l => l.owner == b.id && l.id != b.id ++ ".label") do
+      if title || !(l.id.endsWith ".bit" || l.id.endsWith ".lead" || l.id.endsWith ".trail") then
+        throw .domain
+      let ls ← measure m.profile false true l.text
+      if l.id.endsWith ".trail" then trail := some (l, ls, width ls)
+      else lead := some (l, ls, width ls)
+    let lh := if m.profile == .cell then 1 else if title then 1536 else 1280
+    let e : Entry := ⟨b, piece, title, lines, (lines.length : Int) * lh, lead, trail⟩
+    pure (if title then state.1 else piece.last + 1, state.2 ++ [e])) (0, [])
+  if m.labels.any (fun l => !m.boxes.any (fun b => b.id == l.owner)) then throw .domain
+  pure out
+
 private theorem foldlM_preserves {α β : Type} (xs : List α)
     (step : β → α → Except LayoutError β) (invariant : β → Prop)
     (initial final : β) (hinit : invariant initial)
@@ -172,6 +232,27 @@ theorem label_loop_origins (m : Model) (es : List Entry) (labels : List SceneLab
             subst label
             exact ⟨e, hem, title, width lines, l.id.endsWith ".trail", rfl⟩
 
+private def textPrimitive (r : Rect) (role : TextRole) (align : Align)
+    (style : String) (lines : List Measure.Line) : Primitive :=
+  .text {
+    rect := r
+    role := role
+    size := if role == .title then 16 else 14
+    align := align
+    style := style
+    lines := lines.map fun l => [⟨lineText l, false, false⟩]
+  }
+
+private def checked (n : Int) : Except LayoutError Int :=
+  if 0 ≤ n ∧ n ≤ COORD_LIMIT then .ok n else .error .overflow
+
+private def fieldsDisjoint : List Entry → Bool
+  | [] => true
+  | e :: rest =>
+    rest.all (fun f => e.title || f.title ||
+      decide (e.piece.last < f.piece.first ∨ f.piece.last < e.piece.first)) &&
+      fieldsDisjoint rest
+
 theorem fieldsDisjoint_partition (es : List Entry) (h : fieldsDisjoint es = true)
     (e : Entry) (he : e ∈ es) (f : Entry) (hf : f ∈ es)
     (hne : e.box.id ≠ f.box.id) (het : e.title = false) (hft : f.title = false) :
@@ -193,6 +274,45 @@ theorem fieldsDisjoint_partition (es : List Entry) (h : fieldsDisjoint es = true
           simpa [het, hft] using ha
         exact rev.symm
       · exact ih h.2 he hf
+
+def placeBoxes (p : Params) (titleRect : Rect) : List Entry → Except LayoutError (List Box)
+  | [] => pure []
+  | e :: es => do
+    let r := if e.title then titleRect else rect p e.piece
+    let _ ← checked r.y
+    let rest ← placeBoxes p titleRect es
+    pure (⟨e.box.id, e.box.role.id, r, e.box.parent, e.box.exclusive⟩ :: rest)
+
+theorem placeBoxes_metadata (p : Params) (titleRect : Rect) (es : List Entry)
+    (bs : List Box) (h : placeBoxes p titleRect es = .ok bs) :
+    bs.map (fun b => (b.id, b.role, b.parent, b.exclusive)) =
+      es.map (fun e => (e.box.id, e.box.role.id, e.box.parent, e.box.exclusive)) := by
+  induction es generalizing bs with
+  | nil =>
+    change Except.ok [] = Except.ok bs at h
+    cases h
+    rfl
+  | cons e es ih =>
+    simp only [placeBoxes] at h
+    cases hc : checked (if e.title then titleRect else rect p e.piece).y with
+    | error err =>
+      rw [hc] at h
+      change Except.error err = Except.ok bs at h
+      cases h
+    | ok y =>
+      cases hr : placeBoxes p titleRect es with
+      | error err =>
+        rw [hc, hr] at h
+        change Except.error err = Except.ok bs at h
+        cases h
+      | ok rest =>
+        rw [hc, hr] at h
+        change Except.ok
+          (⟨e.box.id, e.box.role.id, if e.title then titleRect else rect p e.piece,
+            e.box.parent, e.box.exclusive⟩ :: rest) = Except.ok bs at h
+        cases h
+        simp only [List.map_cons]
+        rw [ih rest hr]
 
 theorem placeBoxes_geometry (p : Params) (titleRect : Rect) (es : List Entry)
     (bs : List Box) (h : placeBoxes p titleRect es = .ok bs) :
@@ -237,6 +357,44 @@ theorem placeBoxes_canvas_containment (p : Params) (titleRect : Rect)
   rw [placeBoxes_geometry p titleRect es bs h] at hb
   obtain ⟨e, he, rfl⟩ := List.mem_map.mp hb
   exact bounds e he
+
+theorem placeBoxes_root_nodes (p : Params) (titleRect : Rect) (es : List Entry)
+    (bs : List Box) (h : placeBoxes p titleRect es = .ok bs)
+    (roots : ∀ e ∈ es, e.box.parent = "" ∧ e.box.role = .node) :
+    ∀ b ∈ bs, b.parent = "" ∧ b.role = "node" := by
+  have hm := placeBoxes_metadata p titleRect es bs h
+  intro b hb
+  have hmem : (b.id, b.role, b.parent, b.exclusive) ∈
+      es.map (fun e => (e.box.id, e.box.role.id, e.box.parent, e.box.exclusive)) := by
+    rw [← hm]
+    exact List.mem_map.mpr ⟨b, hb, rfl⟩
+  obtain ⟨e, he, eq⟩ := List.mem_map.mp hmem
+  have root := roots e he
+  have roleEq : e.box.role.id = "node" := by rw [root.2]; rfl
+  simp only [Prod.mk.injEq] at eq
+  exact ⟨eq.2.2.1.symm.trans root.1, eq.2.1.symm.trans roleEq⟩
+
+theorem placeBoxes_structural_constraints (p : Params) (titleRect : Rect) (es : List Entry)
+    (bs : List Box) (h : placeBoxes p titleRect es = .ok bs)
+    (roots : ∀ e ∈ es, e.box.parent = "" ∧ e.box.role = .node)
+    (canvas : Size) (labels : List Label) :
+    let d : LayoutDump := ⟨canvas, bs, [], labels⟩
+    Validator.C3 d ∧ Validator.C4 d ∧ Validator.C5 d ∧ Validator.C6 d ∧ Validator.C8 d := by
+  have hb := placeBoxes_root_nodes p titleRect es bs h roots
+  dsimp
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · intro b mem ne
+    exact False.elim (ne (hb b mem).1)
+  · intro r mem; cases mem
+  · intro r mem; cases mem
+  · intro r mem; cases mem
+  · constructor
+    · intro g mem group
+      have hn := (hb g mem).2
+      simp [hn] at group
+    · intro g mem group
+      have hn := (hb g mem).2
+      simp [hn] at group
 
 theorem rowFold_bounds (p : Params) (es : List Entry) (n : Int) :
     n ≤ es.foldl (fun acc e => if e.title then acc else max acc (row p e.piece + 1)) n ∧
@@ -480,6 +638,59 @@ theorem assembled_constraints (p : Params) (es : List Entry) (bs : List Box)
     bitLabels canonicalBoxes
   exact ⟨c1, c2, c3, c4, c5, c6, c7, c8.1, c8.2⟩
 
+/-- Packet model-stage inputs already contain one box per split field piece. No
+additional boxes, relation ids, or semantic parents are manufactured by layout. -/
+def scene (m : Model) : Except LayoutError Scene := do
+  let p := m.options.config.foldl (configure m.profile) (defaults m.profile)
+  if !decide p.valid then throw .domain
+  let es ← entries m
+  if es.any (fun e => !e.box.parent.isEmpty) then throw .domain
+  if (es.filter (·.title)).length > 1 then throw .domain
+  for e in es do
+    if !e.title && !decide (fits p e.piece) then throw .domain
+  if !fieldsDisjoint es then throw .domain
+  let rows := es.foldl (fun n e => if e.title then n else max n (row p e.piece + 1)) 0
+  let hasTitle := es.any (·.title)
+  let w ← checked (p.bits * p.width + 2 * p.margin)
+  let h ← checked (rows * pitch p + padding p + if hasTitle then p.height else 0)
+  let titleRect : Rect := ⟨p.margin, h - p.height, p.bits * p.width, p.height⟩
+  let boxes ← placeBoxes p titleRect es
+  let mut items := []
+  for e in es do
+    let r := if e.title then titleRect else rect p e.piece
+    let caption : Rect := ⟨r.x, r.y + Int.fdiv (r.h - e.textHeight) 2, r.w, e.textHeight⟩
+    let mut ps := if !e.title && 0 < r.w then [Primitive.rect r { style := "node" }] else []
+    if !e.lines.isEmpty then
+      ps := ps ++ [textPrimitive caption (if e.title then .title else .label) .middle "text" e.lines]
+    for (bit, trail) in [(e.lead, false), (e.trail, true)] do
+      if let some (_, ls, bw) := bit then
+        let br := bitRect p e.piece bw trail
+        let align := if trail then Align.end else if count e.piece = 1 then .middle else .start
+        ps := ps ++ [textPrimitive br .body align "text-muted" ls]
+    items := items ++ [⟨.node, e.box.id, ps⟩]
+  let mut labels := []
+  for l in m.labels do
+    if let some e := es.find? (fun e => e.box.id == l.owner) then
+      if l.id != l.owner ++ ".label" then
+        let ls ← measure m.profile false true l.text
+        let br := bitRect p e.piece (width ls) (l.id.endsWith ".trail")
+        labels := labels ++ [{
+          id := l.id
+          owner := l.owner
+          rect := br
+          lines := ls.map lineText
+          text := l.text
+        }]
+  return {
+    kind := "packet"
+    profile := m.profile
+    options := { m.options with profile := m.profile }
+    canvas := ⟨w, h⟩
+    boxes := boxes
+    labels := labels
+    items := items
+  }
+
 theorem scene_params_valid (m : Model) (s : Scene) (h : scene m = .ok s) :
     (m.options.config.foldl (configure m.profile) (defaults m.profile)).valid := by
   by_cases hp :
@@ -663,6 +874,37 @@ theorem scene_constraints (m : Model) (s : Scene) (h : scene m = .ok s) :
             obtain ⟨sl, hsl, rfl⟩ := List.mem_map.mp member
             exact label_loop_origins m es labels decoded hl sl hsl
 
+def overlappingFields : Model :=
+  { kind := "packet", profile := .cell,
+    options := { profile := .cell, config := [("showBits", .boolean false)] },
+    boxes := [
+      { id := "a", shape := "field;start=0;end=0" },
+      { id := "b", shape := "field;start=0;end=0" }] }
+
+def parentOutsideField : Model :=
+  { kind := "packet", profile := .cell,
+    options := { profile := .cell, config := [("showBits", .boolean false)] },
+    boxes := [
+      { id := "a", shape := "field;start=0;end=0" },
+      { id := "b", parent := "a", shape := "field;start=1;end=1" }] }
+
+def inputTextBytes (m : Model) : Nat :=
+  let labelBytes := (m.labels.map fun l => l.text.utf8ByteSize).sum
+  m.boxes.foldl (fun n b =>
+    if m.labels.any (fun l => l.owner == b.id) then n
+    else n + (b.text.getD "").utf8ByteSize) labelBytes
+
+/-- Packet placement is a structural pass with no iterative budget. -/
+def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
+  if m.boxes.length > m.options.limits.maxNodes then
+    throw (.tooLarge m.options.limits.maxNodes m.boxes.length)
+  let bytes := inputTextBytes m
+  if bytes > m.options.limits.maxTextBytes then
+    throw (.tooLarge m.options.limits.maxTextBytes bytes)
+  match scene m with
+  | .error e => throw (.geometry e)
+  | .ok s => pure { scene := s, budgetExhausted := false }
+
 theorem packet_valid (m : Model) (result : Layered.FamilyResult)
     (_hwf : WellFormed m) (_hlim : WithinLimits m)
     (h : layout m = .ok result) : HardConstraints result.scene.layoutDump := by
@@ -676,3 +918,14 @@ theorem packet_valid (m : Model) (result : Layered.FamilyResult)
       · rename_i s hs
         cases h
         exact scene_constraints m s hs
+
+def duplicateTitles : Model :=
+  { kind := "packet", profile := .cell,
+    options := { profile := .cell },
+    boxes := [{ id := "a", shape := "title" }, { id := "b", shape := "title" }] }
+
+def PacketValidity : Prop :=
+  ∀ (m : Model) (s : Layered.FamilyResult), WellFormed m → WithinLimits m →
+    layout m = .ok s → HardConstraints s.scene.layoutDump
+
+end Elegant.Kinds.Packet

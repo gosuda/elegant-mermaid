@@ -1,3 +1,284 @@
+import Elegant.RailroadFacts
+import Elegant.Kinds.Railroad
+
+set_option autoImplicit false
+
+namespace Elegant.Railroad
+
+theorem initial_stage_bounds (p : Profile) :
+    StageBounds p ({y := constant p "margin"} : RuleState) := by
+  refine ⟨(rule_spacing_nonnegative p).1,by change (0 : Int) ≤ 0; omega,?_⟩
+  intro box hb
+  cases hb
+
+/-- The rule fold's stage frame contains every emitted box. The final canvas adds
+only the trailing margin; the empty-rule canvas has no boxes. -/
+theorem layout_canvas (m : Model) (rules : List Rule) (s : Scene)
+    (h : layout m rules = .ok s) : Validator.C1 s.layoutDump := by
+  unfold layout at h
+  cases hm : metricFor m.profile with
+  | error e => simp [hm,bind,Except.bind] at h
+  | ok metric =>
+    cases hf : rules.foldlM (placeRule m metric) {y := constant m.profile "margin"} with
+    | error e => simp [hm,hf,bind,Except.bind] at h
+    | ok result =>
+      have hb := foldlM_preserves (placeRule m metric) (StageBounds m.profile)
+        (fun rule before after hi he => placeRule_stage_bounds m metric before after rule hi he)
+        rules {y := constant m.profile "margin"} result (initial_stage_bounds m.profile) hf
+      have hempty : rules = [] → result.state.boxes = [] := by
+        intro he
+        subst rules
+        simp only [List.foldlM_nil,pure,Except.pure,Except.ok.injEq] at hf
+        subst result
+        rfl
+      simp only [hm,hf,bind,Except.bind] at h
+      repeat' split at h
+      all_goals first
+        | (solve | cases h)
+        | (try simp only [pure,Except.pure,Except.ok.injEq] at h
+           subst s
+           intro box hbox
+           first
+           | (have hz := hempty (by simpa using ‹rules.isEmpty = true›)
+              rw [hz] at hbox
+              cases hbox)
+           | (have hc := hb.2.2 box hbox
+              have margin := (rule_spacing_nonnegative m.profile).1
+              unfold StageFrame Rect.Contained at hc
+              unfold Validator.canvasRect Rect.Contained Scene.layoutDump
+              dsimp only at *
+              omega))
+/-- A placement step only appends boxes. This invariant lets later id lookup
+proofs retain every previously declared ancestor across the child traversal. -/
+def ExtendsBoxes (initial final : State) : Prop :=
+  ∃ suffix, final.boxes = initial.boxes ++ suffix
+
+theorem ExtendsBoxes.refl (state : State) : ExtendsBoxes state state :=
+  ⟨[],by simp⟩
+
+theorem ExtendsBoxes.trans {a b c : State} (hab : ExtendsBoxes a b)
+    (hbc : ExtendsBoxes b c) : ExtendsBoxes a c := by
+  obtain ⟨ab,hab⟩ := hab
+  obtain ⟨bc,hbc⟩ := hbc
+  exact ⟨ab++bc,by rw [hbc,hab,List.append_assoc]⟩
+
+theorem joinStep_boxes (s : Shape) (x y : Int) (state : State) (i : Nat) :
+    (joinStep s x y state i).boxes = state.boxes := rfl
+
+theorem sequenceJoins_boxes (s : Shape) (x y : Int) (state : State) :
+    (sequenceJoins s x y state).boxes = state.boxes := by
+  apply foldl_preserves (joinStep s x y) (fun acc => acc.boxes = state.boxes)
+  · intro i acc h
+    exact h
+  · rfl
+
+theorem placeNode_extends_boxes :
+    ∀ (fuel : Nat) (p : Profile) (s : Shape) (x y : Int) (parent : String)
+      (initial final : State), placeNode fuel p s x y parent initial = .ok final →
+      ExtendsBoxes initial final := by
+  intro fuel
+  induction fuel with
+  | zero => intro p s x y parent initial final h; cases h
+  | succ fuel ih =>
+    intro p s x y parent initial final h
+    simp only [placeNode] at h
+    split at h
+    · simp only [pure,Except.pure,Except.ok.injEq] at h
+      subst final
+      exact ⟨_,rfl⟩
+    · refine foldlM_preserves _ (ExtendsBoxes initial) ?_ _ _ final ?_ h
+      · intro pair before after hb he
+        exact hb.trans (ih p pair.1 _ _ s.id before after he)
+      · split
+        · exact ⟨_,sequenceJoins_boxes s x y _⟩
+        · exact ⟨_,rfl⟩
+
+
+theorem find_append_preserved {α : Type} (test : α → Bool) :
+    ∀ (front suffix : List α) (value : α), front.find? test = some value →
+      (front++suffix).find? test = some value := by
+  intro front
+  induction front with
+  | nil => intro suffix value h; cases h
+  | cons first rest ih =>
+    intro suffix value h
+    simp only [List.find?_cons] at h ⊢
+    split at h
+    · simp [*]
+    · simp [*, ih suffix value h]
+
+/-- An existing parent lookup is stable when descendants and later rules append
+their boxes. This does not assume that newly emitted ids are distinct. -/
+theorem ExtendsBoxes.find_preserved {initial final : State}
+    (he : ExtendsBoxes initial final) (id : String) (box : Box)
+    (hf : initial.boxes.find? (fun b => b.id == id) = some box) :
+    final.boxes.find? (fun b => b.id == id) = some box := by
+  obtain ⟨suffix,he⟩ := he
+  rw [he]
+  exact find_append_preserved _ _ _ _ hf
+
+theorem ExtendsBoxes.mem {initial final : State} (he : ExtendsBoxes initial final)
+    (box : Box) (hb : box ∈ initial.boxes) : box ∈ final.boxes := by
+  obtain ⟨suffix,he⟩ := he
+  rw [he]
+  exact List.mem_append_left suffix hb
+
+theorem placeNode_root_mem :
+    ∀ (fuel : Nat) (p : Profile) (s : Shape) (x y : Int) (parent : String)
+      (initial final : State), placeNode fuel p s x y parent initial = .ok final →
+      Box.mk s.id (if leaf s.kind then "node" else "group") (shapeRect s x y)
+        parent (leaf s.kind) ∈ final.boxes := by
+  intro fuel
+  cases fuel with
+  | zero => intro p s x y parent initial final h; cases h
+  | succ fuel =>
+    intro p s x y parent initial final h
+    simp only [placeNode] at h
+    split at h
+    · simp only [pure,Except.pure,Except.ok.injEq] at h
+      subst final
+      simp_all
+    · have hbase : ExtendsBoxes
+        ({boxes := initial.boxes ++
+          [Box.mk s.id "group" (shapeRect s x y) parent (leaf s.kind)]
+          routes := initial.routes, labels := initial.labels
+          groups := initial.groups ++ [Group.mk .group s.id (rails p s x y)]
+          edges := initial.edges, nodes := initial.nodes} : State) final := by
+        refine foldlM_preserves _ (ExtendsBoxes _) ?_ _ _ final ?_ h
+        · intro pair before after hb he
+          exact hb.trans (placeNode_extends_boxes fuel p pair.1 _ _ s.id before after he)
+        · split
+          · exact ⟨[],by rw [sequenceJoins_boxes]; simp⟩
+          · exact ExtendsBoxes.refl _
+      have hm := hbase.mem (Box.mk s.id "group" (shapeRect s x y) parent (leaf s.kind))
+        (by simp)
+      simpa [*] using hm
+
+theorem decodeNode_metadata :
+    ∀ (fuel : Nat) (m : Model) (b : ModelBox) (n : Node),
+      Kinds.Railroad.decodeNode fuel m b = .ok n →
+      n.id = b.id ∧ n.text = Kinds.Railroad.display m b := by
+  intro fuel
+  cases fuel with
+  | zero => intro m b n h; cases h
+  | succ fuel =>
+    intro m b n h
+    simp only [Kinds.Railroad.decodeNode] at h
+    cases hc : (Kinds.Railroad.children m b.id).mapM (Kinds.Railroad.decodeNode fuel m) with
+    | error e => simp [hc,bind,Except.bind] at h
+    | ok kids =>
+      simp only [hc,bind,Except.bind,pure,Except.pure,Except.ok.injEq] at h
+      subst n
+      exact ⟨rfl,rfl⟩
+
+theorem foldlM_boxes_extends {α : Type} (f : State → α → Except LayoutError State)
+    (hf : ∀ a before after, f before a = .ok after → ExtendsBoxes before after) :
+    ∀ (xs : List α) (initial final : State), xs.foldlM f initial = .ok final →
+      ExtendsBoxes initial final := by
+  intro xs initial final h
+  exact foldlM_preserves f (ExtendsBoxes initial)
+    (fun a before after hb he => hb.trans (hf a before after he))
+    xs initial final (ExtendsBoxes.refl initial) h
+
+theorem find_first_appended {initial : List Box} {box : Box}
+    (h : initial.find? (fun b => b.id == box.id) = none) :
+    (initial ++ [box]).find? (fun b => b.id == box.id) = some box := by
+  induction initial with
+  | nil => simp
+  | cons a rest ih =>
+    simp only [List.find?_cons] at h ⊢
+    split at h
+    · cases h
+    · simp [*]
+
+/-- A fresh root's own lookup is present immediately and survives all later
+child writes. Freshness is proved from the frontend's unique box ids at the
+public adapter boundary, not checked by the layout. -/
+theorem placeNode_root_lookup (fuel : Nat) (p : Profile) (s : Shape) (x y : Int)
+    (parent : String) (initial final : State)
+    (hfresh : initial.boxes.find? (fun b => b.id == s.id) = none)
+    (h : placeNode (fuel+1) p s x y parent initial = .ok final) :
+    final.boxes.find? (fun b => b.id == s.id) =
+      some (Box.mk s.id (if leaf s.kind then "node" else "group")
+        (shapeRect s x y) parent (leaf s.kind)) := by
+  let root := Box.mk s.id (if leaf s.kind then "node" else "group")
+    (shapeRect s x y) parent (leaf s.kind)
+  have hroot : (initial.boxes ++ [root]).find? (fun b => b.id == s.id) = some root :=
+    find_first_appended (box := root) (by simpa only [root] using hfresh)
+  simp only [placeNode] at h
+  split at h
+  · simp only [pure,Except.pure,Except.ok.injEq] at h
+    subst final
+    simp [*]
+  · have he := foldlM_boxes_extends
+      (fun acc (pair : Shape × Point) => placeNode fuel p pair.1 (x+pair.2.x) (y+pair.2.y) s.id acc)
+      (fun (pair : Shape × Point) before after hp => placeNode_extends_boxes fuel p pair.1 _ _ s.id before after hp)
+      _ _ final h
+    apply he.find_preserved s.id root
+    split
+    · simp [sequenceJoins_boxes,root, *]
+    · simp [root, *]
+
+/-- Every emitted box retains its source parent id. The root is the one new
+entry; recursive calls explicitly pass the enclosing node's id. -/
+theorem placeNode_old_parent_lookup (fuel : Nat) (p : Profile) (s : Shape)
+    (x y : Int) (parent : String) (initial final : State) (id : String) (box : Box)
+    (hf : initial.boxes.find? (fun b => b.id == id) = some box)
+    (h : placeNode fuel p s x y parent initial = .ok final) :
+    final.boxes.find? (fun b => b.id == id) = some box :=
+  (placeNode_extends_boxes fuel p s x y parent initial final h).find_preserved id box hf
+
+theorem descendants_avoid_left_gap {s : Shape} {x y : Int} {r : Rect}
+    (hg : Geometry s) (hd : DescendantFrame s x y r) (left right baseline : Int)
+    (hright : max left right ≤ x) :
+    ¬ Polyline.hitsRect [⟨left,baseline⟩,⟨right,baseline⟩] r := by
+  have hc := descendant_contained hd hg
+  unfold Rect.Contained shapeRect at hc
+  dsimp only at hc
+  apply horizontal_route_avoids
+  exact Or.inl (Int.le_trans hright hc.1)
+
+theorem descendants_avoid_right_gap {s : Shape} {x y : Int} {r : Rect}
+    (hg : Geometry s) (hd : DescendantFrame s x y r) (left right baseline : Int)
+    (hleft : x+s.w ≤ min left right) :
+    ¬ Polyline.hitsRect [⟨left,baseline⟩,⟨right,baseline⟩] r := by
+  have hc := descendant_contained hd hg
+  unfold Rect.Contained shapeRect at hc
+  dsimp only at hc
+  apply horizontal_route_avoids
+  exact Or.inr (Or.inl (Int.le_trans hc.2.1 hleft))
+
+theorem descendants_avoid_above_gap {s : Shape} {x y : Int} {r : Rect}
+    (hg : Geometry s) (hd : DescendantFrame s x y r) (left right baseline : Int)
+    (hbelow : baseline ≤ y) :
+    ¬ Polyline.hitsRect [⟨left,baseline⟩,⟨right,baseline⟩] r := by
+  have hc := descendant_contained hd hg
+  unfold Rect.Contained shapeRect at hc
+  dsimp only at hc
+  apply horizontal_route_avoids
+  exact Or.inr (Or.inr (Or.inl (Int.le_trans hbelow hc.2.2.1)))
+
+theorem descendants_avoid_below_gap {s : Shape} {x y : Int} {r : Rect}
+    (hg : Geometry s) (hd : DescendantFrame s x y r) (left right baseline : Int)
+    (habove : y+s.height ≤ baseline) :
+    ¬ Polyline.hitsRect [⟨left,baseline⟩,⟨right,baseline⟩] r := by
+  have hc := descendant_contained hd hg
+  unfold Rect.Contained shapeRect at hc
+  dsimp only at hc
+  apply horizontal_route_avoids
+  exact Or.inr (Or.inr (Or.inr (Int.le_trans hc.2.2.2 habove)))
+
+theorem descendants_avoid_separated_gap {s : Shape} {x y : Int} {r : Rect}
+    (hg : Geometry s) (hd : DescendantFrame s x y r) (left right baseline : Int)
+    (hgap : max left right ≤ x ∨ x+s.w ≤ min left right ∨
+      baseline ≤ y ∨ y+s.height ≤ baseline) :
+    ¬ Polyline.hitsRect [⟨left,baseline⟩,⟨right,baseline⟩] r := by
+  rcases hgap with h | h | h | h
+  · exact descendants_avoid_left_gap hg hd left right baseline h
+  · exact descendants_avoid_right_gap hg hd left right baseline h
+  · exact descendants_avoid_above_gap hg hd left right baseline h
+  · exact descendants_avoid_below_gap hg hd left right baseline h
+
 /-- Every successful decoder output comes from one executed source call. -/
 theorem mapM_success_origin {α β : Type} (f : α → Except LayoutError β) :
     ∀ (xs : List α) (ys : List β), xs.mapM f = .ok ys →
@@ -117,6 +398,7 @@ theorem placeNode_box_origin :
           · simpa [P, root, sequenceJoins_boxes, *] using hbase
           · simpa [P, root, *] using hbase
       exact hfold
+
 
 theorem PlacedBox.descendant {s : Shape} {x y : Int} {parent : String} {box : Box}
     (h : PlacedBox s x y parent box) : DescendantFrame s x y box.rect := by

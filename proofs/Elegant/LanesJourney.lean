@@ -1,3 +1,110 @@
+import Elegant.Lanes
+
+set_option autoImplicit false
+namespace Elegant.Lanes.Journey
+
+structure Constants where
+  taskWidth : Int
+  taskHeight : Int
+  bandHeight : Int
+  columnGap : Int
+  scoreStep : Int
+  radius : Int
+  padX : Int
+  padY : Int
+  corner : Int
+  margin : Int
+
+def constants (p : Profile) : Constants :=
+  { taskWidth := LayoutConst.journey_task_width.get p
+    taskHeight := LayoutConst.journey_task_height.get p
+    bandHeight := LayoutConst.journey_band_height.get p
+    columnGap := LayoutConst.journey_column_gap.get p
+    scoreStep := LayoutConst.journey_score_step.get p
+    radius := LayoutConst.journey_face_radius.get p
+    padX := LayoutConst.node_pad_x.get p + LayoutConst.node_border.get p
+    padY := LayoutConst.node_pad_y.get p + LayoutConst.node_border.get p
+    corner := LayoutConst.corner_radius.get p
+    margin := LayoutConst.canvas_margin.get p }
+
+structure Card where
+  id : String
+  caption : Caption
+
+structure Task extends Card where
+  band : Int
+  score : Int
+  people : Option Caption := none
+
+structure Input where
+  title : Option Card := none
+  sections : List Card := []
+  tasks : List Task := []
+
+def column (c : Constants) (i : Int) : Int := i * (c.taskWidth + c.columnGap)
+def faceY (c : Constants) (bottom score : Int) : Int :=
+  bottom + (5 - score) * c.scoreStep + c.scoreStep
+
+theorem journey_task_columns_ordered (c : Constants) (i j : Int)
+    (hp : 0 < c.taskWidth + c.columnGap) (h : i < j) : column c i < column c j := by
+  unfold column
+  exact Int.mul_lt_mul_of_pos_right h hp
+
+theorem journey_score_antitone (c : Constants) (bottom a b : Int)
+    (hp : 0 ≤ c.scoreStep) (h : a ≤ b) : faceY c bottom b ≤ faceY c bottom a := by
+  unfold faceY
+  have hm := Int.mul_le_mul_of_nonneg_right (show 5 - b ≤ 5 - a by omega) hp
+  omega
+
+def taskRect (c : Constants) (top height : Int) (i : Nat) : Rect :=
+  ⟨column c i, top, c.taskWidth, height⟩
+def sectionRect (c : Constants) (top height : Int) (first last : Nat) : Rect :=
+  ⟨column c first, top, column c (last - first : Int) + c.taskWidth, height⟩
+
+theorem journey_task_inside_section (c : Constants) (top height : Int) (first last i : Nat)
+    (hp : 0 ≤ c.taskWidth + c.columnGap) (hf : first ≤ i) (hl : i ≤ last) :
+    (sectionRect c top height first last).Contained (taskRect c top height i) := by
+  have h₁ := Int.mul_le_mul_of_nonneg_right (show (first : Int) ≤ i by omega) hp
+  have h₂ := Int.mul_le_mul_of_nonneg_right (show (i : Int) ≤ last by omega) hp
+  unfold sectionRect taskRect column Rect.Contained
+  simp only [Int.sub_mul]
+  omega
+
+theorem journey_frame_contains_task (c : Constants) (top taskTop height : Int)
+    (first last i : Nat) (hp : 0 ≤ c.taskWidth + c.columnGap)
+    (hf : first ≤ i) (hl : i ≤ last) (ht : top ≤ taskTop) :
+    (sectionRect c top (taskTop + height - top) first last).Contained
+      (taskRect c taskTop height i) := by
+  have h₁ := Int.mul_le_mul_of_nonneg_right (show (first : Int) ≤ i by omega) hp
+  have h₂ := Int.mul_le_mul_of_nonneg_right (show (i : Int) ≤ last by omega) hp
+  unfold sectionRect taskRect column Rect.Contained
+  simp only [Int.sub_mul]
+  omega
+
+theorem journey_origin_preserves_containment (outer inner : Rect) (dx dy : Int)
+    (h : outer.Contained inner) :
+    (shiftRect dx dy outer).Contained (shiftRect dx dy inner) := by
+  unfold shiftRect Rect.Contained at *
+  dsimp only at *
+  omega
+
+theorem journey_section_bands_disjoint (c : Constants) (top h : Int) (a b d e : Nat)
+    (hp : 0 ≤ c.taskWidth + c.columnGap) (hg : 0 ≤ c.columnGap) (_hab : a ≤ b)
+    (hbd : b < d) :
+    Disjoint (sectionRect c top h a b) (sectionRect c top h d e) := by
+  have hm := Int.mul_le_mul_of_nonneg_right (show (b : Int) + 1 ≤ d by omega) hp
+  unfold sectionRect column Disjoint Rect.meetsInterior
+  simp only [Int.sub_mul, Int.add_mul] at *
+  omega
+
+theorem journey_tasks_disjoint (c : Constants) (top height : Int) (i j : Nat)
+    (hp : 0 ≤ c.taskWidth + c.columnGap) (hg : 0 ≤ c.columnGap) (hij : i < j) :
+    Disjoint (taskRect c top height i) (taskRect c top height j) := by
+  have hm := Int.mul_le_mul_of_nonneg_right (show (i : Int) + 1 ≤ j by omega) hp
+  unfold taskRect column Disjoint Rect.meetsInterior
+  simp only [Int.add_mul] at *
+  omega
+
 theorem admitted_section_interval (g : Input) (band first last : Nat)
     (h : (g.tasks.zipIdx.all fun (t, k) =>
       decide (first ≤ k ∧ k ≤ last) == (t.band == (band : Int))) = true)
@@ -51,6 +158,9 @@ theorem journey_task_faces_score_order (c : Constants) (bottom dy : Int)
     faceY c bottom b + dy ≤ faceY c bottom a + dy := by
   have h := journey_score_antitone c bottom a b hp hab
   omega
+
+def centred (c : Constants) (r : Rect) (h : Int) : Rect :=
+  ⟨r.x + c.padX, r.y + half (r.h - h), r.w - 2 * c.padX, h⟩
 
 theorem journey_card_contains_people (c : Constants) (card : Rect)
     (captionHeight peopleHeight : Int)
@@ -210,3 +320,21 @@ theorem journey_people_inside_section (g : Input) (c : Constants)
   exact (admitted_section_contains_task g c band first last
     top taskTop taskHeight dx dy h hp htop hi hb).trans
       (journey_origin_preserves_containment _ _ dx dy hc)
+
+def face (p : Profile) (c : Constants) (pos : Point) (score : Int) : List Primitive :=
+  if p == .cell then [.symbolRef "ring" pos "ink-line"] else
+  let third := Int.fdiv c.radius 3
+  let eye := max (Int.fdiv c.radius 6) 1
+  let y := pos.y + Int.fdiv (7 * c.radius) 15
+  let mouth := if score == 3 then
+      Primitive.polyline [⟨pos.x - third, y⟩, ⟨pos.x + third, y⟩] 0 (plain "ink-line")
+    else
+      let cy := pos.y + Int.fdiv ((if score > 3 then 2 else 7) * c.radius) 15
+      let r := Int.fdiv c.radius 2
+      Primitive.path [.M ⟨pos.x + r, cy⟩,
+        .A ⟨pos.x, cy⟩ r 0 (if score > 3 then 32768 else -32768)] (plain "ink-line")
+  [.ellipse pos.x pos.y c.radius c.radius (plain "ink-line"),
+   .ellipse (pos.x - third) (pos.y - third) eye eye (plain "ink"),
+   .ellipse (pos.x + third) (pos.y - third) eye eye (plain "ink"), mouth]
+
+end Elegant.Lanes.Journey
