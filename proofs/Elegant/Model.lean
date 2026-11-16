@@ -106,6 +106,59 @@ def modelWellFormed (m : Model) : Bool :=
 
 abbrev WellFormed (m : Model) : Prop := modelWellFormed m = true
 
+namespace Model
+
+private theorem eraseDups_length_le : ∀ l : List String, l.eraseDups.length ≤ l.length
+  | [] => by simp
+  | a :: as => by
+    rw [List.eraseDups_cons]
+    have h1 := eraseDups_length_le (as.filter fun b => !b == a)
+    have h2 := List.length_filter_le (fun b => !b == a) as
+    simp only [List.length_cons]
+    omega
+termination_by l => l.length
+decreasing_by
+  simp only [List.length_cons]
+  exact Nat.lt_succ_of_le (List.length_filter_le _ _)
+
+private theorem nodup_of_eraseDups_length :
+    ∀ l : List String, l.eraseDups.length = l.length → l.Nodup
+  | [] => fun _ => List.nodup_nil
+  | a :: as => by
+    intro h
+    rw [List.eraseDups_cons] at h
+    simp only [List.length_cons] at h
+    have h1 := eraseDups_length_le (as.filter fun b => !b == a)
+    have h2 := List.length_filter_le (fun b => !b == a) as
+    have hf : (as.filter fun b => !b == a).length = as.length := by omega
+    have hall : ∀ b ∈ as, (!b == a) = true := List.length_filter_eq_length_iff.mp hf
+    have hfe : (as.filter fun b => !b == a) = as := List.filter_eq_self.mpr hall
+    have hn := nodup_of_eraseDups_length (as.filter fun b => !b == a) (by omega)
+    rw [hfe] at hn
+    refine List.nodup_cons.mpr ⟨fun hmem => ?_, hn⟩
+    have := hall a hmem
+    simp at this
+termination_by l => l.length
+decreasing_by
+  simp only [List.length_cons]
+  exact Nat.lt_succ_of_le (List.length_filter_le _ _)
+
+theorem boxIds_nodup {m : Model} (h : WellFormed m) : (m.boxes.map (·.id)).Nodup := by
+  unfold WellFormed modelWellFormed at h
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨⟨⟨⟨⟨⟨hu, _⟩, _⟩, _⟩, _⟩, _⟩, _⟩ := h
+  have hu' : ((m.boxes.map (·.id)).eraseDups.length == (m.boxes.map (·.id)).length) = true := hu
+  exact nodup_of_eraseDups_length _ (beq_iff_eq.mp hu')
+
+
+theorem routeIds_nodup {m : Model} (h : WellFormed m) : (m.routes.map (·.id)).Nodup := by
+  unfold WellFormed modelWellFormed at h
+  simp only [Bool.and_eq_true] at h
+  obtain ⟨⟨⟨⟨⟨⟨_, hr⟩, _⟩, _⟩, _⟩, _⟩, _⟩ := h
+  have hr' : ((m.routes.map (·.id)).eraseDups.length == (m.routes.map (·.id)).length) = true := hr
+  exact nodup_of_eraseDups_length _ (beq_iff_eq.mp hr')
+end Model
+
 def modelBoxText (m : Model) (b : ModelBox) : String :=
   match m.labels.find? (fun l => l.owner == b.id && l.id == b.id ++ ".label") with
   | some l => l.text

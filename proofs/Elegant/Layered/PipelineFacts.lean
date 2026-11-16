@@ -140,6 +140,84 @@ theorem measuredGraph_decls_nodup {P : Params} {inp : Input} {o : Options}
   rw [Compound.prepare_decls]
   exact graphEdges_decls_nodup he
 
+theorem actual_title_caption_fit {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {g : Graph}
+    (hg : measuredGraph P inp o lines = .ok g)
+    {comp : List Nat} {index i : Nat} {top : Node}
+    (htop : (componentCandidate g comp index).nodes[i]? = some top)
+    (hborder : top.border = -2) :
+    top.w = (match o.direction with
+      | .LR | .RL => (max 1 (lines.getD (comp.getD i 0) []).length : Int) * P.lineH
+      | .TB | .BT =>
+        (lines.getD (comp.getD i 0) []).foldl (fun width line => max width line.width) 0) ∧
+    (match o.direction with
+      | .LR | .RL =>
+        (lines.getD (comp.getD i 0) []).foldl (fun width line => max width line.width) 0
+      | .TB | .BT => (max 1 (lines.getD (comp.getD i 0) []).length : Int) * P.lineH) +
+        P.clusterPad ≤ top.h := by
+  rw [componentCandidate_nodes_record] at htop
+  cases hc : comp[i]? with
+  | none => simp [List.getElem?_map, hc] at htop
+  | some j =>
+    have hgetD : comp.getD i 0 = j := by simp [List.getD, hc]
+    have hv : g.nodes.getD j default = top := by
+      simpa [List.getElem?_map, hc] using htop
+    have hj : j < g.nodes.length := by
+      by_cases hj : j < g.nodes.length
+      · exact hj
+      · have hnone : g.nodes[j]? = none := List.getElem?_eq_none_iff.mpr (by omega)
+        have hdefault : (default : Node) = top := by simpa [List.getD, hnone] using hv
+        rw [← hdefault] at hborder
+        change (0 : Int) = -2 at hborder
+        omega
+    have hget : g.nodes[j]? = some top := by
+      have he : g.nodes[j] = top := by simpa [List.getD, hj] using hv
+      simpa [hj] using congrArg some he
+    obtain ⟨_, _, _, _, _, _, hw, hh⟩ := measuredGraph_title_metadata hg hget hborder
+    rw [hgetD]
+    exact ⟨hw, hh⟩
+
+/-- Every title anchor selected from the measured graph has the measured title
+dimensions, independently of whether a caller can already identify its box. -/
+theorem actual_title_dims_nonneg {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {g : Graph}
+    (hg : measuredGraph P inp o lines = .ok g) (hline : 0 ≤ P.lineH)
+    {comp : List Nat} {index i : Nat} {top : Node}
+    (htop : (componentCandidate g comp index).nodes[i]? = some top)
+    (hborder : top.border = -2) :
+    0 ≤ top.w ∧ P.clusterPad ≤ top.h := by
+  rw [componentCandidate_nodes_record] at htop
+  cases hc : comp[i]? with
+  | none => simp [List.getElem?_map, hc] at htop
+  | some j =>
+    have hv : g.nodes.getD j default = top := by
+      simpa [List.getElem?_map, hc] using htop
+    have hj : j < g.nodes.length := by
+      by_cases hj : j < g.nodes.length
+      · exact hj
+      · have hnone : g.nodes[j]? = none := List.getElem?_eq_none_iff.mpr (by omega)
+        have hdefault : (default : Node) = top := by
+          simpa [List.getD, hnone] using hv
+        rw [← hdefault] at hborder
+        change (0 : Int) = -2 at hborder
+        omega
+    have hget : g.nodes[j]? = some top := by
+      have he : g.nodes[j] = top := by simpa [List.getD, hj] using hv
+      simpa [hj] using congrArg some he
+    obtain ⟨_, _, _, _, _, _, hw, hh⟩ := measuredGraph_title_metadata hg hget hborder
+    have width_nonneg : ∀ (ls : List Measure.Line) (start : Int),
+        0 ≤ start → 0 ≤ ls.foldl (fun w line => max w line.width) start := by
+      intro ls
+      induction ls with
+      | nil => intro start hs; exact hs
+      | cons line ls ih =>
+        intro start hs
+        exact ih _ (Int.le_trans hs (Int.le_max_left _ _))
+    have hw0 := width_nonneg (lines.getD j []) 0 (by omega)
+    have hh0 : 0 ≤ (max 1 (lines.getD j []).length : Int) * P.lineH :=
+      Int.mul_nonneg (by omega) hline
+    cases hd : o.direction <;> simp only [hd] at hw hh <;> constructor <;> omega
+
 theorem foldlM_ok_mem {α β : Type} (f : β → α → Except LayoutError β) :
     ∀ (l : List α) (a b : β), l.foldlM f a = .ok b → ∀ x ∈ l, ∃ a' b', f a' x = .ok b' := by
   intro l
@@ -180,6 +258,7 @@ theorem componentPortfolio_cost_le_default {P : Params} {inp : Input} {o : Optio
       Portfolio.portfolio o.thoroughness (componentTrial P inp o g comp labels) = .ok chosen ∧
       componentTrial P inp o g comp labels 0 = .ok first ∧
       softCost first.scene = .ok initial ∧ softCost chosen.scene = .ok final ∧ final ≤ initial := by
+
   unfold layoutComponent at h
   obtain ⟨chosen, hc, _⟩ := bind_ok h
   obtain ⟨first, initial, final, hf, hi, ho, hle⟩ :=
@@ -221,6 +300,859 @@ theorem componentRun_spec {P : Params} {cg : Graph} {run : Run} {labels : List M
   subst h
   exact ⟨rr.ranks, p0, p, routed.1, hp0, hp, rfl, ⟨ord, hord, rfl⟩,
     hxs, hprojection, rfl, hr, rfl, hy, rfl, hroutes⟩
+/-- Successful normalization only appends nodes to its original input prefix. -/
+theorem normalize_nodes_length_le {cg : Graph} {ranks : List Int} {p0 : Proper}
+    (hn : normalize cg ranks = .ok p0) :
+    cg.nodes.length ≤ p0.nodes.length := by
+  have edge_growth : ∀ {slot : Int} {p q : Proper} {e : Edge} {idx : Nat},
+      NormalizeImpl.normalizeEdge slot p e idx = .ok q →
+      p.nodes.length ≤ q.nodes.length := by
+    intro slot p q e idx he
+    unfold NormalizeImpl.normalizeEdge at he
+    split at he
+    · have he := Except.ok.inj he
+      subst q
+      exact Nat.le_refl _
+    · split at he
+      · simp at he
+      · split at he
+        · simp at he
+        · have he := Except.ok.inj he
+          subst q
+          simp [NormalizeImpl.appendChain]
+  have loop_growth : ∀ (slot : Int) (es : List (Edge × Nat)) (p q : Proper),
+      NormalizeImpl.normalizeLoop slot es p = .ok q →
+      p.nodes.length ≤ q.nodes.length := by
+    intro slot es
+    induction es with
+    | nil =>
+      intro p q he
+      have he : p = q := Except.ok.inj he
+      subst q
+      exact Nat.le_refl _
+    | cons e es ih =>
+      intro p q he
+      unfold NormalizeImpl.normalizeLoop at he
+      split at he
+      · simp at he
+      · rename_i next hn
+        exact Nat.le_trans (edge_growth hn) (ih next q he)
+  unfold NormalizeImpl.normalize at hn
+  split at hn
+  · simp at hn
+  · split at hn
+    · simpa only [List.length_map] using loop_growth _ _ _ _ hn
+    · simp at hn
+
+theorem normalize_node_rank_alignment {cg : Graph} {ranks : List Int} {p : Proper}
+    (h : normalize cg ranks = .ok p) :
+    p.nodes.length = p.rank.length ∧ cg.wellformed = true := by
+  unfold NormalizeImpl.normalize at h
+  split at h
+  · simp at h
+  · rename_i slot hs
+    split at h
+    · rename_i hc
+      have hmem : ∀ edge ∈ cg.edges.zipIdx,
+          edge.1.tail < cg.nodes.length ∧ edge.1.head < cg.nodes.length ∧
+            1 ≤ edge.1.minLen := by
+        intro edge he
+        exact RankImpl.wellformed_spec hc.1 edge.1 (RankImpl.mem_of_mem_zipIdx he)
+      have hp : NormalizeImpl.PInv
+          { nodes := cg.nodes.map fun nd => ⟨nd, false, none, false⟩,
+            edges := [], rank := ranks, chains := [] } := by
+        refine ⟨by simp [hc.2.1], ?_⟩
+        intro edge he
+        simp at he
+      have hinv := NormalizeImpl.normalizeLoop_inv slot cg.nodes.length
+        _ _ p hmem (by simp [hc.2.1]) hp h
+      exact ⟨hinv.1, hc.1⟩
+    · simp at h
+
+/-- A successful run retains an index for every original component node through
+the label, coordinate, and proxy-materialization phases. -/
+theorem componentRun_original_nodes_covered {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (h : componentRun P cg labels orderOptions = .ok run) :
+    ∀ i, i < cg.nodes.length → i < run.proper.nodes.length := by
+  obtain ⟨ranks, p0, labeled, q, hn, hl, hcoord, _, _, hproxy, hdrop,
+    _, _, _, _, _⟩ := componentRun_spec h
+  have hnlen := normalize_nodes_length_le hn
+  have hllen : p0.nodes.length ≤ labeled.nodes.length := by
+    by_cases hle : p0.nodes.length ≤ labeled.nodes.length
+    · exact hle
+    · have hi : labeled.nodes.length < p0.nodes.length := by omega
+      have hmap := (Labels.addLabelNodes_metadata hl).2.2.2 labeled.nodes.length
+      have hget : p0.nodes[labeled.nodes.length]? =
+          some p0.nodes[labeled.nodes.length] := by simp [hi]
+      simp [hget] at hmap
+  let titled := titleReservations (sizeProperPorts P labeled)
+  obtain ⟨_, _, extra, hextra, _⟩ :=
+    OrderImpl.addClusterBorders_metadata titled P.clusterBorderW
+  have hclen : labeled.nodes.length ≤ run.coordinateProper.nodes.length := by
+    rw [← hcoord]
+    unfold coordinateGraph materializeDummyPaths clearProxyExtents
+    simp only [List.length_map]
+    rw [hextra]
+    dsimp only [titled, titleReservations]
+    simp only [List.length_zipIdx, List.length_map, List.length_append,
+      sizeProperPorts_length]
+    omega
+  have hplen := (proxyWidths_rel hproxy).2.2.1
+  intro i hi
+  rw [← hdrop]
+  change i < q.nodes.length
+  omega
+
+/-- Successful normalization rejects a negative component label-stack slot. -/
+theorem componentRun_slot_nonneg {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (h : componentRun P cg labels orderOptions = .ok run) :
+    0 ≤ cg.slot := by
+  obtain ⟨_, _, _, _, hn, _⟩ := componentRun_spec h
+  unfold NormalizeImpl.normalize at hn
+  split at hn
+  · simp at hn
+  · rename_i slot hs
+    split at hn
+    · rename_i hc
+      by_cases hz : cg.slot = 0
+      · omega
+      · have he : cg.slot = slot := by
+          simpa [NormalizeImpl.slotOf, hz] using hs
+        rw [he]
+        exact hc.2.2
+
+    · simp at hn
+/-- Index of the first label anchor. Only edge identity and rank participate:
+measuring a label changes neither, even when it changes the selected node's size. -/
+def labelAnchorIndex (p : Proper) (edge : Nat) (rank : Int) : Option Nat :=
+  (((p.nodes.map ProperNode.edge).zipIdx).find? fun q =>
+    q.1 == some edge && rk p.rank q.2 == rank).map (·.2)
+
+theorem labelAnchorIndex_eq (p : Proper) (edge : Nat) (rank : Int) :
+    labelAnchorIndex p edge rank =
+      (p.nodes.zipIdx.find? fun q =>
+        q.1.edge == some edge && rk p.rank q.2 == rank).map (·.2) := by
+  simp only [labelAnchorIndex, List.zipIdx_map, List.find?_map,
+    Option.map_map, Function.comp_def, Prod.map, id_eq]
+
+/-- The executable label update retains the exact edge-key sequence as well as
+the rank sequence. Thus later labels cannot change first-anchor selection. -/
+theorem addLabelNode_anchor_keys {g : Graph} {p q : Proper} {label : EdgeLabelSize}
+    (h : Labels.addLabelNode g p label = .ok q) :
+    q.rank = p.rank ∧ q.nodes.map ProperNode.edge = p.nodes.map ProperNode.edge := by
+  unfold Labels.addLabelNode at h
+  split at h
+  · simp at h
+  · split at h
+    · simp at h
+    · split at h
+      · simp at h
+      · split at h
+        · have he := Except.ok.inj h
+          subst q
+          exact ⟨rfl, rfl⟩
+        · dsimp only at h
+          split at h
+          · simp at h
+          · split at h
+            · simp at h
+            · rename_i anchor ha
+              split at h
+              · simp at h
+              · rename_i nd hnd
+                have he := Except.ok.inj h
+                subst q
+                refine ⟨rfl, ?_⟩
+                simp only [List.map_set]
+                have hi := (List.getElem?_eq_some_iff.mp hnd).1
+                have him : anchor.2 < (p.nodes.map ProperNode.edge).length := by
+                  simpa only [List.length_map] using hi
+                have helem : (p.nodes.map ProperNode.edge)[anchor.2] = nd.edge := by
+                  have hm : (p.nodes.map ProperNode.edge)[anchor.2]? = some nd.edge := by
+                    simp only [List.getElem?_map, hnd, Option.map_some]
+                  exact (List.getElem?_eq_some_iff.mp hm).2
+                change (p.nodes.map ProperNode.edge).set anchor.2 nd.edge =
+                  p.nodes.map ProperNode.edge
+                rw [← helem]
+                exact List.set_getElem_self him
+
+theorem addLabelNodes_anchor_keys {g : Graph} {p q : Proper}
+    {labels : List EdgeLabelSize} (h : Labels.addLabelNodes g p labels = .ok q) :
+    q.rank = p.rank ∧ q.nodes.map ProperNode.edge = p.nodes.map ProperNode.edge := by
+  induction labels generalizing p with
+  | nil =>
+    have he : p = q := Except.ok.inj h
+    subst q
+    exact ⟨rfl, rfl⟩
+  | cons label rest ih =>
+    simp only [Labels.addLabelNodes] at h
+    obtain ⟨next, hn, h⟩ := bind_ok h
+    obtain ⟨hr, he⟩ := addLabelNode_anchor_keys hn
+    obtain ⟨hr', he'⟩ := ih h
+    exact ⟨hr'.trans hr, he'.trans he⟩
+
+theorem labelAnchorIndex_addLabelNode {g : Graph} {p q : Proper}
+    {label : EdgeLabelSize} (h : Labels.addLabelNode g p label = .ok q)
+    (edge : Nat) (rank : Int) :
+    labelAnchorIndex q edge rank = labelAnchorIndex p edge rank := by
+  obtain ⟨hr, he⟩ := addLabelNode_anchor_keys h
+  unfold labelAnchorIndex
+  rw [hr, he]
+
+/-- A successful non-loop label update sizes the very first anchor that the
+renderer will later select, not merely some node with the same edge identity. -/
+theorem addLabelNode_selected_size {g : Graph} {p q : Proper}
+    {label : EdgeLabelSize} {edge : Edge}
+    (hg : g.edges[label.edge]? = some edge) (hne : edge.tail ≠ edge.head)
+    (h : Labels.addLabelNode g p label = .ok q) :
+    ∃ index nd,
+      labelAnchorIndex p label.edge
+        (rk p.rank edge.tail + Int.fdiv (rk p.rank edge.head - rk p.rank edge.tail) 2) =
+          some index ∧
+      q.nodes[index]? = some nd ∧
+      nd.node.w = label.width ∧ nd.node.h = label.height := by
+  unfold Labels.addLabelNode at h
+  split at h
+  · simp at h
+  · split at h
+    · simp at h
+    · simp only [hg, hne, ↓reduceIte] at h
+      split at h
+      · simp at h
+      · cases ha : p.nodes.zipIdx.find? (fun a =>
+          a.1.edge == some label.edge &&
+            rk p.rank a.2 ==
+              rk p.rank edge.tail + Int.fdiv (rk p.rank edge.head - rk p.rank edge.tail) 2) with
+        | none => simp [ha] at h
+        | some anchor =>
+          simp only [ha] at h
+          cases hnd : p.nodes[anchor.2]? with
+          | none => simp [hnd] at h
+          | some old =>
+            simp only [hnd] at h
+            have he := Except.ok.inj h
+            subst q
+            refine ⟨anchor.2, { old with
+              node := { old.node with w := label.width, h := label.height }, label := true },
+              ?_, ?_, rfl, rfl⟩
+            · rw [labelAnchorIndex_eq, ha]
+              rfl
+            · exact List.getElem?_set_self (List.getElem?_eq_some_iff.mp hnd).1
+
+theorem labelAnchorIndex_node_edge {p : Proper} {edge index : Nat} {rank : Int}
+    {nd : ProperNode} (hi : labelAnchorIndex p edge rank = some index)
+    (hn : p.nodes[index]? = some nd) :
+    nd.edge = some edge := by
+  rw [labelAnchorIndex_eq] at hi
+  cases hf : p.nodes.zipIdx.find? (fun q =>
+      q.1.edge == some edge && rk p.rank q.2 == rank) with
+  | none => simp [hf] at hi
+  | some found =>
+    simp only [hf, Option.map_some, Option.some.injEq] at hi
+    have hget := List.mem_zipIdx_iff_getElem?.mp (List.mem_of_find?_eq_some hf)
+    rw [hi, hn] at hget
+    have he : nd = found.1 := Option.some.inj hget
+    have hp := List.find?_some hf
+    rw [← he] at hp
+    simp only [Bool.and_eq_true, beq_iff_eq] at hp
+    exact hp.1
+
+/-- An update for another edge cannot overwrite a previously assigned label
+anchor: the selected node itself records the updated edge identity. -/
+theorem addLabelNode_preserves_other_edge {g : Graph} {p q : Proper}
+    {label : EdgeLabelSize} {index : Nat} {nd : ProperNode}
+    (hn : p.nodes[index]? = some nd) (hne : nd.edge ≠ some label.edge)
+    (h : Labels.addLabelNode g p label = .ok q) :
+    q.nodes[index]? = some nd := by
+  unfold Labels.addLabelNode at h
+  split at h
+  · simp at h
+  · split at h
+    · simp at h
+    · split at h
+      · simp at h
+      · split at h
+        · have he := Except.ok.inj h
+          subst q
+          exact hn
+        · dsimp only at h
+          split at h
+          · simp at h
+          · split at h
+            · simp at h
+            · rename_i anchor ha
+              split at h
+              · simp at h
+              · rename_i old hold
+                have hindex : anchor.2 ≠ index := by
+                  intro he
+                  have hget := List.mem_zipIdx_iff_getElem?.mp
+                    (List.mem_of_find?_eq_some ha)
+                  rw [he, hn] at hget
+                  have hnode : nd = anchor.1 := Option.some.inj hget
+                  have hp := List.find?_some ha
+                  simp only [Bool.and_eq_true, beq_iff_eq] at hp
+                  apply hne
+                  rw [hnode]
+                  exact hp.1
+                have he := Except.ok.inj h
+                subst q
+                simpa [hindex] using hn
+
+theorem addLabelNodes_preserves_other_edge {g : Graph} {p q : Proper}
+    {labels : List EdgeLabelSize} {index edge : Nat} {nd : ProperNode}
+    (hn : p.nodes[index]? = some nd) (he : nd.edge = some edge)
+    (hother : ∀ label ∈ labels, label.edge ≠ edge)
+    (h : Labels.addLabelNodes g p labels = .ok q) :
+    q.nodes[index]? = some nd := by
+  induction labels generalizing p with
+  | nil =>
+    have heq : p = q := Except.ok.inj h
+    subst q
+    exact hn
+  | cons label rest ih =>
+    simp only [Labels.addLabelNodes] at h
+    obtain ⟨next, hnext, h⟩ := bind_ok h
+    have hne : nd.edge ≠ some label.edge := by
+      rw [he]
+      intro heq
+      exact hother label List.mem_cons_self (Option.some.inj heq).symm
+    have hn' := addLabelNode_preserves_other_edge hn hne hnext
+    exact ih hn' (fun label hl => hother label (List.mem_cons_of_mem _ hl)) h
+
+/-- The label fold retains the measured size of every distinct-edge declaration
+at the exact first anchor selected by the successful update. -/
+theorem addLabelNodes_selected_size {g : Graph} {p q : Proper}
+    {labels : List EdgeLabelSize} {label : EdgeLabelSize} {edge : Edge}
+    (hnd : (labels.map EdgeLabelSize.edge).Nodup) (hmem : label ∈ labels)
+    (hg : g.edges[label.edge]? = some edge) (hne : edge.tail ≠ edge.head)
+    (h : Labels.addLabelNodes g p labels = .ok q) :
+    ∃ index nd,
+      labelAnchorIndex q label.edge
+        (rk q.rank edge.tail + Int.fdiv (rk q.rank edge.head - rk q.rank edge.tail) 2) =
+          some index ∧
+      q.nodes[index]? = some nd ∧
+      nd.node.w = label.width ∧ nd.node.h = label.height := by
+  induction labels generalizing p with
+  | nil => simp at hmem
+  | cons first rest ih =>
+    simp only [List.map_cons, List.nodup_cons] at hnd
+    simp only [Labels.addLabelNodes] at h
+    obtain ⟨next, hn, htail⟩ := bind_ok h
+    rcases List.mem_cons.mp hmem with heq | hrest
+    · subst first
+      obtain ⟨index, nd, hi, hnode, hw, hh⟩ := addLabelNode_selected_size hg hne hn
+      have hkeys := addLabelNode_anchor_keys hn
+      have hi' : labelAnchorIndex next label.edge
+          (rk next.rank edge.tail + Int.fdiv (rk next.rank edge.head - rk next.rank edge.tail) 2) =
+            some index := by
+        rw [hkeys.1, labelAnchorIndex_addLabelNode hn]
+        exact hi
+      have hedge := labelAnchorIndex_node_edge hi' hnode
+      have hout := addLabelNodes_preserves_other_edge hnode hedge
+        (fun other ho he => hnd.1 (List.mem_map.mpr ⟨other, ho, he⟩)) htail
+      obtain ⟨hr, he⟩ := addLabelNodes_anchor_keys htail
+      refine ⟨index, nd, ?_, hout, hw, hh⟩
+      unfold labelAnchorIndex at hi' ⊢
+      rw [hr, he]
+      exact hi'
+    · exact ih hnd.2 hrest htail
+
+/-- Component measurement emits at most one stack size per edge-array index,
+even if distinct graph edges share a source declaration identity. -/
+theorem componentLabels_edges_nodup (cg : Graph) (labels : List MeasuredLabel) :
+    ((componentLabels cg labels).map EdgeLabelSize.edge).Nodup := by
+  have hindices : (cg.edges.zipIdx.map Prod.snd).Nodup := by
+    rw [List.zipIdx_map_snd]
+    exact List.nodup_range'
+  have hp : cg.edges.zipIdx.Pairwise (fun a b => a.2 ≠ b.2) :=
+    List.pairwise_map.mp hindices
+  let emit : Edge × Nat → Option EdgeLabelSize := fun q =>
+    match routeLabels labels q.1.decl with
+    | [] => none
+    | first :: rest =>
+      let size := stackSize cg.slot (first :: rest)
+      some ⟨q.2, size.width + first.gutter, size.height⟩
+  have identity : ∀ q size, emit q = some size → size.edge = q.2 := by
+    intro q size he
+    cases hr : routeLabels labels q.1.decl with
+    | nil => simp [emit, hr] at he
+    | cons first rest =>
+      simp only [emit, hr] at he
+      have he := Option.some.inj he
+      rw [← he]
+  change ((componentLabels cg labels).map EdgeLabelSize.edge).Pairwise (· ≠ ·)
+  rw [List.pairwise_map]
+  change (cg.edges.zipIdx.filterMap emit).Pairwise (fun a b => a.edge ≠ b.edge)
+  apply List.Pairwise.filterMap emit _ hp
+  intro a b hne sa hsa sb hsb
+  rw [identity a sa hsa, identity b sb hsb]
+  exact hne
+
+theorem componentLabels_selected_size {cg : Graph} {p q : Proper}
+    {labels : List MeasuredLabel} {k : Nat} {edge : Edge} {first : MeasuredLabel}
+    (hk : cg.edges[k]? = some edge) (hne : edge.tail ≠ edge.head)
+    (hfirst : (routeLabels labels edge.decl).head? = some first)
+    (h : Labels.addLabelNodes cg p (componentLabels cg labels) = .ok q) :
+    ∃ index nd,
+      labelAnchorIndex q k
+        (rk q.rank edge.tail + Int.fdiv (rk q.rank edge.head - rk q.rank edge.tail) 2) =
+          some index ∧
+      q.nodes[index]? = some nd ∧
+      nd.node.w = (stackSize cg.slot (routeLabels labels edge.decl)).width + first.gutter ∧
+      nd.node.h = (stackSize cg.slot (routeLabels labels edge.decl)).height := by
+  let size : EdgeLabelSize :=
+    ⟨k, (stackSize cg.slot (routeLabels labels edge.decl)).width + first.gutter,
+      (stackSize cg.slot (routeLabels labels edge.decl)).height⟩
+  have hmem : size ∈ componentLabels cg labels := by
+    unfold componentLabels
+    apply List.mem_filterMap.mpr
+    refine ⟨(edge, k), List.mem_zipIdx_iff_getElem?.mpr hk, ?_⟩
+    cases hr : routeLabels labels edge.decl with
+    | nil => simp [hr] at hfirst
+    | cons head rest =>
+      have he : head = first := by simpa [hr] using hfirst
+      subst head
+      simp only [size, hr]
+  exact addLabelNodes_selected_size (componentLabels_edges_nodup cg labels)
+    hmem hk hne h
+
+def EdgeAnchorsPlain (p : Proper) : Prop :=
+  ∀ nd ∈ p.nodes, nd.edge ≠ none → nd.node.border = 0
+
+/-- Only ordinary dummy nodes receive an edge-anchor identity during
+normalization. Group title and frame anchors never receive one. -/
+theorem normalize_edgeAnchorsPlain {cg : Graph} {ranks : List Int} {p : Proper}
+    (h : normalize cg ranks = .ok p) : EdgeAnchorsPlain p := by
+  have step : ∀ {slot : Int} {a b : Proper} {edge : Edge} {index : Nat},
+      EdgeAnchorsPlain a →
+      NormalizeImpl.normalizeEdge slot a edge index = .ok b →
+      EdgeAnchorsPlain b := by
+    intro slot a b edge index ha hb
+    unfold NormalizeImpl.normalizeEdge at hb
+    split at hb
+    · have he := Except.ok.inj hb
+      subst b
+      exact ha
+    · split at hb
+      · simp at hb
+      · split at hb
+        · simp at hb
+        · have he := Except.ok.inj hb
+          subst b
+          intro nd hn hedge
+          change nd ∈ a.nodes ++ _ at hn
+          rcases List.mem_append.mp hn with hn | hn
+          · exact ha nd hn hedge
+          · have he := List.eq_of_mem_replicate hn
+            subst nd
+            rfl
+  have loop : ∀ (slot : Int) (edges : List (Edge × Nat)) (a b : Proper),
+      EdgeAnchorsPlain a →
+      NormalizeImpl.normalizeLoop slot edges a = .ok b →
+      EdgeAnchorsPlain b := by
+    intro slot edges
+    induction edges with
+    | nil =>
+      intro a b ha hb
+      have he : a = b := Except.ok.inj hb
+      subst b
+      exact ha
+    | cons edge rest ih =>
+      intro a b ha hb
+      unfold NormalizeImpl.normalizeLoop at hb
+      split at hb
+      · simp at hb
+      · rename_i next hn
+        exact ih next b (step ha hn) hb
+  unfold NormalizeImpl.normalize at h
+  split at h
+  · simp at h
+  · split at h
+    · apply loop _ _ _ _ ?_ h
+      intro nd hn hedge
+      obtain ⟨original, _, rfl⟩ := List.mem_map.mp hn
+      exact False.elim (hedge rfl)
+    · simp at h
+
+theorem addLabelNodes_edgeAnchorsPlain {cg : Graph} {p q : Proper}
+    {labels : List EdgeLabelSize} (hp : EdgeAnchorsPlain p)
+    (h : Labels.addLabelNodes cg p labels = .ok q) : EdgeAnchorsPlain q := by
+  have step : ∀ {a b : Proper} {label : EdgeLabelSize},
+      EdgeAnchorsPlain a → Labels.addLabelNode cg a label = .ok b →
+      EdgeAnchorsPlain b := by
+    intro a b label ha hb
+    unfold Labels.addLabelNode at hb
+    split at hb
+    · simp at hb
+    · split at hb
+      · simp at hb
+      · split at hb
+        · simp at hb
+        · split at hb
+          · have he := Except.ok.inj hb
+            subst b
+            exact ha
+          · dsimp only at hb
+            split at hb
+            · simp at hb
+            · split at hb
+              · simp at hb
+              · split at hb
+                · simp at hb
+                · rename_i old hold
+                  have he := Except.ok.inj hb
+                  subst b
+                  intro nd hn hedge
+                  rcases List.mem_or_eq_of_mem_set hn with hmem | heq
+                  · exact ha nd hmem hedge
+                  · subst nd
+                    exact ha old (List.mem_of_getElem? hold) hedge
+  induction labels generalizing p with
+  | nil =>
+    have he : p = q := Except.ok.inj h
+    subst q
+    exact hp
+  | cons label rest ih =>
+    simp only [Labels.addLabelNodes] at h
+    obtain ⟨next, hn, htail⟩ := bind_ok h
+    exact ih (step hp hn) htail
+
+private theorem find_eq_of_mem_congr {α : Type} (f g : α → Bool) :
+    ∀ (xs : List α), (∀ x ∈ xs, f x = g x) → xs.find? f = xs.find? g := by
+  intro xs
+  induction xs with
+  | nil => intro _; rfl
+  | cons x xs ih =>
+    intro h
+    have hx := h x List.mem_cons_self
+    have ht := ih (fun a ha => h a (List.mem_cons_of_mem _ ha))
+    simp only [List.find?_cons, hx, ht]
+
+/-- Appending coordinate-only nodes and ranks cannot change a first anchor
+already found in the original, rank-aligned prefix. -/
+theorem labelAnchorIndex_prefix {p q : Proper} {edge index : Nat} {rank : Int}
+    (halign : p.nodes.length = p.rank.length)
+    (hkeys : ∃ extra, q.nodes.map ProperNode.edge = p.nodes.map ProperNode.edge ++ extra)
+    (hranks : ∃ extra, q.rank = p.rank ++ extra)
+    (hi : labelAnchorIndex p edge rank = some index) :
+    labelAnchorIndex q edge rank = some index := by
+  obtain ⟨extraKeys, hk⟩ := hkeys
+  obtain ⟨extraRanks, hr⟩ := hranks
+  unfold labelAnchorIndex at hi ⊢
+  rw [hk, hr, List.zipIdx_append, List.find?_append]
+  have hf :
+      ((p.nodes.map ProperNode.edge).zipIdx.find? fun a =>
+        a.1 == some edge && rk (p.rank ++ extraRanks) a.2 == rank) =
+      ((p.nodes.map ProperNode.edge).zipIdx.find? fun a =>
+        a.1 == some edge && rk p.rank a.2 == rank) := by
+    apply find_eq_of_mem_congr
+    intro a ha
+    have hb := List.snd_lt_of_mem_zipIdx ha
+    have hv : a.2 < p.rank.length := by
+      simp only [List.length_map, Nat.add_zero] at hb
+      omega
+    rw [NormalizeImpl.rk_append_left hv]
+  rw [hf]
+  cases hfound : (p.nodes.map ProperNode.edge).zipIdx.find? (fun a =>
+      a.1 == some edge && rk p.rank a.2 == rank) with
+  | none => simp [hfound] at hi
+  | some found => simpa [hfound] using hi
+
+theorem addClusterBorders_rank_prefix (p : Proper) (width : Int) :
+    ∃ extra, (OrderImpl.addClusterBorders p width).rank = p.rank ++ extra := by
+  unfold OrderImpl.addClusterBorders
+  apply OrderImpl.foldl_inv
+    (fun out => ∃ extra, out.rank = p.rank ++ extra) _ _ p ⟨[], by simp⟩
+  intro out hout anchor _
+  dsimp only
+  split
+  · exact hout
+  · apply OrderImpl.foldl_inv
+      (fun out => ∃ extra, out.rank = p.rank ++ extra) _ _ out hout
+    intro state hstate offset _
+    obtain ⟨extra, he⟩ := hstate
+    let level : Int := (((rk p.rank anchor.2).toNat + offset : Nat) : Int)
+    refine ⟨extra ++ [level, level], ?_⟩
+    simp only [he, List.append_assoc, level]
+
+theorem coordinateGraph_anchor_prefix (P : Params) (p : Proper) :
+    (∃ extra, (coordinateGraph P p).nodes.map ProperNode.edge =
+      p.nodes.map ProperNode.edge ++ extra) ∧
+    (∃ extra, (coordinateGraph P p).rank = p.rank ++ extra) := by
+  have mapped : ∀ (nodes : List ProperNode) (f : ProperNode → ProperNode),
+      (∀ n, (f n).edge = n.edge) →
+      (nodes.map f).map ProperNode.edge = nodes.map ProperNode.edge := by
+    intro nodes f hf
+    simp only [List.map_map]
+    apply congrArg (fun g => nodes.map g)
+    funext n
+    exact hf n
+  have indexed : ∀ (nodes : List ProperNode) (f : ProperNode × Nat → ProperNode),
+      (∀ n, (f n).edge = n.1.edge) →
+      (nodes.zipIdx.map f).map ProperNode.edge = nodes.map ProperNode.edge := by
+    intro nodes f hf
+    calc
+      (nodes.zipIdx.map f).map ProperNode.edge =
+          (nodes.zipIdx.map Prod.fst).map ProperNode.edge := by
+        simp only [List.map_map]
+        apply congrArg (fun g => nodes.zipIdx.map g)
+        funext n
+        exact hf n
+      _ = nodes.map ProperNode.edge := by rw [List.zipIdx_map_fst]
+  have hs : (sizeProperPorts P p).nodes.map ProperNode.edge = p.nodes.map ProperNode.edge := by
+    unfold sizeProperPorts
+    apply indexed
+    intro n
+    split <;> rfl
+  have ht : ∀ nodes : List ProperNode,
+      (nodes.map titleF).map ProperNode.edge = nodes.map ProperNode.edge := by
+    intro nodes
+    apply mapped
+    intro n
+    unfold titleF
+    split <;> rfl
+  have hc : ∀ q : Proper,
+      (clearProxyExtents q).nodes.map ProperNode.edge = q.nodes.map ProperNode.edge := by
+    intro q
+    rw [clearProxyExtents_nodes]
+    apply mapped
+    intro n
+    unfold clearF
+    split <;> rfl
+  have hm : ∀ q : Proper,
+      (materializeDummyPaths q).nodes.map ProperNode.edge = q.nodes.map ProperNode.edge := by
+    intro q
+    unfold materializeDummyPaths
+    apply indexed
+    intro n
+    split <;> rfl
+  obtain ⟨extraNodes, hn, _⟩ := addClusterBorders_extra
+    (titleReservations (sizeProperPorts P p)) P.clusterBorderW
+  constructor
+  · unfold coordinateGraph
+    rw [hm, hc, hn, List.map_append, titleReservations_nodes, List.map_append, ht, hs]
+    refine ⟨((titleNodes (sizeProperPorts P p)).map copyF).map ProperNode.edge ++
+      extraNodes.map ProperNode.edge, ?_⟩
+    rw [List.append_assoc]
+  · obtain ⟨extraRanks, hr⟩ := addClusterBorders_rank_prefix
+      (titleReservations (sizeProperPorts P p)) P.clusterBorderW
+    have htitle : ∃ tail, (titleReservations (sizeProperPorts P p)).rank = p.rank ++ tail :=
+      ⟨_, rfl⟩
+    obtain ⟨tail, htitle⟩ := htitle
+    refine ⟨tail ++ extraRanks, ?_⟩
+    change (OrderImpl.addClusterBorders
+      (titleReservations (sizeProperPorts P p)) P.clusterBorderW).rank = _
+    rw [hr, htitle, List.append_assoc]
+
+/-- Port sizing can widen a plain anchor, but title reservation, border
+insertion, and display-path materialization cannot shrink its measured stack. -/
+theorem coordinateGraph_plain_anchor_dims (P : Params) {p : Proper}
+    {i : Nat} {nd : ProperNode} (hp : p.nodes[i]? = some nd)
+    (hb : nd.node.border = 0) :
+    ∃ out, (coordinateGraph P p).nodes[i]? = some out ∧
+
+      out.edge = nd.edge ∧ out.node.border = 0 ∧
+      nd.node.w ≤ out.node.w ∧ out.node.h = nd.node.h := by
+  obtain ⟨sized, hs, he, hb', hw, hh⟩ :
+      ∃ sized, (sizeProperPorts P p).nodes[i]? = some sized ∧
+        sized.edge = nd.edge ∧ sized.node.border = 0 ∧
+        nd.node.w ≤ sized.node.w ∧ sized.node.h = nd.node.h := by
+    unfold sizeProperPorts
+    simp only [List.getElem?_map, List.getElem?_zipIdx, hp, Option.map_some]
+    split
+    · exact ⟨nd, rfl, rfl, hb, Int.le_refl _, rfl⟩
+    · refine ⟨_, rfl, rfl, hb, ?_, rfl⟩
+      exact Int.le_max_left _ _
+  have hi := (List.getElem?_eq_some_iff.mp hs).1
+  have htitle : (titleReservations (sizeProperPorts P p)).nodes[i]? = some sized := by
+    rw [titleReservations_nodes,
+      List.getElem?_append_left (by simpa only [List.length_map] using hi)]
+    simp [List.getElem?_map, hs, titleF, hb']
+  obtain ⟨extra, hborder, _⟩ := addClusterBorders_extra
+    (titleReservations (sizeProperPorts P p)) P.clusterBorderW
+  have hplaced : (OrderImpl.addClusterBorders
+      (titleReservations (sizeProperPorts P p)) P.clusterBorderW).nodes[i]? = some sized := by
+    rw [hborder,
+      List.getElem?_append_left (List.getElem?_eq_some_iff.mp htitle).1]
+    exact htitle
+  have hclear : (clearProxyExtents (OrderImpl.addClusterBorders
+      (titleReservations (sizeProperPorts P p)) P.clusterBorderW)).nodes[i]? =
+        some sized := by
+    rw [clearProxyExtents_nodes]
+    simp [List.getElem?_map, hplaced, clearF, hb']
+  unfold coordinateGraph materializeDummyPaths
+  simp only [List.getElem?_map, List.getElem?_zipIdx, hclear, Option.map_some]
+  split <;> exact ⟨_, rfl, he, hb', hw, hh⟩
+/-- Proxy materialization changes checked widths and x coordinates, never the
+edge-key sequence used to select the first forward label anchor. -/
+theorem proxyWidths_edge_keys {p q : Proper} {xs ys : List Int}
+    (h : proxyWidths p xs = .ok (q, ys)) :
+    q.nodes.map ProperNode.edge = p.nodes.map ProperNode.edge := by
+  unfold proxyWidths at h
+  obtain ⟨updated, hu, h⟩ := bind_ok h
+  have he := Except.ok.inj h
+  have hq : q = { p with nodes := updated.map (·.1) } := (Prod.mk.inj he).1.symm
+  obtain ⟨hlen, hidx⟩ := mapM_getElem? _ _ _ hu
+  have hlen' : updated.length = p.nodes.length := by
+    simpa only [List.length_zipIdx] using hlen
+  subst q
+  apply List.ext_getElem?
+  intro v
+  simp only [List.getElem?_map]
+  cases hv : p.nodes[v]? with
+  | none =>
+    have hb : p.nodes.length ≤ v := List.getElem?_eq_none_iff.mp hv
+    have hn : updated[v]? = none := List.getElem?_eq_none_iff.mpr (by omega)
+    simp [hn]
+  | some nd =>
+    obtain ⟨b, hb, hget⟩ := hidx v (nd, v)
+      (by simp only [List.getElem?_zipIdx, hv, Option.map_some, Nat.zero_add])
+    simp only [hget, Option.map_some]
+    dsimp only at hb
+    split at hb
+    · cases hl : nd.node.clusterPath.getLast? with
+      | none => simp [hl] at hb
+      | some owner =>
+        simp only [hl] at hb
+        obtain ⟨span, _, hb⟩ := bind_ok hb
+        obtain ⟨width, _, hb⟩ := bind_ok hb
+        split at hb
+        · simp [throw, throwThe, MonadExceptOf.throw, bind, Except.bind] at hb
+        · obtain ⟨center, _, hb⟩ := bind_ok hb
+          have he := Except.ok.inj hb
+          rw [← he]
+    · have he := Except.ok.inj hb
+      rw [← he]
+
+theorem proxyWidths_plain_node {p q : Proper} {xs ys : List Int}
+    {i : Nat} {nd : ProperNode}
+    (h : proxyWidths p xs = .ok (q, ys))
+    (hp : p.nodes[i]? = some nd) (hb : nd.node.border = 0) :
+    q.nodes[i]? = some nd := by
+  unfold proxyWidths at h
+  obtain ⟨updated, hu, h⟩ := bind_ok h
+  have he := Except.ok.inj h
+  have hq : q = { p with nodes := updated.map (·.1) } := (Prod.mk.inj he).1.symm
+  obtain ⟨_, hidx⟩ := mapM_getElem? _ _ _ hu
+  obtain ⟨entry, hentry, hget⟩ := hidx i (nd, i)
+    (by simp only [List.getElem?_zipIdx, hp, Option.map_some, Nat.zero_add])
+  dsimp only at hentry
+  simp only [hb, show ((0 : Int) == -2) = false from rfl,
+    show ((0 : Int) == 2) = false from rfl, Bool.false_or,
+    Bool.false_eq_true, ↓reduceIte] at hentry
+  have hentryEq := Except.ok.inj hentry
+  subst q
+  simp only [List.getElem?_map, hget, Option.map_some]
+  rw [← hentryEq]
+
+theorem coordinateGraph_proxyWidths_plain_node_dims (P : Params)
+    {p q : Proper} {xs ys : List Int} {i : Nat} {nd : ProperNode}
+    (hp : p.nodes[i]? = some nd) (hb : nd.node.border = 0)
+    (hproxy : proxyWidths (coordinateGraph P p) xs = .ok (q, ys)) :
+    ∃ out, q.nodes[i]? = some out ∧
+      out.edge = nd.edge ∧ out.node.border = 0 ∧
+      nd.node.w ≤ out.node.w ∧ out.node.h = nd.node.h := by
+  obtain ⟨out, hout, hedge, hborder, hw, hh⟩ :=
+    coordinateGraph_plain_anchor_dims P hp hb
+  exact ⟨out, proxyWidths_plain_node hproxy hout hborder, hedge, hborder, hw, hh⟩
+
+theorem componentRun_plain_node_dims {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (h : componentRun P cg labels orderOptions = .ok run)
+    {i : Nat} {nd : ProperNode}
+    (hnode : run.coordinateProper.nodes[i]? = some nd)
+    (hborder : nd.node.border = 0) :
+    run.proper.nodes[i]? = some nd := by
+  obtain ⟨_, _, _, projected, _, _, _, _, _, hproxy, hdrop,
+    _, _, _, _, _⟩ := componentRun_spec h
+  have hprojected := proxyWidths_plain_node hproxy hnode hborder
+  rw [← hdrop]
+  exact hprojected
+
+theorem componentRun_coordinateGraph_plain_node_dims
+    {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (h : componentRun P cg labels orderOptions = .ok run)
+    {p : Proper} (hcoordinate : coordinateGraph P p = run.coordinateProper)
+    {i : Nat} {nd : ProperNode}
+    (hnode : p.nodes[i]? = some nd) (hborder : nd.node.border = 0) :
+    ∃ out, run.proper.nodes[i]? = some out ∧
+      out.edge = nd.edge ∧ out.node.border = 0 ∧
+      nd.node.w ≤ out.node.w ∧ out.node.h = nd.node.h := by
+  obtain ⟨out, hout, hedge, hplain, hw, hh⟩ :=
+    coordinateGraph_plain_anchor_dims P hnode hborder
+  rw [hcoordinate] at hout
+  exact ⟨out, componentRun_plain_node_dims h hout hplain, hedge, hplain, hw, hh⟩
+
+/-- The actual component pipeline carries the selected measured stack through
+coordinate construction and checked proxy materialization to the exact anchor
+that forward label rendering will use. -/
+theorem componentRun_forward_anchor_size {P : Params} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    {k : Nat} {edge : Edge} {first : MeasuredLabel}
+    (h : componentRun P cg labels orderOptions = .ok run)
+    (hk : cg.edges[k]? = some edge) (hne : edge.tail ≠ edge.head)
+    (hfirst : (routeLabels labels edge.decl).head? = some first) :
+    ∃ index nd,
+      labelAnchorIndex run.proper k
+        (rk run.proper.rank edge.tail +
+          Int.fdiv (rk run.proper.rank edge.head - rk run.proper.rank edge.tail) 2) =
+            some index ∧
+      run.proper.nodes[index]? = some nd ∧
+      (stackSize cg.slot (routeLabels labels edge.decl)).width + first.gutter ≤ nd.node.w ∧
+      nd.node.h = (stackSize cg.slot (routeLabels labels edge.decl)).height := by
+  obtain ⟨ranks, p0, labeled, projected, hn, hl, hc, _, _, hproxy, hdrop,
+    _, _, _, _, _⟩ := componentRun_spec h
+  obtain ⟨halign0, hwf⟩ := normalize_node_rank_alignment hn
+  obtain ⟨hlrank, hlkeys⟩ := addLabelNodes_anchor_keys hl
+  have hllen : labeled.nodes.length = p0.nodes.length := by
+    have he := congrArg List.length hlkeys
+    simpa only [List.length_map] using he
+  have halign : labeled.nodes.length = labeled.rank.length := by
+    rw [hllen, hlrank, halign0]
+  have hnodes := normalize_nodes_length_le hn
+  have hedgeBounds := RankImpl.wellformed_spec hwf edge (List.mem_of_getElem? hk)
+  have htailBound : edge.tail < labeled.rank.length := by
+    rw [hlrank]
+    omega
+  have hheadBound : edge.head < labeled.rank.length := by
+    rw [hlrank]
+    omega
+  obtain ⟨index, nd, hi, hnode, hw, hh⟩ :=
+    componentLabels_selected_size hk hne hfirst hl
+  have hedge := labelAnchorIndex_node_edge hi hnode
+  have hplain := addLabelNodes_edgeAnchorsPlain (normalize_edgeAnchorsPlain hn) hl
+  have hborder : nd.node.border = 0 :=
+    hplain nd (List.mem_of_getElem? hnode) (by simp [hedge])
+  obtain ⟨out, hout, _, hborderOut, hwidth, hheight⟩ :=
+    coordinateGraph_plain_anchor_dims P hnode hborder
+  obtain ⟨hkeysPrefix, hrankPrefix⟩ := coordinateGraph_anchor_prefix P labeled
+  have hicoord := labelAnchorIndex_prefix halign hkeysPrefix hrankPrefix hi
+  rw [hc] at hout hicoord hrankPrefix
+  obtain ⟨_, hprank, _, _, _, hpreserve⟩ := proxyWidths_rel hproxy
+  have hpnode := (hpreserve index out hout (by rw [hborderOut]; omega)).1
+  have hlookup : run.proper.nodes[index]? = some out := by
+    rw [← hdrop]
+    exact hpnode
+  obtain ⟨extraRanks, hcrank⟩ := hrankPrefix
+  have hfinalrank : run.proper.rank = run.coordinateProper.rank := by
+    rw [← hdrop]
+    exact hprank
+  have htail : rk run.proper.rank edge.tail = rk labeled.rank edge.tail := by
+    rw [hfinalrank, hcrank, NormalizeImpl.rk_append_left htailBound]
+  have hhead : rk run.proper.rank edge.head = rk labeled.rank edge.head := by
+    rw [hfinalrank, hcrank, NormalizeImpl.rk_append_left hheadBound]
+  refine ⟨index, out, ?_, hlookup, ?_, hheight.trans hh⟩
+  · rw [htail, hhead, ← hdrop]
+    change labelAnchorIndex projected k _ = some index
+    unfold labelAnchorIndex
+    rw [proxyWidths_edge_keys hproxy, hprank]
+    exact hicoord
+  · rw [hw] at hwidth
+    exact hwidth
 
 def DeclInv (gedges : List Edge) (q : Proper) : Prop :=
   ∀ e ∈ q.edges, ∃ ge, gedges[e.original]? = some ge ∧ e.decl = ge.decl
@@ -739,6 +1671,156 @@ theorem layoutFamily_ids {inp : Input} {o : Options} {res : FamilyResult}
   have hr' := List.all_eq_true.mp hroutes r hr
   simp only [Bool.and_eq_true, List.contains_iff_mem, List.mem_map] at hr'
   exact ⟨hr'.1, hr'.2⟩
+
+/-- Every point actually emitted by component placement belongs to the bounds
+used for that placement. The non-loop case uses the successful route-array
+correspondence, rather than assuming that `edgePoints` selected a real route. -/
+theorem placeComponent_routes_bounds_of_run
+    {P : PipelineImpl.Params} {cg : Graph} {run : PipelineImpl.Run}
+    {labels : List PipelineImpl.MeasuredLabel} {orderOptions : OrderOptions}
+    (hrun : PipelineImpl.componentRun P cg labels orderOptions = .ok run)
+    (loops : List (Nat × LoopPlacement)) :
+    ∀ route ∈ (PipelineImpl.placeComponent P cg run 0 labels loops).routes,
+      ∀ p ∈ route.2,
+        0 ≤ p.x ∧ p.x ≤ (PipelineImpl.placeComponent P cg run 0 labels loops).width ∧
+        0 ≤ p.y ∧ p.y ≤ (PipelineImpl.placeComponent P cg run 0 labels loops).height := by
+  intro route hroute p hp
+  change route ∈ cg.edges.zipIdx.map _ at hroute
+  obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hroute
+  dsimp only at hp
+  obtain ⟨point, hpoint, rfl⟩ := List.mem_map.mp hp
+  have hcovered :
+      point ∈ run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points) := by
+    cases hloop : loops.find? (fun l => l.1 == q.1.decl) with
+    | some loop =>
+      have hl : loop ∈ loops := List.mem_of_find?_eq_some hloop
+      have hp' : point ∈ loop.2.points := by
+        simpa only [hloop, Option.map_some, Option.getD_some] using hpoint
+      exact List.mem_append_right _ (List.mem_flatMap.mpr ⟨loop, hl, hp'⟩)
+    | none =>
+      have hget : cg.edges[q.2]? = some q.1 := List.mem_zipIdx_iff_getElem?.mp hq
+      have hi := (List.getElem?_eq_some_iff.mp hget).1
+      have hp' : point ∈ PipelineImpl.edgePoints run q.2 q.1 := by
+        simpa only [hloop, Option.map_none, Option.getD_none] using hpoint
+      rw [PipelineImpl.componentRun_edgePoints_of_index hrun hi] at hp'
+      exact List.mem_append_left _
+        (List.mem_flatMap.mpr ⟨_, List.getElem_mem _, hp'⟩)
+  exact PipelineImpl.placeComponent_shifted_point_bounds_zero P cg run labels loops point hcovered
+
+/-- Recover the executed phases, including the exact packed accumulator used by
+`sceneOf`; no placement or scene-validity hypothesis is supplied by the caller. -/
+theorem layout_success_phases {inp : Input} {o : Options} {result : FamilyResult}
+    (h : PipelineImpl.layout inp o = .ok result) :
+    ∃ P metric lines measured graph mid packed,
+      PipelineImpl.checkedParams o.profile inp.kind = .ok P ∧
+      PipelineImpl.metricOf o.profile = .ok metric ∧
+      PipelineImpl.boxLines metric
+        (Measure.wrapTarget metric.profile P.wrapWidth
+          (if o.profile == .cell then o.maxWidth else 0)) inp = .ok lines ∧
+      PipelineImpl.measureLabels P metric
+        (Measure.wrapTarget metric.profile P.wrapWidth
+          (if o.profile == .cell then o.maxWidth else 0)) inp o.direction = .ok measured ∧
+      PipelineImpl.measuredGraph P inp o lines = .ok graph ∧
+      (PipelineImpl.components graph).foldlM
+        (fun acc comp => PipelineImpl.layoutComponent P inp o graph acc comp measured)
+        ⟨0, 0, 0, Array.replicate inp.boxes.length default,
+          Array.replicate inp.routes.length [], Array.replicate inp.labels.length default,
+          false, [], []⟩ = .ok mid ∧
+      PipelineImpl.packAcc P o mid = .ok packed ∧
+      result.scene = PipelineImpl.sceneOf P inp o lines packed measured ∧
+      result.budgetExhausted = packed.budget ∧
+      result.itemArea = packed.parts.foldl (fun area part => area + part.2.area) 0 := by
+  unfold PipelineImpl.layout at h
+  obtain ⟨P, hP, h⟩ := PipelineImpl.bind_ok h
+  obtain ⟨metric, hm, h⟩ := PipelineImpl.bind_ok h
+  obtain ⟨lines, hl, h⟩ := PipelineImpl.bind_ok h
+  obtain ⟨measured, hmeasured, h⟩ := PipelineImpl.bind_ok h
+  obtain ⟨graph, hg, h⟩ := PipelineImpl.bind_ok h
+  obtain ⟨mid, hmid, h⟩ := PipelineImpl.bind_ok h
+  obtain ⟨packed, hpacked, h⟩ := PipelineImpl.bind_ok h
+  dsimp only at h
+  split at h
+  · simp [throw, throwThe, MonadExceptOf.throw] at h
+  · have he := Except.ok.inj h
+    subst result
+    exact ⟨P, metric, lines, measured, graph, mid, packed,
+      hP, hm, hl, hmeasured, hg, hmid, hpacked, rfl, rfl, rfl⟩
+
+/-- The public family gate admits precisely an actual successful recursive run
+on the supplied input, and its successful branch establishes model admission. -/
+theorem layoutFamily_success {inp : Input} {o : Options} {result : FamilyResult}
+    (h : layoutFamily inp o = .ok result) :
+    WellFormed (inputModel inp o) ∧
+      PipelineImpl.layoutRecursive (inp.boxes.length + 1) inp o = .ok result := by
+  unfold layoutFamily at h
+  split at h
+  · cases h
+  · split at h
+    · cases h
+    · split at h
+      · cases h
+      · split at h
+        · cases h
+        · next hadmitted =>
+          have hwf : WellFormed (inputModel inp o) := by
+            unfold WellFormed
+            cases hb : modelWellFormed (inputModel inp o) with
+            | false => simp [hb] at hadmitted
+            | true => rfl
+          cases hr : PipelineImpl.layoutRecursive (inp.boxes.length + 1) inp o with
+          | error error => simp [hr] at h
+          | ok out =>
+            simp only [hr, Except.ok.injEq] at h
+            subst result
+            exact ⟨hwf, rfl⟩
+
+/-- Successful base execution supplies both global route-declaration ownership
+and the disjoint component packing used to assemble its final scene. -/
+theorem layout_success_component_packing {inp : Input} {o : Options}
+    {result : FamilyResult} (h : PipelineImpl.layout inp o = .ok result) :
+    ∃ P lines measured graph mid out packed,
+      PipelineImpl.measuredGraph P inp o lines = .ok graph ∧
+      (graph.edges.map (·.decl)).Nodup ∧
+      (PipelineImpl.components graph).foldlM
+        (fun acc comp => PipelineImpl.layoutComponent P inp o graph acc comp measured)
+        ⟨0, 0, 0, Array.replicate inp.boxes.length default,
+          Array.replicate inp.routes.length [], Array.replicate inp.labels.length default,
+          false, [], []⟩ = .ok mid ∧
+      PipelineImpl.packAcc P o mid = .ok out ∧
+      Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+        P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+        (LayoutConst.component_aspect_den.get o.profile)
+        (mid.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed ∧
+      packed.boxes.Pairwise Disjoint ∧
+      result.scene = PipelineImpl.sceneOf P inp o lines out measured := by
+  obtain ⟨P, metric, lines, measured, graph, mid, out,
+    _, _, _, _, hg, hfold, hpack, hscene, _, _⟩ := layout_success_phases h
+  obtain ⟨packed, hpacked, hdisjoint⟩ := PipelineImpl.packAcc_components_disjoint hpack
+  exact ⟨P, lines, measured, graph, mid, out, packed, hg,
+    PipelineImpl.measuredGraph_decls_nodup hg, hfold, hpack, hpacked, hdisjoint, hscene⟩
+
+/-- With no recursively laid-out independent group, the public successful run
+uses the same base pipeline whose phase witnesses are recovered above. -/
+theorem layoutFamily_success_base {inp : Input} {o : Options} {result : FamilyResult}
+    (h : layoutFamily inp o = .ok result)
+    (hflat : inp.boxes.find? (fun box =>
+      Compound.independent inp.boxes inp.routes box &&
+        !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) = none) :
+    PipelineImpl.layout inp o = .ok result := by
+  have hr := (layoutFamily_success h).2
+  simpa only [PipelineImpl.layoutRecursive, hflat] using hr
+
+theorem placeComponent_rect_dimensions (P : PipelineImpl.Params) (cg : Graph)
+    (run : PipelineImpl.Run) (cursor : Int)
+    (labels : List PipelineImpl.MeasuredLabel)
+    (loops : List (Nat × LoopPlacement)) :
+    ((PipelineImpl.placeComponent P cg run cursor labels loops).rects.map
+      (fun rect => (rect.w, rect.h))) =
+      (List.range cg.nodes.length).map (fun i =>
+        ((PipelineImpl.frameRect P cg run i).w,
+          (PipelineImpl.frameRect P cg run i).h)) := by
+  unfold PipelineImpl.placeComponent
+  simp [PipelineImpl.shiftRect, Function.comp_def]
 
 end Layered
 end Elegant

@@ -53,3 +53,11 @@ import Elegant.Layered.PipelineFacts
 import Elegant.Kinds.Flowchart
 import Elegant.Kinds.Class
 import Elegant.Kinds.ClassFacts
+import Elegant.GridKanbanValid
+import Elegant.Chart.GanttFacts
+import Elegant.Chart.TreemapFacts
+import Elegant.Chart.WardleyFacts
+import Elegant.GridArchitectureAnchorFacts
+import Elegant.KindLayout
+import Elegant.FamilyDispatch
+import Elegant.Chart.GanttLabelFacts
