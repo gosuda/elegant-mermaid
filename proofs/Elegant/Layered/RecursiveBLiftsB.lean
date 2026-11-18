@@ -3,61 +3,13 @@ import Elegant.Layered.RecursiveC7
 import Elegant.Layered.RecursiveC78
 import Elegant.Layered.RecursiveBEq
 import Elegant.Layered.RecursiveCallParams
+import Elegant.Layered.RecursiveBLiftsA
 
 set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
 
 open Validator
-
-/-- Private base-parametric successor sources for `layoutRecursiveB`
-(counterpart of `layoutRecursive_succ_sources`): either the recursion finds
-no group and the base layout runs, or it splits at `group` with the checked
-parameters, metric, wrapped title lines, and the two recursive successes.
-Stated with the `childSubInput` / `childSubOptions` / `parentSubInput`
-helpers so `ExpandChildCallContextB` is immediate; the title height is the
-value the recursion computes. Named with a prime so the parent can merge it
-with the sibling copy in `RecursiveBLiftsA`. -/
-theorem layoutRecursiveB_succ_sources'
-    {base : Input → Options → Except LayoutError FamilyResult}
-    {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
-    (h : layoutRecursiveB base (fuel + 1) inp o = .ok res) :
-    (inp.boxes.find? (fun box =>
-        Compound.independent inp.boxes inp.routes box &&
-          !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) = none ∧
-      base inp o = .ok res) ∨
-    ∃ (group : ModelBox) (P : Params) (metric : Measure.Metric)
-      (child : FamilyResult) (titleLines : List Measure.Line)
-      (parent : FamilyResult),
-      inp.boxes.find? (fun box =>
-          Compound.independent inp.boxes inp.routes box &&
-            !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) = some group ∧
-      checkedParams o.profile inp.kind = .ok P ∧
-      metricOf o.profile = .ok metric ∧
-      layoutRecursiveB base fuel (childSubInput inp group)
-        (childSubOptions o group) = .ok child ∧
-      StyledMeasure.wrap metric
-        (Measure.wrapTarget metric.profile P.wrapWidth
-          (if o.profile == .cell then o.maxWidth else 0))
-        (inp.texts.getD
-          ((inp.boxes.findIdx? (fun box => box.id == group.id)).getD 0)
-          group.id).toList = .ok titleLines ∧
-      layoutRecursiveB base fuel
-        (parentSubInput inp group P titleLines child) o = .ok parent ∧
-      expandChild P inp o group
-        ((max 1 titleLines.length : Int) * P.lineH) parent child = .ok res := by
-  unfold layoutRecursiveB at h
-  dsimp only at h
-  split at h
-  · next hn => exact Or.inl ⟨hn, h⟩
-  · next group hg =>
-    obtain ⟨P, hP, h⟩ := bind_ok' h
-    obtain ⟨metric, hm, h⟩ := bind_ok' h
-    obtain ⟨child, hc, h⟩ := bind_ok' h
-    obtain ⟨titleLines, ht, h⟩ := bind_ok' h
-    obtain ⟨parent, hp, h⟩ := bind_ok' h
-    exact Or.inr ⟨group, P, metric, child, titleLines, parent,
-      hg, hP, hm, hc, ht, hp, h⟩
 
 /-- Base-parametric copy of `FlatC6`: the base layout keeps C6. The
 `FrameClearanceSeam` premise speaks about the plain `SceneExecution`, so it
@@ -99,6 +51,7 @@ theorem layoutRecursiveB_c6
     (base : Input → Options → Except LayoutError FamilyResult)
     (hflat : FlatC6B base)
     (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
       FrameClearanceSeam inp o res)
     (hsub : ∀ (fuel : Nat) (inp : Input) (o : Options) (group : ModelBox)
       (P : Params) (metric : Measure.Metric) (titleLines : List Measure.Line)
@@ -139,13 +92,13 @@ theorem layoutRecursiveB_c6
   | zero =>
     intro inp o res hwf hframed h
     have hbase : base inp o = .ok res := by simpa [layoutRecursiveB] using h
-    exact hflat inp o res hwf hframed (hclear inp o res) hbase
+    exact hflat inp o res hwf hframed (hclear inp o res hwf hframed) hbase
   | succ fuel ih =>
     intro inp o res hwf hframed h
-    rcases layoutRecursiveB_succ_sources' h with ⟨_, hbase⟩ |
+    rcases layoutRecursiveB_succ_sources base h with ⟨_, hbase⟩ |
       ⟨group, P, metric, child, titleLines, parent, hg, hP, hm,
         hchild, hwrap, hparent, hexpand⟩
-    · exact hflat inp o res hwf hframed (hclear inp o res) hbase
+    · exact hflat inp o res hwf hframed (hclear inp o res hwf hframed) hbase
     · obtain ⟨hwfChild, hframedChild, hwfParent, hframedParent⟩ :=
         hsub fuel inp o group P metric titleLines child parent
           hwf hframed hP hm hwrap hchild hparent
@@ -219,7 +172,7 @@ theorem layoutRecursiveB_c7
       (hseam1 inp o res hwf hframed) (hseam2 inp o res hwf hframed) hbase
   | succ fuel ih =>
     intro inp o res hwf hframed h
-    rcases layoutRecursiveB_succ_sources' h with ⟨_, hbase⟩ |
+    rcases layoutRecursiveB_succ_sources base h with ⟨_, hbase⟩ |
       ⟨group, P, metric, child, titleLines, parent, hg, hP, hm,
         hchild, hwrap, hparent, hexpand⟩
     · exact hflat7 inp o res hwf hframed (hsep inp o res)
@@ -288,7 +241,7 @@ theorem layoutRecursiveB_c8a
     exact hflat8a inp o res hwf hframed hbase
   | succ fuel ih =>
     intro inp o res hwf hframed h
-    rcases layoutRecursiveB_succ_sources' h with ⟨_, hbase⟩ |
+    rcases layoutRecursiveB_succ_sources base h with ⟨_, hbase⟩ |
       ⟨group, P, metric, child, titleLines, parent, hg, hP, hm,
         hchild, hwrap, hparent, hexpand⟩
     · exact hflat8a inp o res hwf hframed hbase
@@ -356,7 +309,7 @@ theorem layoutRecursiveB_c8b
     exact hflat8b inp o res hwf hframed hbase
   | succ fuel ih =>
     intro inp o res hwf hframed h
-    rcases layoutRecursiveB_succ_sources' h with ⟨_, hbase⟩ |
+    rcases layoutRecursiveB_succ_sources base h with ⟨_, hbase⟩ |
       ⟨group, P, metric, child, titleLines, parent, hg, hP, hm,
         hchild, hwrap, hparent, hexpand⟩
     · exact hflat8b inp o res hwf hframed hbase
