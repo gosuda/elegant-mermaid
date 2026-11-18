@@ -28,9 +28,11 @@ lookup (`SceneExecution.boxes_eq_map`), the part/component fold
 (`Elegant.Layered.PartSeparation`), and the run-level clearance
 (`componentRun_exclusive_clear`).
 
-Three named residuals isolate the remaining id-level facts that no existing
+The named residuals below isolate the remaining id-level facts that no existing
 lemma states; each speaks only about node ids of one executed component run,
-carries no geometry, and is strictly weaker than the seams proved here.
+carries no geometry, and is strictly weaker than the seams proved here. The
+measured-graph provenance residual records the one transport step (plain-box
+graph cluster paths are ancestor lists) that no existing lemma provides.
 -/
 
 /-- Local re-proof of the private `ComponentCoverage.componentCandidate_nodes_length`:
@@ -280,11 +282,17 @@ def RunRouteEndpointIdsScoped (inp : Input) (o : Options) (res : FamilyResult) :
             some b₁ →
           b₁.id ∈ LayoutDump.routeScope res.scene.layoutDump route)
 
-/-- Residual: the declaration of a node whose model source box is exclusive
-never occurs in the cluster path of the endpoint nodes of any route of the same
-executed run (exclusive boxes are plain nodes, cluster paths list ancestor
-groups).  Id statement only. -/
+/-- Residual: for a well-formed framed input, the declaration of a node whose
+model source box is exclusive never occurs in the cluster path of the endpoint
+nodes of any route of the same executed run.  The bare id statement is false:
+an exclusive group with an edge-bearing member puts the group's declaration
+into the member's cluster path (`Compound.path`); the two leading premises
+rule that counterexample out (`modelWellFormed` forbids exclusive groups,
+`inputModel` copies `inp.boxes`, and `framedParents` forces every parent to be
+a group, so an exclusive box is never a parent and cluster paths list only
+ancestors).  Id statement only. -/
 def ExclusiveDeclOutsideEndpointPaths (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
+  WellFormed (inputModel inp o) → framedParents inp = true →
   ∀ (execution : SceneExecution inp o res) (comp : List Nat) (candidate : Nat) (run : Run),
     comp ∈ components execution.graph →
     componentRun execution.params
@@ -303,6 +311,96 @@ def ExclusiveDeclOutsideEndpointPaths (inp : Input) (o : Options) (res : FamilyR
         RouteImpl.nodeDecl run.proper v ∉
           ((run.proper.nodes[(RouteImpl.edgeAt run.proper i₁).head]?).map
             (·.node.clusterPath)).getD []
+
+/-- Residual (measured-graph provenance): the cluster path stored for a plain
+(non-group) box of an executed measured graph is the ancestor list
+`Compound.path` of its source box.  This is the transport that `measuredGraph`
+provides (per-index `clusterPath` assignment, preserved by `Compound.prepare`
+for plain boxes since demotion keeps ids and parents); no existing lemma
+states it, and the exclusive-declaration bridge needs it to turn "exclusive
+boxes are never parents" into "exclusive declarations occur in no cluster
+path".  True for executed layouts, strictly simpler than the bridge goal, and
+pinned by the `SceneExecution` graph equation. -/
+def MeasuredGraphClusterPathOfPlainNode (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
+  ∀ (execution : SceneExecution inp o res) (key : Nat) (box : ModelBox),
+    inp.boxes[key]? = some box →
+    box.role ≠ .group →
+    ∀ (node : Node),
+      execution.graph.nodes[key]? = some node →
+      node.clusterPath = Compound.path inp.boxes box
+
+/-- Residual (run-level cluster-path provenance): every index occurring in the
+cluster path of a node of an executed component run's proper graph is the index
+of a group-role box of the input.  Cluster paths are built by `Compound.prepare`
+as `Compound.path` ancestor lists (plus the group box's own index for group
+title/bottom nodes) and are preserved through normalization, labelling,
+coordinate construction, proxy materialization and synthetic-edge removal;
+dummy chain nodes receive the common prefix of their endpoint paths.  Every
+element is therefore an ancestor index — a parent box, which `framedParents`
+makes a group — or a group box index itself.  True for executed layouts,
+strictly simpler than the endpoint exclusion (a per-node path-membership fact,
+not a route statement), and pinned by the `componentRun` success equation and
+the `components` membership of `comp`. -/
+def RunClusterPathGroupMembers (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
+  ∀ (execution : SceneExecution inp o res) (comp : List Nat) (candidate : Nat) (run : Run),
+    comp ∈ components execution.graph →
+    componentRun execution.params
+      (componentCandidate execution.graph comp candidate) execution.measured
+      (candidateOrder candidate) = .ok run →
+    ∀ (i : Nat) (nd : ProperNode),
+      run.proper.nodes[i]? = some nd →
+      ∀ k ∈ nd.node.clusterPath, ∀ b,
+        inp.boxes[k]? = some b → b.role = .group
+
+/-- The measured-graph cluster-path fact is exactly the plain-node case of
+`SceneExecution.plain_graph_node`: an exclusive source is never a group under
+`WellFormed`, so its measured-graph node keeps `Compound.path inp.boxes box`. -/
+theorem measuredGraphClusterPathOfPlainNode {inp : Input} {o : Options} {res : FamilyResult}
+    (_hwf : WellFormed (inputModel inp o)) (_hframed : framedParents inp = true) :
+    MeasuredGraphClusterPathOfPlainNode inp o res := by
+  intro execution key box hsource hrole node hnode
+  obtain ⟨gnode, hgnode, _, hpath, _⟩ :=
+    execution.plain_graph_node hsource (fun ⟨hg, _⟩ => hrole hg)
+  have heq : gnode = node := Option.some.inj (hgnode.symm.trans hnode)
+  rw [← heq]
+  exact hpath
+
+/-- Reduction: the measured-graph cluster-path provenance together with the
+run-level declaration bridge imply the exclusive-declaration endpoint-path
+exclusion.  `ExclusiveRunNodeDecl` identifies `RouteImpl.nodeDecl run.proper v`
+with the box index `key`; `RunClusterPathGroupMembers` shows every member of an
+endpoint's cluster path indexes a group box, while `WellFormed` makes an
+exclusive box a non-group, so `key` cannot occur. -/
+theorem exclusiveDeclOutsideEndpointPaths_of_clusterPath
+    {inp : Input} {o : Options} {res : FamilyResult}
+    (_hpath : MeasuredGraphClusterPathOfPlainNode inp o res)
+    (hdecl : ExclusiveRunNodeDecl inp o res)
+    (hgroup : RunClusterPathGroupMembers inp o res) :
+    ExclusiveDeclOutsideEndpointPaths inp o res := by
+  intro hwf _hframed execution comp candidate run hcomp hrun
+    v key source hv hsource hexcl _rt _hrt _i₀ _i₁ _hfirst _hlast
+  have hdeclEq : RouteImpl.nodeDecl run.proper v = key :=
+    hdecl execution comp candidate run hcomp hrun v key source hv hsource
+  have hrole : source.role ≠ .group := by
+    intro hg
+    obtain ⟨_, _, _, _, _, _, hgroups⟩ := (wellFormed_iff (inputModel inp o)).mp hwf
+    have := hgroups source (List.mem_of_getElem? hsource) hg
+    rw [this] at hexcl
+    exact Bool.noConfusion hexcl
+  rw [hdeclEq]
+  constructor
+  · intro hkey
+    cases hnode? : run.proper.nodes[(RouteImpl.edgeAt run.proper _i₀).tail]? with
+    | none => simp [hnode?] at hkey
+    | some nd =>
+      simp only [hnode?, Option.map_some, Option.getD_some] at hkey
+      exact hrole (hgroup execution comp candidate run hcomp hrun _ nd hnode? key hkey source hsource)
+  · intro hkey
+    cases hnode? : run.proper.nodes[(RouteImpl.edgeAt run.proper _i₁).head]? with
+    | none => simp [hnode?] at hkey
+    | some nd =>
+      simp only [hnode?, Option.map_some, Option.getD_some] at hkey
+      exact hrole (hgroup execution comp candidate run hcomp hrun _ nd hnode? key hkey source hsource)
 
 /-- Same-part witness: an exclusive scene box whose source key lies in the
 selected part's component is the transported `frameRect` of the real run node
@@ -397,6 +495,7 @@ the run-level endpoint and cluster-path exclusions through the id residual), or
 lies inside the transported shelf of a different packed part. -/
 theorem routeScopeBridge {inp : Input} {o : Options} {res : FamilyResult}
     (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     (execution : SceneExecution inp o res)
     (hpaths : ExclusiveDeclOutsideEndpointPaths inp o res) :
     RouteScopeBridge inp o res := by
@@ -435,7 +534,7 @@ theorem routeScopeBridge {inp : Input} {o : Options} {res : FamilyResult}
   · obtain ⟨v, hv, hvlen, hreal, _, hbrect⟩ :=
       exclusive_box_run_witness exec hwf packed hpacked hselected hrun hloops hpart
       hsource hexcl hmem
-    have hexclrt := hpaths exec q.1.1 candidate run hq1comp hrun v pair.2 pair.1 hv
+    have hexclrt := hpaths hwf hframed exec q.1.1 candidate run hq1comp hrun v pair.2 pair.1 hv
       hsource hexcl
     refine ⟨v, Or.inl ⟨hvlen, hreal, ?_, ?_⟩⟩
     · intro rt hrt i₀ i₁ hfirst hlast
@@ -552,6 +651,7 @@ other-part branch is the shelf separation of `PartSeparation`, which needs the
 route part's shelf to have positive extent. -/
 theorem flatC6ChainCase {inp : Input} {o : Options} {res : FamilyResult}
     (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     (hnodeDecl : ExclusiveRunNodeDecl inp o res)
     (hscoped : RunRouteEndpointIdsScoped inp o res)
     (hpaths : ExclusiveDeclOutsideEndpointPaths inp o res)
@@ -653,7 +753,7 @@ theorem flatC6ChainCase {inp : Input} {o : Options} {res : FamilyResult}
           rw [hnativeOrig]; exact h₀
         have hlast : (RouteImpl.edgesOf run.proper native.original).getLast? = some i₁ := by
           rw [hnativeOrig]; exact h₁
-        have hexclrt := hpaths execution q.1.1 candidate run hq1comp hrun v pair.2 pair.1 hv
+        have hexclrt := hpaths hwf hframed execution q.1.1 candidate run hq1comp hrun v pair.2 pair.1 hv
           hsource hexcl
         have hclusters := hexclrt native (List.mem_iff_getElem?.mpr ⟨i, hnative⟩) i₀ i₁
           hfirst hlast
