@@ -68,6 +68,7 @@ structure LayeredSeams : Prop where
     RunLocalReversedSeparation inp o res
   exclusiveBoxInLabelRun : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     ExclusiveBoxInLabelRun inp o res
+  routeLabelsPlaced : RouteLabelsPlaced
   captions : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     SceneCaptionBoxContainment inp o res
@@ -115,7 +116,8 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       LabelRunsClearExclusiveBoxes inp o res := fun inp o res hwf hfp =>
     ⟨runLocalLabelClearance_holds hwf hfp (S.runLocalLoopSeparation inp o res)
         (S.runLocalForwardSeparation inp o res) (S.runLocalReversedSeparation inp o res),
-      routeLabelDumpBridges hwf (labelBelongsToRun hwf) (S.exclusiveBoxInLabelRun inp o res)⟩
+      routeLabelDumpBridges hwf (labelBelongsToRun hwf S.routeLabelsPlaced)
+        (S.exclusiveBoxInLabelRun inp o res)⟩
   have hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       BracketInsidePremises inp o res := fun inp o res hwfInp hframedInp =>

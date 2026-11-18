@@ -918,11 +918,30 @@ theorem fold_labels_getD_of_no_carry {P : Params} {inp : Input} {o : Options}
         (fun p hp he => hno (comp, { part0 with area := area0 }) hpartmem p.2
           (by rw [← he]; exact hp))]
 
+/-- Residual: route labels are placed in successful runs (one phase: the
+executed `placedLabels` pairing is complete). For every successful component
+run, each measured label on an edge present in the candidate graph has a
+placed entry. True for executed layouts (the run builds label nodes for
+every nonempty route edge and envelopes for every placed edge), strictly
+simpler than the bridge goal, about the placement phase only, and pinned by
+the `SceneExecution` run equation. Probed in
+`proofs/wip/Probe/RouteLabelsPlacedProbe.lean`. -/
+def RouteLabelsPlaced : Prop :=
+  ∀ (P : Params) (cg : Graph) (labels : List MeasuredLabel)
+    (orderOptions : OrderOptions) (run : Run) (l : MeasuredLabel)
+    (edge : Nat) (e : Edge),
+    componentRun P cg labels orderOptions = .ok run →
+    cg.edges[edge]? = some e → l ∈ routeLabels labels e.decl →
+    ∃ rect, (l.index, rect) ∈ placedLabels P cg run labels
+
 /-- The executed label bridge: every measured scene label's rect is the
 common transport of the placed rect of its own edge in the executed
-component run of the component that owns the edge. -/
+component run of the component that owns the edge, pinned to the executed
+pack shelf and placement shift. The no-carry case is vacuous by
+`RouteLabelsPlaced`. -/
 theorem labelBelongsToRun {inp : Input} {o : Options} {res : FamilyResult}
-    (hwf : WellFormed (inputModel inp o)) : LabelBelongsToRun inp o res := by
+    (hwf : WellFormed (inputModel inp o))
+    (hroute_placed : RouteLabelsPlaced) : LabelBelongsToRun inp o res := by
   intro execution l index source measured hl hin hid hmeasured
   have hfindmem : measured ∈ execution.measured := List.mem_of_find?_eq_some hmeasured
   have hidxeq : measured.index = index := by
@@ -984,8 +1003,27 @@ theorem labelBelongsToRun {inp : Input} {o : Options} {res : FamilyResult}
     have hrouteRect : routeLabelRect execution.params
         (componentCandidate execution.graph q.1.1 cand) run execution.measured ml =
         pair.2 := routeLabelRect_of_mem hnd hplaced
+    obtain ⟨c, hc⟩ := List.mem_iff_getElem?.mp hqzip
+    have hrect1 : l.rect = shiftRect execution.params.canvasMargin
+        execution.params.canvasMargin
+        (orientRect o.direction execution.packedAcc.canvasH
+          (shiftRect (q.2.x + (0 - (placeBounds execution.params
+            (componentCandidate execution.graph q.1.1 cand) run execution.measured
+            loops).minX))
+            (q.2.y + (0 - (placeBounds execution.params
+              (componentCandidate execution.graph q.1.1 cand) run execution.measured
+              loops).minY))
+            (routeLabelRect execution.params
+              (componentCandidate execution.graph q.1.1 cand) run execution.measured
+              ml))) := by
+      rw [hscene, hrouteRect, hrpacked, ← hpair2, shiftRect_shiftRect]
+    have hlrect2 : l.rect = shiftRect execution.params.canvasMargin
+        execution.params.canvasMargin
+        (orientRect o.direction execution.packedAcc.canvasH
+          (shiftRect q.2.x q.2.y r0)) := by
+      rw [hscene, hrpacked]
     refine ⟨q.1.1, cand, run, candidateOrder cand,
-      componentCandidate execution.graph q.1.1 cand, edge, e.decl, 0, 0,
+      componentCandidate execution.graph q.1.1 cand, edge, e.decl,
       q.2.x + (0 - (placeBounds execution.params
         (componentCandidate execution.graph q.1.1 cand) run execution.measured
         loops).minX),
@@ -993,8 +1031,9 @@ theorem labelBelongsToRun {inp : Input} {o : Options} {res : FamilyResult}
         (componentCandidate execution.graph q.1.1 cand) run execution.measured
         loops).minY),
       execution.params.canvasMargin, execution.packedAcc.canvasH, o.direction,
-      hcomp, rfl, hrun, by simp [hgetedge], hroutemem, ?_⟩
-    rw [hscene, hrouteRect, hrpacked, ← hpair2, shiftRect_shiftRect]
+      packedSt, c, q.1, q.2, loops, area, (ml.index, r0),
+      hcomp, rfl, hrun, rfl, by simp [hgetedge], hroutemem, hrect1,
+      rfl, rfl, rfl, hpack, hc, rfl, hpartdef, rfl, rfl, hmemlabels, hlrect2⟩
   · have hnocarry : ∀ part ∈ execution.componentsAcc.parts, ∀ r : Rect,
         (measured.index, r) ∉ part.2.labels := by
       intro part hpart r hmem
@@ -1068,14 +1107,10 @@ theorem labelBelongsToRun {inp : Input} {o : Options} {res : FamilyResult}
         exact hnoplaced qq hqq hcond
       rw [hfilter]
       rfl
-    refine ⟨part.1, cand, run, candidateOrder cand,
-      componentCandidate execution.graph part.1 cand, edge, e.decl, 0, 0, 0, 0,
-      execution.params.canvasMargin, execution.packedAcc.canvasH, o.direction,
-      hpartcomp ▸ hcomp, rfl, hrun, by simp [hgetedge], hroutemem, ?_⟩
-    rw [hscene, hpackeddef, hroute0]
-    have hdef : (default : Rect) = ⟨0, 0, 0, 0⟩ := rfl
-    rw [hdef]
-    simp [shiftRect]
+    obtain ⟨rect, hmem⟩ := hroute_placed execution.params
+      (componentCandidate execution.graph part.1 cand) execution.measured
+      (candidateOrder cand) run measured edge e hrun hgetedge hroutemem
+    exact False.elim (hnoplaced _ hmem rfl)
 
 end PipelineImpl
 end Elegant.Layered
