@@ -96,7 +96,7 @@ both merged scenes, scene sizes, the label classification, owner-scope
 transport for child and parent labels, the scope anchors
 `{group.id} ++ ancestors group.id` of the expanded group inside the merged
 dump, and the four cross-scene clearance facts. -/
-def ExpandChildC7Step (P : Params) (_inp : Input) (_o : Options) (group : ModelBox)
+def ExpandChildC7Step (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
@@ -106,6 +106,7 @@ def ExpandChildC7Step (P : Params) (_inp : Input) (_o : Options) (group : ModelB
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines →
     (∀ b : Box, child.scene.layoutDump.box? b.id = some b →
         result.scene.layoutDump.box? b.id = some (embedBox group.id dx dy b)) ∧
     (∀ b : Box, parent.scene.layoutDump.box? b.id = some b →
@@ -157,11 +158,11 @@ theorem expandChild_c7 {P : Params} {inp : Input} {o : Options} {group : ModelBo
     (hstep : ExpandChildC7Step P inp o group titleHeight parent child result)
     (h : expandChild P inp o group titleHeight parent child = .ok result) :
     Validator.C7 result.scene.layoutDump := by
-  obtain ⟨frame, _metric, titleLines, _lines, dx, dy, hframe, _hmetric, _htitle,
+  obtain ⟨frame, metric, titleLines, _lines, dx, dy, hframe, hmetric, htitle,
     _hlines, hdx, hdy, _hcanvas, hboxes⟩ := expandChild_sources h
   obtain ⟨hchildLk, hparentLk, hlenC, hlenP, hclassify, hscopeChild, hscopeParent,
-    hanchor, hforeignLabel, hmissChildTitle, hmissParentLabel, hforeignTitle⟩ :=
-    hstep frame titleLines dx dy hframe hdx hdy
+      hanchor, hforeignLabel, hmissChildTitle, hmissParentLabel, hforeignTitle⟩ :=
+    hstep frame titleLines dx dy hframe hdx hdy ⟨metric, hmetric, htitle⟩
   have hchildMono := ancestors_mono (child.scene.layoutDump) (result.scene.layoutDump)
     (embedBox group.id dx dy)
     (fun y yb hyb => by

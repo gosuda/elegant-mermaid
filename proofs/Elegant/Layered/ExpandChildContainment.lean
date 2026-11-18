@@ -85,6 +85,26 @@ theorem expandChild_sources {P : Params} {inp : Input} {o : Options} {group : Mo
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y - P.canvasMargin,
       rfl, hmetric, htitle, hlines, rfl, rfl, rfl, rfl⟩
 
+/-- The executed title fact: `titleLines` is the wrapped group title the
+expansion itself measured (the run's own metric and wrap target applied to
+the group's text), exactly the equation `expandChild_sources` exposes as
+`htitle`.  It is a needed premise of the step shapes: without it they are
+unsatisfiable, because `childInset` for direction `"LR"` adds the title
+width to the frame offset, so a caller list with a different foldl width
+satisfies the `dx`/`dy` equations at an offset the merged scene never
+stored, and any other width also moves the caption rect, whose `w` field is
+that width. -/
+def ExpandChildTitleWrapped (P : Params) (inp : Input) (o : Options)
+    (group : ModelBox) (titleLines : List Measure.Line) : Prop :=
+  ∃ metric : Measure.Metric,
+    metricOf o.profile = .ok metric ∧
+    StyledMeasure.wrap metric
+      (Measure.wrapTarget metric.profile P.wrapWidth
+        (if o.profile == .cell then o.maxWidth else 0))
+      (inp.texts.getD
+        ((inp.boxes.findIdx? (fun box => box.id == group.id)).getD 0)
+        group.id).toList = .ok titleLines
+
 /-- The geometric and lookup premises `expandChild` needs for C1 and C3: for
 the located frame, the child canvas shifted by the computed offsets stays
 inside the frame, every child box lookup lands on its shifted image in the

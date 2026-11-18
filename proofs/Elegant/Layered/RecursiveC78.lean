@@ -181,7 +181,7 @@ both merged scenes, scene sizes, the frame's group role and isolation from
 parent-scene ancestor chains, child boxes inside the frame, and the scope
 anchors `{group.id} ++ ancestors group.id` of every embedded box inside the
 merged dump. -/
-def ExpandChildC8aStep (P : Params) (_inp : Input) (_o : Options) (group : ModelBox)
+def ExpandChildC8aStep (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
@@ -191,6 +191,7 @@ def ExpandChildC8aStep (P : Params) (_inp : Input) (_o : Options) (group : Model
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines →
     (∀ b : Box, child.scene.layoutDump.box? b.id = some b →
         result.scene.layoutDump.box? b.id = some (embedBox group.id dx dy b)) ∧
     (∀ b : Box, parent.scene.layoutDump.box? b.id = some b →
@@ -225,11 +226,11 @@ theorem expandChild_c8a {P : Params} {inp : Input} {o : Options} {group : ModelB
     (hstep : ExpandChildC8aStep P inp o group titleHeight parent child result)
     (h : expandChild P inp o group titleHeight parent child = .ok result) :
     Validator.C8a result.scene.layoutDump := by
-  obtain ⟨frame, _metric, titleLines, _lines, dx, dy, hframe, _hmetric, _htitle,
+  obtain ⟨frame, metric, titleLines, _lines, dx, dy, hframe, hmetric, htitle,
     _hlines, hdx, hdy, _hcanvas, hboxes⟩ := expandChild_sources h
   obtain ⟨hchildLk, hparentLk, hlenC, hlenP, hframeRole, hchildGroupId,
     hchildBoxesInFrame, hanchor, hframeChainIsolated⟩ :=
-    hstep frame titleLines dx dy hframe hdx hdy
+    hstep frame titleLines dx dy hframe hdx hdy ⟨metric, hmetric, htitle⟩
   have hchildMono := ancestors_sub (child.scene.layoutDump) (result.scene.layoutDump)
     (embedBox group.id dx dy)
     (fun y yb hyb => by
@@ -358,7 +359,7 @@ theorem expandChild_c8a {P : Params} {inp : Input} {o : Options} {group : ModelB
 and the four cross-scene clearance facts (parent groups vs child labels,
 child groups vs parent labels, child groups vs the caption, and parent
 groups vs the caption). -/
-def ExpandChildC8bStep (P : Params) (_inp : Input) (_o : Options) (group : ModelBox)
+def ExpandChildC8bStep (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
@@ -368,6 +369,7 @@ def ExpandChildC8bStep (P : Params) (_inp : Input) (_o : Options) (group : Model
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines →
     ExpandChildLabelClassesC8 P group titleLines titleHeight frame dx dy parent child result ∧
     (∀ g ∈ parent.scene.boxes, g.role = "group" → ∀ cl ∈ child.scene.labels,
         Disjoint g.rect (shiftRect dx dy cl.rect) ∨
@@ -396,11 +398,11 @@ theorem expandChild_c8b {P : Params} {inp : Input} {o : Options} {group : ModelB
     (hstep : ExpandChildC8bStep P inp o group titleHeight parent child result)
     (h : expandChild P inp o group titleHeight parent child = .ok result) :
     Validator.C8b result.scene.layoutDump := by
-  obtain ⟨frame, _metric, titleLines, _lines, dx, dy, hframe, _hmetric, _htitle,
+  obtain ⟨frame, metric, titleLines, _lines, dx, dy, hframe, hmetric, htitle,
     _hlines, hdx, hdy, _hcanvas, hboxes⟩ := expandChild_sources h
   obtain ⟨hclassify, hparentGroupVsChildLabel, hchildGroupVsParentLabel,
     hchildGroupVsTitle, htitleVsParentGroups⟩ :=
-    hstep frame titleLines dx dy hframe hdx hdy
+    hstep frame titleLines dx dy hframe hdx hdy ⟨metric, hmetric, htitle⟩
   intro g hg hgRole rl hrl
   change g ∈ result.scene.boxes at hg
   obtain ⟨sl, hsl, hrlEq⟩ :=

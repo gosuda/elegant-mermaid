@@ -269,7 +269,7 @@ theorem expandChild_merge_bounds
 child box lies inside the located frame.  Box-lookup transport, scene sizes,
 the frame's group role, child/group isolation, and the ancestor anchors are
 structural and live in `ExpandChildC8aStructure`. -/
-def ExpandChildC8aGeometry (P : Params) (group : ModelBox)
+def ExpandChildC8aGeometry (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child _result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
@@ -279,6 +279,7 @@ def ExpandChildC8aGeometry (P : Params) (group : ModelBox)
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines →
     ∀ cb ∈ child.scene.boxes, frame.rect.Contained (shiftRect dx dy cb.rect)
 
 /-- The genuinely geometric remainder of `ExpandChildC8bStep`: the four
@@ -286,7 +287,7 @@ cross-scene clearance pairs (parent groups vs child labels, child groups vs
 parent labels, child groups vs the caption, and parent groups vs the
 caption).  The label classification is structural and lives in
 `ExpandChildC8bStructure`. -/
-def ExpandChildC8bGeometry (P : Params) (group : ModelBox)
+def ExpandChildC8bGeometry (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child _result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
@@ -296,6 +297,7 @@ def ExpandChildC8bGeometry (P : Params) (group : ModelBox)
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines →
     (∀ g ∈ parent.scene.boxes, g.role = "group" → ∀ cl ∈ child.scene.labels,
         Disjoint g.rect (shiftRect dx dy cl.rect) ∨
           g.rect.StrictInside (shiftRect dx dy cl.rect)) ∧
@@ -315,7 +317,7 @@ def ExpandChildC8bGeometry (P : Params) (group : ModelBox)
 cross-scene interior-clearance pairs.  Box-lookup transport, scene sizes,
 the label classification, and the owner-scope transports are structural and
 live in `ExpandChildC7Structure`. -/
-def ExpandChildC7Geometry (P : Params) (group : ModelBox)
+def ExpandChildC7Geometry (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
@@ -325,6 +327,7 @@ def ExpandChildC7Geometry (P : Params) (group : ModelBox)
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines →
     (∀ cl ∈ child.scene.labels, cl.owner ≠ group.id →
         ∀ pb ∈ parent.scene.boxes, pb.exclusive = true →
           pb.id ∉ group.id :: parent.scene.layoutDump.ancestors group.id →
@@ -348,7 +351,7 @@ child/group id isolation, the scope anchors `{group.id} ++ ancestors
 group.id` of every embedded box, and the isolation of the group's ancestor
 chain from other parent boxes.  These are proved from the expansion's
 assembly sources and the recursive id lemmas, not from geometry. -/
-def ExpandChildC8aStructure (P : Params) (_inp : Input) (_o : Options) (group : ModelBox)
+def ExpandChildC8aStructure (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
@@ -358,6 +361,7 @@ def ExpandChildC8aStructure (P : Params) (_inp : Input) (_o : Options) (group : 
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines →
     (∀ b : Box, child.scene.layoutDump.box? b.id = some b →
         result.scene.layoutDump.box? b.id = some (embedBox group.id dx dy b)) ∧
     (∀ b : Box, parent.scene.layoutDump.box? b.id = some b →
@@ -375,7 +379,7 @@ def ExpandChildC8aStructure (P : Params) (_inp : Input) (_o : Options) (group : 
 /-- The structural remainder of `ExpandChildC8bStep`: the label
 classification `ExpandChildLabelClassesC8`.  The four cross-scene
 clearance pairs are geometric and live in `ExpandChildC8bGeometry`. -/
-def ExpandChildC8bStructure (P : Params) (_inp : Input) (_o : Options) (group : ModelBox)
+def ExpandChildC8bStructure (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
@@ -385,6 +389,7 @@ def ExpandChildC8bStructure (P : Params) (_inp : Input) (_o : Options) (group : 
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines →
     ExpandChildLabelClassesC8 P group titleLines titleHeight frame dx dy parent child result
 
 /-- The structural remainder of `ExpandChildC7Step`: box-lookup transport,
@@ -392,7 +397,7 @@ scene-size bounds, the label classification `ExpandChildLabelClasses`, and
 the owner-scope transports for child and parent labels plus the scope
 anchors of every merged label.  The four cross-scene clearance pairs are
 geometric and live in `ExpandChildC7Geometry`. -/
-def ExpandChildC7Structure (P : Params) (_inp : Input) (_o : Options) (group : ModelBox)
+def ExpandChildC7Structure (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
@@ -402,6 +407,7 @@ def ExpandChildC7Structure (P : Params) (_inp : Input) (_o : Options) (group : M
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines →
     (∀ b : Box, child.scene.layoutDump.box? b.id = some b →
         result.scene.layoutDump.box? b.id = some (embedBox group.id dx dy b)) ∧
     (∀ b : Box, parent.scene.layoutDump.box? b.id = some b →
@@ -425,9 +431,9 @@ def ExpandChildC7Structure (P : Params) (_inp : Input) (_o : Options) (group : M
 `expandChild` call `layoutRecursive` performs satisfies `ExpandChildC8aStep`,
 discharged from the named geometric and structural remainders. -/
 theorem expandChild_c8a_step_of_geometry
-    (hgeoC8a : ∀ (P : Params) (group : ModelBox) (titleHeight : Int)
-      (parent child result : FamilyResult),
-      ExpandChildC8aGeometry P group titleHeight parent child result)
+    (hgeoC8a : ∀ (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleHeight : Int) (parent child result : FamilyResult),
+      ExpandChildC8aGeometry P inp o group titleHeight parent child result)
     (hstructC8a : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -445,19 +451,19 @@ theorem expandChild_c8a_step_of_geometry
         parent child res →
       ExpandChildC8aStep P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
-  intro frame tl dx dy hframe hdx hdy
+  intro frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨s1, s2, s3, s4, s5, s6, s7, s8⟩ :=
     hstructC8a fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctx frame tl dx dy hframe hdx hdy
+      hexpand hframed hctx frame tl dx dy hframe hdx hdy hwrap
   exact ⟨s1, s2, s3, s4, s5, s6,
-    hgeoC8a P group titleHeight parent child res frame tl dx dy hframe hdx hdy,
+    hgeoC8a P inp o group titleHeight parent child res frame tl dx dy hframe hdx hdy hwrap,
     s7, s8⟩
 
 /-- The `hgeo` shape `layoutRecursive_c8b_of_flat` consumes. -/
 theorem expandChild_c8b_step_of_geometry
-    (hgeoC8b : ∀ (P : Params) (group : ModelBox) (titleHeight : Int)
-      (parent child result : FamilyResult),
-      ExpandChildC8bGeometry P group titleHeight parent child result)
+    (hgeoC8b : ∀ (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleHeight : Int) (parent child result : FamilyResult),
+      ExpandChildC8bGeometry P inp o group titleHeight parent child result)
     (hstructC8b : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -475,17 +481,17 @@ theorem expandChild_c8b_step_of_geometry
         parent child res →
       ExpandChildC8bStep P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
-  intro frame tl dx dy hframe hdx hdy
+  intro frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨g1, g2, g3, g4⟩ :=
-    hgeoC8b P group titleHeight parent child res frame tl dx dy hframe hdx hdy
+    hgeoC8b P inp o group titleHeight parent child res frame tl dx dy hframe hdx hdy hwrap
   exact ⟨hstructC8b fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctx frame tl dx dy hframe hdx hdy, g1, g2, g3, g4⟩
+      hexpand hframed hctx frame tl dx dy hframe hdx hdy hwrap, g1, g2, g3, g4⟩
 
 /-- The `hgeo` shape `layoutRecursive_c7_of_flat` consumes. -/
 theorem expandChild_c7_step_of_geometry
-    (hgeoC7 : ∀ (P : Params) (group : ModelBox) (titleHeight : Int)
-      (parent child result : FamilyResult),
-      ExpandChildC7Geometry P group titleHeight parent child result)
+    (hgeoC7 : ∀ (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleHeight : Int) (parent child result : FamilyResult),
+      ExpandChildC7Geometry P inp o group titleHeight parent child result)
     (hstructC7 : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -503,12 +509,12 @@ theorem expandChild_c7_step_of_geometry
         parent child res →
       ExpandChildC7Step P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
-  intro frame tl dx dy hframe hdx hdy
+  intro frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨s1, s2, s3, s4, s5, s6, s7, s8⟩ :=
     hstructC7 fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctx frame tl dx dy hframe hdx hdy
+      hexpand hframed hctx frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨g1, g2, g3, g4⟩ :=
-    hgeoC7 P group titleHeight parent child res frame tl dx dy hframe hdx hdy
+    hgeoC7 P inp o group titleHeight parent child res frame tl dx dy hframe hdx hdy hwrap
   exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
 
 /-! ### Generic lookup and id-partition helpers -/

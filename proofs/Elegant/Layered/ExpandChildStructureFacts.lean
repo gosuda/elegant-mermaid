@@ -21,21 +21,6 @@ set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
 
-/-- The executed title fact: `titleLines` is the wrapped group title
-`expandChild` measures the frame size from, at the run's own metric and wrap
-target.  `expandChild_sources` exposes exactly this equation for the lines of
-a successful run. -/
-def ExpandChildTitleWrapped (P : Params) (inp : Input) (o : Options)
-    (group : ModelBox) (titleLines : List Measure.Line) : Prop :=
-  ∃ metric : Measure.Metric,
-    metricOf o.profile = .ok metric ∧
-    StyledMeasure.wrap metric
-      (Measure.wrapTarget metric.profile P.wrapWidth
-        (if o.profile == .cell then o.maxWidth else 0))
-      (inp.texts.getD
-        ((inp.boxes.findIdx? (fun box => box.id == group.id)).getD 0)
-        group.id).toList = .ok titleLines
-
 
 /-- The two ancestry conjuncts of `ExpandChildC8aStructure`, split out as a
 named residual: the scope anchors `{group.id} ++ ancestors group.id` of every
@@ -586,4 +571,57 @@ theorem expandChild_c7_structure_wrapped
     hdx hdy hwrap).2
   exact ⟨hcore.1, hcore.2.1, hcore.2.2.1, hcore.2.2.2.1, hcl,
     hscopes.1, hscopes.2.1, hscopes.2.2⟩
+
+/-- The `hstructC8a` premise shape of `expandChild_c8a_step_of_geometry`:
+the C8a structure residual of every `expandChild` call the recursion
+performs, discharged from the wrapped core and the split-out ancestry
+residual. -/
+theorem expandChild_c8a_structure
+    (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+    (titleLines : List Measure.Line) (titleHeight : Int)
+    (parent child res : FamilyResult)
+    (_hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (_hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+      parent child res)
+    (hanc : ExpandChildC8aAncestry group parent child res) :
+    ExpandChildC8aStructure P inp o group titleHeight parent child res := by
+  obtain ⟨hwf, hgroup, _hpboxes, hchild, hparent, hexpand'⟩ := hctx
+  exact expandChild_c8a_structure_wrapped hwf hgroup hchild hparent hexpand' hanc
+
+/-- The `hstructC8b` premise shape of `expandChild_c8b_step_of_geometry`:
+the C8b structure residual of every `expandChild` call the recursion
+performs, discharged from the label classification under the label-owner
+invariant. -/
+theorem expandChild_c8b_structure
+    (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+    (titleLines : List Measure.Line) (titleHeight : Int)
+    (parent child res : FamilyResult)
+    (_hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (_hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+      parent child res)
+    (howners : ExpandChildLabelOwners inp parent child) :
+    ExpandChildC8bStructure P inp o group titleHeight parent child res := by
+  obtain ⟨_hwf, _hgroup, _hpboxes, _hchild, _hparent, hexpand'⟩ := hctx
+  exact expandChild_c8b_structure_wrapped hexpand' howners
+
+/-- The `hstructC7` premise shape of `expandChild_c7_step_of_geometry`: the
+C7 structure residual of every `expandChild` call the recursion performs,
+discharged from the wrapped core, the label classification under the
+label-owner invariant, and the split-out label-scope residual. -/
+theorem expandChild_c7_structure
+    (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+    (titleLines : List Measure.Line) (titleHeight : Int)
+    (parent child res : FamilyResult)
+    (_hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (_hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+      parent child res)
+    (howners : ExpandChildLabelOwners inp parent child)
+    (hscopes : ExpandChildC7LabelScopes P group parent child res) :
+    ExpandChildC7Structure P inp o group titleHeight parent child res := by
+  obtain ⟨hwf, hgroup, _hpboxes, hchild, hparent, hexpand'⟩ := hctx
+  exact expandChild_c7_structure_wrapped hwf hgroup hchild hparent hexpand' howners
+    hscopes
 end Elegant.Layered.PipelineImpl
