@@ -1332,3 +1332,9 @@ Elegant.Layered.PipelineImpl.expandChild_labels_eq_wrapped
 Elegant.Layered.PipelineImpl.expandChild_label_classes_wrapped
 Elegant.Layered.PipelineImpl.expandChild_c8b_structure_wrapped
 Elegant.Layered.PipelineImpl.expandChild_c7_structure_wrapped
+Elegant.Kinds.layoutFamily_check_of_seams
+Elegant.Kinds.class_valid_of_seams
+Elegant.Kinds.er_valid_of_seams
+Elegant.Kinds.c4_valid_of_seams
+Elegant.Kinds.requirement_valid_of_seams
+Elegant.Kinds.agentflow_valid_of_seams
