@@ -26,6 +26,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
+:root {
   --emd-accent: #0090ff;
   --emd-bg: #111113;
   --emd-border: #696e77;
@@ -48,4 +49,5 @@
   --emd-success: #71d083;
   --emd-surface: #18191b;
   --emd-warning: #ffca16;
+}
 }
