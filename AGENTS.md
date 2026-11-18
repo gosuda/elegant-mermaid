@@ -13,13 +13,17 @@ Run the gates from the repository root:
 
 A step that creates a gate MUST add its recipe to the `Justfile` and MUST add the gate to `verify` in the same commit.
 
+The Go and Rust engines MUST give byte-identical output. A change to the output of one engine MUST change the other engine in the same commit.
+
+You MUST NOT rebuild `bin/emd-go`, `bin/emd-rs`, or `proofs/.lake/build/bin/geomcheck` while `parity`, `validate`, `lean-parity`, or `kernel-diff` runs. These recipes read the binaries from disk.
+
+The corpus recipes list their files with `git ls-files`. Run them in a git checkout or a git worktree. They fail in an exported tree.
+
 ## CI split
 
 CI runs `gen-check go-check rust-check build parity`.
 
-`pages.yml` runs `playground-wasm`.
-
-Every other recipe is local only. The local-only recipes are `gen`, `proofs`, `model`, `oracle`, `layered-random-check`, `kernel-diff`, `validate`, `lean-parity`, `quality`, `theme-check`, `d3-check`, `fuzz-smoke`, `slop`, `playground-check`, `playground-e2e`, `wasm-parity`, `verify`, `check-fast`, `mutants`, `coverage`, and `bench`.
+Every other recipe is local only.
 
 The reasons are:
 
@@ -27,6 +31,12 @@ The reasons are:
 - `proofs` needs the Lean toolchain.
 - `model` needs a JDK.
 - The rest would exceed the 30-minute job limit.
+
+## Lean proofs
+
+`just proofs` rejects `sorry`, `axiom`, `native_decide`, `partial def`, `unsafe`, `implemented_by`, and `extern` in every `.lean` file below `proofs/Elegant/` and `proofs/ElegantGeometry/`. The scan includes files that git does not track.
+
+The audit checks only the theorems that `proofs/theorems.txt` lists. A theorem is proved only when `proofs/Elegant.lean` imports its module and `proofs/theorems.txt` lists its full name.
 
 ## Write sets
 
@@ -58,8 +68,4 @@ Kind workers MUST NOT share a registry file.
 
 Workers MUST NOT run repository-wide gates. The parent runs the `verify` recipe after each step.
 
-Only the parent writes `corpus/divergences.json`.
-
-You MUST NOT copy text from `.references/mermaid-linter`.
-
-Only `tools/specgen` writes generated files.
+Only `tools/specgen` writes generated files. This includes the kinds list in `README.md` between the `kinds:start` and `kinds:end` markers.
