@@ -315,3 +315,6 @@ import Elegant.Layered.LaneBandsPhaseFacts
 import Elegant.Layered.FamilyC5B
 import Elegant.Layered.RegionReduction
 import Elegant.Chart.TreemapLabelOwnerCases
+import Elegant.Kinds.ArchitectureC8
+import Elegant.Layered.ExactParentInComponent
+import Elegant.IshikawaDeeperEarlierProof

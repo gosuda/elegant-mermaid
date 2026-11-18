@@ -1409,3 +1409,7 @@ Elegant.Layered.PipelineImpl.layoutRIds_nil
 Elegant.Layered.PipelineImpl.layoutNotes_noBundles
 Elegant.Layered.state_reduces_exact
 Elegant.Treemap.C8b.label_owner_cases'
+Elegant.Kinds.Architecture.architecture_c8b
+Elegant.Kinds.Architecture.architecture_valid
+Elegant.Layered.PipelineImpl.exactParentInComponent
+Elegant.Ishikawa.hardBDeeperEarlierReal
