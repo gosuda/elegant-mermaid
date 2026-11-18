@@ -31,4 +31,9 @@ jobs:
         with:
           tool: "just@1.59.0,cargo-nextest@0.9.151,cargo-deny@0.20.2"
       - name: "Run the core gates"
-        run: "just gen-check go-check rust-check build parity"
+        run: |
+          just gen-check
+          just go-check
+          just rust-check
+          just build
+          just parity
