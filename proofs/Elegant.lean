@@ -308,3 +308,4 @@ import Elegant.Layered.RecursiveBLiftsA
 import Elegant.Layered.RecursiveBLiftsB
 import Elegant.Layered.ExpandChildTitleBandProof
 import Elegant.Layered.CaptionCrossPartProof
+import Elegant.Layered.GroupAnchorFactsProof

@@ -1389,3 +1389,5 @@ Elegant.Layered.PipelineImpl.layoutRecursiveB_c8b
 Elegant.Layered.PipelineImpl.expandChild_title_band
 Elegant.Layered.PipelineImpl.titleExclusiveCrossPart
 Elegant.Layered.PipelineImpl.sceneCaptionBoxContainment_of_residuals
+Elegant.Layered.PipelineImpl.groupAnchorSelection
+Elegant.Layered.PipelineImpl.groupTopSubtreeRankProper_of_seams
