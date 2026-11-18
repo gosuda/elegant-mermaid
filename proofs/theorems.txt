@@ -1342,3 +1342,7 @@ Elegant.Layered.PipelineImpl.expandChild_c6_step_of_geometry
 Elegant.Layered.PipelineImpl.plainMemberRankLtProxy_of_measuredGraph
 Elegant.Layered.PipelineImpl.componentCandidate_bottom_find_eq
 Elegant.Layered.PipelineImpl.measuredGraph_bottom_pair_eq
+Elegant.Treemap.C8b.internal_label_header_band_refutes_untouched
+Elegant.Treemap.C8b.placeHeader_skip_concrete
+Elegant.Treemap.C8b.placeHeader_skip_of_nonpos_height
+Elegant.Treemap.C8b.treemap_header_bottom_within_band

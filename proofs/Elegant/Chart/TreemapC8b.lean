@@ -150,12 +150,12 @@ structure Kernels (m : Model) : Prop where
     l.y + l.h ≤ (tileRect n.rect).y + (constants m).header + (constants m).padY →
     Rect.StrictInside (tileRect n.rect) l →
     Disjoint (tileRect g.rect) l
-  /-- A label written for an internal node is a `placeHeader` band write: its
-  rectangle sits strictly inside the node tile and its bottom edge lies at or
-  below the header band bottom (`tileRect.y + header + padY` bounds the body
-  area below the band). This covers both the `.name` and `.value` header
-  writes; untouched labels owned by internal nodes keep the zero rectangle and
-  are excluded by the strict containment. -/
+  /-- A label owned by an internal node is either a `placeHeader` band write:
+  its rectangle sits strictly inside the node tile and its bottom edge lies
+  at or below the header band bottom (`tileRect.y + header + padY` bounds the
+  body area below the band), or the node's header step skipped the write
+  (fit failure or a too-low tile) and the label keeps the initial zero
+  rectangle. This covers both the `.name` and `.value` header writes. -/
   internal_label_header_band : ∀ (ctx : Ctx m) (result : Layered.FamilyResult),
     WellFormed m → Kinds.Treemap.layout m = .ok result →
     ∀ (n : Node), n ∈ ctx.final → ∀ (l : Label),
@@ -164,7 +164,7 @@ structure Kernels (m : Model) : Prop where
       n.source.id ∈ boxAncestors m.boxes m.boxes.length g.source.id) →
     l.rect.y + l.rect.h ≤ (tileRect n.rect).y +
         (constants m).header + (constants m).padY ∧
-      Rect.StrictInside (tileRect n.rect) l.rect
+      (Rect.StrictInside (tileRect n.rect) l.rect ∨ l.rect = ⟨0, 0, 0, 0⟩)
 
 /-! ### The dump-level bridge -/
 
@@ -318,12 +318,22 @@ theorem treemap_c8b (m : Model) (result : Layered.FamilyResult)
         have hneNG : n.source.id ≠ G.source.id := by
           intro he
           exact boxAncestors_irrefl m hwf G.source.id (he ▸ hNancG)
-        obtain ⟨hband, hinside⟩ := K.internal_label_header_band hctx result hwf
+        obtain ⟨hband, hstrict⟩ := K.internal_label_header_band hctx result hwf
           h n hnmem2 hl hlmem hnid ⟨G, hGmem, hNancG⟩
-        have hdisjG := K.descendant_tile_clear_of_header_label hctx n G hl.rect
-          hnmem2 hGmem hNancG hneNG hband hinside
-        rw [hGrect]
-        exact Or.inl hdisjG
+        rcases hstrict with hinside | hzero
+        · have hdisjG := K.descendant_tile_clear_of_header_label hctx n G hl.rect
+            hnmem2 hGmem hNancG hneNG hband hinside
+          rw [hGrect]
+          exact Or.inl hdisjG
+        · -- Zero-rectangle label: it meets no interior, or the tile is
+          -- degenerate.
+          rcases K.tileRect_nonneg_or_degenerate hctx G hGmem with ⟨hx, hy⟩ | hw | hh
+          · rw [hGrect, hzero]
+            exact Or.inl ((Disjoint.comm _ _).mp (disjoint_zero_origin _ hx hy))
+          · rw [hGrect]
+            exact Or.inl (disjoint_of_degenerate _ _ (Or.inl hw))
+          · rw [hGrect]
+            exact Or.inl (disjoint_of_degenerate _ _ (Or.inr hh))
       · -- Unrelated or identical: identical ids collapse to the same node
         -- (source ids are nodup), whereupon the label sits inside `g`.
         by_cases heq : G.source.id = n.source.id
