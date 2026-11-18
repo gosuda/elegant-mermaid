@@ -1360,3 +1360,4 @@ Elegant.Layered.PipelineImpl.foreignBorderSpansSeparated
 Elegant.Ishikawa.branch5_block_contiguity
 Elegant.Ishikawa.branch5_root_order
 Elegant.Ishikawa.hard_b_branch5_placement_block'
+Elegant.Layered.PipelineImpl.foreignNonGroupSpansClear

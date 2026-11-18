@@ -17,6 +17,7 @@ import Elegant.Layered.ExpandChildC6StepFacts
 import Elegant.Layered.BracketInsidePremisesProof
 import Elegant.Layered.FlatGroupEndpointsProof
 import Elegant.Layered.ForeignBorderSpansProof
+import Elegant.Layered.ForeignNonGroupSpansProof
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -62,7 +63,9 @@ structure LayeredSeams : Prop where
   foreignClusterRankSpans : ForeignClusterRankSpans
   foreignBorderLayerOrder : ForeignBorderLayerOrder
   foreignBorderChainXAligned : ForeignBorderChainXAligned
-  foreignNonGroupSpans : ForeignNonGroupSpansClear
+  bracketMarkersAtRank : BracketMarkersAtRank
+  plainClearOfSideMarker : PlainClearOfSideMarker
+  sideMarkerSpanAligned : SideMarkerSpanAligned
   frameLabels : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     ∀ (execution : SceneExecution inp o res),
       LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
@@ -149,7 +152,9 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       (flatC8a_of_span_seams
         (foreignBorderSpansSeparated S.foreignClusterRankSpans S.foreignBorderLayerOrder
           S.foreignBorderChainXAligned)
-        S.foreignNonGroupSpans hbracket)
+        (foreignNonGroupSpansClear S.bracketMarkersAtRank S.plainClearOfSideMarker
+          S.sideMarkerSpanAligned)
+        hbracket)
       subInputsWellFormed hstepC8a
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c8b_of_flat hflat8b subInputsWellFormed hstepC8b
