@@ -318,3 +318,14 @@ import Elegant.Chart.TreemapLabelOwnerCases
 import Elegant.Kinds.ArchitectureC8
 import Elegant.Layered.ExactParentInComponent
 import Elegant.IshikawaDeeperEarlierProof
+import Elegant.Chart.TreemapHeaderBandKernel
+import Elegant.Kinds.TreemapValidProof
+import Elegant.Layered.ForeignClusterFactsProof
+import Elegant.Layered.ForeignBorderAnchorsProof
+import Elegant.Layered.SideMarkerFactsProof
+import Elegant.Layered.ExpandChildLabelFactsProof
+import Elegant.Layered.MergedAncestorsProof
+import Elegant.Layered.ExpandChildC7GeometryProof
+import Elegant.Layered.ExpandChildC8GeometryProof
+import Elegant.Layered.ExpandChildChildSceneProof
+import Elegant.DumpLaminar
