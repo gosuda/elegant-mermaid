@@ -335,3 +335,6 @@ import Elegant.Layered.FlatC6SeamProof
 import Elegant.Layered.FlatC6ScopeResidualsProof
 import Elegant.Layered.LoopBoxBorderZeroProof
 import Elegant.Layered.ForeignBottomInCandidateProof
+import Elegant.Layered.CaptionFallbackOwnerProof
+import Elegant.Layered.ExactPartBounded
+import Elegant.IshikawaDeeperEnvTransportProof
