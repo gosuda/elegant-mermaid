@@ -19,6 +19,7 @@ import Elegant.Layered.FlatGroupEndpointsProof
 import Elegant.Layered.ForeignBorderSpansProof
 import Elegant.Layered.ForeignNonGroupSpansProof
 import Elegant.Layered.RunLocalLabelClearanceProof
+import Elegant.Layered.GroupTailPortProof
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -46,7 +47,6 @@ sub-input well-formedness seams are discharged (`SubInputWellFormedFacts.lean`).
 structure LayeredSeams : Prop where
   groupTopRank : GroupTopSubtreeRankProper
   groupBottomBoundary : GroupBottomBoundaryFacts
-  groupTailPort : GroupTailPortOnYs
   groupAnchorSelection : GroupAnchorSelection
   flatC6 : FlatC6
   dummyRowClear : ∀ (inp : Input) (o : Options) (res : FamilyResult)
@@ -152,7 +152,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       hwf hfp hrec).2,
     layoutFamily_c4 h,
     layoutFamily_c5_measured
-      (flatGroupEndpoints S.groupTopRank S.groupBottomBoundary S.groupTailPort
+      (flatGroupEndpoints S.groupTopRank S.groupBottomBoundary groupTailPortOnYs
         S.groupAnchorSelection)
       subInputWellFormed h,
     layoutRecursive_c6_of_flat S.flatC6 hclear subInputWellFormed hstepC6
