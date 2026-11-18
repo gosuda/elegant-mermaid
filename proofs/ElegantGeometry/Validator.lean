@@ -67,11 +67,11 @@ def ancestors (d : LayoutDump) (id : String) : List String :=
 def routeScope (d : LayoutDump) (r : Route) : List String :=
   [r.fromId, r.toId] ++ d.ancestors r.fromId ++ d.ancestors r.toId
 
-/-- The ancestors of a label's owner, which is a route id or a box id. -/
+/-- The label's owning box and its ancestors, or a route's endpoint ancestors. -/
 def labelOwnerAnc (d : LayoutDump) (l : Label) : List String :=
   match d.routes.find? (fun r => r.id == l.owner) with
   | some r => d.ancestors r.fromId ++ d.ancestors r.toId
-  | none => d.ancestors l.owner
+  | none => l.owner :: d.ancestors l.owner
 
 /-- The box ids, in dump order. -/
 def boxIds (d : LayoutDump) : List String := d.boxes.map (fun b => b.id)
@@ -276,7 +276,7 @@ abbrev C6 (d : LayoutDump) : Prop :=
   ∀ r ∈ d.routes, ∀ b ∈ d.boxes, b.exclusive = true → b.id ∉ d.routeScope r →
     ¬ Polyline.hitsRect r.points b.rect
 
-/-- Clause 7: a label does not overlap an exclusive box outside its owner's ancestors. -/
+/-- Clause 7: a label does not overlap an exclusive box outside its owner scope. -/
 abbrev C7 (d : LayoutDump) : Prop :=
   ∀ l ∈ d.labels, ∀ b ∈ d.boxes, b.exclusive = true → b.id ∉ d.labelOwnerAnc l →
     ¬ l.rect.meetsInterior b.rect

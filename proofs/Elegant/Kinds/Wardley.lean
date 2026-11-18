@@ -163,4 +163,20 @@ theorem decode_pipeline_first_index (m : Model) (input : Input)
       have hfirst : first ∈ pipeline.children := by rw [hc]; exact List.mem_cons_self
       simpa [hc] using hchildren first hfirst
 
+set_option maxRecDepth 4096 in
+set_option maxHeartbeats 800000 in
+/-- Decimal declaration suffixes cannot collide with the reserved plot ID. -/
+theorem pl_toString_ne_plot {k : Nat} : "pl" ++ toString k ≠ "plot" := by
+  intro h
+  have hplot : ("plot" : String) = "pl" ++ "ot" := by rfl
+  rw [hplot] at h
+  have htail : toString k = "ot" :=
+    (String.append_right_inj "pl").mp h
+  have hround : String.toNat? (toString k) = some k := by simp
+  rw [htail] at hround
+  have hnone : String.toNat? "ot" = none := by
+    apply String.toNat?_eq_none
+    simp [← Bool.not_eq_true, String.isNat_iff]
+  rw [hnone] at hround
+  cases hround
 end Elegant.Kinds.Wardley

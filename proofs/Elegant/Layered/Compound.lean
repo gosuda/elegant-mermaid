@@ -274,6 +274,13 @@ theorem prepare_group_title_record (boxes : List ModelBox) (pad : Int)
                   else max ((titles.getD i (0, 0)).2 + pad) g.nodes[i].h } :=
   markNodes_getElem?_group boxes pad titles g.nodes hi hb hg
 
+theorem prepare_plain_node_record (boxes : List ModelBox) (pad : Int)
+    (titles : List (Int × Int)) (g : Graph) {i : Nat} (hi : i < g.nodes.length)
+    {box : ModelBox} (hb : boxes[i]? = some box) (hng : box.role ≠ .group) :
+    (prepare boxes pad titles g).nodes[i]? =
+      some { g.nodes[i]'hi with clusterPath := path boxes box } :=
+  markNodes_getElem?_node boxes pad titles g.nodes hi hb hng
+
 theorem prepare_group_width (boxes : List ModelBox) (pad : Int) (titles : List (Int × Int))
     (g : Graph) {i : Nat} (hi : i < g.nodes.length) {box : ModelBox}
     (hb : boxes[i]? = some box) (hg : box.role = .group) {n : Node}

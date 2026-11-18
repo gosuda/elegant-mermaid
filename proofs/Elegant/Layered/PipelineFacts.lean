@@ -3536,6 +3536,8 @@ theorem layoutFamily_geometry_ok {inp : Input} {o : Options} {res : FamilyResult
     by_cases he : o.limits.maxEdges < inp.routes.length <;>
     by_cases ht : o.limits.maxTextBytes < inputTextBytes inp <;>
     by_cases hw : modelWellFormed (inputModel inp o) <;>
+    by_cases hf : framedParents inp <;>
+    by_cases ha : attachedNoteParents inp <;>
     cases hg : PipelineImpl.layoutRecursive (inp.boxes.length + 1) inp o <;>
     simp_all [layoutFamily]
 
@@ -3545,6 +3547,8 @@ theorem layoutFamily_wellFormed {inp : Input} {o : Options} {res : FamilyResult}
     by_cases he : o.limits.maxEdges < inp.routes.length <;>
     by_cases ht : o.limits.maxTextBytes < inputTextBytes inp <;>
     by_cases hw : modelWellFormed (inputModel inp o) <;>
+    by_cases hf : framedParents inp <;>
+    by_cases ha : attachedNoteParents inp <;>
     simp_all [layoutFamily, WellFormed]
 
 theorem normalize_gapDeclsDistinct {g : Graph} {rank : List Int} {p : Proper}
@@ -4310,17 +4314,21 @@ theorem layoutFamily_success {inp : Input} {o : Options} {result : FamilyResult}
       · split at h
         · cases h
         · next hadmitted =>
-          have hwf : WellFormed (inputModel inp o) := by
-            unfold WellFormed
-            cases hb : modelWellFormed (inputModel inp o) with
-            | false => simp [hb] at hadmitted
-            | true => rfl
-          cases hr : PipelineImpl.layoutRecursive (inp.boxes.length + 1) inp o with
-          | error error => simp [hr] at h
-          | ok out =>
-            simp only [hr, Except.ok.injEq] at h
-            subst result
-            exact ⟨hwf, rfl⟩
+          split at h
+          · cases h
+          · split at h
+            · cases h
+            · have hwf : WellFormed (inputModel inp o) := by
+                unfold WellFormed
+                cases hb : modelWellFormed (inputModel inp o) with
+                | false => simp [hb] at hadmitted
+                | true => rfl
+              cases hr : PipelineImpl.layoutRecursive (inp.boxes.length + 1) inp o with
+              | error error => simp [hr] at h
+              | ok out =>
+                simp only [hr, Except.ok.injEq] at h
+                subst result
+                exact ⟨hwf, rfl⟩
 
 /-- Successful base execution supplies both global route-declaration ownership
 and the disjoint component packing used to assemble its final scene. -/
@@ -4369,6 +4377,28 @@ theorem placeComponent_rect_dimensions (P : PipelineImpl.Params) (cg : Graph)
           (PipelineImpl.frameRect P cg run i).h)) := by
   unfold PipelineImpl.placeComponent
   simp [PipelineImpl.shiftRect, Function.comp_def]
+
+theorem framedParents_parent {inp : Input} (h : framedParents inp = true)
+    {box : ModelBox} (hbox : box ∈ inp.boxes) (hne : box.parent ≠ "") :
+    ∃ parent ∈ inp.boxes, parent.id = box.parent ∧ parent.role = .group ∧
+      inp.fixedSizes.any (fun fixed => fixed.1 == parent.id) = false := by
+  unfold framedParents at h
+  have hbox' := List.all_eq_true.mp h box hbox
+  simp only [Bool.or_eq_true, beq_iff_eq] at hbox'
+  rcases hbox' with hroot | hparent
+  · exact absurd hroot hne
+  · obtain ⟨parent, hmem, hcondition⟩ := List.any_eq_true.mp hparent
+    simp only [Bool.and_eq_true, beq_iff_eq, Bool.not_eq_true'] at hcondition
+    exact ⟨parent, hmem, hcondition.1.1, by simpa using hcondition.1.2, hcondition.2⟩
+
+theorem layoutFamily_framed_parents {inp : Input} {o : Options} {res : FamilyResult}
+    (h : layoutFamily inp o = .ok res) : framedParents inp = true := by
+  by_cases hn : o.limits.maxNodes < inp.boxes.length <;>
+    by_cases he : o.limits.maxEdges < inp.routes.length <;>
+    by_cases ht : o.limits.maxTextBytes < inputTextBytes inp <;>
+    by_cases hw : modelWellFormed (inputModel inp o) <;>
+    by_cases hf : framedParents inp <;>
+    simp_all [layoutFamily]
 
 end Layered
 end Elegant

@@ -85,7 +85,16 @@ theorem forward_runtime_clearance {slot gap : Int} {rankGap : Nat → Int} {p : 
       have key := junction_miss (G := routeGeo p layers x y top) hG hd hv hvd hnt hvpos
         (tx := base.targetX.getD i 0) (sx := base.sourceX.getD j 0)
         ⟨pi.2.2.1, pi.2.2.2⟩ ⟨pj.1, pj.2.1⟩
-      simpa only [pieceEnd, pieceStart, hhead, hs, ht, routeGeo, Geo.rect, boxRect] using key
+      have hfk : frameKind p (edgeAt p j).tail = 0 := frameKind_of_chain ⟨nd, hnd, hdum⟩
+      have hps : pieceStart p y lr.routing j =
+          ⟨base.sourceX.getD j 0, (routeGeo p layers x y top).yv (edgeAt p j).tail +
+            (routeGeo p layers x y top).hv (edgeAt p j).tail⟩ := by
+        simp [pieceStart, routeGeo, hfk, hs]
+      have hpe : pieceEnd p y lr.routing i =
+          ⟨base.targetX.getD i 0, (routeGeo p layers x y top).yv (edgeAt p j).tail⟩ := by
+        simp [pieceEnd, routeGeo, hhead, ht]
+      rw [hps, hpe, boxRect]
+      exact key
     · exact Zipped.imp _ _ (fun i hi pc hpc =>
         ⟨(pieceOf_basic hpc).1, (pieceOf_basic hpc).2.1,
           forward_piece_pairs hr hF hv hvpos (mem_edgesOf hi)

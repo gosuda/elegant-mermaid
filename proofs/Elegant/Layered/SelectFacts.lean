@@ -90,6 +90,48 @@ theorem independent_inside {boxes : List ModelBox} {routes : List ModelRoute} {b
   have h2 := List.any_eq_false.mp h.2 r hr
   simpa using h2
 
+theorem layoutRecursive_succ_sources
+    {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (h : layoutRecursive (fuel + 1) inp o = .ok res) :
+    (inp.boxes.find? (fun box => Compound.independent inp.boxes inp.routes box &&
+        !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) = none ∧ layout inp o = .ok res) ∨
+    ∃ (group : ModelBox) (P : Params) (metric : Measure.Metric)
+      (child : FamilyResult) (titleLines : List Measure.Line) (parent : FamilyResult),
+      inp.boxes.find? (fun box => Compound.independent inp.boxes inp.routes box &&
+        !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) = some group ∧
+      checkedParams o.profile inp.kind = .ok P ∧
+      metricOf o.profile = .ok metric ∧
+      layoutRecursive fuel
+        (selectInput inp (fun box => Compound.inside inp.boxes group.id box.id) group.id)
+        { o with direction := directionOf group.direction } = .ok child ∧
+      StyledMeasure.wrap metric
+        (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
+        (inp.texts.getD
+          ((inp.boxes.findIdx? (fun box => box.id == group.id)).getD 0) group.id).toList =
+            .ok titleLines ∧
+      let titleWidth := titleLines.foldl (fun width line => max width line.width) 0
+      let titleHeight := (max 1 titleLines.length : Int) * P.lineH
+      let size := childFrameSize group.direction P.clusterPad titleWidth titleHeight
+        ⟨child.scene.canvas.w - 2 * P.canvasMargin, child.scene.canvas.h - 2 * P.canvasMargin⟩
+      let parentInput := selectInput inp (fun box => !Compound.inside inp.boxes group.id box.id)
+      layoutRecursive fuel
+        { parentInput with
+          fixedSizes := parentInput.fixedSizes ++ [(group.id, size)]
+          fixedChildren := parentInput.fixedChildren ++ [(group.id, child.scene)]
+          fixedAreas := parentInput.fixedAreas ++ [(group.id, child.itemArea)] } o = .ok parent ∧
+      expandChild P inp o group titleHeight parent child = .ok res := by
+  unfold layoutRecursive at h
+  dsimp only at h
+  split at h
+  · next hn => exact Or.inl ⟨hn, h⟩
+  · next group hg =>
+    obtain ⟨P, hP, h⟩ := bind_ok' h
+    obtain ⟨metric, hm, h⟩ := bind_ok' h
+    obtain ⟨child, hc, h⟩ := bind_ok' h
+    obtain ⟨titleLines, ht, h⟩ := bind_ok' h
+    obtain ⟨parent, hp, h⟩ := bind_ok' h
+    exact Or.inr ⟨group, P, metric, child, titleLines, parent, hg, hP, hm, hc, ht, hp, h⟩
+
 theorem layoutRecursive_succ {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (h : layoutRecursive (fuel + 1) inp o = .ok res) :
     (inp.boxes.find? (fun box => Compound.independent inp.boxes inp.routes box &&
@@ -104,18 +146,10 @@ theorem layoutRecursive_succ {fuel : Nat} {inp : Input} {o : Options} {res : Fam
           { selectInput inp (fun box => !Compound.inside inp.boxes group.id box.id) with
             fixedSizes := a, fixedChildren := b, fixedAreas := c } o = .ok parent ∧
         expandChild P inp o group titleHeight parent child = .ok res := by
-  unfold layoutRecursive at h
-  dsimp only at h
-  split at h
-  · next hn => exact Or.inl ⟨hn, h⟩
-  · next group hg =>
-    right
-    obtain ⟨P, _, h⟩ := bind_ok' h
-    obtain ⟨_, _, h⟩ := bind_ok' h
-    obtain ⟨child, hc, h⟩ := bind_ok' h
-    obtain ⟨_, _, h⟩ := bind_ok' h
-    obtain ⟨parent, hp, h⟩ := bind_ok' h
-    exact ⟨group, hg, P, _, child, parent, _, _, _, hc, hp, h⟩
+  rcases layoutRecursive_succ_sources h with hflat |
+    ⟨group, P, metric, child, titleLines, parent, hg, _, _, hc, _, hp, hexpand⟩
+  · exact Or.inl hflat
+  · exact Or.inr ⟨group, hg, P, _, child, parent, _, _, _, hc, hp, hexpand⟩
 
 theorem filterMap_find_ids {α : Type} (key : α → String) (ids : List String) (items : List α)
     (cover : ∀ id ∈ ids, ∃ item ∈ items, key item = id) {β : Type} (src : List β) (idOf : β → String)

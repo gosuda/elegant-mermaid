@@ -34,6 +34,11 @@ def shapeKind (b : ModelBox) : String :=
   let k := (b.shape.splitOn ":").headD ""
   if k == "" then "task" else k
 
+/-- A box declares the people card by shape `people` or a `people:`-prefixed form. This is the
+decidable classification the decoder's `shapeKind` match resolves to for every people box. -/
+def isPeople (b : ModelBox) : Bool :=
+  b.shape == "people" || b.shape.startsWith "people:"
+
 def load (m : Model) : Except LayoutError Constants := do
   let mut c := constants m.profile
   if m.profile == .vector then
@@ -152,6 +157,7 @@ def scene (m : Model) : Except LayoutError Scene := do
     for b in m.boxes do
       if shapeKind b == "people" && b.parent == t.id then
         assigned := assigned ++ [(b.id, shift people)]
+
     let paint : Paint := if t.band < 0 then plain "node" else
       { style := "series-tint", series := fin12 t.band.toNat }
     let peopleId := ((m.boxes.find? fun b => shapeKind b == "people" && b.parent == t.id).map (·.id)).getD ""
@@ -167,11 +173,25 @@ def scene (m : Model) : Except LayoutError Scene := do
   finish m ⟨ext.w + 2*c.margin, ext.h + 2*c.margin⟩ boxes items
 
 def uniquePeopleParents (m : Model) : Bool :=
-  decide (((m.boxes.filter fun b =>
-    b.shape == "people" || b.shape.startsWith "people:").map (·.parent)).Nodup)
+  decide (((m.boxes.filter isPeople).map (·.parent)).Nodup)
+
+/-- The same uniqueness test over the decoder's own `shapeKind` classification. The two
+spellings agree, so admitting both changes no accepted input. -/
+def uniqueDecodedPeopleParents (m : Model) : Bool :=
+  decide (((m.boxes.filter fun b => shapeKind b == "people").map (·.parent)).Nodup)
+
+/-- A box id must not be the empty root marker: the adapter keys people attachments by a
+task's id, so an empty task id would make the attachment look like a root sibling. -/
+def emptyBoxId (m : Model) : Bool :=
+  m.boxes.any fun b => b.id == ""
+
+/-- The adapter's admission test: no box id is the empty root marker, and at most one people
+attachment names each parent, under both the declared-shape and decoded classifications. -/
+def admitted (m : Model) : Bool :=
+  !emptyBoxId m && (uniquePeopleParents m && uniqueDecodedPeopleParents m)
 
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
-  if uniquePeopleParents m then
+  if admitted m then
     match scene m with
     | .error e => .error (.geometry e)
     | .ok s => .ok { scene := s, budgetExhausted := false }
@@ -262,29 +282,65 @@ theorem scene_routes_labels_empty {m : Model} {s : Scene}
     obtain ⟨hr, hl, _⟩ := finish_ok h
     exact ⟨hr, hl⟩
 
+theorem layout_admitted {m : Model} {result : Layered.FamilyResult}
+    (h : layout m = .ok result) : admitted m = true := by
+  unfold layout at h
+  split at h
+  · rename_i ha
+    exact ha
+  · cases h
+
 theorem layout_scene {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) : scene m = .ok result.scene := by
   unfold layout at h
   split at h
-  · cases hs : scene m with
-    | error e => simp only [hs] at h; cases h
-    | ok s =>
-      simp only [hs, Except.ok.injEq] at h
+  · split at h
+    · cases h
+    · rename_i hs
+      simp only [Except.ok.injEq] at h
       cases h
-      dsimp only
+      exact hs
   · cases h
 
+/-- The adapter admits no box whose id is the empty root marker. -/
+theorem layout_box_ids_nonempty {m : Model} {result : Layered.FamilyResult}
+    (h : layout m = .ok result) : ∀ box ∈ m.boxes, box.id ≠ "" := by
+  have ha := layout_admitted h
+  intro box hbox hid
+  have hany : emptyBoxId m = true := by
+    apply List.any_eq_true.mpr
+    exact ⟨box, hbox, by simpa [emptyBoxId] using hid⟩
+  unfold admitted at ha
+  rw [hany] at ha
+  exact absurd ha (by simp)
+
+/-- The adapter admits at most one people attachment per parent id. -/
+theorem layout_unique_people_parents {m : Model} {result : Layered.FamilyResult}
+    (h : layout m = .ok result) : uniquePeopleParents m = true := by
+  have ha := layout_admitted h
+  unfold admitted at ha
+  simp only [Bool.and_eq_true, Bool.not_eq_true'] at ha
+  exact ha.2.1
+
+/-- The decoder's own people classification also names at most one attachment per parent. -/
+theorem layout_unique_decoded_people_parents {m : Model} {result : Layered.FamilyResult}
+    (h : layout m = .ok result) : uniqueDecodedPeopleParents m = true := by
+  have ha := layout_admitted h
+  unfold admitted at ha
+  simp only [Bool.and_eq_true, Bool.not_eq_true'] at ha
+  exact ha.2.2
 
 theorem repeatedPeopleWitness_rejected :
     layout repeatedPeopleWitness = .error (.geometry .domain) := by
   have hp : uniquePeopleParents repeatedPeopleWitness = false := by decide
-  simp only [layout, hp, Bool.false_eq_true, ↓reduceIte]
+  have hadm : admitted repeatedPeopleWitness = false := by simp [admitted, hp]
+  simp only [layout, hadm, Bool.false_eq_true, ↓reduceIte]
 
 theorem repeatedPeopleGroupWitness_rejected :
     layout repeatedPeopleGroupWitness = .error (.geometry .domain) := by
   have hp : uniquePeopleParents repeatedPeopleGroupWitness = false := by decide
-  simp only [layout, hp, Bool.false_eq_true, ↓reduceIte]
-
+  have hadm : admitted repeatedPeopleGroupWitness = false := by simp [admitted, hp]
+  simp only [layout, hadm, Bool.false_eq_true, ↓reduceIte]
 
 theorem journey_c4 {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) : Validator.C4 result.scene.layoutDump := by
@@ -337,13 +393,8 @@ theorem journey_coordinates_checked {m : Model} {result : Layered.FamilyResult}
 
 theorem journey_unique_people_parents {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) :
-    ((m.boxes.filter fun b =>
-      b.shape == "people" || b.shape.startsWith "people:").map (·.parent)).Nodup := by
-  unfold layout at h
-  split at h
-  · rename_i hp
-    exact of_decide_eq_true hp
-  · cases h
+    ((m.boxes.filter isPeople).map (·.parent)).Nodup :=
+  of_decide_eq_true (layout_unique_people_parents h)
 
 theorem scene_finish_witness {m : Model} {s : Scene}
     (h : scene m = .ok s) :

@@ -452,6 +452,23 @@ theorem gantt_axis_position_inside (a : Axis) (seconds : Int)
       a.position seconds ≤ max a.left a.right := by
   exact linear_into_plot a.scale seconds hStart hEnd
 
+theorem gantt_bar_width_bound (a : Axis) (start finish edge : Int)
+    (hd : a.startTime ≤ a.endTime) (hr : a.left ≤ a.right)
+    (hs0 : a.startTime ≤ start) (hs1 : start ≤ a.endTime)
+    (hf : finish ≤ a.endTime) :
+    barWidth a start finish edge ≤ a.right - a.left + edge := by
+  by_cases heq : a.endTime = a.startTime
+  · have he : a.position finish = a.position start := by
+      simp only [Axis.position, Axis.scale, Linear.map, heq, ite_true]
+    unfold barWidth
+    rw [he]
+    omega
+  · have hs := gantt_axis_position_inside a start (by omega) (by omega)
+    have he := gantt_axis_position_inside a a.endTime (by omega) (by omega)
+    have hm := gantt_axis_monotone a (by omega) hr finish a.endTime hf
+    unfold barWidth
+    omega
+
 private theorem bar_row_bounds (p : Plan) (row : Int)
     (hRow : 0 ≤ row) (hLast : row < (p.rows.length : Int))
     (hHeight : 0 ≤ p.c.barH) (hGap : 0 ≤ p.c.rowGap) :
@@ -490,28 +507,29 @@ theorem gantt_clamped_bar_inside_plot (p : Plan) (task : Gantt.Task) (row : Int)
     (hVert : task.vert = false) (hMilestone : task.milestone = false)
     (hRow : 0 ≤ row) (hLast : row < (p.rows.length : Int))
     (hHeight : 0 ≤ p.c.barH) (hGap : 0 ≤ p.c.rowGap)
-    (hGutter : 0 ≤ p.c.gutter) (hSide : 0 ≤ p.c.sidePad)
     (hEdge : 0 ≤ p.c.edge) (hBudget : p.c.edge ≤ p.c.gutter + p.c.sidePad)
-    (hRange : p.c.gutter + p.c.sidePad + p.c.edge ≤ p.c.width)
+    (hRange : p.c.gutter ≤ p.c.width - p.c.sidePad)
     (hLeft : p.axis.left = p.c.gutter)
     (hRight : p.axis.right = p.c.width - p.c.sidePad)
-    (hStart : min p.axis.startTime p.axis.endTime ≤ task.startTime)
-    (hStartEnd : task.startTime ≤ max p.axis.startTime p.axis.endTime)
-    (hEnd : min p.axis.startTime p.axis.endTime ≤ task.renderEnd)
-    (hEndEnd : task.renderEnd ≤ max p.axis.startTime p.axis.endTime) :
+    (hDomain : p.axis.startTime ≤ p.axis.endTime)
+    (hStart : p.axis.startTime ≤ task.startTime)
+    (hStartEnd : task.startTime ≤ p.axis.endTime)
+    (hEndEnd : task.renderEnd ≤ p.axis.endTime) :
     p.plot.Contained
       { (p.taskRect task row) with
         x := clamp (p.taskRect task row).x 0
           (max (p.c.width - (p.taskRect task row).w) 0) } := by
-  have hs := gantt_axis_position_inside p.axis task.startTime hStart hStartEnd
-  have he := gantt_axis_position_inside p.axis task.renderEnd hEnd hEndEnd
-  rw [hLeft, hRight] at hs he
+  have hw := gantt_bar_width_bound p.axis task.startTime task.renderEnd p.c.edge
+    hDomain (by omega) hStart hStartEnd hEndEnd
+  rw [hLeft, hRight] at hw
+  have hw0 : 0 ≤ barWidth p.axis task.startTime task.renderEnd p.c.edge := by
+    unfold barWidth
+    omega
   have hv := bar_row_bounds p row hRow hLast hHeight hGap
   have hx := clamp_between (p.axis.position task.startTime) 0
     (max (p.c.width - barWidth p.axis task.startTime task.renderEnd p.c.edge) 0)
   simp only [Plan.plot, Plan.taskRect, hVert, hMilestone, Bool.false_eq_true,
     ite_false, Rect.Contained]
-  unfold barWidth at hx ⊢
   omega
 
 theorem gantt_clamped_milestone_inside_plot (p : Plan) (task : Gantt.Task) (row : Int)
@@ -616,7 +634,7 @@ theorem oversized_milestone_not_contained :
 
 theorem oversizedMilestoneWitness_rejected :
     Kinds.Gantt.layout oversizedMilestoneWitness = .error (.geometry .domain) := by
-  have ha : Kinds.Gantt.admittedConfig oversizedMilestoneWitness = false := by decide
+  have ha : Kinds.Gantt.admitted oversizedMilestoneWitness = false := by decide
   unfold Kinds.Gantt.layout
   rw [ha]
   rfl
@@ -629,7 +647,7 @@ def negativeGapWitness : Model :=
 
 theorem gantt_negative_gap_rejected :
     Kinds.Gantt.layout negativeGapWitness = .error (.geometry .domain) := by
-  have ha : Kinds.Gantt.admittedConfig negativeGapWitness = false := by decide
+  have ha : Kinds.Gantt.admitted negativeGapWitness = false := by decide
   unfold Kinds.Gantt.layout
   rw [ha]
   rfl
@@ -639,4 +657,385 @@ theorem unpadded_bar_width :
       unpaddedBarTask.renderEnd unpaddedBarWitness.c.edge =
       unpaddedBarWitness.c.width + 1 := by
   decide
+def ganttParentCounterexample : Model :=
+  { kind := "gantt"
+    profile := .vector
+    options := {}
+    boxes :=
+      [ { id := "plot", role := .node, parent := "", exclusive := false }
+      , { id := "s0", role := .node, parent := "plot", exclusive := false }
+      , { id := "t0", role := .node, parent := "s0", exclusive := false } ]
+    routes := []
+    labels := []
+    regionSets :=
+      [ { parent := 0, regions := [0, 0, 0, 0, 0] } ] }
+
+theorem ganttParentCounterexample_wellFormed :
+    Elegant.WellFormed ganttParentCounterexample := by
+  decide
+
+theorem ganttParentCounterexample_withinLimits :
+    Elegant.WithinLimits ganttParentCounterexample := by
+  decide
+
+theorem gantt_c3bool_failure_lifts (d : LayoutDump)
+    (hb : Validator.c3 d = false) : ¬ HardConstraints d := by
+  have hC3 : ¬ Validator.C3 d := by
+    intro hc
+    have hciff := Validator.c3_iff d
+    have ht := hciff.mpr hc
+    rw [hb] at ht
+    contradiction
+  intro hc
+  exact hC3 hc.2.2.1
+
+/-- The parent counterexample is now rejected at admission: `t0` is parented to `s0`
+instead of `plot`, which the supported structure forbids. -/
+theorem ganttParentCounterexample_rejected :
+    Kinds.Gantt.layout ganttParentCounterexample = .error (.geometry .domain) := by
+  have ha : Kinds.Gantt.admitted ganttParentCounterexample = false := by decide
+  unfold Kinds.Gantt.layout
+  rw [ha]
+  rfl
+
+private theorem bind_ok {α β : Type} {x : Except LayoutError α}
+    {f : α → Except LayoutError β} {y : β}
+    (h : x.bind f = .ok y) : ∃ a, x = .ok a ∧ f a = .ok y := by
+  cases x with
+  | error e => cases h
+  | ok a => exact ⟨a, rfl, h⟩
+
+
+/-- The task domain `prepare` computes, factored out so proofs can name it. -/
+def taskDomain (tasks : List Task) : Int × Int :=
+  match tasks with
+  | [] => (0, 86400)
+  | first :: rest => rest.foldl (fun (range : Int × Int) (t : Task) =>
+      (min range.1 t.startTime, max range.2 t.endTime)) (first.startTime, first.endTime)
+
+/-- The row ids `prepare` computes, factored out so proofs can name it. -/
+def taskRows (m : Model) (tasks : List Task) : List String :=
+  m.boxes.filterMap fun b =>
+    if (boxIndex 's' b.id).isSome then some b.id else
+      match boxIndex 't' b.id with
+      | some i => match tasks[i]? with
+        | some task => if task.vert then none else some b.id
+        | none => none
+      | none => none
+
+theorem taskRows_section (m : Model) (tasks : List Task) (b : ModelBox)
+    (hb : b ∈ m.boxes) (hs : (boxIndex 's' b.id).isSome = true) :
+    b.id ∈ taskRows m tasks := by
+  apply List.mem_filterMap.mpr
+  exact ⟨b, hb, by simp only [hs, ite_true]⟩
+
+theorem taskRows_task (m : Model) (tasks : List Task) (b : ModelBox)
+    (hb : b ∈ m.boxes) (i : Nat) (task : Task)
+    (hi : boxIndex 't' b.id = some i) (ht : tasks[i]? = some task)
+    (hv : task.vert = false) : b.id ∈ taskRows m tasks := by
+  apply List.mem_filterMap.mpr
+  refine ⟨b, hb, ?_⟩
+  by_cases hs : (boxIndex 's' b.id).isSome = true
+  · simp only [hs, ite_true]
+  · simp [hs, hi, ht, hv]
+
+theorem row_bounds (p : Plan) (id : String) (hm : id ∈ p.rows) :
+    0 ≤ p.row id ∧ p.row id < (p.rows.length : Int) := by
+  cases hf : p.rows.zipIdx.find? (fun entry => entry.1 == id) with
+  | none =>
+    obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hm
+    have hz : (id, i) ∈ p.rows.zipIdx := List.mem_zipIdx_iff_getElem?.mpr hi
+    have hn := List.find?_eq_none.mp hf (id, i) hz
+    simp at hn
+  | some entry =>
+    have hb := List.mem_zipIdx (List.mem_of_find?_eq_some hf)
+    simp only [Plan.row, hf, Option.map_some, Option.getD_some]
+    have hi : entry.2 < p.rows.length := by
+      simpa only [Nat.zero_add] using hb.2.1
+    exact ⟨Int.natCast_nonneg _, by exact_mod_cast hi⟩
+
+private theorem foldl_domain_bounds (rest : List Task) (a b : Int) :
+    (rest.foldl (fun (range : Int × Int) (t : Task) =>
+        (min range.1 t.startTime, max range.2 t.endTime)) (a, b)).1 ≤ a ∧
+      b ≤ (rest.foldl (fun (range : Int × Int) (t : Task) =>
+        (min range.1 t.startTime, max range.2 t.endTime)) (a, b)).2 ∧
+      ∀ t ∈ rest, (rest.foldl (fun (range : Int × Int) (t : Task) =>
+          (min range.1 t.startTime, max range.2 t.endTime)) (a, b)).1 ≤
+            t.startTime ∧
+        t.endTime ≤ (rest.foldl (fun (range : Int × Int) (t : Task) =>
+          (min range.1 t.startTime, max range.2 t.endTime)) (a, b)).2 := by
+  induction rest generalizing a b with
+  | nil =>
+    simp only [List.foldl]
+    exact ⟨Int.le_refl _, Int.le_refl _, by simp⟩
+  | cons u us ih =>
+    simp only [List.foldl]
+    obtain ⟨h1, h2, h3⟩ := ih (min a u.startTime) (max b u.endTime)
+    refine ⟨by omega, by omega, ?_⟩
+    intro t ht
+    rcases List.mem_cons.mp ht with rfl | ht
+    · exact ⟨by omega, by omega⟩
+    · exact h3 t ht
+
+/-- Every decoded task's times lie inside the domain `prepare` computes, and the domain
+is ordered. -/
+theorem taskDomain_bounds (tasks : List Task) (t : Task) (ht : t ∈ tasks)
+    (htime : t.startTime ≤ t.endTime) :
+    (taskDomain tasks).1 ≤ t.startTime ∧ t.endTime ≤ (taskDomain tasks).2 ∧
+      (taskDomain tasks).1 ≤ t.endTime ∧ t.startTime ≤ (taskDomain tasks).2 ∧
+      (taskDomain tasks).1 ≤ (taskDomain tasks).2 := by
+  cases tasks with
+  | nil => simp at ht
+  | cons first rest =>
+    obtain ⟨h1, h2, h3⟩ := foldl_domain_bounds rest first.startTime first.endTime
+    dsimp only [taskDomain]
+    rcases List.mem_cons.mp ht with rfl | ht
+    · exact ⟨h1, h2, by omega, by omega, by omega⟩
+    · obtain ⟨hs, he⟩ := h3 t ht
+      exact ⟨hs, he, by omega, by omega, by omega⟩
+
+/-- `prepare` exposes its constants, task list, row list, and axis through the plan it
+returns. -/
+theorem prepare_decompose (m : Model) (p : Plan)
+    (hp : prepare m = .ok p) :
+    ∃ c, loadConsts m = .ok c ∧ p.c = c ∧
+      p.tasks = m.regionSets.filterMap decodeTask ∧
+      p.rows = taskRows m (m.regionSets.filterMap decodeTask) ∧
+      p.axis.startTime = (taskDomain (m.regionSets.filterMap decodeTask)).1 ∧
+      p.axis.endTime = (taskDomain (m.regionSets.filterMap decodeTask)).2 ∧
+      p.axis.left = c.gutter ∧ p.axis.right = c.width - c.sidePad := by
+  unfold prepare at hp
+  split at hp
+  · cases hp
+  · obtain ⟨c, hload, hp⟩ := bind_ok hp
+    dsimp only at hp
+    split at hp
+    · cases hp
+    · split at hp
+      · cases hp
+      · split at hp
+        all_goals
+          obtain ⟨_, _, hp⟩ := bind_ok hp
+          simp only [pure, Except.pure, Except.ok.injEq] at hp
+          subst p
+          refine ⟨c, hload, rfl, rfl, rfl, ?_, ?_, rfl, rfl⟩
+          all_goals simp_all only [taskDomain]
+
+/-- The x-clamp `boxRect` applies to every non-plot box. -/
+def boxClamp (p : Plan) (r : Rect) : Rect :=
+  { r with x := clamp r.x 0 (max (p.c.width - r.w) 0) }
+
+theorem boxRect_spec (p : Plan) (b : ModelBox) {r : Rect}
+    (h : p.boxRect b = .ok r) :
+    ((b.id = "plot" ∧ r = p.plot) ∨
+      ((boxIndex 's' b.id).isSome = true ∧
+        r = boxClamp p ⟨0, rowStart p.c.topPad p.c.barH p.c.rowGap (p.row b.id),
+                       p.c.width, p.pitch⟩) ∨
+      (∃ i task, boxIndex 't' b.id = some i ∧ p.tasks[i]? = some task ∧
+        r = boxClamp p (p.taskRect task (p.row b.id)))) ∧
+    Rect.Valid r := by
+  have checked (raw : Rect)
+      (hc : (if Rect.Valid raw then (Except.ok raw : Except LayoutError Rect)
+        else .error .overflow) = .ok r) : r = raw ∧ Rect.Valid r := by
+    split at hc
+    · rename_i hv
+      cases hc
+      exact ⟨rfl, hv⟩
+    · cases hc
+  unfold Plan.boxRect at h
+  simp only [Bind.bind, Except.bind, pure, Except.pure, throw, throwThe,
+    MonadExceptOf.throw] at h
+  split at h
+  · rename_i hid
+    obtain ⟨hr, hv⟩ := checked p.plot h
+    exact ⟨Or.inl ⟨beq_iff_eq.mp hid, hr⟩, hv⟩
+  · rename_i hid
+    split at h
+    · rename_i hs
+      obtain ⟨hr, hv⟩ := checked _ h
+      exact ⟨Or.inr (Or.inl ⟨hs, hr⟩), hv⟩
+    · cases hi : boxIndex 't' b.id with
+      | none =>
+        simp only [hi] at h
+        cases h
+      | some i =>
+        simp only [hi] at h
+        cases ht : p.tasks[i]? with
+        | none =>
+          simp only [ht] at h
+          cases h
+        | some task =>
+          simp only [ht] at h
+          have finish (hc : (if Rect.Valid (boxClamp p (p.taskRect task (p.row b.id)))
+              then (Except.ok (boxClamp p (p.taskRect task (p.row b.id))) :
+                Except LayoutError Rect) else .error .overflow) = .ok r) :
+              ((b.id = "plot" ∧ r = p.plot) ∨
+                ((boxIndex 's' b.id).isSome = true ∧
+                  r = boxClamp p ⟨0, rowStart p.c.topPad p.c.barH p.c.rowGap (p.row b.id),
+                    p.c.width, p.pitch⟩) ∨
+                (∃ i task, boxIndex 't' b.id = some i ∧ p.tasks[i]? = some task ∧
+                  r = boxClamp p (p.taskRect task (p.row b.id)))) ∧ Rect.Valid r := by
+            obtain ⟨hr, hv⟩ := checked _ hc
+            exact ⟨Or.inr (Or.inr ⟨i, task, hi, ht, hr⟩), hv⟩
+          cases hstart : p.axis.positionChecked task.startTime with
+          | error error =>
+            simp only [hstart] at h
+            cases h
+          | ok position =>
+            simp only [hstart] at h
+            cases hv : task.vert with
+            | true =>
+              simp [hv] at h
+              simpa only [hi] using finish h
+            | false =>
+              simp only [hv] at h
+              cases hend : p.axis.positionChecked
+                  (if task.milestone then task.endTime else task.renderEnd) with
+              | error error =>
+                simp [hend] at h
+              | ok position =>
+                simp [hend] at h
+                simpa only [hi] using finish h
+
+/-- Everything a successful Gantt layout exposes: the plan's constants, decoded tasks,
+rows, and axis, plus the scene assembly facts. -/
+theorem successful_plan (m : Model) (result : Layered.FamilyResult)
+    (h : Kinds.Gantt.layout m = .ok result) :
+    ∃ (p : Plan) (c : Consts) (boxes : List Box)
+      (labels : List PlacedLabel) (excluded : List Primitive),
+      prepare m = .ok p ∧ loadConsts m = .ok c ∧ p.c = c ∧
+      0 ≤ c.topPad ∧ 0 ≤ c.gutter ∧ 0 ≤ c.sidePad ∧ 0 ≤ c.barH ∧
+      0 ≤ c.rowGap ∧ 0 ≤ c.axisH ∧ 0 ≤ c.vertW ∧ 0 ≤ c.edge ∧
+      0 < c.width ∧ c.barH ≤ c.width ∧ c.vertW ≤ c.width ∧
+      c.edge ≤ c.gutter + c.sidePad ∧ c.gutter ≤ c.width - c.sidePad ∧
+      p.tasks = m.regionSets.filterMap decodeTask ∧
+      p.rows = taskRows m (m.regionSets.filterMap decodeTask) ∧
+      p.axis.startTime = (taskDomain (m.regionSets.filterMap decodeTask)).1 ∧
+      p.axis.endTime = (taskDomain (m.regionSets.filterMap decodeTask)).2 ∧
+      p.axis.left = c.gutter ∧ p.axis.right = c.width - c.sidePad ∧
+      (m.boxes.mapM fun (b : ModelBox) => do
+        let rect ← p.boxRect b
+        pure ({
+          id := b.id
+          role := b.role.id
+          rect := rect
+          parent := b.parent
+          exclusive := b.exclusive } : Box)) = .ok boxes ∧
+      placeLabels p boxes m.labels [] = .ok labels ∧
+      excludedItems p = .ok excluded ∧
+      result.scene = sceneOf p boxes labels excluded := by
+  rcases Kinds.Gantt.successful_scene m result h with
+    ⟨p, boxes, labels, excluded, hp, hb, hl, he, hs, _, _⟩
+  rcases prepare_decompose m p hp with
+    ⟨c, hload, hpc, hpt, hpr, hps, hpe, hpl, hpr2⟩
+  have hconst := Kinds.Gantt.successful_constants m result h
+  rw [hload] at hconst
+  simp at hconst
+  rcases hconst with ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13⟩
+  exact ⟨p, c, boxes, labels, excluded, hp, hload, hpc,
+    h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13,
+    hpt, hpr, hps, hpe, hpl, hpr2, hb, hl, he, hs⟩
+
+private theorem mapM_mem {α β : Type} (f : α → Except LayoutError β) :
+    ∀ (l : List α) (bs : List β), l.mapM f = .ok bs → ∀ b ∈ bs, ∃ a ∈ l, f a = .ok b := by
+  intro l
+  induction l with
+  | nil =>
+    intro bs h b hb
+    simp only [List.mapM_nil, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    simp at hb
+  | cons a as ih =>
+    intro bs h b hb
+    rw [List.mapM_cons] at h
+    rcases bind_ok h with ⟨b1, hfa, h⟩
+    rcases bind_ok h with ⟨bs1, hrest, h⟩
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    rcases List.mem_cons.mp hb with rfl | hb'
+    · exact ⟨a, List.mem_cons.mpr (Or.inl rfl), hfa⟩
+    · obtain ⟨x, hx, hfx⟩ := ih bs1 hrest b hb'
+      exact ⟨x, List.mem_cons.mpr (Or.inr hx), hfx⟩
+
+/-- C2 for a successful Gantt layout: every admitted box is non-exclusive, so the
+exclusive-disjointness clause is vacuous. -/
+theorem gantt_c2 (m : Model) (result : Layered.FamilyResult)
+    (h : Kinds.Gantt.layout m = .ok result) : Validator.C2 result.scene.layoutDump := by
+  intro b hb c hc _ hex1 _ _
+  rcases Kinds.Gantt.successful_scene m result h with
+    ⟨p, boxes, labels, excluded, hp, hbmap, hl, he, hs, _, _⟩
+  have hboxes : result.scene.layoutDump.boxes = boxes := by
+    rw [hs]
+    rfl
+  rw [hboxes] at hb
+  obtain ⟨bm, hbm, hfa⟩ := mapM_mem _ _ _ hbmap b hb
+  obtain ⟨_, hex⟩ := Kinds.Gantt.successful_supported_box m result h bm hbm
+  rcases bind_ok hfa with ⟨r, hrect, hbox⟩
+  simp only [pure, Except.pure, Except.ok.injEq] at hbox
+  have hbe : b.exclusive = bm.exclusive := (congrArg Box.exclusive hbox).symm
+  have htrue : bm.exclusive = true := hbe.symm.trans hex1
+  rw [hex] at htrue
+  simp at htrue
+
+theorem successful_box_inside_plot (m : Model) (result : Layered.FamilyResult)
+    (h : Kinds.Gantt.layout m = .ok result) (p : Plan)
+    (hp : prepare m = .ok p) (b : ModelBox) (hb : b ∈ m.boxes)
+    (r : Rect) (hr : p.boxRect b = .ok r) : p.plot.Contained r := by
+  obtain ⟨c, hload, hpc, hpt, hpr, hps, hpe, hpl, hpright⟩ :=
+    prepare_decompose m p hp
+  have hc := Kinds.Gantt.successful_constants m result h
+  rw [hload] at hc
+  rw [← hpc] at hc hpl hpright
+  rcases hc with ⟨htop, hgutter, hside, hbar, hgap, haxis, hvert, hedge,
+    hwidth, hbarwidth, hvertwidth, hbudget, hrange⟩
+  have hpitch : 0 ≤ p.pitch := by unfold Plan.pitch; omega
+  obtain ⟨hspec, _⟩ := boxRect_spec p b hr
+  rcases hspec with ⟨_, rfl⟩ | ⟨hsection, rfl⟩ | ⟨i, task, hi, ht, rfl⟩
+  · unfold Rect.Contained
+    exact ⟨Int.le_refl _, Int.le_refl _, Int.le_refl _, Int.le_refl _⟩
+  · have hrows : b.id ∈ p.rows := by
+      rw [hpr]
+      exact taskRows_section m _ b hb hsection
+    have hrow := row_bounds p b.id hrows
+    have hy0 := Int.mul_nonneg hrow.1 hpitch
+    have hy1 := Int.mul_le_mul_of_nonneg_right
+      (show p.row b.id + 1 ≤ (p.rows.length : Int) by omega) hpitch
+    simp only [Int.add_mul, Int.one_mul] at hy1
+    have hx := clamp_between 0 0 (max (p.c.width - p.c.width) 0)
+    dsimp only [boxClamp, Plan.plot, Rect.Contained, rowStart] at *
+    unfold Plan.pitch at *
+    omega
+  · have hmem : task ∈ p.tasks := List.mem_iff_getElem?.mpr ⟨i, ht⟩
+    have htimes : task.startTime ≤ task.endTime ∧ task.renderEnd ≤ task.endTime := by
+      rw [hpt] at hmem
+      obtain ⟨region, hregion, hdecode⟩ := List.mem_filterMap.mp hmem
+      obtain ⟨_, _, _, _, _, _, hstart, hend, _⟩ :=
+        Kinds.Gantt.successful_region_task m result h region hregion task hdecode
+      exact ⟨hstart, hend⟩
+    have hdomain := taskDomain_bounds p.tasks task hmem htimes.1
+    rw [← hpt] at hps hpe
+    rw [← hps, ← hpe] at hdomain
+    cases hv : task.vert with
+    | true =>
+      have hx := clamp_between
+        (p.axis.position task.startTime - Int.fdiv p.c.vertW 2) 0
+        (max (p.c.width - p.c.vertW) 0)
+      dsimp only [boxClamp, Plan.taskRect, Plan.plot, Rect.Contained]
+      simp only [hv, ite_true]
+      omega
+    | false =>
+      have hrows : b.id ∈ p.rows := by
+        rw [hpr, ← hpt]
+        exact taskRows_task m p.tasks b hb i task hi ht hv
+      have hrow := row_bounds p b.id hrows
+      cases hm : task.milestone with
+      | true =>
+        exact gantt_clamped_milestone_inside_plot p task (p.row b.id)
+          hv hm hrow.1 hrow.2 hbar hgap hbarwidth
+      | false =>
+        exact gantt_clamped_bar_inside_plot p task (p.row b.id)
+          hv hm hrow.1 hrow.2 hbar hgap hedge hbudget hrange hpl hpright
+          hdomain.2.2.2.2 hdomain.1 hdomain.2.2.2.1
+          (by omega)
+
 end Elegant.Chart.Gantt

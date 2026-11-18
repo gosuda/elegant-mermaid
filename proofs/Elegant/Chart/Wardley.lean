@@ -2,6 +2,7 @@ import Elegant.Chart.Scale
 import Elegant.Scene
 import Std.Data.HashMap
 import Std.Data.HashMap.Lemmas
+import Std.Data.String.ToNat
 
 set_option autoImplicit false
 
@@ -257,6 +258,333 @@ theorem arrange_lookup_points_sound (c : GeometryConstants) (input : Input)
     · intro state entry hs _
       exact hs
   exact hall id point h
+
+private def PointKey (id : String) : Prop :=
+  (∃ suffix, id = "n" ++ suffix) ∨ (∃ suffix, id = "tg" ++ suffix)
+
+private def PointIndexed (lookup : GeometryLookup) : Prop :=
+  lookup.PointsSound (fun id _ => PointKey id) ∧
+    ∀ (id : String) (p : Point), lookup.points[id]? = some p →
+      lookup.rectangles[id]? = some (nodeRect p)
+
+private theorem pointKey_disjoint (id : String) (h : PointKey id) :
+    id ≠ "plot" ∧ id ≠ "ab" ∧
+      ∀ suffix, id ≠ "pl" ++ suffix ∧ id ≠ "ac" ++ suffix ∧
+        id ≠ "de" ++ suffix ∧ id ≠ "an" ++ suffix := by
+  rcases h with ⟨suffix, rfl⟩ | ⟨suffix, rfl⟩ <;>
+    constructor
+  all_goals
+    first
+    | intro he
+      have ht := congrArg String.toList he
+      simp [String.toList_append] at ht
+    | constructor
+      · intro he
+        have ht := congrArg String.toList he
+        simp [String.toList_append] at ht
+      · intro other
+        repeat' constructor
+        all_goals
+          intro he
+          have ht := congrArg String.toList he
+          simp [String.toList_append] at ht
+
+private theorem pointIndexed_insert (lookup : GeometryLookup) (id : String) (p : Point)
+    (h : PointIndexed lookup) (hk : PointKey id) :
+    PointIndexed { lookup with
+      points := lookup.points.insert id p
+      rectangles := lookup.rectangles.insert id (nodeRect p) } := by
+  constructor
+  · exact insert_point_sound lookup (fun key _ => PointKey key) id p h.1 hk
+  · intro key value hv
+    simp only [Std.HashMap.getElem?_insert] at hv ⊢
+    split at hv
+    · rename_i he
+      simp only [he, ↓reduceIte]
+      cases hv
+      rfl
+    · rename_i he
+      simpa [he] using h.2 key value hv
+
+private theorem pointIndexed_rectangle (lookup : GeometryLookup) (id : String) (r : Rect)
+    (h : PointIndexed lookup) (hk : ¬ PointKey id) :
+    PointIndexed { lookup with rectangles := lookup.rectangles.insert id r } := by
+  refine ⟨h.1, ?_⟩
+  intro key p hp
+  have hn : id ≠ key := fun he => hk (he.symm ▸ h.1 key p hp)
+  simpa [Std.HashMap.getElem?_insert, hn] using h.2 key p hp
+
+private theorem indexRectangles_pointIndexed (stem : String) (rectangles : List Rect)
+    (lookup : GeometryLookup) (h : PointIndexed lookup)
+    (hs : ∀ suffix, ¬ PointKey (stem ++ suffix)) :
+    PointIndexed (indexRectangles stem rectangles lookup) := by
+  unfold indexRectangles
+  apply fold_preserves _ PointIndexed _ _ h
+  intro state entry hi _
+  exact pointIndexed_rectangle state _ _ hi (hs _)
+
+private theorem arrange_pointIndexed (c : GeometryConstants) (input : Input) :
+    PointIndexed (arrange c input).lookup := by
+  have hn : PointIndexed (indexNodes input.nodes (arrange c input).positions) := by
+    unfold indexNodes
+    apply fold_preserves _ PointIndexed _ _
+    · constructor <;> intro id p hp <;> simp at hp
+    · intro state entry hs _
+      have hi := pointIndexed_insert state ("n" ++ toString entry.2) entry.1.2 hs
+        (Or.inl ⟨_, rfl⟩)
+      exact ⟨hi.1, hi.2⟩
+  have ht : PointIndexed
+      (indexPoints "tg" (arrange c input).ghosts
+        (indexNodes input.nodes (arrange c input).positions)) := by
+    unfold indexPoints
+    apply fold_preserves _ PointIndexed _ _ hn
+    intro state entry hs _
+    exact pointIndexed_insert state _ _ hs (Or.inr ⟨_, rfl⟩)
+  have hp := indexRectangles_pointIndexed "pl" (arrange c input).frames _ ht
+    (fun suffix hk => ((pointKey_disjoint _ hk).2.2 suffix).1 rfl)
+  have ha := indexRectangles_pointIndexed "ac" (arrange c input).accelerators _ hp
+    (fun suffix hk => ((pointKey_disjoint _ hk).2.2 suffix).2.1 rfl)
+  have hd := indexRectangles_pointIndexed "de" (arrange c input).deaccelerators _ ha
+    (fun suffix hk => ((pointKey_disjoint _ hk).2.2 suffix).2.2.1 rfl)
+  change PointIndexed (((arrange c input).annotations.zipIdx).foldl _ _)
+  apply fold_preserves _ PointIndexed _ _ hd
+  intro state entry hs _
+  apply pointIndexed_rectangle state _ _ hs
+  intro hk
+  exact ((pointKey_disjoint _ hk).2.2 (toString entry.2)).2.2.2 rfl
+
+theorem arrange_point_rectangle (c : GeometryConstants) (input : Input)
+    (id : String) (p : Point)
+    (h : (arrange c input).lookup.points[id]? = some p) :
+    (arrange c input).lookup.rectangles[id]? = some (nodeRect p) :=
+  (arrange_pointIndexed c input).2 id p h
+
+theorem arrange_point_not_reserved (c : GeometryConstants) (input : Input)
+    (id : String) (p : Point)
+    (h : (arrange c input).lookup.points[id]? = some p) :
+    id ≠ "plot" ∧ id ≠ "ab" := by
+  have hk := (arrange_pointIndexed c input).1 id p h
+  exact ⟨(pointKey_disjoint id hk).1, (pointKey_disjoint id hk).2.1⟩
+
+private theorem fold_lookup_complete {α β σ : Type} (entries : List α)
+    (step : σ → α → σ) (read : σ → Option β) (hit : α → Prop)
+    [DecidablePred hit] (value : α → β) (wanted : β)
+    (hstep : ∀ state entry, read (step state entry) =
+      if hit entry then some (value entry) else read state)
+    (hvalue : ∀ entry ∈ entries, hit entry → value entry = wanted)
+    (hfound : ∃ entry ∈ entries, hit entry) (initial : σ) :
+    read (entries.foldl step initial) = some wanted := by
+  induction entries generalizing initial with
+  | nil => simp at hfound
+  | cons first rest ih =>
+      obtain ⟨entry, he, hm⟩ := hfound
+      rcases List.mem_cons.mp he with he | he
+      · subst entry
+        have hfirst : read (step initial first) = some wanted := by
+          rw [hstep, ite_eq_left hm, hvalue first (by simp) hm]
+        apply fold_preserves step (fun state => read state = some wanted)
+          rest (step initial first) hfirst
+        intro state next hs hn
+        rw [hstep]
+        split
+        · rename_i hmatch
+          rw [hvalue next (List.mem_cons_of_mem first hn) hmatch]
+        · exact hs
+      · exact ih (fun next hn => hvalue next (List.mem_cons_of_mem first hn))
+          ⟨entry, he, hm⟩ (step initial first)
+
+private theorem canonical_index_eq (stem : String) (i j : Nat)
+    (h : stem ++ toString i = stem ++ toString j) : i = j := by
+  have hs := (String.append_right_inj stem).mp h
+  exact Nat.repr_injective hs
+
+private theorem indexed_value_eq {α : Type} (entries : List α) (stem : String)
+    (i : Nat) (wanted : α) (h : entries[i]? = some wanted)
+    (entry : α × Nat) (he : entry ∈ entries.zipIdx)
+    (hk : stem ++ toString entry.2 = stem ++ toString i) :
+    entry.1 = wanted := by
+  have hi := canonical_index_eq stem entry.2 i hk
+  have hv := List.mem_zipIdx_iff_getElem?.mp he
+  rw [hi, h] at hv
+  exact (Option.some.inj hv).symm
+
+private theorem indexNodes_point_complete (nodes : List Node) (positions : List Point)
+    (i : Nat) (node : Node) (p : Point)
+    (hn : nodes[i]? = some node) (hp : positions[i]? = some p) :
+    (indexNodes nodes positions).points["n" ++ toString i]? = some p := by
+  have hz : (nodes.zip positions)[i]? = some (node, p) := by
+    exact List.getElem?_zip_eq_some.mpr ⟨hn, hp⟩
+  unfold indexNodes
+  apply fold_lookup_complete _ _
+    (fun lookup : GeometryLookup => lookup.points["n" ++ toString i]?)
+    (fun entry => "n" ++ toString entry.2 = "n" ++ toString i)
+    (fun entry => entry.1.2) p
+  · intro state entry
+    simp [Std.HashMap.getElem?_insert, beq_iff_eq]
+  · intro entry he hk
+    exact congrArg Prod.snd (indexed_value_eq _ "n" i (node, p) hz entry he hk)
+  · exact ⟨((node, p), i), List.mk_mem_zipIdx_iff_getElem?.mpr hz, rfl⟩
+
+private theorem indexRectangles_complete (stem : String) (rectangles : List Rect)
+    (lookup : GeometryLookup) (i : Nat) (r : Rect)
+    (h : rectangles[i]? = some r) :
+    (indexRectangles stem rectangles lookup).rectangles[stem ++ toString i]? = some r := by
+  unfold indexRectangles
+  apply fold_lookup_complete _ _
+    (fun state : GeometryLookup => state.rectangles[stem ++ toString i]?)
+    (fun entry => stem ++ toString entry.2 = stem ++ toString i)
+    Prod.fst r
+  · intro state entry
+    simp [Std.HashMap.getElem?_insert, beq_iff_eq]
+  · intro entry he hk
+    exact indexed_value_eq rectangles stem i r h entry he hk
+  · exact ⟨(r, i), List.mk_mem_zipIdx_iff_getElem?.mpr h, rfl⟩
+
+private theorem indexRectangles_points_eq (stem : String) (rectangles : List Rect)
+    (lookup : GeometryLookup) :
+    (indexRectangles stem rectangles lookup).points = lookup.points := by
+  unfold indexRectangles
+  apply fold_preserves _ (fun state : GeometryLookup => state.points = lookup.points)
+    _ _ rfl
+  intro state entry hs _
+  exact hs
+
+private theorem indexRectangles_preserves (stem key : String) (rectangles : List Rect)
+    (lookup : GeometryLookup)
+    (h : ∀ suffix : String, stem ++ suffix ≠ key) :
+    (indexRectangles stem rectangles lookup).rectangles[key]? = lookup.rectangles[key]? := by
+  unfold indexRectangles
+  apply fold_preserves _
+    (fun state : GeometryLookup => state.rectangles[key]? = lookup.rectangles[key]?)
+    _ _ rfl
+  intro state entry hs _
+  simpa [Std.HashMap.getElem?_insert, h] using hs
+
+private theorem canonical_prefix_disjoint (i : Nat) :
+    (∀ suffix : String, "tg" ++ suffix ≠ "n" ++ toString i) ∧
+    (∀ suffix : String, "ac" ++ suffix ≠ "pl" ++ toString i) ∧
+    (∀ suffix : String, "de" ++ suffix ≠ "pl" ++ toString i) ∧
+    (∀ suffix : String, "an" ++ suffix ≠ "pl" ++ toString i) := by
+  repeat' constructor
+  all_goals
+    intro suffix he
+    have ht := congrArg String.toList he
+    simp [String.toList_append] at ht
+
+theorem arrange_node_point (c : GeometryConstants) (input : Input)
+    (i : Nat) (node : Node) (p : Point)
+    (hn : input.nodes[i]? = some node)
+    (hp : (arrange c input).positions[i]? = some p) :
+    (arrange c input).lookup.points["n" ++ toString i]? = some p := by
+  have hnodes := indexNodes_point_complete input.nodes (arrange c input).positions
+    i node p hn hp
+  have htrends : (indexPoints "tg" (arrange c input).ghosts
+      (indexNodes input.nodes (arrange c input).positions)).points["n" ++ toString i]? =
+      some p := by
+    unfold indexPoints
+    apply fold_preserves _
+      (fun state : GeometryLookup => state.points["n" ++ toString i]? = some p)
+      _ _ hnodes
+    intro state entry hs _
+    have hne := (canonical_prefix_disjoint i).1 (toString entry.2)
+    rw [Std.HashMap.getElem?_insert]
+    split
+    · rename_i he
+      exact False.elim (hne (by simpa only [beq_iff_eq] using he))
+    · exact hs
+  have hpl := indexRectangles_points_eq "pl" (arrange c input).frames
+    (indexPoints "tg" (arrange c input).ghosts
+      (indexNodes input.nodes (arrange c input).positions))
+  have hac := indexRectangles_points_eq "ac" (arrange c input).accelerators
+    (indexRectangles "pl" (arrange c input).frames
+      (indexPoints "tg" (arrange c input).ghosts
+        (indexNodes input.nodes (arrange c input).positions)))
+  have hde := indexRectangles_points_eq "de" (arrange c input).deaccelerators
+    (indexRectangles "ac" (arrange c input).accelerators
+      (indexRectangles "pl" (arrange c input).frames
+        (indexPoints "tg" (arrange c input).ghosts
+          (indexNodes input.nodes (arrange c input).positions))))
+  change (GeometryLookup.points
+    (((arrange c input).annotations.zipIdx).foldl _ _))["n" ++ toString i]? = some p
+  apply fold_preserves _
+    (fun state : GeometryLookup => state.points["n" ++ toString i]? = some p) _ _
+  · exact (congrArg (fun points : Std.HashMap String Point =>
+      points["n" ++ toString i]?) (hde.trans (hac.trans hpl))).trans htrends
+  · intro state entry hs _
+    exact hs
+
+theorem arrange_frame_rectangle (c : GeometryConstants) (input : Input)
+    (i : Nat) (r : Rect) (h : (arrange c input).frames[i]? = some r) :
+    (arrange c input).lookup.rectangles["pl" ++ toString i]? = some r := by
+  have hpl := indexRectangles_complete "pl" (arrange c input).frames
+    (indexPoints "tg" (arrange c input).ghosts
+      (indexNodes input.nodes (arrange c input).positions)) i r h
+  have hac := indexRectangles_preserves "ac" ("pl" ++ toString i)
+    (arrange c input).accelerators
+    (indexRectangles "pl" (arrange c input).frames
+      (indexPoints "tg" (arrange c input).ghosts
+        (indexNodes input.nodes (arrange c input).positions)))
+    (canonical_prefix_disjoint i).2.1
+  have hde := indexRectangles_preserves "de" ("pl" ++ toString i)
+    (arrange c input).deaccelerators
+    (indexRectangles "ac" (arrange c input).accelerators
+      (indexRectangles "pl" (arrange c input).frames
+        (indexPoints "tg" (arrange c input).ghosts
+          (indexNodes input.nodes (arrange c input).positions))))
+    (canonical_prefix_disjoint i).2.2.1
+  change (GeometryLookup.rectangles
+    (((arrange c input).annotations.zipIdx).foldl _ _))["pl" ++ toString i]? = some r
+  apply fold_preserves _
+    (fun state : GeometryLookup => state.rectangles["pl" ++ toString i]? = some r) _ _
+  · exact hde.trans (hac.trans hpl)
+  · intro state entry hs _
+    have hne := (canonical_prefix_disjoint i).2.2.2 (toString entry.2)
+    rw [Std.HashMap.getElem?_insert]
+    split
+    · rename_i he
+      exact False.elim (hne (by simpa only [beq_iff_eq] using he))
+    · exact hs
+
+theorem arrange_positions_length (c : GeometryConstants) (input : Input) :
+    (arrange c input).positions.length = input.nodes.length := by
+  change ((input.pipelines.zip _).foldl _
+    (input.nodes.map fun n => project (arrange c input).plot n.x n.y)).length = _
+  apply fold_preserves _ (fun positions : List Point =>
+    positions.length = input.nodes.length) _ _
+  · simp
+  · intro positions entry hs _
+    simpa only [List.length_set] using hs
+
+theorem arrange_node_rectangle (c : GeometryConstants) (input : Input)
+    (i : Nat) (node : Node) (hn : input.nodes[i]? = some node) :
+    (arrange c input).lookup.rectangles["n" ++ toString i]? =
+      some (nodeRect (((arrange c input).positions[i]?).getD ⟨0, 0⟩)) := by
+  have hi : i < (arrange c input).positions.length := by
+    rw [arrange_positions_length]
+    exact (List.getElem?_eq_some_iff.mp hn).1
+  have hp : (arrange c input).positions[i]? =
+      some ((arrange c input).positions[i]) :=
+    List.getElem?_eq_getElem hi
+  have hpoint := arrange_node_point c input i node _ hn hp
+  have hrect := arrange_point_rectangle c input ("n" ++ toString i) _ hpoint
+  simpa only [hp, Option.getD_some] using hrect
+
+theorem arrange_pipeline_frame (c : GeometryConstants) (input : Input)
+    (i : Nat) (pipeline : Pipeline) (h : input.pipelines[i]? = some pipeline) :
+    (arrange c input).frames[i]? =
+      some (pipelineGeometry c (arrange c input).plot
+        (arrange c input).base pipeline).1 := by
+  change ((input.pipelines.map
+    (pipelineGeometry c (arrange c input).plot (arrange c input).base)).map
+    Prod.fst)[i]? = _
+  simp only [List.getElem?_map, h, Option.map_some]
+
+theorem arrange_pipeline_rectangle (c : GeometryConstants) (input : Input)
+    (i : Nat) (pipeline : Pipeline) (h : input.pipelines[i]? = some pipeline) :
+    (arrange c input).lookup.rectangles["pl" ++ toString i]? =
+      some (pipelineGeometry c (arrange c input).plot
+        (arrange c input).base pipeline).1 :=
+  arrange_frame_rectangle c input i _ (arrange_pipeline_frame c input i pipeline h)
 
 def linkPoints (g : Geometry) (source target : Nat) : List Point :=
   [(g.positions[source]?).getD ⟨0, 0⟩, (g.positions[target]?).getD ⟨0, 0⟩]

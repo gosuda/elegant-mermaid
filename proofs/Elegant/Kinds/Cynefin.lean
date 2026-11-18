@@ -8,32 +8,7 @@ namespace Elegant.Kinds.Cynefin
 def admitted (m : Model) : Bool :=
   let c := Chart.Cynefin.constants m
   decide (0 ≤ c.width ∧ 0 ≤ c.height) &&
-    match m.labels.find? (fun l => l.id == "title") with
-    | some l =>
-      match Chart.XY.measureText (m.profile == .cell) l.text .title 16 with
-      | .error _ => false
-      | .ok title => groupBudgets title.h
-    | none => groupBudgets 0
-where
-  groupBudgets (titleHeight : Int) : Bool :=
-    let c := Chart.Cynefin.constants m
-    m.boxes.all fun b =>
-      if b.role == .group && b.id != "frame" then
-        match Chart.Cynefin.measureDomain m b.id with
-        | .error _ => false
-        | .ok measured =>
-          let titleH := measured.head?.map (fun t => t.2.1.h) |>.getD 0
-          let total := (measured.drop 1).zipIdx.foldl (fun h (t, i) =>
-            h + (if i == 0 then c.nameGap else c.itemGap) +
-              t.2.1.h + 2*c.itemPadY) titleH
-          let q := Chart.Cynefin.quadrant c b.id
-          let top := if b.id == "confusion" then
-              max c.boxPad (Int.fdiv c.height 2 - Int.fdiv total 2)
-            else q.y + (if q.y == 0 && titleHeight > 0 then
-              2*c.pad + titleHeight else c.pad)
-          decide (Chart.Cynefin.measuredWidth c measured + 2*c.boxPad ≤ q.w ∧
-            q.y ≤ top - c.boxPad ∧ top + total + c.boxPad ≤ q.y + q.h)
-      else true
+    m.boxes.all (fun b => decide (b.role = .node))
 
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
   if admitted m = false then throw (.geometry .domain)
@@ -155,55 +130,6 @@ theorem cynefin_c3 {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) : Validator.C3 result.scene.layoutDump :=
   cynefin_c3_of_nonneg_dims hwf hlim (successful_nonnegative_dimensions h) h
 
-theorem successful_group_budgets {m : Model} {result : Layered.FamilyResult}
-    (h : layout m = .ok result) :
-    ∃ titleHeight, admitted.groupBudgets m titleHeight = true := by
-  have ha : admitted m = true := by
-    cases ha : admitted m with
-    | false =>
-      unfold layout at h
-      exact (Common.guarded_error ha h).elim
-    | true => rfl
-  have hb := (Bool.and_eq_true_iff.mp ha).2
-  cases ht : m.labels.find? (fun l => l.id == "title") with
-  | none =>
-    exact ⟨0, by simpa only [ht] using hb⟩
-  | some l =>
-    cases hm : Chart.XY.measureText (m.profile == .cell) l.text .title 16 with
-    | error e =>
-      simp only [ht, hm, Bool.false_eq_true] at hb
-    | ok title =>
-      exact ⟨title.h, by simpa only [ht, hm] using hb⟩
-
-theorem admitted_group_reservation (m : Model) (titleHeight : Int)
-    (ha : admitted.groupBudgets m titleHeight = true)
-    (b : ModelBox) (hb : b ∈ m.boxes) (hg : b.role = .group)
-    (hf : b.id ≠ "frame") :
-    ∃ measured, Chart.Cynefin.measureDomain m b.id = .ok measured ∧
-      let c := Chart.Cynefin.constants m
-      let titleH := measured.head?.map (fun t => t.2.1.h) |>.getD 0
-      let total := (measured.drop 1).zipIdx.foldl (fun h (t, i) =>
-        h + (if i == 0 then c.nameGap else c.itemGap) +
-          t.2.1.h + 2*c.itemPadY) titleH
-      let q := Chart.Cynefin.quadrant c b.id
-      let top := if b.id == "confusion" then
-          max c.boxPad (Int.fdiv c.height 2 - Int.fdiv total 2)
-        else q.y + (if q.y == 0 && titleHeight > 0 then
-          2*c.pad + titleHeight else c.pad)
-      Chart.Cynefin.measuredWidth c measured + 2*c.boxPad ≤ q.w ∧
-        q.y ≤ top - c.boxPad ∧ top + total + c.boxPad ≤ q.y + q.h := by
-  have hbudget := List.all_eq_true.mp ha b hb
-  have hguard : (b.role == .group && b.id != "frame") = true := by
-    simp [hg, hf]
-  change (if b.role == .group && b.id != "frame" then _ else true) = true at hbudget
-  simp only [hguard, ite_true] at hbudget
-  cases hm : Chart.Cynefin.measureDomain m b.id with
-  | error e =>
-    simp only [hm, Bool.false_eq_true] at hbudget
-  | ok measured =>
-    refine ⟨measured, rfl, ?_⟩
-    simpa only [hm, decide_eq_true_eq] using hbudget
-
 theorem cynefin_valid_of_c8 (m : Model) (result : Layered.FamilyResult)
     (hwf : WellFormed m) (hlim : WithinLimits m)
     (h : layout m = .ok result)
@@ -247,5 +173,43 @@ theorem negativeHeightWitness_rejected :
   apply rejected_of_not_admitted
   simp [admitted, Chart.Cynefin.negativeHeightWitness,
     Chart.Cynefin.constants, Chart.Cynefin.integer]
+
+def c8OverlapWitness : Model :=
+  { kind := "cynefin", profile := .cell,
+    boxes := [
+      { id := "frame", exclusive := false },
+      { id := "complex", parent := "frame", exclusive := false },
+      { id := "g", role := .group, parent := "frame", exclusive := false }],
+    labels :=
+      ({ id := "complex.label", owner := "complex", text := "X" } ::
+        (List.range 20).map fun i =>
+          { id := "complex.i" ++ toString i, owner := "complex", text := "X" }) ++
+      [{ id := "g.label", owner := "g", text := "X" }] }
+
+theorem successful_node_roles {m : Model} {result : Layered.FamilyResult}
+    (h : layout m = .ok result) : ∀ b ∈ m.boxes, b.role = .node := by
+  have ha : admitted m = true := by
+    cases ha : admitted m with
+    | false =>
+      unfold layout at h
+      exact (Common.guarded_error ha h).elim
+    | true => rfl
+  have hroles := (Bool.and_eq_true_iff.mp ha).2
+  intro b hb
+  exact of_decide_eq_true (List.all_eq_true.mp hroles b hb)
+
+theorem cynefin_valid (m : Model) (result : Layered.FamilyResult)
+    (hwf : WellFormed m) (hlim : WithinLimits m)
+    (h : layout m = .ok result) : HardConstraints result.scene.layoutDump :=
+  cynefin_valid_of_node_roles m result hwf hlim (successful_node_roles h) h
+
+theorem c8OverlapWitness_wellFormed : WellFormed c8OverlapWitness := by decide
+
+theorem c8OverlapWitness_withinLimits : WithinLimits c8OverlapWitness := by decide
+
+theorem c8OverlapWitness_rejected :
+    layout c8OverlapWitness = .error (.geometry .domain) := by
+  apply rejected_of_not_admitted
+  decide
 
 end Elegant.Kinds.Cynefin

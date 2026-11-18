@@ -526,7 +526,9 @@ def edgesOf (p : Proper) (o : Nat) : List Nat :=
 def yAt (y : List Int) (v : Nat) : Int := y.getD v 0
 
 def pieceStart (p : Proper) (y : List Int) (r : Routing) (i : Nat) : Point :=
-  ⟨r.sourceX.getD i 0, yAt y (edgeAt p i).tail + nodeH p (edgeAt p i).tail⟩
+  ⟨r.sourceX.getD i 0,
+    if frameKind p (edgeAt p i).tail = -2 then yAt y (edgeAt p i).tail
+    else yAt y (edgeAt p i).tail + nodeH p (edgeAt p i).tail⟩
 
 def pieceEnd (p : Proper) (y : List Int) (r : Routing) (i : Nat) : Point :=
   ⟨r.targetX.getD i 0, yAt y (edgeAt p i).head⟩
@@ -1535,11 +1537,31 @@ theorem piece_miss {G : Geo} {n K : Nat} (hG : G.Ok n K) {t h v : Nat} (ht : t <
     (hpos : 0 < G.hv v) {sx run tx : Int} (hsx : G.left t ≤ sx ∧ sx ≤ G.left t + G.wid t)
     (hrun : (G.bd t ≠ -2 ∧ run = sx) ∨ (G.bd t = -2 ∧ run = G.left t))
     (htx : G.left h ≤ tx ∧ tx ≤ G.left h + G.wid h) {pc : List Point}
-    (hpc : (pc = [⟨sx, G.yv t + G.hv t⟩, ⟨run, G.yv t + G.hv t⟩, ⟨tx, G.yv h⟩] ∧ run = tx) ∨
+    (hpc : (pc = [⟨sx, if G.bd t = -2 then G.yv t else G.yv t + G.hv t⟩,
+        ⟨run, if G.bd t = -2 then G.yv t else G.yv t + G.hv t⟩, ⟨tx, G.yv h⟩] ∧ run = tx) ∨
       ∃ mid, G.T (G.rk t) + G.H (G.rk t) ≤ mid ∧ mid ≤ G.T (G.rk t + 1) ∧
-        pc = [⟨sx, G.yv t + G.hv t⟩, ⟨run, G.yv t + G.hv t⟩, ⟨run, mid⟩, ⟨tx, mid⟩,
+        pc = [⟨sx, if G.bd t = -2 then G.yv t else G.yv t + G.hv t⟩,
+          ⟨run, if G.bd t = -2 then G.yv t else G.yv t + G.hv t⟩, ⟨run, mid⟩, ⟨tx, mid⟩,
           ⟨tx, G.yv h⟩]) :
     pairsAll (fun P Q => Polyline.segMisses P Q (G.rect v)) pc := by
+  have hy0 : (⟨sx, if G.bd t = -2 then G.yv t else G.yv t + G.hv t⟩ : Point) =
+      ⟨sx, G.yv t + G.hv t⟩ ∧
+      (⟨run, if G.bd t = -2 then G.yv t else G.yv t + G.hv t⟩ : Point) =
+      ⟨run, G.yv t + G.hv t⟩ := by
+    by_cases hb : G.bd t = -2
+    · have hflat := hG.frame_flat t ht (Or.inl hb)
+      simp only [hb, ↓reduceIte, hflat, Int.add_zero, and_self]
+    · simp only [hb, ↓reduceIte]
+      exact ⟨trivial, trivial⟩
+  have hpc : (pc = [⟨sx, G.yv t + G.hv t⟩, ⟨run, G.yv t + G.hv t⟩, ⟨tx, G.yv h⟩] ∧ run = tx) ∨
+      ∃ mid, G.T (G.rk t) + G.H (G.rk t) ≤ mid ∧ mid ≤ G.T (G.rk t + 1) ∧
+        pc = [⟨sx, G.yv t + G.hv t⟩, ⟨run, G.yv t + G.hv t⟩, ⟨run, mid⟩, ⟨tx, mid⟩,
+          ⟨tx, G.yv h⟩] := by
+    rcases hpc with ⟨h1, h2⟩ | ⟨mid, hm1, hm2, h3⟩
+    · rw [hy0.1, hy0.2] at h1
+      exact Or.inl ⟨h1, h2⟩
+    · rw [hy0.1, hy0.2] at h3
+      exact Or.inr ⟨mid, hm1, hm2, h3⟩
   have bt := hG.band t ht
   have bh := hG.band h hh
   have bv := hG.band v hv
@@ -1934,7 +1956,8 @@ theorem chain_junction_orthogonal {p : Proper} {layers : List (List Nat)}
   · right
     have hz := ((layersOk_spec hl).2.1 _ ((layersOk_spec hl).2.2.2.2 j hj).1).2
     have hzero : nodeH p (edgeAt p j).tail = 0 := by omega
-    simp [pieceEnd, pieceStart, he, hzero]
+    have hfk : frameKind p (edgeAt p j).tail = 0 := frameKind_of_chain ⟨nd, hn, hd⟩
+    simp [pieceEnd, pieceStart, he, hzero, hfk]
 
 theorem label_junction_misses_label {p : Proper} {layers : List (List Nat)}
     {x y : List Int} {r : Routing} (hr : route p layers x = .ok r) {i j : Nat}
@@ -2028,7 +2051,9 @@ theorem route_endpoints_aux {slot : Int} {p : Proper} {layers : List (List Nat)}
         xAt x (edgeAt p i₁).head - Int.fdiv (nodeW p (edgeAt p i₁).head) 2 ≤ qx ∧
         qx ≤ xAt x (edgeAt p i₁).head - Int.fdiv (nodeW p (edgeAt p i₁).head) 2 +
           nodeW p (edgeAt p i₁).head ∧
-        rt.points.head? = some ⟨px, yAt y (edgeAt p i₀).tail + nodeH p (edgeAt p i₀).tail⟩ ∧
+        rt.points.head? = some ⟨px, if frameKind p (edgeAt p i₀).tail = -2 then
+          yAt y (edgeAt p i₀).tail else
+          yAt y (edgeAt p i₀).tail + nodeH p (edgeAt p i₀).tail⟩ ∧
         rt.points.getLast? = some ⟨qx, yAt y (edgeAt p i₁).head⟩ := by
   intro rt hrt i₀ i₁ h0 h1
   obtain ⟨_, _, _, hspec⟩ := routePointsWith_spec h
@@ -2153,9 +2178,11 @@ theorem piece_pairs {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {layer
     (tx := r.targetX.getD i 0) ⟨pr.1, pr.2.1⟩ (run_cases hr hi)
     ⟨pr.2.2.1, pr.2.2.2⟩ (pc := pc) (by
       rcases hc with ⟨h1, h2⟩ | ⟨h1, h2⟩
-      · exact Or.inl ⟨h1, h2⟩
-      · exact Or.inr ⟨midOf p slot top (layers.map (layerHeight p)) r i,
-          (mid_bounds hr hF hi h2).1, (mid_bounds hr hF hi h2).2, h1⟩)
+      · refine Or.inl ⟨?_, h2⟩
+        exact h1
+      · refine Or.inr ⟨midOf p slot top (layers.map (layerHeight p)) r i,
+          (mid_bounds hr hF hi h2).1, (mid_bounds hr hF hi h2).2, ?_⟩
+        exact h1)
   exact key
 
 theorem route_avoids_aux {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {layers : List (List Nat)}
@@ -2206,10 +2233,18 @@ theorem route_avoids_aux {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {
       show frameKind p (edgeAt p j).tail ≠ -2
       rw [frameKind_of_chain ⟨nd, hnd, hdum⟩]
       decide
+    have hfk : frameKind p (edgeAt p j).tail = 0 := frameKind_of_chain ⟨nd, hnd, hdum⟩
     have key := junction_miss (G := routeGeo p layers x y top) hG hd hv hvd hnt hvpos
       (tx := r.targetX.getD i 0) (sx := r.sourceX.getD j 0) ⟨pi.2.2.1, pi.2.2.2⟩
       ⟨pj.1, pj.2.1⟩
-    simp only [pieceEnd, pieceStart, hhead]
+    have hps : pieceStart p y r j =
+        ⟨r.sourceX.getD j 0, (routeGeo p layers x y top).yv (edgeAt p j).tail +
+          (routeGeo p layers x y top).hv (edgeAt p j).tail⟩ := by
+      simp [pieceStart, routeGeo, hfk]
+    have hpe : pieceEnd p y r i =
+        ⟨r.targetX.getD i 0, (routeGeo p layers x y top).yv (edgeAt p j).tail⟩ := by
+      simp only [pieceEnd, routeGeo, hhead]
+    rw [hps, hpe, boxRect]
     exact key
   · exact Zipped.imp _ _ (fun i hi pc hpc =>
       ⟨(pieceOf_basic hpc).1, (pieceOf_basic hpc).2.1,
@@ -3631,9 +3666,8 @@ theorem midOf_eq_of_segKey_eq {p : Proper} {layers : List (List Nat)} {x : List 
     (route_segment_eq_iff_segKey_eq hr hi hj hgap).mpr hkey
   exact midOf_eq_of_segment_eq p slot top heights r hgap hseg
 end RouteImpl
-
 export RouteImpl (route routePointsWith routePoints ProperShape CoordFacts IsReal boxRect edgesOf
-  edgeAt pieceStart pieceEnd segConflict sourcePort targetPort DistinctSegmentKeys
+  edgeAt pieceStart pieceEnd frameKind segConflict sourcePort targetPort DistinctSegmentKeys
   GapDeclsDistinct reverseRunMid midOf runOf pieceOf routeOf reversedPoints laneRouteOf
   routeWithLanes routePointsWithLanes mapOk_zipped mapOk_mem
   dedupFrom dedup pieceOf_cases mapOk layerHeight
@@ -3664,8 +3698,9 @@ theorem forward_route_endpoints_on_ports {slot : Int} {p : Proper} {layers : Lis
         px ≤ (boxRect p x y (edgeAt p i₀).tail).x + (boxRect p x y (edgeAt p i₀).tail).w ∧
         (boxRect p x y (edgeAt p i₁).head).x ≤ qx ∧
         qx ≤ (boxRect p x y (edgeAt p i₁).head).x + (boxRect p x y (edgeAt p i₁).head).w ∧
-        rt.points.head? = some ⟨px, (boxRect p x y (edgeAt p i₀).tail).y +
-          (boxRect p x y (edgeAt p i₀).tail).h⟩ ∧
+        rt.points.head? = some ⟨px, if frameKind p (edgeAt p i₀).tail = -2 then
+          (boxRect p x y (edgeAt p i₀).tail).y else
+          (boxRect p x y (edgeAt p i₀).tail).y + (boxRect p x y (edgeAt p i₀).tail).h⟩ ∧
         rt.points.getLast? = some ⟨qx, (boxRect p x y (edgeAt p i₁).head).y⟩ :=
   RouteImpl.route_endpoints_aux hr h
 
@@ -3687,8 +3722,9 @@ theorem route_endpoints_on_ports {slot : Int} {p : Proper} {layers : List (List 
           rt.points.getLast? = some ⟨px, (boxRect p x y (edgeAt p i₀).tail).y +
             (boxRect p x y (edgeAt p i₀).tail).h⟩
         else
-          rt.points.head? = some ⟨px, (boxRect p x y (edgeAt p i₀).tail).y +
-            (boxRect p x y (edgeAt p i₀).tail).h⟩ ∧
+          rt.points.head? = some ⟨px, if frameKind p (edgeAt p i₀).tail = -2 then
+            (boxRect p x y (edgeAt p i₀).tail).y else
+            (boxRect p x y (edgeAt p i₀).tail).y + (boxRect p x y (edgeAt p i₀).tail).h⟩ ∧
           rt.points.getLast? = some ⟨qx, (boxRect p x y (edgeAt p i₁).head).y⟩) := by
   intro rt hrt i₀ i₁ h0 h1
   obtain ⟨base, hb, _, hlr⟩ := RouteImpl.routeWithLanes_spec hr

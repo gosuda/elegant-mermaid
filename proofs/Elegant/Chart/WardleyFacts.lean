@@ -1160,4 +1160,846 @@ theorem wardley_pipeline_frames_in_canvas (m : Model) (result : Layered.FamilyRe
     (Elegant.Kinds.Wardley.decode_pipeline_first_index m input hd)
     hpipe.1 hpipe.2 frame hf
 
+/-- Rectangle provenance through the executed insertion folds of `arrange`, stated
+on the six declaration stems with their exact generated keys. No numeric suffix is
+ever parsed: each hit carries the zipIdx witness that produced it. -/
+def RectEntry (nodes : List Node) (positions ghosts : List Point)
+    (frames accelerators deaccelerators : List Rect) (annotations : List Point)
+    (id : String) (r : Rect) : Prop :=
+  (∃ e ∈ (nodes.zip positions).zipIdx, id = "n" ++ toString e.2 ∧ r = nodeRect e.1.2) ∨
+  (∃ e ∈ ghosts.zipIdx, id = "tg" ++ toString e.2 ∧ r = nodeRect e.1) ∨
+  (∃ e ∈ frames.zipIdx, id = "pl" ++ toString e.2 ∧ r = e.1) ∨
+  (∃ e ∈ accelerators.zipIdx, id = "ac" ++ toString e.2 ∧ r = e.1) ∨
+  (∃ e ∈ deaccelerators.zipIdx, id = "de" ++ toString e.2 ∧ r = e.1) ∨
+  (∃ e ∈ annotations.zipIdx, id = "an" ++ toString e.2 ∧ r = nodeRect e.1)
+
+/-- The rectangle-only shadow of the private index folds inside `arrange`. Each step
+inserts exactly the key and rectangle the corresponding private constructor inserts. -/
+def mirrorRects (nodes : List Node) (positions ghosts : List Point)
+    (frames accelerators deaccelerators : List Rect) (annotations : List Point) :
+    Std.HashMap String Rect :=
+  (annotations.zipIdx).foldl
+    (fun rs e => rs.insert ("an" ++ toString e.2) (nodeRect e.1))
+    ((deaccelerators.zipIdx).foldl
+      (fun rs e => rs.insert ("de" ++ toString e.2) e.1)
+      ((accelerators.zipIdx).foldl
+        (fun rs e => rs.insert ("ac" ++ toString e.2) e.1)
+        ((frames.zipIdx).foldl
+          (fun rs e => rs.insert ("pl" ++ toString e.2) e.1)
+          ((ghosts.zipIdx).foldl
+            (fun rs e => rs.insert ("tg" ++ toString e.2) (nodeRect e.1))
+            (((nodes.zip positions).zipIdx).foldl
+              (fun rs e => rs.insert ("n" ++ toString e.2) (nodeRect e.1.2)) {})))))
+
+private theorem fold_rect_preserves {α σ : Type} (step : σ → α → σ)
+    (P : σ → Prop) (entries : List α) (initial : σ)
+    (hinit : P initial)
+    (hstep : ∀ state entry, P state → entry ∈ entries → P (step state entry)) :
+    P (entries.foldl step initial) := by
+  induction entries generalizing initial with
+  | nil => exact hinit
+  | cons entry rest ih =>
+      apply ih (step initial entry)
+      · exact hstep initial entry hinit (by simp)
+      · intro state next hs hn
+        exact hstep state next hs (List.mem_cons_of_mem entry hn)
+
+private theorem insert_rect_sound (rs : Std.HashMap String Rect)
+    (P : String → Rect → Prop) (id : String) (rect : Rect)
+    (h : ∀ key value, rs[key]? = some value → P key value) (hp : P id rect) :
+    ∀ key value, (rs.insert id rect)[key]? = some value → P key value := by
+  intro key value hv
+  rw [Std.HashMap.getElem?_insert] at hv
+  split at hv
+  · rename_i heq
+    have hid : id = key := by simpa using heq
+    subst key
+    cases hv
+    exact hp
+  · exact h key value hv
+
+private theorem empty_rects_sound (P : String → Rect → Prop) :
+    ∀ k v, (({} : Std.HashMap String Rect))[k]? = some v → P k v := by
+  intro k v hv
+  have hnone : (({} : Std.HashMap String Rect))[k]? = none :=
+    Std.HashMap.getElem?_empty
+  rw [hnone] at hv
+  cases hv
+
+private theorem foldl_insert_rects_sound {α : Type} {init : Std.HashMap String Rect}
+    (entries : List α)
+    (step : Std.HashMap String Rect → α → Std.HashMap String Rect)
+    (key : α → String) (val : α → Rect) (P : String → Rect → Prop)
+    (hstep : ∀ e ∈ entries, P (key e) (val e))
+    (hform : ∀ rs e, step rs e = rs.insert (key e) (val e))
+    (hsound : ∀ k v, init[k]? = some v → P k v) :
+    ∀ k v, (entries.foldl step init)[k]? = some v → P k v := by
+  have hQ := fold_rect_preserves step
+    (fun rs => ∀ k v, rs[k]? = some v → P k v) entries init hsound
+    (fun rs e hs he => by
+      rw [hform rs e]
+      exact insert_rect_sound rs P (key e) (val e) hs (hstep e he))
+  exact hQ
+
+private theorem foldl_lookup_rectangles {α : Type} (entries : List α)
+    (step : GeometryLookup → α → GeometryLookup)
+    (key : α → String) (val : α → Rect)
+    (hstep : ∀ l e, (step l e).rectangles =
+      l.rectangles.insert (key e) (val e))
+    (init : GeometryLookup) :
+    (entries.foldl step init).rectangles =
+      entries.foldl (fun rs e => rs.insert (key e) (val e)) init.rectangles := by
+  induction entries generalizing init with
+  | nil => rfl
+  | cons a as ih =>
+      simp only [List.foldl_cons]
+      rw [ih (step init a), hstep]
+
+/-- The executed rectangle lookup of `arrange` is exactly the public mirror: each
+private index fold contributes only its rectangle insertions, in order. -/
+theorem arrange_lookup_rectangles (c : GeometryConstants) (input : Input) :
+    (arrange c input).lookup.rectangles = mirrorRects input.nodes
+      (arrange c input).positions (arrange c input).ghosts
+      (arrange c input).frames (arrange c input).accelerators
+      (arrange c input).deaccelerators (arrange c input).annotations := by
+  unfold arrange
+  dsimp
+  run_tac do
+    for name in [`Elegant.Chart.Wardley.indexNodes,
+        `Elegant.Chart.Wardley.indexPoints, `Elegant.Chart.Wardley.indexRectangles] do
+      Lean.Elab.Tactic.unfoldTarget (Lean.mkPrivateNameCore `Elegant.Chart.Wardley name)
+  rw [foldl_lookup_rectangles _ _
+    (fun e => "an" ++ toString e.2) (fun e => nodeRect e.1)
+    (by intro l e; rfl)]
+  rw [foldl_lookup_rectangles _ _
+    (fun e => "de" ++ toString e.2) (fun e => e.1)
+    (by intro l e; rfl)]
+  rw [foldl_lookup_rectangles _ _
+    (fun e => "ac" ++ toString e.2) (fun e => e.1)
+    (by intro l e; rfl)]
+  rw [foldl_lookup_rectangles _ _
+    (fun e => "pl" ++ toString e.2) (fun e => e.1)
+    (by intro l e; rfl)]
+  rw [foldl_lookup_rectangles _ _
+    (fun e => "tg" ++ toString e.2) (fun e => nodeRect e.1)
+    (by intro l e; rfl)]
+  rw [foldl_lookup_rectangles _ _
+    (fun e => "n" ++ toString e.2) (fun e => nodeRect e.1.2)
+    (by intro l e; rfl)]
+  rfl
+
+/-- Every rectangle in the executed lookup comes from one of the six declaration
+folds, with the exact key and stored value that fold inserted. -/
+theorem mirrorRects_sound (nodes : List Node) (positions ghosts : List Point)
+    (frames accelerators deaccelerators : List Rect) (annotations : List Point)
+    (id : String) (r : Rect)
+    (h : (mirrorRects nodes positions ghosts frames accelerators deaccelerators
+      annotations)[id]? = some r) :
+    RectEntry nodes positions ghosts frames accelerators deaccelerators
+      annotations id r := by
+  unfold mirrorRects at h
+  exact foldl_insert_rects_sound (annotations.zipIdx)
+    (fun rs e => rs.insert ("an" ++ toString e.2) (nodeRect e.1))
+    (fun e => "an" ++ toString e.2) (fun e => nodeRect e.1)
+    (RectEntry nodes positions ghosts frames accelerators deaccelerators annotations)
+    (fun e he => Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
+      ⟨e, he, rfl, rfl⟩)))))
+    (fun rs e => rfl)
+    (foldl_insert_rects_sound (deaccelerators.zipIdx)
+      (fun rs e => rs.insert ("de" ++ toString e.2) e.1)
+      (fun e => "de" ++ toString e.2) (fun e => e.1)
+      (RectEntry nodes positions ghosts frames accelerators deaccelerators annotations)
+      (fun e he => Or.inr (Or.inr (Or.inr (Or.inr
+        (Or.inl ⟨e, he, rfl, rfl⟩)))))
+      (fun rs e => rfl)
+      (foldl_insert_rects_sound (accelerators.zipIdx)
+        (fun rs e => rs.insert ("ac" ++ toString e.2) e.1)
+        (fun e => "ac" ++ toString e.2) (fun e => e.1)
+        (RectEntry nodes positions ghosts frames accelerators deaccelerators annotations)
+        (fun e he => Or.inr (Or.inr (Or.inr
+          (Or.inl ⟨e, he, rfl, rfl⟩))))
+        (fun rs e => rfl)
+        (foldl_insert_rects_sound (frames.zipIdx)
+          (fun rs e => rs.insert ("pl" ++ toString e.2) e.1)
+          (fun e => "pl" ++ toString e.2) (fun e => e.1)
+          (RectEntry nodes positions ghosts frames accelerators deaccelerators annotations)
+          (fun e he => Or.inr (Or.inr
+            (Or.inl ⟨e, he, rfl, rfl⟩)))
+          (fun rs e => rfl)
+          (foldl_insert_rects_sound (ghosts.zipIdx)
+            (fun rs e => rs.insert ("tg" ++ toString e.2) (nodeRect e.1))
+            (fun e => "tg" ++ toString e.2) (fun e => nodeRect e.1)
+            (RectEntry nodes positions ghosts frames accelerators deaccelerators annotations)
+            (fun e he => Or.inr (Or.inl ⟨e, he, rfl, rfl⟩))
+            (fun rs e => rfl)
+            (foldl_insert_rects_sound ((nodes.zip positions).zipIdx)
+              (fun rs e => rs.insert ("n" ++ toString e.2) (nodeRect e.1.2))
+              (fun e => "n" ++ toString e.2) (fun e => nodeRect e.1.2)
+              (RectEntry nodes positions ghosts frames accelerators deaccelerators annotations)
+              (fun e he => Or.inl ⟨e, he, rfl, rfl⟩)
+              (fun rs e => rfl)
+              (empty_rects_sound
+                (RectEntry nodes positions ghosts frames accelerators
+                  deaccelerators annotations))))))) id r h
+
+/-- Public rectangle-lookup soundness for `arrange`: every hit is produced by one
+of the six declaration folds with its exact generated key. -/
+theorem arrange_rectangles_sound (c : GeometryConstants) (input : Input)
+    (id : String) (r : Rect)
+    (h : (arrange c input).lookup.rectangles[id]? = some r) :
+    RectEntry input.nodes (arrange c input).positions (arrange c input).ghosts
+      (arrange c input).frames (arrange c input).accelerators
+      (arrange c input).deaccelerators (arrange c input).annotations id r := by
+  rw [arrange_lookup_rectangles c input] at h
+  exact mirrorRects_sound input.nodes (arrange c input).positions
+    (arrange c input).ghosts (arrange c input).frames
+    (arrange c input).accelerators (arrange c input).deaccelerators
+    (arrange c input).annotations id r h
+
+theorem arrange_rectangles_inside_plot (c : GeometryConstants) (input : Input)
+    (hw : 0 ≤ (arrange c input).plot.w) (hh : 0 ≤ (arrange c input).plot.h)
+    (hindex : ∀ pipeline ∈ input.pipelines,
+      pipeline.children.headD 0 < input.nodes.length)
+    (hpad : 0 ≤ c.pipelinePad) (hheight : 0 ≤ c.pipelineHeight)
+    (id : String) (r : Rect)
+    (h : (arrange c input).lookup.rectangles[id]? = some r) :
+    (arrange c input).plot.Contained r := by
+  rcases arrange_rectangles_sound c input id r h with
+    hn | hg | hf | ha | hd | ht
+  · obtain ⟨entry, he, _, rfl⟩ := hn
+    exact arranged_positions_inside c input hw hh entry.1.2
+      (List.of_mem_zip (List.fst_mem_of_mem_zipIdx he)).2
+  · obtain ⟨entry, he, _, rfl⟩ := hg
+    have hmem := List.fst_mem_of_mem_zipIdx he
+    obtain ⟨trend, _, hpoint⟩ := List.mem_map.mp hmem
+    rw [← hpoint]
+    exact projected_node_inside (arrange c input).plot trend.x trend.y hw hh
+  · obtain ⟨entry, he, _, rfl⟩ := hf
+    exact arranged_frames_inside_plot c input hw hh hindex hpad hheight entry.1
+      (List.fst_mem_of_mem_zipIdx he)
+  · obtain ⟨entry, he, _, rfl⟩ := ha
+    exact arranged_accelerators_inside_plot c input entry.1
+      (List.fst_mem_of_mem_zipIdx he)
+  · obtain ⟨entry, he, _, rfl⟩ := hd
+    exact arranged_deaccelerators_inside_plot c input entry.1
+      (List.fst_mem_of_mem_zipIdx he)
+  · obtain ⟨entry, he, _, rfl⟩ := ht
+    have hmem := List.fst_mem_of_mem_zipIdx he
+    obtain ⟨annotation, _, hpoint⟩ := List.mem_map.mp hmem
+    rw [← hpoint]
+    exact projected_node_inside (arrange c input).plot annotation.x annotation.y hw hh
+
+theorem boxRect_inside_plot (c : GeometryConstants) (input : Input)
+    (annotationBox : Rect) (id : String) (r : Rect)
+    (hw : 0 ≤ (arrange c input).plot.w) (hh : 0 ≤ (arrange c input).plot.h)
+    (hindex : ∀ pipeline ∈ input.pipelines,
+      pipeline.children.headD 0 < input.nodes.length)
+    (hpad : 0 ≤ c.pipelinePad) (hheight : 0 ≤ c.pipelineHeight)
+    (hab : id ≠ "ab")
+    (h : boxRect (arrange c input) annotationBox id = .ok r) :
+    (arrange c input).plot.Contained r := by
+  by_cases hp : id = "plot"
+  · have hr : (arrange c input).plot = r := by
+      simpa [boxRect, hp] using h
+    rw [← hr]
+    simp [Rect.Contained]
+  · unfold boxRect at h
+    simp only [hp, hab, ↓reduceIte] at h
+    cases hr : (arrange c input).lookup.rectangles[id]? with
+    | none => simp [hr] at h
+    | some rect =>
+        simp only [hr, Except.ok.injEq] at h
+        subst rect
+        exact arrange_rectangles_inside_plot c input hw hh hindex hpad hheight id r hr
+
+theorem wardley_nonannotation_boxes_in_canvas (m : Model) (result : Layered.FamilyResult)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result) :
+    ∀ box ∈ result.scene.boxes, box.id ≠ "ab" →
+      (Validator.canvasRect result.scene.layoutDump).Contained box.rect := by
+  obtain ⟨input, hd, _, _, _, _, hs⟩ :=
+    adapter_success_consistent m result.scene (layout_success_scene m result h).1
+  obtain ⟨annotationBox, hboxes⟩ :=
+    layoutWith_box_geometry (constants m) input m result.scene hs
+  obtain ⟨decoded, hdecoded, hcanvas⟩ := wardley_plot_in_canvas m result h
+  have heq : decoded = input := by
+    rw [hd] at hdecoded
+    exact Except.ok.inj hdecoded.symm
+  subst decoded
+  have hplot := constants_plot_nonnegative m input
+  have hpipeline := constants_pipeline_nonnegative m
+  intro box hb hab
+  obtain ⟨model, _, hid, _, hr⟩ := hboxes box hb
+  have hinside := boxRect_inside_plot (constants m).geometry input annotationBox
+    model.id box.rect hplot.1 hplot.2
+    (Elegant.Kinds.Wardley.decode_pipeline_first_index m input hd)
+    hpipeline.1 hpipeline.2 (fun hm => hab (hid.trans hm)) hr
+  simp only [Rect.Contained] at hcanvas hinside ⊢
+  omega
+
+theorem placeLabels_annotationBox_eq (c : LabelConstants) (cell : Bool)
+    (input : Input) (g : Geometry) (routes : List ModelRoute)
+    (measured : List MeasuredLabel) (box : Rect) (labels : List PlacedLabel)
+    (h : placeLabels c cell input g routes measured = .ok (box, labels)) :
+    box = match input.box with
+      | some pos => annotationBox c g.plot pos ((boxedAnnotations measured).map (·.extent))
+      | none => ⟨0, 0, 0, 0⟩ := by
+  unfold placeLabels at h
+  obtain ⟨placed, _, h⟩ := bind_ok h
+  simp only [Pure.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  exact h.1.symm
+
+theorem constants_empty_annotation_fits (m : Model) (input : Input) :
+    2 * (constants m).labels.boxPad ≤ (arrange (constants m).geometry input).plot.w ∧
+      2 * (constants m).labels.boxPad ≤ (arrange (constants m).geometry input).plot.h := by
+  cases hp : m.profile <;>
+    simp only [arrange, constants, hp, LayoutConst.Pair.get,
+      LayoutConst.wardley_box_pad, LayoutConst.wardley_arrow_width,
+      LayoutConst.wardley_arrow_shaft, LayoutConst.wardley_arrow_head] <;>
+    omega
+
+theorem wardley_c1 (m : Model) (result : Layered.FamilyResult)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result) :
+    Validator.C1 result.scene.layoutDump := by
+  obtain ⟨input, hd, _, hm, _, _, hs⟩ :=
+    adapter_success_consistent m result.scene (layout_success_scene m result h).1
+  obtain ⟨measured, annotationBox, labels, boxes, routes,
+      _, hplaced, hb, _, hsbox, _, _, hcanvas⟩ :=
+    layoutWith_decompose (constants m) input m result.scene hs
+  have hpadding := constants_padding_nonnegative m (metadataConsistent_padding m hm)
+  have hp := constants_plot_nonnegative m input
+  have hplot := finalCanvas_contains_plot (constants m) input measured annotationBox labels
+    hpadding.1 hpadding.2
+  have hab := placeLabels_annotationBox_eq (constants m).labels
+    (m.profile == .cell) input (arrange (constants m).geometry input)
+    m.routes measured annotationBox labels hplaced
+  intro box hbox
+  by_cases hid : box.id = "ab"
+  · have hmem : box ∈ boxes := by
+      change box ∈ result.scene.boxes at hbox
+      rw [hsbox] at hbox
+      exact hbox
+    obtain ⟨model, _, hexecuted⟩ :=
+      mapM_provenance (boxFunction (arrange (constants m).geometry input) annotationBox)
+        m.boxes boxes hb box hmem
+    obtain ⟨hmodel, _, hr⟩ :=
+      boxFunction_geometry (arrange (constants m).geometry input)
+        annotationBox model box hexecuted
+    have hrect : annotationBox = box.rect := by
+      simpa [boxRect, hmodel.symm.trans hid] using hr
+    rw [← hrect]
+    change (⟨0, 0, result.scene.canvas.w, result.scene.canvas.h⟩ : Rect).Contained _
+    rw [hcanvas]
+    cases hpos : input.box with
+    | none =>
+        have hz : annotationBox = ⟨0, 0, 0, 0⟩ := by simpa [hpos] using hab
+        rw [hz] at hplot ⊢
+        dsimp [Rect.Contained] at hplot ⊢
+        omega
+    | some pos =>
+        have heq : annotationBox = Elegant.Chart.Wardley.annotationBox
+            (constants m).labels (arrange (constants m).geometry input).plot pos
+            ((boxedAnnotations measured).map (·.extent)) := by
+          simpa [hpos] using hab
+        by_cases hempty : boxedAnnotations measured = []
+        · have hsmall := constants_empty_annotation_fits m input
+          have hi : (arrange (constants m).geometry input).plot.Contained annotationBox := by
+            rw [heq]
+            unfold Elegant.Chart.Wardley.annotationBox
+            apply fitPlot_inside
+            · simpa [hempty] using hsmall.1
+            · simpa [hempty] using hsmall.2
+          simp only [Rect.Contained] at hplot hi ⊢
+          omega
+        · have hx0 : 0 ≤ annotationBox.x := by
+            rw [heq]
+            simp only [Elegant.Chart.Wardley.annotationBox, fitPlot]
+            unfold clamp
+            simp only [arrange]
+            omega
+          have hy0 : 0 ≤ annotationBox.y := by
+            rw [heq]
+            simp only [Elegant.Chart.Wardley.annotationBox, fitPlot]
+            unfold clamp
+            simp only [arrange]
+            omega
+          have hemptyBool : (boxedAnnotations measured).isEmpty = false := by
+            cases he : boxedAnnotations measured with
+            | nil => exact False.elim (hempty he)
+            | cons a rest => rfl
+          unfold finalCanvas
+          simp only [hpos, Option.isSome_some, hemptyBool,
+            Bool.not_false, Bool.and_self, ↓reduceIte]
+          simp only [Rect.Contained]
+          omega
+  · exact wardley_nonannotation_boxes_in_canvas m result h box hbox hid
+
+theorem wardley_annotation_box_parent (m : Model) (result : Layered.FamilyResult)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result)
+    (box : Box) (hb : box ∈ result.scene.boxes) (hid : box.id = "ab") :
+    box.parent = "" := by
+  obtain ⟨input, _, _, _, _, _, hs⟩ :=
+    adapter_success_consistent m result.scene (layout_success_scene m result h).1
+  obtain ⟨annotationBox, hboxes⟩ :=
+    layoutWith_box_geometry (constants m) input m result.scene hs
+  obtain ⟨model, hm, heq, hparent, _⟩ := hboxes box hb
+  exact hparent.trans
+    (successful_annotation_parent m result h model hm (heq.symm.trans hid))
+
+theorem placeLabels_nonnegative (c : LabelConstants) (cell : Bool)
+    (input : Input) (g : Geometry) (routes : List ModelRoute)
+    (measured : List MeasuredLabel) (box : Rect) (labels : List PlacedLabel)
+    (h : placeLabels c cell input g routes measured = .ok (box, labels)) :
+    ∀ label ∈ labels, 0 ≤ label.rect.x ∧ 0 ≤ label.rect.y := by
+  unfold placeLabels at h
+  obtain ⟨placed, hp, h⟩ := bind_ok h
+  simp only [Pure.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+  have hlabels : placed = labels := h.2
+  subst placed
+  intro label hl
+  obtain ⟨original, _, hexecuted⟩ := mapM_provenance _ _ _ hp label hl
+  split at hexecuted
+  · simp only [Pure.pure, Except.pure, Except.ok.injEq] at hexecuted
+    subst label
+    change (0 : Int) ≤ 0 ∧ (0 : Int) ≤ 0
+    exact ⟨Int.le_refl 0, Int.le_refl 0⟩
+  · obtain ⟨pair, _, hexecuted⟩ := bind_ok hexecuted
+    rcases pair with ⟨rect, align⟩
+    simp only [Pure.pure, Except.pure, Except.ok.injEq] at hexecuted
+    subst label
+    simp only [fitCanvas]
+    unfold clamp
+    omega
+
+theorem wardley_shown_labels_in_canvas (m : Model) (result : Layered.FamilyResult)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result) :
+    ∃ (input : Input) (measured : List MeasuredLabel) (annotationBox : Rect)
+        (labels : List PlacedLabel),
+      placeLabels (constants m).labels (m.profile == .cell) input
+        (arrange (constants m).geometry input) m.routes measured =
+          .ok (annotationBox, labels) ∧
+      result.scene.labels = labels.map PlacedLabel.dump ∧
+      ∀ label ∈ labels, label.shown = true →
+        (Validator.canvasRect result.scene.layoutDump).Contained label.rect := by
+  obtain ⟨input, _, _, _, _, _, hs⟩ :=
+    adapter_success_consistent m result.scene (layout_success_scene m result h).1
+  obtain ⟨measured, annotationBox, labels, boxes, routes,
+      _, hp, _, _, _, _, hlabels, hcanvas⟩ :=
+    layoutWith_decompose (constants m) input m result.scene hs
+  refine ⟨input, measured, annotationBox, labels, hp, hlabels, ?_⟩
+  intro label hl hshown
+  have hlo := placeLabels_nonnegative (constants m).labels (m.profile == .cell)
+    input (arrange (constants m).geometry input) m.routes measured annotationBox labels
+    hp label hl
+  have hhi := finalCanvas_contains_shown_label_extents input
+    (arrange (constants m).geometry input) measured annotationBox labels label hl hshown
+  change (⟨0, 0, result.scene.canvas.w, result.scene.canvas.h⟩ : Rect).Contained _
+  rw [hcanvas]
+  simp only [Rect.Contained]
+  omega
+
+theorem wellFormed_route_boxes (m : Model) (hwf : WellFormed m)
+    (route : ModelRoute) (hr : route ∈ m.routes) :
+    (∃ box ∈ m.boxes, box.id = route.fromId) ∧
+      (∃ box ∈ m.boxes, box.id = route.toId) := by
+  unfold WellFormed modelWellFormed at hwf
+  simp only [Bool.and_eq_true] at hwf
+  have hroutes := hwf.1.1.2
+  have hendpoints := List.all_eq_true.mp hroutes route hr
+  simp only [Bool.and_eq_true, List.contains_iff_mem] at hendpoints
+  constructor
+  · obtain ⟨box, hb, hid⟩ := List.mem_map.mp hendpoints.1
+    exact ⟨box, hb, hid⟩
+  · obtain ⟨box, hb, hid⟩ := List.mem_map.mp hendpoints.2
+    exact ⟨box, hb, hid⟩
+
+theorem wardley_route_boxes (m : Model) (result : Layered.FamilyResult)
+    (hwf : WellFormed m)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result)
+    (route : Route) (hr : route ∈ result.scene.routes) :
+    (∃ box ∈ result.scene.boxes, box.id = route.fromId) ∧
+      (∃ box ∈ result.scene.boxes, box.id = route.toId) := by
+  obtain ⟨input, _, _, _, _, _, hs⟩ :=
+    adapter_success_consistent m result.scene (layout_success_scene m result h).1
+  obtain ⟨model, hm, _, hfrom, hto, _⟩ :=
+    layoutWith_route_endpoints (constants m) input m result.scene hs route hr
+  obtain ⟨source, target⟩ := wellFormed_route_boxes m hwf model hm
+  obtain ⟨annotationBox, hboxes⟩ :=
+    layoutWith_model_box_geometry (constants m) input m result.scene hs
+  constructor
+  · obtain ⟨source, hsource, hid⟩ := source
+    obtain ⟨box, hb, heq, _⟩ := hboxes source hsource
+    exact ⟨box, hb, heq.trans (hid.trans hfrom.symm)⟩
+  · obtain ⟨target, htarget, hid⟩ := target
+    obtain ⟨box, hb, heq, _⟩ := hboxes target htarget
+    exact ⟨box, hb, heq.trans (hid.trans hto.symm)⟩
+
+private theorem box_lookup_exists (boxes : List Box) (id : String)
+    (h : ∃ box ∈ boxes, box.id = id) :
+    ∃ box, boxes.find? (fun candidate => candidate.id == id) = some box := by
+  induction boxes with
+  | nil => simp at h
+  | cons first rest ih =>
+      by_cases heq : first.id = id
+      · exact ⟨first, by simp [heq]⟩
+      · obtain ⟨box, hb, hid⟩ := h
+        have hrest : box ∈ rest := by
+          rcases List.mem_cons.mp hb with hfirst | hrest
+          · subst box
+            exact False.elim (heq hid)
+          · exact hrest
+        obtain ⟨found, hf⟩ := ih ⟨box, hrest, hid⟩
+        exact ⟨found, by simp [heq, hf]⟩
+
+theorem wardley_route_box_lookups (m : Model) (result : Layered.FamilyResult)
+    (hwf : WellFormed m)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result)
+    (route : Route) (hr : route ∈ result.scene.routes) :
+    (∃ box, result.scene.layoutDump.box? route.fromId = some box) ∧
+      (∃ box, result.scene.layoutDump.box? route.toId = some box) := by
+  obtain ⟨source, target⟩ := wardley_route_boxes m result hwf h route hr
+  exact ⟨box_lookup_exists result.scene.boxes route.fromId source,
+    box_lookup_exists result.scene.boxes route.toId target⟩
+
+theorem arranged_pipeline_contains_unmarked_child (m : Model) (input : Input)
+    (pipeline : Pipeline) (i : Nat) (node : Node)
+    (hmarked : Elegant.Kinds.Wardley.parentsMarked input = true)
+    (hnode : input.nodes[i]? = some node)
+    (hflag : node.flags &&& 4 = 0)
+    (hi : i ∈ pipeline.children) :
+    (pipelineGeometry (constants m).geometry (arrange (constants m).geometry input).plot
+      (arrange (constants m).geometry input).base pipeline).1.Contained
+      (nodeRect (((arrange (constants m).geometry input).positions[i]?).getD ⟨0, 0⟩)) := by
+  rw [unmarked_node_position (constants m).geometry input i node hmarked hnode hflag]
+  apply pipeline_frame_contains_base_child
+    (constants m).geometry (arrange (constants m).geometry input).plot
+    (arrange (constants m).geometry input).base pipeline i hi
+  · have hplot := constants_plot_nonnegative m input
+    have hbase : (arrange (constants m).geometry input).base[i]? =
+        some (project (arrange (constants m).geometry input).plot node.x node.y) := by
+      change (input.nodes.map _)[i]? = _
+      simp only [List.getElem?_map, hnode, Option.map_some]
+      rfl
+    rw [hbase]
+    exact projected_node_inside _ node.x node.y hplot.1 hplot.2
+  · exact (constants_pipeline_nonnegative m).1
+  · exact (constants_pipeline_nonnegative m).2
+  · cases hp : m.profile <;>
+      simp [constants, hp, LayoutConst.Pair.get]
+
+theorem arranged_endpoint_boxRect (c : GeometryConstants) (input : Input)
+    (annotationBox : Rect) (id : String) (point : Point)
+    (h : endpoint (arrange c input) id = .ok point) :
+    boxRect (arrange c input) annotationBox id = .ok (nodeRect point) := by
+  have hp := endpoint_lookup _ _ _ h
+  have hr := arrange_point_rectangle c input id point hp
+  obtain ⟨hplot, hab⟩ := arrange_point_not_reserved c input id point hp
+  simp only [boxRect, hplot, hab, ↓reduceIte, hr]
+
+theorem wardley_c5 (m : Model) (result : Layered.FamilyResult)
+    (hwf : WellFormed m)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result) :
+    Validator.C5 result.scene.layoutDump := by
+  obtain ⟨input, _, _, _, _, _, hs⟩ :=
+    adapter_success_consistent m result.scene (layout_success_scene m result h).1
+  obtain ⟨annotationBox, hboxes⟩ :=
+    layoutWith_box_geometry (constants m) input m result.scene hs
+  intro route hr
+  obtain ⟨model, _, _, _, _, source, target, hsource, htarget, hfirst, hlast⟩ :=
+    layoutWith_route_endpoints (constants m) input m result.scene hs route hr
+  obtain ⟨⟨fromBox, hfromBox⟩, ⟨toBox, htoBox⟩⟩ :=
+    wardley_route_box_lookups m result hwf h route hr
+  have fromMem : fromBox ∈ result.scene.boxes :=
+    List.mem_of_find?_eq_some hfromBox
+  have toMem : toBox ∈ result.scene.boxes :=
+    List.mem_of_find?_eq_some htoBox
+  have fromId : fromBox.id = route.fromId := by
+    have hid := List.find?_some (p := fun (b : Box) => b.id == route.fromId) hfromBox
+    exact beq_iff_eq.mp hid
+  have toId : toBox.id = route.toId := by
+    have hid := List.find?_some (p := fun (b : Box) => b.id == route.toId) htoBox
+    exact beq_iff_eq.mp hid
+  obtain ⟨fromModel, _, hfromId, _, hfromRect⟩ := hboxes fromBox fromMem
+  obtain ⟨toModel, _, htoId, _, htoRect⟩ := hboxes toBox toMem
+  have fromRect : fromBox.rect = nodeRect source := by
+    have hid : fromModel.id = route.fromId := hfromId.symm.trans fromId
+    rw [hid, arranged_endpoint_boxRect (constants m).geometry input
+      annotationBox route.fromId source hsource] at hfromRect
+    exact (Except.ok.inj hfromRect).symm
+  have toRect : toBox.rect = nodeRect target := by
+    have hid : toModel.id = route.toId := htoId.symm.trans toId
+    rw [hid, arranged_endpoint_boxRect (constants m).geometry input
+      annotationBox route.toId target htarget] at htoRect
+    exact (Except.ok.inj htoRect).symm
+  refine ⟨source, target, fromBox, toBox, hfirst, hlast, hfromBox, htoBox, ?_, ?_⟩
+  · rw [fromRect]
+    exact nodeRect_boundary source
+  · rw [toRect]
+    exact nodeRect_boundary target
+
+theorem wardley_plot_parent_contains (m : Model) (result : Layered.FamilyResult)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result)
+    (box parent : Box) (hb : box ∈ result.scene.boxes)
+    (hparent : box.parent = "plot")
+    (hp : result.scene.layoutDump.box? box.parent = some parent) :
+    parent.rect.Contained box.rect := by
+  obtain ⟨input, hd, _, _, _, _, hs⟩ :=
+    adapter_success_consistent m result.scene (layout_success_scene m result h).1
+  obtain ⟨annotationBox, hboxes⟩ :=
+    layoutWith_box_geometry (constants m) input m result.scene hs
+  have hp' : result.scene.boxes.find? (fun b => b.id == "plot") = some parent := by
+    simpa only [hparent, LayoutDump.box?, Scene.layoutDump] using hp
+  have hpmem : parent ∈ result.scene.boxes := List.mem_of_find?_eq_some hp'
+  have hpid : parent.id = "plot" := by
+    have hid := List.find?_some (p := fun (b : Box) => b.id == "plot") hp'
+    exact beq_iff_eq.mp hid
+  obtain ⟨parentModel, _, hparentId, _, hparentRect⟩ := hboxes parent hpmem
+  have hmodelPlot : parentModel.id = "plot" := hparentId.symm.trans hpid
+  have hrect : parent.rect = (arrange (constants m).geometry input).plot := by
+    have heq : (arrange (constants m).geometry input).plot = parent.rect := by
+      simpa only [boxRect, hmodelPlot, ↓reduceIte, Except.ok.injEq] using hparentRect
+    exact heq.symm
+  rw [hrect]
+  obtain ⟨model, hm, hid, _, hr⟩ := hboxes box hb
+  have hab : model.id ≠ "ab" := by
+    intro heq
+    have hboxId : box.id = "ab" := hid.trans heq
+    have hempty := wardley_annotation_box_parent m result h box hb hboxId
+    rw [hparent] at hempty
+    contradiction
+  have hplot := constants_plot_nonnegative m input
+  have hpipe := constants_pipeline_nonnegative m
+  exact boxRect_inside_plot (constants m).geometry input annotationBox model.id box.rect
+    hplot.1 hplot.2 (Elegant.Kinds.Wardley.decode_pipeline_first_index m input hd)
+    hpipe.1 hpipe.2 hab hr
+
+theorem expected_nonplot_parent (input : Input) (m : Model) (b : ModelBox)
+    (hb : b ∈ Elegant.Kinds.Wardley.expectedBoxes input m)
+    (hempty : b.parent ≠ "") (hplot : b.parent ≠ "plot") :
+    ∃ (i : Nat) (node : Node) (k : Nat) (pipeline : Pipeline),
+      input.nodes[i]? = some node ∧ node.flags &&& 4 = 0 ∧
+      input.pipelines[k]? = some pipeline ∧ i ∈ pipeline.children ∧
+      b.id = "n" ++ toString i ∧ b.parent = "pl" ++ toString k := by
+  unfold Elegant.Kinds.Wardley.expectedBoxes at hb
+  simp only [List.mem_append, or_assoc] at hb
+  rcases hb with hb | hb | hb | hb | hb | hb | hb | hb
+  · simp only [List.mem_singleton] at hb
+    subst b
+    exact False.elim (hempty rfl)
+  · obtain ⟨k, _, rfl⟩ := List.mem_map.mp hb
+    exact False.elim (hplot rfl)
+  · obtain ⟨⟨node, i⟩, hn, rfl⟩ := List.mem_map.mp hb
+    have hnode : input.nodes[i]? = some node :=
+      List.mk_mem_zipIdx_iff_getElem?.mp hn
+    change (if node.flags &&& 4 != 0 then "plot" else
+      match input.pipelines.zipIdx.find? (fun entry => entry.1.children.contains i) with
+      | some (_, k) => "pl" ++ toString k
+      | none => "plot") ≠ "plot" at hplot
+    by_cases hflag : node.flags &&& 4 = 0
+    · simp only [hflag, bne_self_eq_false, Bool.false_eq_true, ↓reduceIte] at hplot ⊢
+      cases hf : input.pipelines.zipIdx.find?
+          (fun entry => entry.1.children.contains i) with
+      | none => simp only [hf] at hplot; exact False.elim (hplot rfl)
+      | some entry =>
+          rcases entry with ⟨pipeline, k⟩
+          have hp := List.mem_of_find?_eq_some hf
+          have hc := List.find?_some
+            (p := fun entry : Pipeline × Nat => entry.1.children.contains i) hf
+          refine ⟨i, node, k, pipeline, hnode, hflag,
+            List.mk_mem_zipIdx_iff_getElem?.mp hp, List.contains_iff_mem.mp hc, rfl, ?_⟩
+          rfl
+    · have hne : (node.flags &&& 4 != 0) = true := by simp [hflag]
+      simp only [hne, ↓reduceIte] at hplot
+      exact False.elim (hplot rfl)
+  · obtain ⟨k, _, rfl⟩ := List.mem_map.mp hb
+    exact False.elim (hplot rfl)
+  · obtain ⟨k, _, rfl⟩ := List.mem_map.mp hb
+    exact False.elim (hempty rfl)
+  · obtain ⟨k, _, rfl⟩ := List.mem_map.mp hb
+    exact False.elim (hempty rfl)
+  · obtain ⟨k, _, rfl⟩ := List.mem_map.mp hb
+    exact False.elim (hplot rfl)
+  · split at hb
+    · simp only [List.mem_singleton] at hb
+      subst b
+      exact False.elim (hempty rfl)
+    · simp at hb
+
+theorem rectangle_expected_id (input : Input) (m : Model) (c : GeometryConstants)
+    (id : String) (rect : Rect)
+    (hr : (arrange c input).lookup.rectangles[id]? = some rect) :
+    ∃ expected ∈ Elegant.Kinds.Wardley.expectedBoxes input m, expected.id = id := by
+  rcases arrange_rectangles_sound c input id rect hr with hn | hg | hp | ha | hd | han
+  · obtain ⟨⟨⟨node, point⟩, i⟩, he, hid, _⟩ := hn
+    have hi := List.snd_lt_of_mem_zipIdx he
+    simp only [List.length_zip, Nat.add_zero] at hi
+    have hin : i < input.nodes.length := by omega
+    let node := input.nodes[i]
+    have hn : (node, i) ∈ input.nodes.zipIdx :=
+      List.mk_mem_zipIdx_iff_getElem?.mpr (by simp [node])
+    let parent := if node.flags &&& 4 != 0 then "plot" else
+      match input.pipelines.zipIdx.find? (fun entry => entry.1.children.contains i) with
+      | some (_, k) => "pl" ++ toString k
+      | none => "plot"
+    refine ⟨{ id := "n" ++ toString i, parent, exclusive := false }, ?_, hid.symm⟩
+    unfold Elegant.Kinds.Wardley.expectedBoxes
+    simp only [List.mem_append, or_assoc]
+    exact Or.inr (Or.inr (Or.inl (List.mem_map.mpr ⟨(node, i), hn, rfl⟩)))
+  · obtain ⟨⟨point, i⟩, he, hid, _⟩ := hg
+    have hi := List.snd_lt_of_mem_zipIdx he
+    have hlen : (arrange c input).ghosts.length = input.trends.length := by
+      simp [arrange]
+    have hi' : i ∈ List.range input.trends.length := by
+      simp only [List.mem_range]
+      omega
+    refine ⟨{ id := "tg" ++ toString i, parent := "plot", exclusive := false }, ?_, hid.symm⟩
+    unfold Elegant.Kinds.Wardley.expectedBoxes
+    simp only [List.mem_append, or_assoc]
+    exact Or.inr (Or.inr (Or.inr (Or.inl (List.mem_map.mpr ⟨i, hi', rfl⟩))))
+  · obtain ⟨⟨frame, i⟩, he, hid, _⟩ := hp
+    have hi := List.snd_lt_of_mem_zipIdx he
+    have hlen : (arrange c input).frames.length = input.pipelines.length := by
+      simp [arrange]
+    have hi' : i ∈ List.range input.pipelines.length := by
+      simp only [List.mem_range]
+      omega
+    refine ⟨{ id := "pl" ++ toString i, parent := "plot", exclusive := false }, ?_, hid.symm⟩
+    unfold Elegant.Kinds.Wardley.expectedBoxes
+    simp only [List.mem_append, or_assoc]
+    exact Or.inr (Or.inl (List.mem_map.mpr ⟨i, hi', rfl⟩))
+  · obtain ⟨⟨force, i⟩, he, hid, _⟩ := ha
+    have hi := List.snd_lt_of_mem_zipIdx he
+    have hlen : (arrange c input).accelerators.length = input.accelerators.length := by
+      simp [arrange]
+    have hi' : i ∈ List.range input.accelerators.length := by
+      simp only [List.mem_range]
+      omega
+    refine ⟨{ id := "ac" ++ toString i, exclusive := false }, ?_, hid.symm⟩
+    unfold Elegant.Kinds.Wardley.expectedBoxes
+    simp only [List.mem_append, or_assoc]
+    exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl (List.mem_map.mpr ⟨i, hi', rfl⟩)))))
+  · obtain ⟨⟨force, i⟩, he, hid, _⟩ := hd
+    have hi := List.snd_lt_of_mem_zipIdx he
+    have hlen : (arrange c input).deaccelerators.length = input.deaccelerators.length := by
+      simp [arrange]
+    have hi' : i ∈ List.range input.deaccelerators.length := by
+      simp only [List.mem_range]
+      omega
+    refine ⟨{ id := "de" ++ toString i, exclusive := false }, ?_, hid.symm⟩
+    unfold Elegant.Kinds.Wardley.expectedBoxes
+    simp only [List.mem_append, or_assoc]
+    exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
+      (Or.inl (List.mem_map.mpr ⟨i, hi', rfl⟩))))))
+  · obtain ⟨⟨point, i⟩, he, hid, _⟩ := han
+    have hi := List.snd_lt_of_mem_zipIdx he
+    have hlen : (arrange c input).annotations.length = input.annotations.length := by
+      simp [arrange]
+    have hi' : i ∈ List.range input.annotations.length := by
+      simp only [List.mem_range]
+      omega
+    refine ⟨{ id := "an" ++ toString i, parent := "plot", exclusive := false }, ?_, hid.symm⟩
+    unfold Elegant.Kinds.Wardley.expectedBoxes
+    simp only [List.mem_append, or_assoc]
+    exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
+      (Or.inl (List.mem_map.mpr ⟨i, hi', rfl⟩)))))))
+
+theorem wardley_c3 (m : Model) (result : Layered.FamilyResult)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result) :
+    Validator.C3 result.scene.layoutDump := by
+  obtain ⟨input, hd, hcons, _, _, hmarked, hs⟩ :=
+    adapter_success_consistent m result.scene (layout_success_scene m result h).1
+  obtain ⟨annotationBox, hboxes⟩ :=
+    layoutWith_box_geometry (constants m) input m result.scene hs
+  intro box hb hempty parent hp
+  by_cases hplot : box.parent = "plot"
+  · exact wardley_plot_parent_contains m result h box parent hb hplot hp
+  obtain ⟨model, hm, hid, hparent, hr⟩ := hboxes box hb
+  have hab : model.id ≠ "ab" := by
+    intro heq
+    exact hempty (wardley_annotation_box_parent m result h box hb (hid.trans heq))
+  have hmodelPlot : model.id ≠ "plot" := by
+    intro heq
+    have hcheck := List.all_eq_true.mp hcons model hm
+    have hroot : model.parent = "" := by
+      have hfind : (Elegant.Kinds.Wardley.expectedBoxes input m).find?
+          (fun b => b.id == model.id) =
+          some ({ id := "plot", parent := "", exclusive := false } : ModelBox) := by
+        unfold Elegant.Kinds.Wardley.expectedBoxes
+        simp only [List.cons_append, List.nil_append, heq, List.find?_cons]
+        rfl
+      rw [hfind] at hcheck
+      exact beq_iff_eq.mp hcheck
+    exact hempty (hparent.trans hroot)
+  have hlookup : (arrange (constants m).geometry input).lookup.rectangles[model.id]? =
+      some box.rect := by
+    unfold boxRect at hr
+    simp only [hmodelPlot, hab, ↓reduceIte] at hr
+    cases hl : (arrange (constants m).geometry input).lookup.rectangles[model.id]? with
+    | none => simp [hl] at hr
+    | some rect =>
+        simp only [hl, Except.ok.injEq] at hr
+        subst rect
+        rfl
+  obtain ⟨candidate, hc, hcid⟩ :=
+    rectangle_expected_id input m (constants m).geometry model.id box.rect hlookup
+  have hexpected : ∃ expected,
+      (Elegant.Kinds.Wardley.expectedBoxes input m).find?
+        (fun b => b.id == model.id) = some expected := by
+    cases hf : (Elegant.Kinds.Wardley.expectedBoxes input m).find?
+        (fun b => b.id == model.id) with
+    | none =>
+        have hnone := List.find?_eq_none.mp hf candidate hc
+        exact False.elim (hnone (by simp [hcid]))
+    | some expected => exact ⟨expected, rfl⟩
+  obtain ⟨expected, he⟩ := hexpected
+  have heMem := List.mem_of_find?_eq_some he
+  have heId : expected.id = model.id := by
+    have heq := List.find?_some (p := fun b : ModelBox => b.id == model.id) he
+    exact beq_iff_eq.mp heq
+  have heParent := modelConsistent_parent input m model expected hcons hm he
+  have heEmpty : expected.parent ≠ "" := by
+    intro heq
+    exact hempty (hparent.trans (heParent.trans heq))
+  have hePlot : expected.parent ≠ "plot" := by
+    intro heq
+    exact hplot (hparent.trans (heParent.trans heq))
+  obtain ⟨i, node, k, pipeline, hn, hflag, hk, hi, hni, hpk⟩ :=
+    expected_nonplot_parent input m expected heMem heEmpty hePlot
+  have hnodeId : model.id = "n" ++ toString i := heId.symm.trans hni
+  have hparentId : box.parent = "pl" ++ toString k :=
+    hparent.trans (heParent.trans hpk)
+  have hnodeRect : box.rect =
+      nodeRect (((arrange (constants m).geometry input).positions[i]?).getD ⟨0, 0⟩) := by
+    rw [hnodeId, arrange_node_rectangle (constants m).geometry input i node hn] at hlookup
+    exact (Option.some.inj hlookup).symm
+  have hpmem : parent ∈ result.scene.boxes := List.mem_of_find?_eq_some hp
+  have hpId : parent.id = box.parent := by
+    have heq := List.find?_some (p := fun b : Box => b.id == box.parent) hp
+    exact beq_iff_eq.mp heq
+  obtain ⟨pm, _, hpmid, _, hpr⟩ := hboxes parent hpmem
+  have hpm : pm.id = "pl" ++ toString k :=
+    hpmid.symm.trans (hpId.trans hparentId)
+  have hplPlot : "pl" ++ toString k ≠ "plot" :=
+    Elegant.Kinds.Wardley.pl_toString_ne_plot
+  have hplAb : "pl" ++ toString k ≠ "ab" := by
+    intro heq
+    have hh := congrArg (fun s : String => s.toList.head?) heq
+    simp at hh
+  have hpRect : parent.rect =
+      (pipelineGeometry (constants m).geometry (arrange (constants m).geometry input).plot
+        (arrange (constants m).geometry input).base pipeline).1 := by
+    simp only [boxRect, hpm, hplPlot, hplAb, ↓reduceIte,
+      arrange_pipeline_rectangle (constants m).geometry input k pipeline hk,
+      Except.ok.injEq] at hpr
+    exact hpr.symm
+  rw [hpRect, hnodeRect]
+  exact arranged_pipeline_contains_unmarked_child m input pipeline i node
+    hmarked hn hflag hi
+
+theorem wardley_valid (m : Model) (result : Layered.FamilyResult)
+    (hwf : WellFormed m) (hlimits : WithinLimits m)
+    (h : Elegant.Kinds.Wardley.layout m = .ok result) :
+    HardConstraints result.scene.layoutDump := by
+  exact wardley_valid_of_remaining_clauses m result hwf hlimits h
+    (wardley_c1 m result h) (wardley_c3 m result h) (wardley_c5 m result hwf h)
+
 end Elegant.Chart.Wardley

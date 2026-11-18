@@ -188,6 +188,13 @@ private def labelIndex (labels : List PlacedLabel) (id : String) : Option Nat :=
 private def sourceText (labels : List PlacedLabel) (i : Option Nat) : String :=
   (i.bind fun j => labels[j]?).map (·.source.text) |>.getD ""
 
+theorem labelIndex_eq_findIdx (labels : List PlacedLabel) (id : String) :
+    labelIndex labels id = labels.findIdx? (fun l => l.source.id == id) := rfl
+
+theorem sourceText_eq_lookup (labels : List PlacedLabel) (i : Option Nat) :
+    sourceText labels i =
+      ((i.bind fun j => labels[j]?).map (·.source.text)).getD "" := rfl
+
 def placeHeader (m : Model) (c : Consts) (n : Node) (labels : List PlacedLabel) :
     Except LayoutError (List PlacedLabel) := do
   let p := m.profile
@@ -294,6 +301,52 @@ def placeLeaf (m : Model) (lc : LeafConsts) (n : Node) (labels : List PlacedLabe
 private def checkedRect (r : Rect) : Bool :=
   decide (InI32 r.x ∧ InI32 r.y ∧ InI32 r.w ∧ InI32 r.h ∧ InI32 (r.x + r.w) ∧ InI32 (r.y + r.h))
 
+/-- Admission guard computed from the tiled layout before any label is placed:
+in the vector profile a childless group box whose leaf rows would sit flush
+with its tile top or bottom (`Int.fdiv (r.h - rows) 2 = 0`, i.e.
+`r.h - rows ≤ 1`) is rejected, because the written `.name`/`.value` label
+rectangles would touch the group frame and fail validator clause 8b. The cell
+profile centers through `lc.pad`, so it stays strict without the guard. The
+rows figure mirrors `placeLeaf` (1280 alone, or `2 * 1280 + spacing` when the
+value label is shown), so only placements that would actually be written are
+constrained. -/
+def leafGroupLabelVerticalStrict (m : Model) (nodes : List Node) : Bool :=
+  if m.profile == .cell then true else
+  let lc := leafConstants m.profile
+    ((nodes.countP (fun n => n.source.id != "root" && (children nodes n.source.id).isEmpty)) >
+      (LayoutConst.treemap_dense_leaves.get m.profile).toNat)
+  nodes.all fun n =>
+    n.source.id == "root" || n.source.role != .group ||
+      !((children nodes n.source.id).isEmpty) ||
+      let r := tileRect n.rect
+      let aw := r.w - 2 * lc.pad
+      let ah := r.h - 2 * lc.pad
+      aw < lc.minDisplay || ah < lc.minDisplay || 1280 > r.h ||
+      match labelIndex (initialLabels m) (n.source.id ++ ".name") with
+      | none => true
+      | some j =>
+        let nameText := sourceText (initialLabels m) (some j)
+        match fitSize nameText aw ah (Int.fdiv lc.labelMin 64) (Int.fdiv lc.labelSize 64)
+            (Int.fdiv lc.labelSize 64).toNat with
+        | .error _ => true
+        | .ok ns =>
+          match fit false nameText aw .label ns with
+          | .ok none => true
+          | .error _ => true
+          | .ok (some _) =>
+            let value := labelIndex (initialLabels m) (n.source.id ++ ".value")
+            let vs := max (Int.fdiv lc.valueMin 64)
+              (min (Int.fdiv lc.valueSize 64)
+                (roundDiv (ns * LayoutConst.treemap_value_scale_percent.get m.profile) 100))
+            let vw := match (if value.isSome && decide (2 * 1280 + lc.spacing ≤ r.h) then
+              width false (sourceText (initialLabels m) value) .body vs else pure 0) with
+              | .ok k => k
+              | .error _ => 0
+            let showValue := value.isSome && decide (2 * 1280 + lc.spacing ≤ r.h) &&
+              decide (vw ≤ aw)
+            let rows := if showValue then 2 * 1280 + lc.spacing else 1280
+            decide (2 ≤ r.h - rows)
+
 def layout (m : Model) : Except LayoutError Scene := do
   let c := constants m
   let title := labelText m "title"
@@ -302,6 +355,7 @@ def layout (m : Model) : Except LayoutError Scene := do
   let nodes := nodes.map fun n => if n.source.id == "root" then
     { n with rect := ⟨0, band, c.width, band + c.height⟩ } else n
   let nodes ← tileNodes c nodes
+  if !(leafGroupLabelVerticalStrict m nodes) then throw .domain
   let labels ← placeTitle m c (initialLabels m)
   let leaves := nodes.countP (fun n => n.source.id != "root" && (children nodes n.source.id).isEmpty)
   let lc := leafConstants m.profile (leaves > (LayoutConst.treemap_dense_leaves.get m.profile).toNat)
@@ -382,25 +436,132 @@ theorem layout_execution (m : Model) (scene : Scene)
   unfold layout at h
   dsimp only at h
   obtain ⟨nodes, hnodes, h⟩ := bind_ok h
-  obtain ⟨labels0, _, h⟩ := bind_ok h
-  obtain ⟨labels, _, h⟩ := bind_ok h
-  cases hbad : (((!nodes.all fun n => checkedRect (tileRect n.rect)) ||
-      !labels.all fun l => checkedRect l.rect) ||
-      !decide (InI32 (constants m).width ∧ InI32
-        ((if (labelText m "title").isEmpty = true then 0 else (constants m).titleBand) +
-          (constants m).height))) with
-  | true =>
-    simp only [hbad, ↓reduceIte] at h
-    cases h
-  | false =>
-    simp only [hbad, Bool.false_eq_true, ↓reduceIte] at h
-    injection h with heq
-    subst scene
-    exact ⟨nodes, hnodes, rfl, rfl, rfl⟩
+  split at h
+  · cases h
+  · obtain ⟨labels0, _, h⟩ := bind_ok h
+    obtain ⟨labels, _, h⟩ := bind_ok h
+    cases hbad : (((!nodes.all fun n => checkedRect (tileRect n.rect)) ||
+        !labels.all fun l => checkedRect l.rect) ||
+        !decide (InI32 (constants m).width ∧ InI32
+          ((if (labelText m "title").isEmpty = true then 0 else (constants m).titleBand) +
+            (constants m).height))) with
+    | true =>
+      simp only [hbad, ↓reduceIte] at h
+      cases h
+    | false =>
+      simp only [hbad, Bool.false_eq_true, ↓reduceIte] at h
+      injection h with heq
+      subst scene
+      exact ⟨nodes, hnodes, rfl, rfl, rfl⟩
 
 theorem layout_routes_eq_nil (m : Model) (scene : Scene)
     (h : layout m = .ok scene) : scene.routes = [] := by
   obtain ⟨_, _, _, _, hroutes⟩ := layout_execution m scene h
   exact hroutes
+
+/-- The adapter admits only boxes with distinct ids: the dump's parent lookup
+    (`LayoutDump.box?`) returns the first box carrying an id, so a repeated id
+    would resolve a child's parent to the wrong box and break C3. -/
+def boxIdsDistinct (m : Model) : Bool := decide (m.boxes.map (·.id)).Nodup
+
+/-- Follows `parent` links for at most `fuel` steps: `true` when the walk meets a
+    root (`""`) or a dangling parent id, `false` when the fuel runs out first,
+    which is exactly a cyclic parent chain. -/
+def parentChainEnds (boxes : List ModelBox) : Nat → String → Bool
+  | _, "" => true
+  | 0, _ => false
+  | n + 1, id =>
+    match boxes.find? (fun b => b.id == id) with
+    | none => true
+    | some b => parentChainEnds boxes n b.parent
+
+/-- The adapter admits only acyclic parent chains: with `fuel = m.boxes.length`
+    a repeated box would exhaust the fuel and be rejected. -/
+def parentChainsEnd (m : Model) : Bool :=
+  m.boxes.all fun box => parentChainEnds m.boxes m.boxes.length box.parent
+
+/-- The adapter admits a label only when its id names its owner's `.name` or
+    `.value` entry, or is the diagram title owned by the root box. The label
+    placer looks labels up by id at the owning box's step and copies the
+    label's owner verbatim, so any other id would let a label escape its
+    owner's scope (C7) or sit outside its owner's frame (C8b). -/
+def labelIdsNameOwner (m : Model) : Bool :=
+  m.labels.all fun label =>
+    label.id == label.owner ++ ".name" || label.id == label.owner ++ ".value" ||
+    (label.id == "title" && label.owner == "root")
+
+/-- `fitPrefix` only ever returns an index whose ellipsis-suffixed prefix
+    already fit the available width: the `lo` invariant is preserved by every
+    recursive step, including fuel exhaustion. -/
+theorem fitPrefix_width_le (cell : Bool) (text : List Measure.Cluster)
+    (role : Measure.Role) (size avail : Int) :
+    ∀ (fuel lo hi k : Nat), fitPrefix cell text role size avail lo hi fuel = .ok k →
+      (∀ w, width cell (String.ofList (text.take lo).flatten ++ "...") role size = .ok w → w ≤ avail) →
+      ∀ w, width cell (String.ofList (text.take k).flatten ++ "...") role size = .ok w → w ≤ avail := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro lo hi k h hlo w hw
+      simp only [fitPrefix] at h
+      injection h with hk
+      subst hk
+      exact hlo w hw
+  | succ fuel ih =>
+      intro lo hi k h hlo w hw
+      unfold fitPrefix at h
+      dsimp only at h
+      split at h
+      · rename_i hge
+        injection h with hk
+        cases hk
+        exact hlo w hw
+      · obtain ⟨w₀, hw₀, h⟩ := bind_ok h
+        split at h
+        · rename_i hbound
+          apply ih ((lo + hi + 1) / 2) hi k h
+          · intro w' hw'
+            have heq : w' = w₀ := by
+              have := hw'.symm.trans hw₀
+              exact Except.ok.inj this
+            rw [heq]
+            exact hbound
+          · exact hw
+        · apply ih lo (((lo + hi + 1) / 2) - 1) k h hlo w hw
+
+/-- Every width `fit` reports is within `avail`: the full-text branch checks
+    directly, the ellipsis branch checks `"..."` first and `fitPrefix`'s
+    invariant bounds the returned prefix width. -/
+theorem fit_width_le_avail (cell : Bool) (text : String) (avail : Int)
+    (role : Measure.Role) (size : Int) (shown : String) (w : Int)
+    (h : fit cell text avail role size = .ok (some (shown, w))) : w ≤ avail := by
+  simp only [fit] at h
+  cases he : text.isEmpty with
+  | true => simp only [he] at h; cases h
+  | false =>
+      simp only [he] at h
+      obtain ⟨w₀, hw₀, h⟩ := bind_ok h
+      split at h
+      · next hbound =>
+          cases h
+          omega
+      · obtain ⟨ew, hew, h⟩ := bind_ok h
+        split at h
+        · cases h
+        · obtain ⟨k, hklen, h⟩ := bind_ok h
+          obtain ⟨sw, hsw, h⟩ := bind_ok h
+          cases h
+          clear h
+          have hlo : ∀ w', width cell (String.ofList ((Measure.segment text.toList).take 0).flatten ++ "...") role size = .ok w' → w' ≤ avail := by
+            intro w' hw'
+            have hred : String.ofList ((Measure.segment text.toList).take 0).flatten ++ "..." = "..." := by
+              simp [List.take_zero]
+            rw [hred] at hw'
+            have : w' = ew := by
+              have := hw'.symm.trans hew
+              exact Except.ok.inj this
+            rw [this]
+            omega
+          have hle := fitPrefix_width_le cell (Measure.segment text.toList) role size avail (Measure.segment text.toList).length 0 ((Measure.segment text.toList).length - 1) k hklen hlo w hsw
+          omega
 
 end Elegant.Treemap

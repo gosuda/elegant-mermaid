@@ -191,6 +191,8 @@ def layoutFamilyB (base : Input → Options → Except LayoutError FamilyResult)
   else if o.limits.maxTextBytes < inputTextBytes inp then
     .error (.tooLarge o.limits.maxTextBytes (inputTextBytes inp))
   else if !modelWellFormed (inputModel inp o) then .error (.geometry .domain)
+  else if !framedParents inp then .error (.geometry .domain)
+  else if !attachedNoteParents inp then .error (.geometry .domain)
   else
     match PipelineImpl.layoutRecursiveB base (inp.boxes.length + 1) inp o with
     | .error error => .error (.geometry error)
@@ -200,6 +202,17 @@ def layoutFamilyB (base : Input → Options → Except LayoutError FamilyResult)
 def layoutFamilyX (exactIds : List String) (inp : Input) (o : Options) :
     Except LayoutFailure FamilyResult :=
   layoutFamilyB (PipelineImpl.layoutX exactIds) inp o
+
+theorem layoutFamilyB_framed_parents
+    {base : Input → Options → Except LayoutError FamilyResult} {inp : Input} {o : Options}
+    {res : FamilyResult} (h : layoutFamilyB base inp o = .ok res) :
+    framedParents inp = true := by
+  by_cases hn : o.limits.maxNodes < inp.boxes.length <;>
+    by_cases he : o.limits.maxEdges < inp.routes.length <;>
+    by_cases ht : o.limits.maxTextBytes < inputTextBytes inp <;>
+    by_cases hw : modelWellFormed (inputModel inp o) <;>
+    by_cases hf : framedParents inp <;>
+    simp_all [layoutFamilyB]
 
 end Layered
 end Elegant

@@ -13,6 +13,10 @@ def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
     throw (.geometry .domain)
   if (Elegant.Treemap.constants m).height < 0 then
     throw (.geometry .domain)
+  if m.boxes.any (fun box => box.id == "") then
+    throw (.geometry .domain)
+  if !(Elegant.Treemap.labelIdsNameOwner m) then
+    throw (.geometry .domain)
   match Elegant.Treemap.layout m with
   | .error e => throw (.geometry e)
   | .ok scene => pure { scene, budgetExhausted := false }
@@ -21,8 +25,8 @@ theorem layout_adapter_success (m : Model) (result : Layered.FamilyResult)
     (h : layout m = .ok result) :
     Elegant.Treemap.layout m = .ok result.scene := by
   unfold layout at h
-  have h := Common.guarded_ok
-    (Common.guarded_ok (Common.guarded_ok (Common.guarded_ok h)))
+  have h := Common.guarded_ok (Common.guarded_ok (Common.guarded_ok
+    (Common.guarded_ok (Common.guarded_ok (Common.guarded_ok h)))))
   cases hs : Elegant.Treemap.layout m with
   | error e => simp [hs] at h
   | ok scene =>
@@ -45,6 +49,40 @@ theorem layout_height_nonnegative (m : Model) (result : Layered.FamilyResult)
   by_cases hh : (Elegant.Treemap.constants m).height < 0
   · exact (Common.guarded_error hh h).elim
   · omega
+
+theorem layout_box_ids_nonempty (m : Model) (result : Layered.FamilyResult)
+    (h : layout m = .ok result) : ∀ box ∈ m.boxes, box.id ≠ "" := by
+  unfold layout at h
+  have h := Common.guarded_ok (Common.guarded_ok (Common.guarded_ok
+    (Common.guarded_ok h)))
+  by_cases hany : m.boxes.any (fun box => box.id == "") = true
+  · exact (Common.guarded_error hany h).elim
+  · intro box hbox hid
+    exact hany (List.any_eq_true.mpr ⟨box, hbox, by simp [hid]⟩)
+
+
+theorem layout_label_ids_name_owner (m : Model) (result : Layered.FamilyResult)
+    (h : layout m = .ok result) :
+    ∀ label ∈ m.labels,
+      label.id = label.owner ++ ".name" ∨ label.id = label.owner ++ ".value" ∨
+        (label.id = "title" ∧ label.owner = "root") := by
+  unfold layout at h
+  have h := Common.guarded_ok (Common.guarded_ok (Common.guarded_ok
+    (Common.guarded_ok (Common.guarded_ok h))))
+  by_cases hbad : (!(Elegant.Treemap.labelIdsNameOwner m)) = true
+  · rw [ite_eq_left hbad] at h
+    cases h
+  · have hx : Elegant.Treemap.labelIdsNameOwner m = true := by
+      cases hb : Elegant.Treemap.labelIdsNameOwner m with
+      | true => rfl
+      | false => exact absurd (by simp [hb]) hbad
+    intro label hlabel
+    have hl := List.all_eq_true.mp hx label hlabel
+    simp only [Bool.or_eq_true, beq_iff_eq, Bool.and_eq_true] at hl
+    rcases hl with (hname | hvalue) | htitle
+    · exact Or.inl hname
+    · exact Or.inr (Or.inl hvalue)
+    · exact Or.inr (Or.inr htitle)
 
 theorem layout_routes_eq_nil (m : Model) (result : Layered.FamilyResult)
     (h : layout m = .ok result) : result.scene.layoutDump.routes = [] := by

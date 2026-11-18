@@ -640,10 +640,72 @@ theorem family_frame_containment {g : Family} {profile : Profile}
     rfl
   · exact (Lanes.shiftRect_contained dx dy).mpr hcontained
 
+/-- Admission guard: a group box needs a nonempty id.  An empty id aliases the group
+lane with the fallback lane that parentless frames create, so the group frame would
+share a lane with foreign frames instead of standing clear of them. -/
+def hasEmptyGroupId (m : Model) : Bool :=
+  m.boxes.any fun b => b.role == .group && b.id == ""
+
+/-- Admission guard: an orthogonal route in the vector profile must keep both endpoints in
+one lane.  The vector-profile shortcut of `Lanes.Eventmodeling.route` returns the straight
+segment between the two ports; that segment is diagonal unless the two ports happen to
+align, so a cross-lane orthogonal route is not an orthogonal polyline.  Same-lane routes
+always take the tidy corridor polyline, which is orthogonal. -/
+def crossLaneOrthogonalRoute (m : Model) : Bool :=
+  m.profile == .vector && m.routes.any fun r =>
+    r.orthogonal &&
+      (match m.boxes.find? (fun b => b.id == r.fromId),
+             m.boxes.find? (fun b => b.id == r.toId) with
+       | some srcBox, some dstBox => srcBox.parent != dstBox.parent
+       | _, _ => true)
+
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
-  match scene m with
-  | .error e => .error (.geometry e)
-  | .ok s => .ok { scene := s.projectCellAttachments (routeMarkers m), budgetExhausted := false }
+  if hasEmptyGroupId m then
+    .error (.geometry .domain)
+  else if crossLaneOrthogonalRoute m then
+    .error (.geometry .domain)
+  else
+    match scene m with
+    | .error e => .error (.geometry e)
+    | .ok s => .ok { scene := s.projectCellAttachments (routeMarkers m), budgetExhausted := false }
+
+theorem layout_group_ids_nonempty (m : Model) (result : Layered.FamilyResult)
+    (h : layout m = .ok result) : ∀ b ∈ m.boxes, b.role = .group → b.id ≠ "" := by
+  unfold layout at h
+  by_cases hbad : hasEmptyGroupId m = true
+  · simp only [hbad, ↓reduceIte] at h
+    cases h
+  · intro b hb hrole hid
+    exact hbad (List.any_eq_true.mpr ⟨b, hb, by simp [hrole, hid]⟩)
+
+theorem layout_orthogonal_routes_same_lane (m : Model) (result : Layered.FamilyResult)
+    (h : layout m = .ok result) :
+    m.profile = .vector → ∀ r ∈ m.routes, r.orthogonal = true →
+      ∀ srcBox dstBox : ModelBox,
+        m.boxes.find? (fun b => b.id == r.fromId) = some srcBox →
+        m.boxes.find? (fun b => b.id == r.toId) = some dstBox →
+        srcBox.parent = dstBox.parent := by
+  unfold layout at h
+  by_cases hg : hasEmptyGroupId m = true
+  · simp only [hg, ↓reduceIte] at h
+    cases h
+  · simp only [hg, Bool.false_eq_true, ↓reduceIte] at h
+    by_cases hcross : crossLaneOrthogonalRoute m = true
+    · simp only [hcross, ↓reduceIte] at h
+      cases h
+    · intro hprofile r hr horth srcBox dstBox hsrc hdst
+      have hvector : (m.profile == Profile.vector) = true := by simpa using hprofile
+      have hany : (m.routes.any fun r =>
+          r.orthogonal &&
+            (match m.boxes.find? (fun b => b.id == r.fromId),
+                   m.boxes.find? (fun b => b.id == r.toId) with
+             | some srcBox, some dstBox => srcBox.parent != dstBox.parent
+             | _, _ => true)) = false := by
+        simpa [crossLaneOrthogonalRoute, hvector] using hcross
+      have hroute := List.any_eq_false.mp hany r hr
+      rw [horth] at hroute
+      simp only [hsrc, hdst, Bool.true_and] at hroute
+      simpa using hroute
 
 theorem decode_parentsConsistent {m : Model} {g : Family} (h : decode m = .ok g) :
     parentsConsistent m = true := by
@@ -729,19 +791,27 @@ theorem scene_c1 {m : Model} {s : Scene} (h : scene m = .ok s) :
   · obtain ⟨_, _, hrect⟩ := hl
     exact family_frames_canvas hr out.rect (List.mem_of_getElem? hrect)
 
-
 theorem layout_scene {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) :
     ∃ s, scene m = .ok s ∧ result.scene.layoutDump = s.layoutDump := by
-  cases hs : scene m with
-  | error e => simp [layout, hs] at h
-  | ok s =>
-    have he : result =
-        { scene := s.projectCellAttachments (routeMarkers m), budgetExhausted := false } := by
-      simpa [layout, hs] using h.symm
-    refine ⟨s, rfl, ?_⟩
-    rw [he]
-    exact Scene.projectCellAttachments_layoutDump s (routeMarkers m)
+  unfold layout at h
+  by_cases hg : hasEmptyGroupId m = true
+  · simp only [hg, ↓reduceIte] at h
+    cases h
+  · simp only [hg, Bool.false_eq_true, ↓reduceIte] at h
+    by_cases hcross : crossLaneOrthogonalRoute m = true
+    · simp only [hcross, ↓reduceIte] at h
+      cases h
+    · simp only [hcross, Bool.false_eq_true, ↓reduceIte] at h
+      cases hs : scene m with
+      | error e => simp [hs] at h
+      | ok s =>
+        have he : result =
+            { scene := s.projectCellAttachments (routeMarkers m), budgetExhausted := false } := by
+          simpa [hs] using h.symm
+        refine ⟨s, rfl, ?_⟩
+        rw [he]
+        exact Scene.projectCellAttachments_layoutDump s (routeMarkers m)
 
 theorem eventmodeling_c1 {m : Model} {result : Layered.FamilyResult}
     (h : layout m = .ok result) : Validator.C1 result.scene.layoutDump := by

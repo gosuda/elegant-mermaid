@@ -1812,4 +1812,1510 @@ theorem negativeHeightWitness_rejected :
     Kinds.Treemap.layout negativeHeightWitness = .error (.geometry .domain) := by
   rfl
 
+namespace C7Counterexample
+
+/-- Own-label regression for the exempt-owner-and-ancestors C7 contract:
+    `x.name` is placed strictly inside its owner `x`; revised scope
+    `["x", "root"]` exempts the own box, so `c7Dump` now satisfies C7. -/
+def c7Witness : Model := {
+  kind := "treemap",
+  profile := .cell,
+  boxes := [{ id := "root", role := .group, exclusive := false },
+            { id := "x", parent := "root" }],
+  labels := [{ id := "x.name", owner := "x", text := "x" }],
+  regionSets := [{ parent := 0, regions := [1] }] }
+
+theorem c7Witness_wellFormed : WellFormed c7Witness := by
+  decide
+
+theorem c7Witness_withinLimits : WithinLimits c7Witness := by
+  decide
+
+/-- The independently defined dump for the own-label regression. The
+    executable input above is preserved for parent probing; no definitional
+    layout-equality claim is made here. -/
+def c7Dump : LayoutDump :=
+  { canvas := ⟨120, 32⟩,
+    boxes := [{ id := "root", role := "group", rect := ⟨0, 0, 120, 32⟩,
+                parent := "", exclusive := false },
+              { id := "x", role := "node", rect := ⟨2, 3, 116, 28⟩,
+                parent := "root", exclusive := true }],
+    routes := [],
+    labels := [{ id := "x.name", owner := "x", rect := ⟨59, 16, 1, 1⟩,
+                 lines := ["x"] }] }
+
+theorem c7Dump_satisfies_c7 : Validator.C7 c7Dump :=
+  (Validator.c7_iff c7Dump).mp (by decide)
+
+/-- Runnable C7 counterexample surviving the exempt-owner-and-ancestors
+    contract: identical geometry to `c7Witness`, but the placed label
+    `x.name` is owned by `"root"` instead of `"x"`. Model WF only requires
+    the owner to name any box (`Model.lean:129`); placement looks the label
+    up by id (`TreemapAdapter.lean:196,211`) and copies `source.owner`
+    verbatim (`:319`), so the label still renders at `⟨59, 16, 1, 1⟩`
+    strictly inside exclusive `x`. Revised scope is `["root"]`, `x` stays
+    outside scope, and C7 is false on otherwise unchanged successful output.
+    The public adapter `Kinds.Treemap.layout` rejects a label whose id is not its
+    owner id followed by `.name` or `.value`; this chart-level witness records why. -/
+def c7RootOwnerWitness : Model := {
+  kind := "treemap",
+  profile := .cell,
+  boxes := [{ id := "root", role := .group, exclusive := false },
+            { id := "x", parent := "root" }],
+  labels := [{ id := "x.name", owner := "root", text := "x" }],
+  regionSets := [{ parent := 0, regions := [1] }] }
+
+theorem c7RootOwnerWitness_wellFormed : WellFormed c7RootOwnerWitness := by
+  decide
+
+theorem c7RootOwnerWitness_withinLimits : WithinLimits c7RootOwnerWitness := by
+  decide
+
+def c7RootOwnerDump : LayoutDump :=
+  { canvas := ⟨120, 32⟩,
+    boxes := [{ id := "root", role := "group", rect := ⟨0, 0, 120, 32⟩,
+                parent := "", exclusive := false },
+              { id := "x", role := "node", rect := ⟨2, 3, 116, 28⟩,
+                parent := "root", exclusive := true }],
+    routes := [],
+    labels := [{ id := "x.name", owner := "root", rect := ⟨59, 16, 1, 1⟩,
+                 lines := ["x"] }] }
+
+/-- Layout-equality claim omitted: executable input and independently
+    defined dump above are preserved for parent probing of the actual
+    public adapter. -/
+
+theorem c7RootOwnerDump_violates_c7 : ¬ Validator.C7 c7RootOwnerDump := by
+  intro h
+  have ht : Validator.c7 c7RootOwnerDump = true := (Validator.c7_iff c7RootOwnerDump).mpr h
+  have hf : Validator.c7 c7RootOwnerDump = false := by decide
+  rw [hf] at ht
+  cases ht
+
+theorem c7RootOwnerDump_not_hard : ¬ HardConstraints c7RootOwnerDump := by
+  intro h
+  exact c7RootOwnerDump_violates_c7 h.2.2.2.2.2.2.1
+
+end C7Counterexample
+
+namespace EmptyIdCounterexample
+
+/-- Second admission gap, independent of the C7 owner mismatch:
+    `modelWellFormed` admits a box with `id := ""` (`Model.lean:123-130`
+    checks uniqueness and parent termination only). `Treemap.children`
+    (`TreemapAdapter.lean:55-56`) then treats every `parent = ""` box,
+    including `"root"` and the empty-id box itself, as children of the
+    empty-id node. Because `dependencyOrder` sorts depth-0 nodes by
+    declaration order, a `""`-id box declared after `"root"` rewrites
+    `root`'s preset canvas tile to the zero tile *after* `root`'s own
+    step has already placed its children inside the preset. The children
+    keep their nonzero rects while `root`'s final rect is `⟨0,0,0,0⟩`,
+    so C3 (`p.rect.Contained b.rect`) fails on otherwise successful
+    output. The public adapter `Kinds.Treemap.layout` rejects any box whose id is
+    the empty string; this chart-level witness records why. -/
+def emptyIdWitness : Model := {
+  kind := "treemap",
+  profile := .cell,
+  boxes := [{ id := "root", role := .group, exclusive := false },
+            { id := "x", parent := "root" },
+            { id := "", parent := "" }],
+  regionSets := [{ parent := 0, regions := [0, 0] }] }
+
+theorem emptyIdWitness_wellFormed : WellFormed emptyIdWitness := by
+  decide
+
+theorem emptyIdWitness_withinLimits : WithinLimits emptyIdWitness := by
+  decide
+
+/-- Actual public-adapter geometry recorded by the parent execution. -/
+def emptyIdDump : LayoutDump :=
+  { canvas := ⟨120, 32⟩,
+    boxes := [{ id := "root", role := "group", rect := ⟨0, 0, 0, 0⟩,
+                parent := "", exclusive := false },
+              { id := "x", role := "node", rect := ⟨2, 3, 116, 0⟩,
+                parent := "root", exclusive := true },
+              { id := "", role := "node", rect := ⟨0, 0, 0, 0⟩,
+                parent := "", exclusive := true }],
+    routes := [],
+    labels := [] }
+
+theorem emptyIdDump_violates_c3 : ¬ Validator.C3 emptyIdDump := by
+  intro h
+  have hx : (show Box from
+      { id := "x", role := "node", rect := ⟨2, 3, 116, 0⟩,
+        parent := "root", exclusive := true }) ∈ emptyIdDump.boxes := by
+    decide
+  have hroot : emptyIdDump.box? "root" = some
+      { id := "root", role := "group", rect := ⟨0, 0, 0, 0⟩,
+        parent := "", exclusive := false } := by
+    decide
+  have hcont := h _ hx (by decide) _ hroot
+  have hnot : ¬ (⟨0, 0, 0, 0⟩ : Rect).Contained ⟨2, 3, 116, 0⟩ := by
+    decide
+  exact hnot hcont
+
+theorem emptyIdDump_not_hard : ¬ HardConstraints emptyIdDump := by
+  intro h
+  exact emptyIdDump_violates_c3 h.2.2.1
+
+theorem emptyIdDump_satisfies_c1 : Validator.C1 emptyIdDump :=
+  (Validator.c1_iff emptyIdDump).mp (by decide)
+
+theorem emptyIdDump_satisfies_c2 : Validator.C2 emptyIdDump :=
+  (Validator.c2_iff emptyIdDump).mp (by decide)
+
+theorem emptyIdDump_satisfies_c8 : Validator.C8 emptyIdDump :=
+  (Validator.c8_iff emptyIdDump).mp (by decide)
+
+end EmptyIdCounterexample
+
+namespace TileForest
+
+/-- Proper ancestors of `id` through model-box `parent` links, fuel-bounded
+    exactly like `LayoutDump.ancestors`. -/
+def boxAncestors (boxes : List ModelBox) : Nat → String → List String
+  | 0, _ => []
+  | n + 1, s =>
+    match boxes.find? (fun b => b.id == s) with
+    | none => []
+    | some b => if b.parent = "" then [] else b.parent :: boxAncestors boxes n b.parent
+
+/-- `a` and `b` are the same box or one is a proper ancestor of the other. -/
+def forestRelated (boxes : List ModelBox) (a b : ModelBox) : Prop :=
+  a.id = b.id ∨ b.id ∈ boxAncestors boxes boxes.length a.id ∨
+    a.id ∈ boxAncestors boxes boxes.length b.id
+
+theorem forestRelated_comm (boxes : List ModelBox) (a b : ModelBox) :
+    forestRelated boxes a b ↔ forestRelated boxes b a := by
+  unfold forestRelated
+  constructor
+  · intro h
+    rcases h with h | h | h
+    · exact Or.inl h.symm
+    · exact Or.inr (Or.inr h)
+    · exact Or.inr (Or.inl h)
+  · intro h
+    rcases h with h | h | h
+    · exact Or.inl h.symm
+    · exact Or.inr (Or.inr h)
+    · exact Or.inr (Or.inl h)
+
+theorem nodup_boxes_id_inj {boxes : List ModelBox}
+    (hn : (boxes.map (·.id)).Nodup) {a b : ModelBox}
+    (ha : a ∈ boxes) (hb : b ∈ boxes) (h : a.id = b.id) : a = b := by
+  revert hn a b
+  induction boxes with
+  | nil => intro hn a b ha hb h; simp at ha
+  | cons x xs ih =>
+    intro hn a b ha hb h
+    simp only [List.map] at hn
+    obtain ⟨hx, hxs⟩ := List.nodup_cons.mp hn
+    simp only [List.mem_cons] at ha hb
+    rcases ha with rfl | ha <;> rcases hb with rfl | hb
+    · rfl
+    · have hb2 : b.id ∈ xs.map (·.id) := List.mem_map.mpr ⟨b, hb, rfl⟩
+      rw [← h] at hb2
+      exact absurd hb2 hx
+    · have ha2 : a.id ∈ xs.map (·.id) := List.mem_map.mpr ⟨a, ha, rfl⟩
+      rw [h] at ha2
+      exact absurd ha2 hx
+    · exact @ih hxs a b ha hb h
+
+theorem findBox_eq (boxes : List ModelBox) (hn : (boxes.map (·.id)).Nodup)
+    {b : ModelBox} (hb : b ∈ boxes) :
+    boxes.find? (fun x => x.id == b.id) = some b := by
+  cases h : boxes.find? (fun x => x.id == b.id) with
+  | none =>
+    rw [List.find?_eq_none] at h
+    have := h b hb
+    simp at this
+  | some a =>
+    have ha : a ∈ boxes := List.mem_of_find?_eq_some h
+    have hpa := List.find?_some h
+    have haid : a.id = b.id := by simpa using hpa
+    have hab : a = b := nodup_boxes_id_inj hn ha hb haid
+    exact congrArg some hab
+
+
+end TileForest
+
+namespace ConstructionTransport
+
+/-- C1 fragment at tile level: the root tile sits inside the canvas rect.
+    Global C1 additionally needs every descendant tile inside the root tile;
+    per-parent containment below gives one tiling step of that chain. -/
+theorem rootTile_contained_in_canvas (width height band : Int)
+    (_hw : 0 ≤ width) (_hh : 0 ≤ height) (hb : 0 ≤ band) :
+    Rect.Contained ⟨0, 0, width, band + height⟩ ⟨0, band, width, height⟩ := by
+  unfold Rect.Contained
+  dsimp only
+  omega
+
+/-- C2/C3/C8a fragment at tile level for one tiled parent: siblings are
+    pairwise disjoint (C2, and C8a for sibling subtrees) and each child is
+    contained in the parent tile (C3). Global clauses need this lifted along
+    the ancestor chain via `tile_inside_trans`; no global claim is made here. -/
+theorem parent_children_validator_c2c3 (values : List Int) (parent : Tile)
+    (padX padY header innerX innerY rho : Int) (fuel : Nat)
+    (out : List Tile) (capped : Bool) (hp : parent.Ordered)
+    (h : squarify values (childArea parent padX padY header innerX innerY)
+      rho fuel = .ok (out, capped)) :
+    (out.map (fun cell => tileRect (insetCell cell innerX innerY))).Pairwise Disjoint ∧
+    ∀ child ∈ out.map (fun cell => tileRect (insetCell cell innerX innerY)),
+      Rect.Contained (tileRect parent) child :=
+  treemap_children_geometry_of_success values parent padX padY header innerX innerY
+    rho fuel out capped hp h
+
+/-- C7 transport for the revised exempt-owner-and-ancestors contract: when no
+    route carries the label's owner id, the owner is in scope, so a label in
+    its own box is exempt from clearance against that box. The surviving
+    root-owner counterexample shows the hypothesis matters: with owner
+    `"root"` the scope is `["root"]` and exclusive `x` stays in scope. -/
+theorem owner_mem_labelOwnerAnc_of_no_route (d : LayoutDump) (l : Label)
+    (hroute : d.routes.find? (fun r => r.id == l.owner) = none) :
+    l.owner ∈ d.labelOwnerAnc l := by
+  unfold LayoutDump.labelOwnerAnc
+  rw [hroute]
+  exact List.mem_cons_self
+
+end ConstructionTransport
+
+namespace CanvasC1
+
+/-- Canvas tile whose `tileRect` is the scene canvas rectangle. -/
+def canvasTile (c : Consts) (band : Int) : Tile :=
+  ⟨0, 0, c.width, band + c.height⟩
+
+/-- The band the adapter reserves for the title, matching `layout`. -/
+def bandOf (m : Model) : Int :=
+  if (labelText m "title").isEmpty then 0 else (constants m).titleBand
+
+theorem tileRect_canvasTile (c : Consts) (band : Int) :
+    tileRect (canvasTile c band) = ⟨0, 0, c.width, band + c.height⟩ := by
+  simp [tileRect, canvasTile]
+
+theorem bandOf_nonneg (m : Model) : 0 ≤ bandOf m := by
+  unfold bandOf
+  split
+  · omega
+  · unfold constants
+    cases m.profile <;>
+      simp [LayoutConst.treemap_title_band, LayoutConst.Pair.get]
+
+theorem except_bind_ok {α β : Type} {x : Except LayoutError α}
+    {f : α → Except LayoutError β} {y : β}
+    (h : (x >>= f) = .ok y) : ∃ a, x = .ok a ∧ f a = .ok y := by
+  cases x with
+  | error e => cases h
+  | ok a => exact ⟨a, rfl, h⟩
+
+theorem map_source_modify {l : List Node} (i : Nat) (f : Node → Node)
+    (hf : ∀ n, (f n).source = n.source) :
+    (l.modify i f).map Node.source = l.map Node.source := by
+  induction l generalizing i with
+  | nil => cases i <;> simp [List.modify]
+  | cons x xs ih =>
+    cases i with
+    | zero => simp [List.modify, List.map, hf x]
+    | succ i =>
+      change x.source :: (xs.modify i f).map Node.source = x.source :: xs.map Node.source
+      rw [ih i]
+
+theorem map_rect_modify {l : List Node} (i : Nat) (f : Node → Node)
+    (hf : ∀ n, (f n).rect = n.rect) :
+    (l.modify i f).map Node.rect = l.map Node.rect := by
+  induction l generalizing i with
+  | nil => cases i <;> simp [List.modify]
+  | cons x xs ih =>
+    cases i with
+    | zero => simp [List.modify, List.map, hf x]
+    | succ i =>
+      change x.rect :: (xs.modify i f).map Node.rect = x.rect :: xs.map Node.rect
+      rw [ih i]
+
+theorem foldl_map_source {α : Type} (f : List Node → α → List Node)
+    (l : List α) (init : List Node)
+    (hf : ∀ acc i, (f acc i).map Node.source = acc.map Node.source) :
+    (l.foldl f init).map Node.source = init.map Node.source := by
+  induction l generalizing init with
+  | nil => rfl
+  | cons a as ih =>
+    rw [List.foldl_cons, ih (f init a), hf init a]
+
+theorem foldl_map_rect {α : Type} (f : List Node → α → List Node)
+    (l : List α) (init : List Node)
+    (hf : ∀ acc i, (f acc i).map Node.rect = acc.map Node.rect) :
+    (l.foldl f init).map Node.rect = init.map Node.rect := by
+  induction l generalizing init with
+  | nil => rfl
+  | cons a as ih =>
+    rw [List.foldl_cons, ih (f init a), hf init a]
+
+theorem assignSeries_rect (nodes : List Node) :
+    (assignSeries nodes).map Node.rect = nodes.map Node.rect := by
+  unfold assignSeries
+  apply foldl_map_rect
+  intro acc i
+  by_cases hi : acc[i]? = none
+  · simp [hi]
+  · obtain ⟨n, hn⟩ := Option.ne_none_iff_exists'.mp hi
+    simp only [hn]
+    apply map_rect_modify
+    intro old
+    rfl
+
+theorem aggregate_rect (nodes : List Node) :
+    (aggregate nodes).map Node.rect = nodes.map Node.rect := by
+  unfold aggregate
+  apply foldl_map_rect
+  intro acc i
+  by_cases hi : acc[i]? = none
+  · simp [hi]
+  · obtain ⟨n, hn⟩ := Option.ne_none_iff_exists'.mp hi
+    simp only [hn]
+    by_cases hj : acc.findIdx? (fun parent => parent.source.id == n.source.parent) = none
+    · simp [hj]
+    · obtain ⟨j, hj'⟩ := Option.ne_none_iff_exists'.mp hj
+      simp only [hj']
+      apply map_rect_modify
+      intro old
+      rfl
+
+theorem initialNodes_rect (m : Model) :
+    ∀ n ∈ initialNodes m, n.rect = ⟨0, 0, 0, 0⟩ := by
+  intro n hn
+  unfold initialNodes at hn
+  obtain ⟨⟨b, i⟩, _, hnode⟩ := List.mem_map.mp hn
+  exact (congrArg Node.rect hnode).symm
+
+theorem aggregate_initial_rect (m : Model) :
+    ∀ n ∈ aggregate (initialNodes m), n.rect = ⟨0, 0, 0, 0⟩ := by
+  intro n hn
+  have hmem : n.rect ∈ (aggregate (initialNodes m)).map Node.rect :=
+    List.mem_map.mpr ⟨n, hn, rfl⟩
+  rw [aggregate_rect] at hmem
+  obtain ⟨w, hw, hwr⟩ := List.mem_map.mp hmem
+  rw [← hwr]
+  exact initialNodes_rect m w hw
+
+theorem assignSeries_aggregate_initial_rect (m : Model) :
+    ∀ n ∈ assignSeries (aggregate (initialNodes m)), n.rect = ⟨0, 0, 0, 0⟩ := by
+  intro n hn
+  have hmem : n.rect ∈ (assignSeries (aggregate (initialNodes m))).map Node.rect :=
+    List.mem_map.mpr ⟨n, hn, rfl⟩
+  rw [assignSeries_rect] at hmem
+  obtain ⟨w, hw, hwr⟩ := List.mem_map.mp hmem
+  rw [← hwr]
+  exact aggregate_initial_rect m w hw
+
+/-- The seeding map of `layout`: the root keeps the canvas tile, others keep
+    their initial (zero) rectangle. -/
+def presetNode (m : Model) (band : Int) (n : Node) : Node :=
+  if n.source.id == "root" then
+    { n with rect := ⟨0, band, (constants m).width, band + (constants m).height⟩ }
+  else n
+
+theorem seeded_rect_cases (m : Model) (n : Node)
+    (hn : n ∈ (assignSeries (aggregate (initialNodes m))).map
+      (presetNode m (bandOf m))) :
+    n.rect = ⟨0, 0, 0, 0⟩ ∨
+      n.rect = ⟨0, bandOf m, (constants m).width,
+        bandOf m + (constants m).height⟩ := by
+  obtain ⟨w, hw, hpreset⟩ := List.mem_map.mp hn
+  rw [← hpreset]
+  unfold presetNode
+  split
+  · exact Or.inr rfl
+  · exact Or.inl (assignSeries_aggregate_initial_rect m w hw)
+
+theorem seeded_invariant (m : Model) (hw : 0 ≤ (constants m).width)
+    (hh : 0 ≤ (constants m).height) (hb : 0 ≤ bandOf m) :
+    ∀ n ∈ (assignSeries (aggregate (initialNodes m))).map (presetNode m (bandOf m)),
+      n.rect.Ordered ∧
+        Rect.Contained (tileRect (canvasTile (constants m) (bandOf m)))
+          (tileRect n.rect) := by
+  intro n hn
+  rcases seeded_rect_cases m n hn with h | h
+  · rw [h]
+    constructor
+    · exact ⟨Int.le_refl 0, Int.le_refl 0⟩
+    · apply tile_inside_rect
+      change 0 ≤ 0 ∧ 0 ≤ (constants m).width ∧
+        0 ≤ 0 ∧ 0 ≤ bandOf m + (constants m).height
+      exact ⟨Int.le_refl 0, hw, Int.le_refl 0, Int.add_nonneg hb hh⟩
+  · rw [h]
+    constructor
+    · exact ⟨hw, by change bandOf m ≤ bandOf m + (constants m).height; omega⟩
+    · apply tile_inside_rect
+      change 0 ≤ 0 ∧ (constants m).width ≤ (constants m).width ∧
+        0 ≤ bandOf m ∧
+        bandOf m + (constants m).height ≤ bandOf m + (constants m).height
+      exact ⟨Int.le_refl 0, Int.le_refl _, hb, Int.le_refl _⟩
+
+/-- The step `tileNodes` performs for one index, factored out so the fold
+    invariant can be stated. -/
+def tileStep (c : Consts) (acc : List Node) (i : Nat) :
+    Except LayoutError (List Node) := do
+  match acc[i]? with
+  | none => pure acc
+  | some n =>
+    let order := sortedChildren acc n.source.id
+    if order.isEmpty then pure acc else do
+      let values := order.map (fun j => (acc[j]?).map (·.value) |>.getD 0)
+      let free := childArea n.rect c.padX c.padY c.header c.innerX c.innerY
+      let (cells, _) ← squarify values free c.rho c.fuel
+      pure ((order.zip cells).foldl (fun out (j, cell) =>
+        out.modify j (fun old => { old with rect := insetCell cell c.innerX c.innerY })) acc)
+
+theorem tileNodes_eq_foldlM (c : Consts) (nodes : List Node) :
+    tileNodes c nodes = (dependencyOrder nodes).foldlM (tileStep c) nodes := by
+  rfl
+
+theorem modify_preserves {l : List Node} (j : Nat) (f : Node → Node)
+    (P : Node → Prop) (hn : ∀ n ∈ l, P n) (hf : ∀ old, P old → P (f old)) :
+    ∀ n ∈ l.modify j f, P n := by
+  induction l generalizing j with
+  | nil => intro n h; simp at h
+  | cons x xs ih =>
+    cases j with
+    | zero =>
+      intro n h
+      change n ∈ f x :: xs at h
+      rcases List.mem_cons.mp h with rfl | h
+      · exact hf x (hn x (List.mem_cons_self))
+      · exact hn n (List.mem_cons_of_mem x h)
+    | succ j =>
+      intro n h
+      change n ∈ x :: xs.modify j f at h
+      rcases List.mem_cons.mp h with rfl | h
+      · exact hn n (List.mem_cons_self)
+      · exact ih j (fun m hm => hn m (List.mem_cons_of_mem x hm)) n h
+
+theorem batch_preserves (nodes : List Node) (assignments : List (Nat × Tile))
+    (P : Node → Prop) (innerX innerY : Int)
+    (hn : ∀ n ∈ nodes, P n)
+    (hassign : ∀ p ∈ assignments, ∀ old, P old →
+      P { old with rect := insetCell p.2 innerX innerY }) :
+    ∀ n ∈ assignments.foldl (fun out (j, cell) =>
+      out.modify j (fun old => { old with rect := insetCell cell innerX innerY })) nodes,
+      P n := by
+  induction assignments generalizing nodes with
+  | nil => exact hn
+  | cons a rest ih =>
+    rw [List.foldl_cons]
+    apply ih
+    · exact modify_preserves a.1 _ P hn (hassign a (List.mem_cons_self))
+    · intro p hp old ho
+      exact hassign p (List.mem_cons_of_mem a hp) old ho
+
+set_option maxHeartbeats 1600000 in
+theorem tileStep_invariant (c : Consts) (band : Int) (acc : List Node) (i : Nat)
+    (acc' : List Node)
+    (hinv : ∀ n ∈ acc, n.rect.Ordered ∧
+      Rect.Contained (tileRect (canvasTile c band)) (tileRect n.rect))
+    (h : tileStep c acc i = .ok acc') :
+    ∀ n ∈ acc', n.rect.Ordered ∧
+      Rect.Contained (tileRect (canvasTile c band)) (tileRect n.rect) := by
+  unfold tileStep at h
+  by_cases hi : acc[i]? = none
+  · rw [hi] at h
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact hinv
+  · obtain ⟨n, hn⟩ := Option.ne_none_iff_exists'.mp hi
+    simp only [hn] at h
+    by_cases ho : (sortedChildren acc n.source.id).isEmpty = true
+    · rw [ho] at h
+      simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
+      subst h
+      exact hinv
+    · have ho' : (sortedChildren acc n.source.id).isEmpty = false := by
+        cases hv : (sortedChildren acc n.source.id).isEmpty <;> simp_all
+      rw [ho'] at h
+      simp only [Bool.false_eq_true, ↓reduceIte] at h
+      obtain ⟨⟨cells, capped⟩, hsq, hrest⟩ := except_bind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq] at hrest
+      rw [← hrest]
+      have hnmem : n ∈ acc := List.mem_of_getElem? hn
+      have hnP := hinv n hnmem
+      have hfree : (childArea n.rect c.padX c.padY c.header c.innerX c.innerY).Ordered :=
+        childArea_ordered n.rect c.padX c.padY c.header c.innerX c.innerY
+      have hnonneg :
+          ∀ v ∈ (sortedChildren acc n.source.id).map
+            (fun j => (acc[j]?).map (·.value) |>.getD 0), 0 ≤ v :=
+        squarify_values_nonnegative
+          ((sortedChildren acc n.source.id).map
+            (fun j => (acc[j]?).map (·.value) |>.getD 0))
+          (childArea n.rect c.padX c.padY c.header c.innerX c.innerY)
+          c.rho c.fuel cells capped hsq
+      have hgeo := squarify_geometry
+        ((sortedChildren acc n.source.id).map
+          (fun j => (acc[j]?).map (·.value) |>.getD 0))
+        (childArea n.rect c.padX c.padY c.header c.innerX c.innerY) c.rho c.fuel
+        cells capped hnonneg hfree hsq
+      apply batch_preserves acc (sortedChildren acc n.source.id |>.zip cells)
+        (fun m => m.rect.Ordered ∧
+          Rect.Contained (tileRect (canvasTile c band)) (tileRect m.rect))
+        c.innerX c.innerY hinv
+      intro p hp old hold
+      obtain ⟨_, hcellmem⟩ := List.of_mem_zip hp
+      have hcell := hgeo.1 p.2 hcellmem
+      have hdrawn : (insetCell p.2 c.innerX c.innerY).Inside n.rect :=
+        drawn_cell_inside_parent n.rect p.2 c.padX c.padY c.header c.innerX c.innerY
+          hnP.1 hcell.1 hcell.2
+      refine ⟨insetCell_ordered p.2 c.innerX c.innerY, ?_⟩
+      exact Rect.Contained.trans hnP.2 (tile_inside_rect _ _ hdrawn)
+
+theorem foldlM_tile_invariant (c : Consts) (band : Int) :
+    ∀ (l : List Nat) (acc out : List Node),
+      (∀ n ∈ acc, n.rect.Ordered ∧
+        Rect.Contained (tileRect (canvasTile c band)) (tileRect n.rect)) →
+      l.foldlM (tileStep c) acc = .ok out →
+      ∀ n ∈ out, n.rect.Ordered ∧
+        Rect.Contained (tileRect (canvasTile c band)) (tileRect n.rect) := by
+  intro l
+  induction l with
+  | nil =>
+    intro acc out hinv h
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    exact hinv
+  | cons i is ih =>
+    intro acc out hinv h
+    simp only [List.foldlM] at h
+    obtain ⟨mid, hmid, hrest⟩ := except_bind_ok h
+    exact ih mid out (tileStep_invariant c band acc i mid hinv hmid) hrest
+
+theorem tileNodes_invariant (c : Consts) (band : Int) (nodes0 out : List Node)
+    (hinv : ∀ n ∈ nodes0, n.rect.Ordered ∧
+      Rect.Contained (tileRect (canvasTile c band)) (tileRect n.rect))
+    (h : tileNodes c nodes0 = .ok out) :
+    ∀ n ∈ out, n.rect.Ordered ∧
+      Rect.Contained (tileRect (canvasTile c band)) (tileRect n.rect) := by
+  rw [tileNodes_eq_foldlM] at h
+  exact foldlM_tile_invariant c band (dependencyOrder nodes0) nodes0 out hinv h
+
+/-- Clause 1 on the actual successful adapter: every dump box lies inside the
+    canvas. The tiling fold preserves canvas containment at every step because
+    each assigned cell sits inside `childArea` of its parent tile, which the
+    invariant already contains in the canvas. -/
+theorem treemap_c1 (m : Model) (result : Layered.FamilyResult)
+    (h : Kinds.Treemap.layout m = .ok result) :
+    Validator.C1 result.scene.layoutDump := by
+  obtain ⟨nodes, hnodes, hboxes, hcanvas, _⟩ :=
+    layout_execution m result.scene (Kinds.Treemap.layout_adapter_success m result h)
+  have hw := Kinds.Treemap.layout_width_nonnegative m result h
+  have hh := Kinds.Treemap.layout_height_nonnegative m result h
+  have hb := bandOf_nonneg m
+  have hinv := seeded_invariant m hw hh hb
+  have hout := tileNodes_invariant (constants m) (bandOf m) _ nodes hinv hnodes
+  intro b hb'
+  have hb'' : b ∈ result.scene.boxes := hb'
+  rw [hboxes] at hb''
+  obtain ⟨node, hnode, rfl⟩ := List.mem_map.mp hb''
+  show Rect.Contained (Validator.canvasRect result.scene.layoutDump)
+    (tileRect node.rect)
+  have hcont := hout node hnode
+  have hc : result.scene.layoutDump.canvas =
+      ⟨(constants m).width, bandOf m + (constants m).height⟩ := hcanvas
+  change Rect.Contained
+    ⟨0, 0, result.scene.layoutDump.canvas.w, result.scene.layoutDump.canvas.h⟩
+    (tileRect node.rect)
+  rw [hc]
+  simpa only [tileRect_canvasTile] using hcont.2
+
+theorem zero_extent_disjoint (r s : Rect)
+    (h : r.w = 0 ∨ r.h = 0) : Disjoint r s := by
+  unfold Disjoint Rect.meetsInterior
+  rcases h with h | h <;> omega
+
+theorem modify_getElem? (nodes : List Node) (i j : Nat) (f : Node → Node) :
+    (nodes.modify i f)[j]? =
+      if i = j then (nodes[j]?).map f else nodes[j]? := by
+  by_cases hij : i = j
+  · subst j
+    simpa only [ite_eq_left, Option.map_eq_map] using List.getElem?_modify_eq f i nodes
+  · simpa only [ite_eq_right hij] using List.getElem?_modify_ne f nodes hij
+
+theorem batch_getElem?_outside (nodes : List Node)
+    (assignments : List (Nat × Tile)) (innerX innerY : Int) (j : Nat)
+    (houtside : ∀ p ∈ assignments, p.1 ≠ j) :
+    (assignments.foldl (fun out (k, cell) =>
+      out.modify k (fun old => { old with rect := insetCell cell innerX innerY }))
+        nodes)[j]? = nodes[j]? := by
+  induction assignments generalizing nodes with
+  | nil => rfl
+  | cons p ps ih =>
+    rw [List.foldl_cons]
+    rw [ih _ (fun q hq => houtside q (List.mem_cons_of_mem p hq))]
+    rw [modify_getElem?]
+    simp only [houtside p List.mem_cons_self, ↓reduceIte]
+
+theorem batch_getElem?_assigned (nodes : List Node)
+    (assignments : List (Nat × Tile)) (innerX innerY : Int)
+    (hnodup : (assignments.map Prod.fst).Nodup)
+    (p : Nat × Tile) (hp : p ∈ assignments)
+    (old : Node) (hold : nodes[p.1]? = some old) :
+    ((assignments.foldl (fun out (k, cell) =>
+      out.modify k (fun n => { n with rect := insetCell cell innerX innerY }))
+        nodes)[p.1]?).map Node.rect = some (insetCell p.2 innerX innerY) := by
+  induction assignments generalizing nodes old with
+  | nil => simp at hp
+  | cons q qs ih =>
+    obtain ⟨hq, hqs⟩ := List.nodup_cons.mp hnodup
+    rw [List.foldl_cons]
+    rcases List.mem_cons.mp hp with heq | hp
+    · subst p
+      rw [batch_getElem?_outside _ qs innerX innerY q.1]
+      · rw [modify_getElem?, ite_eq_left rfl, hold]
+        rfl
+      · intro p hp heq
+        apply hq
+        exact List.mem_map.mpr ⟨p, hp, heq⟩
+    · have hne : q.1 ≠ p.1 := by
+        intro heq
+        apply hq
+        exact List.mem_map.mpr ⟨p, hp, heq.symm⟩
+      apply ih _ hqs hp old
+      rw [modify_getElem?, ite_eq_right hne]
+      exact hold
+
+theorem zip_rects_pairwise (indices : List Nat) (cells : List Tile)
+    (innerX innerY : Int)
+    (h : (cells.map (fun cell =>
+      tileRect (insetCell cell innerX innerY))).Pairwise Disjoint) :
+    ((indices.zip cells).map (fun p =>
+      tileRect (insetCell p.2 innerX innerY))).Pairwise Disjoint := by
+  induction indices generalizing cells with
+  | nil => simp
+  | cons i indices ih =>
+    cases cells with
+    | nil => simp
+    | cons cell cells =>
+      obtain ⟨hhead, htail⟩ := List.pairwise_cons.mp h
+      apply List.pairwise_cons.mpr
+      refine ⟨?_, ih cells htail⟩
+      intro r hr
+      obtain ⟨p, hp, rfl⟩ := List.mem_map.mp hr
+      exact hhead _ (List.mem_map.mpr ⟨p.2, (List.of_mem_zip hp).2, rfl⟩)
+
+theorem batch_source (nodes : List Node) (assignments : List (Nat × Tile))
+    (innerX innerY : Int) :
+    (assignments.foldl (fun out (j, cell) =>
+      out.modify j (fun old => { old with rect := insetCell cell innerX innerY }))
+        nodes).map Node.source = nodes.map Node.source := by
+  apply foldl_map_source
+  intro acc p
+  apply map_source_modify
+  intro n
+  rfl
+
+theorem tileStep_source (c : Consts) (acc out : List Node) (i : Nat)
+    (h : tileStep c acc i = .ok out) :
+    out.map Node.source = acc.map Node.source := by
+  unfold tileStep at h
+  cases hi : acc[i]? with
+  | none =>
+    simp only [hi, pure, Except.pure, Except.ok.injEq] at h
+    subst out
+    rfl
+  | some n =>
+    simp only [hi] at h
+    by_cases ho : (sortedChildren acc n.source.id).isEmpty = true
+    · rw [ho] at h
+      simp only [↓reduceIte, pure, Except.pure, Except.ok.injEq] at h
+      subst out
+      rfl
+    · have ho' : (sortedChildren acc n.source.id).isEmpty = false := by
+        cases hv : (sortedChildren acc n.source.id).isEmpty <;> simp_all
+      rw [ho'] at h
+      simp only [Bool.false_eq_true, ↓reduceIte] at h
+      obtain ⟨⟨cells, capped⟩, _, hrest⟩ := except_bind_ok h
+      simp only [pure, Except.pure, Except.ok.injEq] at hrest
+      rw [← hrest]
+      exact batch_source acc _ c.innerX c.innerY
+
+theorem foldlM_tile_source (c : Consts) (order : List Nat)
+    (acc out : List Node) (h : order.foldlM (tileStep c) acc = .ok out) :
+    out.map Node.source = acc.map Node.source := by
+  induction order generalizing acc with
+  | nil =>
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    subst out
+    rfl
+  | cons i is ih =>
+    simp only [List.foldlM] at h
+    obtain ⟨mid, hmid, hrest⟩ := except_bind_ok h
+    exact (ih mid hrest).trans (tileStep_source c acc mid i hmid)
+
+theorem tileNodes_source (c : Consts) (acc out : List Node)
+    (h : tileNodes c acc = .ok out) :
+    out.map Node.source = acc.map Node.source := by
+  rw [tileNodes_eq_foldlM] at h
+  exact foldlM_tile_source c (dependencyOrder acc) acc out h
+
+theorem tileStep_children_execution (c : Consts) (acc out : List Node)
+    (i : Nat) (parent : Node) (hi : acc[i]? = some parent)
+    (hchildren : (sortedChildren acc parent.source.id).isEmpty = false)
+    (hparent : parent.rect.Ordered)
+    (h : tileStep c acc i = .ok out) :
+    ∃ cells capped,
+      squarify
+        ((sortedChildren acc parent.source.id).map
+          (fun j => (acc[j]?).map (·.value) |>.getD 0))
+        (childArea parent.rect c.padX c.padY c.header c.innerX c.innerY)
+        c.rho c.fuel = .ok (cells, capped) ∧
+      out = ((sortedChildren acc parent.source.id).zip cells).foldl
+        (fun nodes (j, cell) =>
+          nodes.modify j (fun old =>
+            { old with rect := insetCell cell c.innerX c.innerY })) acc ∧
+      (cells.map (fun cell =>
+        tileRect (insetCell cell c.innerX c.innerY))).Pairwise Disjoint := by
+  unfold tileStep at h
+  simp only [hi, hchildren, Bool.false_eq_true, ↓reduceIte] at h
+  obtain ⟨⟨cells, capped⟩, hsq, hrest⟩ := except_bind_ok h
+  simp only [pure, Except.pure, Except.ok.injEq] at hrest
+  refine ⟨cells, capped, hsq, hrest.symm, ?_⟩
+  exact (treemap_children_geometry_of_success _ parent.rect c.padX c.padY
+    c.header c.innerX c.innerY c.rho c.fuel cells capped hparent hsq).1
+
+theorem tileStep_assigned_output_c2 (c : Consts) (acc out : List Node)
+    (i : Nat) (parent : Node) (hi : acc[i]? = some parent)
+    (hchildren : (sortedChildren acc parent.source.id).isEmpty = false)
+    (hparent : parent.rect.Ordered)
+    (h : tileStep c acc i = .ok out) :
+    ∃ assignments : List (Nat × Tile),
+      out = assignments.foldl (fun nodes (j, cell) =>
+        nodes.modify j (fun old =>
+          { old with rect := insetCell cell c.innerX c.innerY })) acc ∧
+      (assignments.map (fun p =>
+        tileRect (insetCell p.2 c.innerX c.innerY))).Pairwise Disjoint ∧
+      ∀ p ∈ assignments,
+        (assignments.map Prod.fst).Nodup →
+        ∀ old, acc[p.1]? = some old →
+          (out[p.1]?).map (fun n => tileRect n.rect) =
+            some (tileRect (insetCell p.2 c.innerX c.innerY)) := by
+  obtain ⟨cells, capped, _, hout, hgeometry⟩ :=
+    tileStep_children_execution c acc out i parent hi hchildren hparent h
+  refine ⟨(sortedChildren acc parent.source.id).zip cells, hout,
+    zip_rects_pairwise _ cells c.innerX c.innerY hgeometry, ?_⟩
+  intro p hp hnodup old hold
+  rw [hout]
+  have hrect := batch_getElem?_assigned acc
+    ((sortedChildren acc parent.source.id).zip cells)
+    c.innerX c.innerY hnodup p hp old hold
+  have hmapped := congrArg (Option.map tileRect) hrect
+  simpa only [Option.map_map, Function.comp_def, Option.map_some] using hmapped
+
+theorem children_index_nodup (nodes : List Node) (id : String) :
+    (children nodes id).Nodup := by
+  have hall : (nodes.zipIdx.map Prod.snd).Nodup := by
+    rw [List.zipIdx_map_snd]
+    exact List.nodup_range' _
+  exact hall.sublist (List.filter_sublist.map Prod.snd)
+
+theorem sortedChildren_index_nodup (nodes : List Node) (id : String) :
+    (sortedChildren nodes id).Nodup :=
+  (sortedChildren_perm nodes id).nodup_iff.mpr (children_index_nodup nodes id)
+
+theorem sortedChildren_index_source (nodes : List Node) (id : String) (j : Nat)
+    (hj : j ∈ sortedChildren nodes id) :
+    ∃ n, nodes[j]? = some n ∧ n.source.parent = id := by
+  have hchild := (sortedChildren_perm nodes id).mem_iff.mp hj
+  obtain ⟨⟨n, k⟩, hnk, hkj⟩ := List.mem_map.mp hchild
+  have hk : k = j := hkj
+  subst k
+  obtain ⟨hlookup, hparent⟩ := List.mem_filter.mp hnk
+  exact ⟨n, List.mk_mem_zipIdx_iff_getElem?.mp hlookup,
+    by simpa only [beq_iff_eq] using hparent⟩
+
+theorem zip_indices_nodup (indices : List Nat) (cells : List Tile)
+    (hindices : indices.Nodup) :
+    ((indices.zip cells).map Prod.fst).Nodup := by
+  induction indices generalizing cells with
+  | nil => simp
+  | cons i indices ih =>
+    cases cells with
+    | nil => simp
+    | cons cell cells =>
+      obtain ⟨hnot, htail⟩ := List.nodup_cons.mp hindices
+      simp only [List.zip_cons_cons, List.map_cons, List.nodup_cons]
+      refine ⟨?_, ih cells htail⟩
+      intro hmem
+      obtain ⟨p, hp, hpi⟩ := List.mem_map.mp hmem
+      exact hnot (hpi ▸ (List.of_mem_zip hp).1)
+
+theorem tileStep_assigned_output (c : Consts) (acc out : List Node)
+    (i : Nat) (parent : Node) (hi : acc[i]? = some parent)
+    (hchildren : (sortedChildren acc parent.source.id).isEmpty = false)
+    (hparent : parent.rect.Ordered)
+    (h : tileStep c acc i = .ok out) :
+    ∃ assignments : List (Nat × Tile),
+      out = assignments.foldl (fun nodes (j, cell) =>
+        nodes.modify j (fun old =>
+          { old with rect := insetCell cell c.innerX c.innerY })) acc ∧
+      (assignments.map Prod.fst).Nodup ∧
+      (assignments.map (fun p =>
+        tileRect (insetCell p.2 c.innerX c.innerY))).Pairwise Disjoint ∧
+      ∀ p ∈ assignments,
+        ∃ old, acc[p.1]? = some old ∧ old.source.parent = parent.source.id ∧
+          (out[p.1]?).map (fun n => tileRect n.rect) =
+            some (tileRect (insetCell p.2 c.innerX c.innerY)) := by
+  obtain ⟨cells, capped, _, hout, hgeometry⟩ :=
+    tileStep_children_execution c acc out i parent hi hchildren hparent h
+  have hnodup := zip_indices_nodup (sortedChildren acc parent.source.id) cells
+    (sortedChildren_index_nodup acc parent.source.id)
+  refine ⟨(sortedChildren acc parent.source.id).zip cells, hout, hnodup,
+    zip_rects_pairwise _ cells c.innerX c.innerY hgeometry, ?_⟩
+  intro p hp
+  obtain ⟨old, hold, hsource⟩ :=
+    sortedChildren_index_source acc parent.source.id p.1 (List.of_mem_zip hp).1
+  refine ⟨old, hold, hsource, ?_⟩
+  rw [hout]
+  have hrect := batch_getElem?_assigned acc
+    ((sortedChildren acc parent.source.id).zip cells)
+    c.innerX c.innerY hnodup p hp old hold
+  have hmapped := congrArg (Option.map tileRect) hrect
+  simpa only [Option.map_map, Function.comp_def, Option.map_some] using hmapped
+
+theorem tileNodes_source_lookup (c : Consts) (acc out : List Node)
+    (h : tileNodes c acc = .ok out) (j : Nat) :
+    (out[j]?).map Node.source = (acc[j]?).map Node.source := by
+  have hs := congrArg (fun sources : List ModelBox => sources[j]?)
+    (tileNodes_source c acc out h)
+  simpa only [List.getElem?_map] using hs
+
+theorem parentDepth_le_fuel (nodes : List Node) (fuel : Nat) (id : String) :
+    parentDepth nodes fuel id ≤ fuel := by
+  induction fuel generalizing id with
+  | zero => simp [parentDepth]
+  | succ fuel ih =>
+    by_cases hid : id = ""
+    · subst id
+      simp [parentDepth]
+    · cases hf : nodes.find? (fun n => n.source.id == id) with
+      | none => simp [parentDepth, hf]
+      | some n =>
+        have hstep : 1 + parentDepth nodes fuel n.source.parent ≤ fuel + 1 := by
+          have htail := ih n.source.parent
+          omega
+        simpa [parentDepth, hid, hf] using hstep
+
+theorem parentDepth_mono_step (nodes : List Node) (fuel : Nat) (id : String) :
+    parentDepth nodes fuel id ≤ parentDepth nodes (fuel + 1) id := by
+  induction fuel generalizing id with
+  | zero => exact Nat.zero_le _
+  | succ fuel ih =>
+    by_cases hid : id = ""
+    · subst id
+      simp [parentDepth]
+    · cases hf : nodes.find? (fun n => n.source.id == id) with
+      | none => simp [parentDepth, hf]
+      | some n =>
+        simpa [parentDepth, hid, hf] using Nat.succ_le_succ (ih n.source.parent)
+
+theorem parentDepth_strict_of_lookup (nodes : List Node) (fuel : Nat)
+    (id : String) (parent : Node) (hid : id ≠ "")
+    (hlookup : nodes.find? (fun n => n.source.id == id) = some parent)
+    (hdepth : parentDepth nodes fuel parent.source.parent < fuel) :
+    parentDepth nodes fuel parent.source.parent <
+      parentDepth nodes fuel id := by
+  cases fuel with
+  | zero => omega
+  | succ fuel =>
+    have hstable : parentDepth nodes (fuel + 1) parent.source.parent =
+        parentDepth nodes fuel parent.source.parent := by
+      have hbound := parentDepth_le_fuel nodes fuel parent.source.parent
+      by_cases hlt : parentDepth nodes fuel parent.source.parent < fuel
+      · exact parentDepth_stable nodes fuel parent.source.parent hlt
+      · have heq : parentDepth nodes fuel parent.source.parent = fuel := by omega
+        have hmono := parentDepth_mono_step nodes fuel parent.source.parent
+        omega
+    rw [hstable]
+    have hexec : parentDepth nodes (fuel + 1) id =
+        1 + parentDepth nodes fuel parent.source.parent := by
+      simp [parentDepth, hlookup]
+    rw [hexec]
+    omega
+
+theorem dependencyOrder_perm_indices (nodes : List Node) :
+    (dependencyOrder nodes).Perm (nodes.zipIdx.map Prod.snd) := by
+  have hp := (List.mergeSort_perm (dependencyRanks nodes)
+    (fun a b => decide (a.2 ≤ b.2))).map Prod.fst
+  simpa only [dependencyOrder, dependencyRanks, List.map_map, Function.comp_def] using hp
+
+theorem dependencyOrder_index_nodup (nodes : List Node) :
+    (dependencyOrder nodes).Nodup := by
+  apply (dependencyOrder_perm_indices nodes).nodup_iff.mpr
+  rw [List.zipIdx_map_snd]
+  exact List.nodup_range' _
+
+theorem dependencyRanks_index_source (nodes : List Node) (p : Nat × Nat)
+    (hp : p ∈ dependencyRanks nodes) :
+    ∃ n, nodes[p.1]? = some n ∧
+      p.2 = parentDepth nodes nodes.length n.source.parent := by
+  obtain ⟨⟨n, j⟩, hnode, hpair⟩ := List.mem_map.mp hp
+  rcases hpair with rfl
+  exact ⟨n, List.mk_mem_zipIdx_iff_getElem?.mp hnode, rfl⟩
+
+theorem dependencyOrder_index_source (nodes : List Node) (j : Nat)
+    (hj : j ∈ dependencyOrder nodes) :
+    ∃ n, nodes[j]? = some n := by
+  have hindex := (dependencyOrder_perm_indices nodes).mem_iff.mp hj
+  obtain ⟨⟨n, k⟩, hnode, hkj⟩ := List.mem_map.mp hindex
+  have hk : k = j := hkj
+  subst k
+  exact ⟨n, List.mk_mem_zipIdx_iff_getElem?.mp hnode⟩
+
+theorem dependencyRanks_strict_position (nodes : List Node)
+    (a b : Nat) (p q : Nat × Nat)
+    (ha : ((dependencyRanks nodes).mergeSort
+      (fun x y => decide (x.2 ≤ y.2)))[a]? = some p)
+    (hb : ((dependencyRanks nodes).mergeSort
+      (fun x y => decide (x.2 ≤ y.2)))[b]? = some q)
+    (hstrict : p.2 < q.2) : a < b := by
+  obtain ⟨habound, hpa⟩ := List.getElem?_eq_some_iff.mp ha
+  obtain ⟨hbbound, hqb⟩ := List.getElem?_eq_some_iff.mp hb
+  have hsorted := Elegant.Treemap.dependencyRanks_sorted nodes
+  by_cases hlt : b < a
+  · have hle := hsorted.rel_getElem_of_lt hbbound habound hlt
+    rw [hqb, hpa] at hle
+    have hle' : q.2 ≤ p.2 := by
+      simpa only [decide_eq_true_eq] using hle
+    omega
+  · by_cases heq : a = b
+    · subst b
+      have hpq : p = q := Option.some.inj (ha.symm.trans hb)
+      rw [← hpq] at hstrict
+      exact (Nat.lt_irrefl p.2 hstrict).elim
+    · omega
+
+theorem assignSeries_source (nodes : List Node) :
+    (assignSeries nodes).map Node.source = nodes.map Node.source := by
+  unfold assignSeries
+  apply foldl_map_source
+  intro acc i
+  by_cases hi : acc[i]? = none
+  · simp [hi]
+  · obtain ⟨n, hn⟩ := Option.ne_none_iff_exists'.mp hi
+    simp only [hn]
+    apply map_source_modify
+    intro old
+    rfl
+
+theorem aggregate_source (nodes : List Node) :
+    (aggregate nodes).map Node.source = nodes.map Node.source := by
+  unfold aggregate
+  apply foldl_map_source
+  intro acc i
+  by_cases hi : acc[i]? = none
+  · simp [hi]
+  · obtain ⟨n, hn⟩ := Option.ne_none_iff_exists'.mp hi
+    simp only [hn]
+    by_cases hj : acc.findIdx? (fun parent => parent.source.id == n.source.parent) = none
+    · simp [hj]
+    · obtain ⟨j, hj'⟩ := Option.ne_none_iff_exists'.mp hj
+      simp only [hj']
+      apply map_source_modify
+      intro old
+      rfl
+
+theorem initialNodes_source (m : Model) :
+    (initialNodes m).map Node.source = m.boxes := by
+  simp only [initialNodes, List.map_map]
+  exact List.zipIdx_map_fst 0 m.boxes
+
+theorem seeded_source (m : Model) :
+    ((assignSeries (aggregate (initialNodes m))).map
+      (presetNode m (bandOf m))).map Node.source = m.boxes := by
+  have hpreset : ∀ n : Node, (presetNode m (bandOf m) n).source = n.source := by
+    intro n
+    unfold presetNode
+    split <;> rfl
+  calc
+    _ = (assignSeries (aggregate (initialNodes m))).map Node.source := by
+      simp only [List.map_map, Function.comp_def, hpreset]
+    _ = m.boxes := by
+      rw [assignSeries_source, aggregate_source, initialNodes_source]
+
+theorem parentDepth_source_eq (left right : List Node)
+    (hsources : left.map Node.source = right.map Node.source)
+    (fuel : Nat) (id : String) :
+    parentDepth left fuel id = parentDepth right fuel id := by
+  induction fuel generalizing id with
+  | zero => rfl
+  | succ fuel ih =>
+    by_cases hid : id = ""
+    · subst id
+      rfl
+    · have hfind :
+          (left.find? (fun n => n.source.id == id)).map Node.source =
+          (right.find? (fun n => n.source.id == id)).map Node.source := by
+        have hs := congrArg
+          (fun sources : List ModelBox => sources.find? (fun b => b.id == id)) hsources
+        simpa only [List.find?_map, Function.comp_def] using hs
+      cases hl : left.find? (fun n => n.source.id == id) with
+      | none =>
+        cases hr : right.find? (fun n => n.source.id == id) with
+        | none => simp [parentDepth, hl, hr]
+        | some n => simp [hl, hr] at hfind
+      | some n =>
+        cases hr : right.find? (fun n => n.source.id == id) with
+        | none => simp [hl, hr] at hfind
+        | some other =>
+          have hsource : n.source = other.source := by
+            simpa only [hl, hr, Option.map_some, Option.some.injEq] using hfind
+          have hparent := congrArg ModelBox.parent hsource
+          simpa [parentDepth, hid, hl, hr, hparent] using
+            ih other.source.parent
+
+theorem dependencyOrder_rank_at (nodes : List Node) (a i : Nat)
+    (ha : (dependencyOrder nodes)[a]? = some i) :
+    ∃ n, nodes[i]? = some n ∧
+      ((dependencyRanks nodes).mergeSort
+        (fun x y => decide (x.2 ≤ y.2)))[a]? =
+          some (i, parentDepth nodes nodes.length n.source.parent) := by
+  simp only [dependencyOrder, List.getElem?_map] at ha
+  obtain ⟨p, hpa, hpi⟩ := Option.map_eq_some_iff.mp ha
+  have hmember : p ∈ dependencyRanks nodes :=
+    List.mem_mergeSort.mp (List.mem_of_getElem? hpa)
+  obtain ⟨n, hn, hdepth⟩ := dependencyRanks_index_source nodes p hmember
+  have hp : p = (i, parentDepth nodes nodes.length n.source.parent) :=
+    Prod.ext hpi hdepth
+  refine ⟨n, ?_, ?_⟩
+  · simpa only [hpi] using hn
+  · rw [← hp]
+    exact hpa
+
+theorem dependencyOrder_strict_position (nodes : List Node)
+    (a b i j : Nat) (parent child : Node)
+    (ha : (dependencyOrder nodes)[a]? = some i)
+    (hb : (dependencyOrder nodes)[b]? = some j)
+    (hi : nodes[i]? = some parent) (hj : nodes[j]? = some child)
+    (hstrict : parentDepth nodes nodes.length parent.source.parent <
+      parentDepth nodes nodes.length child.source.parent) : a < b := by
+  obtain ⟨pnode, hpnode, hpa⟩ := dependencyOrder_rank_at nodes a i ha
+  obtain ⟨qnode, hqnode, hqb⟩ := dependencyOrder_rank_at nodes b j hb
+  have hp : pnode = parent := Option.some.inj (hpnode.symm.trans hi)
+  have hq : qnode = child := Option.some.inj (hqnode.symm.trans hj)
+  subst pnode
+  subst qnode
+  exact dependencyRanks_strict_position nodes a b _ _ hpa hqb hstrict
+
+theorem find_source_id_of_mem (nodes : List Node)
+    (hnodup : (nodes.map (fun n => n.source.id)).Nodup)
+    (n : Node) (hn : n ∈ nodes) :
+    nodes.find? (fun other => other.source.id == n.source.id) = some n := by
+  induction nodes with
+  | nil => simp at hn
+  | cons first rest ih =>
+    obtain ⟨hfirst, hrest⟩ := List.nodup_cons.mp hnodup
+    rcases List.mem_cons.mp hn with heq | hmem
+    · subst n
+      simp
+    · have hne : first.source.id ≠ n.source.id := by
+        intro heq
+        apply hfirst
+        exact List.mem_map.mpr ⟨n, hmem, heq.symm⟩
+      simpa [List.find?_cons, hne] using ih hrest hmem
+
+def DepthProfile (nodes : List Node) (id : String) (depth : Nat) : Prop :=
+  ∀ fuel, parentDepth nodes fuel id = min fuel depth
+
+theorem depthProfile_unique (nodes : List Node) (id : String) (a b : Nat)
+    (ha : DepthProfile nodes id a) (hb : DepthProfile nodes id b) : a = b := by
+  have h := (ha (a + b + 1)).symm.trans (hb (a + b + 1))
+  omega
+
+theorem depthProfile_step (nodes : List Node) (n : Node)
+    (hid : n.source.id ≠ "")
+    (hlookup : nodes.find? (fun other => other.source.id == n.source.id) = some n)
+    (depth : Nat) (hparent : DepthProfile nodes n.source.parent depth) :
+    DepthProfile nodes n.source.id (depth + 1) := by
+  intro fuel
+  cases fuel with
+  | zero => rfl
+  | succ fuel =>
+    calc
+      parentDepth nodes (fuel + 1) n.source.id =
+          1 + parentDepth nodes fuel n.source.parent := by
+        simp [parentDepth, hlookup]
+      _ = min (fuel + 1) (depth + 1) := by
+        rw [hparent fuel]
+        omega
+
+theorem source_ids_nodup (m : Model) (hwf : WellFormed m)
+    (nodes : List Node) (hsources : nodes.map Node.source = m.boxes) :
+    (nodes.map (fun n => n.source.id)).Nodup := by
+  have hids := congrArg (List.map ModelBox.id) hsources
+  have hmodel := Model.boxIds_nodup hwf
+  rw [← hids] at hmodel
+  simpa only [List.map_map, Function.comp_def] using hmodel
+
+theorem source_parent_depthProfile (m : Model) (hwf : WellFormed m)
+    (nodes : List Node) (hsources : nodes.map Node.source = m.boxes)
+    (b : ModelBox) (hb : b ∈ m.boxes) :
+    ∃ depth, DepthProfile nodes b.parent depth := by
+  have hnodup := source_ids_nodup m hwf nodes hsources
+  apply Elegant.parent_induction m hwf
+    (fun id => ∃ depth, DepthProfile nodes id depth) ?_ ?_ b hb
+  · refine ⟨0, ?_⟩
+    intro fuel
+    cases fuel <;> simp [parentDepth]
+  · intro source hsource hparent
+    by_cases hid : source.id = ""
+    · refine ⟨0, ?_⟩
+      intro fuel
+      cases fuel <;> simp [parentDepth, hid]
+    · have hmem : source ∈ nodes.map Node.source := by
+        rw [hsources]
+        exact hsource
+      obtain ⟨n, hn, hns⟩ := List.mem_map.mp hmem
+      obtain ⟨depth, hdepth⟩ := hparent
+      refine ⟨depth + 1, ?_⟩
+      have hlookup := find_source_id_of_mem nodes hnodup n hn
+      have hnid : n.source.id ≠ "" := by simpa only [hns] using hid
+      have hp : DepthProfile nodes n.source.parent depth := by
+        simpa only [hns] using hdepth
+      simpa only [hns] using depthProfile_step nodes n hnid hlookup depth hp
+
+theorem depthProfile_trace (nodes : List Node) (depth : Nat) (id : String)
+    (hprofile : DepthProfile nodes id depth) :
+    ∃ ids : List String,
+      ids.length = depth ∧ ids.Nodup ∧
+      ∀ name ∈ ids, name ∈ nodes.map (fun n => n.source.id) ∧
+        ∃ rank, DepthProfile nodes name rank ∧ 0 < rank ∧ rank ≤ depth := by
+  induction depth generalizing id with
+  | zero =>
+    refine ⟨[], rfl, by simp, ?_⟩
+    simp
+  | succ depth ih =>
+    have hid : id ≠ "" := by
+      intro hid
+      have hone := hprofile 1
+      simp [parentDepth, hid] at hone
+    obtain ⟨n, hlookup⟩ :
+        ∃ n, nodes.find? (fun n => n.source.id == id) = some n := by
+      cases hf : nodes.find? (fun n => n.source.id == id) with
+      | none =>
+        have hone := hprofile 1
+        simp [parentDepth, hf] at hone
+      | some n => exact ⟨n, rfl⟩
+    have hparent : DepthProfile nodes n.source.parent depth := by
+      intro fuel
+      have hs := hprofile (fuel + 1)
+      have hstep : parentDepth nodes (fuel + 1) id =
+          1 + parentDepth nodes fuel n.source.parent := by
+        simp [parentDepth, hlookup]
+      rw [hstep] at hs
+      omega
+    obtain ⟨ids, hlength, hnodup, hmembers⟩ := ih n.source.parent hparent
+    have hnot : id ∉ ids := by
+      intro hmem
+      obtain ⟨_, rank, hrank, _, hrankle⟩ := hmembers id hmem
+      have heq := depthProfile_unique nodes id (depth + 1) rank hprofile hrank
+      omega
+    have hnid : n.source.id = id := by
+      simpa only [beq_iff_eq] using List.find?_some hlookup
+    refine ⟨id :: ids, by simp [hlength], List.nodup_cons.mpr ⟨hnot, hnodup⟩, ?_⟩
+    intro name hname
+    rcases List.mem_cons.mp hname with hname | hname
+    · subst name
+      refine ⟨List.mem_map.mpr ⟨n, List.mem_of_find?_eq_some hlookup, hnid⟩,
+        depth + 1, hprofile, by omega, by omega⟩
+    · obtain ⟨hmem, rank, hrank, hpos, hle⟩ := hmembers name hname
+      exact ⟨hmem, rank, hrank, hpos, by omega⟩
+
+theorem source_parent_depth_lt_length (m : Model) (hwf : WellFormed m)
+    (nodes : List Node) (hsources : nodes.map Node.source = m.boxes)
+    (b : ModelBox) (hb : b ∈ m.boxes) :
+    parentDepth nodes nodes.length b.parent < nodes.length := by
+  obtain ⟨depth, hprofile⟩ := source_parent_depthProfile m hwf nodes hsources b hb
+  obtain ⟨ids, hlength, hnodup, hmembers⟩ := depthProfile_trace nodes depth b.parent hprofile
+  have hmem : b ∈ nodes.map Node.source := by
+    rw [hsources]
+    exact hb
+  obtain ⟨n, hn, hns⟩ := List.mem_map.mp hmem
+  have hids := source_ids_nodup m hwf nodes hsources
+  have hnot : b.id ∉ ids := by
+    intro hbin
+    obtain ⟨_, rank, hrank, hpositive, hbound⟩ := hmembers b.id hbin
+    by_cases hid : b.id = ""
+    · have hzero : DepthProfile nodes b.id 0 := by
+        intro fuel
+        cases fuel <;> simp [parentDepth, hid]
+      have heq := depthProfile_unique nodes b.id 0 rank hzero hrank
+      omega
+    · have hnid : n.source.id ≠ "" := by simpa only [hns] using hid
+      have hp : DepthProfile nodes n.source.parent depth := by
+        simpa only [hns] using hprofile
+      have hnode := depthProfile_step nodes n hnid
+        (find_source_id_of_mem nodes hids n hn) depth hp
+      have hbox : DepthProfile nodes b.id (depth + 1) := by
+        simpa only [hns] using hnode
+      have heq := depthProfile_unique nodes b.id (depth + 1) rank hbox hrank
+      omega
+  have hsubset : b.id :: ids ⊆ nodes.map (fun n => n.source.id) := by
+    intro name hname
+    rcases List.mem_cons.mp hname with hname | hname
+    · subst name
+      exact List.mem_map.mpr ⟨n, hn, congrArg ModelBox.id hns⟩
+    · exact (hmembers name hname).1
+  have hbound := (List.nodup_cons.mpr ⟨hnot, hnodup⟩).length_le_of_subset hsubset
+  simp only [List.length_cons, List.length_map, hlength] at hbound
+  rw [hprofile nodes.length]
+  omega
+
+theorem dependencyOrder_parent_before_child (m : Model) (hwf : WellFormed m)
+    (nodes : List Node) (hsources : nodes.map Node.source = m.boxes)
+    (a b i j : Nat) (parent child : Node)
+    (ha : (dependencyOrder nodes)[a]? = some i)
+    (hb : (dependencyOrder nodes)[b]? = some j)
+    (hi : nodes[i]? = some parent) (hj : nodes[j]? = some child)
+    (hlink : child.source.parent = parent.source.id)
+    (hid : parent.source.id ≠ "") : a < b := by
+  have hmem : parent ∈ nodes := List.mem_of_getElem? hi
+  have hsource : parent.source ∈ m.boxes := by
+    rw [← hsources]
+    exact List.mem_map.mpr ⟨parent, hmem, rfl⟩
+  have hbound := source_parent_depth_lt_length m hwf nodes hsources
+    parent.source hsource
+  have hlookup := find_source_id_of_mem nodes
+    (source_ids_nodup m hwf nodes hsources) parent hmem
+  have hstrict := parentDepth_strict_of_lookup nodes nodes.length
+    parent.source.id parent hid hlookup hbound
+  apply dependencyOrder_strict_position nodes a b i j parent child ha hb hi hj
+  simpa only [hlink] using hstrict
+
+theorem tile_disjoint_symm (r s : Rect) (h : Disjoint r s) : Disjoint s r := by
+  unfold Disjoint Rect.meetsInterior at *
+  omega
+
+theorem pairwise_symmetric_distinct {α : Type} (R : α → α → Prop)
+    (hsymm : ∀ a b, R a b → R b a) (items : List α)
+    (hpair : items.Pairwise R) (a b : α)
+    (ha : a ∈ items) (hb : b ∈ items) (hne : a ≠ b) : R a b := by
+  induction items generalizing a b with
+  | nil => simp at ha
+  | cons first rest ih =>
+    obtain ⟨hhead, htail⟩ := List.pairwise_cons.mp hpair
+    rcases List.mem_cons.mp ha with haeq | ha
+    · rcases List.mem_cons.mp hb with hbeq | hb
+      · exact (hne (haeq.trans hbeq.symm)).elim
+      · rw [haeq]
+        exact hhead b hb
+    · rcases List.mem_cons.mp hb with hbeq | hb
+      · rw [hbeq]
+        exact hsymm first a (hhead a ha)
+      · exact ih htail a b ha hb hne
+
+theorem source_lookup_of_map_eq (before after : List Node)
+    (hsources : after.map Node.source = before.map Node.source)
+    (j : Nat) (n : Node) (hn : after[j]? = some n) :
+    ∃ old, before[j]? = some old ∧ old.source = n.source := by
+  have hs := congrArg (fun sources : List ModelBox => sources[j]?) hsources
+  simp only [List.getElem?_map, hn, Option.map_some] at hs
+  exact Option.map_eq_some_iff.mp hs.symm
+
+theorem sortedChildren_mem_of_lookup (nodes : List Node) (id : String)
+    (j : Nat) (n : Node) (hj : nodes[j]? = some n) (hparent : n.source.parent = id) :
+    j ∈ sortedChildren nodes id := by
+  apply (sortedChildren_perm nodes id).mem_iff.mpr
+  apply List.mem_map.mpr
+  refine ⟨(n, j), List.mem_filter.mpr ⟨?_, ?_⟩, rfl⟩
+  · exact List.mk_mem_zipIdx_iff_getElem?.mpr hj
+  · simpa only [beq_iff_eq] using hparent
+
+def SiblingDisjoint (nodes : List Node) : Prop :=
+  ∀ a ∈ nodes, ∀ b ∈ nodes, a.source.id ≠ b.source.id →
+    a.source.parent = b.source.parent → Disjoint (tileRect a.rect) (tileRect b.rect)
+
+theorem seeded_sibling_disjoint (m : Model) :
+    SiblingDisjoint ((assignSeries (aggregate (initialNodes m))).map
+      (presetNode m (bandOf m))) := by
+  intro a ha b hb hne _
+  obtain ⟨oldA, holdA, rfl⟩ := List.mem_map.mp ha
+  obtain ⟨oldB, holdB, rfl⟩ := List.mem_map.mp hb
+  by_cases hrootA : oldA.source.id = "root"
+  · have hrootB : oldB.source.id ≠ "root" := by
+      intro hrootB
+      apply hne
+      simp [presetNode, hrootA, hrootB]
+    have hzero := assignSeries_aggregate_initial_rect m oldB holdB
+    have hdis := zero_extent_disjoint (tileRect ⟨0, 0, 0, 0⟩)
+      (tileRect (presetNode m (bandOf m) oldA).rect) (Or.inl rfl)
+    have hsymm := tile_disjoint_symm _ _ hdis
+    simpa [presetNode, hrootB, hzero] using hsymm
+  · have hzero := assignSeries_aggregate_initial_rect m oldA holdA
+    have hdis := zero_extent_disjoint (tileRect ⟨0, 0, 0, 0⟩)
+      (tileRect (presetNode m (bandOf m) oldB).rect) (Or.inl rfl)
+    simpa [presetNode, hrootA, hzero] using hdis
+
+theorem batch_sibling_disjoint (nodes : List Node) (assignments : List (Nat × Tile))
+    (innerX innerY : Int) (parentId : String)
+    (hinv : SiblingDisjoint nodes)
+    (hnodup : (assignments.map Prod.fst).Nodup)
+    (hpair : (assignments.map (fun p =>
+      tileRect (insetCell p.2 innerX innerY))).Pairwise Disjoint)
+    (hsource : ∀ p ∈ assignments, ∃ old,
+      nodes[p.1]? = some old ∧ old.source.parent = parentId)
+    (hcomplete : ∀ j old, nodes[j]? = some old → old.source.parent = parentId →
+      ∃ p ∈ assignments, p.1 = j) :
+    SiblingDisjoint (assignments.foldl (fun out (j, cell) =>
+      out.modify j (fun old =>
+        { old with rect := insetCell cell innerX innerY })) nodes) := by
+  let out := assignments.foldl (fun out (j, cell) =>
+    out.modify j (fun old => { old with rect := insetCell cell innerX innerY })) nodes
+  intro a ha b hb hne hparent
+  obtain ⟨i, hia⟩ := List.mem_iff_getElem?.mp ha
+  obtain ⟨j, hjb⟩ := List.mem_iff_getElem?.mp hb
+  have hsources : out.map Node.source = nodes.map Node.source :=
+    batch_source nodes assignments innerX innerY
+  obtain ⟨oldA, hiold, hsourceA⟩ := source_lookup_of_map_eq nodes out hsources i a hia
+  obtain ⟨oldB, hjold, hsourceB⟩ := source_lookup_of_map_eq nodes out hsources j b hjb
+  by_cases htarget : a.source.parent = parentId
+  · obtain ⟨p, hp, hpi⟩ := hcomplete i oldA hiold
+      (by simpa only [hsourceA] using htarget)
+    obtain ⟨q, hq, hqj⟩ := hcomplete j oldB hjold
+      (by simpa only [hsourceB, ← hparent] using htarget)
+    have hij : i ≠ j := by
+      intro hij
+      rw [← hij] at hjb
+      have hab := Option.some.inj (hia.symm.trans hjb)
+      exact hne (congrArg (fun n : Node => n.source.id) hab)
+    have hpq : p ≠ q := by
+      intro hpq
+      have hindices := congrArg Prod.fst hpq
+      exact hij (hpi.symm.trans (hindices.trans hqj))
+    have hrel := List.pairwise_map.mp hpair
+    have hsep := pairwise_symmetric_distinct
+      (fun p q : Nat × Tile => Disjoint
+        (tileRect (insetCell p.2 innerX innerY))
+        (tileRect (insetCell q.2 innerX innerY)))
+      (fun _ _ h => tile_disjoint_symm _ _ h) assignments hrel p q hp hq hpq
+    have har := batch_getElem?_assigned nodes assignments innerX innerY hnodup p hp
+      oldA (by simpa only [hpi] using hiold)
+    have hbr := batch_getElem?_assigned nodes assignments innerX innerY hnodup q hq
+      oldB (by simpa only [hqj] using hjold)
+    have hareq : a.rect = insetCell p.2 innerX innerY := by
+      simpa only [hpi, hia, Option.map_some, Option.some.injEq] using har
+    have hbreq : b.rect = insetCell q.2 innerX innerY := by
+      simpa only [hqj, hjb, Option.map_some, Option.some.injEq] using hbr
+    simpa only [hareq, hbreq] using hsep
+  · have houtsideA : ∀ p ∈ assignments, p.1 ≠ i := by
+      intro p hp hpi
+      obtain ⟨old, hold, htargetOld⟩ := hsource p hp
+      rw [hpi] at hold
+      have holdA : old = oldA := Option.some.inj (hold.symm.trans hiold)
+      apply htarget
+      simpa only [holdA, hsourceA] using htargetOld
+    have houtsideB : ∀ p ∈ assignments, p.1 ≠ j := by
+      intro p hp hpj
+      obtain ⟨old, hold, htargetOld⟩ := hsource p hp
+      rw [hpj] at hold
+      have holdB : old = oldB := Option.some.inj (hold.symm.trans hjold)
+      apply htarget
+      simpa only [holdB, hsourceB, ← hparent] using htargetOld
+    have hia' : nodes[i]? = some a :=
+      (batch_getElem?_outside nodes assignments innerX innerY i houtsideA).symm.trans hia
+    have hjb' : nodes[j]? = some b :=
+      (batch_getElem?_outside nodes assignments innerX innerY j houtsideB).symm.trans hjb
+    exact hinv a (List.mem_of_getElem? hia') b (List.mem_of_getElem? hjb') hne hparent
+
+theorem tileStep_sibling_disjoint (c : Consts) (acc out : List Node) (i : Nat)
+    (hordered : ∀ n ∈ acc, n.rect.Ordered)
+    (hinv : SiblingDisjoint acc) (h : tileStep c acc i = .ok out) :
+    SiblingDisjoint out := by
+  cases hi : acc[i]? with
+  | none =>
+    simp [tileStep, hi] at h
+    have heq : acc = out := Except.ok.inj h
+    subst out
+    exact hinv
+  | some parent =>
+    by_cases hempty : (sortedChildren acc parent.source.id).isEmpty = true
+    · simp [tileStep, hi, hempty] at h
+      have heq : acc = out := Except.ok.inj h
+      subst out
+      exact hinv
+    · have hchildren : (sortedChildren acc parent.source.id).isEmpty = false :=
+        Bool.eq_false_iff.mpr hempty
+      obtain ⟨cells, capped, hsq, hout, hgeometry⟩ :=
+        tileStep_children_execution c acc out i parent hi hchildren
+          (hordered parent (List.mem_of_getElem? hi)) h
+      have hlength : cells.length = (sortedChildren acc parent.source.id).length := by
+        simpa only [List.length_map] using squarify_length _ _ _ _ cells capped hsq
+      rw [hout]
+      apply batch_sibling_disjoint acc
+        ((sortedChildren acc parent.source.id).zip cells)
+        c.innerX c.innerY parent.source.id hinv
+        (zip_indices_nodup _ _ (sortedChildren_index_nodup acc parent.source.id))
+        (zip_rects_pairwise _ cells c.innerX c.innerY hgeometry)
+      · intro p hp
+        exact sortedChildren_index_source acc parent.source.id p.1 (List.of_mem_zip hp).1
+      · intro j old hj hparent
+        have hmember := sortedChildren_mem_of_lookup acc parent.source.id j old hj hparent
+        have hmap : ((sortedChildren acc parent.source.id).zip cells).map Prod.fst =
+            sortedChildren acc parent.source.id :=
+          List.map_fst_zip (by omega)
+        rw [← hmap] at hmember
+        exact List.mem_map.mp hmember
+
+theorem foldlM_tile_sibling_disjoint (c : Consts) (band : Int) (order : List Nat) :
+    ∀ acc out : List Node,
+      (∀ n ∈ acc, n.rect.Ordered ∧
+        Rect.Contained (tileRect (canvasTile c band)) (tileRect n.rect)) →
+      SiblingDisjoint acc →
+      order.foldlM (tileStep c) acc = .ok out →
+      SiblingDisjoint out := by
+  induction order with
+  | nil =>
+    intro acc out _ hsibling h
+    simp only [List.foldlM, pure, Except.pure, Except.ok.injEq] at h
+    subst out
+    exact hsibling
+  | cons i rest ih =>
+    intro acc out hcanvas hsibling h
+    simp only [List.foldlM] at h
+    obtain ⟨mid, hmid, hrest⟩ := except_bind_ok h
+    apply ih mid out (tileStep_invariant c band acc i mid hcanvas hmid)
+      (tileStep_sibling_disjoint c acc mid i (fun n hn => (hcanvas n hn).1)
+        hsibling hmid) hrest
+
+theorem treemap_c2 (m : Model) (result : Layered.FamilyResult)
+    (h : Kinds.Treemap.layout m = .ok result) :
+    Validator.C2 result.scene.layoutDump := by
+  obtain ⟨nodes, hnodes, hboxes, _, _⟩ :=
+    layout_execution m result.scene (Kinds.Treemap.layout_adapter_success m result h)
+  have hcanvas := seeded_invariant m
+    (Kinds.Treemap.layout_width_nonnegative m result h)
+    (Kinds.Treemap.layout_height_nonnegative m result h) (bandOf_nonneg m)
+  rw [tileNodes_eq_foldlM] at hnodes
+  have hsibling := foldlM_tile_sibling_disjoint (constants m) (bandOf m)
+    _ _ nodes hcanvas (seeded_sibling_disjoint m) hnodes
+  intro a ha b hb hne _ _ hparent
+  have ha' : a ∈ result.scene.boxes := ha
+  have hb' : b ∈ result.scene.boxes := hb
+  rw [hboxes] at ha' hb'
+  obtain ⟨nodeA, hnodeA, rfl⟩ := List.mem_map.mp ha'
+  obtain ⟨nodeB, hnodeB, rfl⟩ := List.mem_map.mp hb'
+  exact hsibling nodeA hnodeA nodeB hnodeB hne hparent
+
+def emptyGroupFrameWitness : Model := {
+  kind := "treemap"
+  profile := .cell
+  boxes := [
+    { id := "root", role := .group, exclusive := false },
+    { id := "", role := .group, parent := "root", exclusive := false },
+    { id := "foreign", parent := "" }]
+  regionSets := [{ parent := 0, regions := [1, 1] }]
+}
+
+theorem emptyGroupFrameWitness_wellFormed : WellFormed emptyGroupFrameWitness := by
+  decide
+
+theorem emptyGroupFrameWitness_withinLimits : WithinLimits emptyGroupFrameWitness := by
+  decide
+
+end CanvasC1
 end Elegant.Treemap

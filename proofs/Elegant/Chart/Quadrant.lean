@@ -284,29 +284,52 @@ def textPrimitive (c : Constants) (p : Placement) : Primitive :=
     style := if 1 ≤ labelKind p.label ∧ labelKind p.label ≤ 4 then "text-muted" else "text"
     lines := XY.runsOf p.box.lines }
 
-def boxRect (g : Geometry) (i : Nat) : Rect :=
-  if i == 0 then g.plot else if i ≤ 4 then g.tiles.getD (i - 1) g.plot
-  else g.pointBoxes.getD (i - 5) g.plot
+def tileIndexOf (id : String) : Option Nat :=
+  if id == "q1" then some 0 else if id == "q2" then some 1
+  else if id == "q3" then some 2 else if id == "q4" then some 3 else none
+
+def pointIndexOf (id : String) : Option Nat :=
+  match id.toList with
+  | 'p' :: rest =>
+    match (String.ofList rest).toNat? with
+    | some n => if id == "p" ++ toString n then some n else none
+    | none => none
+  | _ => none
+
+def boxRectFor (g : Geometry) (id : String) : Rect :=
+  if id = "plot" then g.plot
+  else match tileIndexOf id with
+    | some i => g.tiles.getD i g.plot
+    | none =>
+      match pointIndexOf id with
+      | some i => g.pointBoxes.getD i g.plot
+      | none => g.plot
+
+theorem boxRectFor_plot (g : Geometry) : boxRectFor g "plot" = g.plot := by
+  simp [boxRectFor]
+
+def shapesFor (g : Geometry) (c : Constants) (id : String) : List Primitive :=
+  if id = "plot" then
+    let pl := g.plot
+    let x := (g.tiles.getD 0 pl).x
+    let y := (g.tiles.getD 2 pl).y
+    [.rect pl { style := "rule", width := .emphasis },
+      .polyline [⟨x, pl.y⟩, ⟨x, pl.y + pl.h - c.edge⟩] 0 { style := "rule" },
+      .polyline [⟨pl.x, y⟩, ⟨pl.x + pl.w - c.edge, y⟩] 0 { style := "rule" }]
+  else match pointIndexOf id with
+    | some i =>
+      let p := g.centres.getD i ⟨0, 0⟩
+      let r := g.radii.getD i ⟨0, 0⟩
+      if 0 < r.x ∧ 0 < r.y then [.ellipse p.x p.y r.x r.y { style := "series" }] else []
+    | none => []
 
 def sceneOf (m : Model) (c : Constants) (g : Geometry) (ps : List Placement) : Scene :=
   let texts (owner : String) := (ps.filter fun p => p.label.owner == owner).map (textPrimitive c)
-  let groups := m.boxes.zipIdx.map fun (b, i) =>
-    let shapes := if i == 0 then
-        let pl := g.plot
-        let x := (g.tiles.getD 0 pl).x
-        let y := (g.tiles.getD 2 pl).y
-        [.rect pl { style := "rule", width := .emphasis },
-          .polyline [⟨x, pl.y⟩, ⟨x, pl.y + pl.h - c.edge⟩] 0 { style := "rule" },
-          .polyline [⟨pl.x, y⟩, ⟨pl.x + pl.w - c.edge, y⟩] 0 { style := "rule" }]
-      else if 5 ≤ i then
-        let p := g.centres.getD (i - 5) ⟨0, 0⟩
-        let r := g.radii.getD (i - 5) ⟨0, 0⟩
-        if 0 < r.x ∧ 0 < r.y then [.ellipse p.x p.y r.x r.y { style := "series" }] else []
-      else []
-    ({ role := .node, owner := b.id, items := shapes ++ texts b.id } : Group)
+  let groups := m.boxes.map fun b =>
+    ({ role := .node, owner := b.id, items := shapesFor g c b.id ++ texts b.id } : Group)
   { kind := m.kind, profile := m.profile, options := { m.options with direction := .TB },
     canvas := g.canvas,
-    boxes := m.boxes.zipIdx.map fun (b, i) => ⟨b.id, b.role.id, boxRect g i, b.parent, b.exclusive⟩,
+    boxes := m.boxes.map fun b => ⟨b.id, b.role.id, boxRectFor g b.id, b.parent, b.exclusive⟩,
     labels := ps.map fun p => {
       id := p.label.id
       owner := p.label.owner
@@ -318,7 +341,7 @@ def sceneOf (m : Model) (c : Constants) (g : Geometry) (ps : List Placement) : S
 def layout (m : Model) : Except LayoutError Scene := do
   let c := constants m
   let points := pointInputs m
-  if !(points.all fun p => decide (0 ≤ p.x ∧ p.x ≤ 1000 ∧ 0 ≤ p.y ∧ p.y ≤ 1000)) then throw .domain
+  if !(points.all fun p => decide (0 ≤ p.x ∧ p.x ≤ 1000 ∧ 0 ≤ p.y ∧ p.y ≤ 1000 ∧ -1 ≤ p.radius)) then throw .domain
   let g ← arrange m c points
   let ps ← place m c g
   let s := sceneOf m c g ps

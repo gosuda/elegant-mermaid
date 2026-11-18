@@ -297,4 +297,10 @@ theorem subcause_slots_disjoint (spine t₀ t₁ heightBound : Int) (up : Bool)
   rw [Tree.fdiv2, Tree.fdiv2]
   cases up <;> simp [Disjoint, Rect.meetsInterior, ordinate] <;> omega
 
+theorem rib_piece_left_of_root (pieceX pieceW attach previous rootX rootW : Int)
+    (py ph ry rh : Int)
+    (hreach : pieceX + attach + pieceW ≤ previous) (hprev : previous ≤ rootX) :
+    Disjoint ⟨pieceX + attach, py, pieceW, ph⟩ ⟨rootX, ry, rootW, rh⟩ := by
+  simp [Disjoint, Rect.meetsInterior]
+  omega
 end Elegant.Ishikawa

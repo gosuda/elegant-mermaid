@@ -3149,7 +3149,7 @@ theorem SequenceRoute.avoids_left_subtree
     ¬ Polyline.hitsRect route.points box.rect := by
   apply hr.avoids_subtree_of_corridor ht hb
   intro i hi
-  exact Or.inr (Or.inl (Int.le_min (hc i hi).1 (hc i hi).2))
+  exact Or.inr (Or.inl (Int.le_min.mpr ⟨(hc i hi).1, (hc i hi).2⟩))
 
 theorem SequenceRoute.avoids_right_subtree
     {s target : Shape} {x y tx ty : Int} {parent : String}
@@ -3162,7 +3162,7 @@ theorem SequenceRoute.avoids_right_subtree
     ¬ Polyline.hitsRect route.points box.rect := by
   apply hr.avoids_subtree_of_corridor ht hb
   intro i hi
-  exact Or.inl (Int.max_le (hc i hi).1 (hc i hi).2)
+  exact Or.inl (Int.max_le.mpr ⟨(hc i hi).1, (hc i hi).2⟩)
 
 theorem placeNode_new_route_avoids_previous_stage
     (fuel : Nat) (p : Profile) (s : Shape) (x y : Int)
@@ -3192,4 +3192,548 @@ theorem placeNode_new_route_avoids_later_box
   · exact False.elim (hnew hold)
   · exact placed_route_avoids_later_box s x y route hg hplaced box hy
 
+/-- The validator dump restricted to a state's boxes and routes, used to state
+ancestor and scope facts at intermediate fold states. -/
+def stateDump (state : State) : LayoutDump := ⟨⟨0, 0⟩, state.boxes, state.routes, []⟩
+
+/-- The route scope of a route inside a state, mirroring `LayoutDump.routeScope`. -/
+def routeScopeOf (state : State) (r : Route) : List String :=
+  [r.fromId, r.toId] ++ (stateDump state).ancestors r.fromId ++
+    (stateDump state).ancestors r.toId
+
+/-- The index of the first box with id `id`, or the list length if none. -/
+def boxIdx : List Box → String → Nat
+  | [], _ => 0
+  | b :: bs, id => if b.id == id then 0 else boxIdx bs id + 1
+
+/-- Every non-root box's parent box occurs strictly earlier in the list. Parent walks
+therefore visit each box at most once and `boxes.length` fuel never truncates them. -/
+def ParentPrecedes (boxes : List Box) : Prop :=
+  ∀ b ∈ boxes, b.parent ≠ "" → ∀ b' ∈ boxes, (b'.id == b.parent) = true →
+    boxIdx boxes b.parent < boxIdx boxes b.id
+
+/-- A state whose boxes have unique ids and earlier parents. Injectivity (rather
+than `Nodup`) is exactly what `placeRule_id_injective` provides. -/
+structure StateFacts (state : State) : Prop where
+  inj : ∀ a ∈ state.boxes, ∀ b ∈ state.boxes, a.id = b.id → a = b
+  pre : ParentPrecedes state.boxes
+
+theorem stateFacts_empty : StateFacts ({boxes := [], routes := []} : State) := by
+  constructor
+  · intro a ha
+    exact absurd ha (by simp)
+  · intro b hb
+    exact absurd hb (by simp)
+
+theorem boxIdx_nil (id : String) : boxIdx [] id = 0 := rfl
+
+theorem boxIdx_cons (b : Box) (bs : List Box) (id : String) :
+    boxIdx (b :: bs) id = if b.id == id then 0 else boxIdx bs id + 1 := rfl
+
+theorem boxIdx_lt_of_mem {boxes : List Box} {id : String}
+    (h : ∃ b ∈ boxes, (b.id == id) = true) : boxIdx boxes id < boxes.length := by
+  induction boxes with
+  | nil => obtain ⟨b, hb, _⟩ := h; cases hb
+  | cons b bs ih =>
+    obtain ⟨b', hb', hbid⟩ := h
+    rw [boxIdx_cons]
+    split
+    · next he =>
+      simp only [List.length_cons]
+      omega
+    · next he =>
+      have hmem : ∃ b'' ∈ bs, (b''.id == id) = true := by
+        cases List.mem_cons.mp hb' with
+        | inl hbeq =>
+          subst hbeq
+          exact absurd hbid he
+        | inr hmem => exact ⟨_, hmem, hbid⟩
+      have hlt := ih hmem
+      have hlen : (b :: bs).length = bs.length + 1 := rfl
+      omega
+
+/-! Fuel monotonicity and irrelevance for `LayoutDump.ancestors.go`. -/
+
+theorem ancestors_go_mono {boxes : List Box} :
+    ∀ (k k' : Nat) (s : String), k ≤ k' →
+      LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ k s ⊆
+        LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ k' s := by
+  intro k
+  induction k with
+  | zero =>
+    intro k' s _ a ha
+    simp only [LayoutDump.ancestors.go] at ha
+    cases ha
+  | succ k ih =>
+    intro k' s hk
+    cases k' with
+    | zero => omega
+    | succ k'' =>
+      have hkk : k ≤ k'' := by omega
+      simp only [LayoutDump.ancestors.go]
+      cases hbox : (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).box? s with
+      | none => intro a ha; exact ha
+      | some b =>
+        by_cases hpar : b.parent = ""
+        · simp only [hpar, ↓reduceIte]
+          intro a ha
+          exact ha
+        · simp only [hpar, ↓reduceIte]
+          intro a ha
+          simp only [List.mem_cons] at ha ⊢
+          rcases ha with rfl | ha
+          · exact Or.inl rfl
+          · exact Or.inr (ih k'' b.parent hkk ha)
+
+theorem ancestors_go_step_fuel {boxes : List Box}
+    (hinj : ∀ a ∈ boxes, ∀ b ∈ boxes, a.id = b.id → a = b)
+    (hpre : ParentPrecedes boxes) :
+    ∀ (s : String) (k : Nat),
+      (∀ b ∈ boxes, (b.id == s) = true → boxIdx boxes s + 1 ≤ k) →
+      LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ (k + 1) s =
+        LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ k s := by
+  -- strong induction on the index of s's box
+  have key : ∀ (i : Nat) (s : String) (k : Nat),
+      boxIdx boxes s = i → (∀ b ∈ boxes, (b.id == s) = true → i + 1 ≤ k) →
+      LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ (k + 1) s =
+        LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ k s := by
+    intro i
+    induction i using Nat.strongRecOn with
+    | _ i ih =>
+      intro s k hidx hside
+      by_cases hmem : ∃ b ∈ boxes, (b.id == s) = true
+      · obtain ⟨b, hbmem, hbid⟩ := hmem
+        have hfind : (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).box? s = some b := by
+          have heq : b.id = s := beq_iff_eq.mp hbid
+          subst heq
+          unfold LayoutDump.box?
+          exact find_box_of_id_injective boxes hinj b hbmem
+        have hk1 : i + 1 ≤ k := hside b hbmem hbid
+        obtain ⟨k₀, rfl⟩ : ∃ k₀, k = k₀ + 1 := ⟨k - 1, by omega⟩
+        simp only [LayoutDump.ancestors.go]
+        rw [hfind]
+        by_cases hpar : b.parent = ""
+        · simp [hpar]
+        · simp only [hpar, ↓reduceIte]
+          by_cases hpk : (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).box? b.parent = none
+          · cases k₀ with
+            | zero => simp [LayoutDump.ancestors.go, hpk]
+            | succ k₁ => simp [LayoutDump.ancestors.go, hpk]
+          · obtain ⟨bp, hbp⟩ := Option.ne_none_iff_exists'.mp hpk
+            have hfindp : boxes.find? (fun c => c.id == b.parent) = some bp := hbp
+            have hbpmem : bp ∈ boxes := List.mem_of_find?_eq_some hfindp
+            have hbpid : (bp.id == b.parent) = true := by
+              simpa using List.find?_some hfindp
+            have hlt : boxIdx boxes b.parent < i := by
+              have hlt' := hpre b hbmem hpar bp hbpmem hbpid
+              have heq : b.id = s := beq_iff_eq.mp hbid
+              simpa only [heq, hidx] using hlt'
+            have hi0 : i ≤ k₀ := by omega
+            have hstep := ih (boxIdx boxes b.parent) hlt b.parent k₀
+              rfl (by intro b'' hb'' hid''; omega)
+            exact congrArg (b.parent :: ·) hstep
+      · have hnone : (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).box? s = none := by
+          cases h : (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).box? s with
+          | none => rfl
+          | some b =>
+            have hfind : List.find? (fun b => b.id == s) boxes = some b := by
+              unfold LayoutDump.box? at h
+              exact h
+            have hbmem := List.mem_of_find?_eq_some hfind
+            have hbid := List.find?_some hfind
+            exact absurd ⟨b, hbmem, hbid⟩ hmem
+        by_cases hk0 : k = 0
+        · subst hk0
+          simp only [LayoutDump.ancestors.go, hnone]
+        · obtain ⟨k₀, rfl⟩ : ∃ k₀, k = k₀ + 1 := ⟨k - 1, by omega⟩
+          simp only [LayoutDump.ancestors.go, hnone]
+  intro s k hside
+  by_cases hmem : ∃ b ∈ boxes, (b.id == s) = true
+  · obtain ⟨b, hbmem, hbid⟩ := hmem
+    exact key (boxIdx boxes s) s k rfl
+      (by intro b' hb' hid'; have := hside b' hb' hid'; omega)
+  · have hnone : (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).box? s = none := by
+      cases h : (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).box? s with
+      | none => rfl
+      | some b =>
+        have hfind : List.find? (fun b => b.id == s) boxes = some b := by
+          unfold LayoutDump.box? at h
+          exact h
+        have hbmem := List.mem_of_find?_eq_some hfind
+        have hbid := List.find?_some hfind
+        exact absurd ⟨b, hbmem, hbid⟩ hmem
+    by_cases hk0 : k = 0
+    · subst hk0
+      simp only [LayoutDump.ancestors.go, hnone]
+    · obtain ⟨k₀, rfl⟩ : ∃ k₀, k = k₀ + 1 := ⟨k - 1, by omega⟩
+      simp only [LayoutDump.ancestors.go, hnone]
+theorem ancestors_go_fuel_ge {boxes : List Box}
+    (hinj : ∀ a ∈ boxes, ∀ b ∈ boxes, a.id = b.id → a = b)
+    (hpre : ParentPrecedes boxes) (s : String)
+    (hs : ∀ b ∈ boxes, (b.id == s) = true → boxIdx boxes s + 1 ≤ boxes.length) :
+    ∀ (k : Nat), boxes.length ≤ k →
+      LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ k s =
+        LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ boxes.length s := by
+  have hsteps : ∀ n : Nat,
+      LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ (boxes.length + n) s =
+        LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ boxes.length s := by
+    intro n
+    induction n with
+    | zero => rfl
+    | succ n ih =>
+      rw [Nat.add_succ]
+      exact (ancestors_go_step_fuel hinj hpre s (boxes.length + n) (by
+        intro b hb hbid
+        have h := hs b hb hbid
+        omega)).trans ih
+  intro k hk
+  obtain ⟨n, rfl⟩ : ∃ n, k = boxes.length + n := ⟨k - boxes.length, by omega⟩
+  exact hsteps n
+
+theorem ancestors_go_trans {boxes : List Box} :
+    ∀ (k₁ k₂ : Nat) (a b c : String),
+      a ∈ LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ k₁ b →
+      b ∈ LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ k₂ c →
+      a ∈ LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ (k₁ + k₂) c := by
+  intro k₁ k₂ a b c
+  revert c
+  revert b
+  revert a
+  revert k₁
+  induction k₂ with
+  | zero =>
+    intro k₁ a b c ha hb
+    simp only [LayoutDump.ancestors.go] at hb
+    cases hb
+  | succ k₂ ih =>
+    intro k₁ a b c ha hb
+    cases hbc : (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).box? c with
+    | none =>
+      simp only [LayoutDump.ancestors.go, hbc] at hb
+      cases hb
+    | some bc =>
+      have hgo : LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ (k₂ + 1) c =
+          if bc.parent = "" then [] else bc.parent ::
+            LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ k₂ bc.parent := by
+        simp only [LayoutDump.ancestors.go, hbc]
+      rw [hgo] at hb
+      by_cases hpar : bc.parent = ""
+      · simp only [hpar, ↓reduceIte] at hb
+        cases hb
+      · simp only [hpar, ↓reduceIte, List.mem_cons] at hb
+        have hgoal : LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ (k₁ + (k₂ + 1)) c =
+            bc.parent :: LayoutDump.ancestors.go ⟨⟨0, 0⟩, boxes, [], []⟩ (k₁ + k₂) bc.parent := by
+          have heq : k₁ + (k₂ + 1) = (k₁ + k₂) + 1 := by omega
+          rw [heq]
+          simp only [LayoutDump.ancestors.go, hbc, hpar, ↓reduceIte]
+        rw [hgoal]
+        simp only [List.mem_cons]
+        rcases hb with rfl | hb'
+        · exact Or.inr (ancestors_go_mono k₁ (k₁ + k₂) _ (by omega) ha)
+        · exact Or.inr (ih k₁ a b bc.parent ha hb')
+
+theorem ancestors_trans' {boxes : List Box}
+    (hinj : ∀ a ∈ boxes, ∀ b ∈ boxes, a.id = b.id → a = b)
+    (hpre : ParentPrecedes boxes)
+    {a b c : String}
+    (ha : a ∈ (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).ancestors b)
+    (hb : b ∈ (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).ancestors c) :
+    a ∈ (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).ancestors c := by
+  unfold LayoutDump.ancestors at ha hb ⊢
+  have h := ancestors_go_trans boxes.length boxes.length a b c ha hb
+  have hge := ancestors_go_fuel_ge hinj hpre c
+    (by intro b' hb' hbid
+        have := boxIdx_lt_of_mem (boxes := boxes) ⟨b', hb', hbid⟩
+        omega)
+    (boxes.length + boxes.length) (by omega)
+  rw [hge] at h
+  exact h
+
+theorem ancestors_mem_parent {boxes : List Box} {id p : String} {b : Box}
+    (hb : (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).box? id = some b)
+    (hpar : b.parent = p) (hne : p ≠ "") :
+    p ∈ (⟨⟨0, 0⟩, boxes, [], []⟩ : LayoutDump).ancestors id := by
+  cases boxes with
+  | nil => simp [LayoutDump.box?] at hb
+  | cons c cs =>
+    unfold LayoutDump.ancestors
+    have hfuel : (⟨⟨0, 0⟩, c :: cs, [], []⟩ : LayoutDump).boxes.length =
+        cs.length + 1 := rfl
+    rw [hfuel]
+    simp [LayoutDump.ancestors.go, hb, hpar, hne]
+
+theorem ancestors_dump_congr {boxes : List Box} {c₁ c₂ : Size}
+    {r₁ r₂ : List Route} {l₁ l₂ : List Label} :
+    ∀ (k : Nat) (s : String),
+      LayoutDump.ancestors.go ⟨c₁, boxes, r₁, l₁⟩ k s =
+        LayoutDump.ancestors.go ⟨c₂, boxes, r₂, l₂⟩ k s := by
+  intro k
+  induction k with
+  | zero => intro s; simp only [LayoutDump.ancestors.go]
+  | succ k ih =>
+    intro s
+    simp only [LayoutDump.ancestors.go]
+    have heq : (⟨c₁, boxes, r₁, l₁⟩ : LayoutDump).box? s =
+        (⟨c₂, boxes, r₂, l₂⟩ : LayoutDump).box? s := rfl
+    rw [heq]
+    cases hbox : (⟨c₂, boxes, r₂, l₂⟩ : LayoutDump).box? s with
+    | none => rfl
+    | some b =>
+      by_cases hpar : b.parent = ""
+      · simp only [hpar, ↓reduceIte]
+      · simp only [hpar, ↓reduceIte]
+        exact congrArg (b.parent :: ·) (ih b.parent)
+
+theorem routeScopeOf_eq (state : State) (r : Route) :
+    routeScopeOf state r = (stateDump state).routeScope r := rfl
+
+theorem boxIdx_append_left {xs ys : List Box} {id : String}
+    (hmem : ∃ b ∈ xs, (b.id == id) = true) :
+    boxIdx (xs ++ ys) id = boxIdx xs id := by
+  induction xs with
+  | nil => obtain ⟨b, hb, _⟩ := hmem; cases hb
+  | cons x xs ih =>
+    obtain ⟨b, hbmem, hbid⟩ := hmem
+    have hcon : (x :: xs) ++ ys = x :: (xs ++ ys) := rfl
+    rw [hcon, boxIdx_cons, boxIdx_cons]
+    by_cases he : (x.id == id) = true
+    · rw [ite_eq_left he, ite_eq_left he]
+    · rw [ite_eq_right he, ite_eq_right he]
+      have hmem' : ∃ b ∈ xs, (b.id == id) = true := by
+        rcases List.mem_cons.mp hbmem with rfl | hb''
+        · exact absurd hbid he
+        · exact ⟨b, hb'', hbid⟩
+      rw [ih hmem']
+theorem mapM_elem_ok {α β ε : Type} (f : α → Except ε β) :
+    ∀ (xs : List α) (ys : List β) (x : α),
+      xs.mapM f = .ok ys → x ∈ xs → ∃ y, f x = .ok y := by
+  intro xs
+  induction xs with
+  | nil => intro _ x _ hx; cases hx
+  | cons a as ih =>
+    intro ys x h hx
+    cases hf : f a with
+    | error e => simp [List.mapM_cons, hf, Bind.bind, Except.bind] at h
+    | ok b =>
+      cases has : as.mapM f with
+      | error e => simp [List.mapM_cons, hf, has, Bind.bind, Except.bind] at h
+      | ok bs =>
+        rcases List.mem_cons.mp hx with hxx | hx'
+        · subst x
+          exact ⟨b, hf⟩
+        · exact ih bs x has hx'
+
+/-- Child link in the model box forest. -/
+def ChildLink (m : Model) (p c : ModelBox) : Prop :=
+  c ∈ m.boxes ∧ c.parent = p.id
+
+/-- Reachability through child links with an explicit step count. -/
+inductive ReachesLen (m : Model) : ModelBox → ModelBox → Nat → Prop where
+  | refl (a : ModelBox) : ReachesLen m a a 0
+  | step (a b c : ModelBox) (n : Nat) (h : ChildLink m a b)
+      (t : ReachesLen m b c n) : ReachesLen m a c (n + 1)
+
+theorem decodeNode_child_ok (F : Nat) (m : Model) (a c : ModelBox) (n : Node)
+    (hc : ChildLink m a c)
+    (h : Kinds.Railroad.decodeNode (F + 1) m a = .ok n) :
+    ∃ n', Kinds.Railroad.decodeNode F m c = .ok n' := by
+  obtain ⟨hcmem, hcpar⟩ := hc
+  have hmem : c ∈ Kinds.Railroad.children m a.id := by
+    unfold Kinds.Railroad.children
+    simp only [List.mem_filter]
+    refine ⟨hcmem, ?_⟩
+    simp [hcpar]
+  simp only [Kinds.Railroad.decodeNode] at h
+  cases hmap : (Kinds.Railroad.children m a.id).mapM (Kinds.Railroad.decodeNode F m) with
+  | error e => simp [hmap, Bind.bind, Except.bind] at h
+  | ok kids => exact mapM_elem_ok _ _ _ _ hmap hmem
+
+theorem ReachesLen_trans (m : Model) :
+    ∀ (a b c : ModelBox) (L1 L2 : Nat),
+      ReachesLen m a b L1 → ReachesLen m b c L2 → ReachesLen m a c (L1 + L2) := by
+  intro a b c L1 L2 h1 h2
+  revert h2
+  revert c
+  revert L2
+  induction h1 with
+  | refl a =>
+    intro L2 c h2
+    simpa using h2
+  | step a b c' L h _ ih =>
+    intro L2 c h2
+    rw [Nat.add_right_comm]
+    exact ReachesLen.step a b c (L + L2) h (ih L2 c h2)
+
+theorem path_fuel (m : Model) :
+    ∀ (F : Nat) (a b : ModelBox) (L : Nat), ReachesLen m a b L →
+      ∀ (n : Node), Kinds.Railroad.decodeNode F m a = .ok n → L ≤ F →
+        ∃ n', Kinds.Railroad.decodeNode (F - L) m b = .ok n' := by
+  intro F a b L hr
+  revert F
+  induction hr with
+  | refl a =>
+    intro F n h _
+    simp only [Nat.sub_zero]
+    exact ⟨n, h⟩
+  | step a b c L hlink _ ih =>
+    intro F n h hle
+    obtain ⟨F', rfl⟩ : ∃ F', F = F' + 1 := ⟨F - 1, by omega⟩
+    obtain ⟨mid, hmid⟩ := decodeNode_child_ok F' m a b n hlink h
+    have hle' : L ≤ F' := by omega
+    obtain ⟨n'', hn''⟩ := ih F' mid hmid hle'
+    have heq : F' + 1 - (L + 1) = F' - L := by omega
+    rw [heq]
+    exact ⟨n'', hn''⟩
+
+theorem decode_fuel_ge_path (m : Model) :
+    ∀ (F : Nat) (a b : ModelBox) (L : Nat), ReachesLen m a b L →
+      ∀ (n : Node), Kinds.Railroad.decodeNode F m a = .ok n → L ≤ F := by
+  intro F a b L hr
+  revert F
+  induction hr with
+  | refl a =>
+    intro F n _
+    omega
+  | step a b c L hlink _ ih =>
+    intro F n h
+    cases F with
+    | zero => simp [Kinds.Railroad.decodeNode] at h
+    | succ F' =>
+      obtain ⟨mid, hmid⟩ := decodeNode_child_ok F' m a b n hlink h
+      have := ih F' mid hmid
+      omega
+
+theorem cycle_fails (m : Model) (a b : ModelBox) (L1 L2 : Nat)
+    (h1 : ReachesLen m a b L1) (h2 : ReachesLen m b a L2)
+    (hpos : 0 < L1 + L2) :
+    ∀ (F : Nat) (n : Node),
+      Kinds.Railroad.decodeNode F m a = .ok n → False := by
+  intro F
+  induction F using Nat.strongRecOn with
+  | _ F ih =>
+    intro n h
+    cases F with
+    | zero => simp [Kinds.Railroad.decodeNode] at h
+    | succ F' =>
+      have hL1 := decode_fuel_ge_path m (F' + 1) a b L1 h1 n h
+      obtain ⟨nb, hnb⟩ := path_fuel m (F' + 1) a b L1 h1 n h hL1
+      have hL2 := decode_fuel_ge_path m (F' + 1 - L1) b a L2 h2 nb hnb
+      obtain ⟨na, hna⟩ := path_fuel m (F' + 1 - L1) b a L2 h2 nb hnb hL2
+      have hlt : F' + 1 - L1 - L2 < F' + 1 := by omega
+      exact ih _ hlt na hna
+theorem SourceDescendant_reaches (m : Model) :
+    ∀ (a b : ModelBox), SourceDescendant m a b → ∃ L, ReachesLen m a b L := by
+  intro a b h
+  induction h with
+  | root box => exact ⟨0, .refl box⟩
+  | child hc hp _ ih =>
+    obtain ⟨L, hL⟩ := ih
+    exact ⟨L + 1, ReachesLen.step _ _ _ L ⟨hc, hp⟩ hL⟩
+
+theorem nodeIn_model_path (m : Model) :
+    ∀ (F : Nat) (S : ModelBox) (root node : Node),
+      S ∈ m.boxes →
+      Kinds.Railroad.decodeNode F m S = .ok root → NodeIn root node →
+      ∃ (T : ModelBox) (L : Nat), T ∈ m.boxes ∧ node.id = T.id ∧
+        ReachesLen m S T L ∧ L ≤ F := by
+  intro F S root node hS h hn
+  revert h
+  revert hS
+  revert S
+  revert F
+  induction hn with
+  | root node =>
+    intro F S hS h
+    have hmeta := decodeNode_metadata F m S node h
+    exact ⟨S, 0, hS, hmeta.1, .refl S, by omega⟩
+  | @child outer child descendant hc _ ih =>
+    intro F S hS h
+    cases F with
+    | zero => simp [Kinds.Railroad.decodeNode] at h
+    | succ F' =>
+      obtain ⟨source, hs, hpar, _, hd⟩ :=
+        decodeNode_child_origin F' m S outer child h hc
+      obtain ⟨T, L, hTmem, hTid, hreach, hle⟩ := ih F' source hs hd
+      refine ⟨T, L + 1, hTmem, hTid, ?_, by omega⟩
+      exact ReachesLen.step S source T L ⟨hs, hpar⟩ hreach
+
+theorem rule_node_ne_empty (m : Model) (rules : List Rule)
+    (hl : Kinds.Railroad.lower m = .ok rules) :
+    ∀ (rule : Rule) (node : Node), rule ∈ rules → NodeIn rule.root node →
+      node.id ≠ "" := by
+  intro rule node hr hn hid
+  unfold Kinds.Railroad.lower at hl
+  obtain ⟨C, hCmem, hC⟩ := mapM_success_origin _ _ _ hl rule hr
+  have hCbox : C ∈ m.boxes := (List.mem_filter.mp hCmem).1
+  have hCpar : C.parent = "" := by simpa using (List.mem_filter.mp hCmem).2
+  obtain ⟨D, hDmem, hDdec, hDpath, _⟩ :=
+    decodeRule_definition_origin m C rule hCbox hC
+  obtain ⟨T, L, _, hTid, hreach, _⟩ :=
+    nodeIn_model_path m _ D rule.root node hDmem hDdec hn
+  have hTid0 : T.id = "" := hTid.symm.trans hid
+  have hTC : ReachesLen m T C 1 :=
+    ReachesLen.step T C C 0 ⟨hCbox, by rw [hCpar]; exact hTid0.symm⟩ (.refl C)
+  obtain ⟨Lk, hLk⟩ := SourceDescendant_reaches m C D hDpath
+  have hDT : ReachesLen m D C (L + 1) :=
+    ReachesLen_trans m D T C L 1 hreach hTC
+  have hback : ReachesLen m D D (L + 1 + Lk) :=
+    ReachesLen_trans m D C D (L + 1) Lk hDT hLk
+  exact cycle_fails m D D (L + 1 + Lk) 0 hback (.refl D) (by omega)
+    (m.boxes.length + 1) _ hDdec
+
+theorem boxIdx_append_fresh (boxes : List Box) (box : Box)
+    (hfresh : ∀ old ∈ boxes, old.id ≠ box.id) :
+    boxIdx (boxes ++ [box]) box.id = boxes.length := by
+  induction boxes with
+  | nil => simp [boxIdx]
+  | cons old rest ih =>
+    have hne : (old.id == box.id) = false := by
+      simp [hfresh old (by simp)]
+    have htail : ∀ old ∈ rest, old.id ≠ box.id := by
+      intro old hold
+      exact hfresh old (List.mem_cons_of_mem _ hold)
+    simp only [List.cons_append, boxIdx_cons, hne, Bool.false_eq_true,
+      ↓reduceIte, List.length_cons]
+    exact congrArg (· + 1) (ih htail)
+
+theorem stateFacts_append_box (state : State) (box : Box)
+    (hstate : StateFacts state)
+    (hfresh : ∀ old ∈ state.boxes, old.id ≠ box.id)
+    (hnotParent : ∀ old ∈ state.boxes, old.parent ≠ box.id)
+    (hparent : box.parent ≠ "" →
+      ∃ parent ∈ state.boxes, (parent.id == box.parent) = true) :
+    StateFacts {state with boxes := state.boxes ++ [box]} := by
+  constructor
+  · intro a ha b hb hid
+    rcases List.mem_append.mp ha with ha | ha
+    · rcases List.mem_append.mp hb with hb | hb
+      · exact hstate.inj a ha b hb hid
+      · have hb : b = box := List.mem_singleton.mp hb
+        subst b
+        exact False.elim (hfresh a ha hid)
+    · have ha : a = box := List.mem_singleton.mp ha
+      subst a
+      rcases List.mem_append.mp hb with hb | hb
+      · exact False.elim (hfresh b hb hid.symm)
+      · exact (List.mem_singleton.mp hb).symm
+  · intro b hb hne parent hp hpid
+    rcases List.mem_append.mp hb with hb | hb
+    · have hbold : boxIdx (state.boxes ++ [box]) b.id =
+          boxIdx state.boxes b.id :=
+        boxIdx_append_left ⟨b, hb, by simp⟩
+      rcases List.mem_append.mp hp with hp | hp
+      · have hpold : boxIdx (state.boxes ++ [box]) b.parent =
+            boxIdx state.boxes b.parent := boxIdx_append_left ⟨parent, hp, hpid⟩
+        rw [hbold, hpold]
+        exact hstate.pre b hb hne parent hp hpid
+      · have hp : parent = box := List.mem_singleton.mp hp
+        subst parent
+        exact False.elim (hnotParent b hb (beq_iff_eq.mp hpid).symm)
+    · have hb : b = box := List.mem_singleton.mp hb
+      subst b
+      obtain ⟨p, hp, hpid'⟩ := hparent hne
+      have hpold : boxIdx (state.boxes ++ [box]) box.parent =
+          boxIdx state.boxes box.parent := boxIdx_append_left ⟨p, hp, hpid'⟩
+      rw [hpold, boxIdx_append_fresh state.boxes box hfresh]
+      exact boxIdx_lt_of_mem ⟨p, hp, hpid'⟩
 end Elegant.Railroad

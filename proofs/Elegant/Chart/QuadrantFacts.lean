@@ -110,14 +110,37 @@ theorem successful_point_coordinates (m : Model) (s : Scene)
   · rename_i hg
     have hall :
         ((pointInputs m).all fun q =>
-          decide (0 ≤ q.x ∧ q.x ≤ 1000 ∧ 0 ≤ q.y ∧ q.y ≤ 1000)) = true := by
+          decide (0 ≤ q.x ∧ q.x ≤ 1000 ∧ 0 ≤ q.y ∧ q.y ≤ 1000 ∧ -1 ≤ q.radius)) = true := by
       cases he : ((pointInputs m).all fun q =>
-          decide (0 ≤ q.x ∧ q.x ≤ 1000 ∧ 0 ≤ q.y ∧ q.y ≤ 1000)) with
+          decide (0 ≤ q.x ∧ q.x ≤ 1000 ∧ 0 ≤ q.y ∧ q.y ≤ 1000 ∧ -1 ≤ q.radius)) with
       | false =>
         exact False.elim (hg (by simp only [he, Bool.not_false]))
       | true => rfl
-    have bound := List.all_eq_true.mp hall p hp
-    simpa only [decide_eq_true_eq] using bound
+    have hmem := List.all_eq_true.mp hall p hp
+    have bound : 0 ≤ p.x ∧ p.x ≤ 1000 ∧ 0 ≤ p.y ∧ p.y ≤ 1000 ∧ -1 ≤ p.radius :=
+      of_decide_eq_true hmem
+    exact ⟨bound.1, bound.2.1, bound.2.2.1, bound.2.2.2.1⟩
+
+theorem successful_point_radii (m : Model) (s : Scene)
+    (h : layout m = .ok s) (p : InputPoint) (hp : p ∈ pointInputs m) :
+    -1 ≤ p.radius := by
+  unfold layout at h
+  dsimp only at h
+  split at h
+  · cases h
+  · rename_i hg
+    have hall :
+        ((pointInputs m).all fun q =>
+          decide (0 ≤ q.x ∧ q.x ≤ 1000 ∧ 0 ≤ q.y ∧ q.y ≤ 1000 ∧ -1 ≤ q.radius)) = true := by
+      cases he : ((pointInputs m).all fun q =>
+          decide (0 ≤ q.x ∧ q.x ≤ 1000 ∧ 0 ≤ q.y ∧ q.y ≤ 1000 ∧ -1 ≤ q.radius)) with
+      | false =>
+        exact False.elim (hg (by simp only [he, Bool.not_false]))
+      | true => rfl
+    have hmem := List.all_eq_true.mp hall p hp
+    have bound : 0 ≤ p.x ∧ p.x ≤ 1000 ∧ 0 ≤ p.y ∧ p.y ≤ 1000 ∧ -1 ≤ p.radius :=
+      of_decide_eq_true hmem
+    exact bound.2.2.2.2
 
 theorem successful_arrange_dimensions (m : Model) (c : Constants)
     (points : List InputPoint) (g : Geometry)
@@ -289,21 +312,24 @@ private theorem getD_contained (outer fallback : Rect) (rects : List Rect)
   | none => exact hf
   | some r => exact hr r (List.mem_of_getElem? hi)
 
-theorem successful_arrange_boxRect_contained (m : Model) (c : Constants)
+theorem successful_arrange_boxRectFor_contained (m : Model) (c : Constants)
     (points : List InputPoint) (g : Geometry)
     (h : arrange m c points = .ok g)
-    (hp : ∀ r ∈ g.pointBoxes, Rect.Contained g.plot r) (i : Nat) :
-    Rect.Contained g.plot (boxRect g i) := by
-  have hrefl : Rect.Contained g.plot g.plot := by
-    simp only [Rect.Contained]
-    exact ⟨Int.le_refl _, Int.le_refl _, Int.le_refl _, Int.le_refl _⟩
-  unfold boxRect
-  split
-  · exact hrefl
-  · split
-    · exact getD_contained g.plot g.plot g.tiles (i - 1) hrefl
-        (successful_arrange_tiles_contained m c points g h)
-    · exact getD_contained g.plot g.plot g.pointBoxes (i - 5) hrefl hp
+    (hp : ∀ r ∈ g.pointBoxes, Rect.Contained g.plot r) (id : String) :
+    Rect.Contained g.plot (boxRectFor g id) := by
+  have hrefl : Rect.Contained g.plot g.plot := Rect.Contained.refl _
+  have htiles := successful_arrange_tiles_contained m c points g h
+  unfold boxRectFor
+  by_cases hplot : id = "plot"
+  · simp only [hplot]
+    exact hrefl
+  · simp only [hplot]
+    cases htile : tileIndexOf id with
+    | some i => exact getD_contained g.plot g.plot g.tiles i hrefl htiles
+    | none =>
+      cases hpt : pointIndexOf id with
+      | some i => exact getD_contained g.plot g.plot g.pointBoxes i hrefl hp
+      | none => exact hrefl
 
 theorem successful_arrange_pointBoxes (m : Model) (c : Constants)
     (points : List InputPoint) (g : Geometry)
@@ -427,8 +453,8 @@ theorem sceneOf_canvas (m : Model) (c : Constants) (g : Geometry)
 theorem sceneOf_box_metadata (m : Model) (c : Constants) (g : Geometry)
     (ps : List Placement) :
     (sceneOf m c g ps).boxes =
-      m.boxes.zipIdx.map (fun (b, i) =>
-        ⟨b.id, b.role.id, boxRect g i, b.parent, b.exclusive⟩) := by
+      m.boxes.map (fun b =>
+        ⟨b.id, b.role.id, boxRectFor g b.id, b.parent, b.exclusive⟩) := by
   rfl
 
 theorem sceneOf_label_metadata (m : Model) (c : Constants) (g : Geometry)
@@ -483,51 +509,48 @@ theorem sceneOf_boxes_nonexclusive (m : Model) (c : Constants) (g : Geometry)
     (ps : List Placement) (hn : ∀ b ∈ m.boxes, b.exclusive = false) :
     ∀ b ∈ (sceneOf m c g ps).layoutDump.boxes, b.exclusive = false := by
   intro b hb
-  change b ∈ m.boxes.zipIdx.map (fun (a, i) =>
-    (⟨a.id, a.role.id, boxRect g i, a.parent, a.exclusive⟩ : Box)) at hb
-  obtain ⟨⟨a, i⟩, ha, rfl⟩ := List.mem_map.mp hb
-  exact hn a (List.fst_mem_of_mem_zipIdx ha)
+  change b ∈ m.boxes.map (fun a =>
+    (⟨a.id, a.role.id, boxRectFor g a.id, a.parent, a.exclusive⟩ : Box)) at hb
+  obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hb
+  exact hn a ha
 
 
 theorem sceneOf_c1_of_plot_containment (m : Model) (c : Constants)
     (g : Geometry) (ps : List Placement)
     (hp : Rect.Contained ⟨0, 0, g.canvas.w, g.canvas.h⟩ g.plot)
-    (hb : ∀ a i, (a, i) ∈ m.boxes.zipIdx →
-      Rect.Contained g.plot (boxRect g i)) :
+    (hb : ∀ b ∈ m.boxes, Rect.Contained g.plot (boxRectFor g b.id)) :
     Validator.C1 (sceneOf m c g ps).layoutDump := by
   intro b hm
-  change b ∈ m.boxes.zipIdx.map (fun (a, i) =>
-    (⟨a.id, a.role.id, boxRect g i, a.parent, a.exclusive⟩ : Box)) at hm
-  obtain ⟨⟨a, i⟩, ha, rfl⟩ := List.mem_map.mp hm
-  have hi := hb a i ha
-  change Rect.Contained ⟨0, 0, g.canvas.w, g.canvas.h⟩ (boxRect g i)
+  change b ∈ m.boxes.map (fun a =>
+    (⟨a.id, a.role.id, boxRectFor g a.id, a.parent, a.exclusive⟩ : Box)) at hm
+  obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hm
+  have hi := hb a ha
+  change Rect.Contained ⟨0, 0, g.canvas.w, g.canvas.h⟩ (boxRectFor g a.id)
   simp only [Rect.Contained] at hp hi ⊢
   omega
 
-theorem sceneOf_c3_of_canonical_parents (m : Model) (c : Constants)
+theorem sceneOf_c3_of_semantic_parents (m : Model) (c : Constants)
     (g : Geometry) (ps : List Placement)
     (hparents : ∀ a ∈ m.boxes, a.parent = "" ∨ a.parent = "plot")
-    (hplot : ∀ a i, (a, i) ∈ m.boxes.zipIdx → a.id = "plot" →
-      boxRect g i = g.plot)
-    (hchildren : ∀ a i, (a, i) ∈ m.boxes.zipIdx → a.parent = "plot" →
-      Rect.Contained g.plot (boxRect g i)) :
+    (hchildren : ∀ a ∈ m.boxes, a.parent = "plot" →
+      Rect.Contained g.plot (boxRectFor g a.id)) :
     Validator.C3 (sceneOf m c g ps).layoutDump := by
   intro b hb hn p hp
   have hpm := List.mem_of_find?_eq_some hp
   have hpid : p.id = b.parent := by
     simpa only [beq_iff_eq] using List.find?_some hp
-  change b ∈ m.boxes.zipIdx.map (fun (a, i) =>
-    (⟨a.id, a.role.id, boxRect g i, a.parent, a.exclusive⟩ : Box)) at hb
-  change p ∈ m.boxes.zipIdx.map (fun (a, i) =>
-    (⟨a.id, a.role.id, boxRect g i, a.parent, a.exclusive⟩ : Box)) at hpm
-  obtain ⟨⟨a, i⟩, ha, rfl⟩ := List.mem_map.mp hb
-  obtain ⟨⟨q, j⟩, hq, rfl⟩ := List.mem_map.mp hpm
+  change b ∈ m.boxes.map (fun a =>
+    (⟨a.id, a.role.id, boxRectFor g a.id, a.parent, a.exclusive⟩ : Box)) at hb
+  change p ∈ m.boxes.map (fun a =>
+    (⟨a.id, a.role.id, boxRectFor g a.id, a.parent, a.exclusive⟩ : Box)) at hpm
+  obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hb
+  obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hpm
   have hap : a.parent = "plot" :=
-    (hparents a (List.fst_mem_of_mem_zipIdx ha)).resolve_left hn
+    (hparents a ha).resolve_left hn
   have hqp : q.id = "plot" := hpid.trans hap
-  change Rect.Contained (boxRect g j) (boxRect g i)
-  rw [hplot q j hq hqp]
-  exact hchildren a i ha hap
+  change Rect.Contained (boxRectFor g q.id) (boxRectFor g a.id)
+  rw [hqp, boxRectFor_plot]
+  exact hchildren a ha hap
 theorem successful_boxes_nonexclusive (m : Model) (s : Scene)
     (h : layout m = .ok s) (hn : ∀ b ∈ m.boxes, b.exclusive = false) :
     ∀ b ∈ s.layoutDump.boxes, b.exclusive = false := by
@@ -549,10 +572,10 @@ theorem successful_no_group_frames (m : Model) (s : Scene)
   have hroles : ∀ b ∈ (sceneOf m (constants m) g ps).layoutDump.boxes,
       b.role ≠ "group" := by
     intro b hb
-    change b ∈ m.boxes.zipIdx.map (fun (a, i) =>
-      (⟨a.id, a.role.id, boxRect g i, a.parent, a.exclusive⟩ : Box)) at hb
-    obtain ⟨⟨a, i⟩, ha, rfl⟩ := List.mem_map.mp hb
-    exact hn a (List.fst_mem_of_mem_zipIdx ha)
+    change b ∈ m.boxes.map (fun a =>
+      (⟨a.id, a.role.id, boxRectFor g a.id, a.parent, a.exclusive⟩ : Box)) at hb
+    obtain ⟨a, ha, rfl⟩ := List.mem_map.mp hb
+    exact hn a ha
   constructor
   · intro b hb hg
     exact False.elim (hroles b hb hg)

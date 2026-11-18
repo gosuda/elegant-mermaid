@@ -1,5 +1,6 @@
 import Elegant.GridArchitectureGeometry
 import ElegantGeometry.Route
+import ElegantGeometry.Validator
 import Elegant.Kinds.Architecture
 
 set_option autoImplicit false
@@ -331,5 +332,51 @@ theorem public_layout_hardConstraints_of_build (m : Model)
   obtain ⟨scene,capped,built,dump⟩ := public_layout_dump m result success
   rw [dump]
   exact builtValid scene capped built
+
+theorem translatePoint_add (dx dy : Int) (p p' : Point)
+    (h : translatePoint dx dy p = .ok p') :
+    p'.x = p.x + dx ∧ p'.y = p.y + dy := by
+  unfold translatePoint at h
+  split at h
+  · cases h
+    exact ⟨rfl, rfl⟩
+  · cases h
+
+theorem isOrthogonal_map_translate (dx dy : Int) : ∀ (ps : List Point),
+    _root_.Polyline.isOrthogonal
+        (ps.map fun v => (⟨v.x + dx, v.y + dy⟩ : Point)) =
+      _root_.Polyline.isOrthogonal ps
+  | [] => rfl
+  | _ :: [] => rfl
+  | p :: q :: rest => by
+      have hrec := isOrthogonal_map_translate dx dy (q :: rest)
+      have hx : (p.x + dx = q.x + dx) = (p.x = q.x) := by
+        apply propext
+        constructor <;> intro h' <;> omega
+      have hy : (p.y + dy = q.y + dy) = (p.y = q.y) := by
+        apply propext
+        constructor <;> intro h' <;> omega
+      show (((decide (p.x + dx = q.x + dx) || decide (p.y + dy = q.y + dy)) &&
+          _root_.Polyline.isOrthogonal
+            (List.map (fun v => (⟨v.x + dx, v.y + dy⟩ : Point)) (q :: rest))) =
+          (((decide (p.x = q.x) || decide (p.y = q.y)) &&
+          _root_.Polyline.isOrthogonal (q :: rest))))
+      simp only [hrec, hx, hy]
+theorem spanBoundary_onBoundary (dx dy : Int) (box : Span) (point : Point)
+    (rect : Rect) (pt : Point)
+    (hrx : rect.x = box.x0 + dx) (hry : rect.y = box.y0 + dy)
+    (hrw : rect.w = box.x1 - box.x0) (hrh : rect.h = box.y1 - box.y0)
+    (hpx : pt.x = point.x + dx) (hpy : pt.y = point.y + dy)
+    (h : SpanBoundary point box) : _root_.Validator.onBoundary pt rect := by
+  unfold SpanBoundary at h
+  unfold _root_.Validator.onBoundary
+  obtain ⟨hx0, hx1, hy0, hy1, hside⟩ := h
+  rw [hrx, hry, hrw, hrh, hpx, hpy]
+  refine ⟨by omega, by omega, by omega, by omega, ?_⟩
+  rcases hside with hside | hside | hside | hside
+  · left; omega
+  · right; left; omega
+  · right; right; left; omega
+  · right; right; right; omega
 
 end Elegant.Grid.Architecture

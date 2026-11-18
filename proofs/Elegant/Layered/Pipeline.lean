@@ -15,6 +15,7 @@ import Elegant.Layered.Pack
 import Elegant.Layered.Compound
 import Elegant.Layered.Portfolio
 import Elegant.Layered.FramePorts
+import Elegant.Layered.NoteIds
 
 set_option autoImplicit false
 
@@ -1040,6 +1041,7 @@ def layoutRecursive : Nat → Input → Options → Except LayoutError FamilyRes
 
 end PipelineImpl
 
+
 def inputTextBytes (inp : Input) : Nat :=
   let boxBytes := inp.boxes.zipIdx.foldl
     (fun n q => n + (inp.texts.getD q.2 q.1.id).utf8ByteSize) 0
@@ -1051,6 +1053,25 @@ def inputModel (inp : Input) (o : Options) : Model :=
   { kind := inp.kind, profile := o.profile, options := o
     boxes := inp.boxes, routes := inp.routes, labels := inp.labels }
 
+/-- One attached note keeps its target's parent: a note parked under a foreign group would
+be placed inside the target bundle and overlap that foreign frame (validator C8a). Native
+rejects the same pairs (`validAttachmentPair`). -/
+def noteParentOK (boxes : List ModelBox) (a : Nat × Nat × Bool) : Bool :=
+  match boxes[a.1]?, boxes[a.2.1]? with
+  | some target, some note => note.parent == target.parent
+  | _, _ => false
+
+/-- Every attached note box shares its target's parent. -/
+def attachedNoteParents (inp : Input) : Bool :=
+  (attachedNotes inp.boxes).all fun a => noteParentOK inp.boxes a
+
+def framedParents (inp : Input) : Bool :=
+  inp.boxes.all fun box =>
+    box.parent == "" ||
+      inp.boxes.any fun parent =>
+        parent.id == box.parent && parent.role == .group &&
+          !inp.fixedSizes.any (fun fixed => fixed.1 == parent.id)
+
 def layoutFamily (inp : Input) (o : Options) : Except LayoutFailure FamilyResult :=
   if o.limits.maxNodes < inp.boxes.length then
     .error (.tooLarge o.limits.maxNodes inp.boxes.length)
@@ -1059,6 +1080,8 @@ def layoutFamily (inp : Input) (o : Options) : Except LayoutFailure FamilyResult
   else if o.limits.maxTextBytes < inputTextBytes inp then
     .error (.tooLarge o.limits.maxTextBytes (inputTextBytes inp))
   else if !modelWellFormed (inputModel inp o) then .error (.geometry .domain)
+  else if !framedParents inp then .error (.geometry .domain)
+  else if !attachedNoteParents inp then .error (.geometry .domain)
   else
     match PipelineImpl.layoutRecursive (inp.boxes.length + 1) inp o with
     | .error error => .error (.geometry error)

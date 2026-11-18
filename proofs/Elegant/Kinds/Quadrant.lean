@@ -312,8 +312,8 @@ theorem quadrant_c1_of_nonneg_pads (m : Model) (r : Layered.FamilyResult)
     (hboxes : ∀ g,
       Chart.Quadrant.arrange m (Chart.Quadrant.constants m)
         (Chart.Quadrant.pointInputs m) = .ok g →
-      ∀ a i, (a, i) ∈ m.boxes.zipIdx →
-        Rect.Contained g.plot (Chart.Quadrant.boxRect g i)) :
+      ∀ b ∈ m.boxes,
+        Rect.Contained g.plot (Chart.Quadrant.boxRectFor g b.id)) :
     Validator.C1 r.scene.layoutDump := by
   obtain ⟨g, ps, hg, _, hs⟩ := Chart.Quadrant.successful_scene_assembly
     m r.scene (successful_layout_geometry m r h).1
@@ -331,17 +331,14 @@ theorem quadrant_c3_of_canonical_parents (m : Model) (r : Layered.FamilyResult)
     (hgeometry : ∀ g,
       Chart.Quadrant.arrange m (Chart.Quadrant.constants m)
         (Chart.Quadrant.pointInputs m) = .ok g →
-      (∀ a i, (a, i) ∈ m.boxes.zipIdx → a.id = "plot" →
-        Chart.Quadrant.boxRect g i = g.plot) ∧
-      (∀ a i, (a, i) ∈ m.boxes.zipIdx → a.parent = "plot" →
-        Rect.Contained g.plot (Chart.Quadrant.boxRect g i))) :
+      ∀ a ∈ m.boxes, a.parent = "plot" →
+        Rect.Contained g.plot (Chart.Quadrant.boxRectFor g a.id)) :
     Validator.C3 r.scene.layoutDump := by
   obtain ⟨g, ps, hg, _, hs⟩ := Chart.Quadrant.successful_scene_assembly
     m r.scene (successful_layout_geometry m r h).1
   rw [hs]
-  exact Chart.Quadrant.sceneOf_c3_of_canonical_parents
-    m (Chart.Quadrant.constants m) g ps hparents
-      (hgeometry g hg).1 (hgeometry g hg).2
+  exact Chart.Quadrant.sceneOf_c3_of_semantic_parents
+    m (Chart.Quadrant.constants m) g ps hparents (hgeometry g hg)
 
 theorem successful_admitted (m : Model) (r : Layered.FamilyResult)
     (h : layout m = .ok r) : admitted m = true := by
@@ -454,32 +451,19 @@ theorem quadrant_c1_of_nonnegative_reservations (m : Model) (r : Layered.FamilyR
   · intro g hg
     exact Chart.Quadrant.successful_arrange_nonnegative_reservations m
       (Chart.Quadrant.constants m) (Chart.Quadrant.pointInputs m) g hg ht hx hy
-  · intro g hg _ i _
-    exact Chart.Quadrant.successful_arrange_boxRect_contained m
-      (Chart.Quadrant.constants m) (Chart.Quadrant.pointInputs m) g hg (hp g hg) i
+  · intro g hg b hb
+    exact Chart.Quadrant.successful_arrange_boxRectFor_contained m
+      (Chart.Quadrant.constants m) (Chart.Quadrant.pointInputs m) g hg (hp g hg) b.id
 
-theorem quadrant_c3_of_plot_index (m : Model) (r : Layered.FamilyResult)
-    (h : layout m = .ok r)
-    (hi : ∀ a i, (a, i) ∈ m.boxes.zipIdx → a.id = "plot" → i = 0)
-    (hp : ∀ g,
-      Chart.Quadrant.arrange m (Chart.Quadrant.constants m)
-        (Chart.Quadrant.pointInputs m) = .ok g →
-      ∀ p ∈ g.pointBoxes, Rect.Contained g.plot p) :
-    Validator.C3 r.scene.layoutDump := by
-  apply quadrant_c3_of_canonical_parents m r h
-    (fun a ha => ((successful_metadata m r h).2 a ha).2.1)
-  intro g hg
-  constructor
-  · intro a i ha hid
-    rw [hi a i ha hid]
-    rfl
-  · intro _ i _ _
-    exact Chart.Quadrant.successful_arrange_boxRect_contained m
-      (Chart.Quadrant.constants m) (Chart.Quadrant.pointInputs m) g hg (hp g hg) i
+theorem successful_point_radii (m : Model) (r : Layered.FamilyResult)
+    (h : layout m = .ok r) (p : Chart.Quadrant.InputPoint)
+    (hp : p ∈ decode m) :
+    -1 ≤ p.radius :=
+  Chart.Quadrant.successful_point_radii m r.scene
+    (successful_layout_geometry m r h).1 p hp
 
 theorem successful_pointBoxes_contained (m : Model) (r : Layered.FamilyResult)
     (h : layout m = .ok r)
-    (hr : ∀ p ∈ decode m, -1 ≤ p.radius)
     (g : Chart.Quadrant.Geometry)
     (hg : Chart.Quadrant.arrange m (Chart.Quadrant.constants m)
       (Chart.Quadrant.pointInputs m) = .ok g) :
@@ -489,32 +473,32 @@ theorem successful_pointBoxes_contained (m : Model) (r : Layered.FamilyResult)
   · exact successful_point_coordinates m r h
   · exact Chart.Quadrant.successful_arrange_radii_nonneg m
       (Chart.Quadrant.constants m) (Chart.Quadrant.pointInputs m) g hg
-      hc.2.2.2.1 hc.2.2.2.2 hr
+      hc.2.2.2.1 hc.2.2.2.2 (fun p hp => successful_point_radii m r h p hp)
 
-theorem quadrant_c1_of_point_radii (m : Model) (r : Layered.FamilyResult)
-    (h : layout m = .ok r)
-    (hr : ∀ p ∈ decode m, -1 ≤ p.radius) :
+theorem quadrant_c1 (m : Model) (r : Layered.FamilyResult)
+    (h : layout m = .ok r) :
     Validator.C1 r.scene.layoutDump := by
   have hc := successful_reservation_constants m r h
   exact quadrant_c1_of_nonnegative_reservations m r h hc.1 hc.2.1 hc.2.2.1
-    (successful_pointBoxes_contained m r h hr)
+    (fun g hg => successful_pointBoxes_contained m r h g hg)
 
-theorem quadrant_c3_of_plot_first (m : Model) (r : Layered.FamilyResult)
-    (h : layout m = .ok r)
-    (hi : ∀ a i, (a, i) ∈ m.boxes.zipIdx → a.id = "plot" → i = 0)
-    (hr : ∀ p ∈ decode m, -1 ≤ p.radius) :
-    Validator.C3 r.scene.layoutDump :=
-  quadrant_c3_of_plot_index m r h hi (successful_pointBoxes_contained m r h hr)
+theorem quadrant_c3 (m : Model) (r : Layered.FamilyResult)
+    (h : layout m = .ok r) :
+    Validator.C3 r.scene.layoutDump := by
+  apply quadrant_c3_of_canonical_parents m r h
+    (fun a ha => ((successful_metadata m r h).2 a ha).2.1)
+  intro g hg a ha hap
+  exact Chart.Quadrant.successful_arrange_boxRectFor_contained m
+    (Chart.Quadrant.constants m) (Chart.Quadrant.pointInputs m) g hg
+    (successful_pointBoxes_contained m r h g hg) a.id
 
-theorem quadrant_valid_of_plot_first_and_point_radii
-    (m : Model) (r : Layered.FamilyResult)
-    (h : layout m = .ok r)
-    (hi : ∀ a i, (a, i) ∈ m.boxes.zipIdx → a.id = "plot" → i = 0)
-    (hr : ∀ p ∈ decode m, -1 ≤ p.radius) :
+theorem quadrant_valid {m : Model} {r : Layered.FamilyResult}
+    (_hwf : WellFormed m) (_hlim : WithinLimits m)
+    (h : layout m = .ok r) :
     HardConstraints r.scene.layoutDump :=
-  ⟨quadrant_c1_of_point_radii m r h hr,
+  ⟨quadrant_c1 m r h,
     quadrant_c2 m r h,
-    quadrant_c3_of_plot_first m r h hi hr,
+    quadrant_c3 m r h,
     quadrant_c4 m r h,
     quadrant_c5 m r h,
     quadrant_c6 m r h,

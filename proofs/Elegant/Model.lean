@@ -131,6 +131,89 @@ def modelWellFormed (m : Model) : Bool :=
 
 abbrev WellFormed (m : Model) : Prop := modelWellFormed m = true
 
+/-- Public form of the parent-chain check: the parent chain of `id` reaches the root within `n` steps. -/
+def ParentReaches (boxes : List ModelBox) : Nat → String → Prop
+  | _, "" => True
+  | 0, _ => False
+  | n + 1, id => ∃ b, boxes.find? (fun b => b.id == id) = some b ∧ ParentReaches boxes n b.parent
+
+theorem parentTerminates_iff_reaches (boxes : List ModelBox) :
+    ∀ (n : Nat) (id : String), parentTerminates boxes n id = true ↔ ParentReaches boxes n id := by
+  intro n
+  induction n with
+  | zero =>
+    intro id
+    by_cases hid : id = ""
+    · simp [hid, parentTerminates, ParentReaches]
+    · simp [parentTerminates, ParentReaches]
+  | succ n ih =>
+    intro id
+    by_cases hid : id = ""
+    · simp [hid, parentTerminates, ParentReaches]
+    · cases hf : boxes.find? (fun b => b.id == id) with
+      | none => simp [parentTerminates, ParentReaches, hf]
+      | some b => simp [parentTerminates, ParentReaches, hf, ih]
+
+/-- Public characterization of `WellFormed`: unique box, route and label ids, terminating parent
+chains, routes between declared boxes, labels owned by declared boxes or routes, and no exclusive
+group. -/
+theorem wellFormed_iff (m : Model) :
+    WellFormed m ↔
+      ((m.boxes.map (·.id)).eraseDups.length = (m.boxes.map (·.id)).length ∧
+       (m.routes.map (·.id)).eraseDups.length = (m.routes.map (·.id)).length ∧
+       (m.labels.map (·.id)).eraseDups.length = (m.labels.map (·.id)).length ∧
+       (∀ b ∈ m.boxes, ParentReaches m.boxes m.boxes.length b.parent) ∧
+       (∀ r ∈ m.routes, r.fromId ∈ m.boxes.map (·.id) ∧ r.toId ∈ m.boxes.map (·.id)) ∧
+       (∀ l ∈ m.labels, l.owner ∈ m.boxes.map (·.id) ∨ l.owner ∈ m.routes.map (·.id)) ∧
+       (∀ b ∈ m.boxes, b.role = .group → b.exclusive = false)) := by
+  unfold WellFormed modelWellFormed unique
+  simp only [Bool.and_eq_true, beq_iff_eq, List.all_eq_true, Bool.or_eq_true, bne_iff_ne,
+    ne_eq, Bool.not_eq_true', List.contains_iff_mem, parentTerminates_iff_reaches]
+  constructor
+  · rintro ⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, h7⟩
+    refine ⟨h1, h2, h3, h4, h5, h6, ?_⟩
+    intro b hb hg
+    rcases h7 b hb with h | h
+    · exact absurd hg h
+    · exact h
+  · rintro ⟨h1, h2, h3, h4, h5, h6, h7⟩
+    refine ⟨⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩, ?_⟩
+    intro b hb
+    by_cases hg : b.role = .group
+    · exact Or.inr (h7 b hb hg)
+    · exact Or.inl hg
+
+theorem parent_induction (m : Model) (hwf : WellFormed m) (P : String → Prop)
+    (hroot : P "") (hstep : ∀ b, b ∈ m.boxes → P b.parent → P b.id) :
+    ∀ b, b ∈ m.boxes → P b.parent := by
+  have bounded : ∀ n id, parentTerminates m.boxes n id = true → P id := by
+    intro n
+    induction n with
+    | zero =>
+      intro id ht
+      by_cases hid : id = ""
+      · simpa [hid] using hroot
+      · simp [parentTerminates] at ht
+    | succ n ih =>
+      intro id ht
+      by_cases hid : id = ""
+      · simpa [hid] using hroot
+      · cases hf : m.boxes.find? (fun b => b.id == id) with
+        | none => simp [parentTerminates, hf] at ht
+        | some b =>
+          have hparent : parentTerminates m.boxes n b.parent = true := by
+            simpa [parentTerminates, hid, hf] using ht
+          have hmem : b ∈ m.boxes := List.mem_of_find?_eq_some hf
+          have heq : b.id = id :=
+            beq_iff_eq.mp (List.find?_some (p := fun b : ModelBox => b.id == id) hf)
+          rw [← heq]
+          exact hstep b hmem (ih b.parent hparent)
+  unfold WellFormed modelWellFormed at hwf
+  simp only [Bool.and_eq_true] at hwf
+  obtain ⟨⟨⟨⟨_, hparents⟩, _⟩, _⟩, _⟩ := hwf
+  intro b hb
+  exact bounded m.boxes.length b.parent (List.all_eq_true.mp hparents b hb)
+
 namespace Model
 
 private theorem eraseDups_length_le : ∀ l : List String, l.eraseDups.length ≤ l.length

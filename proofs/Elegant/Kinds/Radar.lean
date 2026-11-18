@@ -1,4 +1,5 @@
 import Elegant.Chart.Radar
+import Elegant.Chart.RadarFacts
 
 set_option autoImplicit false
 
@@ -39,5 +40,15 @@ def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
   match Chart.Radar.layout m (decode m) with
   | .error e => .error (.geometry e)
   | .ok scene => .ok { scene, budgetExhausted := false }
+
+theorem radar_valid {m : Model} {result : Layered.FamilyResult}
+    (_hw : WellFormed m) (_hl : WithinLimits m)
+    (h : layout m = .ok result) : HardConstraints result.scene.layoutDump := by
+  unfold layout at h
+  split at h
+  · cases h
+  · rename_i scene hs
+    cases h
+    exact Chart.Radar.radar_valid hs
 
 end Elegant.Kinds.Radar
