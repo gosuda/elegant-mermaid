@@ -753,15 +753,18 @@ only changed-phase obligations the flat lifts need:
   declarations, borders, and cluster paths the plain argument uses, so the
   same constraint edges join the same endpoints.
 
-All three hold for executed layouts: on success the exact sizes come from the
+All three hold for executed layouts under `WellFormed (inputModel inp o)` and
+`framedParents inp = true`: on success the exact sizes come from the
 recursion's `childFrameSize` reservations (nonnegative, with exact loop
 extents checked nonnegative by `exactGraph`), and frame nesting follows the
-same cluster geometry as plain runs. They are stated here as the single
-hypothesis the two lifts share because proving them needs the exact
-coordinate facts (`reserveExactRanks` shifts and exact port widths), not
-because they are in doubt for executed layouts. -/
+same cluster geometry as plain runs. The unguarded member-frame form is false
+without those premises (a node used as a parent is not a group frame). They
+are stated here as the single hypothesis the two lifts share because proving
+them needs the exact coordinate facts (`reserveExactRanks` shifts and exact
+port widths), not because they are in doubt for executed layouts. -/
 def ExactComponentPlacement (exactIds : List String) (inp : Input) (o : Options)
     (res : FamilyResult) : Prop :=
+  WellFormed (inputModel inp o) → framedParents inp = true →
   ∀ (execution : SceneExecutionX exactIds inp o res),
     (∀ q ∈ execution.componentsAcc.parts, PartBounded q.2) ∧
     (∀ (comp : List Nat) (candidate : Nat) (run : Run) (orderOptions : OrderOptions),
@@ -781,8 +784,7 @@ def ExactComponentPlacement (exactIds : List String) (inp : Input) (o : Options)
           run parentIndex).Contained
           (frameRect execution.params (componentCandidate execution.graph comp candidate)
             run memberIndex)) ∧
-    (∀ (_hwf : WellFormed (inputModel inp o)) (_hframed : framedParents inp = true)
-      (comp : List Nat) (_hcomp : comp ∈ components execution.graph)
+    (∀ (comp : List Nat) (_hcomp : comp ∈ components execution.graph)
       (key parentKey : Nat) (_hkeyLen : key < inp.boxes.length) (_hkeyIn : key ∈ comp)
       (member : Node) (_hmemberGraph : execution.graph.nodes[key]? = some member)
       (childBox : ModelBox) (_hchildBox : inp.boxes[key]? = some childBox)
@@ -1035,11 +1037,13 @@ theorem SceneExecutionX.packedAcc_bounded {exactIds : List String} {inp : Input}
 canvas, with the parameters the execution actually used. -/
 theorem layoutX_inset {exactIds : List String} {inp : Input} {o : Options}
     {res : FamilyResult} (h : layoutX exactIds inp o = .ok res)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     (hX : ExactComponentPlacement exactIds inp o res) :
     ∃ P : Params, checkedParams o.profile inp.kind = .ok P ∧
       0 ≤ P.canvasMargin ∧ InsetC1 res.scene P.canvasMargin := by
   obtain ⟨execution⟩ := layoutX_sceneExecution h
-  have hacc := SceneExecutionX.packedAcc_bounded execution (hX execution).1
+  have hacc := SceneExecutionX.packedAcc_bounded execution ((hX hwf hframed execution).1)
   have hm1 := checkedParams_canvasMargin_ge_one execution.checked
   refine ⟨execution.params, execution.checked, by omega, ?_⟩
   rw [execution.scene_eq]
@@ -1670,7 +1674,7 @@ theorem layoutX_c3 {exactIds : List String} {inp : Input} {o : Options}
     (hX : ExactComponentPlacement exactIds inp o res) :
     Validator.C3 res.scene.layoutDump := by
   obtain ⟨execution⟩ := layoutX_sceneExecution h
-  have hXexec := hX execution
+  have hXexec := hX hwf hframed execution
   have hpackedEq := execution.packed_eq
   unfold packAcc at hpackedEq
   obtain ⟨packed, hpack, -⟩ := bind_ok hpackedEq
@@ -1724,7 +1728,7 @@ theorem layoutX_c3 {exactIds : List String} {inp : Input} {o : Options}
     component_node_lookupX hposB hmemberGraph
   have hkeyIn : bi ∈ part.1 := List.mem_of_getElem? hposB
   have hparentIn : pj ∈ part.1 :=
-    hXexec.2.2 hwf hframed part.1 hcomp bi pj hbiLen hkeyIn
+    hXexec.2.2 part.1 hcomp bi pj hbiLen hkeyIn
       _ hmemberGraph _ hchildBoxMem _ hpiP hpid.symm hparentNe
   obtain ⟨parentIndex, hpIdx⟩ := List.getElem?_of_mem hparentIn
   have hcontained :=
