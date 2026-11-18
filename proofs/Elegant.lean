@@ -329,3 +329,9 @@ import Elegant.Layered.ExpandChildC7GeometryProof
 import Elegant.Layered.ExpandChildC8GeometryProof
 import Elegant.Layered.ExpandChildChildSceneProof
 import Elegant.DumpLaminar
+import Elegant.Layered.GroupBottomBoundaryProof
+import Elegant.Layered.FlatC6LoopProof
+import Elegant.Layered.FlatC6SeamProof
+import Elegant.Layered.FlatC6ScopeResidualsProof
+import Elegant.Layered.LoopBoxBorderZeroProof
+import Elegant.Layered.ForeignBottomInCandidateProof
