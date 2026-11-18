@@ -310,3 +310,4 @@ import Elegant.Layered.ExpandChildTitleBandProof
 import Elegant.Layered.CaptionCrossPartProof
 import Elegant.Layered.GroupAnchorFactsProof
 import Elegant.Kinds.IshikawaRawClearance
+import Elegant.Layered.ExactFlatFacts
