@@ -1466,3 +1466,13 @@ Elegant.Layered.PipelineImpl.foreignClusterRankSpans
 Elegant.Ishikawa.hardBDeeperFall
 Elegant.Ishikawa.hardBDeeperRouteGap
 Elegant.Ishikawa.hardBDeeperEnvTransport'
+Elegant.Layered.PipelineImpl.expandChild_parentFrame_boxes
+Elegant.Layered.PipelineImpl.expandChild_parentFrame_unrelated
+Elegant.Layered.PipelineImpl.expandChild_parentFrame_labels
+Elegant.Layered.PipelineImpl.expandChild_parentFrame_ancestor
+Elegant.Layered.PipelineImpl.expandChild_parentFrame_routes
+Elegant.Layered.PipelineImpl.bottomNestedBottomRankLe_wf
+Elegant.Layered.PipelineImpl.bottomSyntheticRankLe
+Elegant.Layered.PipelineImpl.groupTopSubtreeRankCg
+Elegant.Layered.PipelineImpl.dummyNestedRank
+Elegant.Layered.PipelineImpl.dummyInsideProxyRowClear_executed

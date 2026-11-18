@@ -341,3 +341,10 @@ import Elegant.IshikawaDeeperEnvTransportProof
 import Elegant.Layered.ExactBorder2UnchangedProof
 import Elegant.Layered.ForeignBorderAlignRankProof
 import Elegant.IshikawaDeeperRouteGapProof
+import Elegant.Layered.ExpandChildParentFrameProof
+import Elegant.Layered.BottomNestedRankProof
+import Elegant.Layered.BottomSyntheticRankProof
+import Elegant.Layered.GroupTopRankResidualsProof
+import Elegant.Layered.DummyRowClearProof
+import Elegant.Kinds.IshikawaBoundaryClearance
+import Elegant.Kinds.IshikawaCrossRibClearance
