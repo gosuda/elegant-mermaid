@@ -1377,3 +1377,15 @@ Elegant.Layered.PipelineImpl.expandChildCallContext_iff
 Elegant.Layered.PipelineImpl.frameLabels_executed
 Elegant.Layered.PipelineImpl.expandChild_frame_size_bounds
 Elegant.Layered.PipelineImpl.expandChild_content_fit_strict
+Elegant.Layered.PipelineImpl.layoutRecursiveB_succ_sources
+Elegant.Layered.PipelineImpl.layoutRecursiveB_inset
+Elegant.Layered.PipelineImpl.layoutRecursiveB_c1_c3
+Elegant.Layered.PipelineImpl.layoutRecursiveB_c2
+Elegant.Layered.PipelineImpl.layoutRecursiveB_c4
+Elegant.Layered.PipelineImpl.layoutRecursiveB_c6
+Elegant.Layered.PipelineImpl.layoutRecursiveB_c7
+Elegant.Layered.PipelineImpl.layoutRecursiveB_c8a
+Elegant.Layered.PipelineImpl.layoutRecursiveB_c8b
+Elegant.Layered.PipelineImpl.expandChild_title_band
+Elegant.Layered.PipelineImpl.titleExclusiveCrossPart
+Elegant.Layered.PipelineImpl.sceneCaptionBoxContainment_of_residuals

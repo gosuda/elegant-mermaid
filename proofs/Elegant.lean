@@ -304,3 +304,7 @@ import Elegant.Layered.GroupTailPortProof
 import Elegant.Layered.RecursiveBEq
 import Elegant.Layered.FrameLabelsProof
 import Elegant.Layered.ExpandChildCanvasFitProof
+import Elegant.Layered.RecursiveBLiftsA
+import Elegant.Layered.RecursiveBLiftsB
+import Elegant.Layered.ExpandChildTitleBandProof
+import Elegant.Layered.CaptionCrossPartProof
