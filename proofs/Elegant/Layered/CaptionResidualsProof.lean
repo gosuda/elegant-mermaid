@@ -124,7 +124,7 @@ theorem ownerScopeSamePartClear_of_group_disjoint {inp : Input} {o : Options}
     (hgroup : OwnerScopeGroupOwnerDisjoint inp o res) :
     Elegant.Layered.OwnerScopeSamePartClear inp o res := by
   intro execution index ownerIndex source lines b hsrc hmeas hfindIdx hmem hex
-    hscope hd bi k posOwner posB part hbi hk hposO hposB hne candidate run hrun
+    hscope hd _hnone bi k posOwner posB part hbi hk hposO hposB hne candidate run hrun
   obtain ⟨_, obox, hobox, hpobox⟩ := ownerRes_findIdx_lookup hfindIdx
   have hpred : (obox.id == source.owner && !obox.exclusive) = true := hpobox
   simp only [Bool.and_eq_true] at hpred

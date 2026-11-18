@@ -43,7 +43,8 @@ theorem captionScopeClearance_of_residuals
       PipelineImpl.TitleExclusiveFrameDisjoint execution) :
     CaptionScopeClearance inp o res :=
   captionScopeClearance (captionDescendantClear_of_same_part hdesc)
-    (ownerCaptionContain (sceneCaptionSizing_of_inputs hinputs))
+    (ownerCaptionContainFallback_of_contain
+      (ownerCaptionContain (sceneCaptionSizing_of_inputs hinputs)))
     (ownerScopeExclusiveClear_of_same_part hsame)
     (PipelineImpl.captionTitleBranchClear_of_frames hframes hnode)
 
