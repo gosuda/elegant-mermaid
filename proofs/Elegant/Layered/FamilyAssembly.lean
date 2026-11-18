@@ -15,6 +15,7 @@ import Elegant.Layered.FamilyC5Measured
 import Elegant.Layered.SubInputWellFormedFacts
 import Elegant.Layered.ExpandChildC6StepFacts
 import Elegant.Layered.BracketInsidePremisesProof
+import Elegant.Layered.FlatGroupEndpointsProof
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -37,10 +38,13 @@ abbrev RecursiveStepFacts
 Each field is a named OPEN statement about the executed pipeline; a field
 leaves this structure when its discharge theorem lands.  No field is known to
 be false: the refuted `GroupAttach`, `GroupAnchors`, and universal nonempty-id
-statements were replaced by `flatEndpoints` and a premise on the input.  The
+statements were replaced by the four group endpoint fields and a premise on the input.  The
 sub-input well-formedness seams are discharged (`SubInputWellFormedFacts.lean`). -/
 structure LayeredSeams : Prop where
-  flatEndpoints : FlatGroupEndpoints
+  groupTopRank : GroupTopSubtreeRankProper
+  groupBottomBoundary : GroupBottomBoundaryFacts
+  groupTailPort : GroupTailPortOnYs
+  groupAnchorSelection : GroupAnchorSelection
   flatC6 : FlatC6
   dummyRowClear : ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecution inp o res),
@@ -129,7 +133,10 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
     (layoutRecursive_c1_c3 subInputWellFormedC2 hflat3 (inp.boxes.length + 1) inp o res
       hwf hfp hrec).2,
     layoutFamily_c4 h,
-    layoutFamily_c5_measured S.flatEndpoints subInputWellFormed h,
+    layoutFamily_c5_measured
+      (flatGroupEndpoints S.groupTopRank S.groupBottomBoundary S.groupTailPort
+        S.groupAnchorSelection)
+      subInputWellFormed h,
     layoutRecursive_c6_of_flat S.flatC6 hclear subInputWellFormed hstepC6
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c7_of_flat hflat7 (fun _ _ _ => labelsC7_partsSeparated) S.labelRuns

@@ -1352,3 +1352,5 @@ Elegant.Layered.PipelineImpl.componentRun_inside_prefix
 Elegant.Layered.PipelineImpl.bracketInsidePremises
 Elegant.Kinds.Architecture.RouteClearance.route_misses_foreign_box
 Elegant.Kinds.Architecture.architecture_c6
+Elegant.Layered.PipelineImpl.SceneExecution.chosen_part_group_c5_alias
+Elegant.Layered.PipelineImpl.flatGroupEndpoints

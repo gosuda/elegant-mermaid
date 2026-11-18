@@ -290,3 +290,4 @@ import Elegant.Layered.BracketInsideRankFacts
 import Elegant.Chart.TreemapC8bLabelKernels
 import Elegant.Layered.BracketInsidePremisesProof
 import Elegant.Kinds.ArchitectureC6
+import Elegant.Layered.FlatGroupEndpointsProof
