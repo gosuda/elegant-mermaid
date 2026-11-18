@@ -396,8 +396,9 @@ def ExpandChildC8bStructure (P : Params) (inp : Input) (o : Options) (group : Mo
 /-- The structural remainder of `ExpandChildC7Step`: box-lookup transport,
 scene-size bounds, the label classification `ExpandChildLabelClasses`, and
 the owner-scope transports for child and parent labels plus the scope
-anchors of every merged label.  The four cross-scene clearance pairs are
-geometric and live in `ExpandChildC7Geometry`. -/
+anchors of the expanded group for group-owned and child-sourced merged
+labels only.  The four cross-scene clearance pairs are geometric and live
+in `ExpandChildC7Geometry`. -/
 def ExpandChildC7Structure (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
@@ -423,6 +424,7 @@ def ExpandChildC7Structure (P : Params) (inp : Input) (o : Options) (group : Mod
         ∀ x ∈ parent.scene.layoutDump.labelOwnerAnc pl.toLabel,
           x ∈ result.scene.layoutDump.labelOwnerAnc rl) ∧
     (∀ rl ∈ result.scene.layoutDump.labels,
+        (rl.owner = group.id ∨ ∃ cl ∈ child.scene.labels, rl.id = cl.id ∧ rl.owner = cl.owner) →
         ∀ x ∈ group.id :: parent.scene.layoutDump.ancestors group.id,
           x ∈ result.scene.layoutDump.labelOwnerAnc rl)
 

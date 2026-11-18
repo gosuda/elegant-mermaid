@@ -96,7 +96,8 @@ def ExpandChildLabelClasses (P : Params) (group : ModelBox)
 both merged scenes, scene sizes, the label classification, owner-scope
 transport for child and parent labels, the scope anchors
 `{group.id} ++ ancestors group.id` of the expanded group inside the merged
-dump, and the four cross-scene clearance facts. -/
+dump for group-owned and child-sourced labels only, and the four cross-scene
+clearance facts. -/
 def ExpandChildC7Step (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleHeight : Int) (parent child result : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
@@ -122,6 +123,7 @@ def ExpandChildC7Step (P : Params) (inp : Input) (o : Options) (group : ModelBox
         ∀ x ∈ parent.scene.layoutDump.labelOwnerAnc pl.toLabel,
           x ∈ result.scene.layoutDump.labelOwnerAnc rl) ∧
     (∀ rl ∈ result.scene.layoutDump.labels,
+        (rl.owner = group.id ∨ ∃ cl ∈ child.scene.labels, rl.id = cl.id ∧ rl.owner = cl.owner) →
         ∀ x ∈ group.id :: parent.scene.layoutDump.ancestors group.id,
           x ∈ result.scene.layoutDump.labelOwnerAnc rl) ∧
     (∀ cl ∈ child.scene.labels, cl.owner ≠ group.id →
@@ -146,8 +148,8 @@ box is an embedded child box or a parent-scene box:
 * child label vs child box: the child clause transports through the common
   shift, because the child owner scope is included in the merged scope;
 * child label vs parent box: the group and its ancestors are scope anchors
-  of every merged label, so a box outside them lies in a foreign frame and
-  is missed by `hforeignLabel`;
+  of group-owned and child-sourced merged labels, so a box outside them lies
+  in a foreign frame and is missed by `hforeignLabel`;
 * parent label vs parent box: the parent clause transports, because parent
   owner scopes are included in the merged scopes;
 * parent label vs child box and caption vs any box: the dedicated
@@ -213,7 +215,7 @@ theorem expandChild_c7 {P : Params} {inp : Input} {o : Options} {group : ModelBo
     · -- parent-scene box: foreign to the group by the scope antecedent
       have hin : b.id ∉ group.id :: parent.scene.layoutDump.ancestors group.id := by
         intro hmem
-        exact hscope (hanchor sl.toLabel hrlDump b.id hmem)
+        exact hscope (hanchor sl.toLabel hrlDump (Or.inl hown) b.id hmem)
       exact hforeignTitle b hbp hex hin sl.toLabel hrlDump hown
   · -- embedded child label
     rcases List.mem_append.mp hbItems with hbc | hbp
@@ -235,7 +237,7 @@ theorem expandChild_c7 {P : Params} {inp : Input} {o : Options} {group : ModelBo
     · -- parent-scene box: foreign to the group by the scope antecedent
       have hin : b.id ∉ group.id :: parent.scene.layoutDump.ancestors group.id := by
         intro hmem
-        exact hscope (hanchor sl.toLabel hrlDump b.id hmem)
+        exact hscope (hanchor sl.toLabel hrlDump (Or.inr ⟨cl, hcl, hid, hown⟩) b.id hmem)
       rw [hrect]
       exact hforeignLabel cl hcl (fun h => hone (hown.trans h)) b hbp hex hin
   · -- parent-scene label
