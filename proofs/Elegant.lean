@@ -338,3 +338,6 @@ import Elegant.Layered.ForeignBottomInCandidateProof
 import Elegant.Layered.CaptionFallbackOwnerProof
 import Elegant.Layered.ExactPartBounded
 import Elegant.IshikawaDeeperEnvTransportProof
+import Elegant.Layered.ExactBorder2UnchangedProof
+import Elegant.Layered.ForeignBorderAlignRankProof
+import Elegant.IshikawaDeeperRouteGapProof

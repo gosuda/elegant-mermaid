@@ -1458,3 +1458,11 @@ Elegant.Layered.PipelineImpl.SceneExecution.fallback_owner_cases
 Elegant.Layered.PipelineImpl.descendantFallbackClear_vacuous
 Elegant.Layered.PipelineImpl.exactPartsBounded
 Elegant.Ishikawa.hardBDeeperEnvTransport
+Elegant.Layered.PipelineImpl.exactGraph_border2_unchangedX
+Elegant.Layered.PipelineImpl.exactBorder2Unchanged_discharge
+Elegant.Layered.PipelineImpl.exactPartsBounded'
+Elegant.Layered.PipelineImpl.foreignBorderChainXAligned
+Elegant.Layered.PipelineImpl.foreignClusterRankSpans
+Elegant.Ishikawa.hardBDeeperFall
+Elegant.Ishikawa.hardBDeeperRouteGap
+Elegant.Ishikawa.hardBDeeperEnvTransport'
