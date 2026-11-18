@@ -1375,3 +1375,5 @@ Elegant.Layered.PipelineImpl.layoutFamily_eq_B
 Elegant.Layered.PipelineImpl.layoutRecursiveB_compose
 Elegant.Layered.PipelineImpl.expandChildCallContext_iff
 Elegant.Layered.PipelineImpl.frameLabels_executed
+Elegant.Layered.PipelineImpl.expandChild_frame_size_bounds
+Elegant.Layered.PipelineImpl.expandChild_content_fit_strict

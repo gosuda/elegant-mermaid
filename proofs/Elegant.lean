@@ -303,3 +303,4 @@ import Elegant.Kinds.ArchitectureC3
 import Elegant.Layered.GroupTailPortProof
 import Elegant.Layered.RecursiveBEq
 import Elegant.Layered.FrameLabelsProof
+import Elegant.Layered.ExpandChildCanvasFitProof
