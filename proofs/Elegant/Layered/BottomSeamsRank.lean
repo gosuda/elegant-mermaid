@@ -5,21 +5,23 @@ import Elegant.Layered.GroupWidthFacts
 Rank seams of `bracket_inside_rank_below_bottom`
 (`BottomClearanceInside.bracket_inside_rank_below_bottom`).
 
-This unit holds the shared rank transport for the three rank seams that
-`BracketInsidePremises` (`FrameClearanceSeam.lean`) still takes as open
-premises:
+This unit holds the shared rank transport for the rank seams of
+`bracket_inside_rank_below_bottom`
+(`BottomClearanceInside.bracket_inside_rank_below_bottom`):
 
-* `plainMemberRankLtProxy`: a plain original member whose cluster path
-  contains the proxy group's declaration ranks strictly below that group's
-  bottom proxy.
-* `dummyInsideSameRankFalse`: a positive-height dummy cannot share a bottom
-  proxy's rank.
+* `plainMemberRankLtProxy` is PROVED (`BracketInsideRankFacts.lean`, via
+  this transport plus `ranked_compound_member_interval` and
+  `componentRun_cg_top_of_bottom`).
+* `dummyInsideSameRankFalse` is REFUTED (a label dummy can share a bottom
+  proxy's rank; witness probe `wip/Layered/DummySameRankRefuted.lean`) and
+  is restated as the geometric `dummyInsideProxyRowClear`, which stays an
+  open premise of `BracketInsidePremises`.
 * `insidePrefixHypothesis`: inside the bracket of a group every non-dummy
   layer node has the group's cluster path as a prefix of its node path
-  (layer contiguity plus `OrderImpl.BordersWellFormed`).
+  (layer contiguity plus `OrderImpl.BordersWellFormed`) — open.
 
-The seams are OPEN.  Their proofs are to ride the executed transports landed
-in `GroupWidthFacts` (`componentRun_ranked_node_records`,
+The remaining open seams ride the executed transports landed in
+`GroupWidthFacts` (`componentRun_ranked_node_records`,
 `ranked_compound_member_interval`, `componentRun_titled_border_ready`, the
 coordinate-graph border order well-formedness chain), the order contiguity
 theorem `OrderImpl.order_clusters_contiguous`, and `rankSource_of_componentRun`

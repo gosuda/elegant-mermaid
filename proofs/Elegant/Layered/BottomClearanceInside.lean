@@ -155,8 +155,15 @@ def plainMemberRankLtProxy (P : Params) (graph : Graph) : Prop :=
           (run.coordinateProper.nodes.getD v default).node.clusterPath.contains d = true →
           rk run.coordinateProper.rank v < rk run.coordinateProper.rank t
 
-/-- A dummy of positive height cannot share a bottom proxy's rank. -/
-def dummyInsideSameRankFalse (P : Params) (graph : Graph) : Prop :=
+/-- A positive-height dummy in a bottom proxy's rank row keeps its x-span
+clear of that proxy's frame span.  This is the executed form of the refuted
+rank-only clause `dummyInsideSameRankFalse` (a label dummy CAN share a bottom
+proxy's rank: `Labels.addLabelNode` resizes the midpoint chain node of a
+spanning edge — witness probe `wip/Layered/DummySameRankRefuted.lean` prints
+`BOTTOM t=5 rk=2` against `DUMMY v=7 rk=2 h=12`).  The separation is
+geometric: the label node lands outside the frame span of the row it shares
+with the proxy, which the strict-overlap consumers contradict. -/
+def dummyInsideProxyRowClear (P : Params) (graph : Graph) : Prop :=
   ∀ comp : List Nat, comp ∈ components graph → ∀ candidate : Nat,
     ∀ run : Run, ∀ labels : List MeasuredLabel, ∀ orderOptions : OrderOptions,
       componentRun P (componentCandidate graph comp candidate) labels orderOptions =
@@ -166,7 +173,10 @@ def dummyInsideSameRankFalse (P : Params) (graph : Graph) : Prop :=
         (run.coordinateProper.nodes.getD v default).dummy = true →
         0 < RouteImpl.nodeH run.proper v →
         rk run.coordinateProper.rank v = rk run.coordinateProper.rank t →
-        False
+        RouteImpl.leftOf run.proper run.xs t + RouteImpl.nodeW run.proper t ≤
+            RouteImpl.leftOf run.proper run.xs v ∨
+          RouteImpl.leftOf run.proper run.xs v + RouteImpl.nodeW run.proper v ≤
+            RouteImpl.leftOf run.proper run.xs t
 
 /-- A non-dummy node that is not a proxy has border `0`, unless it is a `3`
 title copy of a group anchor. -/
@@ -365,7 +375,7 @@ theorem bracket_inside_rank_below_bottom {P : Params} {inp : Input} {o : Options
     {comp : List Nat} (hcomp : comp ∈ components graph) (candidate : Nat)
     (hside : sideTitleHeightZero P graph)
     (hplainRank : plainMemberRankLtProxy P graph)
-    (hdummyRank : dummyInsideSameRankFalse P graph)
+    (hdummyRow : dummyInsideProxyRowClear P graph)
     (hborderPlain : nonDummyBorderPlain P graph)
     (htitleSpan : titleCopySpanClearStrict P graph)
     (hsidePath : sidePathEq P graph)
@@ -529,7 +539,7 @@ theorem bracket_inside_rank_below_bottom {P : Params} {inp : Input} {o : Options
   obtain ⟨_, _, hrange, hsizes, _⟩ := crossCoordsClusterWith_spec hcross
   have hmin : 1 ≤ min P.nodeGap P.clusterPad := by omega
   have hrankClauses := hplainRank comp hcomp candidate run labels orderOptions hrun
-  have hdummyClauses := hdummyRank comp hcomp candidate run labels orderOptions hrun
+  have hdummyClauses := hdummyRow comp hcomp candidate run labels orderOptions hrun
   have hborderClauses := hborderPlain comp hcomp candidate run labels orderOptions hrun
   have hip := hinsidePrefix run labels orderOptions hrun (proxy.node.clusterPath)
 
@@ -692,7 +702,8 @@ theorem bracket_inside_rank_below_bottom {P : Params} {inp : Input} {o : Options
             omega
           · simp only [hbmL, ite_true] at hbal
             by_cases hvDummy : (run.coordinateProper.nodes.getD v default).dummy = true
-            · exact hdummyClauses t v htborder hvDummy hheight hrankEq
+            · rcases hdummyClauses t v htborder hvDummy hheight hrankEq with hsep | hsep <;>
+              omega
             · have hvDummyF : other.dummy = false := by
                 cases hb : other.dummy with
                 | true => exact absurd (by rw [hvGetD]; exact hb) hvDummy
@@ -724,7 +735,8 @@ theorem bracket_inside_rank_below_bottom {P : Params} {inp : Input} {o : Options
     · -- strictly inside the bracket: the member rank closure contradicts same rank
       exfalso
       by_cases hvDummy : (run.coordinateProper.nodes.getD v default).dummy = true
-      · exact hdummyClauses t v htborder hvDummy hheight hrankEq
+      · rcases hdummyClauses t v htborder hvDummy hheight hrankEq with hsep | hsep <;>
+        omega
       · have hvDummyF : other.dummy = false := by
           cases hb : other.dummy with
           | true => exact absurd (by rw [hvGetD]; exact hb) hvDummy
@@ -932,7 +944,8 @@ theorem bracket_inside_rank_below_bottom {P : Params} {inp : Input} {o : Options
               omega
             · simp only [hbmR, ite_true] at hbalRV
               by_cases hvDummy : (run.coordinateProper.nodes.getD v default).dummy = true
-              · exact hdummyClauses t v htborder hvDummy hheight hrankEq
+              · rcases hdummyClauses t v htborder hvDummy hheight hrankEq with hsep | hsep <;>
+                omega
               · have hvDummyF : other.dummy = false := by
                   cases hb : other.dummy with
                   | true => exact absurd (by rw [hvGetD]; exact hb) hvDummy

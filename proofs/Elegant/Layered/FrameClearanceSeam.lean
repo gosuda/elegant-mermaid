@@ -4,6 +4,7 @@ import Elegant.Layered.RecursiveC6
 import Elegant.Layered.CoordGraph
 import Elegant.Layered.BottomSeamsStructural
 import Elegant.Layered.BracketInsideStructuralFacts
+import Elegant.Layered.BracketInsideRankFacts
 
 set_option autoImplicit false
 
@@ -73,16 +74,18 @@ theorem frameClearanceSeam_of_bracket {inp : Input} {o : Options} {res : FamilyR
     (hInside execution comp candidate hcomp) hrun
 
 /-- The named OPEN premises `bracket_inside_rank_below_bottom` still takes,
-bundled per executed layout: three graph-level clauses about executed runs and
-the per-run inside-prefix hypothesis.  None of them restates frame clearance;
-each is a statement about dummies, cluster paths, or ranks of an executed
-component run.  The other three clauses are proved: `sideTitleHeightZero` and
-`nonDummyBorderPlain` (`BracketInsideStructuralFacts.lean`) and `sidePathEq`
-(`BottomSeamsStructural.lean`). -/
+bundled per executed layout: two graph-level clauses about executed runs and
+the per-run inside-prefix hypothesis.  `sideTitleHeightZero`,
+`nonDummyBorderPlain`, and `sidePathEq` are proved
+(`BracketInsideStructuralFacts.lean`); `plainMemberRankLtProxy` is proved and
+supplied by `frameClearanceSeam_holds` (`BracketInsideRankFacts.lean`); the
+refuted rank-only dummy clause is restated as the geometric
+`dummyInsideProxyRowClear`.  None of the remaining premises restates frame
+clearance: each is a statement about label nodes, dummies, cluster paths, or
+ranks of an executed component run. -/
 def BracketInsidePremises (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
   ∀ execution : SceneExecution inp o res,
-    plainMemberRankLtProxy execution.params execution.graph ∧
-    dummyInsideSameRankFalse execution.params execution.graph ∧
+    dummyInsideProxyRowClear execution.params execution.graph ∧
     titleCopySpanClearStrict execution.params execution.graph ∧
     ∀ (comp : List Nat) (_hcomp : comp ∈ components execution.graph) (candidate : Nat)
       (run : Run) (labels : List MeasuredLabel) (orderOptions : OrderOptions),
@@ -90,18 +93,23 @@ def BracketInsidePremises (inp : Input) (o : Options) (res : FamilyResult) : Pro
         (componentCandidate execution.graph comp candidate) labels orderOptions = .ok run →
       ∀ pref : List Nat, insidePrefixHypothesis run orderOptions pref
 
-/-- The flat frame-clearance seam holds unconditionally once the inside-rank
-bracket closure is produced: `bracket_inside_rank_below_bottom` supplies
-`BracketInsideForAll` and `frameClearanceSeam_of_bracket` finishes. -/
+/-- The flat frame-clearance seam holds unconditionally once the premises are
+supplied: `bracket_inside_rank_below_bottom` yields `BracketInsideForAll` and
+`frameClearanceSeam_of_bracket` finishes.  The four discharged clauses come
+from `BracketInsideStructuralFacts.lean` and
+`plainMemberRankLtProxy_of_measuredGraph` on the execution's own
+measured-graph and line-count equations. -/
 theorem frameClearanceSeam_holds {inp : Input} {o : Options} {res : FamilyResult}
     (hprem : BracketInsidePremises inp o res) : FrameClearanceSeam inp o res := by
   apply frameClearanceSeam_of_bracket
   intro execution comp candidate hcomp
-  obtain ⟨hplainRank, hdummyRank, htitleSpan, hprefix⟩ := hprem execution
+  obtain ⟨hdummyRow, htitleSpan, hprefix⟩ := hprem execution
   exact bracket_inside_rank_below_bottom execution.graph_eq
     (executionLines_length execution.lines_eq) hcomp candidate
     (sideTitleHeightZero_of_measuredGraph execution.graph_eq)
-    hplainRank hdummyRank (nonDummyBorderPlain_of_measuredGraph execution.graph_eq)
+    (plainMemberRankLtProxy_of_measuredGraph execution.graph_eq
+      (executionLines_length execution.lines_eq))
+    hdummyRow (nonDummyBorderPlain_of_measuredGraph execution.graph_eq)
     htitleSpan (sidePathEq_of_measuredGraph execution.graph_eq) (hprefix comp hcomp candidate)
 
 end Elegant.Layered.PipelineImpl
