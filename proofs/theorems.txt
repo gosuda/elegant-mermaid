@@ -1369,3 +1369,9 @@ Elegant.Kinds.flowchart_valid_of_seams
 Elegant.Layered.PipelineImpl.labelBelongsToRun
 Elegant.Layered.PipelineImpl.runLocalLabelClearance_holds
 Elegant.Kinds.Architecture.architecture_c3
+Elegant.Layered.PipelineImpl.groupTailPortOnYs
+Elegant.Layered.PipelineImpl.layoutRecursive_eq_B
+Elegant.Layered.PipelineImpl.layoutFamily_eq_B
+Elegant.Layered.PipelineImpl.layoutRecursiveB_compose
+Elegant.Layered.PipelineImpl.expandChildCallContext_iff
+Elegant.Layered.PipelineImpl.frameLabels_executed

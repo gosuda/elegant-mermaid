@@ -300,3 +300,6 @@ import Elegant.Kinds.FlowchartValid
 import Elegant.Layered.RunLocalLabelClearanceProof
 import Elegant.Chart.TreemapC8bKernelsProof
 import Elegant.Kinds.ArchitectureC3
+import Elegant.Layered.GroupTailPortProof
+import Elegant.Layered.RecursiveBEq
+import Elegant.Layered.FrameLabelsProof
