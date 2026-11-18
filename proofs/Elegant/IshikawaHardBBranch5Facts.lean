@@ -10,7 +10,7 @@ a time, so an earlier non-root entry of a *different* block than the odd entry
 is neither a root nor a descendant of any sibling of that entry.
 `hard_b_branch5_placement_counterexample` is the executed witness.
 
-`HardBBranch5PlacementBlock` is the corrected classification (the second
+`HardBBranch5Block` is the corrected classification (the second
 disjunct compares through `j`'s block head); `witness_satisfies_placement_block`
 checks the witness against it, and `hard_b_branch5_placement_block` proves it
 for members of a generated rib (with the two caller-side negatives the
@@ -105,27 +105,6 @@ theorem hard_b_branch5_placement_counterexample :
       exact absurd hsp (by decide)
     · exact absurd hroot (by decide)
 
-/-- Corrected branch-5 placement: the first disjunct is unchanged (some entry
-`S` at `sIdx ≠ jIdx` whose parent is `parentIdx`, i.e. a sibling of `I`, that
-is an `IndexedAncestor` of `j`); the second disjunct is stated for `j`'s block
-head `H` at `hIdx` (either `j` itself when `j.parent = -1`, or a root ancestor
-of `jIdx`): `H.parent = -1` and, whenever the order positions of `hIdx` and
-`parentIdx` exist in `rib.order`, `childIdx ≤ jIdx` or the head's position
-strictly precedes the parent entry's position. This closes the missing case of
-`HardBBranch5Placement`: a non-root earlier entry of an earlier block now
-compares through its block head. -/
-def HardBBranch5PlacementBlock (ns : List Tree.Node) (cause k parentIdx childIdx jIdx : Nat)
-    (J : Entry) : Prop :=
-  let rib := generatedRib ns (cause, k)
-  (∃ (sIdx : Nat) (S : Entry), rib.entries[sIdx]? = some S ∧ sIdx ≠ jIdx ∧
-      S.parent = (parentIdx : Int) ∧ IndexedAncestor rib.entries sIdx jIdx) ∨
-  (∃ (hIdx : Nat) (H : Entry), rib.entries[hIdx]? = some H ∧ H.parent = -1 ∧
-      ((H = J ∧ hIdx = jIdx) ∨ IndexedAncestor rib.entries hIdx jIdx) ∧
-      ∀ (headPos parentPos : Nat × Nat),
-        rib.order.zipIdx.find? (fun v => v.1 == hIdx) = some headPos →
-        rib.order.zipIdx.find? (fun v => v.1 == parentIdx) = some parentPos →
-        childIdx ≤ jIdx ∨ headPos.2 < parentPos.2)
-
 private theorem witness_order :
     (generatedRib witnessNodes (2, 1)).order = [0, 1, 2, 3] := by
   rfl
@@ -136,7 +115,7 @@ block 3) has order position 0, strictly before the parent entry `entries[2]`
 (position 2). The first disjunct is false here, which is exactly the gap of the
 original definition. -/
 theorem witness_satisfies_placement_block :
-    HardBBranch5PlacementBlock witnessNodes 2 1 2 3 1 ⟨5, 0, 3⟩ := by
+    HardBBranch5Block witnessNodes 2 1 2 3 1 ⟨5, 0, 3⟩ := by
   refine Or.inr ⟨0, ⟨3, -1, 2⟩, ?_, rfl,
     Or.inr (IndexedAncestor.edge 0 1 ⟨5, 0, 3⟩ ?_ rfl), ?_⟩
   · rw [witness_entries]
@@ -416,7 +395,7 @@ theorem hard_b_branch5_placement_block (ns : List Tree.Node) (cause k : Nat)
     (hsib : j.parent ≠ child.parent)
     (horder : Branch5RootOrderFact ns cause k)
     (hcontig : Branch5BlockContiguity ns cause k) :
-    HardBBranch5PlacementBlock ns cause k (child.parent).toNat childIdx jIdx j := by
+    HardBBranch5Block ns cause k (child.parent).toNat childIdx jIdx j := by
   have hbackE := rib_parent_back ns cause k
   have hclt := chain_lt_of_parent_back _ hbackE
   have hcLook : (generatedRib ns (cause, k)).entries[childIdx]? = some child :=
@@ -1197,7 +1176,7 @@ theorem hard_b_branch5_placement_block' (ns : List Tree.Node) (cause k : Nat)
     (hjlt : jIdx < childIdx)
     (hpar : child.parent ≠ (jIdx : Int))
     (hsib : j.parent ≠ child.parent) :
-    HardBBranch5PlacementBlock ns cause k (child.parent).toNat childIdx jIdx j :=
+    HardBBranch5Block ns cause k (child.parent).toNat childIdx jIdx j :=
   hard_b_branch5_placement_block ns cause k hlink hcause child j childIdx jIdx
     hchild hj hodd hjlt hpar hsib (branch5_root_order ns cause k hlink hcause)
     (branch5_block_contiguity ns cause k)

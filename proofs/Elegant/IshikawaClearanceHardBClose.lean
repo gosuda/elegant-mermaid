@@ -19,10 +19,9 @@ the executed birth frames of the successful run (the shape returned by
 `place_common_birth_frames`).  That is exactly how `ishikawa_hard_b`
 instantiates them, and `ishikawa_hard_b_real` at the bottom replays the final
 assembly with the corrected premises.  The deeper-earlier obligation takes the
-corrected block classification `HardBBranch5Block` (same statement as
-`HardBBranch5PlacementBlock` in `IshikawaHardBBranch5Facts`; see its docstring
-for the import-layer note).  The earlier-slot routing for the root subcase is
-`hard_b_slot_mono_of_pos_lt` below.  -/
+corrected block classification `HardBBranch5Block`, which
+`IshikawaHardBBranch5Facts` proves.  The earlier-slot routing for the root
+subcase is `hard_b_slot_mono_of_pos_lt` below.  -/
 
 /-! ### Executed birth frames (the pinning) -/
 
@@ -85,12 +84,9 @@ earlier entry `J` at `jIdx` that is neither the parent nor a sibling, either
 head `H` (a root entry: `H = J` or an indexed ancestor of `J`) has an order
 position strictly before the parent entry's position.
 
-This is the same proposition as `HardBBranch5PlacementBlock` in
-`IshikawaHardBBranch5Facts`, restated here because this module cannot import
-that module (it imports this module for the refuted `HardBBranch5Placement`
-used by its counterexample). A file importing both modules discharges this
-definition against that one by `Iff.rfl`; the classification itself is proved
-there by `hard_b_branch5_placement_block'`. -/
+The def lives here because `IshikawaHardBBranch5Facts` imports this module;
+the classification itself is proved there by
+`hard_b_branch5_placement_block'`. -/
 def HardBBranch5Block (ns : List Tree.Node) (cause k parentIdx childIdx jIdx : Nat)
     (J : Entry) : Prop :=
   let rib := generatedRib ns (cause, k)
@@ -361,8 +357,7 @@ def HardBSiblingReal (ns : List Tree.Node) (p : Params) (raw : Tree.Layout)
 
 /-- Corrected deeper-earlier obligation: `HardBDeeperEarlier` with `frames`
 pinned through `HardBRealFrames` and the branch-5 placement classified by the
-corrected block form `HardBBranch5Block` (same statement as
-`HardBBranch5PlacementBlock` in `IshikawaHardBBranch5Facts`). -/
+corrected block form `HardBBranch5Block`. -/
 def HardBDeeperEarlierReal (ns : List Tree.Node) (p : Params) (raw : Tree.Layout)
     (_hrun : layout ns p = .ok raw)
     (ribs : List Rib) (_hg : ribs = (children ns 0).zipIdx.map (generatedRib ns))
@@ -399,10 +394,9 @@ def HardBDeeperEarlierReal (ns : List Tree.Node) (p : Params) (raw : Tree.Layout
 `HardBRealFrames`, which the executed `place_common_birth_frames` witness
 supplies) and the corrected block classification `hblock`. There is no
 `hbranch5` hypothesis: the refuted `HardBBranch5Placement` is assumed nowhere.
-`hblock` (the same statement as `HardBBranch5PlacementBlock` in
-`IshikawaHardBBranch5Facts`) is discharged downstream by
-`hard_b_branch5_placement_block'` once that module's import layer is available
-(it imports this module, so the citation cannot live here). -/
+`hblock` is discharged downstream by `hard_b_branch5_placement_block'` in
+`IshikawaHardBBranch5Facts` (that module imports this one, so the citation
+cannot live here). -/
 theorem ishikawa_hard_b_real
     (ns : List Tree.Node) (p : Params) (raw : Tree.Layout)
     (hrun : layout ns p = .ok raw)
