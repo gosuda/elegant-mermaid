@@ -1398,3 +1398,7 @@ Elegant.Layered.PipelineImpl.layoutX_sceneExecution
 Elegant.Layered.PipelineImpl.layoutX_c4
 Elegant.Layered.PipelineImpl.layoutX_inset
 Elegant.Layered.PipelineImpl.layoutX_c3
+Elegant.Layered.LaneBands.pinBands_spec
+Elegant.Layered.LaneBands.pinBands_layoutDump
+Elegant.Layered.LaneBands.applyPin_shifted
+Elegant.Layered.LaneBands.rerouteBands_frame
