@@ -265,6 +265,7 @@ import Elegant.Layered.CaptionDescendantCore
 import Elegant.Kinds.ArchitectureValid
 import Elegant.IshikawaEnvFramesFacts
 import Elegant.Layered.ExpandChildStepsFacts
+import Elegant.Layered.ExpandChildStructureFacts
 import Elegant.Layered.CaptionsSeamFacts
 import Elegant.Layered.BottomSeamsRank
 import Elegant.Layered.GroupTopFacts

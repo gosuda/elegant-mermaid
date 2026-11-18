@@ -1327,3 +1327,8 @@ Elegant.Treemap.C8b.kernels_of_label_kernels
 Elegant.Ishikawa.hard_b_branch5_placement_counterexample
 Elegant.Layered.routeLabelDumpBridges
 Elegant.Layered.captionInputs_of_group_facts
+Elegant.Layered.PipelineImpl.expandChild_c8a_structure_wrapped
+Elegant.Layered.PipelineImpl.expandChild_labels_eq_wrapped
+Elegant.Layered.PipelineImpl.expandChild_label_classes_wrapped
+Elegant.Layered.PipelineImpl.expandChild_c8b_structure_wrapped
+Elegant.Layered.PipelineImpl.expandChild_c7_structure_wrapped
