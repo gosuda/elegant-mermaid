@@ -288,3 +288,4 @@ import Elegant.Kinds.LayeredSeamAdapters
 import Elegant.Layered.ExpandChildC6StepFacts
 import Elegant.Layered.BracketInsideRankFacts
 import Elegant.Chart.TreemapC8bLabelKernels
+import Elegant.Layered.BracketInsidePremisesProof

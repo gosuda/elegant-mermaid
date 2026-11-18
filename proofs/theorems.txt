@@ -1348,3 +1348,5 @@ Elegant.Treemap.C8b.placeHeader_skip_of_nonpos_height
 Elegant.Treemap.C8b.treemap_header_bottom_within_band
 Elegant.Ishikawa.witness_satisfies_placement_block
 Elegant.Ishikawa.hard_b_branch5_placement_block
+Elegant.Layered.PipelineImpl.componentRun_inside_prefix
+Elegant.Layered.PipelineImpl.bracketInsidePremises
