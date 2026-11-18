@@ -1,6 +1,7 @@
 import Elegant.Layered.RecursiveFit
 import Elegant.Layered.RouteTransport
 import Elegant.Layered.RecursiveCallContext
+import Elegant.Layered.RecursiveCallParams
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -414,6 +415,7 @@ theorem layoutRecursive_c6_of_flat (hflat : FlatC6)
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC6Step P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
@@ -439,7 +441,7 @@ theorem layoutRecursive_c6_of_flat (hflat : FlatC6)
         have hchildC6 := ih _ _ _ hwfChild hframedChild hchild
         have hparentC6 := ih _ _ _ hwfParent hframedParent hparentAt
         have hstep := hgeo fuel P inp o group titleLines _ parent child res hexpandAt hframed
-          ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
+          ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩ ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
         exact expandChild_c6 hchildC6 hparentC6 hstep hexpandAt
 
 end Elegant.Layered.PipelineImpl

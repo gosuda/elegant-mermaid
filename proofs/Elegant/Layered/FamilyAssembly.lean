@@ -20,6 +20,7 @@ import Elegant.Layered.ForeignBorderSpansProof
 import Elegant.Layered.ForeignNonGroupSpansProof
 import Elegant.Layered.RunLocalLabelClearanceProof
 import Elegant.Layered.GroupTailPortProof
+import Elegant.Layered.RecursiveCallParams
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -27,7 +28,8 @@ set_option autoImplicit false
 namespace Elegant.Layered.PipelineImpl
 
 /-- The per-expansion step fact of clause `Step`, quantified over the
-`expandChild` calls `layoutRecursive` performs. -/
+`expandChild` calls `layoutRecursive` performs, with the measurements the
+recursion ran the call with. -/
 abbrev RecursiveStepFacts
     (Step : Params → Input → Options → ModelBox → Int → FamilyResult → FamilyResult →
       FamilyResult → Prop) : Prop :=
@@ -36,6 +38,7 @@ abbrev RecursiveStepFacts
     expandChild P inp o group titleHeight parent child = .ok res →
     framedParents inp = true →
     ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+    ExpandChildCallParams P inp o group titleLines titleHeight →
     Step P inp o group titleHeight parent child res
 
 /-- Every fact the layered family validity theorem still takes as a premise.
@@ -118,27 +121,30 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
     expandChild_c6_step_of_geometry S.stepC6Geometry S.stepC6Anchors
   have hstepC7 : RecursiveStepFacts ExpandChildC7Step :=
     expandChild_c7_step_of_geometry S.stepC7Geometry
-      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx =>
+      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
+          hparams =>
         expandChild_c7_structure fuel P inp o group titleLines titleHeight parent child res
           hexpand hframed hctx
           (S.stepLabelOwners fuel P inp o group titleLines titleHeight parent child res
-            hexpand hframed hctx)
+            hexpand hframed hctx hparams)
           (S.stepC7LabelScopes fuel P inp o group titleLines titleHeight parent child res
-            hexpand hframed hctx))
+            hexpand hframed hctx hparams))
   have hstepC8a : RecursiveStepFacts ExpandChildC8aStep :=
     expandChild_c8a_step_of_geometry S.stepC8aGeometry
-      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx =>
+      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
+          hparams =>
         expandChild_c8a_structure fuel P inp o group titleLines titleHeight parent child res
           hexpand hframed hctx
           (S.stepC8aAncestry fuel P inp o group titleLines titleHeight parent child res
-            hexpand hframed hctx))
+            hexpand hframed hctx hparams))
   have hstepC8b : RecursiveStepFacts ExpandChildC8bStep :=
     expandChild_c8b_step_of_geometry S.stepC8bGeometry
-      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx =>
+      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
+          hparams =>
         expandChild_c8b_structure fuel P inp o group titleLines titleHeight parent child res
           hexpand hframed hctx
           (S.stepLabelOwners fuel P inp o group titleLines titleHeight parent child res
-            hexpand hframed hctx))
+            hexpand hframed hctx hparams))
   have hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       FrameClearanceSeam inp o res := fun inp o res =>
     frameClearanceSeam_holds (hbracket inp o res)

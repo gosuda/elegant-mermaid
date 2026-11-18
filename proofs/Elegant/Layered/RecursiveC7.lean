@@ -1,5 +1,6 @@
 import Elegant.Layered.RecursiveC6
 import Elegant.Layered.RecursiveCallContext
+import Elegant.Layered.RecursiveCallParams
 import Elegant.Layered.LabelsC7
 
 set_option autoImplicit false
@@ -278,6 +279,7 @@ theorem layoutRecursive_c7_of_flat (hflat7 : FlatC7)
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC7Step P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
@@ -306,6 +308,7 @@ theorem layoutRecursive_c7_of_flat (hflat7 : FlatC7)
         have hparentC7 := ih _ _ _ hwfParent hframedParent hparentAt
         have hstep := hgeo fuel P inp o group titleLines _ parent child res hexpandAt hframed
           ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
+          ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
         exact expandChild_c7 hchildC7 hparentC7 hstep hexpandAt
 
 end Elegant.Layered.PipelineImpl

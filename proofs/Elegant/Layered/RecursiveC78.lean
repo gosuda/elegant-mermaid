@@ -1,6 +1,7 @@
 import Elegant.Layered.ExpandChildContainment
 import Elegant.Layered.ExecutedPortsFacts
 import Elegant.Layered.RecursiveCallContext
+import Elegant.Layered.RecursiveCallParams
 
 set_option autoImplicit false
 
@@ -481,6 +482,7 @@ theorem layoutRecursive_c8a_of_flat (hflat8a : FlatC8a)
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC8aStep P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
@@ -507,6 +509,7 @@ theorem layoutRecursive_c8a_of_flat (hflat8a : FlatC8a)
         have hparentC8a := ih _ _ _ hwfParent hframedParent hparentAt
         have hstep := hgeo fuel P inp o group titleLines _ parent child res hexpandAt hframed
           ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
+          ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
         exact expandChild_c8a hchildC8a hparentC8a hstep hexpandAt
 
 /-- `layoutRecursive` preserves C8b given the flat clause for leaf layouts,
@@ -519,6 +522,7 @@ theorem layoutRecursive_c8b_of_flat (hflat8b : FlatC8b)
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC8bStep P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
@@ -545,6 +549,7 @@ theorem layoutRecursive_c8b_of_flat (hflat8b : FlatC8b)
         have hparentC8b := ih _ _ _ hwfParent hframedParent hparentAt
         have hstep := hgeo fuel P inp o group titleLines _ parent child res hexpandAt hframed
           ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
+          ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
         exact expandChild_c8b hchildC8b hparentC8b hstep hexpandAt
 
 end Elegant.Layered.PipelineImpl
