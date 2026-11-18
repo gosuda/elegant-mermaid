@@ -534,6 +534,8 @@ private theorem bottom_dump_box_boundary {inp : Input} {o : Options} {res : Fami
     (execution : SceneExecution inp o res)
     (hids : (inp.boxes.map (·.id)).Nodup)
     (hanchor : GroupAnchorSelection) (hbottom : GroupBottomBoundaryFacts)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     {q : (List Nat × Part) × Rect}
     (hcompIn : q.1.1 ∈ components execution.graph)
     (packed : Pack.State)
@@ -593,8 +595,14 @@ private theorem bottom_dump_box_boundary {inp : Input} {o : Options} {res : Fami
       Option.map_some, Option.getD_some]
     rw [hntop]
     rfl
+  have hlines : execution.lines.length = inp.boxes.length := by
+    have hle := execution.lines_eq
+    unfold boxLines at hle
+    have hlen := (mapM_getElem? _ _ _ hle).1
+    simpa [List.length_zipIdx] using hlen
   have hbound :=
-    hbottom hrun (v := pos) (t := q.1.1.idxOf n.decl) (px := px)
+    hbottom execution.graph_eq hlines hwf hfp hcompIn hrun (v := pos)
+      (t := q.1.1.idxOf n.decl) (px := px)
       (by rw [hcgNode]; exact hb2)
       (by rw [hcgTop]; exact htopB)
       (by rw [hcgNode, hcgTop]; exact htopDecl.symm)
@@ -800,7 +808,8 @@ theorem SceneExecution.chosen_part_group_c5_alias
         have hstartF : start = ⟨pxF,
             run.ys.getD edge.tail 0⟩ := Option.some.inj (hstart.symm.trans hheadF')
         obtain ⟨bF, hbFlookup, hbFbound⟩ :=
-          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hcomp packed hpacked
+          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hwf hfp hcomp
+            packed hpacked
             (c := c) hselected (candidate := candidate) (run := run)
             (labels := execution.measured) (orderOptions := candidateOrder candidate) hrun
             (loops := loops) (area := area) hpart hposF (n := nF) hnF hb2F (s := sF) hsF
@@ -834,7 +843,8 @@ theorem SceneExecution.chosen_part_group_c5_alias
         have hfinishT : finish = ⟨qxT,
             run.ys.getD edge.head 0⟩ := Option.some.inj (hfinish.symm.trans hlastT')
         obtain ⟨bT, hbTlookup, hbTbound⟩ :=
-          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hcomp packed hpacked
+          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hwf hfp hcomp
+            packed hpacked
             (c := c) hselected (candidate := candidate) (run := run)
             (labels := execution.measured) (orderOptions := candidateOrder candidate) hrun
             (loops := loops) (area := area) hpart hposTt (n := nT) hnT hb2T (s := sT) hsT
@@ -887,7 +897,8 @@ theorem SceneExecution.chosen_part_group_c5_alias
         have hstartF : start = ⟨qxT,
             run.ys.getD edge.head 0⟩ := Option.some.inj (hstart.symm.trans hheadT')
         obtain ⟨bF, hbFlookup, hbFbound⟩ :=
-          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hcomp packed hpacked
+          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hwf hfp hcomp
+            packed hpacked
             (c := c) hselected (candidate := candidate) (run := run)
             (labels := execution.measured) (orderOptions := candidateOrder candidate) hrun
             (loops := loops) (area := area) hpart hposF (n := nF) hnF hb2F (s := sF) hsF
@@ -930,7 +941,8 @@ theorem SceneExecution.chosen_part_group_c5_alias
         have hfinishT : finish = ⟨pxF,
             run.ys.getD edge.tail 0⟩ := Option.some.inj (hfinish.symm.trans hlastF')
         obtain ⟨bT, hbTlookup, hbTbound⟩ :=
-          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hcomp packed hpacked
+          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hwf hfp hcomp
+            packed hpacked
             (c := c) hselected (candidate := candidate) (run := run)
             (labels := execution.measured) (orderOptions := candidateOrder candidate) hrun
             (loops := loops) (area := area) hpart hposTt (n := nT) hnT hb2T (s := sT) hsT
