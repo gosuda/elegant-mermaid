@@ -376,6 +376,7 @@ def ExpandChildC8bStep (P : Params) (inp : Input) (o : Options) (group : ModelBo
         Disjoint g.rect (shiftRect dx dy cl.rect) ∨
           g.rect.StrictInside (shiftRect dx dy cl.rect)) ∧
     (∀ cg ∈ child.scene.boxes, cg.role = "group" → ∀ pl ∈ parent.scene.labels,
+        pl.owner ≠ group.id →
         Disjoint (shiftRect dx dy cg.rect) pl.rect ∨
           (shiftRect dx dy cg.rect).StrictInside pl.rect) ∧
     (∀ cg ∈ child.scene.boxes, cg.role = "group" →
@@ -417,7 +418,7 @@ theorem expandChild_c8b {P : Params} {inp : Input} {o : Options} {group : ModelB
   have hrlDump : sl.toLabel ∈ result.scene.layoutDump.labels :=
     List.mem_map.mpr ⟨sl, hsl, rfl⟩
   rcases hclassify sl.toLabel hrlDump with ⟨_hown, hrect⟩ |
-    ⟨cl, hcl, _hone, _hid, _hown2, hrect⟩ | ⟨pl, hpl, _hone, _hid, _hown2, hrect⟩
+    ⟨cl, hcl, _hone, _hid, _hown2, hrect⟩ | ⟨pl, hpl, hone, _hid, hownEq, hrect⟩
   · -- rl is the group caption at the title rect
     rcases List.mem_append.mp hgItems with hgc | hgp
     · obtain ⟨cg, hcg, hgEq⟩ := List.mem_map.mp hgc
@@ -451,8 +452,9 @@ theorem expandChild_c8b {P : Params} {inp : Input} {o : Options} {group : ModelB
         rw [← hgEq] at hgRole
         simpa [embedBox] using hgRole
       have hgrect : g.rect = shiftRect dx dy cg.rect := by rw [← hgEq]; rfl
+      have hplOwn : pl.owner ≠ group.id := hownEq ▸ hone
       rw [hgrect, hrect]
-      exact hchildGroupVsParentLabel cg hcg hgrole pl hpl
+      exact hchildGroupVsParentLabel cg hcg hgrole pl hpl hplOwn
     · rw [hrect]
       exact hparentC8b g hgp hgRole pl.toLabel (List.mem_map.mpr ⟨pl, hpl, rfl⟩)
 

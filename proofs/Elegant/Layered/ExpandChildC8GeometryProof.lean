@@ -34,9 +34,8 @@ workers and NOT reproved in this file:
   and is disjoint from the shifted child canvas;
 * `ExpandChildParentFrame` — the frame is disjoint from out-of-scope
   exclusive parent boxes and from parent labels it does not own, ancestor
-  group frames strictly contain it, foreign group frames are disjoint from
-  it (the parent scene's own C8a at the located frame), and the parent
-  labels the group owns sit at the caption rect.
+  group frames strictly contain it, and foreign group frames are disjoint
+  from it (the parent scene's own C8a at the located frame).
 
 What remains is the C8-specific glue: strict containment transports through
 the common shift, the located frame is the unique parent box with the
@@ -87,9 +86,8 @@ def ExpandChildTitleBand (P : Params) (inp : Input) (o : Options)
 
 /-- Facts about the located frame inside the parent scene alone: it is
 disjoint from out-of-scope exclusive parent boxes and from parent labels it
-does not own; ancestor group frames strictly contain it; foreign group
-frames are disjoint from it; and the parent labels it owns sit at the
-caption rect. -/
+does not own; ancestor group frames strictly contain it; and foreign group
+frames are disjoint from it. -/
 def ExpandChildParentFrame (P : Params) (inp : Input) (o : Options)
     (group : ModelBox) (titleHeight : Int) (parent _child : FamilyResult) : Prop :=
   ∀ (frame : Box) (titleLines : List Measure.Line) (dx dy : Int),
@@ -112,9 +110,7 @@ def ExpandChildParentFrame (P : Params) (inp : Input) (o : Options)
     (∀ g ∈ parent.scene.boxes, g.role = "group" → g.id ≠ group.id →
         g.id ∉ parent.scene.layoutDump.ancestors group.id →
         group.id ∉ parent.scene.layoutDump.ancestors g.id →
-        Disjoint g.rect frame.rect) ∧
-    (∀ pl ∈ parent.scene.labels, pl.owner = group.id →
-        pl.rect = groupTitleRectC8 group P titleLines titleHeight frame)
+        Disjoint g.rect frame.rect)
 
 /-! ### Transport helpers -/
 
@@ -187,10 +183,10 @@ theorem expandChild_c8a_geometry
 /-! ### C8b: the four cross-scene clearance pairs -/
 
 /-- The C8b geometry of one `expandChild` call.  Conjunct 3 (child groups vs
-caption) is discharged outright from the title band; conjunct 2's
-`owner ≠ group.id` case from the parent-frame fact; the remaining branches
-use the strict canvas fit, the strict title band, the parent-frame
-scene facts, and box-id uniqueness. -/
+caption) is discharged outright from the title band; conjunct 2 (child
+groups vs parent labels owned elsewhere) from the parent-frame fact; the
+remaining branches use the strict canvas fit, the strict title band, the
+parent-frame scene facts, and box-id uniqueness. -/
 theorem expandChild_c8b_geometry
     (fuel : Nat) (P : Params) (inp : Input) (o : Options)
     (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -212,7 +208,7 @@ theorem expandChild_c8b_geometry
       (shiftRect dx dy (Validator.canvasRect child.scene.layoutDump)) :=
     strictInside_contained hfitS
   obtain ⟨hbandT, hbandD⟩ := hTitleBand frame tl dx dy hframe hdx hdy hwrap
-  obtain ⟨_hparentBox, hparentLabel, hancStrict, hforeignDisj, hgroupLabel⟩ :=
+  obtain ⟨_hparentBox, hparentLabel, hancStrict, hforeignDisj⟩ :=
     hParentFrame frame tl dx dy hframe hdx hdy hwrap
   -- shifted child rects are contained in the shifted child canvas, which is
   -- contained in the frame
@@ -262,18 +258,10 @@ theorem expandChild_c8b_geometry
         have hdisj := hforeignDisj g hg hgRole hgId hgAnc hgNotDesc
         exact Or.inl ((Rect.disjoint_comm _ _).mp
           (disjoint_contained_left (hFcl cl hcl) ((Rect.disjoint_comm _ _).mp hdisj)))
-  · -- conjunct 2: shifted child groups vs parent labels
-    intro cg hcg cgRole pl hpl
-    by_cases howner : pl.owner = group.id
-    · -- the group-owned parent label sits at the caption rect, which is
-      -- disjoint from the shifted child canvas
-      have hprect : pl.rect = groupTitleRectC8 group P tl titleHeight frame :=
-        hgroupLabel pl hpl howner
-      rw [hprect]
-      exact Or.inl (disjoint_contained_left (hSCcg cg hcg)
-        ((Rect.disjoint_comm _ _).mp hbandD))
-    · have hdisjF := hparentLabel pl hpl howner
-      exact Or.inl (disjoint_contained_left (hFcg cg hcg) hdisjF)
+  · -- conjunct 2: shifted child groups vs parent labels owned elsewhere
+    intro cg hcg cgRole pl hpl hown
+    have hdisjF := hparentLabel pl hpl hown
+    exact Or.inl (disjoint_contained_left (hFcg cg hcg) hdisjF)
   · -- conjunct 3: shifted child groups vs the caption — disjoint via the
     -- title band
     intro cg hcg cgRole

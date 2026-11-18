@@ -303,6 +303,7 @@ def ExpandChildC8bGeometry (P : Params) (inp : Input) (o : Options) (group : Mod
         Disjoint g.rect (shiftRect dx dy cl.rect) ∨
           g.rect.StrictInside (shiftRect dx dy cl.rect)) ∧
     (∀ cg ∈ child.scene.boxes, cg.role = "group" → ∀ pl ∈ parent.scene.labels,
+        pl.owner ≠ group.id →
         Disjoint (shiftRect dx dy cg.rect) pl.rect ∨
           (shiftRect dx dy cg.rect).StrictInside pl.rect) ∧
     (∀ cg ∈ child.scene.boxes, cg.role = "group" →
