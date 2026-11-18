@@ -1357,3 +1357,6 @@ Elegant.Layered.PipelineImpl.flatGroupEndpoints
 Elegant.Layered.PipelineImpl.routeScopeBridge
 Elegant.Layered.PipelineImpl.flatC6ChainCase
 Elegant.Layered.PipelineImpl.foreignBorderSpansSeparated
+Elegant.Ishikawa.branch5_block_contiguity
+Elegant.Ishikawa.branch5_root_order
+Elegant.Ishikawa.hard_b_branch5_placement_block'

@@ -375,7 +375,7 @@ private theorem rib_parent_back (ns : List Tree.Node) (cause k : Nat) :
   intro i e hlook
   have hres := hProp i e (by rw [hgr] at hlook; exact hlook) (Nat.zero_le i)
   rw [hgr]
-  simpa only [List.nil_append] using hres
+  simpa only [List.nil_append, List.length_nil, Nat.zero_le, true_and, and_true] using hres
 
 /-- Named flatten-order fact: roots and even-depth entries appear in
 `rib.order` at positions increasing with their entry index (flatten appends
@@ -492,5 +492,714 @@ theorem hard_b_branch5_placement_block (ns : List Tree.Node) (cause k : Nat)
         (by omega) (Or.inr hchain0)
       have hhj := hclt hIdx jIdx hchain
       omega
+
+/-! ### Block contiguity from the flatten fold -/
+
+/-- Fold-level block structure: every appended entry either is a direct child of
+the call's own `par`, or has a parent inside the appended segment with no
+direct-`par` entry strictly between that parent and the entry. For the top call
+(`par = -1`) the direct entries are exactly the block heads, so no root lies
+strictly between an entry's parent and the entry. -/
+private theorem flatten_blocks (ns : List Tree.Node) (up : Bool) :
+    ∀ (fuel : Nat) (ids : List Nat) (par : Int) (depth : Nat) (es : List Entry)
+      (os : List Nat),
+      par = -1 ∨ (0 ≤ par ∧ (par.toNat) < es.length) →
+      ∃ (segE : List Entry),
+        (flatten ns up fuel ids par depth es os).1 = es ++ segE ∧
+        ∀ (i : Nat) (e : Entry), (es ++ segE)[i]? = some e → es.length ≤ i →
+          e.parent = par ∨
+          ∃ (p : Nat) (pe : Entry), e.parent = (p : Int) ∧ es.length ≤ p ∧ p < i ∧
+            (es ++ segE)[p]? = some pe ∧
+            ∀ (r2 : Nat) (re2 : Entry), es.length ≤ r2 ∧ r2 ≤ i ∧
+              (es ++ segE)[r2]? = some re2 ∧ re2.parent = par → r2 ≤ p := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro ids par depth es os _hp0
+    refine ⟨[], by simp [flatten], ?_⟩
+    intro i e hlook hle
+    rw [List.getElem?_append_right hle, List.getElem?_nil] at hlook
+    exact absurd hlook (by simp)
+  | succ fuel ih =>
+    intro ids par depth es os hp0
+    have inner :
+        ∀ (ls : List Nat) (st : List Entry × List Nat), es.length ≤ st.1.length →
+          ∃ (segE : List Entry),
+            (ls.foldl (flattenStep ns up fuel par depth) st).1 = st.1 ++ segE ∧
+            ∀ (i : Nat) (e : Entry), (st.1 ++ segE)[i]? = some e → st.1.length ≤ i →
+              e.parent = par ∨
+              ∃ (p : Nat) (pe : Entry), e.parent = (p : Int) ∧ st.1.length ≤ p ∧
+                p < i ∧ (st.1 ++ segE)[p]? = some pe ∧
+                ∀ (r2 : Nat) (re2 : Entry), st.1.length ≤ r2 ∧ r2 ≤ i ∧
+                  (st.1 ++ segE)[r2]? = some re2 ∧ re2.parent = par → r2 ≤ p := by
+      intro ls
+      induction ls with
+      | nil =>
+        intro st _hst
+        refine ⟨[], by simp, ?_⟩
+        intro i e hlook hle
+        rw [List.getElem?_append_right hle, List.getElem?_nil] at hlook
+        exact absurd hlook (by simp)
+      | cons node rest ihrest =>
+        intro st hst
+        obtain ⟨dE, hdE, hdprop⟩ :=
+          ih (children ns node) (st.1.length : Int) (depth + 1)
+            (st.1 ++ [(⟨node, par, depth⟩ : Entry)])
+            (if depth % 2 == 0 then st.2 ++ [st.1.length] else st.2)
+            (Or.inr ⟨by omega, by
+              simp only [List.length_append, List.length_singleton]; omega⟩)
+        have hstep : (flattenStep ns up fuel par depth st node).1
+              = (st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE := hdE
+        obtain ⟨segE', hsegE', hprop'⟩ :=
+          ihrest (flattenStep ns up fuel par depth st node)
+            (by
+              rw [hstep]
+              simp only [List.length_append, List.length_singleton]
+              omega)
+        rw [hstep] at hsegE' hprop'
+        have hlen1 : (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length
+            = st.1.length + 1 := by
+          simp only [List.length_append, List.length_singleton]
+        have hlenA : ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE).length
+            = (st.1.length + 1) + dE.length := by
+          rw [List.length_append, hlen1]
+        have happ : st.1 ++ ((⟨node, par, depth⟩ : Entry) :: (dE ++ segE'))
+            = ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE) ++ segE' := by
+          simp [List.append_assoc]
+        have hnlt : par.toNat < st.1.length ∨ par = -1 := by
+          rcases hp0 with h | ⟨h1, h2⟩
+          · exact Or.inr h
+          · exact Or.inl (by omega)
+        have hnoPar : ∀ (r2 : Nat) (re2 : Entry),
+            (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length ≤ r2 →
+            ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE)[r2]? = some re2 →
+            re2.parent ≠ par := by
+          intro r2 re2 hr2 hrlook habs
+          rcases hdprop r2 re2 hrlook hr2 with hd | ⟨p, pe, hpe, hpge, _, _, _⟩
+          · rw [hd] at habs
+            omega
+          · rw [hlen1] at hpge
+            rw [hpe] at habs
+            omega
+        refine ⟨(⟨node, par, depth⟩ : Entry) :: (dE ++ segE'), ?_, ?_⟩
+        · rw [List.foldl_cons, hsegE']
+          exact happ.symm
+        · intro i e hlook hle
+          by_cases hin : i < st.1.length + 1
+          · have hieq : i = st.1.length := by omega
+            rw [List.getElem?_append_right hle, hieq, Nat.sub_self,
+              List.getElem?_cons_zero, Option.some.injEq] at hlook
+            exact Or.inl (by rw [← hlook])
+          · by_cases hiA : i < (st.1.length + 1) + dE.length
+            · have hlookA : ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE)[i]? = some e := by
+                rw [happ, List.getElem?_append_left (by rw [hlenA]; omega)] at hlook
+                exact hlook
+              have hi1 : (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length ≤ i := by
+                rw [hlen1]; omega
+              rcases hdprop i e hlookA hi1 with
+                hd | ⟨p, pe, hpe, hpge, hplt, hplook, hginv⟩
+              · refine Or.inr ⟨st.1.length, ⟨node, par, depth⟩, hd, by omega, by omega, ?_, ?_⟩
+                · rw [happ, List.getElem?_append_left (by rw [hlenA]; omega),
+                    List.getElem?_append_left (by rw [hlen1]; omega),
+                    List.getElem?_append_right (Nat.le_refl st.1.length),
+                    Nat.sub_self, List.getElem?_singleton]
+                  rfl
+                · intro r2 re2 hconj
+                  obtain ⟨_hr2, _hr2i, hrlook, hrpar⟩ := hconj
+                  by_cases hr2n : r2 < st.1.length + 1
+                  · omega
+                  · rw [happ, List.getElem?_append_left (by rw [hlenA]; omega)] at hrlook
+                    exact (hnoPar r2 re2 (by rw [hlen1]; omega) hrlook hrpar).elim
+              · refine Or.inr ⟨p, pe, hpe, by omega, hplt, ?_, ?_⟩
+                · rw [happ, List.getElem?_append_left (by rw [hlenA]; omega)]
+                  exact hplook
+                · intro r2 re2 hconj
+                  obtain ⟨_hr2, _hr2i, hrlook, hrpar⟩ := hconj
+                  by_cases hr2n : r2 < st.1.length + 1
+                  · omega
+                  · rw [happ, List.getElem?_append_left (by rw [hlenA]; omega)] at hrlook
+                    exact (hnoPar r2 re2 (by rw [hlen1]; omega) hrlook hrpar).elim
+            · have hlook2 : (((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE) ++ segE')[i]? = some e := by
+                rw [← happ]
+                exact hlook
+              rcases hprop' i e hlook2 (by rw [hlenA]; omega) with hd | hex
+              · exact Or.inl hd
+              · obtain ⟨p, pe, hpe, hpge, hplt, hplook, hginv⟩ := hex
+                refine Or.inr ⟨p, pe, hpe, by omega, hplt, ?_, ?_⟩
+                · rw [happ]
+                  exact hplook
+                intro r2 re2 hconj
+                rw [happ] at hconj
+                obtain ⟨_hr2, _hr2i, hrlook, hrpar⟩ := hconj
+                by_cases hrA : ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE).length ≤ r2
+                · exact hginv r2 re2 ⟨hrA, _hr2i, hrlook, hrpar⟩
+                · rw [hlenA] at hrA
+                  omega
+    obtain ⟨segE, hsegE, hprop⟩ :=
+      inner (if up then ids.reverse else ids) (es, os) (Nat.le_refl es.length)
+    rw [flatten_succ_eq_foldl]
+    exact ⟨segE, hsegE, hprop⟩
+
+/-- Rib-level block structure: every entry of a generated rib is a block head
+(`parent = -1`) or has an in-rib parent with no block head between that parent
+and the entry. -/
+private theorem rib_blocks (ns : List Tree.Node) (cause k : Nat) :
+    ∀ (i : Nat) (e : Entry), (generatedRib ns (cause, k)).entries[i]? = some e →
+      e.parent = -1 ∨
+      ∃ (p : Nat) (pe : Entry), e.parent = (p : Int) ∧ p < i ∧
+        (generatedRib ns (cause, k)).entries[p]? = some pe ∧
+        ∀ (r2 : Nat) (re2 : Entry), r2 ≤ i ∧
+          (generatedRib ns (cause, k)).entries[r2]? = some re2 ∧ re2.parent = -1 → r2 ≤ p := by
+  obtain ⟨segE, hEq, hProp⟩ :=
+    flatten_blocks ns (upper k) 64 (children ns cause) (-1) 2 [] [] (Or.inl rfl)
+  have hf2 : (generatedRib ns (cause, k)).entries = [] ++ segE :=
+    (congrArg Prod.fst (generated_rib_fields ns cause k).2.2.1).trans hEq
+  intro i e hlook
+  have hres := hProp i e (by rw [← hf2]; exact hlook) (Nat.zero_le i)
+  rw [hf2]
+  simpa only [List.nil_append, List.length_nil, Nat.zero_le, true_and, and_true] using hres
+
+/-- No block head lies strictly between a root and a chained descendant. -/
+private theorem chain_no_root_between (E : List Entry)
+    (hblk : ∀ (i : Nat) (e : Entry), E[i]? = some e →
+      e.parent = -1 ∨ ∃ (p : Nat) (pe : Entry), e.parent = (p : Int) ∧ p < i ∧
+        E[p]? = some pe ∧
+        ∀ (r2 : Nat) (re2 : Entry), r2 ≤ i ∧ E[r2]? = some re2 ∧ re2.parent = -1 → r2 ≤ p) :
+    ∀ (a c : Nat), IndexedAncestor E a c → ∀ (ae : Entry), E[a]? = some ae →
+      ae.parent = -1 →
+      ∀ (w : Nat) (we : Entry), a < w → w ≤ c → E[w]? = some we → we.parent ≠ -1 := by
+  intro a c hchain
+  induction hchain with
+  | edge _cIdx e he hp =>
+    intro ae hae _hroot w we hgt hle hlook habs
+    rcases hblk _ e he with hd | ⟨p, pe, hpe, hplt, _, hginv⟩
+    · rw [hd] at hp
+      omega
+    · have hwp : w ≤ p := hginv w we ⟨hle, hlook, habs⟩
+      rw [hpe] at hp
+      omega
+  | @tail b _cIdx hab e he hp ih =>
+    intro ae hae hroot w we hgt hle hlook habs
+    by_cases hw : w ≤ b
+    · exact ih ae hae hroot w we hgt hw hlook habs
+    · rcases hblk _ e he with hd | ⟨p, pe, hpe, hplt, _, hginv⟩
+      · rw [hd] at hp
+        omega
+      · have hwp : w ≤ p := hginv w we ⟨hle, hlook, habs⟩
+        rw [hpe] at hp
+        omega
+
+/-- `Branch5BlockContiguity` for the actual generated rib: an entry chained to a
+root `r1` stays below the next root `r2`. -/
+theorem branch5_block_contiguity (ns : List Tree.Node) (cause k : Nat) :
+    Branch5BlockContiguity ns cause k := by
+  have hblk := rib_blocks ns cause k
+  intro r1 r2 i e1 e2 h1 h1root h2 h2root hlt harm
+  rcases harm with rfl | hchain
+  · omega
+  · rcases Nat.lt_or_ge i r2 with hilt | hile
+    · exact hilt
+    · exfalso
+      exact chain_no_root_between _ hblk r1 i hchain e1 h1 h1root r2 e2 hlt hile h2 h2root
+
+/-! ### Order monotonicity via pairwise even emission order -/
+
+/-- Every even-depth entry appearing earlier in the list has strictly smaller
+index than every even-depth entry appearing later. -/
+private def EvenBefore (E : List Entry) : List Nat → Prop
+  | [] => True
+  | x :: rest =>
+      (∀ y ∈ rest, ∀ (ye ey : Entry), E[x]? = some ye → ye.depth % 2 = 0 →
+        E[y]? = some ey → ey.depth % 2 = 0 → x < y) ∧ EvenBefore E rest
+
+private theorem evenBefore_append {E : List Entry} {l1 l2 : List Nat} :
+    EvenBefore E l1 → EvenBefore E l2 →
+    (∀ x ∈ l1, ∀ y ∈ l2, ∀ (xe ey : Entry), E[x]? = some xe → xe.depth % 2 = 0 →
+      E[y]? = some ey → ey.depth % 2 = 0 → x < y) → EvenBefore E (l1 ++ l2) := by
+  induction l1 with
+  | nil => intro _ h2 _; exact h2
+  | cons x rest ih =>
+      intro h1 h2 hc
+      obtain ⟨hhead, htail⟩ := h1
+      refine ⟨?_, ih htail h2 ?_⟩
+      · intro y hy ye ey hxe hxe2 hey hey2
+        rcases List.mem_append.mp hy with hy' | hy'
+        · exact hhead y hy' ye ey hxe hxe2 hey hey2
+        · exact hc x (List.mem_cons_self) y hy' ye ey hxe hxe2 hey hey2
+      · intro a ha b hb ae aeven be beven
+        exact hc a (List.mem_cons_of_mem _ ha) b hb ae aeven be beven
+
+private theorem evenBefore_append_left {E : List Entry} {l1 l2 : List Nat} :
+    EvenBefore E (l1 ++ l2) → EvenBefore E l1 := by
+  induction l1 with
+  | nil => intro _; exact trivial
+  | cons x rest ih =>
+      intro h
+      obtain ⟨hhead, htail⟩ := h
+      refine ⟨?_, ih htail⟩
+      intro y hy ye ey hxe hxe2 hey hey2
+      exact hhead y (List.mem_append.mpr (Or.inl hy)) ye ey hxe hxe2 hey hey2
+
+private theorem evenBefore_append_right {E : List Entry} {l1 l2 : List Nat} :
+    EvenBefore E (l1 ++ l2) → EvenBefore E l2 := by
+  induction l1 with
+  | nil => intro h; exact h
+  | cons x rest ih =>
+      intro h
+      obtain ⟨_, htail⟩ := h
+      exact ih htail
+
+private theorem evenBefore_append_cross {E : List Entry} {l1 l2 : List Nat} :
+    EvenBefore E (l1 ++ l2) →
+    ∀ x ∈ l1, ∀ y ∈ l2, ∀ (xe ey : Entry), E[x]? = some xe → xe.depth % 2 = 0 →
+      E[y]? = some ey → ey.depth % 2 = 0 → x < y := by
+  induction l1 with
+  | nil => intro _ x hx; exact absurd hx (by simp)
+  | cons x rest ih =>
+      intro h a ha b hb ae aeven be beven
+      obtain ⟨hhead, htail⟩ := h
+      rcases List.mem_cons.mp ha with rfl | ha'
+      · exact hhead b (List.mem_append.mpr (Or.inr hb)) ae aeven be beven
+      · exact ih htail a ha' b hb ae aeven be beven
+
+/-- Two list positions with lookups give the pairwise constraint of
+`EvenBefore`. -/
+private theorem evenBefore_of_pos {E : List Entry} {l : List Nat}
+    (heb : EvenBefore E l) {p q x y : Nat} (hp : l[p]? = some x) (hq : l[q]? = some y)
+    (hpq : p < q) {xe ye : Entry} (hx : E[x]? = some xe) (hxe : xe.depth % 2 = 0)
+    (hy : E[y]? = some ye) (hye : ye.depth % 2 = 0) : x < y := by
+  induction l generalizing p q with
+  | nil =>
+    rw [List.getElem?_nil] at hp
+    exact absurd hp (by simp)
+  | cons z rest ih =>
+    rcases p with _ | p
+    · rw [List.getElem?_cons_zero] at hp
+      have hzx : z = x := Option.some.inj hp
+      subst hzx
+      obtain ⟨q', hq'⟩ : ∃ q', q = q' + 1 := ⟨q - 1, by omega⟩
+      rw [hq', List.getElem?_cons_succ] at hq
+      obtain ⟨hhead, _⟩ := heb
+      exact hhead y (List.mem_of_getElem? hq) xe ye hx hxe hy hye
+    · rw [List.getElem?_cons_succ] at hp
+      rcases q with _ | q
+      · omega
+      · rw [List.getElem?_cons_succ] at hq
+        obtain ⟨_, htail⟩ := heb
+        exact ih htail hp hq (by omega)
+
+/-- Extending the entry list does not affect `EvenBefore` for a list of
+already-emitted indices. -/
+private theorem evenBefore_extend {E : List Entry} {F : List Entry} {l : List Nat}
+    (hlook : ∀ x ∈ l, x < E.length) : EvenBefore E l → EvenBefore (E ++ F) l := by
+  induction l with
+  | nil => intro _; exact trivial
+  | cons x rest ih =>
+      intro h
+      obtain ⟨hhead, htail⟩ := h
+      have hrest : ∀ y ∈ rest, y < E.length := fun y hy => hlook y (List.mem_cons_of_mem _ hy)
+      refine ⟨?_, ih hrest htail⟩
+      intro y hy ye ey hye1 hye2 hey1 hey2
+      have hxE : E[x]? = some ye := by
+        rw [List.getElem?_append_left (hlook x (List.mem_cons_self))] at hye1
+        exact hye1
+      have hyE : E[y]? = some ey := by
+        have hyj : y < E.length := hlook y (List.mem_cons_of_mem _ hy)
+        rw [List.getElem?_append_left hyj] at hey1
+        exact hey1
+      exact hhead y hy ye ey hxE hye2 hyE hey2
+
+/-- The generated rib's own emissions are its own entry indices, and even-depth
+entries are emitted in index order. -/
+private theorem flatten_order (ns : List Tree.Node) (up : Bool) :
+    ∀ (fuel : Nat) (ids : List Nat) (par : Int) (depth : Nat) (es : List Entry)
+      (os : List Nat),
+      par = -1 ∨ (0 ≤ par ∧ (par.toNat) < es.length) →
+      (∀ (i : Nat) (x : Nat), os[i]? = some x → x < es.length) →
+      EvenBefore es os →
+      ∃ (segE : List Entry) (segO : List Nat),
+        flatten ns up fuel ids par depth es os = (es ++ segE, os ++ segO) ∧
+        (∀ (i : Nat) (x : Nat), segO[i]? = some x →
+          es.length ≤ x ∧ x < (es ++ segE).length) ∧
+        EvenBefore (es ++ segE) (os ++ segO) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro ids par depth es os _hp0 _hemit heven
+    refine ⟨[], [], by simp [flatten], ?_, ?_⟩
+    · intro i x hlook
+      exact absurd hlook (by simp)
+    · rw [List.append_nil, List.append_nil]
+      exact heven
+  | succ fuel ih =>
+    intro ids par depth es os hp0 hosEmit hosEven
+    have inner :
+        ∀ (ls : List Nat) (st : List Entry × List Nat), es.length ≤ st.1.length →
+          (∀ (i : Nat) (x : Nat), st.2[i]? = some x → x < st.1.length) →
+          EvenBefore st.1 st.2 →
+          ∃ (segE : List Entry) (segO : List Nat),
+            (ls.foldl (flattenStep ns up fuel par depth) st) = (st.1 ++ segE, st.2 ++ segO) ∧
+            (∀ (i : Nat) (x : Nat), segO[i]? = some x →
+              es.length ≤ x ∧ x < (st.1 ++ segE).length) ∧
+            EvenBefore (st.1 ++ segE) (st.2 ++ segO) := by
+      intro ls
+      induction ls with
+      | nil =>
+        intro st _hlen _hem hev
+        refine ⟨[], [], by simp, ?_, ?_⟩
+        · intro i x hlook
+          exact absurd hlook (by simp)
+        · rw [List.append_nil, List.append_nil]
+          exact hev
+      | cons node rest ihrest =>
+        intro st hstLen hstEmit hstEven
+        have hlen1 : (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length = st.1.length + 1 := by
+          simp only [List.length_append, List.length_singleton]
+        rcases Nat.mod_two_eq_zero_or_one depth with hdp | hdp
+        · obtain ⟨dE, dO, hpairI, hsegI, hEvenI⟩ :=
+            ih (children ns node) (st.1.length : Int) (depth + 1)
+              (st.1 ++ [(⟨node, par, depth⟩ : Entry)]) (st.2 ++ [st.1.length])
+              (Or.inr ⟨by omega, by
+                simp only [List.length_append, List.length_singleton]; omega⟩)
+              (by
+                intro i x hlook
+                rcases Nat.lt_or_ge i st.2.length with hi | hi
+                · rw [List.getElem?_append_left hi] at hlook
+                  have hx := hstEmit i x hlook
+                  simp only [List.length_append, List.length_singleton] at hx ⊢
+                  omega
+                · have hib := (List.getElem?_eq_some_iff.mp hlook).1
+                  simp only [List.length_append, List.length_singleton] at hib
+                  have hieq : i = st.2.length := by omega
+                  rw [List.getElem?_append_right (by omega)] at hlook
+                  rw [hieq, Nat.sub_self, List.getElem?_cons_zero] at hlook
+                  have hx : x = st.1.length := (Option.some.inj hlook).symm
+                  simp only [List.length_append, List.length_singleton]
+                  omega)
+                  (evenBefore_append
+                    (evenBefore_extend
+                      (E := st.1) (F := [⟨node, par, depth⟩]) (l := st.2)
+                      (by
+                        intro x hx
+                        obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hx
+                        exact hstEmit j x hj) hstEven)
+                    (⟨by intro y hy ye ey _ _ _ _; exact absurd hy (by simp), trivial⟩ :
+                      EvenBefore _ [st.1.length])
+                    (by
+                      intro x hx y hy xe ey hxe _ hey _
+                      have hxy : y = st.1.length := by
+                        rcases List.mem_cons.mp hy with rfl | hy'
+                        · rfl
+                        · exact absurd hy' (by simp)
+                      obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hx
+                      have hxlt := hstEmit j x hj
+                      omega))
+          have hstepPair : flattenStep ns up fuel par depth st node
+              = ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE,
+                  (st.2 ++ [st.1.length]) ++ dO) := by
+            simp [flattenStep, hdp, hpairI]
+          have hEvenD : EvenBefore ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE) dO := by
+            have h := evenBefore_append_right
+              (E := (st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE)
+              (l1 := st.2 ++ [st.1.length]) (l2 := dO) hEvenI
+            exact h
+          obtain ⟨segE', segO', hpairR, hsegR, hEvenR⟩ :=
+            ihrest (((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE),
+              (st.2 ++ [st.1.length]) ++ dO)
+              (by simp only [List.length_append, List.length_singleton]; omega)
+              (by
+                intro i x hlook
+                have hmem : x ∈ ((st.2 ++ [st.1.length]) ++ dO) :=
+                  List.mem_of_getElem? hlook
+                simp only [List.length_append, List.length_singleton]
+                rcases List.mem_append.mp hmem with h | h
+                · rcases List.mem_append.mp h with hst | hidx
+                  · obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hst
+                    have hx := hstEmit j x hj
+                    omega
+                  · have hx : x = st.1.length := by
+                      rcases List.mem_cons.mp hidx with rfl | hnil
+                      · rfl
+                      · exact absurd hnil (by simp)
+                    omega
+                · obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp h
+                  have hx := (hsegI j x hj).2
+                  simp only [List.length_append, List.length_singleton] at hx
+                  omega)
+              (evenBefore_append
+                (E := ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE))
+                (l1 := st.2 ++ [st.1.length]) (l2 := dO)
+                (evenBefore_append
+                  (E := ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE))
+                  (l1 := st.2) (l2 := [st.1.length])
+                  (evenBefore_extend
+                    (E := st.1 ++ [(⟨node, par, depth⟩ : Entry)]) (F := dE) (l := st.2)
+                    (by
+                      intro x hx
+                      obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hx
+                      have hxlt := hstEmit j x hj
+                      simp only [List.length_append, List.length_singleton]
+                      omega)
+                    (evenBefore_extend
+                      (E := st.1) (F := [(⟨node, par, depth⟩ : Entry)]) (l := st.2)
+                      (by
+                        intro x hx
+                        obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hx
+                        exact hstEmit j x hj) hstEven))
+                  (⟨by intro y hy ye ey _ _ _ _; exact absurd hy (by simp), trivial⟩ :
+                    EvenBefore (((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE)) [st.1.length])
+                  (by
+                    intro x hx y hy xe ey hxe _ hey _
+                    have hxy : y = st.1.length := by
+                      rcases List.mem_cons.mp hy with rfl | hy'
+                      · rfl
+                      · exact absurd hy' (by simp)
+                    obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hx
+                    have hxlt := hstEmit j x hj
+                    omega))
+                hEvenD
+                (by
+                  intro x hx y hy xe ey hxe _ hey _
+                  obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hy
+                  have hyb := (hsegI j y hj).1
+                  simp only [List.length_append, List.length_singleton] at hyb
+                  rcases List.mem_append.mp hx with hxst | hxidx
+                  · obtain ⟨jj, hjj⟩ := List.mem_iff_getElem?.mp hxst
+                    have hxlt := hstEmit jj x hjj
+                    omega
+                  · have hxeq : x = st.1.length := by
+                      rcases List.mem_cons.mp hxidx with rfl | hnil
+                      · rfl
+                      · exact absurd hnil (by simp)
+                    omega))
+          have happE : st.1 ++ ((⟨node, par, depth⟩ : Entry) :: (dE ++ segE'))
+              = ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE) ++ segE' := by
+            simp [List.append_assoc]
+          have happO : st.2 ++ ([st.1.length] ++ dO ++ segO')
+              = ((st.2 ++ [st.1.length]) ++ dO) ++ segO' := by
+            simp [List.append_assoc]
+          refine ⟨(⟨node, par, depth⟩ : Entry) :: (dE ++ segE'),
+            [st.1.length] ++ dO ++ segO', ?_, ?_, ?_⟩
+          · rw [List.foldl_cons, hstepPair, hpairR]
+            simp [List.append_assoc]
+          · intro i x hlook
+            have hmem : x ∈ ([st.1.length] ++ (dO ++ segO')) :=
+              List.mem_of_getElem? hlook
+            simp only [List.length_append, List.length_cons]
+            rcases List.mem_append.mp hmem with h | h
+            · rcases List.mem_cons.mp h with hidx | hnil
+              · rw [hidx]
+                constructor <;> omega
+              · exact absurd hnil (by simp)
+            · rcases List.mem_append.mp h with hdO | hseg
+              · obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hdO
+                obtain ⟨hlB, huB⟩ := hsegI j x hj
+                simp only [List.length_append, List.length_singleton] at hlB huB
+                constructor <;> omega
+              · obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hseg
+                obtain ⟨hlB, huB⟩ := hsegR j x hj
+                simp only [List.length_append, List.length_singleton] at hlB huB
+                constructor <;> omega
+          · rw [happE, happO]
+            exact hEvenR
+        · obtain ⟨dE, dO, hpairI, hsegI, hEvenI⟩ :=
+            ih (children ns node) (st.1.length : Int) (depth + 1)
+              (st.1 ++ [(⟨node, par, depth⟩ : Entry)]) st.2
+              (Or.inr ⟨by omega, by
+                simp only [List.length_append, List.length_singleton]; omega⟩)
+              (by
+                intro i x hlook
+                have hx := hstEmit i x hlook
+                simp only [List.length_append, List.length_singleton]
+                omega)
+              (evenBefore_extend
+                (E := st.1) (F := [(⟨node, par, depth⟩ : Entry)]) (l := st.2)
+                (by
+                  intro x hx
+                  obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hx
+                  exact hstEmit j x hj) hstEven)
+          have hstepPair : flattenStep ns up fuel par depth st node
+              = ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE,
+                  (st.2 ++ dO) ++ [st.1.length]) := by
+            simp [flattenStep, hdp, hpairI]
+          have hEvenD : EvenBefore ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE) dO := by
+            have h := evenBefore_append_right
+              (E := (st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE)
+              (l1 := st.2) (l2 := dO) hEvenI
+            exact h
+          obtain ⟨segE', segO', hpairR, hsegR, hEvenR⟩ :=
+            ihrest (((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE),
+              (st.2 ++ dO) ++ [st.1.length])
+              (by simp only [List.length_append, List.length_singleton]; omega)
+              (by
+                intro i x hlook
+                have hmem : x ∈ ((st.2 ++ dO) ++ [st.1.length]) :=
+                  List.mem_of_getElem? hlook
+                simp only [List.length_append, List.length_singleton]
+                rcases List.mem_append.mp hmem with h | h
+                · rcases List.mem_append.mp h with hst | hdO
+                  · obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hst
+                    have hx := hstEmit j x hj
+                    omega
+                  · obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hdO
+                    have hx := (hsegI j x hj).2
+                    simp only [List.length_append, List.length_singleton] at hx
+                    omega
+                · have hx : x = st.1.length := by
+                    rcases List.mem_cons.mp h with rfl | hnil
+                    · rfl
+                    · exact absurd hnil (by simp)
+                  omega)
+              (evenBefore_append
+                (E := ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE))
+                (l1 := st.2 ++ dO) (l2 := [st.1.length])
+                (evenBefore_append
+                  (E := ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE))
+                  (l1 := st.2) (l2 := dO)
+                  (evenBefore_extend
+                    (E := st.1 ++ [(⟨node, par, depth⟩ : Entry)]) (F := dE) (l := st.2)
+                    (by
+                      intro x hx
+                      obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hx
+                      have hxlt := hstEmit j x hj
+                      simp only [List.length_append, List.length_singleton]
+                      omega)
+                    (evenBefore_extend
+                      (E := st.1) (F := [(⟨node, par, depth⟩ : Entry)]) (l := st.2)
+                      (by
+                        intro x hx
+                        obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hx
+                        exact hstEmit j x hj) hstEven))
+                  hEvenD
+                  (by
+                    intro x hx y hy xe ey hxe _ hey _
+                    obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hx
+                    have hxlt := hstEmit j x hj
+                    obtain ⟨jj, hjj⟩ := List.mem_iff_getElem?.mp hy
+                    have hyb := (hsegI jj y hjj).1
+                    simp only [List.length_append, List.length_singleton] at hyb
+                    omega))
+                (⟨by intro y hy ye ey _ _ _ _; exact absurd hy (by simp), trivial⟩ :
+                  EvenBefore (((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE)) [st.1.length])
+                (by
+                  intro x hx y hy xe ey hxe _ hey heyEven
+                  have hxy : y = st.1.length := by
+                    rcases List.mem_cons.mp hy with rfl | hy'
+                    · rfl
+                    · exact absurd hy' (by simp)
+                  subst hxy
+                  have hlook : (((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE))[st.1.length]?
+                      = some ⟨node, par, depth⟩ := by
+                    rw [List.getElem?_append_left
+                      (by simp only [List.length_append, List.length_singleton]; omega),
+                      List.getElem?_append_right (Nat.le_refl st.1.length), Nat.sub_self,
+                      List.getElem?_cons_zero]
+                  have heq : ey = ⟨node, par, depth⟩ := Option.some.inj (hey.symm.trans hlook)
+                  have hdep : depth % 2 = 0 := by rw [heq] at heyEven; exact heyEven
+                  omega))
+          have happE : st.1 ++ ((⟨node, par, depth⟩ : Entry) :: (dE ++ segE'))
+              = ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]) ++ dE) ++ segE' := by
+            simp [List.append_assoc]
+          have happO : st.2 ++ (dO ++ [st.1.length] ++ segO')
+              = ((st.2 ++ dO) ++ [st.1.length]) ++ segO' := by
+            simp [List.append_assoc]
+          refine ⟨(⟨node, par, depth⟩ : Entry) :: (dE ++ segE'),
+            dO ++ [st.1.length] ++ segO', ?_, ?_, ?_⟩
+          · rw [List.foldl_cons, hstepPair, hpairR]
+            simp [List.append_assoc]
+          · intro i x hlook
+            have hmem : x ∈ (dO ++ [st.1.length] ++ segO') :=
+              List.mem_of_getElem? hlook
+            simp only [List.length_append, List.length_cons]
+            rcases List.mem_append.mp hmem with h | h
+            · rcases List.mem_append.mp h with hdO | hidx
+              · obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hdO
+                obtain ⟨hlB, huB⟩ := hsegI j x hj
+                simp only [List.length_append, List.length_singleton] at hlB huB
+                constructor <;> omega
+              · rcases List.mem_cons.mp hidx with hidx | hnil
+                · rw [hidx]
+                  constructor <;> omega
+                · exact absurd hnil (by simp)
+            · obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp h
+              obtain ⟨hlB, huB⟩ := hsegR j x hj
+              simp only [List.length_append, List.length_singleton] at hlB huB
+              constructor <;> omega
+          · rw [happE, happO]
+            exact hEvenR
+    obtain ⟨segE, segO, hpair, hseg, hEven⟩ :=
+      inner (if up then ids.reverse else ids) (es, os)
+        (Nat.le_refl es.length) hosEmit hosEven
+    rw [flatten_succ_eq_foldl]
+    exact ⟨segE, segO, hpair, hseg, hEven⟩
+
+/-- `Branch5RootOrderFact` for the actual generated rib: roots and even-depth
+entries appear in `rib.order` at positions increasing with their entry index.
+The pairwise order comes from `flatten_order`; root entries are even by
+`generated_root_depth`. -/
+theorem branch5_root_order (ns : List Tree.Node) (cause k : Nat)
+    (hlink : Tree.link ns = true) (hcause : cause ∈ children ns 0) :
+    Branch5RootOrderFact ns cause k := by
+  obtain ⟨segE, segO, hpair, _hseg, hEven⟩ :=
+    flatten_order ns (upper k) 64 (children ns cause) (-1) 2 [] []
+      (Or.inl rfl)
+      (by intro i x hlook; rw [List.getElem?_nil] at hlook; simp at hlook)
+      trivial
+  simp only [List.nil_append] at hEven
+  have hE : (generatedRib ns (cause, k)).entries = [] ++ segE :=
+    (congrArg Prod.fst (generated_rib_fields ns cause k).2.2.1).trans
+      (congrArg Prod.fst hpair)
+  have hO : (generatedRib ns (cause, k)).order = [] ++ segO :=
+    (congrArg Prod.snd (generated_rib_fields ns cause k).2.2.1).trans
+      (congrArg Prod.snd hpair)
+  intro a b ae be pa pb ha haRoot hb hbEven hab hfa hfb
+  have haE : segE[a]? = some ae := by
+    simpa only [hE, List.nil_append] using ha
+  have hbE : segE[b]? = some be := by
+    simpa only [hE, List.nil_append] using hb
+  have haEven : ae.depth % 2 = 0 := by
+    have hmem : (ae, a) ∈ (generatedRib ns (cause, k)).entries.zipIdx :=
+      List.mem_zipIdx_iff_getElem?.mpr ha
+    have hd := generated_root_depth ns cause k hlink hcause ae a hmem haRoot
+    omega
+  have hpaLook : segO[pa.2]? = some a := by
+    have hm := List.mem_of_find?_eq_some hfa
+    have hg := List.mem_zipIdx_iff_getElem?.mp hm
+    have h1 : pa.1 = a := by simpa using List.find?_some hfa
+    rw [h1] at hg
+    simpa only [hO, List.nil_append] using hg
+  have hpbLook : segO[pb.2]? = some b := by
+    have hm := List.mem_of_find?_eq_some hfb
+    have hg := List.mem_zipIdx_iff_getElem?.mp hm
+    have h1 : pb.1 = b := by simpa using List.find?_some hfb
+    rw [h1] at hg
+    simpa only [hO, List.nil_append] using hg
+  rcases Nat.lt_or_ge pa.2 pb.2 with hlt | hge
+  · exact hlt
+  · exfalso
+    rcases Nat.lt_or_ge pb.2 pa.2 with hb_lt | hb_ge
+    · have hcontra := evenBefore_of_pos hEven hpbLook hpaLook hb_lt hbE hbEven haE haEven
+      omega
+    · have hpos : pb.2 = pa.2 := by omega
+      rw [hpos] at hpbLook
+      have hab' : a = b := Option.some.inj (hpaLook.symm.trans hpbLook)
+      omega
+
+/-- The corrected branch-5 classification with both flatten-order facts
+derived: the same statement as `hard_b_branch5_placement_block` with the
+`horder` and `hcontig` hypotheses replaced by their proofs. -/
+theorem hard_b_branch5_placement_block' (ns : List Tree.Node) (cause k : Nat)
+    (hlink : Tree.link ns = true) (hcause : cause ∈ children ns 0)
+    (child j : Entry) (childIdx jIdx : Nat)
+    (hchild : (child, childIdx) ∈ (generatedRib ns (cause, k)).entries.zipIdx)
+    (hj : (j, jIdx) ∈ (generatedRib ns (cause, k)).entries.zipIdx)
+    (hodd : child.depth % 2 ≠ 0)
+    (hjlt : jIdx < childIdx)
+    (hpar : child.parent ≠ (jIdx : Int))
+    (hsib : j.parent ≠ child.parent) :
+    HardBBranch5PlacementBlock ns cause k (child.parent).toNat childIdx jIdx j :=
+  hard_b_branch5_placement_block ns cause k hlink hcause child j childIdx jIdx
+    hchild hj hodd hjlt hpar hsib (branch5_root_order ns cause k hlink hcause)
+    (branch5_block_contiguity ns cause k)
 
 end Elegant.Ishikawa
