@@ -189,12 +189,13 @@ def ExecutedPartFrameCores {inp : Input} {o : Options} {res : FamilyResult}
 
 /-! ### Packed-accumulator transport -/
 
-/-- Packed transport: the packed accumulator is the union of the executed parts
-shifted by their `Pack.pack` shelf origins.  Every packed box rectangle, route
-label, and title comes from one part position under that shift; a part's frames,
-labels, resized captions, and `ownedTextRect` captions stay inside its shelf
-box; packed frames have non-negative origins.  This is the structural half of
-`placePart`/`packAcc` in `Pipeline.lean`, stated over the executed values. -/
+ /-- Packed transport: the packed accumulator is the union of the executed parts
+ shifted by their `Pack.pack` shelf origins.  Every packed box rectangle, route
+ label, and title comes from one part position under that shift; a part's frames,
+ labels, and resized captions stay inside its shelf box; packed frames have
+ non-negative origins.  (`ownedTextRect` fallback captions are covered at scene
+ level by `FallbackCaptionClear`, not by this transport.)  This is the structural
+ half of `placePart`/`packAcc` in `Pipeline.lean`, stated over the executed values. -/
 def PackedPartTransport {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res) : Prop :=
   ∃ packed : Pack.State,
@@ -232,19 +233,6 @@ def PackedPartTransport {inp : Input} {o : Options} {res : FamilyResult}
                 (execution.lines.getD key [])).w
               h := (titleCaptionSize execution.params o
                 (execution.lines.getD key [])).h })) ∧
-    (∀ (ownerIndex : Nat) (b : ModelBox), inp.boxes[ownerIndex]? = some b →
-      ∀ r : Rect, execution.packedAcc.rects.getD ownerIndex default = r →
-      ∃ (pl : Nat) (part : List Nat × Part) (pos : Nat) (r0 box : Rect),
-        execution.componentsAcc.parts[pl]? = some part ∧
-        part.1[pos]? = some ownerIndex ∧
-        part.2.rects[pos]? = some r0 ∧
-        packed.boxes[pl]? = some box ∧
-        r = shiftRect box.x box.y r0 ∧
-        box.Contained r ∧
-        box.Contained
-          (ownedTextRect execution.params
-            (⟨"", b.role.id, r, "", false⟩ : Box)
-            (execution.lines.getD ownerIndex []))) ∧
     (∀ (k : Nat) (r : Rect), execution.packedAcc.rects.getD k default = r → 0 ≤ r.x)
 
 /-- The caption resize commutes with the shelf translation. -/
@@ -264,8 +252,8 @@ theorem labelFramePackedClear {inp : Input} {o : Options} {res : FamilyResult}
     (hcores : ExecutedPartFrameCores execution)
     (htransport : PackedPartTransport execution) :
     LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc := by
-  obtain ⟨packed, hpack, hrects, hlabels, htitles, howned, hnonneg⟩ := htransport
-  refine ⟨?_, ?_, ?_⟩
+  obtain ⟨packed, hpack, hrects, hlabels, htitles, hnonneg⟩ := htransport
+  refine ⟨?_, ?_⟩
   · intro index k gBox hbox hrole
     dsimp only
     obtain ⟨pk, partk, posk, r0, bk, hpartk, hkeyk, hr0, hbk, hreq, hboxk⟩ :=
@@ -342,78 +330,6 @@ theorem labelFramePackedClear {inp : Input} {o : Options} {res : FamilyResult}
         exact hd0
       rw [hreq, hstored, caption_shift_comm]
       exact Or.inl (disjoint_of_contained_disjoint hboxk hboxCap hd)
-  · intro ownerIndex k gBox hbox hrole
-    dsimp only
-    obtain ⟨pk, partk, posk, r0, bk, hpartk, hkeyk, hr0, hbk, hreq, hboxk⟩ :=
-      hrects k (execution.packedAcc.rects.getD k default) rfl
-    rw [hreq] at hboxk
-    cases hsrc : inp.boxes[ownerIndex]? with
-    | none =>
-      have hsz : execution.packedAcc.rects.size ≤ ownerIndex := by
-        rw [execution.packed_rects_size]
-        by_cases hlt : ownerIndex < inp.boxes.length
-        · have hsome : inp.boxes[ownerIndex]? = some inp.boxes[ownerIndex] :=
-            List.getElem?_eq_some_iff.mpr ⟨hlt, rfl⟩
-          rw [hsrc] at hsome
-          exact absurd hsome (by simp)
-        · omega
-      have hdef : execution.packedAcc.rects.getD ownerIndex default = default :=
-        array_getD_of_size_le hsz
-      have hcap : ownedTextRect execution.params
-          (⟨"", "", execution.packedAcc.rects.getD ownerIndex default, "", false⟩ : Box)
-          (execution.lines.getD ownerIndex []) =
-          (⟨0, Int.fdiv (0 - ((execution.lines.getD ownerIndex []).length : Int) *
-            execution.params.lineH) 2, 0,
-            ((execution.lines.getD ownerIndex []).length : Int) *
-              execution.params.lineH⟩ : Rect) := by
-        rw [hdef]
-        have h0 : (default : Rect) = ⟨0, 0, 0, 0⟩ := rfl
-        rw [h0]
-        unfold ownedTextRect
-        have hne : (("" : String) == "group") = false := by decide
-        simp only [hne, Bool.false_eq_true, ↓reduceIte, Int.zero_add]
-      rw [hreq, hcap]
-      refine Or.inl ?_
-      have hx : 0 ≤ (shiftRect bk.x bk.y r0).x := by
-        rw [← hreq]
-        exact hnonneg k (execution.packedAcc.rects.getD k default) rfl
-      unfold Disjoint Rect.meetsInterior
-      dsimp only
-      omega
-    | some b =>
-      obtain ⟨pl, partl, posl, r0l, bl, hpartl, hkeyl, hr0l, hbl, hreql, hboxl,
-        hboxlCap⟩ :=
-        howned ownerIndex b hsrc (execution.packedAcc.rects.getD ownerIndex default) rfl
-      dsimp only
-      rw [hreql] at hboxlCap
-      by_cases hpk : pk = pl
-      · subst hpk
-        obtain rfl : partk = partl := Option.some.inj (hpartk.symm.trans hpartl)
-        obtain rfl : bk = bl := Option.some.inj (hbk.symm.trans hbl)
-        obtain ⟨-, -, hcore⟩ := hcores partk (List.mem_of_getElem? hpartk)
-        have hclr := hcore posl ownerIndex r0l b gBox posk k r0 hkeyl hr0l hsrc
-          hkeyk hbox hrole hr0
-        rw [hreq, hreql, ownedTextRect_shiftRect]
-        rcases hclr with h | h
-        · exact Or.inl (disjoint_shiftRect h)
-        · exact Or.inr (strictInside_shiftRect h)
-      · have hpkL : pk < execution.componentsAcc.parts.length :=
-          (List.getElem?_eq_some_iff.mp hpartk).1
-        have hplL : pl < execution.componentsAcc.parts.length :=
-          (List.getElem?_eq_some_iff.mp hpartl).1
-        have hlen : packed.boxes.length = execution.componentsAcc.parts.length := by
-          rw [Pack.pack_count hpack, List.length_map]
-        have hpkBox : pk < packed.boxes.length := by omega
-        have hplBox : pl < packed.boxes.length := by omega
-        have hd : Disjoint bk bl := by
-          have hd0 : Disjoint packed.boxes[pk] packed.boxes[pl] :=
-            Pack.pack_boxes_disjoint hpack pk pl hpkBox hplBox hpk
-          have hbk' : packed.boxes[pk] = bk := (List.getElem?_eq_some_iff.mp hbk).2
-          have hbl' : packed.boxes[pl] = bl := (List.getElem?_eq_some_iff.mp hbl).2
-          rw [hbk', hbl'] at hd0
-          exact hd0
-        rw [hreq, hreql]
-        exact Or.inl (disjoint_of_contained_disjoint hboxk hboxlCap hd)
 
 /-! ### `FallbackCaptionClear` -/
 

@@ -6,41 +6,44 @@ import Elegant.Layered.CgShape
 
 set_option autoImplicit false
 
-/-! # Frame-label clearance: transport repair and partial discharge
+ /-! # Frame-label clearance: transport repair and partial discharge
 
-`PipelineImpl.LabelFramePackedClear` and `PipelineImpl.FallbackCaptionClear`
-(`Layered/LabelsC8b.lean`) are the two executed facts that lift `Validator.C8b`
-to the flat layered pipeline. `Layered/LabelsC8bFacts.lean` derives them from
-three named cores: `ExecutedPartFrameCores`, `PackedPartTransport`, and
-`SceneOwnedTextFrameCore`.
+ `PipelineImpl.LabelFramePackedClear` and `PipelineImpl.FallbackCaptionClear`
+ (`Layered/LabelsC8b.lean`) are the two executed facts that lift `Validator.C8b`
+ to the flat layered pipeline. `Layered/LabelsC8bFacts.lean` derives them from
+ the named cores `ExecutedPartFrameCores`, `PackedPartTransport`, and
+ `SceneOwnedTextFrameCore`.
 
-This file discharges the structural part of that bundle and repairs a defect
-in it:
+ This file discharges the structural part of that bundle and repairs a defect
+ in it:
 
-* `packedShelfExistence_of_execution` — the pack-existence half of the
-  transport holds outright: `packAcc` exposes the packed shelf state and its
-  box count matches the executed part count.
-* `packed_titles_mem_source` — the title-membership half holds outright: every
-  packed title entry comes from one executed part entry with its packed shelf
-  box and packed shift.
-* `packedTransport_hrects_false` — `PackedPartTransport` as stated is FALSE:
-  its rect clause quantifies over every `k : Nat` with no size bound, but
-  component indices only cover `k < inp.boxes.length`, while
-  `packedAcc.rects.getD k default = default` for `k` past the array size.
-  The witness index `packedAcc.rects.size + graph.nodes.length` reads `default`
-  yet belongs to no component, so no source part exists. The nearest true
-  statement is `PackedPartTransportBounded`, which guards the rect clause by
-  `k < packedAcc.rects.size` (the only way the transport is ever used).
-* `PackedLabelsTransport` and `PackedOwnedCaptionContained` — the two
-  remaining unproved residuals, each about one executed phase, each strictly
-  simpler than the seam goal, every constrained variable pinned by an executed
-  accumulator equation or input lookup.
+ * `packedShelfExistence_of_execution` — the pack-existence half of the
+   transport holds outright: `packAcc` exposes the packed shelf state and its
+   box count matches the executed part count.
+ * `packed_titles_mem_source` — the title-membership half holds outright: every
+   packed title entry comes from one executed part entry with its packed shelf
+   box and packed shift.
+ * `packedTransport_hrects_false` — `PackedPartTransport` as stated is FALSE:
+   its rect clause quantifies over every `k : Nat` with no size bound, but
+   component indices only cover `k < inp.boxes.length`, while
+   `packedAcc.rects.getD k default = default` for `k` past the array size.
+   The witness index `packedAcc.rects.size + graph.nodes.length` reads `default`
+   yet belongs to no component, so no source part exists. The nearest true
+   statement is `PackedPartTransportBounded`, which guards the rect clause by
+   `k < packedAcc.rects.size` (the only way the transport is ever used).
+ * `PackedLabelsTransport` — the one remaining unproved residual, about packed
+   label provenance, strictly simpler than the seam goal, every constrained
+   variable pinned by an executed accumulator equation.
 
-The component-local geometric cores (`ExecutedPartFrameCores`,
-`SceneOwnedTextFrameCore`) stay as the named hypotheses of
-`LabelsC8bFacts.lean`; neither `WellFormed` nor `framedParents` is needed by
-anything proved here.
--/
+ The packed-frame `ownedTextRect` fallback clause (D3) and its transport
+ premise `PackedOwnedCaptionContained` are deleted, not repaired: D3 evaluates
+ `ownedTextRect` before `orientRect`, so it is FALSE on executed vector LR/RL
+ layouts, and `layout_c8b` never uses it (fallback captions are covered at
+ scene level by `FallbackCaptionClear`). The component-local geometric cores
+ (`ExecutedPartFrameCores`, `SceneOwnedTextFrameCore`) stay as the named
+ hypotheses of `LabelsC8bFacts.lean`; neither `WellFormed` nor `framedParents`
+ is needed by anything proved here.
+ -/
 
 namespace Elegant.Layered
 
@@ -160,27 +163,6 @@ theorem packed_titles_mem_source {inp : Input} {o : Options} {res : FamilyResult
     rw [← hkeyeq, hgetD]
     exact List.getElem?_eq_getElem hrange
   exact ⟨pl, pair.1, i, stored0, pair.2, hplpart, hget, ht, hplbox, hstoreq.symm⟩
- def PackedOwnedCaptionContained {inp : Input} {o : Options} {res : FamilyResult}
-     (execution : SceneExecution inp o res) : Prop :=
-   ∃ packed : Pack.State,
-     Pack.pack (if o.profile == .cell then o.maxWidth else 0)
-       execution.params.nodeGap 0
-       (LayoutConst.component_aspect_num.get o.profile)
-       (LayoutConst.component_aspect_den.get o.profile)
-       (execution.componentsAcc.parts.map fun part =>
-         ⟨part.2.width, part.2.height, part.2.area⟩) = .ok packed ∧
-     ∀ (ownerIndex : Nat) (b : ModelBox), inp.boxes[ownerIndex]? = some b →
-       ∀ (pl : Nat) (part : List Nat × Part) (pos : Nat) (r0 box r : Rect),
-         execution.componentsAcc.parts[pl]? = some part →
-         part.1[pos]? = some ownerIndex →
-         part.2.rects[pos]? = some r0 →
-         packed.boxes[pl]? = some box →
-         r = shiftRect box.x box.y r0 →
-         box.Contained r →
-         box.Contained
-           (ownedTextRect execution.params
-             (⟨"", b.role.id, r, "", false⟩ : Box)
-             (execution.lines.getD ownerIndex []))
 private theorem components_mem_bound {g : Graph} {comp : List Nat}
     (hmem : comp ∈ components g) {v : Nat} (hv : v ∈ comp) :
     v < g.nodes.length := by
@@ -202,7 +184,7 @@ theorem packedTransport_hrects_false {inp : Input} {o : Options} {res : FamilyRe
     (execution : SceneExecution inp o res) :
     ¬ PackedPartTransport execution := by
   intro h
-  obtain ⟨packed, _, hrects, _, _, _, _⟩ := h
+  obtain ⟨packed, _, hrects, _, _, _⟩ := h
   have hge : execution.packedAcc.rects.size ≤
       execution.packedAcc.rects.size + execution.graph.nodes.length := by omega
   have hget : execution.packedAcc.rects.getD
@@ -223,11 +205,12 @@ theorem packedTransport_hrects_false {inp : Input} {o : Options} {res : FamilyRe
   have hlt := components_mem_bound hmapmem hkc
   omega
 
-/-- The repaired packed transport: `PackedPartTransport` with the rect clause
-guarded by `k < packedAcc.rects.size`. Every other clause is unchanged. The
-guard matches every use: the transport's consumer applies the rect clause at
-valid box indices (`inp.boxes[k]? = some _`), which satisfy the guard by
-`packed_rects_size`. -/
+ /-- The repaired packed transport: `PackedPartTransport` with the rect clause
+ guarded by `k < packedAcc.rects.size` and the false packed-frame fallback
+ clause (D3) removed. Every other clause is unchanged. The
+ guard matches every use: the transport's consumer applies the rect clause at
+ valid box indices (`inp.boxes[k]? = some _`), which satisfy the guard by
+ `packed_rects_size`. -/
 def PackedPartTransportBounded {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res) : Prop :=
   ∃ packed : Pack.State,
@@ -266,19 +249,6 @@ def PackedPartTransportBounded {inp : Input} {o : Options} {res : FamilyResult}
                 (execution.lines.getD key [])).w
               h := (titleCaptionSize execution.params o
                 (execution.lines.getD key [])).h })) ∧
-    (∀ (ownerIndex : Nat) (b : ModelBox), inp.boxes[ownerIndex]? = some b →
-      ∀ r : Rect, execution.packedAcc.rects.getD ownerIndex default = r →
-      ∃ (pl : Nat) (part : List Nat × Part) (pos : Nat) (r0 box : Rect),
-        execution.componentsAcc.parts[pl]? = some part ∧
-        part.1[pos]? = some ownerIndex ∧
-        part.2.rects[pos]? = some r0 ∧
-        packed.boxes[pl]? = some box ∧
-        r = shiftRect box.x box.y r0 ∧
-        box.Contained r ∧
-        box.Contained
-          (ownedTextRect execution.params
-            (⟨"", b.role.id, r, "", false⟩ : Box)
-            (execution.lines.getD ownerIndex []))) ∧
     (∀ (k : Nat) (r : Rect), execution.packedAcc.rects.getD k default = r → 0 ≤ r.x)
 
 /-- Residual: packed label provenance. Every packed label read comes from the
@@ -389,21 +359,17 @@ def PackedLabelsTransport {inp : Input} {o : Options} {res : FamilyResult}
    exact ⟨c, part, pos, entry.2, packed.boxes[c], hc, hpos1, hpos2, hboxget, hget.symm⟩
 
  /-- The repaired transport assembles from the proved structural halves
- (existence, titles, valid-index rect values), the two named residuals, part
+ (existence, titles, valid-index rect values), the named residual, part
  boundedness, shelf dimensions, and caption fit. -/
  theorem packedTransportBounded_of_residuals {inp : Input} {o : Options} {res : FamilyResult}
      (execution : SceneExecution inp o res)
-     (hlab : PackedLabelsTransport execution)
-     (hown : PackedOwnedCaptionContained execution) :
+    (hlab : PackedLabelsTransport execution) :
      PackedPartTransportBounded execution := by
    obtain ⟨packed, hpackE, hlenE⟩ := packedShelfExistence_of_execution execution
    obtain ⟨packedL, hpackL, hlabcl⟩ := hlab
    have heqL : packedL = packed := Except.ok.inj (hpackL.symm.trans hpackE)
    rw [heqL] at hlabcl
-   obtain ⟨packedO, hpackO, howncl⟩ := hown
-   have heqO : packedO = packed := Except.ok.inj (hpackO.symm.trans hpackE)
-   rw [heqO] at howncl
-   refine ⟨packed, hpackE, ?_, ?_, ?_, ?_, ?_⟩
+   refine ⟨packed, hpackE, ?_, ?_, ?_, ?_⟩
    · intro k hk r hget
      obtain ⟨pk, part, pos, r0, box, hparts, hpos1, hpos2, hboxes, hreq⟩ :=
        packed_rect_value_source execution hpackE hk hget
@@ -457,22 +423,6 @@ def PackedLabelsTransport {inp : Input} {o : Options} {res : FamilyResult}
      unfold Rect.Contained
      dsimp only [shiftRect]
      omega
-   · intro ownerIndex b hbox r hget
-     have hksize : ownerIndex < execution.packedAcc.rects.size := by
-       rw [execution.packed_rects_size]
-       exact (List.getElem?_eq_some_iff.mp hbox).1
-     obtain ⟨pl, part, pos, r0, box, hparts, hpos1, hpos2, hboxes, hreq⟩ :=
-       packed_rect_value_source execution hpackE hksize hget
-     have hbnd := execution.components_parts_bounded part (List.mem_of_getElem? hparts)
-     have hr0 := hbnd.2.2.1 r0 (List.mem_of_getElem? hpos2)
-     have hdim := shelfDims_of_mem hpackE hparts hboxes
-     have hcontR : box.Contained r := by
-       unfold Rect.Contained
-       rw [hreq]
-       dsimp only [shiftRect]
-       omega
-     exact ⟨pl, part, pos, r0, box, hparts, hpos1, hpos2, hboxes, hreq, hcontR,
-       howncl ownerIndex b hbox pl part pos r0 box r hparts hpos1 hpos2 hboxes hreq hcontR⟩
    · intro k r hget
      by_cases hk : k < execution.packedAcc.rects.size
      · obtain ⟨pk, part, pos, r0, box, hparts, _, hpos2, hboxes, hreq⟩ :=
@@ -508,8 +458,8 @@ def PackedLabelsTransport {inp : Input} {o : Options} {res : FamilyResult}
      (hcores : ExecutedPartFrameCores execution)
      (htransport : PackedPartTransportBounded execution) :
      LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc := by
-   obtain ⟨packed, hpack, hrects, hlabels, htitles, howned, hnonneg⟩ := htransport
-   refine ⟨?_, ?_, ?_⟩
+   obtain ⟨packed, hpack, hrects, hlabels, htitles, hnonneg⟩ := htransport
+   refine ⟨?_, ?_⟩
    · intro index k gBox hbox hrole
      dsimp only
      have hksize : k < execution.packedAcc.rects.size := by
@@ -592,81 +542,6 @@ def PackedLabelsTransport {inp : Input} {o : Options} {res : FamilyResult}
          exact hd0
        rw [hreq, hstored, caption_shift_comm]
        exact Or.inl (disjoint_of_contained_disjoint hboxk hboxCap hd)
-   · intro ownerIndex k gBox hbox hrole
-     dsimp only
-     have hksize : k < execution.packedAcc.rects.size := by
-       rw [execution.packed_rects_size]
-       exact (List.getElem?_eq_some_iff.mp hbox).1
-     obtain ⟨pk, partk, posk, r0, bk, hpartk, hkeyk, hr0, hbk, hreq, hboxk⟩ :=
-       hrects k hksize (execution.packedAcc.rects.getD k default) rfl
-     rw [hreq] at hboxk
-     cases hsrc : inp.boxes[ownerIndex]? with
-     | none =>
-       have hsz : execution.packedAcc.rects.size ≤ ownerIndex := by
-         rw [execution.packed_rects_size]
-         by_cases hlt : ownerIndex < inp.boxes.length
-         · have hsome : inp.boxes[ownerIndex]? = some inp.boxes[ownerIndex] :=
-             List.getElem?_eq_some_iff.mpr ⟨hlt, rfl⟩
-           rw [hsrc] at hsome
-           exact absurd hsome (by simp)
-         · omega
-       have hdef : execution.packedAcc.rects.getD ownerIndex default = default :=
-         array_getD_of_size_le hsz
-       have hcap : ownedTextRect execution.params
-           (⟨"", "", execution.packedAcc.rects.getD ownerIndex default, "", false⟩ : Box)
-           (execution.lines.getD ownerIndex []) =
-           (⟨0, Int.fdiv (0 - ((execution.lines.getD ownerIndex []).length : Int) *
-             execution.params.lineH) 2, 0,
-             ((execution.lines.getD ownerIndex []).length : Int) *
-               execution.params.lineH⟩ : Rect) := by
-         rw [hdef]
-         have h0 : (default : Rect) = ⟨0, 0, 0, 0⟩ := rfl
-         rw [h0]
-         unfold ownedTextRect
-         have hne : (("" : String) == "group") = false := by decide
-         simp only [hne, Bool.false_eq_true, ↓reduceIte, Int.zero_add]
-       rw [hreq, hcap]
-       refine Or.inl ?_
-       have hx : 0 ≤ (shiftRect bk.x bk.y r0).x := by
-         rw [← hreq]
-         exact hnonneg k (execution.packedAcc.rects.getD k default) rfl
-       unfold Disjoint Rect.meetsInterior
-       dsimp only
-       omega
-     | some b =>
-       obtain ⟨pl, partl, posl, r0l, bl, hpartl, hkeyl, hr0l, hbl, hreql, hboxl,
-         hboxlCap⟩ :=
-         howned ownerIndex b hsrc (execution.packedAcc.rects.getD ownerIndex default) rfl
-       dsimp only
-       rw [hreql] at hboxlCap
-       by_cases hpk : pk = pl
-       · subst hpk
-         obtain rfl : partk = partl := Option.some.inj (hpartk.symm.trans hpartl)
-         obtain rfl : bk = bl := Option.some.inj (hbk.symm.trans hbl)
-         obtain ⟨-, -, hcore⟩ := hcores partk (List.mem_of_getElem? hpartk)
-         have hclr := hcore posl ownerIndex r0l b gBox posk k r0 hkeyl hr0l hsrc
-           hkeyk hbox hrole hr0
-         rw [hreq, hreql, ownedTextRect_shiftRect]
-         rcases hclr with h | h
-         · exact Or.inl (disjoint_shiftRect h)
-         · exact Or.inr (strictInside_shiftRect h)
-       · have hpkL : pk < execution.componentsAcc.parts.length :=
-           (List.getElem?_eq_some_iff.mp hpartk).1
-         have hplL : pl < execution.componentsAcc.parts.length :=
-           (List.getElem?_eq_some_iff.mp hpartl).1
-         have hlen : packed.boxes.length = execution.componentsAcc.parts.length := by
-           rw [Pack.pack_count hpack, List.length_map]
-         have hpkBox : pk < packed.boxes.length := by omega
-         have hplBox : pl < packed.boxes.length := by omega
-         have hd : Disjoint bk bl := by
-           have hd0 : Disjoint packed.boxes[pk] packed.boxes[pl] :=
-             Pack.pack_boxes_disjoint hpack pk pl hpkBox hplBox hpk
-           have hbk' : packed.boxes[pk] = bk := (List.getElem?_eq_some_iff.mp hbk).2
-           have hbl' : packed.boxes[pl] = bl := (List.getElem?_eq_some_iff.mp hbl).2
-           rw [hbk', hbl'] at hd0
-           exact hd0
-         rw [hreq, hreql]
-         exact Or.inl (disjoint_of_contained_disjoint hboxk hboxlCap hd)
 
  /-- The seam-shaped frame-label clearance: the packed C8b core and the
  fallback-caption branch for one executed flat layout, from the repaired
@@ -778,22 +653,20 @@ def PackedLabelsTransport {inp : Input} {o : Options} {res : FamilyResult}
  transport is discharged outright (`packedShelfExistence_of_execution`,
  `packed_titles_mem_source`, `packed_rect_value_source`, and the R1 bridge
  `packedLabelsTransport_of_bridge`), leaving the component-local geometric
- cores (`ExecutedPartFrameCores`), the fallback-caption containment residual
- (`PackedOwnedCaptionContained`), and the scene-level caption core
+ cores (`ExecutedPartFrameCores`) and the scene-level caption core
  (`SceneOwnedTextFrameCore`) as the only hypotheses. -/
  theorem frameLabels_executed {inp : Input} {o : Options} {res : FamilyResult}
-     (execution : SceneExecution inp o res)
-     (hcores : ExecutedPartFrameCores execution)
-     (hown : PackedOwnedCaptionContained execution)
-     (hscene : SceneOwnedTextFrameCore execution) :
-     LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
-       FallbackCaptionClear execution := by
-   have htransport := packedTransportBounded_of_residuals execution
-     (packedLabelsTransport_of_bridge execution) hown
-   exact ⟨labelFramePackedClear_of_bounded execution hcores htransport,
-     by
-       intro source index ownerIndex g _ _ _ hgMem hgRole
-       exact hscene ownerIndex g hgMem hgRole⟩
+    (execution : SceneExecution inp o res)
+    (hcores : ExecutedPartFrameCores execution)
+    (hscene : SceneOwnedTextFrameCore execution) :
+    LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
+      FallbackCaptionClear execution := by
+  have htransport := packedTransportBounded_of_residuals execution
+    (packedLabelsTransport_of_bridge execution)
+  exact ⟨labelFramePackedClear_of_bounded execution hcores htransport,
+    by
+      intro source index ownerIndex g _ _ _ hgMem hgRole
+      exact hscene ownerIndex g hgMem hgRole⟩
 
  end PipelineImpl
 
