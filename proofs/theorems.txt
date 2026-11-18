@@ -1368,3 +1368,4 @@ Elegant.Ishikawa.ishikawa_hard_b_real
 Elegant.Kinds.flowchart_valid_of_seams
 Elegant.Layered.PipelineImpl.labelBelongsToRun
 Elegant.Layered.PipelineImpl.runLocalLabelClearance_holds
+Elegant.Kinds.Architecture.architecture_c3
