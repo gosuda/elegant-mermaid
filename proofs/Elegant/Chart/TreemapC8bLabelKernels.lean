@@ -126,18 +126,3 @@ theorem treemap_band_bottom_ge (m : Model) :
     (constants m).header + (constants m).padY :=
   treemap_header_bottom_within_band m
 
-/-- Named residual gap for the two label kernels: when an internal node's
-header step changes only its `.value` label (the `.name` fit returned
-`none`, so `header_body_rects_strict` does not apply), the changed label is
-still strictly inside the node's tile or keeps the zero rectangle. Every
-other write shape is covered by `header_body_rects_strict`,
-`leaf_group_write_strict_rects`, and `leaf_body_rects_contained`. -/
-def header_value_only_write_strict (m : Model) (c : Consts) (n : Node)
-    (before after : List PlacedLabel) : Prop :=
-  HeaderWriteRun m c n before after →
-    (before.findIdx? (fun l => l.source.id == n.source.id ++ ".name")).isNone = true →
-    ∀ i : Nat, after[i]? ≠ before[i]? →
-      ∃ l : PlacedLabel, after[i]? = some l ∧
-        l.source.id = n.source.id ++ ".value" ∧
-        (Rect.StrictInside (tileRect n.rect) l.rect ∨ l.rect = ⟨0, 0, 0, 0⟩)
-end Elegant.Treemap.C8b
