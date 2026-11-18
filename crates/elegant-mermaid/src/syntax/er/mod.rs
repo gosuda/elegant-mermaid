@@ -23,6 +23,6 @@ pub(crate) fn diagnostic(
     }
 }
 #[cfg(test)]
-mod tests;
+mod parser_tests;
 #[cfg(test)]
-mod tests_parser;
+mod tests;
