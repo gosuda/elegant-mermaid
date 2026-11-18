@@ -431,9 +431,14 @@ def ExpandChildC7Structure (P : Params) (inp : Input) (o : Options) (group : Mod
 `expandChild` call `layoutRecursive` performs satisfies `ExpandChildC8aStep`,
 discharged from the named geometric and structural remainders. -/
 theorem expandChild_c8a_step_of_geometry
-    (hgeoC8a : ∀ (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-      (titleHeight : Int) (parent child result : FamilyResult),
-      ExpandChildC8aGeometry P inp o group titleHeight parent child result)
+    (hgeoC8a : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight
+        parent child res →
+      ExpandChildC8aGeometry P inp o group titleHeight parent child res)
     (hstructC8a : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -456,14 +461,20 @@ theorem expandChild_c8a_step_of_geometry
     hstructC8a fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctx frame tl dx dy hframe hdx hdy hwrap
   exact ⟨s1, s2, s3, s4, s5, s6,
-    hgeoC8a P inp o group titleHeight parent child res frame tl dx dy hframe hdx hdy hwrap,
+    hgeoC8a fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx frame tl dx dy hframe hdx hdy hwrap,
     s7, s8⟩
 
 /-- The `hgeo` shape `layoutRecursive_c8b_of_flat` consumes. -/
 theorem expandChild_c8b_step_of_geometry
-    (hgeoC8b : ∀ (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-      (titleHeight : Int) (parent child result : FamilyResult),
-      ExpandChildC8bGeometry P inp o group titleHeight parent child result)
+    (hgeoC8b : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight
+        parent child res →
+      ExpandChildC8bGeometry P inp o group titleHeight parent child res)
     (hstructC8b : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -483,15 +494,21 @@ theorem expandChild_c8b_step_of_geometry
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
   intro frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨g1, g2, g3, g4⟩ :=
-    hgeoC8b P inp o group titleHeight parent child res frame tl dx dy hframe hdx hdy hwrap
+    hgeoC8b fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx frame tl dx dy hframe hdx hdy hwrap
   exact ⟨hstructC8b fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctx frame tl dx dy hframe hdx hdy hwrap, g1, g2, g3, g4⟩
 
 /-- The `hgeo` shape `layoutRecursive_c7_of_flat` consumes. -/
 theorem expandChild_c7_step_of_geometry
-    (hgeoC7 : ∀ (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-      (titleHeight : Int) (parent child result : FamilyResult),
-      ExpandChildC7Geometry P inp o group titleHeight parent child result)
+    (hgeoC7 : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight
+        parent child res →
+      ExpandChildC7Geometry P inp o group titleHeight parent child res)
     (hstructC7 : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -514,7 +531,8 @@ theorem expandChild_c7_step_of_geometry
     hstructC7 fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctx frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨g1, g2, g3, g4⟩ :=
-    hgeoC7 P inp o group titleHeight parent child res frame tl dx dy hframe hdx hdy hwrap
+    hgeoC7 fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx frame tl dx dy hframe hdx hdy hwrap
   exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
 
 /-! ### Generic lookup and id-partition helpers -/

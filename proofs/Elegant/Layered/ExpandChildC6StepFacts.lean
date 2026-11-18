@@ -76,9 +76,14 @@ transports and the scene-size bounds are proved from the expansion's
 assembly at the offsets the run itself used, which the step's own premises
 pin. -/
 theorem expandChild_c6_step_of_geometry
-    (hgeoC6 : ∀ (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-      (titleHeight : Int) (parent child result : FamilyResult),
-      ExpandChildC6Geometry P inp o group titleHeight parent child result)
+    (hgeoC6 : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight
+        parent child res →
+      ExpandChildC6Geometry P inp o group titleHeight parent child res)
     (hanchorC6 : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -98,6 +103,8 @@ theorem expandChild_c6_step_of_geometry
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
   have hanch := hanchorC6 fuel P inp o group titleLines titleHeight parent child res
     hexpand hframed hctx
+  have hgeo := hgeoC6 fuel P inp o group titleLines titleHeight parent child res
+    hexpand hframed hctx
   obtain ⟨hwf, hgroup, _hpboxes, hchild, hparent, hexpand'⟩ := hctx
   intro frame metric tl _lines dx dy hframe hmetric htitle _hlines hdx hdy
   have hwrap : ExpandChildTitleWrapped P inp o group tl := ⟨metric, hmetric, htitle⟩
@@ -116,8 +123,7 @@ theorem expandChild_c6_step_of_geometry
   -- the id partition of the two sub-scenes
   obtain ⟨hcid, hpid, hnC, hnP, hdisj⟩ := expandChild_selected_ids hwf hchild hparent
   have hb := expandChild_merge_bounds hwf hgroup hchild hparent hexpand'
-  obtain ⟨hg1, hg2⟩ := hgeoC6 P inp o group titleHeight parent child res frame tl dx dy
-    hframe hdx hdy hwrap
+  obtain ⟨hg1, hg2⟩ := hgeo frame tl dx dy hframe hdx hdy hwrap
   refine ⟨?_, ?_, hb.1, hb.2.1, hg1, hg2, hanch⟩
   · intro b hb
     have hbMem : b ∈ child.scene.boxes := List.mem_of_find?_eq_some hb
