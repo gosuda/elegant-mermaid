@@ -18,9 +18,11 @@ below carry one additional premise, `HardBRealFrames`, which pins `frames` to
 the executed birth frames of the successful run (the shape returned by
 `place_common_birth_frames`).  That is exactly how `ishikawa_hard_b`
 instantiates them, and `ishikawa_hard_b_real` at the bottom replays the final
-assembly with the corrected premises.  The deeper-earlier proof additionally
-takes the named residual `HardBBranch5Placement` (block-order classification of
-the branch-5 entry; see its docstring).  -/
+assembly with the corrected premises.  The deeper-earlier obligation takes the
+corrected block classification `HardBBranch5Block` (same statement as
+`HardBBranch5PlacementBlock` in `IshikawaHardBBranch5Facts`; see its docstring
+for the import-layer note).  The earlier-slot routing for the root subcase is
+`hard_b_slot_mono_of_pos_lt` below.  -/
 
 /-! ### Executed birth frames (the pinning) -/
 
@@ -50,7 +52,9 @@ def HardBRealFrames (ns : List Tree.Node) (p : Params) (spine : Int)
   ∃ frames0 : List Bone, BirthFramesShape ns p r frames0 ∧
     ∀ (i : Nat) (b : Bone), frames[i]? = some b → frames0[i]? = some b
 
-/-- Branch-5 placement classification (named residual).  For an odd route `I`
+/-- Branch-5 placement classification (REFUTED residual, retained only for the
+counterexample statement in `IshikawaHardBBranch5Facts`, which imports this
+module: never assume it).  For an odd route `I`
 at `childIdx` with parent entry at `parentIdx` and an earlier entry `J` at
 `jIdx` that is neither the parent nor a sibling, exactly one of these holds:
 
@@ -59,10 +63,10 @@ at `childIdx` with parent entry at `parentIdx` and an earlier entry `J` at
 * `J` is a root of the rib (`J.parent = -1`) whose order rank precedes the
   parent entry's rank (whence the earlier-slot branch catches it).
 
-Discharged by a fold induction over `flatten`'s top-level children walk
-(`flatten_root_block_order`): entry blocks of each cause-child are contiguous
-index intervals, block ranks follow the child order, roots occur only at block
-starts, and ancestor pairs live inside one block. -/
+REFUTED by `hard_b_branch5_placement_counterexample` in
+`IshikawaHardBBranch5Facts`: a non-root earlier entry of an earlier block is
+neither a sibling descendant nor a root. Its corrected form is
+`HardBBranch5Block` below. -/
 def HardBBranch5Placement (ns : List Tree.Node) (cause k parentIdx childIdx jIdx : Nat)
     (J : Entry) : Prop :=
   let rib := generatedRib ns (cause, k)
@@ -72,6 +76,57 @@ def HardBBranch5Placement (ns : List Tree.Node) (cause k parentIdx childIdx jIdx
       rib.order.zipIdx.find? (fun v => v.1 == jIdx) = some jPos →
       rib.order.zipIdx.find? (fun v => v.1 == parentIdx) = some pPos →
       childIdx ≤ jIdx ∨ jPos.2 < pPos.2)
+
+/-- Corrected branch-5 placement, block form (local statement).
+
+For an odd route `I` at `childIdx` with parent entry at `parentIdx` and an
+earlier entry `J` at `jIdx` that is neither the parent nor a sibling, either
+`J` is a strict descendant of an earlier sibling `S` of `I`, or `J`'s block
+head `H` (a root entry: `H = J` or an indexed ancestor of `J`) has an order
+position strictly before the parent entry's position.
+
+This is the same proposition as `HardBBranch5PlacementBlock` in
+`IshikawaHardBBranch5Facts`, restated here because this module cannot import
+that module (it imports this module for the refuted `HardBBranch5Placement`
+used by its counterexample). A file importing both modules discharges this
+definition against that one by `Iff.rfl`; the classification itself is proved
+there by `hard_b_branch5_placement_block'`. -/
+def HardBBranch5Block (ns : List Tree.Node) (cause k parentIdx childIdx jIdx : Nat)
+    (J : Entry) : Prop :=
+  let rib := generatedRib ns (cause, k)
+  (∃ (sIdx : Nat) (S : Entry), rib.entries[sIdx]? = some S ∧ sIdx ≠ jIdx ∧
+      S.parent = (parentIdx : Int) ∧ IndexedAncestor rib.entries sIdx jIdx) ∨
+  (∃ (hIdx : Nat) (H : Entry), rib.entries[hIdx]? = some H ∧ H.parent = -1 ∧
+      ((H = J ∧ hIdx = jIdx) ∨ IndexedAncestor rib.entries hIdx jIdx) ∧
+      ∀ (headPos parentPos : Nat × Nat),
+        rib.order.zipIdx.find? (fun v => v.1 == hIdx) = some headPos →
+        rib.order.zipIdx.find? (fun v => v.1 == parentIdx) = some parentPos →
+        childIdx ≤ jIdx ∨ headPos.2 < parentPos.2)
+
+/-- Slot monotonicity for birth frames (step B): an entry whose order position
+strictly precedes another entry's order position is born at an earlier slot,
+with the rib height margin. With `jPos` the earlier entry's birth position and
+`parentPos` the parent entry's birth position, the conclusion is exactly the
+earlier-slot premise `jBorn.t1 + r.heights ≤ childBorn.t0` that
+`HardBEarlierSlot` needs (via `childBorn.t0 = parentBorn.t0` for odd routes).
+The birth equations come from the executed `BirthFramesShape` records
+(`depthBone_endpoint_slot` for `t1`, the odd/even endpoint lemmas for `t0`);
+the gap itself is `ordinal_slots_gap`. -/
+theorem hard_b_slot_mono_of_pos_lt (r : Rib)
+    (jBorn childBorn parentBorn : Bone)
+    (jPos parentPos : Nat × Nat)
+    (hjT1 : jBorn.t1
+      = Int.fdiv (r.length * (jPos.2 + 1 : Nat)) (r.entries.length + 1 : Nat))
+    (hparentT0 : parentBorn.t0
+      = Int.fdiv (r.length * (parentPos.2 + 1 : Nat)) (r.entries.length + 1 : Nat))
+    (hchildT0 : childBorn.t0 = parentBorn.t0)
+    (hheight : 0 ≤ r.heights)
+    (hbudget : (r.entries.length + 1 : Nat) * r.heights ≤ r.length)
+    (hlt : jPos.2 < parentPos.2) :
+    jBorn.t1 + r.heights ≤ childBorn.t0 := by
+  rw [hjT1, hchildT0, hparentT0]
+  exact ordinal_slots_gap r.length (r.entries.length + 1 : Nat) r.heights
+    (jPos.2 + 1 : Nat) (parentPos.2 + 1 : Nat) (by omega) hheight hbudget (by omega)
 
 /-- A pair `(x, idx)` of `l.zipIdx` sits at position `idx` of that list, so the
 prefix decomposition `l.zipIdx = before ++ [(x, idx)] ++ after` forces
@@ -306,7 +361,8 @@ def HardBSiblingReal (ns : List Tree.Node) (p : Params) (raw : Tree.Layout)
 
 /-- Corrected deeper-earlier obligation: `HardBDeeperEarlier` with `frames`
 pinned through `HardBRealFrames` and the branch-5 placement classified by the
-named residual `HardBBranch5Placement`. -/
+corrected block form `HardBBranch5Block` (same statement as
+`HardBBranch5PlacementBlock` in `IshikawaHardBBranch5Facts`). -/
 def HardBDeeperEarlierReal (ns : List Tree.Node) (p : Params) (raw : Tree.Layout)
     (_hrun : layout ns p = .ok raw)
     (ribs : List Rib) (_hg : ribs = (children ns 0).zipIdx.map (generatedRib ns))
@@ -325,7 +381,7 @@ def HardBDeeperEarlierReal (ns : List Tree.Node) (p : Params) (raw : Tree.Layout
     HardBCaseConfig ns p cause k spine r child j childIdx jIdx nj frames
       childBorn jBorn →
     HardBRealFrames ns p spine r placed hplace frames →
-    HardBBranch5Placement ns cause k (child.parent).toNat childIdx jIdx j →
+    HardBBranch5Block ns cause k (child.parent).toNat childIdx jIdx j →
     child.parent ≠ (jIdx : Int) →
     j.parent ≠ child.parent →
     ¬(jBorn.t1 + r.heights ≤ childBorn.t0) →
@@ -341,10 +397,12 @@ def HardBDeeperEarlierReal (ns : List Tree.Node) (p : Params) (raw : Tree.Layout
 `ishikawa_hard_b`, but the sibling and deeper-earlier branches consume
 `HardBSiblingReal`/`HardBDeeperEarlierReal` (frames pinned by
 `HardBRealFrames`, which the executed `place_common_birth_frames` witness
-supplies) and the branch-5 placement residual `hbranch5`.  `hbranch5` is asked
-only for an odd-depth entry and an earlier entry of the generated rib: for
-arbitrary entries `HardBBranch5Placement` is false (an entry with a parent and
-no rib entry to witness the first alternative). -/
+supplies) and the corrected block classification `hblock`. There is no
+`hbranch5` hypothesis: the refuted `HardBBranch5Placement` is assumed nowhere.
+`hblock` (the same statement as `HardBBranch5PlacementBlock` in
+`IshikawaHardBBranch5Facts`) is discharged downstream by
+`hard_b_branch5_placement_block'` once that module's import layer is available
+(it imports this module, so the citation cannot live here). -/
 theorem ishikawa_hard_b_real
     (ns : List Tree.Node) (p : Params) (raw : Tree.Layout)
     (hrun : layout ns p = .ok raw)
@@ -361,11 +419,11 @@ theorem ishikawa_hard_b_real
       spine placed hplace)
     (hdeep : HardBDeeperEarlierReal ns p raw hrun ribs hg cause k hsource hcause
       spine placed hplace henv)
-    (hbranch5 : ∀ (child j : Entry) (childIdx jIdx : Nat),
+    (hblock : ∀ (child j : Entry) (childIdx jIdx : Nat),
       (child, childIdx) ∈ (generatedRib ns (cause, k)).entries.zipIdx →
       (j, jIdx) ∈ (generatedRib ns (cause, k)).entries.zipIdx →
       child.depth % 2 ≠ 0 → jIdx < childIdx →
-      HardBBranch5Placement ns cause k (child.parent).toNat childIdx jIdx j)
+      HardBBranch5Block ns cause k (child.parent).toNat childIdx jIdx j)
     (child j : Entry) (childIdx jIdx : Nat)
     (hchild : (child, childIdx) ∈ (generatedRib ns (cause, k)).entries.zipIdx)
     (hj : (j, jIdx) ∈ (generatedRib ns (cause, k)).entries.zipIdx)
@@ -417,7 +475,7 @@ theorem ishikawa_hard_b_real
     hrecords childDone child childIdx childRest hchildPrefix
   obtain ⟨jDone, jRest, hjPrefix, _⟩ := List.eq_append_cons_of_mem hj
   change r.entries.zipIdx = jDone ++ (j, jIdx) :: jRest at hjPrefix
-  obtain ⟨_jPos, _parJ, jBorn, _hjPos, _hjparLookup, hjBorn, _⟩ :=
+  obtain ⟨jPos, _parJ, jBorn, hjPos, _hjparLookup, hjBorn, hjEq⟩ :=
     hrecords jDone j jIdx jRest hjPrefix
   -- Route span sanity for I (odd): its slot starts at or after the parent
   -- entry's own slot, so `childBorn.t0 ≤ childBorn.t1`.
@@ -517,8 +575,32 @@ theorem ishikawa_hard_b_real
     exact HardBLaterSlot ns p raw hrun ribs hg cause k hsource hcause spine
       placed hplace child j childIdx jIdx nj frames childBorn jBorn cfg hl
   · intro hc hs he hl
-    exact hdeep child j childIdx jIdx nj frames childBorn jBorn cfg hreal
-      (hbranch5 child j childIdx jIdx hchild hj hodd hjlt) hc hs he hl
+    have hB := hblock child j childIdx jIdx hchild hj hodd hjlt
+    rcases hB with _hfirst | ⟨hIdx, H, _hH, _hHroot, hHor, hord⟩
+    · exact hdeep child j childIdx jIdx nj frames childBorn jBorn cfg hreal
+        (hblock child j childIdx jIdx hchild hj hodd hjlt) hc hs he hl
+    · rcases hHor with ⟨_hHJ, hIdxJ⟩ | _hchain
+      · -- Root subcase `hIdx = jIdx`: the head position is J's own position,
+        -- which strictly precedes the parent position, so step B supplies the
+        -- earlier-slot inequality, contradicting `he`.
+        have hjPos' : (generatedRib ns (cause, k)).order.zipIdx.find?
+            (fun v => v.1 == hIdx) = some jPos := by
+          rw [hIdxJ]
+          exact hjPos
+        have hdisj := hord jPos parentPos hjPos' hparentPos
+        rcases hdisj with hle | hltpos
+        · omega
+        · have hjT1 : jBorn.t1
+              = Int.fdiv (r.length * (jPos.2 + 1 : Nat))
+                (r.entries.length + 1 : Nat) := by
+            rw [hjEq]
+            exact depthBone_endpoint_slot _ _ _ _ _ _
+          have hslot : jBorn.t1 + r.heights ≤ childBorn.t0 :=
+            hard_b_slot_mono_of_pos_lt r jBorn childBorn parentBorn jPos parentPos
+              hjT1 hparentT0 hchildT0 hheight hbudget hltpos
+          exact absurd hslot he
+      · exact hdeep child j childIdx jIdx nj frames childBorn jBorn cfg hreal
+          (hblock child j childIdx jIdx hchild hj hodd hjlt) hc hs he hl
 
 /-- Sibling case of HARD B over the executed birth frames: an earlier sibling
 J of the odd route I attaches strictly to the right of I's attachment point
