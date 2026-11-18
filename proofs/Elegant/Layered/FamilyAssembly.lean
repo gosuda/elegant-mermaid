@@ -13,6 +13,8 @@ import Elegant.Layered.PartSeparation
 import Elegant.Layered.ForeignSpansFacts
 import Elegant.Layered.FamilyC5Measured
 import Elegant.Layered.SubInputWellFormedFacts
+import Elegant.Layered.ExpandChildC6StepFacts
+import Elegant.Layered.BracketInsidePremisesProof
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -40,8 +42,12 @@ sub-input well-formedness seams are discharged (`SubInputWellFormedFacts.lean`).
 structure LayeredSeams : Prop where
   flatEndpoints : FlatGroupEndpoints
   flatC6 : FlatC6
-  bracketInside : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    BracketInsidePremises inp o res
+  dummyRowClear : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+    (execution : SceneExecution inp o res),
+    dummyInsideProxyRowClear execution.params execution.graph
+  titleCopySpan : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+    (execution : SceneExecution inp o res),
+    titleCopySpanClearStrict execution.params execution.graph
   labelRuns : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     LabelRunsClearExclusiveBoxes inp o res
@@ -54,10 +60,18 @@ structure LayeredSeams : Prop where
     ∀ (execution : SceneExecution inp o res),
       LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
         FallbackCaptionClear execution
-  stepC6 : RecursiveStepFacts ExpandChildC6Step
-  stepC7 : RecursiveStepFacts ExpandChildC7Step
-  stepC8a : RecursiveStepFacts ExpandChildC8aStep
-  stepC8b : RecursiveStepFacts ExpandChildC8bStep
+  stepC6Geometry : RecursiveStepFacts ExpandChildC6Geometry
+  stepC6Anchors : RecursiveStepFacts
+    (fun _ _ _ group _ parent child res => ExpandChildC6Anchors group parent child res)
+  stepC7Geometry : RecursiveStepFacts ExpandChildC7Geometry
+  stepC8aGeometry : RecursiveStepFacts ExpandChildC8aGeometry
+  stepC8bGeometry : RecursiveStepFacts ExpandChildC8bGeometry
+  stepC8aAncestry : RecursiveStepFacts
+    (fun _ _ _ group _ parent child res => ExpandChildC8aAncestry group parent child res)
+  stepLabelOwners : RecursiveStepFacts
+    (fun _ inp _ _ _ parent child _ => ExpandChildLabelOwners inp parent child)
+  stepC7LabelScopes : RecursiveStepFacts
+    (fun P _ _ group _ parent child res => ExpandChildC7LabelScopes P group parent child res)
 
 /-- Layered family validity for an input with nonempty box ids, modulo exactly
 the fields of `LayeredSeams`.  `hids` is a premise on the input:
@@ -75,9 +89,37 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
     layout_c7 hwf hfp hsep s1 s2 h
   have hflat8b : FlatC8b := fun inp o res hwf _ h =>
     layout_c8b h hwf (S.frameLabels inp o res)
+  have hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      BracketInsidePremises inp o res := fun inp o res =>
+    bracketInsidePremises (S.dummyRowClear inp o res) (S.titleCopySpan inp o res)
+  have hstepC6 : RecursiveStepFacts ExpandChildC6Step :=
+    expandChild_c6_step_of_geometry S.stepC6Geometry S.stepC6Anchors
+  have hstepC7 : RecursiveStepFacts ExpandChildC7Step :=
+    expandChild_c7_step_of_geometry S.stepC7Geometry
+      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx =>
+        expandChild_c7_structure fuel P inp o group titleLines titleHeight parent child res
+          hexpand hframed hctx
+          (S.stepLabelOwners fuel P inp o group titleLines titleHeight parent child res
+            hexpand hframed hctx)
+          (S.stepC7LabelScopes fuel P inp o group titleLines titleHeight parent child res
+            hexpand hframed hctx))
+  have hstepC8a : RecursiveStepFacts ExpandChildC8aStep :=
+    expandChild_c8a_step_of_geometry S.stepC8aGeometry
+      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx =>
+        expandChild_c8a_structure fuel P inp o group titleLines titleHeight parent child res
+          hexpand hframed hctx
+          (S.stepC8aAncestry fuel P inp o group titleLines titleHeight parent child res
+            hexpand hframed hctx))
+  have hstepC8b : RecursiveStepFacts ExpandChildC8bStep :=
+    expandChild_c8b_step_of_geometry S.stepC8bGeometry
+      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx =>
+        expandChild_c8b_structure fuel P inp o group titleLines titleHeight parent child res
+          hexpand hframed hctx
+          (S.stepLabelOwners fuel P inp o group titleLines titleHeight parent child res
+            hexpand hframed hctx))
   have hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       FrameClearanceSeam inp o res := fun inp o res =>
-    frameClearanceSeam_holds (S.bracketInside inp o res)
+    frameClearanceSeam_holds (hbracket inp o res)
   have hgeo2 := hgeo_of_recursion subInputWellFormedC2
   exact ⟨
     (layoutRecursive_c1_c3 subInputWellFormedC2 hflat3 (inp.boxes.length + 1) inp o res
@@ -88,16 +130,16 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       hwf hfp hrec).2,
     layoutFamily_c4 h,
     layoutFamily_c5_measured S.flatEndpoints subInputWellFormed h,
-    layoutRecursive_c6_of_flat S.flatC6 hclear subInputWellFormed S.stepC6
+    layoutRecursive_c6_of_flat S.flatC6 hclear subInputWellFormed hstepC6
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c7_of_flat hflat7 (fun _ _ _ => labelsC7_partsSeparated) S.labelRuns
-      S.captions subInputWellFormed S.stepC7
+      S.captions subInputWellFormed hstepC7
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c8a_of_flat
-      (flatC8a_of_span_seams S.foreignBorderSpans S.foreignNonGroupSpans S.bracketInside)
-      subInputsWellFormed S.stepC8a
+      (flatC8a_of_span_seams S.foreignBorderSpans S.foreignNonGroupSpans hbracket)
+      subInputsWellFormed hstepC8a
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
-    layoutRecursive_c8b_of_flat hflat8b subInputsWellFormed S.stepC8b
+    layoutRecursive_c8b_of_flat hflat8b subInputsWellFormed hstepC8b
       (inp.boxes.length + 1) inp o res hwf hfp hrec⟩
 
 end Elegant.Layered.PipelineImpl
