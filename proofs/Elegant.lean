@@ -286,3 +286,4 @@ import Elegant.Layered.FlatC6
 import Elegant.Layered.LabelsC7Bridges
 import Elegant.Kinds.LayeredSeamAdapters
 import Elegant.Layered.ExpandChildC6StepFacts
+import Elegant.Layered.BracketInsideRankFacts

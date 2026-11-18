@@ -1339,3 +1339,6 @@ Elegant.Kinds.c4_valid_of_seams
 Elegant.Kinds.requirement_valid_of_seams
 Elegant.Kinds.agentflow_valid_of_seams
 Elegant.Layered.PipelineImpl.expandChild_c6_step_of_geometry
+Elegant.Layered.PipelineImpl.plainMemberRankLtProxy_of_measuredGraph
+Elegant.Layered.PipelineImpl.componentCandidate_bottom_find_eq
+Elegant.Layered.PipelineImpl.measuredGraph_bottom_pair_eq
