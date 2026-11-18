@@ -1402,3 +1402,10 @@ Elegant.Layered.LaneBands.pinBands_spec
 Elegant.Layered.LaneBands.pinBands_layoutDump
 Elegant.Layered.LaneBands.applyPin_shifted
 Elegant.Layered.LaneBands.rerouteBands_frame
+Elegant.Layered.layoutFamilyB_c5
+Elegant.Layered.PipelineImpl.layoutRecursiveB_c5
+Elegant.Layered.PipelineImpl.flatC5B_of_endpoints
+Elegant.Layered.PipelineImpl.layoutRIds_nil
+Elegant.Layered.PipelineImpl.layoutNotes_noBundles
+Elegant.Layered.state_reduces_exact
+Elegant.Treemap.C8b.label_owner_cases'

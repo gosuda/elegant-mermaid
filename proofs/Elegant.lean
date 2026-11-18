@@ -312,3 +312,6 @@ import Elegant.Layered.GroupAnchorFactsProof
 import Elegant.Kinds.IshikawaRawClearance
 import Elegant.Layered.ExactFlatFacts
 import Elegant.Layered.LaneBandsPhaseFacts
+import Elegant.Layered.FamilyC5B
+import Elegant.Layered.RegionReduction
+import Elegant.Chart.TreemapLabelOwnerCases
