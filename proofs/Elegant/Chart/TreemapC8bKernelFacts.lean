@@ -840,7 +840,9 @@ theorem kernels_of_label_kernels (m : Model)
         n.source.id ∈ boxAncestors m.boxes m.boxes.length g.source.id) →
       l.rect.y + l.rect.h ≤ (tileRect n.rect).y +
           (constants m).header + (constants m).padY ∧
-        (Rect.StrictInside (tileRect n.rect) l.rect ∨ l.rect = ⟨0, 0, 0, 0⟩)) :
+        (Rect.StrictInside (tileRect n.rect) l.rect ∨ l.rect = ⟨0, 0, 0, 0⟩ ∨
+          (l.id = "title" ∧ bandOf m = (constants m).titleBand ∧
+            Rect.Contained ⟨0, 0, (constants m).width, (constants m).titleBand⟩ l.rect))) :
     Kernels m :=
   ⟨hOwner, tileRect_nonneg_or_degenerate', tile_below_band_or_degenerate',
     tile_strictInside_ancestor', descendant_tile_clear_of_header_label', hBand⟩

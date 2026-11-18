@@ -152,10 +152,11 @@ structure Kernels (m : Model) : Prop where
     Disjoint (tileRect g.rect) l
   /-- A label owned by an internal node is either a `placeHeader` band write:
   its rectangle sits strictly inside the node tile and its bottom edge lies
-  at or below the header band bottom (`tileRect.y + header + padY` bounds the
-  body area below the band), or the node's header step skipped the write
-  (fit failure or a too-low tile) and the label keeps the initial zero
-  rectangle. This covers both the `.name` and `.value` header writes. -/
+  at or below the header band bottom; or the node's header step skipped the
+  write (fit failure or a too-low tile) and the label keeps the initial zero
+  rectangle; or it is the title label owned by `"root"`, whose write lives in
+  the title band (a full-width title need not sit strictly inside the root
+  tile). This covers both the `.name` and `.value` header writes. -/
   internal_label_header_band : ∀ (ctx : Ctx m) (result : Layered.FamilyResult),
     WellFormed m → Kinds.Treemap.layout m = .ok result →
     ∀ (n : Node), n ∈ ctx.final → ∀ (l : Label),
@@ -164,7 +165,9 @@ structure Kernels (m : Model) : Prop where
       n.source.id ∈ boxAncestors m.boxes m.boxes.length g.source.id) →
     l.rect.y + l.rect.h ≤ (tileRect n.rect).y +
         (constants m).header + (constants m).padY ∧
-      (Rect.StrictInside (tileRect n.rect) l.rect ∨ l.rect = ⟨0, 0, 0, 0⟩)
+      (Rect.StrictInside (tileRect n.rect) l.rect ∨ l.rect = ⟨0, 0, 0, 0⟩ ∨
+        (l.id = "title" ∧ bandOf m = (constants m).titleBand ∧
+          Rect.Contained ⟨0, 0, (constants m).width, (constants m).titleBand⟩ l.rect))
 
 /-! ### The dump-level bridge -/
 
@@ -320,7 +323,7 @@ theorem treemap_c8b (m : Model) (result : Layered.FamilyResult)
           exact boxAncestors_irrefl m hwf G.source.id (he ▸ hNancG)
         obtain ⟨hband, hstrict⟩ := K.internal_label_header_band hctx result hwf
           h n hnmem2 hl hlmem hnid ⟨G, hGmem, hNancG⟩
-        rcases hstrict with hinside | hzero
+        rcases hstrict with hinside | hzero | htitle
         · have hdisjG := K.descendant_tile_clear_of_header_label hctx n G hl.rect
             hnmem2 hGmem hNancG hneNG hband hinside
           rw [hGrect]
@@ -334,6 +337,21 @@ theorem treemap_c8b (m : Model) (result : Layered.FamilyResult)
             exact Or.inl (disjoint_of_degenerate _ _ (Or.inl hw))
           · rw [hGrect]
             exact Or.inl (disjoint_of_degenerate _ _ (Or.inr hh))
+        · -- Title label: it lives in the title band, at or above every tile.
+          obtain ⟨_, hband2, hcont⟩ := htitle
+          rw [hGrect]
+          rcases K.tile_below_band_or_degenerate hctx G hGmem with hy | hw | hh
+          · left
+            unfold Disjoint Rect.meetsInterior
+            intro h
+            unfold Rect.Contained at hcont
+            obtain ⟨_, _, _, hyb⟩ := hcont
+            dsimp only at hyb
+            rw [hband2] at hy
+            have := h.2
+            omega
+          · exact Or.inl (disjoint_of_degenerate _ _ (Or.inl hw))
+          · exact Or.inl (disjoint_of_degenerate _ _ (Or.inr hh))
       · -- Unrelated or identical: identical ids collapse to the same node
         -- (source ids are nodup), whereupon the label sits inside `g`.
         by_cases heq : G.source.id = n.source.id
