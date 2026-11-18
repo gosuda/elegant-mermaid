@@ -1391,3 +1391,6 @@ Elegant.Layered.PipelineImpl.titleExclusiveCrossPart
 Elegant.Layered.PipelineImpl.sceneCaptionBoxContainment_of_residuals
 Elegant.Layered.PipelineImpl.groupAnchorSelection
 Elegant.Layered.PipelineImpl.groupTopSubtreeRankProper_of_seams
+Elegant.Kinds.IshikawaFinal.ishikawa_hard_b_real'
+Elegant.Kinds.IshikawaFinal.ishikawaRawForeignRouteClearance
+Elegant.Kinds.IshikawaFinal.ishikawa_valid_of_deeper
