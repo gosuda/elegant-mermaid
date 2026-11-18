@@ -40,6 +40,7 @@ bracket closure (via `frameClearanceSeam_holds`) and the executed span premise:
 theorem flatC8a_of_spans (hspans : ∀ (inp : Input) (o : Options)
       (res : FamilyResult), ForeignSpansAll inp o res)
     (hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
       BracketInsidePremises inp o res) : FlatC8a := by
   intro inp o res hwf hfp h
   apply layout_c8a h hwf hfp
@@ -54,7 +55,7 @@ theorem flatC8a_of_spans (hspans : ∀ (inp : Input) (o : Options)
   have hcomp : part.1 ∈ components execution.graph :=
     part_component_mem hmap hpart
   refine fun candidate run orderOptions hrun =>
-    ⟨frameClearanceSeam_holds (hbracket inp o res)
+    ⟨frameClearanceSeam_holds (hbracket inp o res hwf hfp)
       execution part.1 candidate run orderOptions hcomp hrun,
      hspans inp o res execution part hpart candidate run orderOptions hrun⟩
 
@@ -374,6 +375,7 @@ seams alone: the group-vs-group hull separation
 theorem flatC8a_of_span_seams
     (hgroups : ForeignBorderSpansSeparated) (hothers : ForeignNonGroupSpansClear)
     (hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
       BracketInsidePremises inp o res) : FlatC8a :=
   flatC8a_of_spans
     (foreignSpansAll_of_run (fun _ _ _ _ _ _ hgraph hcomp _ _ _ _ hrun =>

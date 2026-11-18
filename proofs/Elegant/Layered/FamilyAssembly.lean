@@ -52,11 +52,13 @@ structure LayeredSeams : Prop where
   groupTopRank : GroupTopSubtreeRankProper
   groupBottomBoundary : GroupBottomBoundaryFacts
   flatC6 : FlatC6
-  dummyRowClear : ∀ (inp : Input) (o : Options) (res : FamilyResult)
-    (execution : SceneExecution inp o res),
+  dummyRowClear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    ∀ (execution : SceneExecution inp o res),
     dummyInsideProxyRowClear execution.params execution.graph
-  titleCopySpan : ∀ (inp : Input) (o : Options) (res : FamilyResult)
-    (execution : SceneExecution inp o res),
+  titleCopySpan : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    ∀ (execution : SceneExecution inp o res),
     titleCopySpanClearStrict execution.params execution.graph
   runLocalLoopSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     RunLocalLoopSeparation inp o res
@@ -115,8 +117,10 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
         (S.runLocalForwardSeparation inp o res) (S.runLocalReversedSeparation inp o res),
       routeLabelDumpBridges hwf (labelBelongsToRun hwf) (S.exclusiveBoxInLabelRun inp o res)⟩
   have hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-      BracketInsidePremises inp o res := fun inp o res =>
-    bracketInsidePremises (S.dummyRowClear inp o res) (S.titleCopySpan inp o res)
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      BracketInsidePremises inp o res := fun inp o res hwfInp hframedInp =>
+    bracketInsidePremises (S.dummyRowClear inp o res hwfInp hframedInp)
+      (S.titleCopySpan inp o res hwfInp hframedInp)
   have hstepC6 : RecursiveStepFacts ExpandChildC6Step :=
     expandChild_c6_step_of_geometry S.stepC6Geometry S.stepC6Anchors
   have hstepC7 : RecursiveStepFacts ExpandChildC7Step :=
@@ -146,8 +150,9 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
           (S.stepLabelOwners fuel P inp o group titleLines titleHeight parent child res
             hexpand hframed hctx hparams))
   have hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-      FrameClearanceSeam inp o res := fun inp o res =>
-    frameClearanceSeam_holds (hbracket inp o res)
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      FrameClearanceSeam inp o res := fun inp o res hwfInp hframedInp =>
+    frameClearanceSeam_holds (hbracket inp o res hwfInp hframedInp)
   have hgeo2 := hgeo_of_recursion subInputWellFormedC2
   exact ⟨
     (layoutRecursive_c1_c3 subInputWellFormedC2 hflat3 (inp.boxes.length + 1) inp o res

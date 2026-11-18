@@ -408,6 +408,7 @@ through the recursion by `SubInputWellFormed`, so the flat clause applies
 at every `layout` leaf the recursion performs. -/
 theorem layoutRecursive_c6_of_flat (hflat : FlatC6)
     (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
       FrameClearanceSeam inp o res)
     (hsub : SubInputWellFormed)
     (hgeo : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
@@ -424,14 +425,14 @@ theorem layoutRecursive_c6_of_flat (hflat : FlatC6)
   induction fuel with
   | zero =>
       intro inp o res hwf hframed h
-      exact hflat inp o res hwf hframed (hclear inp o res) h
+      exact hflat inp o res hwf hframed (hclear inp o res hwf hframed) h
   | succ fuel ih =>
       intro inp o res hwf hframed h
       have hboxIds : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
       have hcovered : RoutesCovered inp := inputRoutesCovered hwf
       rcases layoutRecursive_succ_sources h with ⟨_, hlayout⟩ |
         ⟨group, _P0, _metric0, _child0, _titleLines0, _parent0, hg, _, _, _, _, _, _⟩
-      · exact hflat inp o res hwf hframed (hclear inp o res) hlayout
+      · exact hflat inp o res hwf hframed (hclear inp o res hwf hframed) hlayout
       · obtain ⟨P, metric, child, titleLines, parent, _frame, _lines, _dx, _dy,
           hP, hm, hchild, hwrap, hparentAt, hexpandAt, _, _, _, _, _, _, _, _⟩ :=
           layoutRecursive_embedding_assembly_sources hboxIds hcovered hg h
