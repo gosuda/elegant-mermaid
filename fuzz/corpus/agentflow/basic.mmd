@@ -1,0 +1,14 @@
+agentflow-beta TB
+  city["City 界 Input"]
+  research[[research_location]]
+  brief["Research Brief"]
+  check{Quality OK?}
+  post{{Post results}}
+  city --> research --> brief
+  brief --> check
+  check -- yes --> post
+  city@{ shape: input, label: "City é" }
+  research@{ shape: tool }
+  brief@{ shape: refdoc, labelType: markdown }
+  check@{ shape: decision }
+  post@{ shape: action, w: 120, h: 80 }

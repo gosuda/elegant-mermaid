@@ -18,7 +18,7 @@ const (
 )
 
 func main() {
-	summary, err := execute(os.Args[1:])
+	summary, err := execute(os.Args[1:], os.Getenv("EMD_BIN"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "harvest: %v\n", err)
 		os.Exit(2)
@@ -31,17 +31,17 @@ type options struct {
 	flatKind string
 }
 
-func execute(args []string) (string, error) {
-	return executeSources(args, fixtureSources)
+func execute(args []string, binaryOverride string) (string, error) {
+	return executeSources(args, fixtureSources, binaryOverride)
 }
 
-func executeSources(args []string, sources []sourceSpec) (string, error) {
+func executeSources(args []string, sources []sourceSpec, binaryOverride string) (string, error) {
 	opts, err := parseFlags(args)
 	if err != nil {
 		return "", err
 	}
 	if opts.flatKind != "" {
-		return flatList(opts.root, opts.flatKind)
+		return flatList(opts.root, opts.flatKind, binaryOverride)
 	}
 	reg, err := loadRegistry(filepath.Join(opts.root, filepath.FromSlash(kindRegistryPath)))
 	if err != nil {

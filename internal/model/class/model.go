@@ -6,6 +6,7 @@ import (
 
 	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/source"
+	"github.com/gosuda/elegant-mermaid/internal/syntax"
 	syn "github.com/gosuda/elegant-mermaid/internal/syntax/class"
 )
 
@@ -42,7 +43,18 @@ type StyleDefinition struct {
 	Name               string
 	Styles, TextStyles []string
 }
+type Declaration struct {
+	Class int
+	Span  source.Span
+}
+type MethodCandidate struct {
+	Class int
+	Key   string
+	Span  source.Span
+}
 type Model struct {
+	Declarations                  []Declaration
+	MethodCandidates              []MethodCandidate
 	Classes                       []Class
 	Namespaces                    []Namespace
 	Notes                         []Note
@@ -81,7 +93,7 @@ func (r *resolver) ensure(name syn.ClassName) int {
 	if i >= 0 {
 		return i
 	}
-	r.model.Classes = append(r.model.Classes, Class{ID: name.Value, Label: decodeEntities(name.Value), Generic: name.Generic, CSS: "default", Span: name.Span})
+	r.model.Classes = append(r.model.Classes, Class{ID: name.Value, Label: syntax.DecodeEntities(name.Value), Generic: name.Generic, CSS: "default", Span: name.Span})
 	return len(r.model.Classes) - 1
 }
 
@@ -137,12 +149,13 @@ func (r *resolver) metadata(s syn.Statement) {
 
 func (r *resolver) class(s *syn.ClassStatement, parent string) {
 	i := r.ensure(s.Identifier.Name)
+	r.model.Declarations = append(r.model.Declarations, Declaration{Class: i, Span: s.Identifier.Name.Span})
 	c := &r.model.Classes[i]
 	if parent != "" {
 		c.Parent = parent
 	}
 	if s.Identifier.HasLabel {
-		c.Label = decodeEntities(s.Identifier.Label)
+		c.Label = syntax.DecodeEntities(s.Identifier.Label)
 	}
 	if s.CSS != "" {
 		c.CSS += " " + s.CSS
@@ -177,7 +190,7 @@ func (r *resolver) explicitNamespace(id, label string) {
 		}
 		r.model.Namespaces[i].Explicit = true
 		if label != "" {
-			r.model.Namespaces[i].Label = decodeEntities(label)
+			r.model.Namespaces[i].Label = syntax.DecodeEntities(label)
 		}
 	}
 }
@@ -205,10 +218,13 @@ func (r *resolver) note(n *syn.NoteStatement, parent string) {
 	if r.index(target) < 0 {
 		target = ""
 	}
-	r.model.Notes = append(r.model.Notes, Note{ID: r.generatedID("note", &r.notes), Target: target, Text: decodeEntities(n.Text), Parent: parent, Span: n.Span})
+	r.model.Notes = append(r.model.Notes, Note{ID: r.generatedID("note", &r.notes), Target: target, Text: syntax.DecodeEntities(n.Text), Parent: parent, Span: n.Span})
 }
 
 func (r *resolver) member(i int, text string, span source.Span) {
+	if strings.Contains(text, "(") {
+		r.model.MethodCandidates = append(r.model.MethodCandidates, MethodCandidate{Class: i, Key: strings.Join(strings.Fields(text), " "), Span: span})
+	}
 	text = strings.TrimSpace(text)
 	if text == "" {
 		return
@@ -258,7 +274,7 @@ func (r *resolver) relation(s *syn.RelationStatement) {
 	if s.Relation.Line == ".." {
 		line = "dashed"
 	}
-	r.model.Relations = append(r.model.Relations, Relation{From: a.Value, To: b.Value, Label: decodeEntities(s.Label), FromMultiplicity: strings.TrimSpace(s.FromMultiplicity), ToMultiplicity: strings.TrimSpace(s.ToMultiplicity), MarkerStart: relationMarker(s.Relation.Start), MarkerEnd: relationMarker(s.Relation.End), Line: line, Span: s.Span, FromSpan: s.From.Span, ToSpan: s.To.Span})
+	r.model.Relations = append(r.model.Relations, Relation{From: a.Value, To: b.Value, Label: syntax.DecodeEntities(s.Label), FromMultiplicity: strings.TrimSpace(s.FromMultiplicity), ToMultiplicity: strings.TrimSpace(s.ToMultiplicity), MarkerStart: relationMarker(s.Relation.Start), MarkerEnd: relationMarker(s.Relation.End), Line: line, Span: s.Span, FromSpan: s.From.Span, ToSpan: s.To.Span})
 }
 
 func (r *resolver) interfaceName(name, owner syn.ClassName) syn.ClassName {
@@ -282,6 +298,7 @@ func (r *resolver) generatedID(prefix string, ordinal *int) string {
 		}
 	}
 }
+
 func (r *resolver) reserve(statements syn.Statements, parent string) {
 	for _, s := range statements {
 		switch {

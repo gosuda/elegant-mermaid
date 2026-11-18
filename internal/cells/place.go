@@ -22,6 +22,7 @@ func textInk(p *scene.Text, t theme.Theme) Token {
 	}
 	return TokenFG
 }
+
 func lineStart(align scene.Align, x, w, lineW int) int {
 	switch align {
 	case scene.AlignMiddle:
@@ -32,6 +33,7 @@ func lineStart(align scene.Align, x, w, lineW int) int {
 		return x
 	}
 }
+
 func (c *Canvas) placeAll(labels []*scene.Text, t theme.Theme) (int, error) {
 	refused := 0
 	for _, p := range labels {
@@ -49,6 +51,7 @@ func (c *Canvas) placeAll(labels []*scene.Text, t theme.Theme) (int, error) {
 	}
 	return refused, nil
 }
+
 func (c *Canvas) placeLine(p *scene.Text, text string, row int, ink Token) (int, error) {
 	text = terminalText(text)
 	width, err := measure.CellWidth(text)
@@ -56,13 +59,17 @@ func (c *Canvas) placeLine(p *scene.Text, text string, row int, ink Token) (int,
 		return 0, err
 	}
 	col := lineStart(p.Align, int(p.Rect.X), int(p.Rect.W), int(width))
+	return c.placeClusters(text, col, int(p.Rect.Y)+row, ink), nil
+}
+
+func (c *Canvas) placeClusters(text string, col, row int, ink Token) int {
 	refused := 0
 	for _, cluster := range measure.Segment(text) {
 		w := int(measure.ClusterWidth(cluster))
-		if !c.PutLabel(col, int(p.Rect.Y)+row, cluster.Text, w, ink) {
+		if !c.PutLabel(col, row, cluster.Text, w, ink) {
 			refused++
 		}
 		col += w
 	}
-	return refused, nil
+	return refused
 }

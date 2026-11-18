@@ -17,16 +17,20 @@ type Token struct {
 
 type lexer struct {
 	src          []byte
+	cleaned      *source.Cleaned
 	at           int
-	removed      []source.Span
 	tokens       []Token
 	classPending bool
 	bodyDepth    int
 }
 
 func Lex(src []byte, removed []source.Span) []Token {
-	l := lexer{src: src, removed: removed}
-	for l.at < len(src) {
+	return lex(source.Clean(src, removed))
+}
+
+func lex(cleaned *source.Cleaned) []Token {
+	l := lexer{src: cleaned.Text, cleaned: cleaned}
+	for l.at < len(l.src) {
 		l.next()
 	}
 	return l.tokens
@@ -34,23 +38,10 @@ func Lex(src []byte, removed []source.Span) []Token {
 
 func (l *lexer) emit(kind string, start, end int) {
 	raw := l.src[start:end]
-	l.tokens = append(l.tokens, Token{Kind: kind, Text: string(raw), Span: source.Span{Start: start, End: end}, Raw: raw})
-}
-
-func (l *lexer) skipRemoved() bool {
-	for _, span := range l.removed {
-		if l.at >= span.Start && l.at < span.End {
-			l.at = span.End
-			return true
-		}
-	}
-	return false
+	l.tokens = append(l.tokens, Token{Kind: kind, Text: string(raw), Span: l.cleaned.Span(start, end), Raw: raw})
 }
 
 func (l *lexer) next() {
-	if l.skipRemoved() {
-		return
-	}
 	if l.bodyDepth > 0 {
 		l.memberToken()
 		return
@@ -175,7 +166,7 @@ func (l *lexer) unicodeToken(start int) {
 }
 
 func keyword(text string) string {
-	for _, key := range []string{"class", "namespace", "style", "classDef", "cssClass", "callback", "link", "click", "call", "note", "for", "href", "direction", "accTitle", "accDescr", "classDiagram", "classDiagram-v2", "o"} {
+	for _, key := range []string{"class", "namespace", "style", "classDef", "cssClass", "callback", "link", "click", "call", "note", "for", "href", "accTitle", "accDescr", "classDiagram", "classDiagram-v2", "o"} {
 		if text == key {
 			return key
 		}

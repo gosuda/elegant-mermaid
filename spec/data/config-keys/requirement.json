@@ -4,6 +4,7 @@
     "key": "fontSize",
     "class": "accepted-ignored"
   },
+  {"kind":"requirement","key":"layout","class":"accepted-ignored"},
   {
     "kind": "requirement",
     "key": "line_height",

@@ -1858,15 +1858,6 @@ pub(crate) const DIAGNOSTICS: &[Diagnostic] = &[
         aliases: &[],
     },
     Diagnostic {
-        code: "treemap/multiple-roots",
-        severity: "error",
-        summary: "multiple root nodes are not allowed in a treemap",
-        help: "",
-        rationale: "The upstream validator rejects a second item without indentation.",
-        fix_safety: "none",
-        aliases: &[],
-    },
-    Diagnostic {
         code: "treemap/unexpected-token",
         severity: "error",
         summary: "unexpected TOKEN, expected one of: LIST",

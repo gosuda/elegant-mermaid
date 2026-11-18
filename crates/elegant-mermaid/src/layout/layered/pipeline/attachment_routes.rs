@@ -26,6 +26,41 @@ impl EndpointRouting<'_> {
         grid.shortest(&starts, &ends)
     }
 
+    pub fn route_forced(
+        &self,
+        edge: &Edge,
+        from: Option<crate::layout::input::RouteSide>,
+        to: Option<crate::layout::input::RouteSide>,
+        bound: Rect,
+    ) -> Result<Vec<Point>, LayoutError> {
+        let mut obstacles = self.obstacles(edge);
+        obstacles.extend(self.labels.iter().map(|(_, rect)| *rect));
+        let starts = ports(self.boxes[edge.tail])?;
+        let ends = ports(self.boxes[edge.head])?;
+        let source = forced_port(&starts, from)?;
+        let target = forced_port(&ends, to)?;
+        let start_points = source.as_ref().map_or(starts.as_slice(), |pair| &pair[1..]);
+        let end_points = target.as_ref().map_or(ends.as_slice(), |pair| &pair[1..]);
+        let grid = VisibilityGrid::new(&obstacles, start_points, end_points, Some(bound))?;
+        if source
+            .as_ref()
+            .is_some_and(|pair| !grid.clear(pair[0], pair[1]))
+            || target
+                .as_ref()
+                .is_some_and(|pair| !grid.clear(pair[0], pair[1]))
+        {
+            return Err(LayoutError::Domain);
+        }
+        let mut points = grid.shortest(start_points, end_points)?;
+        if let Some(pair) = source {
+            points.insert(0, pair[0]);
+        }
+        if let Some(pair) = target {
+            points.push(pair[0]);
+        }
+        Ok(points)
+    }
+
     fn region_frame(&self, edge: &Edge) -> Result<Option<Rect>, LayoutError> {
         let tail = self.region_ancestors(edge.tail)?;
         let head = self.region_ancestors(edge.head)?;
@@ -89,6 +124,30 @@ impl EndpointRouting<'_> {
             })
             .collect()
     }
+}
+
+fn forced_port(
+    points: &[Point; 4],
+    side: Option<crate::layout::input::RouteSide>,
+) -> Result<Option<[Point; 2]>, LayoutError> {
+    use crate::layout::input::RouteSide;
+    let Some(side) = side else {
+        return Ok(None);
+    };
+    let (index, dx, dy) = match side {
+        RouteSide::Left => (0, -1_i64, 0_i64),
+        RouteSide::Right => (1, 1, 0),
+        RouteSide::Up => (2, 0, -1),
+        RouteSide::Down => (3, 0, 1),
+    };
+    let port = points[index];
+    Ok(Some([
+        port,
+        Point {
+            x: narrow(i64::from(port.x) + dx)?,
+            y: narrow(i64::from(port.y) + dy)?,
+        },
+    ]))
 }
 
 fn ports(rect: Rect) -> Result<[Point; 4], LayoutError> {

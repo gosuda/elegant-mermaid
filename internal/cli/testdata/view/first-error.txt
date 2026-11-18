@@ -1,0 +1,24 @@
++- Diagnostics ----------------------------------------------------------------+
+| error flowchart/unclosed-node-bracket 2:3 node bracket [ is never closed     |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
+... | No valid revision yet; fix the source or press r | flowchart | cells | - |
+? help  q quit  d diagnostics  arrows/hjkl pan  0 fit                           

@@ -28,11 +28,13 @@ func TestGroupProxyAliases(t *testing.T) {
 		t.Fatal("proxy became a model node or frame loop lost", g)
 	}
 }
+
 func protectedCycleGraph() *Graph {
 	return &Graph{Nodes: []Node{{Decl: 0}, {Decl: 1}, {Decl: 2}}, Edges: []Edge{
 		{Tail: 2, Head: 0, MinLen: 1, Decl: 0}, {Tail: 0, Head: 1, MinLen: 1, Decl: 1, Synthetic: true}, {Tail: 1, Head: 2, MinLen: 1, Decl: 2, Synthetic: true},
 	}}
 }
+
 func assertProtectedOrientation(t *testing.T, g *Graph) {
 	t.Helper()
 	if !g.Edges[0].Reversed || g.Edges[1].Reversed || g.Edges[2].Reversed {
@@ -46,6 +48,7 @@ func assertProtectedOrientation(t *testing.T, g *Graph) {
 		t.Fatal("immutable synthetic chain must stay feasible", ranks)
 	}
 }
+
 func TestProtectedCompoundCycles(t *testing.T) {
 	g := protectedCycleGraph()
 	if _, err := BreakCycles(g); err != nil {
@@ -53,6 +56,7 @@ func TestProtectedCompoundCycles(t *testing.T) {
 	}
 	assertProtectedOrientation(t, g)
 }
+
 func TestGreedyProtectedConstraints(t *testing.T) {
 	g := protectedCycleGraph()
 	if err := candidateCycles(g, 2); err != nil {

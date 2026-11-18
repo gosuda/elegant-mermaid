@@ -51,6 +51,7 @@ func placedLabels(p *Proper, x, y []int32) (labelPlacement, error) {
 	}
 	return out, nil
 }
+
 func commonParent(p *Proper, a, b int32) string {
 	parent := p.Nodes[a].Parent
 	for fuel := len(p.Clusters) + 1; parent != "" && fuel > 0; fuel-- {
@@ -61,6 +62,7 @@ func commonParent(p *Proper, a, b int32) string {
 	}
 	return ""
 }
+
 func addOrderingBorders(p *Proper) error {
 	for _, c := range p.Clusters {
 		if c.Top < 0 || c.Bottom < 0 {
@@ -73,6 +75,7 @@ func addOrderingBorders(p *Proper) error {
 	}
 	return nil
 }
+
 func addClusterOrderingBorders(p *Proper, c Cluster) {
 	previous := [2]int32{-1, -1}
 	for r := p.Rank[c.Top]; r <= p.Rank[c.Bottom]; r++ {
@@ -97,7 +100,9 @@ func addTitleReservation(p *Proper, c Cluster) error {
 	if err != nil {
 		return err
 	}
-	h = max(h, c.LoopHeight)
+	if !p.regionTitles {
+		h = max(h, c.LoopHeight)
+	}
 	p.Nodes = append(p.Nodes, ProperNode{Node: Node{Decl: c.Decl, W: width, H: h, Parent: c.ID, Border: BorderTitle}, Edge: -1})
 	p.Rank = append(p.Rank, p.Rank[c.Top])
 	return nil

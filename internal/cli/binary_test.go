@@ -66,7 +66,7 @@ func TestBinaryTerminal(t *testing.T) {
 
 func TestBinaryArgumentOrder(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "-name"), []byte("flowchart LR\n A[argument order]\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "-name"), []byte("flowchart LR\n A[argument order]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	canonical := binaryCommand(t, "render", "-e", "text", "--color", "never", "./-name")
@@ -159,7 +159,7 @@ func TestBinaryColourTerminal(t *testing.T) {
 		defer cancel()
 		cmd := exec.CommandContext(ctx, "script", "-qec", "\"$EMD_BIN\" render -e text --color auto \"$SOURCE\"", "/dev/null")
 		path := filepath.Join(t.TempDir(), "a.mmd")
-		if err := os.WriteFile(path, []byte("flowchart LR\n A\n"), 0600); err != nil {
+		if err := os.WriteFile(path, []byte("flowchart LR\n A\n"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "TERM=xterm", "EMD_BIN=" + binaryPath(t), "SOURCE=" + path}

@@ -15,7 +15,7 @@ type LimitError struct {
 }
 
 func (e *LimitError) Error() string {
-	return fmt.Sprintf("%s has %d; limit is %d: %v", e.Resource, e.Actual, e.Limit, ErrTooLarge)
+	return fmt.Sprintf("model exceeds the limit of %d; actual %d", e.Limit, e.Actual)
 }
 func (e *LimitError) Unwrap() error { return ErrTooLarge }
 func enforceLimits(in Input, o scene.Options) error {

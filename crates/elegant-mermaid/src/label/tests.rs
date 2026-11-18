@@ -48,6 +48,21 @@ fn unicode_intraword_underscores_are_not_emphasis() {
         ],
         "letters and digits on both sides protect underscores across Unicode scripts"
     );
+    for source in [
+        "a_\u{0558}_b",
+        "\u{0558}_a_b",
+        "a_b_\u{0558}",
+        "a_²_b",
+        "a_Ⅻ_b",
+        "a_\u{0345}_b",
+        "a_Ⓐ_b",
+    ] {
+        assert_eq!(
+            runs(source),
+            vec![(source.into(), false, false)],
+            "pinned Alphabetic and numeric scalars must protect underscores: {source}"
+        );
+    }
 }
 
 #[test]

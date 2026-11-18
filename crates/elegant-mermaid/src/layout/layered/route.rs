@@ -199,6 +199,7 @@ pub fn route_points(
     y: &[i32],
     rank_top: &[i32],
     r: &Routing,
+    cluster_tops: &[usize],
 ) -> Result<(Vec<EdgeRoute>, Vec<Box>), LayoutError> {
     positions(p, layers)?;
     let d = params(p)?;
@@ -222,14 +223,34 @@ pub fn route_points(
         if r.segment[i] == usize::MAX {
             continue;
         }
-        let a = Point {
+        let mut a = Point {
             x: r.source_x[i],
             y: narrow(i64::from(y[e.tail]) + i64::from(p.nodes[e.tail].node.h))?,
         };
-        let b = Point {
+        let mut b = Point {
             x: r.target_x[i],
             y: y[e.head],
         };
+        let Some(chain) = p.chains.get(e.original) else {
+            return Err(LayoutError::Domain);
+        };
+        let forward = p.rank[e.tail] < p.rank[e.head];
+        let chain_start = if forward {
+            chain.first() == Some(&e.tail)
+        } else {
+            chain.last() == Some(&e.head)
+        };
+        if chain_start {
+            let start = if forward { e.tail } else { e.head };
+            if cluster_tops.contains(&start) {
+                let rank = usize::try_from(p.rank[start]).map_err(|_| LayoutError::Domain)?;
+                if forward {
+                    a.y = rank_top[rank];
+                } else {
+                    b.y = rank_top[rank];
+                }
+            }
+        }
         let mut points = vec![a];
         let rank = usize::try_from(p.rank[e.tail]).map_err(|_| LayoutError::Domain)?;
         let segment = r
@@ -312,7 +333,7 @@ mod tests {
         let x = cross_coords(&p, &l)?;
         let r = route(&p, &l, &x)?;
         let (y, t) = rank_coords(&p, &l, &r)?;
-        let (es, _) = route_points(&p, &l, &x, &y, &t, &r)?;
+        let (es, _) = route_points(&p, &l, &x, &y, &t, &r, &[])?;
         assert_eq!(x, [0, 0]);
         assert_eq!(y, [0, 4352]);
         assert_eq!(
@@ -335,7 +356,7 @@ mod tests {
             r
         );
         let (y, t) = rank_coords(&p, &l, &r)?;
-        let (es, _) = route_points(&p, &l, &x, &y, &t, &r)?;
+        let (es, _) = route_points(&p, &l, &x, &y, &t, &r, &[])?;
         let expected = [
             [(1450, 1280), (1450, 2432), (0, 2432), (0, 5120)],
             [(2133, 1280), (2133, 2432), (3584, 2432), (3584, 5120)],
@@ -455,7 +476,7 @@ mod tests {
         r: &Routing,
     ) -> Result<usize, LayoutError> {
         let (y, t) = rank_coords(p, l, r)?;
-        let (routes, _) = route_points(p, l, x, &y, &t, r)?;
+        let (routes, _) = route_points(p, l, x, &y, &t, r, &[])?;
         Ok(crossings(&routes))
     }
     fn fan(

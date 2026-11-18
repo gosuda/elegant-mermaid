@@ -27,11 +27,12 @@ impl<'a> SafeUrl<'a> {
     }
 }
 
-/// A static link for scene groups whose owner ID matches `owner`.
-/// Repeated owner IDs in SVG options resolve to the last record.
+/// A static link for scene groups whose owner ID and role match `owner` and `role`.
+/// Repeated owner and role pairs in SVG options resolve to the last record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OwnerLink<'a> {
     pub owner: &'a str,
+    pub role: crate::scene::GroupRole,
     pub url: SafeUrl<'a>,
     pub tooltip: Option<&'a str>,
 }

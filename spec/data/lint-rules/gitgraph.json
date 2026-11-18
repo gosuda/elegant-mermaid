@@ -1,0 +1,36 @@
+[
+  {
+    "code": "gitgraph/duplicate-commit-id",
+    "severity": "warning",
+    "summary": "the same commit id is used more than once",
+    "help": "Give each commit a distinct id value.",
+    "rationale": "Merge and cherry-pick statements reference commit ids, so a duplicate makes those references ambiguous.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:gitgraph-duplicate-commit-id",
+    "status": "rejected",
+    "reason": "duplicate of gitgraph/duplicate-commit-id"
+  },
+  {
+    "code": "gitgraph/duplicate-tag",
+    "severity": "warning",
+    "summary": "the same tag value is used on more than one commit",
+    "help": "Give each tag a distinct value, or remove the duplicate.",
+    "rationale": "Two commits render with the same tag, so the tag cannot identify one commit.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:gitgraph-duplicate-tag",
+    "status": "adopted"
+  },
+  {
+    "code": "gitgraph/no-commits",
+    "severity": "warning",
+    "summary": "gitGraph declares no commits",
+    "help": "Add at least one commit statement.",
+    "rationale": "The diagram parses, but it renders empty.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:gitgraph-no-commits",
+    "status": "adopted"
+  }
+]

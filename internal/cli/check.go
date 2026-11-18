@@ -10,51 +10,53 @@ import (
 	"strconv"
 	"strings"
 
+	mermaid "github.com/gosuda/elegant-mermaid"
 	"github.com/gosuda/elegant-mermaid/internal/cells"
 	"github.com/gosuda/elegant-mermaid/internal/diag"
+	"github.com/gosuda/elegant-mermaid/internal/fileerr"
 	"github.com/gosuda/elegant-mermaid/internal/markdown"
 	"github.com/gosuda/elegant-mermaid/internal/source"
+	"golang.org/x/term"
 )
 
 func terminalWriter(v any) bool {
 	f, ok := v.(*os.File)
-	if !ok {
-		return false
-	}
-	s, err := f.Stat()
-	return err == nil && s.Mode()&os.ModeCharDevice != 0
+	return ok && term.IsTerminal(int(f.Fd()))
 }
-func ColourEnabled(mode string, terminal bool, getenv func(string) string) bool {
+
+func ColourEnabled(mode string, terminal bool, env TerminalEnv) bool {
 	if mode != "auto" {
 		return mode == "always"
 	}
-	if getenv("NO_COLOR") != "" {
+	if env.NoColor != "" {
 		return false
 	}
-	force := getenv("FORCE_COLOR")
-	if getenv("CLICOLOR_FORCE") == "1" || (force != "" && force != "0") {
+	if env.CLIColorForce == "1" || (env.ForceColor != "" && env.ForceColor != "0") {
 		return true
 	}
-	if getenv("CLICOLOR") == "0" || getenv("TERM") == "dumb" {
+	if env.CLIColor == "0" || env.Term == "dumb" {
 		return false
 	}
 	return terminal
 }
+
 func colourEnabled(mode string, cfg Config) bool {
-	return ColourEnabled(mode, terminalWriter(cfg.Stdout), os.Getenv)
+	return ColourEnabled(mode, terminalWriter(cfg.Stdout), cfg.Terminal)
 }
+
 func renderColour(mode string, cfg Config) cells.ColorMode {
 	if !colourEnabled(mode, cfg) {
 		return cells.ColorNone
 	}
-	if slices.Contains([]string{"truecolor", "24bit"}, os.Getenv("COLORTERM")) {
+	if slices.Contains([]string{"truecolor", "24bit"}, cfg.Terminal.ColorTerm) {
 		return cells.ColorTruecolor
 	}
-	if strings.HasSuffix(os.Getenv("TERM"), "256color") {
+	if strings.HasSuffix(cfg.Terminal.Term, "256color") {
 		return cells.ColorANSI256
 	}
 	return cells.ColorANSI16
 }
+
 func darkBackground(value string) bool {
 	parts := strings.Split(value, ";")
 	if len(parts) < 2 {
@@ -68,18 +70,20 @@ func darkBackground(value string) bool {
 	n, _ := strconv.Atoi(parts[len(parts)-1])
 	return n <= 6 || n == 8
 }
+
 func writeDiagnostics(w io.Writer, path string, src []byte, ds []diag.Diagnostic, color bool) error {
 	if color {
 		return diag.RenderTextColour(w, path, src, ds, diag.FrameOptions{})
 	}
 	return diag.RenderText(w, path, src, ds, diag.FrameOptions{})
 }
+
 func checkCommand(cfg Config) error {
 	o, paths, err := commandFlags("check", cfg.Args[1:])
 	if err != nil {
 		return err
 	}
-	if err = validateChoice(o.format, "--output-format", "text", "json"); err != nil {
+	if err = validateChoice(o.format, "--output-format", "text", "json", "sarif", "github"); err != nil {
 		return err
 	}
 	if err = validateChoice(o.color, "--color", "auto", "always", "never"); err != nil {
@@ -108,16 +112,18 @@ func checkInputs(cfg Config, o commandOptions, inputs []string) error {
 		if path == "-" {
 			path = "<stdin>"
 		}
-		f, e := checkInput(path, src)
-		if e != nil {
-			return e
-		}
+		f := checkInput(path, src)
 		files = append(files, f)
 		failed = failed || hasErrors(f.Diagnostics)
 	}
-	if o.format == "json" {
+	switch o.format {
+	case "json":
 		_, err = cfg.Stdout.Write(diag.AppendDocument(nil, files))
-	} else {
+	case "sarif":
+		_, err = cfg.Stdout.Write(diag.AppendSARIF(nil, mermaid.Version, files))
+	case "github":
+		_, err = cfg.Stdout.Write(diag.AppendGitHub(nil, files))
+	default:
 		err = writeCheckText(cfg, files, o.color)
 	}
 	if err != nil {
@@ -133,10 +139,10 @@ func markdownHost(path string) bool {
 	return slices.Contains([]string{".md", ".markdown", ".mdx"}, filepath.Ext(path))
 }
 
-func checkInput(path string, src []byte) (diag.FileDiagnostics, error) {
+func checkInput(path string, src []byte) diag.FileDiagnostics {
 	if !markdownHost(path) {
-		f, _, err := parseInput(path, src)
-		return f, err
+		f, _ := parseDiagram(path, src)
+		return f
 	}
 	src, firstBad := source.RepairUTF8(src)
 	host := diag.FileDiagnostics{Path: path, Source: src}
@@ -149,16 +155,13 @@ func checkInput(path string, src []byte) (diag.FileDiagnostics, error) {
 		})
 	}
 	for _, block := range markdown.Blocks(src) {
-		f, _, err := parseInput(path, block.Source)
-		if err != nil {
-			return host, err
-		}
+		f, _ := parseDiagram(path, block.Source)
 		for _, d := range f.Diagnostics {
 			host.Diagnostics = append(host.Diagnostics, hostDiagnostic(block, d))
 		}
 	}
 	diag.Sort(host.Diagnostics)
-	return host, nil
+	return host
 }
 
 func hostDiagnostic(block markdown.Block, d diag.Diagnostic) diag.Diagnostic {
@@ -178,6 +181,7 @@ func hostDiagnostic(block markdown.Block, d diag.Diagnostic) diag.Diagnostic {
 func hostSpan(block markdown.Block, span source.Span) source.Span {
 	return source.Span{Start: block.HostOffset(span.Start), End: block.HostOffset(span.End)}
 }
+
 func writeCheckText(cfg Config, files []diag.FileDiagnostics, color string) error {
 	for _, f := range files {
 		if err := writeDiagnostics(cfg.Stdout, f.Path, f.Source, f.Diagnostics, colourEnabled(color, cfg)); err != nil {
@@ -186,6 +190,7 @@ func writeCheckText(cfg Config, files []diag.FileDiagnostics, color string) erro
 	}
 	return nil
 }
+
 func checkPaths(path string) ([]string, error) {
 	if path == "-" {
 		return []string{path}, nil
@@ -193,7 +198,7 @@ func checkPaths(path string) ([]string, error) {
 	var paths []string
 	err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return fmt.Errorf("cannot read %s: %w", p, err)
+			return fileerr.Read(p, err)
 		}
 		if d.Type()&os.ModeSymlink != 0 {
 			return nil

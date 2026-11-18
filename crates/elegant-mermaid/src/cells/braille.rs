@@ -82,17 +82,51 @@ impl Canvas {
         Ok(())
     }
     pub fn fill(&mut self, points: &[Point], ink: Token) -> Result<(), GeomError> {
-        let rows = self.height().checked_mul(4).ok_or(GeomError::Overflow)?;
-        let columns = self.width().checked_mul(2).ok_or(GeomError::Overflow)?;
-        for y in 0..rows {
-            for x in 0..columns {
-                if polygon_inside(points, 256 * i64::from(x) + 128, 256 * i64::from(y) + 128)? {
+        self.fill_rings(&[points], ink)
+    }
+    pub fn fill_rings(&mut self, rings: &[&[Point]], ink: Token) -> Result<(), GeomError> {
+        let Some((x0, x1, y0, y1)) = self.dot_window(rings) else {
+            return Ok(());
+        };
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                if rings_inside(rings, 256 * i64::from(x) + 128, 256 * i64::from(y) + 128)? {
                     self.put_dot(x, y, ink)
                 }
             }
         }
         Ok(())
     }
+    fn dot_window(&self, rings: &[&[Point]]) -> Option<(i32, i32, i32, i32)> {
+        let mut points = rings.iter().flat_map(|ring| ring.iter());
+        let first = *points.next()?;
+        let (lo, hi) = points.fold((first, first), |(lo, hi), p| {
+            (
+                Point {
+                    x: lo.x.min(p.x),
+                    y: lo.y.min(p.y),
+                },
+                Point {
+                    x: hi.x.max(p.x),
+                    y: hi.y.max(p.y),
+                },
+            )
+        });
+        let x0 = i32::try_from(floor_div(i64::from(lo.x), 256).max(0)).ok()?;
+        let y0 = i32::try_from(floor_div(i64::from(lo.y), 256).max(0)).ok()?;
+        let x1 =
+            i32::try_from(floor_div(i64::from(hi.x), 256).min(i64::from(self.width()) * 2 - 1))
+                .ok()?;
+        let y1 =
+            i32::try_from(floor_div(i64::from(hi.y), 256).min(i64::from(self.height()) * 4 - 1))
+                .ok()?;
+        (x0 <= x1 && y0 <= y1).then_some((x0, x1, y0, y1))
+    }
+}
+fn rings_inside(rings: &[&[Point]], px: i64, py: i64) -> Result<bool, GeomError> {
+    rings.iter().try_fold(false, |inside, ring| {
+        Ok(inside ^ polygon_inside(ring, px, py)?)
+    })
 }
 pub fn polygon_inside(points: &[Point], px: i64, py: i64) -> Result<bool, GeomError> {
     let mut inside = false;

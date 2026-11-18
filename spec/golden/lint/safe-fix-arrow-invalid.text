@@ -1,0 +1,6 @@
+safe-fix-arrow-invalid.mmd:2:5: error[flowchart/arrow-invalid]: A single arrow -> is used in a flowchart
+  |
+2 |   A -> B
+  |     ^~
+  = help: Replace -> with -->, or use -- text --> for an inline label.
+  = fix: Replace -> with -->

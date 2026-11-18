@@ -4,6 +4,7 @@
 
 pub(crate) mod advances;
 pub(crate) mod advancesupem;
+pub(crate) mod alphanumeric;
 pub(crate) mod cellsymbols;
 pub(crate) mod configkeys;
 pub(crate) mod diagnostics;

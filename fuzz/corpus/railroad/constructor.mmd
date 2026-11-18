@@ -1,0 +1,7 @@
+railroad-beta
+title "Seed"
+accDescr {
+  seed description
+}
+r = choice(terminal("a\n"), sequence(special('x'), zeroOrMore(nonterminal("r")))) ; %% c
+q = optional(oneOrMore(terminal("b"))) ;

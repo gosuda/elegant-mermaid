@@ -3,11 +3,13 @@ pub mod canvas;
 pub mod colour;
 pub mod join;
 pub mod place;
+pub mod raster;
 pub mod render;
 pub mod serialise;
 pub use canvas::{Canvas, Cell, Label, merge_cell};
 pub use colour::{ColorMode, Rgb, Token};
 pub use join::Charset;
+pub use raster::render_braille;
 pub use render::{Options, ProfileError, RenderError, RenderResult, render};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]

@@ -312,6 +312,25 @@ fn clause_label_clearance_ignores_a_box_owner_ancestor() {
     assert_eq!(failure(&dump), None);
 }
 
+#[test]
+fn clause_label_clearance_accepts_a_label_inside_its_own_exclusive_box() {
+    let mut dump = valid_dump();
+    if let Some(l) = dump.labels.first_mut() {
+        l.owner = String::from("A");
+        l.rect = rect(2, 2, 8, 5);
+    }
+    assert_eq!(failure(&dump), None);
+}
+
+#[test]
+fn clause_label_clearance_prefers_a_route_when_box_and_route_ids_collide() {
+    let mut dump = valid_dump();
+    dump.boxes.push(bbox("e0", rect(50, 0, 20, 20)));
+    dump.labels.clear();
+    dump.labels.push(label("l", "e0", rect(52, 2, 8, 5)));
+    assert_eq!(failure(&dump), Some(Clause::LabelClearance));
+}
+
 fn group(id: &str, r: Rect, parent: &str) -> SceneBox {
     SceneBox {
         role: BoxRole::Group,

@@ -2,7 +2,6 @@ package raster
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"image"
 	"image/png"
@@ -11,15 +10,33 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	mermaid "github.com/gosuda/elegant-mermaid"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
+	"github.com/gosuda/elegant-mermaid/internal/layout"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 	"github.com/gosuda/elegant-mermaid/internal/scenelink"
 )
 
-func firstFixture(t *testing.T, kind string) *mermaid.Scene {
+func corpusKinds(t *testing.T) []string {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join("..", "corpus"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var kinds []string
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), "_") && !strings.HasPrefix(e.Name(), ".") {
+			kinds = append(kinds, e.Name())
+		}
+	}
+	slices.Sort(kinds)
+	return kinds
+}
+
+func fixturePaths(t *testing.T, kind string) []string {
 	t.Helper()
 	var paths []string
 	err := filepath.WalkDir(filepath.Join("..", "corpus", kind), func(path string, d fs.DirEntry, err error) error {
@@ -38,15 +55,31 @@ func firstFixture(t *testing.T, kind string) *mermaid.Scene {
 	if len(paths) == 0 {
 		t.Fatal("no corpus fixtures")
 	}
-	src, err := os.ReadFile(paths[0])
-	if err != nil {
-		t.Fatal(err)
+	return paths
+}
+
+func firstFixture(t *testing.T, kind string) *mermaid.Scene {
+	t.Helper()
+	for _, path := range fixturePaths(t, kind) {
+		src, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d := layout.ParseDiagram(src); d.Found && !d.Supported() {
+			t.Skipf("%s is not implemented", kind)
+		}
+		doc := mermaid.Parse(src)
+		if doc.HasErrors() {
+			continue
+		}
+		s, err := mermaid.Layout(t.Context(), doc, mermaid.LayoutOptions{})
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		return s
 	}
-	s, err := mermaid.Layout(context.Background(), mermaid.Parse(src), mermaid.LayoutOptions{})
-	if err != nil {
-		t.Fatalf("%s: %v", paths[0], err)
-	}
-	return s
+	t.Fatalf("%s has no fixture without errors", kind)
+	return nil
 }
 
 func decoded(t *testing.T, data []byte, err error) image.Image {
@@ -62,8 +95,9 @@ func decoded(t *testing.T, data []byte, err error) image.Image {
 }
 
 func TestPNGKinds(t *testing.T) {
-	for _, kind := range []string{"flowchart", "class"} {
+	for _, kind := range corpusKinds(t) {
 		t.Run(kind, func(t *testing.T) {
+			t.Parallel()
 			s := firstFixture(t, kind)
 			value, _ := scenelink.Scene(s)
 			for _, scale := range []int{1, 2} {
@@ -123,13 +157,13 @@ func TestPNGErrors(t *testing.T) {
 }
 
 func TestPNGScanlineOracle(t *testing.T) {
-	for _, kind := range []string{"flowchart", "class"} {
+	for _, kind := range []string{"flowchart", "sequence", "class", "pie", "sankey"} {
 		t.Run(kind, func(t *testing.T) {
 			s, _ := scenelink.Scene(firstFixture(t, kind))
 			var shapes []scene.Primitive
 			var texts []*scene.Text
 			s.Groups, shapes, texts = withoutStrokes(s.Groups)
-			data, err := encodeScene(s, Options{Scale: 2})
+			data, err := encodeScene(s, Options{Scale: 2, Background: "#ff00ff"})
 			img := decoded(t, data, err)
 			assertOracleRows(t, img, shapes, texts)
 		})
@@ -150,13 +184,18 @@ func assertInvalidScales(t *testing.T, s *mermaid.Scene) {
 func assertOracleRows(t *testing.T, img image.Image, shapes []scene.Primitive, texts []*scene.Text) {
 	t.Helper()
 	checked := 0
-	for y := range img.Bounds().Dy() {
+	masks := make([][]bool, img.Bounds().Dy())
+	for y := range masks {
+		masks[y] = make([]bool, img.Bounds().Dx())
+		for _, p := range shapes {
+			oracleFill(masks[y], p, float64(y)+0.5)
+		}
+	}
+	for y := range masks {
 		if textRow(texts, y) {
 			continue
 		}
-		want := oracleRuns(shapes, y, img.Bounds().Dx())
-		got := imageRuns(img, y)
-		assertRunEdges(t, y, got, want)
+		assertCoveragePixels(t, img, masks, y)
 		checked++
 	}
 	if checked == 0 {
@@ -164,16 +203,28 @@ func assertOracleRows(t *testing.T, img image.Image, shapes []scene.Primitive, t
 	}
 }
 
-func assertRunEdges(t *testing.T, y int, got, want []int) {
+func assertCoveragePixels(t *testing.T, img image.Image, masks [][]bool, y int) {
 	t.Helper()
-	if len(want) != len(got) {
-		t.Fatalf("row %d runs %v != %v", y, got, want)
-	}
-	for i := range want {
-		if absInt(want[i]-got[i]) > 1 {
-			t.Fatalf("row %d edges %v != %v", y, got, want)
+	for x := range masks[y] {
+		inside, outside := coverageNeighborhood(masks, x, y)
+		r, g, b, _ := img.At(x, y).RGBA()
+		ink := r != 65535 || g != 0 || b != 65535
+		if inside && !ink || outside && ink {
+			t.Fatalf("pixel (%d,%d): ink=%v, interior=%v, exterior=%v", x, y, ink, inside, outside)
 		}
 	}
+}
+
+func coverageNeighborhood(masks [][]bool, x, y int) (inside, outside bool) {
+	inside, outside = true, true
+	for dy := -1; dy <= 1; dy++ {
+		for dx := -1; dx <= 1; dx++ {
+			covered := masks[max(0, min(y+dy, len(masks)-1))][max(0, min(x+dx, len(masks[y])-1))]
+			inside = inside && covered
+			outside = outside && !covered
+		}
+	}
+	return inside, outside
 }
 
 func withoutStrokes(groups []*scene.Group) ([]*scene.Group, []scene.Primitive, []*scene.Text) {
@@ -228,14 +279,6 @@ func textRow(texts []*scene.Text, y int) bool {
 		}
 	}
 	return false
-}
-
-func oracleRuns(shapes []scene.Primitive, y, w int) []int {
-	mask := make([]bool, w)
-	for _, p := range shapes {
-		oracleFill(mask, p, float64(y)+0.5)
-	}
-	return runEdges(mask)
 }
 
 func oracleFill(mask []bool, p scene.Primitive, y float64) {
@@ -372,13 +415,6 @@ func runEdges(mask []bool) []int {
 		}
 	}
 	return out
-}
-
-func absInt(v int) int {
-	if v < 0 {
-		return -v
-	}
-	return v
 }
 
 func TestInterOutlines(t *testing.T) {

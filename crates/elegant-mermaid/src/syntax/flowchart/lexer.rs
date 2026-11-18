@@ -4,6 +4,8 @@ mod statement_rules;
 mod text_rules;
 mod unicode;
 
+use std::borrow::Cow;
+
 use super::diagnostic;
 use super::tokens::{BRPoint, Mode, TextVal, Token, TokenKind};
 use crate::diag::{Diagnostic, Severity};
@@ -39,7 +41,7 @@ enum Act {
     BeginCallbackArgs,
 }
 struct Rule {
-    matcher: fn(&Lexer<'_>, usize) -> Option<usize>,
+    matcher: fn(&mut Lexer<'_>, usize) -> Option<usize>,
     kind: Option<TokenKind>,
     act: Act,
     push: Option<Mode>,
@@ -60,6 +62,7 @@ pub(crate) struct Lexer<'a> {
     open_quote: Option<usize>,
     first_cont: Option<usize>,
     last_cont: Option<usize>,
+    reach: usize,
 }
 pub(crate) fn lex_all(src: &str, removed: &[Span]) -> Lexed {
     Lexer::new(src, removed).collect()
@@ -82,6 +85,7 @@ impl<'a> Lexer<'a> {
             open_quote: None,
             first_cont: None,
             last_cont: None,
+            reach: 0,
         }
     }
     fn mode(&self) -> Mode {
@@ -110,10 +114,71 @@ impl<'a> Lexer<'a> {
         }
     }
     fn limit(&self) -> usize {
-        self.removed
-            .get(self.rm)
-            .filter(|s| self.pos < s.start)
-            .map_or(self.src.len(), |s| s.start)
+        self.limit_at(self.pos)
+    }
+    fn removed_from(&self, p: usize) -> usize {
+        let mut j = self.rm;
+        while j < self.removed.len() && self.removed[j].end <= p {
+            j += 1;
+        }
+        j
+    }
+    fn limit_at(&self, p: usize) -> usize {
+        let j = self.removed_from(p);
+        if j < self.removed.len() && p < self.removed[j].start {
+            return self.removed[j].start;
+        }
+        self.src.len()
+    }
+    fn skip_removed_at(&self, p: usize) -> usize {
+        let j = self.removed_from(p);
+        if j < self.removed.len() && p >= self.removed[j].start {
+            return self.removed[j].end;
+        }
+        p
+    }
+    /// Advances `pos` over bytes that satisfy `pred`, hopping whole removed spans
+    /// when the run reaches one; a removed `%%` comment line is invisible to the
+    /// run, so a token that spans lines continues across it.
+    fn run_while(
+        &mut self,
+        mut pos: usize,
+        mut limit: usize,
+        mut pred: impl FnMut(u8) -> bool,
+    ) -> (usize, usize) {
+        loop {
+            while pos < limit && pred(self.src.as_bytes()[pos]) {
+                pos += 1;
+            }
+            if pos < limit || limit >= self.src.len() {
+                return (pos, limit);
+            }
+            let next = self.skip_removed_at(pos);
+            if next == pos {
+                return (pos, limit);
+            }
+            pos = next;
+            limit = self.limit_at(pos);
+            self.reach = self.reach.max(limit);
+        }
+    }
+    fn run_nonempty(&mut self, limit: usize, pred: impl FnMut(u8) -> bool) -> Option<usize> {
+        let (end, _) = self.run_while(self.pos, limit, pred);
+        (end > self.pos).then_some(end)
+    }
+    /// Skips `js_space` bytes, hopping whole removed spans; a jison `\s` run treats
+    /// a removed `%%` comment line exactly like the blank line it blanks out.
+    fn skip_space(&mut self, pos: usize, limit: usize) -> (usize, usize) {
+        self.run_while(pos, limit, js_space)
+    }
+    fn space_end(&mut self, pos: usize, limit: usize) -> usize {
+        self.skip_space(pos, limit).0
+    }
+    fn space_follows(&self, mut pos: usize, limit: usize) -> bool {
+        if pos >= limit {
+            pos = self.skip_removed_at(pos);
+        }
+        pos < self.src.len() && js_space(self.src.as_bytes()[pos])
     }
     fn collect(mut self) -> Lexed {
         loop {
@@ -163,10 +228,11 @@ impl<'a> Lexer<'a> {
             if r.modes & (1 << self.mode() as u32) == 0 {
                 continue;
             }
+            self.reach = n;
             let Some(end) = (r.matcher)(self, n) else {
                 continue;
             };
-            if end > n || end == self.pos && !r.empty {
+            if end > self.reach || end == self.pos && !r.empty {
                 continue;
             }
             self.emit(r, end);
@@ -259,7 +325,7 @@ impl<'a> Lexer<'a> {
         };
         let mut token = Token::new(kind, span, text);
         if matches!(r.act, Act::ShapeRun) {
-            let (text, brs) = replace_line_ends(&self.src.as_bytes()[start..end]);
+            let (text, brs) = replace_line_ends(self.clean_text(start, end).as_bytes());
             token.text = TextVal::Owned(text);
             token.brs = brs;
             self.keep(token);
@@ -267,22 +333,39 @@ impl<'a> Lexer<'a> {
         }
         token.string_open = self.open_quote;
         if matches!(kind, TokenKind::Str | TokenKind::MdStr) {
-            if self.first_cont.is_some() {
-                token.split_continuation = true;
-            } else {
+            if self.first_cont.is_none() {
                 self.first_cont = Some(self.tokens.len());
             }
             self.last_cont = Some(self.tokens.len());
         }
         self.keep(token);
     }
+    /// The source text of `start..end` without the removed spans inside it.
+    fn clean_text(&self, start: usize, end: usize) -> Cow<'a, str> {
+        let src: &'a str = self.src;
+        let mut j = self.removed_from(start);
+        if j >= self.removed.len() || self.removed[j].start >= end {
+            return Cow::Borrowed(src.get(start..end).unwrap_or(""));
+        }
+        let mut out = String::new();
+        let mut at = start;
+        while j < self.removed.len() && self.removed[j].start < end {
+            out.push_str(&src[at..self.removed[j].start]);
+            at = self.removed[j].end;
+            j += 1;
+        }
+        if at < end {
+            out.push_str(&src[at..end]);
+        }
+        Cow::Owned(out)
+    }
     fn text_value(&self, span: Span) -> TextVal {
-        if self.src.get(span.start..span.end).is_some() {
-            TextVal::Slice(span)
-        } else {
-            TextVal::Owned(
-                String::from_utf8_lossy(&self.src.as_bytes()[span.start..span.end]).into_owned(),
-            )
+        if span.start >= span.end {
+            return TextVal::None;
+        }
+        match self.clean_text(span.start, span.end) {
+            Cow::Borrowed(_) => TextVal::Slice(span),
+            Cow::Owned(out) => TextVal::Owned(out),
         }
     }
     fn end_string(&mut self, end: usize) {

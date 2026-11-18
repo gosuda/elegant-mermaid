@@ -1,0 +1,24 @@
+[
+  {
+    "code": "packet/no-fields",
+    "severity": "warning",
+    "summary": "packet diagram declares no bit-range fields",
+    "help": "Add at least one start-end field row.",
+    "rationale": "The header parses, but the rendered packet shows no fields.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:packet-no-fields",
+    "status": "adopted"
+  },
+  {
+    "code": "packet/empty-labels",
+    "severity": "warning",
+    "summary": "packet field has an empty label",
+    "help": "Give the field a label.",
+    "rationale": "An unlabeled field renders a blank cell, and the reader cannot tell what the bits are.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:packet-empty-labels",
+    "status": "adopted"
+  }
+]

@@ -5,9 +5,9 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Render, check, and lint Mermaid diagrams as SVG, PNG, or terminal text."
+description = "Render and check Mermaid diagrams as SVG, PNG, or terminal text."
 readme = "README.md"
-keywords = ["mermaid", "diagram", "svg", "ascii", "lint"]
+keywords = ["mermaid", "diagram", "svg", "ascii"]
 categories = ["visualization", "command-line-utilities"]
 include = ["src/**", "assets/**", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]
 

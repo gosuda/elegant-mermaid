@@ -17,16 +17,12 @@ type frameStyle struct {
 	mark func(dst []byte, s Severity, cells int) []byte
 }
 
-var plainStyle = frameStyle{word: appendWord, mark: appendMarkCells}
-
-var colourStyle = frameStyle{word: appendWordColour, mark: appendMarkColour}
-
 func RenderText(w io.Writer, path string, src []byte, ds []Diagnostic, o FrameOptions) error {
-	return writeFrames(w, plainStyle, path, src, ds, o)
+	return writeFrames(w, frameStyle{word: appendWord, mark: appendMarkCells}, path, src, ds, o)
 }
 
 func RenderTextColour(w io.Writer, path string, src []byte, ds []Diagnostic, o FrameOptions) error {
-	return writeFrames(w, colourStyle, path, src, ds, o)
+	return writeFrames(w, frameStyle{word: appendWordColour, mark: appendMarkColour}, path, src, ds, o)
 }
 
 type frameWriter struct {

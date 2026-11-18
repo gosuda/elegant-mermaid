@@ -73,6 +73,7 @@ This file defines the hard constraints beyond the validator, the metric formulas
     |`compound`|`true`; each group is a compound parent, with `setParent`|
     |`acyclicer`|unset (dagre 3.1.3 then breaks cycles by depth-first search; `greedy` is the only other value)|
     |`ranker`|unset (dagre default, network simplex)|
+    Dagre 3.1.3 cannot rank an edge that ends at a compound parent. An edge endpoint that is a group MUST be replaced, for dagre only, by the first real node among the group's descendants in declaration order. A group with no real descendant MUST be passed to dagre as an ordinary node with our measured size and no children. The dump keeps the original `from` and `to` ids. A fixture for which an engine still throws fails `just quality`, and the message names the fixture and the engine.
 - quality-metrics-27: The ELK baseline MUST use these Layered options, with edge routing orthogonal and model order on. [just quality]
     Upstream Mermaid defaults `forceNodeModelOrder` to false and `considerModelOrder` to `NODES_AND_EDGES`; here both are on.
     |Option|Value|

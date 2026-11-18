@@ -35,7 +35,7 @@ func TestMarkerOutlines(t *testing.T) {
 		{"openArrow", scene.Axis(3), "<polyline class='emd-s-edge' points='6,18 10,10 14,18' stroke-width='1'/>\n"},
 	} {
 		r := renderer{used: make(map[string]bool)}
-		got, err := r.marker(&scene.MarkerRef{Marker: c.name, At: geom.Point{X: 640, Y: 640}, Axis: c.axis})
+		got, err := r.marker(&scene.MarkerRef{Marker: c.name, At: geom.Point{X: 640, Y: 640}, Axis: c.axis}, 0)
 		if err != nil || got != c.want {
 			t.Errorf("%s/%d: got %q, want %q (%v)", c.name, c.axis, got, c.want, err)
 		}

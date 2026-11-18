@@ -34,6 +34,7 @@ func squareParts(n int) []Layout {
 	}
 	return parts
 }
+
 func TestPackingMinimisesPackedArea(t *testing.T) {
 	opts := PackOptions{Gap: 2, AspectNum: 2, AspectDen: 1}
 	target, err := packingTarget(squareParts(3), opts)
@@ -51,6 +52,7 @@ func TestPackingMinimisesPackedArea(t *testing.T) {
 		t.Fatal(packed.Width, packed.Height)
 	}
 }
+
 func TestPackingTiesKeepAspectTarget(t *testing.T) {
 	target, err := packingTarget(squareParts(2), PackOptions{Gap: 2, AspectNum: 2, AspectDen: 1})
 	if err != nil {
@@ -60,6 +62,7 @@ func TestPackingTiesKeepAspectTarget(t *testing.T) {
 		t.Fatal("the prefix sums 10 and 22 pack to the same area 220 as the aspect target 20", target)
 	}
 }
+
 func TestPackingMaxWidthSkipsAreaSearch(t *testing.T) {
 	target, err := packingTarget(squareParts(3), PackOptions{MaxWidth: 24, Gap: 2, AspectNum: 2, AspectDen: 1})
 	if err != nil {

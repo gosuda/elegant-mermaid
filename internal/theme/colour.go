@@ -21,19 +21,9 @@ const (
 	satMax       = 100
 	lightMax     = 100
 	channelMax   = 255
-	sectorCount  = 6
 	sectorWidth  = 60
 	percentScale = 100
 )
-
-var sectorSlots = [sectorCount][3]uint8{
-	{0, 1, 2},
-	{1, 0, 2},
-	{2, 0, 1},
-	{2, 1, 0},
-	{1, 2, 0},
-	{0, 2, 1},
-}
 
 func ParseHex(s string) (Colour, error) {
 	if len(s) == 0 || s[0] != '#' {
@@ -127,40 +117,58 @@ func hueOf(r, g, b, hi, span int64) int64 {
 
 func FromHSL(h HSL) Colour {
 	hue := int64(h.H)
-	sat := clampRange(int64(h.S), 0, satMax)
-	light := clampRange(int64(h.L), 0, lightMax)
+	sat := clampRange(int64(h.S), satMax)
+	light := clampRange(int64(h.L), lightMax)
 	c := floorDiv((lightMax-absOf(2*light-lightMax))*sat*channelMax+5000, 10000)
 	x := floorDiv(c*(sectorWidth-absOf(floorMod(hue, 2*sectorWidth)-sectorWidth))+30, sectorWidth)
 	offset := floorDiv(channelMax*light+50, percentScale) - floorDiv(c, 2)
-	slots := sectorSlots[floorMod(hue, hueArc)/sectorWidth]
-	parts := [3]int64{c, x, 0}
+	r, g, b := hueSectorChannels(floorMod(hue, hueArc)/sectorWidth, c, x)
 	return Colour{
-		R: clampChannel(parts[slots[0]] + offset),
-		G: clampChannel(parts[slots[1]] + offset),
-		B: clampChannel(parts[slots[2]] + offset),
+		R: clampChannel(r + offset),
+		G: clampChannel(g + offset),
+		B: clampChannel(b + offset),
+	}
+}
+
+func hueSectorChannels(sector, c, x int64) (int64, int64, int64) {
+	switch sector {
+	case 0:
+		return c, x, 0
+	case 1:
+		return x, c, 0
+	case 2:
+		return 0, c, x
+	case 3:
+		return 0, x, c
+	case 4:
+		return x, 0, c
+	case 5:
+		return c, 0, x
+	default:
+		panic("theme: invalid hue sector")
 	}
 }
 
 func clampChannel(v int64) uint8 {
-	return uint8(clampRange(v, 0, channelMax))
+	return uint8(clampRange(v, channelMax))
 }
 
-func clampRange(v, lo, hi int64) int64 {
-	return min(max(v, lo), hi)
+func clampRange(v, hi int64) int64 {
+	return min(max(v, 0), hi)
 }
 
 func Adjust(c Colour, d Delta) Colour {
 	base := c.HSL()
 	return FromHSL(HSL{
 		H: int32(floorMod(int64(base.H)+int64(d.H), hueArc)),
-		S: int32(clampRange(int64(base.S)+int64(d.S), 0, satMax)),
-		L: int32(clampRange(int64(base.L)+int64(d.L), 0, lightMax)),
+		S: int32(clampRange(int64(base.S)+int64(d.S), satMax)),
+		L: int32(clampRange(int64(base.L)+int64(d.L), lightMax)),
 	})
 }
 
 func Darken(c Colour, amount int32) Colour {
 	base := c.HSL()
-	base.L = int32(clampRange(int64(base.L)-int64(amount), 0, lightMax))
+	base.L = int32(clampRange(int64(base.L)-int64(amount), lightMax))
 	return FromHSL(base)
 }
 

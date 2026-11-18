@@ -184,6 +184,10 @@ func buildIdeographicTable(ranges []tableRange) *table {
 	return &table{name: "ideographic", goName: "Ideographic", rsName: "IDEOGRAPHIC", leanName: "ideographic", goType: "IdRange", rsType: "IdRange", leanType: "IdRange", cols: idRangeCols, rows: idRows(ranges)}
 }
 
+func buildAlphanumericTable(ranges []tableRange) *table {
+	return &table{name: "alphanumeric", goName: "Alphanumeric", rsName: "ALPHANUMERIC", leanName: "alphanumeric", goType: "AlphanumericRange", rsType: "AlphanumericRange", leanType: "AlphanumericRange", cols: idRangeCols, rows: idRows(ranges)}
+}
+
 func valueRows(ranges []tableRange) []rowValues {
 	rows := make([]rowValues, 0, len(ranges))
 	for _, r := range ranges {
@@ -256,6 +260,7 @@ func appendAsciiGlyphs(rows []rowValues, byMask map[uint8]glyphJoinInput, styleC
 	}
 	return rows, nil
 }
+
 func indexGlyphs(glyphs []glyphJoinInput) (map[uint8]glyphJoinInput, error) {
 	if len(glyphs) != 16 {
 		return nil, fmt.Errorf("glyph-join.json has %d rows, want 16", len(glyphs))
@@ -291,7 +296,7 @@ func parseUPlus(s string) (uint32, error) {
 	return parseHexCodePoint(t[2:])
 }
 
-func buildLayoutConstTable(consts []layoutConstInput) *table {
+func buildLayoutConstTable(consts []layoutConstInput) *layoutConstTable {
 	rows := make([]rowValues, 0, 2*len(consts))
 	for _, c := range consts {
 		rows = append(rows, rowValues{"vector." + c.Name, c.Vector})
@@ -300,7 +305,8 @@ func buildLayoutConstTable(consts []layoutConstInput) *table {
 	slices.SortStableFunc(rows, func(a, b rowValues) int {
 		return cmp.Compare(a[0].(string), b[0].(string))
 	})
-	return &table{name: "layoutconst", goName: "LayoutConst", rsName: "LAYOUT_CONST", leanName: "layoutconst", goType: "Const", rsType: "Const", leanType: "Const", cols: layoutConstCols, rows: rows}
+	tbl := &table{name: "layoutconst", goName: "LayoutConst", rsName: "LAYOUT_CONST", leanName: "layoutconst", goType: "Const", rsType: "Const", leanType: "Const", leanOpaque: true, cols: layoutConstCols, rows: rows}
+	return &layoutConstTable{table: tbl, consts: consts}
 }
 
 func buildScriptsTable(scripts []scriptInput) (*table, error) {

@@ -28,8 +28,6 @@ type part struct {
 	forced string
 }
 
-var forcedBreaks = [...]string{"<br>", "<br/>", "<br />"}
-
 func splitForced(s string) []part {
 	parts := make([]part, 0, 4)
 	rest := s
@@ -45,7 +43,16 @@ func splitForced(s string) []part {
 
 func findForced(s string) (int, string, bool) {
 	best, token := -1, ""
-	for _, candidate := range forcedBreaks {
+	for i := range 3 {
+		var candidate string
+		switch i {
+		case 0:
+			candidate = "<br>"
+		case 1:
+			candidate = "<br/>"
+		case 2:
+			candidate = "<br />"
+		}
 		at := indexFoldASCII(s, candidate)
 		if at >= 0 && (best < 0 || at < best) {
 			best, token = at, candidate
@@ -82,10 +89,11 @@ type opportunity struct {
 }
 
 type wrapper struct {
-	clusters []Cluster
-	metric   Metric
-	upem     int64
-	prefix   []int64
+	clusters    []Cluster
+	metric      Metric
+	upem        int64
+	prefix      []int64
+	styledWidth func(int, int) (int32, error)
 }
 
 func wrapPart(s string, target int32, m Metric) ([]Line, error) {
@@ -124,6 +132,9 @@ func (w *wrapper) clusterSpan(c Cluster) (int64, error) {
 }
 
 func (w *wrapper) width(from, to int) (int32, error) {
+	if w.styledWidth != nil {
+		return w.styledWidth(from, to)
+	}
 	span := w.prefix[to] - w.prefix[from]
 	if w.metric.Profile == ProfileCell {
 		return checkedI32(span)
@@ -235,7 +246,13 @@ func lastOpportunity(opts []opportunity, start, end int) (opportunity, bool) {
 
 func (w *wrapper) line(textFrom, textTo, sepFrom, sepTo int) (Line, error) {
 	text := w.slice(textFrom, textTo)
-	width, err := w.metric.TextWidth(text)
+	var width int32
+	var err error
+	if w.styledWidth != nil {
+		width, err = w.width(textFrom, textTo)
+	} else {
+		width, err = w.metric.TextWidth(text)
+	}
 	if err != nil {
 		return Line{}, err
 	}

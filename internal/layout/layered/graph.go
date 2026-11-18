@@ -25,6 +25,7 @@ type Node struct {
 	Border Border
 	Extent int32
 	Role   scene.BoxRole
+	Exact  bool
 }
 
 type Edge struct {
@@ -66,12 +67,15 @@ type Params struct {
 }
 
 type Graph struct {
-	Nodes     []Node
-	Edges     []Edge
-	Out, In   [][]int32
-	Clusters  []Cluster
-	Fixed     []FixedGroup
-	Direction scene.Direction
+	Nodes       []Node
+	Edges       []Edge
+	Out, In     [][]int32
+	Clusters    []Cluster
+	Fixed       []FixedGroup
+	Direction   scene.Direction
+	Attachments []Attachment
+	semantic    []scene.Box
+	regions     regionMetadata
 	Params
 }
 
@@ -96,6 +100,7 @@ func DefaultParams(profile scene.Profile) (Params, error) {
 	}
 	return p, nil
 }
+
 func nodeParameter(p *Params, name string, value int32) bool {
 	switch name {
 	case "slot":
@@ -113,6 +118,7 @@ func nodeParameter(p *Params, name string, value int32) bool {
 	}
 	return true
 }
+
 func compoundParameter(p *Params, name string, value int32) {
 	switch name {
 	case "cluster_pad":

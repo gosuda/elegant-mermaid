@@ -46,9 +46,9 @@ pub struct Segment {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum GeomError {
-    #[error("overflow")]
+    #[error("arithmetic overflow")]
     Overflow,
-    #[error("domain")]
+    #[error("domain error")]
     Domain,
 }
 

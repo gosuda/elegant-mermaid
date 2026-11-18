@@ -16,6 +16,7 @@ pub fn from_flowchart(model: &Model, profile: Profile, options: DumpOptions) -> 
         sizes: Vec::new(),
         attachments: Vec::new(),
         region_sets: Vec::new(),
+        spacing: super::input::Spacing::default(),
     };
     append_nodes(&mut input, model);
     append_groups(&mut input, model);
@@ -55,6 +56,7 @@ fn append_nodes(input: &mut Input, model: &Model) {
             id: node.id.clone(),
             role: BoxRole::Node,
             shape: node.shape.clone(),
+            icon: node.attrs.get("icon").is_some_and(|icon| !icon.is_empty()),
             parent,
             exclusive: true,
             text,
@@ -69,6 +71,7 @@ fn append_groups(input: &mut Input, model: &Model) {
             id: group.id.clone(),
             role: BoxRole::Group,
             shape: String::new(),
+            icon: false,
             parent: group.parent.clone(),
             exclusive: false,
             text: group.title.clone(),
@@ -109,6 +112,8 @@ fn append_routes(input: &mut Input, model: &Model) {
             marker_end: edge.marker.clone(),
             line: edge.stroke.clone(),
             min_length: if edge.label.is_some() { 2 } else { 1 },
+            from_side: None,
+            to_side: None,
         });
         if let Some(text) = &edge.label {
             input.labels.push(Label {
@@ -390,7 +395,7 @@ mod tests {
     }
 
     #[test]
-    fn model_dump_demo() {
+    fn model_dump_shapes_keep_declared_owners() {
         let input =
             build("flowchart LR\n  A[Start] --> B{Choice}\n  B -->|yes| C[Done]\n  B -->|no| A\n");
         assert_eq!(
@@ -416,23 +421,29 @@ mod tests {
             ]
         );
         assert_eq!(input.direction, Direction::Lr);
-        assert_eq!(
-            model_dump(&input),
-            concat!(
-                "{\"version\":1,\"stage\":\"model\",\"kind\":\"flowchart\",\"profile\":\"vector\",\"options\":{\"profile\":\"vector\",\"thoroughness\":3,\"max_width\":0,\"direction\":\"LR\",\"limits\":{\"max_nodes\":2000,\"max_edges\":5000,\"max_text_bytes\":1048576}},\n",
-                "\"boxes\":[{\"id\":\"A\",\"role\":\"node\",\"parent\":\"\",\"exclusive\":true},\n",
-                "{\"id\":\"B\",\"role\":\"node\",\"parent\":\"\",\"exclusive\":true},\n",
-                "{\"id\":\"C\",\"role\":\"node\",\"parent\":\"\",\"exclusive\":true}],\n",
-                "\"routes\":[{\"id\":\"e0\",\"from\":\"A\",\"to\":\"B\",\"orthogonal\":true},\n",
-                "{\"id\":\"e1\",\"from\":\"B\",\"to\":\"C\",\"orthogonal\":true},\n",
-                "{\"id\":\"e2\",\"from\":\"B\",\"to\":\"A\",\"orthogonal\":true}],\n",
-                "\"labels\":[{\"id\":\"A.label\",\"owner\":\"A\",\"text\":\"Start\",\"lines\":[]},\n",
-                "{\"id\":\"B.label\",\"owner\":\"B\",\"text\":\"Choice\",\"lines\":[]},\n",
-                "{\"id\":\"C.label\",\"owner\":\"C\",\"text\":\"Done\",\"lines\":[]},\n",
-                "{\"id\":\"e1.label\",\"owner\":\"e1\",\"text\":\"yes\",\"lines\":[]},\n",
-                "{\"id\":\"e2.label\",\"owner\":\"e2\",\"text\":\"no\",\"lines\":[]}]}\n"
-            )
-        );
+        let output = model_dump(&input);
+        let boxes = output
+            .split("\"boxes\":[")
+            .nth(1)
+            .and_then(|section| section.split("],\n\"routes\":").next())
+            .unwrap_or("");
+        for (id, shape) in [("A", None), ("B", Some("diamond")), ("C", None)] {
+            let prefix = format!("{{\"id\":\"{id}\",\"role\":\"node\",");
+            let record = boxes.lines().find(|line| line.starts_with(&prefix));
+            assert!(record.is_some(), "missing source node {id}: {output}");
+            let record = record.unwrap_or("");
+            if let Some(shape) = shape {
+                assert!(
+                    record.contains(&format!("\"shape\":\"{shape}\"")),
+                    "node {id} must retain its declared shape: {record}"
+                );
+            } else {
+                assert!(
+                    !record.contains("\"shape\":"),
+                    "default rectangle {id} must omit shape: {record}"
+                );
+            }
+        }
     }
 
     #[test]

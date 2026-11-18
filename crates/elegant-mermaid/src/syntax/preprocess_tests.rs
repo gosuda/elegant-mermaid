@@ -103,6 +103,41 @@ fn no_fence_and_unterminated_fence() {
 }
 
 #[test]
+fn fence_requires_identical_indent() {
+    for src in [
+        "---\ntitle: example\n  ---\nflowchart\n",
+        "  ---\ntitle: example\n---\nflowchart\n",
+        "\t---\ntitle: example\n        ---\nflowchart\n",
+        " \t---\ntitle: example\n\t ---\nflowchart\n",
+    ] {
+        let p = preprocess(src);
+        assert!(p.frontmatter.is_none(), "{src:?}");
+        assert!(p.removed.is_empty(), "{src:?}");
+    }
+}
+
+#[test]
+fn fence_skips_mismatched_closer() {
+    let p = preprocess("\t--- \r\nvalue: |\r\n  ---\r\n\t--- \r\nflowchart\n");
+    let Some(f) = &p.frontmatter else {
+        unreachable!("expected frontmatter; observed {:?}", p)
+    };
+    assert_eq!(f.body, Span { start: 7, end: 24 });
+    assert_eq!(p.removed, vec![Span { start: 0, end: 31 }]);
+}
+
+#[test]
+fn requirement_title_with_mismatched_fence_is_rejected() {
+    let src = include_str!(
+        "../../../../corpus/requirement/mermaid/requirement~visual-check~with-a-title-default.mmd"
+    );
+    assert!(
+        crate::parse(src).has_errors(),
+        "requirement title with mismatched frontmatter fences must be rejected; source: {src:?}"
+    );
+}
+
+#[test]
 fn fence_shapes_and_line_endings() {
     let p = preprocess("---\nconfig:\n  theme: dark\n---\nA");
     let Some(f) = &p.frontmatter else {
@@ -218,6 +253,17 @@ fn frontmatter_config_must_be_mapping_span() {
         p.frontmatter.as_ref().is_none_or(|f| f.config.is_none()),
         "non-mapping frontmatter config must not be retained; observed frontmatter {:?}",
         p.frontmatter
+    );
+}
+
+#[test]
+fn frontmatter_config_nested_scalar_spans_its_token() {
+    let p = preprocess("---\nconfig:\n  Same\n  more\nx: 1\n---\nA\n");
+    check(
+        &p.diagnostics,
+        C_MALFORMED,
+        "frontmatter config must be a mapping",
+        Span { start: 14, end: 18 },
     );
 }
 
@@ -375,6 +421,28 @@ fn wrap_directive_sets_flag() {
     assert!(d.wrap, "expected d.wrap; observed d.wrap={:?}", d.wrap);
     assert_eq!(d.body, Span { start: 7, end: 7 });
     assert_eq!(p.removed, vec![Span { start: 0, end: 10 }]);
+}
+
+#[test]
+fn directive_whitespace_includes_line_ends() {
+    for src in [
+        "%%{init\n: {\"a\":1}}%%\nB\n",
+        "%%{init: \n{\"a\":1}}%%\nB\n",
+        "%%{\r\ninit\r\n:\r\n{\"a\":1}\r\n}%%\r\nB\r\n",
+    ] {
+        let p = preprocess(src);
+        assert!(p.diagnostics.is_empty(), "{src:?}: {:?}", p.diagnostics);
+        let Some(ConfigValue::Mapping(entries)) = &p.init_config else {
+            unreachable!(
+                "{src:?}: expected one init mapping; observed {:?}",
+                p.init_config
+            )
+        };
+        assert_eq!(entries.len(), 1, "{src:?}");
+    }
+    let p = preprocess("%%{ \nwrap\n}%%\nB\n");
+    assert!(p.diagnostics.is_empty(), "{:?}", p.diagnostics);
+    assert!(p.wrap);
 }
 
 #[test]
@@ -545,6 +613,91 @@ fn diagnostics_propagate_from_frontmatter_body() {
         "tab in indentation",
         Span { start: 4, end: 5 },
     );
+}
+
+#[test]
+fn frontmatter_failure_at_a_carriage_return_spans_that_line_break() {
+    for (name, src, want) in [
+        (
+            "lone CR before the closing fence",
+            "---\n0000000000: 0\n0\r---\nflowchart\n",
+            Span { start: 19, end: 20 },
+        ),
+        (
+            "CRLF before the closing fence",
+            "---\n0000000000: 0\n0\r\n---\nflowchart\n",
+            Span { start: 19, end: 21 },
+        ),
+        (
+            "lone CR with text after it",
+            "---\nk: v\n0\rw\n---\nflowchart\n",
+            Span { start: 10, end: 11 },
+        ),
+    ] {
+        let p = preprocess(src);
+        assert_eq!(p.diagnostics.len(), 1, "{name}: {:?}", p.diagnostics);
+        check(&p.diagnostics, C_MALFORMED, "malformed config value", want);
+    }
+}
+
+#[test]
+fn frontmatter_unterminated_quoted_value_fails_at_the_range_end() {
+    for quote in ['"', '\''] {
+        let src = format!(
+            "---\nconfig:\n  mindmap:\n    {quote}colorBy: depth\n---\nflowchart LR\n  A-->B\n"
+        );
+        let range_end = src.find("---\nflowchart").unwrap_or(src.len());
+        let p = preprocess(&src);
+        assert_eq!(p.diagnostics.len(), 1, "{quote}: {:?}", p.diagnostics);
+        check(
+            &p.diagnostics,
+            C_MALFORMED,
+            "malformed config value",
+            Span {
+                start: range_end,
+                end: range_end,
+            },
+        );
+    }
+}
+
+#[test]
+fn init_directive_body_ends_at_its_closing_fence() {
+    for (name, src, end) in [
+        (
+            "object missing its closing brace",
+            "%%{init: {'theme':'base'}%%\nflowchart\n",
+            24,
+        ),
+        (
+            "array missing its closing bracket",
+            "%%{init: {'a':[1,2}%%\nflowchart\n",
+            18,
+        ),
+        (
+            "string missing its closing quote",
+            "%%{init: {'a':'b}%%\nflowchart\n",
+            16,
+        ),
+    ] {
+        let p = preprocess(src);
+        assert_eq!(p.diagnostics.len(), 1, "{name}: {:?}", p.diagnostics);
+        check(
+            &p.diagnostics,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start: end, end },
+        );
+        assert!(p.init_config.is_none(), "{name}");
+        assert_eq!(
+            p.removed.first(),
+            Some(&Span {
+                start: 0,
+                end: end + 3
+            }),
+            "{name}"
+        );
+    }
 }
 
 #[path = "preprocess/span_tests.rs"]

@@ -1,9 +1,44 @@
+pub mod agentflow;
+pub mod architecture;
+pub mod block;
+pub mod c4;
 pub mod class;
 pub mod config_value;
+pub mod cynefin;
 pub mod detect;
+pub(crate) mod entities;
+pub mod er;
+pub mod eventmodeling;
 pub mod flowchart;
+pub mod gantt;
+pub mod gitgraph;
+pub mod info;
+pub mod ishikawa;
+pub mod journey;
+pub mod kanban;
+pub mod langium;
+pub mod mindmap;
+pub mod packet;
+pub mod pie;
 pub mod preprocess;
+pub mod quadrant;
+pub mod radar;
+pub mod railroad;
+pub mod requirement;
+pub mod sankey;
+pub mod sequence;
 pub mod state;
+pub mod swimlane;
+pub mod timeline;
+pub mod treemap;
+pub mod treeview;
+pub mod usecase;
+pub mod venn;
+pub mod wardley;
+pub mod xychart;
+
+#[cfg(test)]
+mod layered_corpus_tests;
 
 pub(crate) fn eol_len(b: &[u8], i: usize) -> usize {
     match b.get(i) {

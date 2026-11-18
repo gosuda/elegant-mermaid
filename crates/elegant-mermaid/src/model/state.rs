@@ -127,6 +127,18 @@ pub struct Directive {
     pub scope: usize,
     pub token_spans: Vec<Span>,
 }
+#[derive(Debug, Clone)]
+pub struct StatementOccurrence {
+    pub id: usize,
+    pub from: usize,
+    pub to: usize,
+    pub label: usize,
+    pub pseudostate: bool,
+    pub span: Span,
+    pub body: Option<Vec<StatementOccurrence>>,
+    pub statement_count: usize,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Model {
     pub states: Vec<State>,
@@ -140,6 +152,7 @@ pub struct Model {
     pub acc_title: Option<Text>,
     pub acc_descr: Option<Text>,
     pub directives: Vec<Directive>,
+    pub occurrences: Vec<StatementOccurrence>,
 }
 
 pub fn resolve(_source: &str, document: &Start<'_>) -> (Model, Vec<Diagnostic>) {
@@ -158,6 +171,7 @@ pub fn resolve(_source: &str, document: &Start<'_>) -> (Model, Vec<Diagnostic>) 
         direction: "TB".into(),
         direction_span: None,
     });
+    resolver.model.occurrences = occurrences(&document.document, &mut BTreeMap::new());
     resolver.document(&document.document, 0, None);
     let mut diagnostics: Vec<Diagnostic> = resolver
         .model
@@ -421,7 +435,7 @@ impl Resolver {
                 url,
                 tooltip,
             } => {
-                if crate::interaction::SafeUrl::new(url.text).is_none() {
+                if crate::interaction::SafeUrl::new(&url.text).is_none() {
                     self.interaction_diagnostics.push(Diagnostic {
                         code: "interaction/unsafe-url",
                         severity: Severity::Warning,
@@ -437,11 +451,11 @@ impl Resolver {
                     target: name.into(),
                     target_span: target.span,
                     url: Text {
-                        value: url.text.into(),
+                        value: url.text.to_string(),
                         span: url.span,
                     },
                     tooltip: tooltip.as_ref().map(|value| Text {
-                        value: value.text.into(),
+                        value: value.text.to_string(),
                         span: value.span,
                     }),
                     span: statement.span,
@@ -677,4 +691,64 @@ fn directive_token_spans(statement: &Statement<'_>) -> Vec<Span> {
         StatementKind::FloatingNote { text, id } => vec![text.span, id.span],
         _ => Vec::new(),
     }
+}
+
+fn occurrences<'a>(
+    document: &'a Document<'_>,
+    identities: &mut BTreeMap<&'a str, usize>,
+) -> Vec<StatementOccurrence> {
+    let mut out = Vec::new();
+    for s in document
+        .lines
+        .iter()
+        .filter_map(|line| line.statement.as_ref())
+    {
+        let mut occurrence = StatementOccurrence {
+            id: 0,
+            from: 0,
+            to: 0,
+            label: 0,
+            pseudostate: false,
+            span: s.span,
+            body: None,
+            statement_count: 0,
+        };
+        match &s.kind {
+            StatementKind::Id { id, .. } => {
+                occurrence.id = identity(identities, id.id.text.as_ref())
+            }
+            StatementKind::Composite { id, body, .. } => {
+                occurrence.id = identity(identities, id.text.as_ref());
+                occurrence.body = body.as_ref().map(|body| occurrences(body, identities));
+                occurrence.statement_count = body.as_ref().map_or(0, |body| {
+                    body.lines
+                        .iter()
+                        .filter(|line| line.statement.is_some())
+                        .count()
+                });
+            }
+            StatementKind::Transition {
+                from,
+                to,
+                description,
+                ..
+            } => {
+                occurrence.from = identity(identities, from.id.text.as_ref());
+                occurrence.to = identity(identities, to.id.text.as_ref());
+                occurrence.pseudostate = from.id.text == "[*]";
+                occurrence.label = identity(
+                    identities,
+                    description.as_ref().map_or("", |token| token.text.as_ref()),
+                );
+            }
+            _ => continue,
+        }
+        out.push(occurrence);
+    }
+    out
+}
+
+fn identity<'a>(identities: &mut BTreeMap<&'a str, usize>, text: &'a str) -> usize {
+    let next = identities.len() + 1;
+    *identities.entry(text).or_insert(next)
 }

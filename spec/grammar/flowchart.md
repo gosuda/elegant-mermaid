@@ -533,6 +533,7 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 - flowchart-105: The lexer MUST take the first matching rule of the current mode at the current byte, in the order of the rule tables of this file; jison without `%options flex` does the same. [just parity]
 - flowchart-106: A rule that opens a quoted run MUST NOT apply inside the modes `string`, `md_string`, and `shapeDataStr`; each of those modes MUST apply its own closing rule first, and shape-data content MUST NOT change the state that joins string tokens. [just go-check]
 - flowchart-107: Every flowchart diagnostic whose registry row has a `fix_safety` other than `none` MUST carry one fix with the title, safety, edit span, and replacement text that `TestDiagnosticFixContracts` and `flowchart_diagnostic_fix_contracts` state, equal in Go and Rust; a row with `fix_safety` `none` MUST carry no fix. [just parity]
+- flowchart-108: A `click` link MUST wrap only the scene group of role `node` whose owner is its target id, as upstream sets `link` on vertices only: a target that is a subgraph MUST draw no anchor, and an empty tooltip MUST emit no `<title>`. Go and Rust MUST emit the same anchors. [just go-check: TestFlowchartClickOnASubgraphDrawsNoAnchor]
 
 ## Upstream readings
 

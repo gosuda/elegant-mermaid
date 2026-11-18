@@ -73,6 +73,7 @@ type Dump struct {
 	Boxes   []Box
 	Routes  []Route
 	Labels  []Label
+	Regions [][]int
 }
 
 const (
@@ -84,6 +85,7 @@ const (
 	tagBoxes    = `,"boxes":`
 	tagRoutes   = `,"routes":`
 	tagLabels   = `,"labels":`
+	tagRegions  = `,"regions":`
 	tagLimits   = `,"limits":`
 	tagMaxNodes = `{"max_nodes":`
 	newline     = "\n"
@@ -111,6 +113,11 @@ func (d *Dump) AppendJSON(dst []byte) []byte {
 	dst = append(dst, ',')
 	dst = append(dst, newline...)
 	dst = d.appendLabels(dst)
+	if d.Stage == StageModel && len(d.Regions) > 0 {
+		dst = append(dst, ',')
+		dst = append(dst, newline...)
+		dst = d.appendRegions(dst)
+	}
 	dst = append(dst, '}')
 	return append(dst, newline...)
 }
@@ -190,9 +197,8 @@ func (d *Dump) appendBox(dst []byte, b Box) []byte {
 	dst = diag.AppendString(dst, b.Parent)
 	dst = append(dst, `,"exclusive":`...)
 	dst = appendBool(dst, b.Exclusive)
-	if d.Stage == StageModel && b.Role == RoleGroup {
-		dst = append(dst, `,"direction":`...)
-		dst = diag.AppendString(dst, b.Direction)
+	if d.Stage == StageModel {
+		dst = d.appendModelBoxKeys(dst, b)
 	}
 	return append(dst, '}')
 }
@@ -228,6 +234,25 @@ func (d *Dump) appendRoute(dst []byte, r Route) []byte {
 	return append(dst, '}')
 }
 
+func (d *Dump) appendModelBoxKeys(dst []byte, b Box) []byte {
+	if b.Role == RoleGroup || b.Direction != "" {
+		dst = append(dst, `,"direction":`...)
+		dst = diag.AppendString(dst, b.Direction)
+	}
+	if b.Shape != "" && b.Shape != "rect" && b.Shape != "squareRect" {
+		dst = append(dst, `,"shape":`...)
+		dst = diag.AppendString(dst, b.Shape)
+	}
+	if b.Icon {
+		dst = append(dst, `,"icon":true`...)
+	}
+	if d.Kind == "architecture" || b.Text != "" {
+		dst = append(dst, `,"text":`...)
+		dst = diag.AppendString(dst, b.Text)
+	}
+	return dst
+}
+
 func appendModelRouteStyle(dst []byte, route Route) []byte {
 	if route.MarkerStart != "" && route.MarkerStart != "none" {
 		dst = append(dst, `,"marker_start":`...)
@@ -241,7 +266,27 @@ func appendModelRouteStyle(dst []byte, route Route) []byte {
 		dst = append(dst, `,"stroke":`...)
 		dst = diag.AppendString(dst, route.Stroke)
 	}
+	return appendModelRouteConstraints(dst, route)
+}
+
+func appendModelRouteConstraints(dst []byte, route Route) []byte {
+	if route.FromSide != geom.SideNone {
+		dst = append(dst, `,"from_side":`...)
+		dst = diag.AppendString(dst, modelSideToken(route.FromSide))
+	}
+	if route.ToSide != geom.SideNone {
+		dst = append(dst, `,"to_side":`...)
+		dst = diag.AppendString(dst, modelSideToken(route.ToSide))
+	}
+	if route.MinLength > 1 {
+		dst = append(dst, `,"min_length":`...)
+		dst = strconv.AppendInt(dst, int64(route.MinLength), 10)
+	}
 	return dst
+}
+
+func modelSideToken(side geom.Side) string {
+	return "TBLR"[side-1 : side]
 }
 
 func (d *Dump) appendLabels(dst []byte) []byte {
@@ -253,6 +298,26 @@ func (d *Dump) appendLabels(dst []byte) []byte {
 			dst = append(dst, newline...)
 		}
 		dst = d.appendLabel(dst, l)
+	}
+	return append(dst, ']')
+}
+
+func (d *Dump) appendRegions(dst []byte) []byte {
+	dst = append(dst, tagRegions[1:]...)
+	dst = append(dst, '[')
+	for i, set := range d.Regions {
+		if i > 0 {
+			dst = append(dst, ',')
+			dst = append(dst, newline...)
+		}
+		dst = append(dst, '[')
+		for j, value := range set {
+			if j > 0 {
+				dst = append(dst, ',')
+			}
+			dst = strconv.AppendInt(dst, int64(value), 10)
+		}
+		dst = append(dst, ']')
 	}
 	return append(dst, ']')
 }

@@ -1,0 +1,1 @@
+::warning file=warning-quote-unclosed.mmd,line=2,col=15,endLine=2,endColumn=19,title=sequence/quote-unclosed::A participant or actor name or alias starts a quote but does not close it

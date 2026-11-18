@@ -176,7 +176,7 @@ impl<'a> Cfg<'a> {
     }
 
     pub(super) fn flow_key(&mut self) -> Option<(String, Span)> {
-        self.yaml_value_indent = None;
+        self.yaml_continuation_col = None;
         match self.raw(self.pos) {
             Some(b'"') => self.quoted_double(),
             Some(b'\'') => self.quoted_single(),
@@ -185,7 +185,7 @@ impl<'a> Cfg<'a> {
     }
 
     pub(super) fn flow_item(&mut self, n: usize) -> ConfigValue {
-        self.yaml_value_indent = Some(n);
+        self.yaml_continuation_col = Some(n + 1);
         if self.node_guard() {
             return ConfigValue::Null;
         }

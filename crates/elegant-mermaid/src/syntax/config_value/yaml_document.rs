@@ -188,9 +188,12 @@ impl<'a> Cfg<'a> {
         matches!(c, b'-' | b'?' | b':') && self.boundary(self.pos + 1)
     }
 
-    pub(super) fn plain_line_kind(&self) -> LineKind {
+    pub(super) fn line_kind(&self) -> LineKind {
         let from = self.pos;
         let to = self.content_end(from);
+        if matches!(self.raw(from), Some(b'"' | b'\'')) {
+            return self.quoted_line_kind(from, to);
+        }
         let mut j = from;
         while j < to {
             let c = self.raw(j);
@@ -203,6 +206,39 @@ impl<'a> Cfg<'a> {
             j += 1;
         }
         LineKind::Scalar
+    }
+
+    fn quoted_line_kind(&self, from: usize, to: usize) -> LineKind {
+        let Some(after) = self.quote_token_end(from, to) else {
+            return LineKind::Scalar;
+        };
+        let mut j = after;
+        while j < to && matches!(self.raw(j), Some(b' ' | b'\t')) {
+            j += 1;
+        }
+        if j < to && self.raw(j) == Some(b':') {
+            LineKind::Entry
+        } else {
+            LineKind::Scalar
+        }
+    }
+
+    fn quote_token_end(&self, from: usize, to: usize) -> Option<usize> {
+        let quote = self.raw(from)?;
+        let mut i = from + 1;
+        while i < to {
+            let c = self.raw(i)?;
+            if quote == b'"' && c == b'\\' {
+                i += 2;
+            } else if c != quote {
+                i += 1;
+            } else if quote == b'\'' && i + 1 < to && self.raw(i + 1) == Some(b'\'') {
+                i += 2;
+            } else {
+                return Some(i + 1);
+            }
+        }
+        None
     }
 
     pub(super) fn yaml_document(&mut self) -> ConfigValue {
@@ -228,6 +264,14 @@ impl<'a> Cfg<'a> {
 
     pub(super) fn sequence_start(&self) -> bool {
         self.raw(self.pos) == Some(b'-') && self.map_boundary(self.pos + 1)
+    }
+
+    pub(super) fn flow_start(&self) -> bool {
+        matches!(self.raw(self.pos), Some(b'[' | b'{'))
+    }
+
+    pub(super) fn block_scalar_start(&self) -> bool {
+        matches!(self.raw(self.pos), Some(b'|' | b'>')) && self.line_kind() != LineKind::Entry
     }
 
     pub(super) fn block_sequence(&mut self, n: usize) -> ConfigValue {
@@ -267,13 +311,13 @@ impl<'a> Cfg<'a> {
     pub(super) fn sequence_item(&mut self, n: usize) -> ConfigValue {
         if matches!(self.raw(self.pos), None | Some(b'\r' | b'\n' | b'#')) {
             self.finish_line();
-            return self.nested_or_null(n);
+            return self.nested_or_null(n).0;
         }
         let col = self.pos - self.line_start(self.pos);
         if self.sequence_start() {
             return self.block_sequence(col);
         }
-        if self.plain_line_kind() == LineKind::Entry {
+        if !self.flow_start() && self.line_kind() == LineKind::Entry {
             return self.block_map(col, self.pos);
         }
         let Some((value, _, consumed)) = self.entry_value(n) else {
@@ -290,13 +334,22 @@ impl<'a> Cfg<'a> {
         loop {
             self.pos += self.eol(self.pos);
             breaks += 1;
-            let line = self.take_line(self.pos);
-            if self.stop {
+            while matches!(self.raw(self.pos), Some(b' ' | b'\t')) {
+                self.pos += 1;
+            }
+            if self.pos == self.line_start(self.pos)
+                && (self.b[self.pos..self.end].starts_with(b"---")
+                    || self.b[self.pos..self.end].starts_with(b"..."))
+                && matches!(
+                    self.raw(self.pos + 3),
+                    None | Some(b' ' | b'\t' | b'\r' | b'\n')
+                )
+            {
+                self.fail(self.pos);
                 return None;
             }
-            self.pos = line.content;
             if self.eol(self.pos) == 0 {
-                if self.at_end() || line.col <= self.yaml_value_indent.unwrap_or(0) {
+                if self.at_end() {
                     self.fail(self.pos);
                     return None;
                 }
@@ -305,18 +358,27 @@ impl<'a> Cfg<'a> {
         }
     }
     pub(super) fn root_value(&mut self, col: usize) -> ConfigValue {
-        self.yaml_value_indent = Some(col.saturating_sub(1));
+        self.node_value(col, col, col)
+    }
+
+    pub(super) fn node_value(
+        &mut self,
+        col: usize,
+        flow_bound: usize,
+        plain_min: usize,
+    ) -> ConfigValue {
+        self.yaml_continuation_col = Some(plain_min);
         if self.sequence_start() {
             return self.block_sequence(col);
         }
         match self.raw(self.pos) {
             Some(b'[') => {
-                let value = self.flow_seq_value(col);
+                let value = self.flow_seq_value(flow_bound);
                 self.finish_line();
                 value
             }
             Some(b'{') => {
-                let value = self.flow_map_value(col);
+                let value = self.flow_map_value(flow_bound);
                 self.finish_line();
                 value
             }
@@ -354,7 +416,7 @@ impl<'a> Cfg<'a> {
             self.fail(self.pos);
             return ConfigValue::Null;
         }
-        if self.plain_line_kind() == LineKind::Entry {
+        if self.line_kind() == LineKind::Entry {
             return self.block_map(col, self.pos);
         }
         match self.raw(self.pos) {

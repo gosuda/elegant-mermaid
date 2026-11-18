@@ -204,7 +204,6 @@ pub struct Token {
     pub span: Span,
     pub text: TextVal,
     pub string_open: Option<usize>,
-    pub split_continuation: bool,
     pub brs: Vec<BRPoint>,
 }
 
@@ -215,7 +214,6 @@ impl Token {
             span,
             text,
             string_open: None,
-            split_continuation: false,
             brs: Vec::new(),
         }
     }

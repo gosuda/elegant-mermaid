@@ -1,6 +1,15 @@
 use crate::diag::Diagnostic;
 use crate::source::Span;
 use crate::syntax::flowchart::ast::*;
+use crate::syntax::flowchart::tokens::TokenKind;
+
+mod interaction;
+pub use interaction::ClickLink;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Decl {
+    pub span: Span,
+    pub label: Option<String>,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Node {
@@ -13,6 +22,7 @@ pub struct Node {
     pub first: Span,
     pub span: Span,
     pub attrs: std::collections::BTreeMap<String, String>,
+    pub decls: Vec<Decl>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Edge {
@@ -48,11 +58,15 @@ pub struct Model {
     pub class_defs: Vec<ClassDefStatement>,
     pub link_styles: Vec<LinkStyleStatement>,
     pub clicks: Vec<ClickStatement>,
+    pub links: Vec<ClickLink>,
     pub acc_title: String,
     pub acc_descr: String,
     diagnostics: Vec<Diagnostic>,
     member_owners: std::collections::BTreeMap<String, String>,
     subgraph_count: usize,
+    /// The id-token spans of node occurrences named like an enclosing subgraph.
+    pub subgraph_collisions: Vec<Span>,
+    pub unquoted_at_spans: Vec<Span>,
 }
 
 impl Default for Node {
@@ -67,6 +81,7 @@ impl Default for Node {
             first: Span { start: 0, end: 0 },
             span: Span { start: 0, end: 0 },
             attrs: std::collections::BTreeMap::new(),
+            decls: Vec::new(),
         }
     }
 }
@@ -95,11 +110,14 @@ impl Default for Model {
             class_defs: Vec::new(),
             link_styles: Vec::new(),
             clicks: Vec::new(),
+            links: Vec::new(),
             acc_title: String::new(),
             acc_descr: String::new(),
             diagnostics: Vec::new(),
             member_owners: std::collections::BTreeMap::new(),
             subgraph_count: 0,
+            subgraph_collisions: Vec::new(),
+            unquoted_at_spans: Vec::new(),
         }
     }
 }
@@ -116,6 +134,7 @@ pub fn resolve(source: &str, document: &Document) -> (Model, Vec<Diagnostic>) {
     walk(source, &document.lines, &mut model, "");
     model.member_owners.clear();
     let mut diagnostics = link_style_diagnostics(source, &model);
+    diagnostics.extend(interaction::resolve(source, &mut model));
     diagnostics.append(&mut model.diagnostics);
     crate::diag::sort(&mut diagnostics);
     (model, diagnostics)
@@ -161,15 +180,9 @@ fn walk(source: &str, lines: &[Line], model: &mut Model, parent: &str) {
             Statement::ClassDef(value) => model.class_defs.push(value.clone()),
             Statement::LinkStyle(value) => model.link_styles.push(value.clone()),
             Statement::Click(value) => model.clicks.push(value.clone()),
-            Statement::AccTitle(value) => {
-                model.acc_title = source[value.value.start..value.value.end].trim().into()
-            }
-            Statement::AccDescr(value) => {
-                model.acc_descr = source[value.value.start..value.value.end].trim().into()
-            }
-            Statement::AccDescrBlock(value) => {
-                model.acc_descr = source[value.value.start..value.value.end].trim().into()
-            }
+            Statement::AccTitle(value) => model.acc_title = value.text.trim().into(),
+            Statement::AccDescr(value) => model.acc_descr = value.text.trim().into(),
+            Statement::AccDescrBlock(value) => model.acc_descr = value.text.trim().into(),
             Statement::Direction(value) => {
                 if let Some(group) = model.groups.iter_mut().find(|group| group.id == parent) {
                     group.direction = direction(
@@ -185,8 +198,13 @@ fn walk(source: &str, lines: &[Line], model: &mut Model, parent: &str) {
     }
 }
 
-fn node_index(model: &mut Model, id: &str, span: Span) -> usize {
+fn node_index(model: &mut Model, id: &str, span: Span, label: Option<&str>) -> usize {
+    let decl = Decl {
+        span,
+        label: label.map(str::to_owned),
+    };
     if let Some(index) = model.nodes.iter().position(|node| node.id == id) {
+        model.nodes[index].decls.push(decl);
         return index;
     }
     model.nodes.push(Node {
@@ -194,21 +212,37 @@ fn node_index(model: &mut Model, id: &str, span: Span) -> usize {
         shape: "squareRect".into(),
         first: span,
         span,
+        decls: vec![decl],
         ..Node::default()
     });
     model.nodes.len() - 1
 }
 
-fn group_nodes(group: &NodeGroup, model: &mut Model, parent: &str) -> Vec<String> {
+fn group_nodes(source: &str, group: &NodeGroup, model: &mut Model, parent: &str) -> Vec<String> {
     group
         .nodes
         .iter()
         .map(|styled| {
             let vertex = &styled.vertex;
+            if let Some(span) = unquoted_at(source, vertex) {
+                model.unquoted_at_spans.push(span);
+            }
+            if subgraph_scoped(model, parent, &vertex.id.text) {
+                model.subgraph_collisions.push(vertex.id.span);
+            }
             if reference_data(model, styled) {
                 return vertex.id.text.clone();
             }
-            let index = node_index(model, &vertex.id.text, vertex.id.span);
+            let index = node_index(
+                model,
+                &vertex.id.text,
+                vertex.id.span,
+                vertex
+                    .label
+                    .as_ref()
+                    .map(|label| resolve_label(&label.text.text))
+                    .as_deref(),
+            );
             let node = &mut model.nodes[index];
             node.span = styled.span;
             if let Some(label) = &vertex.label {
@@ -228,6 +262,53 @@ fn group_nodes(group: &NodeGroup, model: &mut Model, parent: &str) -> Vec<String
         .collect()
 }
 
+fn unquoted_at(source: &str, vertex: &Vertex) -> Option<Span> {
+    let label = vertex.label.as_ref()?;
+    if label.text.kind != TextKind::Plain
+        || !matches!(
+            label.form,
+            LabelForm::Square | LabelForm::Stadium | LabelForm::Subroutine | LabelForm::Cylinder
+        )
+    {
+        return None;
+    }
+    let trimmed = label.text.text.trim();
+    let slash = |byte: u8| matches!(byte, b'/' | b'\\');
+    if trimmed.as_bytes().first().is_some_and(|byte| slash(*byte))
+        && trimmed.as_bytes().last().is_some_and(|byte| slash(*byte))
+    {
+        return None;
+    }
+    for token in &label.text.tokens {
+        if matches!(token.kind, TokenKind::Str | TokenKind::MdStr) {
+            continue;
+        }
+        if let Some(offset) = token.text(source).find('@') {
+            return Some(Span {
+                start: token.span.start + offset,
+                end: token.span.start + offset + 1,
+            });
+        }
+    }
+    None
+}
+
+fn subgraph_scoped(model: &Model, parent: &str, id: &str) -> bool {
+    let mut scope = parent;
+    loop {
+        if scope.is_empty() {
+            return false;
+        }
+        if scope == id {
+            return true;
+        }
+        let Some(group) = model.groups.iter().find(|group| group.id == scope) else {
+            return false;
+        };
+        scope = group.parent.as_str();
+    }
+}
+
 fn join_group(model: &mut Model, id: &str, parent: &str) {
     if model
         .groups
@@ -242,9 +323,9 @@ fn join_group(model: &mut Model, id: &str, parent: &str) {
 }
 
 fn vertices(source: &str, value: &VertexStatement, model: &mut Model, parent: &str) {
-    let mut previous = group_nodes(&value.first, model, parent);
+    let mut previous = group_nodes(source, &value.first, model, parent);
     for (link, group) in &value.rest {
-        let next = group_nodes(group, model, parent);
+        let next = group_nodes(source, group, model, parent);
         if let (Some(from), Some(to)) = (previous.last(), next.first()) {
             model.edges.push(edge(source, link, from, to));
         }
@@ -253,9 +334,9 @@ fn vertices(source: &str, value: &VertexStatement, model: &mut Model, parent: &s
 }
 
 fn edge(source: &str, link: &Link, from: &str, to: &str) -> Edge {
-    let body = source[link.statement.end.start..link.statement.end.end].trim();
+    let body = link.statement.end_text.trim();
     let stroke = stroke_of(body);
-    let (start_marker, end_marker) = edge_markers(source, link, body);
+    let (start_marker, end_marker) = edge_markers(link, body);
     let count = body
         .bytes()
         .filter(|byte| matches!(byte, b'-' | b'=' | b'.'))
@@ -302,12 +383,9 @@ fn stroke_of(body: &str) -> &'static str {
     }
 }
 
-fn edge_markers(source: &str, link: &Link, end: &str) -> (&'static str, &'static str) {
+fn edge_markers(link: &Link, end: &str) -> (&'static str, &'static str) {
     let end_marker = marker(end.chars().last());
-    let start = link
-        .statement
-        .start
-        .map_or(end, |span| source[span.start..span.end].trim());
+    let start = link.statement.start_text.as_deref().map_or(end, str::trim);
     let start_marker = marker(start.chars().next());
     if stroke_of(start) != stroke_of(end) || start_marker != "none" && start_marker != end_marker {
         return ("none", "none");
@@ -329,52 +407,9 @@ fn resolve_label(text: &str) -> String {
         .strip_prefix('"')
         .and_then(|text| text.strip_suffix('"'))
         .unwrap_or(trimmed);
-    let mut output = String::with_capacity(text.len());
-    let mut cursor = 0;
-    while cursor < text.len() {
-        let tail = &text[cursor..];
-        if let Some((end, decoded)) = decode_entity(tail) {
-            output.push_str(&decoded);
-            cursor += end;
-        } else if let Some(value) = tail.chars().next() {
-            output.push(value);
-            cursor += value.len_utf8();
-        }
-    }
-    output
+    crate::syntax::entities::decode_entities(text)
 }
 
-fn decode_entity(text: &str) -> Option<(usize, String)> {
-    let tail = text.strip_prefix('#')?;
-    let end = tail.find(';')?;
-    let name = &tail[..end];
-    if name.is_empty()
-        || !name
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-    {
-        return None;
-    }
-    if let Some(value) = name
-        .parse::<u32>()
-        .ok()
-        .filter(|value| *value != 0)
-        .and_then(char::from_u32)
-    {
-        return Some((end + 2, value.to_string()));
-    }
-    let key = format!("&{name};");
-    let row = crate::r#gen::entities::ENTITIES
-        .iter()
-        .find(|row| row.name == key)?;
-    Some((
-        end + 2,
-        row.cps
-            .iter()
-            .filter_map(|value| char::from_u32(*value))
-            .collect(),
-    ))
-}
 fn shape(form: &LabelForm) -> &'static str {
     match form {
         LabelForm::Square => "squareRect",
@@ -471,7 +506,7 @@ fn finish_group(model: &mut Model, id: &str) {
 }
 fn apply_style(value: &StyleStatement, model: &mut Model) {
     for id in value.target.text.split(',').map(str::trim) {
-        let index = node_index(model, id, value.target.span);
+        let index = node_index(model, id, value.target.span, None);
         model.nodes[index]
             .styles
             .extend(value.styles.styles.iter().cloned());
@@ -479,7 +514,7 @@ fn apply_style(value: &StyleStatement, model: &mut Model) {
 }
 fn apply_class(value: &ClassStatement, model: &mut Model) {
     for id in value.targets.text.split(',').map(str::trim) {
-        let index = node_index(model, id, value.targets.span);
+        let index = node_index(model, id, value.targets.span, None);
         model.nodes[index]
             .classes
             .push(value.class_name.text.clone());
@@ -512,18 +547,21 @@ fn apply_shape_data(node: &mut Node, data: &ShapeData) -> Vec<Diagnostic> {
 }
 
 fn shape_value_span(data: &ShapeData, key: Span) -> Span {
-    let offset = data.span.start + 2;
+    let prefix = shape_prefix(data);
     let tail = data
         .text
-        .get(key.end.saturating_sub(offset)..)
+        .get(key.end.saturating_sub(prefix)..)
         .unwrap_or("");
-    let value = tail.trim_start_matches([' ', '\t', ':']);
+    let value = tail.trim_start_matches([' ', '\t', '\r', '\n', ':']);
     let start = key.end + tail.len() - value.len();
     let end = shape_value_end(value);
-    Span {
-        start,
-        end: start + value[..end].trim_end().len(),
-    }
+    shape_source_span(
+        data,
+        Span {
+            start,
+            end: start + value[..end].trim_end().len(),
+        },
+    )
 }
 
 fn shape_value_end(value: &str) -> usize {
@@ -549,33 +587,56 @@ fn shape_value_end(value: &str) -> usize {
     value.len()
 }
 
+fn shape_prefix(data: &ShapeData) -> usize {
+    usize::from(!data.text.contains(['\r', '\n']))
+}
+
+fn shape_positions(data: &ShapeData) -> Vec<usize> {
+    if shape_prefix(data) == 0 {
+        return data.src_at.clone();
+    }
+    let first = data.src_at.first().copied().unwrap_or(data.span.start);
+    let last = data.src_at.last().map_or(data.span.end, |at| at + 1);
+    let mut positions = Vec::with_capacity(data.src_at.len() + 2);
+    positions.push(first);
+    positions.extend_from_slice(&data.src_at);
+    positions.push(last);
+    positions
+}
+
+fn shape_source_span(data: &ShapeData, span: Span) -> Span {
+    let positions = shape_positions(data);
+    let first = data.src_at.first().copied().unwrap_or(data.span.start);
+    let offset = |reader_offset: usize| {
+        positions
+            .get(reader_offset)
+            .copied()
+            .or_else(|| positions.last().map(|at| at + 1))
+            .unwrap_or(first)
+            .min(data.span.end)
+    };
+    let start = offset(span.start);
+    Span {
+        start,
+        end: offset(span.end).max(start),
+    }
+}
+
 fn shape_entries(data: &ShapeData) -> (Vec<crate::syntax::config_value::Entry>, Vec<Diagnostic>) {
     use crate::syntax::config_value::{ConfigValue, parse_config_yaml};
-    let wrapped = !data.text.contains(['\r', '\n']);
-    let input = if wrapped {
+    let input = if shape_prefix(data) == 1 {
         format!("{{{}}}", data.text)
     } else {
         data.text.clone()
     };
     let (value, mut diagnostics) = parse_config_yaml(&input, 0, input.len());
-    let offset = data.span.start + 2;
     for diagnostic in &mut diagnostics {
-        diagnostic.span = map_shape_span(data, diagnostic.span, offset, usize::from(wrapped));
+        diagnostic.span = shape_source_span(data, diagnostic.span);
     }
-    let ConfigValue::Mapping(mut entries) = value else {
+    let ConfigValue::Mapping(entries) = value else {
         return (Vec::new(), diagnostics);
     };
-    for entry in &mut entries {
-        entry.key_span = map_shape_span(data, entry.key_span, offset, usize::from(wrapped));
-    }
     (entries, diagnostics)
-}
-
-fn map_shape_span(data: &ShapeData, span: Span, offset: usize, prefix: usize) -> Span {
-    Span {
-        start: (offset + span.start.saturating_sub(prefix)).min(data.span.end),
-        end: (offset + span.end.saturating_sub(prefix)).min(data.span.end),
-    }
 }
 
 fn reference_data(model: &mut Model, styled: &StyledVertex) -> bool {
@@ -684,17 +745,51 @@ fn finish_shape_data(node: &mut Node) {
 #[cfg(test)]
 mod parity_tests {
     #[test]
-    fn flowchart_typed_shape_value_span() {
-        let source = "flowchart\nA@{ shape: missing }\n";
+    fn unquoted_at_declaration_evidence() -> Result<(), &'static str> {
+        let source = "flowchart TD\nA[first@host@other]\nsubgraph outer\nsubgraph inner\nB([nested@host])\nend\nend\nA[last@host]\nC[\"quoted@host\"]\nD[\"`markdown@host`\"]\nE[ /slash@host/ ]\nF(round@host)\nG[[subroutine@host]]\nH[(cylinder@host)]\n";
         let parsed = crate::syntax::flowchart::parse(source, &[]);
         assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
-        let (_, diagnostics) = super::resolve(source, &parsed.document);
-        assert_eq!(diagnostics.len(), 1);
-        let diagnostic = &diagnostics[0];
-        assert_eq!(diagnostic.code, "flowchart/typed-shape-unsupported");
-        assert_eq!(
-            &source[diagnostic.span.start..diagnostic.span.end],
-            "missing"
-        );
+        let (model, diagnostics) = super::resolve(source, &parsed.document);
+        assert!(diagnostics.is_empty(), "{diagnostics:?}");
+        let expected: Vec<_> = [
+            "first@host",
+            "nested@host",
+            "last@host",
+            "subroutine@host",
+            "cylinder@host",
+        ]
+        .into_iter()
+        .map(|label| {
+            let start = source.find(label).ok_or("source label")?
+                + label.find('@').ok_or("label at sign")?;
+            Ok(crate::source::Span {
+                start,
+                end: start + 1,
+            })
+        })
+        .collect::<Result<_, &'static str>>()?;
+        assert_eq!(model.unquoted_at_spans, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn flowchart_typed_shape_value_span() {
+        for source in [
+            "flowchart\nA@{ shape: missing }\n",
+            "flowchart\nA@{\n shape:\n  missing\n}\n",
+            "flowchart\r\nA@{\r\n shape:\r\n  missing\r\n}\r\n",
+            "flowchart\rA@{\r shape:\r  missing\r}\r",
+        ] {
+            let parsed = crate::syntax::flowchart::parse(source, &[]);
+            assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+            let (_, diagnostics) = super::resolve(source, &parsed.document);
+            assert_eq!(diagnostics.len(), 1);
+            let diagnostic = &diagnostics[0];
+            assert_eq!(diagnostic.code, "flowchart/typed-shape-unsupported");
+            assert_eq!(
+                &source[diagnostic.span.start..diagnostic.span.end],
+                "missing"
+            );
+        }
     }
 }

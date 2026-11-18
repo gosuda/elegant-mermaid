@@ -2,20 +2,29 @@
 use crate::{
     geom::{Point, Rect},
     interaction::OwnerLink,
+    look::{Look, LookKind},
+    outlines::{self, GlyphOutlines},
     scene::*,
     theme::{self, Colour, TextChoice, Theme, Token},
 };
 use std::collections::{BTreeMap, BTreeSet};
 mod geometry;
+mod hand_drawn;
 #[cfg(test)]
 mod link_tests;
 #[cfg(test)]
+mod look_tests;
+#[cfg(test)]
 mod markers_tests;
 #[cfg(test)]
+mod paths_tests;
+#[cfg(test)]
 mod primitive_tests;
+mod sketch;
 #[cfg(test)]
 mod tests;
-/// Font text is supported; paths require the later glyph-outline renderer.
+/// Text is drawn as `<text>` set in a font, or as `<path>` glyph outlines, which
+/// need `Options::outlines`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum TextMode {
     #[default]
@@ -28,12 +37,14 @@ pub struct Options<'a> {
     pub theme: &'a str,
     pub background: &'a str,
     pub text: TextMode,
+    pub outlines: Option<&'a GlyphOutlines>,
     pub id_prefix: &'a str,
     pub title: &'a str,
     pub description: &'a str,
     pub kind: &'a str,
     pub font_family: &'a str,
     pub links: &'a [OwnerLink<'a>],
+    pub look: Look,
 }
 /// Invalid renderer configuration or a marker coordinate outside the integer range.
 #[derive(Debug, thiserror::Error)]
@@ -50,22 +61,40 @@ pub enum ConfigError {
 struct Renderer {
     theme: Theme,
     used: BTreeSet<String>,
+    look: Look,
+    fills: BTreeSet<String>,
+    sketches: BTreeSet<String>,
+    outlines: Option<GlyphOutlines>,
+}
+impl Renderer {
+    fn new(theme: Theme, look: Look) -> Renderer {
+        Renderer {
+            theme,
+            used: BTreeSet::new(),
+            look,
+            fills: BTreeSet::new(),
+            sketches: BTreeSet::new(),
+            outlines: None,
+        }
+    }
 }
 /// Append one complete SVG document, leaving `out` unchanged on failure.
 ///
 /// Only the scene canvas and display list are read. Callers supply a vector scene;
 /// cell-only symbols are rejected. No host resources or fonts are accessed.
 pub fn write(out: &mut String, scene: &Scene, opts: &Options<'_>) -> Result<(), ConfigError> {
-    if opts.text != TextMode::Font {
-        return Err(invalid("text paths are not supported"));
-    }
+    let outlines = match opts.text {
+        TextMode::Font => None,
+        TextMode::Paths => Some(
+            opts.outlines
+                .ok_or_else(|| invalid("text paths require glyph outlines"))?,
+        ),
+    };
     if !valid_prefix(opts.id_prefix) {
         return Err(invalid("invalid ID prefix"));
     }
-    let mut r = Renderer {
-        theme: theme::resolve(opts.theme)?,
-        used: BTreeSet::new(),
-    };
+    let mut r = Renderer::new(theme::resolve(opts.theme)?, opts.look);
+    r.outlines = outlines.cloned();
     let bg = if opts.background.is_empty() {
         r.theme.colour(Token::Background)
     } else {
@@ -95,11 +124,12 @@ fn group_body(
 ) -> Result<String, ConfigError> {
     let mut body = String::new();
     let mut links = BTreeMap::new();
-    for link in opts.links {
-        links.insert(link.owner, link);
+    for link in opts.links.iter().filter(|link| !link.owner.is_empty()) {
+        links.insert((link.owner, link.role.as_str()), link);
     }
+    let mut index = 0usize;
     for (i, g) in scene.items().iter().enumerate() {
-        let link = links.get(g.owner.as_str());
+        let link = links.get(&(g.owner.as_str(), g.role.as_str()));
         if let Some(link) = link {
             body.push_str(&format!("<a href='{}'>\n", escape(link.url.as_str())));
             if let Some(tooltip) = link.tooltip {
@@ -113,7 +143,8 @@ fn group_body(
             i
         ));
         for p in &g.items {
-            body.push_str(&renderer.primitive(p)?);
+            body.push_str(&renderer.primitive(p, index)?);
+            index += 1;
         }
         body.push_str("</g>\n");
         if link.is_some() {
@@ -251,6 +282,12 @@ impl Renderer {
                 if self.used.contains(&key) {
                     s.push_str(&self.style_rule(&key, name, n)?);
                 }
+                if self.fills.contains(&key) {
+                    s.push_str(&self.fill_rule(&key, name, n)?);
+                }
+                if self.sketches.contains(&key) {
+                    s.push_str(&self.sketch_rule(&key, name, n)?);
+                }
                 if key == name {
                     break;
                 }
@@ -275,6 +312,9 @@ impl Renderer {
                 ";stroke:{}",
                 self.colour(r.stroke, n, Paint::Stroke)?
             ));
+            if r.stroke != "none" {
+                s.push_str(";stroke-linecap:round;stroke-linejoin:round");
+            }
         }
         if r.tint == 1 {
             s.push_str(";fill-opacity:0.4");
@@ -292,12 +332,10 @@ impl Renderer {
         self.used.insert(key.clone());
         let mut s = format!("<{tag} class='emd-s-{key}' {g}");
         if r.stroke != "none" {
-            let width = match shape.width {
-                Width::Normal => 64,
-                Width::Emphasis => 128,
-                Width::Units(n) => i64::from(n),
-            };
-            s.push_str(&format!(" stroke-width='{}'", geometry::number(width)));
+            s.push_str(&format!(
+                " stroke-width='{}'",
+                geometry::number(self.stroke_width(shape.width))
+            ));
         }
         match shape.line {
             Line::Dotted => s.push_str(" stroke-dasharray='3 3'"),
@@ -307,20 +345,23 @@ impl Renderer {
         s.push_str("/>\n");
         Ok(s)
     }
-    fn primitive(&mut self, p: &Item) -> Result<String, ConfigError> {
+    fn primitive(&mut self, p: &Item, index: usize) -> Result<String, ConfigError> {
         use geometry::{number, points, rect_attrs};
+        if self.look.kind == LookKind::HandDrawn
+            && let Some(sketch) = self.sketch(p, index)?
+        {
+            return Ok(sketch);
+        }
         match p {
             Item::Rect(v) => self.element("rect", v.shape, rect_attrs(v.rect)),
-            Item::RoundRect(v) => self.element(
-                "rect",
-                v.shape,
-                format!(
-                    "{} rx='{}' ry='{}'",
-                    rect_attrs(v.rect),
-                    number(v.r.into()),
-                    number(v.r.into())
-                ),
-            ),
+            Item::RoundRect(v) => {
+                let radius = number(self.radius(v.r).into());
+                self.element(
+                    "rect",
+                    v.shape,
+                    format!("{} rx='{radius}' ry='{radius}'", rect_attrs(v.rect)),
+                )
+            }
             Item::Ellipse(v) => self.element(
                 "ellipse",
                 v.shape,
@@ -358,11 +399,11 @@ impl Renderer {
                 format!("d='{}'", geometry::path(&v.commands)?),
             ),
             Item::Text(v) => self.text(v),
-            Item::MarkerRef(v) => self.marker(v),
+            Item::MarkerRef(v) => self.marker(v, index),
             Item::SymbolRef(_) => Err(invalid("SymbolRef is not a vector primitive")),
         }
     }
-    fn marker(&mut self, m: &MarkerRefItem) -> Result<String, ConfigError> {
+    fn marker(&mut self, m: &MarkerRefItem, index: usize) -> Result<String, ConfigError> {
         if m.marker.points().len() < 2 {
             return Err(invalid(format!(
                 "marker lacks outline: {}",
@@ -389,6 +430,8 @@ impl Renderer {
             .find(|row| row.name == m.marker.as_str())
             .ok_or_else(|| invalid("unknown marker"))?;
         let mut out = String::new();
+        let mut generator = hand_drawn::Generator::new(self.look.seed, index);
+        let sketched = self.look.kind == LookKind::HandDrawn;
         let mut start = 0;
         for end in row
             .breaks
@@ -401,16 +444,47 @@ impl Renderer {
             let contour = ps
                 .get(start..end)
                 .ok_or_else(|| invalid("invalid marker contour"))?;
-            out.push_str(&self.element(
-                tag,
-                Shape::plain(style),
-                format!("points='{}'", geometry::points(contour)),
-            )?);
+            let attrs = format!("points='{}'", geometry::points(contour));
+            if sketched {
+                let segments = if tag == "polygon" {
+                    hand_drawn::polygon_segments(contour)
+                } else {
+                    hand_drawn::polyline_segments(contour)
+                };
+                let outline = sketch::Outline {
+                    tag,
+                    attrs: &attrs,
+                    shape: Shape::plain(style),
+                    segments: &segments,
+                };
+                out.push_str(&self.sketch_shape(&outline, &mut generator)?);
+            } else {
+                out.push_str(&self.element(tag, Shape::plain(style), attrs)?);
+            }
             start = end;
         }
         Ok(out)
     }
+    fn text_paths(
+        &mut self,
+        t: &TextItem,
+        outlines: &GlyphOutlines,
+    ) -> Result<String, ConfigError> {
+        let commands = outlines::text_commands(outlines, t).map_err(|_| ConfigError::Overflow)?;
+        if commands.is_empty() {
+            return Ok(String::new());
+        }
+        let key = class(t.style.name(), t.series);
+        self.used.insert(key.clone());
+        Ok(format!(
+            "<path class='emd-s-{key}' d='{}'/>\n",
+            geometry::glyph_path(&commands)
+        ))
+    }
     fn text(&mut self, t: &TextItem) -> Result<String, ConfigError> {
+        if let Some(outlines) = self.outlines.clone() {
+            return self.text_paths(t, &outlines);
+        }
         let key = class(t.style.name(), t.series);
         self.used.insert(key.clone());
         let x = i64::from(t.rect.x)

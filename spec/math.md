@@ -10,7 +10,7 @@ This file fixes the styled Markdown runs inside labels and the TeX subset that a
 - math-04: `*text*` and `_text_` MUST be italic runs with the weight 400 advances. [just parity]
 - math-05: `<br>`, `<br/>`, and `<br />`, compared case-insensitively, MUST force a line break. [just parity]
 - math-06: A backslash before an ASCII punctuation character MUST stand for that character, as in `\*`, `\_`, `\\`, and `\$`. [just parity]
-- math-07: Emphasis MUST NOT nest; an opener MUST close at the next identical delimiter on the same line; an unclosed opener MUST stay literal; and a `_` between two letters or digits MUST stay literal. [just parity]
+- math-07: Emphasis MUST NOT nest; an opener MUST close at the next identical delimiter on the same line; an unclosed opener MUST stay literal; and a `_` between two alphanumeric scalars MUST stay literal. Alphanumeric MUST be the union of `Alphabetic` and general categories `Nd`, `Nl`, and `No` from the pinned Unicode files in `spec/data/unicode/`; runtime Unicode tables MUST NOT determine this classification. [just parity]
 - math-08: Code spans, links, images, headings, list markers, other HTML tags, and entities MUST stay literal text, and entities MUST NOT be decoded. [just parity]
 
 ## Math spans

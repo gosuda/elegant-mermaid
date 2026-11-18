@@ -1,13 +1,13 @@
 [package]
-name = "elegant-mermaid-cli"
+name = "emd-cli"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Command-line tool emd to render, check, lint, and view Mermaid diagrams."
+description = "Command-line tool emd to render, check, and view Mermaid diagrams."
 readme = "README.md"
-keywords = ["mermaid", "diagram", "svg", "ascii", "lint"]
+keywords = ["mermaid", "diagram", "svg", "ascii"]
 categories = ["visualization", "command-line-utilities"]
 include = ["src/**", "assets/**", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]
 
@@ -23,6 +23,9 @@ thiserror.workspace = true
 crossterm.workspace = true
 notify.workspace = true
 quanta.workspace = true
+
+[dev-dependencies]
+tiny-skia.workspace = true
 
 [lints]
 workspace = true

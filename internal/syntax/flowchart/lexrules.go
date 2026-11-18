@@ -12,13 +12,13 @@ func modeBits(ms ...lexMode) modeSet {
 	return s
 }
 
-var everyMode = modeBits(
-	modeInitial, modeString, modeMDString, modeAccTitle, modeAccDescr, modeAccDescrMultiline,
-	modeDir, modeText, modeEllipseText, modeTrapText, modeEdgeText, modeThickEdgeText,
-	modeDottedEdgeText, modeClick, modeCallbackName, modeCallbackArgs, modeShapeData, modeShapeDataStr,
-)
+const everyMode modeSet = 1<<modeInitial | 1<<modeString | 1<<modeMDString |
+	1<<modeAccTitle | 1<<modeAccDescr | 1<<modeAccDescrMultiline | 1<<modeDir |
+	1<<modeText | 1<<modeEllipseText | 1<<modeTrapText | 1<<modeEdgeText |
+	1<<modeThickEdgeText | 1<<modeDottedEdgeText | 1<<modeClick |
+	1<<modeCallbackName | 1<<modeCallbackArgs | 1<<modeShapeData | 1<<modeShapeDataStr
 
-var unquotedModes = everyMode &^ modeBits(modeString, modeMDString, modeShapeDataStr)
+const unquotedModes = everyMode &^ (1<<modeString | 1<<modeMDString | 1<<modeShapeDataStr)
 
 type lexRule struct {
 	match      func(l *lexer, limit int) int
@@ -68,6 +68,7 @@ var globalRules = []lexRule{
 	{match: anySpaceByte, act: actLeaveOnly, modes: modeBits(modeClick)},
 	{match: anyNonSpace, kind: TokClick, modes: modeBits(modeClick)},
 	{match: lit("flowchart-elk"), kind: TokGraph, act: actGraph, modes: modeBits(modeInitial)},
+	{match: lit("swimlane-beta"), kind: TokGraph, act: actGraph, modes: modeBits(modeInitial)},
 	{match: lit("graph"), kind: TokGraph, act: actGraph, modes: modeBits(modeInitial)},
 	{match: lit("flowchart"), kind: TokGraph, act: actGraph, modes: modeBits(modeInitial)},
 	{match: lit("subgraph"), kind: TokSubgraph, modes: modeBits(modeInitial)},
@@ -151,16 +152,11 @@ var globalRules = []lexRule{
 	{match: spaceRule, kind: TokSpace, modes: modeBits(modeInitial)},
 }
 
-var perModeRules [modeShapeDataStr + 1][]lexRule
-
-var perModeExpected [modeShapeDataStr + 1][]string
+var perModeRules, perModeExpected = buildModeTables()
 
 func rulesFor(m lexMode) []lexRule {
 	if int(m) > int(modeShapeDataStr) {
 		return nil
-	}
-	if perModeRules[modeInitial] == nil {
-		buildModeTables()
 	}
 	return perModeRules[m]
 }
@@ -169,28 +165,26 @@ func expectedFor(m lexMode) []string {
 	if int(m) > int(modeShapeDataStr) {
 		return nil
 	}
-	if perModeExpected[modeInitial] == nil {
-		buildModeTables()
-	}
 	return perModeExpected[m]
 }
 
-func buildModeTables() {
+func buildModeTables() (rules [modeShapeDataStr + 1][]lexRule, expected [modeShapeDataStr + 1][]string) {
 	for m := lexMode(0); m <= modeShapeDataStr; m++ {
 		bit := modeSet(1) << m
-		var rules []lexRule
+		var modeRules []lexRule
 		var names []string
 		for _, r := range globalRules {
 			if r.modes&bit == 0 {
 				continue
 			}
-			rules = append(rules, r)
+			modeRules = append(modeRules, r)
 			if r.kind != TokNone && !slices.Contains(names, r.kind.Name()) {
 				names = append(names, r.kind.Name())
 			}
 		}
 		slices.Sort(names)
-		perModeRules[m] = rules
-		perModeExpected[m] = names
+		rules[m] = modeRules
+		expected[m] = names
 	}
+	return rules, expected
 }

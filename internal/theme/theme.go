@@ -73,6 +73,14 @@ func Resolve(name string) (Theme, error) {
 	return Theme{}, &UnknownThemeError{Name: name}
 }
 
+func Names() []string {
+	names := make([]string, len(gen.Themes))
+	for i, row := range gen.Themes {
+		names[i] = row.Name
+	}
+	return names
+}
+
 func resolveRow(row gen.Theme) (Theme, error) {
 	t := Theme{name: row.Name}
 	for token := range tokenCount {
@@ -117,6 +125,7 @@ func (t Theme) Colour(token Token) Colour {
 	}
 	return t.colours[token]
 }
+
 func (t Theme) Stroke(token Token) Token {
 	if token >= tokenCount {
 		return Line

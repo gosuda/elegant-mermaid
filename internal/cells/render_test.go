@@ -16,12 +16,15 @@ import (
 func cellScene(w, h int32, items ...scene.Primitive) scene.Scene {
 	return scene.Scene{Dump: scene.Dump{Options: scene.Options{Profile: scene.ProfileCell}, Canvas: geom.Size{W: w, H: h}}, Groups: []*scene.Group{{Items: items}}}
 }
+
 func edge(ps ...geom.Point) *scene.Polyline {
 	return &scene.Polyline{Shape: scene.Shape{Style: "edge"}, Points: ps}
 }
+
 func label(x, y, w int32, text string) *scene.Text {
 	return &scene.Text{Rect: geom.Rect{X: x, Y: y, W: w, H: 1}, Align: scene.AlignMiddle, Lines: [][]scene.Run{{{Text: text}}}}
 }
+
 func TestRenderHandOracles(t *testing.T) {
 	box := &scene.Rect{Shape: scene.Shape{Style: "node"}, Rect: geom.Rect{W: 7, H: 3}}
 	cases := []struct {
@@ -51,6 +54,7 @@ func TestRenderHandOracles(t *testing.T) {
 		})
 	}
 }
+
 func TestRenderMarkerDirections(t *testing.T) {
 	for axis, want := range []string{"╶─▶\n", "◀─╴\n", "╷\n│\n▼\n", "▲\n│\n╵\n"} {
 		s := markerScene(axis)
@@ -69,6 +73,7 @@ func TestRenderMarkerDirections(t *testing.T) {
 		}
 	}
 }
+
 func markerScene(axis int) scene.Scene {
 	a, b := geom.Point{}, geom.Point{X: 2}
 	at := b
@@ -88,6 +93,7 @@ func markerScene(axis int) scene.Scene {
 	}
 	return cellScene(w, h, edge(a, b), &scene.MarkerRef{Marker: "point", At: at, Axis: scene.Axis(axis)})
 }
+
 func TestRenderLabelGuard(t *testing.T) {
 	s := cellScene(3, 1, edge(geom.Point{}, geom.Point{X: 2}), label(0, 0, 3, "abc"))
 	r, e := Render(s, Options{})
@@ -98,6 +104,7 @@ func TestRenderLabelGuard(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
 func TestMarkerSymbolCellWidth(t *testing.T) {
 	glyphs := []rune{'┄', '┆', '⣿'}
 	for _, m := range gen.Markers {
@@ -115,6 +122,7 @@ func TestMarkerSymbolCellWidth(t *testing.T) {
 		}
 	}
 }
+
 func TestRenderProperties(t *testing.T) {
 	sgr := regexp.MustCompile("\x1b\\[[0-9;]*m")
 	for seed := uint32(1); seed <= 100; seed++ {
@@ -124,7 +132,7 @@ func TestRenderProperties(t *testing.T) {
 		state ^= state << 5
 		n := int32(state%8 + 2)
 		items := []scene.Primitive{}
-		for x := int32(0); x < n; x++ {
+		for x := range n {
 			items = append(items, &scene.Rect{Shape: scene.Shape{Style: "node"}, Rect: geom.Rect{X: x * 6, W: 5, H: 3}}, label(x*6, 1, 5, "A"))
 		}
 		s := cellScene(n*6, 4, items...)
@@ -141,11 +149,12 @@ func TestRenderProperties(t *testing.T) {
 		}
 		checkRows(t, plain.Text)
 	}
-	_, e := Render(scene.Scene{}, Options{})
+	_, e := Render(scene.Scene{Dump: scene.Dump{Options: scene.Options{Profile: scene.Profile(9)}}}, Options{})
 	if _, ok := errors.AsType[*ProfileError](e); !ok {
 		t.Fatal(e)
 	}
 }
+
 func checkRows(t *testing.T, text []byte) {
 	t.Helper()
 	if strings.Count(string(text), "\n") != 4 {
@@ -184,6 +193,7 @@ func TestDemoLeftToRight(t *testing.T) {
 		t.Fatalf("got %q want %q", got.Text, want)
 	}
 }
+
 func TestDottedLine(t *testing.T) {
 	p := edge(geom.Point{}, geom.Point{X: 4})
 	p.Line = scene.LineDashed

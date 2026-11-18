@@ -1,22 +1,25 @@
-use crate::source::Span;
+use std::borrow::Cow;
+
+use crate::source::{Span, cleaned::Cleaned};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token<'a> {
     pub kind: &'static str,
-    pub text: &'a str,
+    pub text: Cow<'a, str>,
     pub span: Span,
 }
 
 pub fn lex<'a>(source: &'a str, removed: &[Span]) -> Vec<Token<'a>> {
+    lex_cleaned(&Cleaned::new(source, removed))
+}
+
+pub(crate) fn lex_cleaned<'a>(cleaned: &Cleaned<'a>) -> Vec<Token<'a>> {
+    let source = cleaned.text();
     let mut tokens = Vec::new();
     let mut offset = 0;
     let mut class_pending = false;
     let mut class_body = false;
     while offset < source.len() {
-        if let Some(span) = removed.iter().find(|s| s.start <= offset && offset < s.end) {
-            offset = span.end;
-            continue;
-        }
         let (kind, length, trim) = if class_body {
             member(&source[offset..])
         } else {
@@ -36,8 +39,8 @@ pub fn lex<'a>(source: &'a str, removed: &[Span]) -> Vec<Token<'a>> {
         if kind != "SPACE" {
             tokens.push(Token {
                 kind,
-                text: &source[offset + trim..end - trim],
-                span: Span { start: offset, end },
+                text: cleaned.cow(offset + trim, end - trim),
+                span: cleaned.span(offset, end),
             });
         }
         offset = end;
@@ -58,7 +61,41 @@ fn member(source: &str) -> (&'static str, usize, usize) {
     }
 }
 
+const DIRECTIONS: [(&str, &str); 4] = [
+    ("TB", "direction_tb"),
+    ("BT", "direction_bt"),
+    ("RL", "direction_rl"),
+    ("LR", "direction_lr"),
+];
+
+fn direction(source: &str) -> Option<(&'static str, usize)> {
+    DIRECTIONS
+        .iter()
+        .find_map(|(word, kind)| direction_end(source, word).map(|end| (*kind, end)))
+}
+
+const SPACE: [char; 5] = [' ', '\t', '\n', '\x0c', '\r'];
+
+fn direction_end(source: &str, word: &str) -> Option<usize> {
+    let line = source.find(['\r', '\n']).unwrap_or(source.len());
+    source[..line]
+        .rmatch_indices("direction")
+        .find_map(|(at, keyword)| {
+            let tail = &source[at + keyword.len()..];
+            let rest = tail.trim_start_matches(SPACE);
+            let word_end = source.len() - rest.len() + word.len();
+            (rest.len() < tail.len() && rest.starts_with(word)).then(|| {
+                source[word_end..]
+                    .find(['\r', '\n'])
+                    .map_or(source.len(), |n| word_end + n)
+            })
+        })
+}
+
 fn next(source: &str) -> (&'static str, usize, usize) {
+    if let Some((kind, length)) = direction(source) {
+        return (kind, length, 0);
+    }
     let bytes = source.as_bytes();
     let first = bytes[0];
     for header in ["classDiagram-v2", "classDiagram"] {
@@ -88,6 +125,7 @@ fn next(source: &str) -> (&'static str, usize, usize) {
         ("..", "DOTTED_LINE"),
         ("<<", "ANNOTATION_START"),
         (">>", "ANNOTATION_END"),
+        (":::", "STYLE_SEPARATOR"),
     ] {
         if source.starts_with(text) {
             return (kind, text.len(), 0);
@@ -122,7 +160,7 @@ fn punctuation(source: &str, first: u8) -> (&'static str, usize, usize) {
         b',' => "COMMA",
         b'-' => "MINUS",
         b'.' => "DOT",
-        b';' => "INVALID",
+        b';' => "SEMICOLON",
         b'+' => "PLUS",
         b'#' => "BRKT",
         b'%' => "PCT",
@@ -152,11 +190,12 @@ fn word(source: &str) -> (&'static str, usize, usize) {
         "namespace" => "NAMESPACE",
         "note" => "NOTE",
         "classDiagram" | "classDiagram-v2" => "CLASS_DIAGRAM",
-        "direction" => "DIRECTION",
         "style" => "STYLE",
         "classDef" => "CLASSDEF",
         "cssClass" => "CSSCLASS",
         "click" | "link" | "callback" => "CLICK",
+        "call" => "CALL",
+        "href" => "HREF",
         "o" => "AGGREGATION",
         _ => "ALPHA",
     };

@@ -203,19 +203,13 @@ fn cells_render_dotted_precedes_heavy() {
     }
 }
 #[test]
-fn cells_render_rejects_vector() {
+fn cells_render_dispatches_vector_to_the_braille_raster() {
     let s = Scene::new(
-        Size { w: 0, h: 0 },
-        Dump::new("flowchart", DumpOptions::default()),
+        Size { w: 1024, h: 1024 },
+        Dump::new("pie", DumpOptions::default()),
         vec![],
     );
-    assert!(
-        matches!(
-            render(&s, &Options::default()),
-            Err(RenderError::Profile(_))
-        ),
-        "cells render rejects vector: contract matches!( render(&s, &Options::default()), Err(RenderError::Profile(_)) ) failed; observed predicate=false"
-    );
+    assert_eq!(render(&s, &Options::default()).unwrap().text, "\n");
 }
 
 #[test]

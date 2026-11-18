@@ -1,18 +1,24 @@
 use super::{
     ast::*,
     diagnostic,
-    lexer::{Token, lex},
+    lexer::{Token, lex_cleaned},
 };
-use crate::{diag::Diagnostic, source::Span};
+use crate::{
+    diag::Diagnostic,
+    source::{Span, cleaned::Cleaned},
+};
+use std::borrow::Cow;
 
 pub struct Parsed<'a> {
     pub document: Start<'a>,
     pub diagnostics: Vec<Diagnostic>,
 }
 pub fn parse<'a>(source: &'a str, removed: &[Span]) -> Parsed<'a> {
+    let cleaned = Cleaned::new(source, removed);
     let mut p = Parser {
         source,
-        tokens: lex(source, removed),
+        tokens: lex_cleaned(&cleaned),
+        cleaned,
         at: 0,
         diagnostics: Vec::new(),
     };
@@ -21,7 +27,7 @@ pub fn parse<'a>(source: &'a str, removed: &[Span]) -> Parsed<'a> {
     }
     let header = p.expect("SD").unwrap_or(Token {
         kind: "SD",
-        text: "",
+        text: Cow::Borrowed(""),
         span: Span { start: 0, end: 0 },
     });
     let body_start = header.span.end;
@@ -43,6 +49,7 @@ pub fn parse<'a>(source: &'a str, removed: &[Span]) -> Parsed<'a> {
 }
 struct Parser<'a> {
     source: &'a str,
+    cleaned: Cleaned<'a>,
     tokens: Vec<Token<'a>>,
     at: usize,
     diagnostics: Vec<Diagnostic>,
@@ -73,7 +80,7 @@ impl<'a> Parser<'a> {
             "state/unexpected-token",
             format!(
                 "unexpected {}, expected one of: {expected}",
-                &self.source[span.start..span.end]
+                self.cleaned.slice(span)
             ),
             span,
         ));
@@ -290,10 +297,7 @@ impl<'a> Parser<'a> {
                 self.recover();
                 self.diagnostics.push(diagnostic(
                     "state/unknown-statement",
-                    format!(
-                        "unknown statement {}",
-                        &self.source[t.span.start..t.span.end]
-                    ),
+                    format!("unknown statement {}", self.cleaned.slice(t.span)),
                     Span {
                         start: t.span.start,
                         end: self.end(),

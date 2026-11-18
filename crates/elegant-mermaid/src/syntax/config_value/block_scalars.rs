@@ -24,21 +24,25 @@ impl<'a> Cfg<'a> {
         mut j: usize,
         mut to: usize,
     ) -> String {
-        let n = self.yaml_value_indent.unwrap_or(0);
+        let min_col = self.yaml_continuation_col.unwrap_or(1);
         let mut next = to + self.eol(to);
         let mut blanks = 0;
         while j == to && next < self.end {
             let line = self.line_scan(next);
+            if line.tab_at.is_some() {
+                self.take_line(next);
+                break;
+            }
             if self.line_blank(&line) {
                 blanks += 1;
                 next = line.next;
                 continue;
             }
-            if line.col <= n || self.raw(line.content) == Some(b'#') {
+            if line.col < min_col || self.raw(line.content) == Some(b'#') {
                 break;
             }
             self.pos = line.content;
-            if self.sequence_start() || self.plain_line_kind() == LineKind::Entry {
+            if self.sequence_start() || self.line_kind() == LineKind::Entry {
                 self.pos = j;
                 break;
             }

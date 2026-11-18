@@ -14,8 +14,6 @@ const (
 	infoBrackets = "{mermaid}"
 )
 
-var mermaidInfo = [...]string{infoMermaid, infoMMD, infoBrackets}
-
 type BlockLine struct {
 	HostOffset  int
 	BlockOffset int
@@ -177,7 +175,7 @@ func (s *scanner) open(l hostLine, pos int) {
 }
 
 func (s *scanner) openFrame(l hostLine, pos int) (int, bool) {
-	at := skipSpaces(s.src, pos, l.contentEnd, maxIndent)
+	at := skipSpaces(s.src, pos, l.contentEnd)
 	if at < l.contentEnd && s.src[at] == '>' {
 		s.frames = append(s.frames, frame{quote: true})
 		return quoteEnd(s.src, at, l.contentEnd), true
@@ -201,7 +199,7 @@ func (s *scanner) openColon(l hostLine, pos int) bool {
 }
 
 func (s *scanner) openFence(l hostLine, pos int) bool {
-	at := skipSpaces(s.src, pos, l.contentEnd, maxIndent)
+	at := skipSpaces(s.src, pos, l.contentEnd)
 	if at >= l.contentEnd || !isFenceChar(s.src[at]) {
 		return false
 	}
@@ -280,7 +278,7 @@ func (b *openBlock) closes(src []byte, pos, end int) bool {
 
 func (f frame) strip(src []byte, pos, end int) (int, bool) {
 	if f.quote {
-		at := skipSpaces(src, pos, end, maxIndent)
+		at := skipSpaces(src, pos, end)
 		if at >= end || src[at] != '>' {
 			return pos, false
 		}
@@ -385,9 +383,9 @@ func isFenceChar(b byte) bool {
 	return b == '`' || b == '~'
 }
 
-func skipSpaces(src []byte, pos, end, limit int) int {
+func skipSpaces(src []byte, pos, end int) int {
 	spaces := 0
-	for spaces < limit && pos < end && src[pos] == ' ' {
+	for spaces < maxIndent && pos < end && src[pos] == ' ' {
 		pos++
 		spaces++
 	}
@@ -414,7 +412,7 @@ func runLength(src []byte, pos, end int, char byte) int {
 }
 
 func fenceAt(src []byte, pos, end int, char byte, count int) bool {
-	at := skipSpaces(src, pos, end, maxIndent)
+	at := skipSpaces(src, pos, end)
 	if at >= end || src[at] != char {
 		return false
 	}
@@ -437,12 +435,9 @@ func isMermaidInfo(src []byte, pos, end int) bool {
 		stop++
 	}
 	word := src[pos:stop]
-	for _, name := range mermaidInfo {
-		if asciiEqualFold(word, name) {
-			return true
-		}
-	}
-	return false
+	return asciiEqualFold(word, infoMermaid) ||
+		asciiEqualFold(word, infoMMD) ||
+		asciiEqualFold(word, infoBrackets)
 }
 
 func asciiEqualFold(word []byte, name string) bool {

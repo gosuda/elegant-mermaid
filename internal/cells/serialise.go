@@ -16,6 +16,7 @@ func cellText(v Cell, charset Charset) string {
 		return string(BrailleGlyph(charset, v.Dots))
 	}
 }
+
 func (c *Canvas) Serialise(charset Charset, mode ColorMode, lookup ColourLookup) []byte {
 	var out strings.Builder
 	for row := 0; row < c.H; row++ {
@@ -23,6 +24,7 @@ func (c *Canvas) Serialise(charset Charset, mode ColorMode, lookup ColourLookup)
 	}
 	return []byte(out.String())
 }
+
 func (c *Canvas) writeRow(out *strings.Builder, row int, charset Charset, mode ColorMode, lookup ColourLookup) {
 	end := c.W
 	for end > 0 && cellText(c.cells[row*c.W+end-1], charset) == " " {

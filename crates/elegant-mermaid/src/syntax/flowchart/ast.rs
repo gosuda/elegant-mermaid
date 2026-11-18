@@ -3,6 +3,7 @@
 //! Node names follow the authority rule names of `spec/grammar/flowchart.md`.
 
 use crate::source::Span;
+use crate::syntax::flowchart::tokens::Token;
 
 /// The `document` node: the header and the body statements in source order.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -123,6 +124,8 @@ pub struct LinkStatement {
     pub link_id: Option<Span>,
     pub start: Option<Span>,
     pub end: Span,
+    pub start_text: Option<String>,
+    pub end_text: String,
 }
 
 /// The `arrowText` node: the `|label|` form.
@@ -146,6 +149,8 @@ pub struct Text {
     pub span: Span,
     pub kind: TextKind,
     pub text: String,
+    /// The tokens the text was parsed from, in source order.
+    pub tokens: Vec<Token>,
 }
 
 /// The `textNoTags` node.
@@ -181,6 +186,7 @@ pub enum TextKind {
 pub struct ShapeData {
     pub span: Span,
     pub text: String,
+    pub src_at: Vec<usize>,
 }
 
 /// The `subgraph` node.
@@ -259,15 +265,18 @@ pub struct ClickStatement {
 pub enum ClickAction {
     Call {
         name: String,
+        name_span: Span,
         args: Option<String>,
         tooltip: Option<String>,
     },
     PlainCall {
         name: String,
+        name_span: Span,
         tooltip: Option<String>,
     },
     Link {
         href: String,
+        href_span: Span,
         tooltip: Option<String>,
         target: Option<String>,
     },
@@ -284,6 +293,7 @@ pub struct Direction {
 pub struct AccTitle {
     pub span: Span,
     pub value: Span,
+    pub text: String,
 }
 
 /// The `acc_descr` alternative of `statement`.
@@ -291,6 +301,7 @@ pub struct AccTitle {
 pub struct AccDescr {
     pub span: Span,
     pub value: Span,
+    pub text: String,
 }
 
 /// The `acc_descr_multiline_value` alternative of `statement`.
@@ -298,4 +309,5 @@ pub struct AccDescr {
 pub struct AccDescrBlock {
     pub span: Span,
     pub value: Span,
+    pub text: String,
 }

@@ -112,6 +112,12 @@ pub fn resolve(name: &str) -> Result<Theme, ThemeError> {
         colours,
     })
 }
+pub fn names() -> Vec<&'static str> {
+    crate::r#gen::themes::THEMES
+        .iter()
+        .map(|row| row.name)
+        .collect()
+}
 impl Theme {
     pub fn name(&self) -> &'static str {
         self.name

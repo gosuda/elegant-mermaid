@@ -6,6 +6,7 @@
 //! the int32 range reports the kernel overflow error.
 
 mod cell;
+mod label;
 mod segment;
 mod width;
 mod wrap;
@@ -14,6 +15,7 @@ mod wrap;
 mod conformance;
 
 pub use cell::{cell_width, cluster_width};
+pub use label::{StyledLine, StyledRun, styled_lines, styled_width};
 pub use segment::{Cluster, segment};
 pub use width::{
     Metric, Role, Weight, advance_sum, advance_units, apply_font_family_factor, upem, vector_width,

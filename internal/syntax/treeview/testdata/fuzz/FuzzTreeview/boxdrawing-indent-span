@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("treeView-beta\n0 icon(0\n\xe2000└0")

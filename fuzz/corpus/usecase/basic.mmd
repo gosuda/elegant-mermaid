@@ -1,0 +1,11 @@
+usecase-beta
+actor Customer("Customer") <<Person>>
+actor Clerk@{ type: hollow }
+Order("Place order")
+Pay("Pay for order")
+Refund("Request refund")
+Customer --> Order
+Clerk -- assists --> Order
+Order ..>: include Pay
+Refund ..>: extend Order
+Clerk --|> Customer

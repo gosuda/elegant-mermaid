@@ -123,13 +123,28 @@ func (r *resolver) nodeIndex(id string, at source.Span) int {
 	return len(r.model.Nodes) - 1
 }
 
+func declOf(sv *syn.StyledVertex) Decl {
+	d := Decl{ID: sv.Vertex.ID.Span}
+	if sv.Vertex.Label {
+		d.Label, d.HasLabel = resolveLabel(sv.Vertex.Text.String()), true
+	}
+	return d
+}
+
 func (r *resolver) styledVertex(sv *syn.StyledVertex) string {
+	if span, found := unquotedAt(&sv.Vertex); found {
+		r.model.UnquotedAtSpans = append(r.model.UnquotedAtSpans, span)
+	}
 	id := sv.Vertex.ID.String()
+	if slices.Contains(r.scope, id) {
+		r.model.SubgraphCollisions = append(r.model.SubgraphCollisions, sv.Vertex.ID.Span)
+	}
 	if sv.ShapeData != nil && r.referenceData(id, sv.ShapeData) {
 		return id
 	}
 	node := &r.model.Nodes[r.nodeIndex(id, sv.Vertex.ID.Span)]
 	node.Span = sv.Span
+	node.Decls = append(node.Decls, declOf(sv))
 	if sv.Vertex.Label {
 		node.Label = resolveLabel(sv.Vertex.Text.String())
 		node.LabelKind = labelKindOf(sv.Vertex.Text.Kind)
@@ -145,6 +160,26 @@ func (r *resolver) styledVertex(sv *syn.StyledVertex) string {
 		r.applyShapeData(node, sv.ShapeData)
 	}
 	return id
+}
+
+func unquotedAt(v *syn.Vertex) (source.Span, bool) {
+	if !v.Label || v.Text.Kind != syn.LabelPlain ||
+		!slices.Contains([]string{"squareRect", "stadium", "subroutine", "cylinder"}, v.Shape) {
+		return source.Span{}, false
+	}
+	trimmed := strings.TrimSpace(v.Text.String())
+	if strings.IndexAny(trimmed, `/\`) == 0 && strings.LastIndexAny(trimmed, `/\`) == len(trimmed)-1 {
+		return source.Span{}, false
+	}
+	for _, tok := range v.Text.Tokens {
+		if tok.Kind == syn.TokStr || tok.Kind == syn.TokMDStr {
+			continue
+		}
+		if off := strings.IndexByte(tok.Text, '@'); off >= 0 {
+			return source.Span{Start: tok.Span.Start + off, End: tok.Span.Start + off + 1}, true
+		}
+	}
+	return source.Span{}, false
 }
 
 func (r *resolver) joinGroup(id, group string) {
@@ -301,19 +336,32 @@ func (r *resolver) linkStyleStatement(s *syn.LinkStyleStatement) {
 func (r *resolver) clickStatement(s *syn.ClickStatement) {
 	click := Click{Target: s.Target.String(), Span: s.Bounds()}
 	if s.Callback != nil {
+		click.Kind = ClickCallback
 		click.Callback = s.Callback.Name.Text
+		click.ActionSpan = s.Callback.Name.Span
 		if s.Callback.Args != nil {
 			click.Args = strings.TrimSpace(s.Callback.Args.Text)
 		}
 	}
 	if s.Link != nil {
-		click.Href = s.Link.Href != nil
-		click.URL = s.Link.URL.String()
-		if s.Link.Tip != nil {
-			click.Tip = s.Link.Tip.String()
-		}
+		r.clickLink(&click, s.Link)
 	}
 	r.model.Clicks = append(r.model.Clicks, click)
+	r.diags = append(r.diags, interactionDiagnostics(click)...)
+}
+
+func (r *resolver) clickLink(click *Click, link *syn.LinkAction) {
+	if link.Href == nil && !link.URL.Quoted() {
+		click.Kind = ClickCallback
+		click.Callback = link.URL.String()
+	} else {
+		click.URL = link.URL.String()
+		click.Href = link.Href != nil
+	}
+	click.ActionSpan = link.URL.Span
+	if link.Tip != nil {
+		click.Tip = link.Tip.String()
+	}
 }
 
 func buildEdge(link syn.Link, from, to string) Edge {

@@ -63,6 +63,7 @@ func assertFixCovered(t *testing.T, covered map[string]bool, code, safety string
 		t.Errorf("uncovered diagnostic fix %s", code)
 	}
 }
+
 func TestParseAttachesFixes(t *testing.T) {
 	for _, tc := range []struct{ src, code string }{{"flowchart LR\nA -> B\n", codeArrowInvalid}, {"flowchart LR\nA[Start --> B\n", codeUnclosedNodeBracket}} {
 		_, ds := Parse([]byte(tc.src), nil)

@@ -212,7 +212,7 @@ func (r *configReader) scanJSONNumber(start int) (jsonNumber, bool) {
 	}
 	digits, end := jsonDigitsEnd(r.src, end, r.end)
 	if !digits {
-		r.failMalformed(start)
+		r.failMalformed(end)
 		return jsonNumber{}, false
 	}
 	number := jsonNumber{end: end, integer: true}
@@ -228,7 +228,7 @@ func (r *configReader) scanJSONFraction(number *jsonNumber) bool {
 	}
 	digits, next := jsonDigitsEnd(r.src, number.end+1, r.end)
 	if !digits {
-		r.failMalformed(number.end)
+		r.failMalformed(next)
 		return false
 	}
 	number.end = next
@@ -242,7 +242,7 @@ func (r *configReader) scanJSONExponent(number *jsonNumber) bool {
 	}
 	next, ok := jsonExponentEnd(r.src, number.end+1, r.end)
 	if !ok {
-		r.failMalformed(number.end)
+		r.failMalformed(next)
 		return false
 	}
 	number.end = next
@@ -269,18 +269,23 @@ func jsonExponentEnd(src []byte, from, end int) (int, bool) {
 
 func (r *configReader) parseJSONLiteral() (ConfigValue, bool) {
 	for _, literal := range []string{"true", "false", "null"} {
-		if value, ok := r.jsonLiteral(literal); ok {
-			return value, true
+		if r.src[r.pos] == literal[0] {
+			return r.jsonLiteral(literal)
 		}
 	}
 	r.failMalformed(r.pos)
 	return ConfigValue{}, false
 }
 
+// jsonLiteral reads one lowercase literal and fails at the first byte that the
+// literal does not accept (preprocessing-002).
 func (r *configReader) jsonLiteral(literal string) (ConfigValue, bool) {
 	start := r.pos
-	if r.end-start < len(literal) || string(r.src[start:start+len(literal)]) != literal {
-		return ConfigValue{}, false
+	for k := 0; k < len(literal); k++ {
+		if start+k >= r.end || r.src[start+k] != literal[k] {
+			r.failMalformed(start + k)
+			return ConfigValue{}, false
+		}
 	}
 	r.pos = start + len(literal)
 	span := r.span(start, r.pos)

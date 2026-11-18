@@ -20,6 +20,7 @@ type orderWeights struct {
 func transposePeers(a, b ProperNode) bool {
 	return a.Parent == b.Parent && a.Border == BorderNone && b.Border == BorderNone
 }
+
 func (g orderGraph) sortLayer(layer []int32, neighbours [][]int32, pos []int64) error {
 	if len(g.p.Clusters) == 0 && g.key == OrderKeyBarycentre {
 		return orderSort(layer, neighbours, pos)
@@ -28,6 +29,7 @@ func (g orderGraph) sortLayer(layer []int32, neighbours [][]int32, pos []int64) 
 	copy(layer, g.clusterLayer(layer, "", &weights))
 	return weights.err
 }
+
 func (g orderGraph) clusterLayer(layer []int32, parent string, weights *orderWeights) []int32 {
 	left, right, blocks := g.layerMembers(layer, parent, weights)
 	for _, c := range g.p.Clusters {
@@ -46,6 +48,7 @@ func (g orderGraph) clusterLayer(layer []int32, parent string, weights *orderWei
 	}
 	return append(out, right...)
 }
+
 func (g orderGraph) layerMembers(layer []int32, parent string, weights *orderWeights) ([]int32, []int32, []clusterBlock) {
 	var left, right []int32
 	var blocks []clusterBlock
@@ -65,6 +68,7 @@ func (g orderGraph) layerMembers(layer []int32, parent string, weights *orderWei
 	}
 	return left, right, blocks
 }
+
 func sortBlocks(layer []int32, blocks []clusterBlock, weights *orderWeights) {
 	if weights != nil {
 		slices.SortStableFunc(blocks, func(a, b clusterBlock) int { return compareBlocks(weights, a, b) })
@@ -75,6 +79,7 @@ func sortBlocks(layer []int32, blocks []clusterBlock, weights *orderWeights) {
 	}
 	slices.SortStableFunc(blocks, func(a, b clusterBlock) int { return cmp.Compare(a.index, b.index) })
 }
+
 func compareBlocks(weights *orderWeights, a, b clusterBlock) int {
 	comparison, err := orderCompare(a.key, b.key)
 	if err != nil {
@@ -88,6 +93,7 @@ func compareBlocks(weights *orderWeights, a, b clusterBlock) int {
 	}
 	return cmp.Compare(a.index, b.index)
 }
+
 func (g orderGraph) block(nodes []int32, weights *orderWeights, index int) clusterBlock {
 	block := clusterBlock{nodes: nodes, decl: g.p.Nodes[nodes[0]].Decl, index: index}
 	for _, v := range nodes {
@@ -112,6 +118,7 @@ func (g orderGraph) block(nodes []int32, weights *orderWeights, index int) clust
 	block.key.count = int64(len(values))
 	return block
 }
+
 func blockValues(nodes []int32, weights *orderWeights) []int64 {
 	var values []int64
 	for _, v := range nodes {
@@ -127,6 +134,7 @@ func blockValues(nodes []int32, weights *orderWeights) []int64 {
 	}
 	return values
 }
+
 func startLayers(p *Proper, layers [][]int32, start OrderStart) {
 	if start == OrderStartReverse {
 		for _, layer := range layers {
@@ -165,6 +173,7 @@ func breadthDiscovery(p *Proper) []int {
 	}
 	return state.order
 }
+
 func breadthRoot(p *Proper, roots []int32) int32 {
 	for _, v := range roots {
 		if len(p.In[v]) == 0 {
@@ -176,6 +185,7 @@ func breadthRoot(p *Proper, roots []int32) int32 {
 	}
 	return -1
 }
+
 func (state *breadthState) visit(p *Proper, root int32) {
 	if state.seen[root] {
 		return
@@ -190,6 +200,7 @@ func (state *breadthState) visit(p *Proper, root int32) {
 		state.queue = enqueueChildren(p, v, state.queue, state.seen)
 	}
 }
+
 func enqueueChildren(p *Proper, v int32, queue []int32, seen []bool) []int32 {
 	for _, i := range p.Out[v] {
 		w := p.Edges[i].Head
@@ -200,6 +211,7 @@ func enqueueChildren(p *Proper, v int32, queue []int32, seen []bool) []int32 {
 	}
 	return queue
 }
+
 func borderMember(p *Proper, a, b ProperNode) bool {
 	if a.Border == BorderLeft || a.Border == BorderRight {
 		return insideCluster(p.Clusters, b.Parent, a.Parent)
@@ -209,6 +221,7 @@ func borderMember(p *Proper, a, b ProperNode) bool {
 	}
 	return false
 }
+
 func blockStart(layer, nodes []int32) int {
 	first := len(layer)
 	for _, v := range nodes {
@@ -216,6 +229,7 @@ func blockStart(layer, nodes []int32) int {
 	}
 	return first
 }
+
 func ownTitleAnchor(a, b ProperNode) bool {
 	if a.Parent != b.Parent {
 		return false

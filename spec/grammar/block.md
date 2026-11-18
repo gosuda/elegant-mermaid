@@ -98,7 +98,7 @@ styleStatement = "style", STYLE_ENTITY_IDS, STYLE_DEFINITION_DATA ;
 ```
 
 - block-12: A SIZE MUST occur only on the initial node of a nodeStatement; a target with SIZE MUST start another statement rather than extend that edge chain. [just oracle]
-- block-13: Shape and arrow labels MUST be double-quoted STR values; an empty quoted label MUST be accepted. [just oracle]
+- block-13: Shape and arrow labels MUST be double-quoted STR values; a STR token MUST hold at least one character, so an empty quoted label MUST raise block/unexpected-token. [just oracle]
 - block-14: A composite body and the root document MUST each contain at least one statement. [just oracle]
 - block-15: The unused authority productions `spaceLines`, `separator`, and `stop` MUST NOT add separators to document. [just oracle]
 

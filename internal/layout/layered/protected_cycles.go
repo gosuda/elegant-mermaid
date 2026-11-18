@@ -15,6 +15,7 @@ func protectedGraph(g *Graph) bool {
 	}
 	return false
 }
+
 func protectedCycles(g *Graph, preferred []bool) ([]bool, error) {
 	search := reachability{out: make([][]int32, len(g.Nodes)), seen: make([]uint32, len(g.Nodes)), queue: make([]int32, 0, len(g.Nodes))}
 	reversed := make([]bool, len(g.Edges))
@@ -37,6 +38,7 @@ func protectedCycles(g *Graph, preferred []bool) ([]bool, error) {
 	g.RebuildAdjacency()
 	return reversed, nil
 }
+
 func (r *reachability) constraints(g *Graph) error {
 	for _, e := range g.Edges {
 		if !e.Synthetic {
@@ -49,6 +51,7 @@ func (r *reachability) constraints(g *Graph) error {
 	}
 	return nil
 }
+
 func (r *reachability) insert(e Edge) bool {
 	a, b := e.Chain()
 	reversed := e.Reversed
@@ -59,6 +62,7 @@ func (r *reachability) insert(e Edge) bool {
 	r.out[a] = append(r.out[a], b)
 	return reversed
 }
+
 func (r *reachability) path(from, to int32) bool {
 	r.generation++
 	r.queue = r.queue[:0]
@@ -73,6 +77,7 @@ func (r *reachability) path(from, to int32) bool {
 	}
 	return false
 }
+
 func (r *reachability) enqueue(v int32) {
 	for _, w := range r.out[v] {
 		if r.seen[w] == r.generation {

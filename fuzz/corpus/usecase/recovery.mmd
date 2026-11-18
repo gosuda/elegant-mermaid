@@ -1,0 +1,14 @@
+usecase-beta
+actor Visitor("Visitor")
+Broken("unclosed label
+Recovered("Recovered use case")
+Visitor --> Recovered
+systemBoundary Open[Unclosed boundary]
+  Inner("Inside")
+  actor Missing("unterminated actor
+  After[After malformed actor]
+end
+Visitor --> After
+Unclosed <<stereotype
+Next("Next valid declaration")
+json BrokenData @{"nested":{"message":"unterminated

@@ -1,4 +1,5 @@
 [
+  {"kind":"block","key":"layout","class":"accepted-ignored"},
   {
     "kind": "block",
     "key": "look",

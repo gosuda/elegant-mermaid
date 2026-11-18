@@ -1,3 +1,4 @@
+use crate::error::UsageError;
 use std::io::IsTerminal;
 
 #[derive(Default)]
@@ -11,22 +12,79 @@ pub struct Options {
     pub color: String,
     pub svg_text: String,
     pub width: i32,
+    pub scale: i32,
+    pub config: String,
+    pub icon_packs: Vec<String>,
 }
 
-pub fn invalid(value: &str, flag: &str, choices: &str) -> String {
-    format!("invalid value {value} for {flag}; expected one of: {choices}")
+pub fn invalid(value: &str, flag: &str, choices: &str) -> UsageError {
+    UsageError::InvalidValue {
+        value: value.to_owned(),
+        flag: flag.to_owned(),
+        choices: choices.to_owned(),
+    }
 }
-pub fn choice(value: &str, flag: &str, choices: &[&str]) -> Result<(), String> {
+pub fn choice(value: &str, flag: &str, choices: &[&str]) -> Result<(), UsageError> {
     if choices.contains(&value) {
         Ok(())
     } else {
         Err(invalid(value, flag, &choices.join(", ")))
     }
 }
-pub fn parse(command: &str, args: &[String]) -> Result<(Options, Vec<String>), String> {
+/// Whether an argument is a flag: it starts with `-` and is not a lone `-`.
+pub fn is_flag(arg: &str) -> bool {
+    arg.len() > 1 && arg.starts_with('-')
+}
+
+/// A flag argument split into its name and the text after its first `=`.
+pub struct FlagArg<'a> {
+    pub name: &'a str,
+    pub inline: Option<&'a str>,
+}
+
+/// Splits a flag argument. One or two leading dashes name the same flag; an
+/// argument with three or more leading dashes names no flag.
+pub fn split_flag(arg: &str) -> Option<FlagArg<'_>> {
+    let body = arg.strip_prefix("--").or_else(|| arg.strip_prefix('-'))?;
+    if body.starts_with('-') {
+        return None;
+    }
+    let (name, inline) = body
+        .split_once('=')
+        .map_or((body, None), |(name, value)| (name, Some(value)));
+    Some(FlagArg { name, inline })
+}
+
+impl FlagArg<'_> {
+    /// The value of the flag: the text after `=`, else the next argument.
+    pub fn value(
+        &self,
+        arg: &str,
+        next: impl FnOnce() -> Option<String>,
+    ) -> Result<String, UsageError> {
+        self.inline
+            .map(str::to_owned)
+            .or_else(next)
+            .ok_or_else(|| UsageError::MissingValue {
+                flag: arg.to_owned(),
+            })
+    }
+
+    /// The value of a switch: `true` without `=`, else the boolean after it.
+    pub fn switch(&self) -> Result<bool, UsageError> {
+        let value = self.inline.unwrap_or("true");
+        match value {
+            "1" | "t" | "T" | "true" | "TRUE" | "True" => Ok(true),
+            "0" | "f" | "F" | "false" | "FALSE" | "False" => Ok(false),
+            _ => Err(invalid(value, &format!("--{}", self.name), "true, false")),
+        }
+    }
+}
+pub fn parse(command: &'static str, args: &[String]) -> Result<(Options, Vec<String>), UsageError> {
     let mut options = Options {
         charset: "unicode".into(),
         color: "auto".into(),
+        scale: 2,
         svg_text: "font".into(),
         ..Options::default()
     };
@@ -40,21 +98,19 @@ pub fn parse(command: &str, args: &[String]) -> Result<(Options, Vec<String>), S
             paths.extend(iter.cloned());
             break;
         }
-        if arg == "-" || !arg.starts_with('-') {
+        if !is_flag(arg) {
             paths.push(arg.clone());
             continue;
         }
-        let (flag, inline) = arg
-            .split_once('=')
-            .map_or((arg.as_str(), None), |(a, b)| (a, Some(b)));
-        let name = flag.trim_start_matches('-');
-        if !known(command, name) {
-            return Err(format!("unknown flag {arg}; run emd {command} --help"));
-        }
-        let value = inline
-            .or_else(|| iter.next().map(String::as_str))
-            .ok_or_else(|| format!("missing value for {arg}"))?;
-        set(&mut options, name, value)?;
+        let flag = split_flag(arg).filter(|flag| known(command, flag.name));
+        let Some(flag) = flag else {
+            return Err(UsageError::UnknownFlag {
+                flag: arg.clone(),
+                command,
+            });
+        };
+        let value = flag.value(arg, || iter.next().cloned())?;
+        set(&mut options, flag.name, &value)?;
     }
     Ok((options, paths))
 }
@@ -63,19 +119,45 @@ fn known(command: &str, name: &str) -> bool {
         || if command == "check" {
             name == "output-format"
         } else {
-            ["i", "o", "e", "t", "b", "charset", "svg-text", "width"].contains(&name)
+            [
+                "i",
+                "o",
+                "s",
+                "e",
+                "t",
+                "b",
+                "c",
+                "charset",
+                "svg-text",
+                "width",
+                "icon-pack",
+            ]
+            .contains(&name)
         }
 }
-fn set(o: &mut Options, name: &str, value: &str) -> Result<(), String> {
+fn set(o: &mut Options, name: &str, value: &str) -> Result<(), UsageError> {
     let target = match name {
         "i" => &mut o.input,
         "o" => &mut o.output,
         "e" | "output-format" => &mut o.format,
         "t" => &mut o.theme,
         "b" => &mut o.background,
+        "c" => &mut o.config,
         "charset" => &mut o.charset,
         "color" => &mut o.color,
         "svg-text" => &mut o.svg_text,
+        "icon-pack" => {
+            o.icon_packs.push(value.to_owned());
+            return Ok(());
+        }
+        "s" => {
+            o.scale = value
+                .parse::<i32>()
+                .ok()
+                .filter(|v| (1..=8).contains(v))
+                .ok_or_else(|| invalid(value, "-s", "1..8"))?;
+            return Ok(());
+        }
         _ => {
             o.width = value
                 .parse::<i32>()
@@ -88,7 +170,7 @@ fn set(o: &mut Options, name: &str, value: &str) -> Result<(), String> {
     value.clone_into(target);
     Ok(())
 }
-pub fn resolve(o: &mut Options, environment: &crate::view::Environment) -> Result<(), String> {
+pub fn resolve(o: &mut Options, environment: &crate::view::Environment) -> Result<(), UsageError> {
     if o.format.is_empty() {
         o.format = infer(&o.output)?;
     }
@@ -98,10 +180,10 @@ pub fn resolve(o: &mut Options, environment: &crate::view::Environment) -> Resul
     {
         return Err(invalid(&o.background, "-b", "#rgb, #rrggbb"));
     }
-    choice(&o.format, "-e", &["svg", "text"])?;
+    choice(&o.format, "-e", &["svg", "png", "text"])?;
     choice(&o.charset, "--charset", &["unicode", "ascii"])?;
     choice(&o.color, "--color", &["auto", "always", "never"])?;
-    choice(&o.svg_text, "--svg-text", &["font"])?;
+    choice(&o.svg_text, "--svg-text", &["font", "paths"])?;
     if o.theme.is_empty() {
         o.theme = if o.format == "text" && dark_background(&environment.colorfgbg) {
             "elegant-dark"
@@ -110,9 +192,9 @@ pub fn resolve(o: &mut Options, environment: &crate::view::Environment) -> Resul
         }
         .into();
     }
-    choice(&o.theme, "-t", &["elegant-light", "elegant-dark"])
+    choice(&o.theme, "-t", &elegant_mermaid::theme::names())
 }
-fn infer(output: &str) -> Result<String, String> {
+fn infer(output: &str) -> Result<String, UsageError> {
     if output.is_empty() {
         return Ok(if std::io::stdout().is_terminal() {
             "text"
@@ -128,9 +210,9 @@ fn infer(output: &str) -> Result<String, String> {
         Some("svg") => Ok("svg".into()),
         Some("txt") => Ok("text".into()),
         Some("png") => Ok("png".into()),
-        _ => Err(format!(
-            "cannot infer the output format from {output}; pass -e"
-        )),
+        _ => Err(UsageError::UnknownFormat {
+            output: output.to_owned(),
+        }),
     }
 }
 fn dark_background(value: &str) -> bool {
@@ -206,6 +288,69 @@ mod tests {
                     .map_or(String::new(), |(_, value)| (*value).into())),
                 expected
             );
+        }
+    }
+
+    fn args(values: &[&str]) -> Vec<String> {
+        values.iter().map(|v| (*v).to_owned()).collect()
+    }
+
+    #[test]
+    fn scale_flag_takes_one_to_eight() -> Result<(), crate::error::UsageError> {
+        assert_eq!(super::parse("render", &args(&[]))?.0.scale, 2);
+        for scale in 1..=8 {
+            let text = scale.to_string();
+            let (options, _) = super::parse("render", &args(&["-s", &text]))?;
+            assert_eq!(options.scale, scale);
+        }
+        assert_eq!(super::parse("render", &args(&["-s=3"]))?.0.scale, 3);
+        for bad in ["0", "9", "-1", "x", "", "2.5"] {
+            let error = super::parse("render", &args(&["-s", bad]))
+                .err()
+                .map(|error| error.to_string());
+            assert_eq!(
+                error,
+                Some(format!("invalid value {bad} for -s; expected one of: 1..8"))
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn scale_is_a_render_flag_only() {
+        let error = super::parse("check", &args(&["-s", "2"]))
+            .err()
+            .map(|error| error.to_string());
+        assert_eq!(
+            error.as_deref(),
+            Some("unknown flag -s; run emd check --help")
+        );
+    }
+
+    #[test]
+    fn format_and_svg_text_values() {
+        for (flag, value, accepted) in [
+            ("-e", "png", true),
+            ("-e", "svg", true),
+            ("-e", "text", true),
+            ("-e", "gif", false),
+            ("--svg-text", "paths", true),
+            ("--svg-text", "font", true),
+            ("--svg-text", "glyphs", false),
+        ] {
+            let environment = crate::view::Environment {
+                colorfgbg: String::new(),
+                kitty_window_id: String::new(),
+                term: String::new(),
+                term_program: String::new(),
+                auto_colour: false,
+                depth: elegant_mermaid::cells::ColorMode::None,
+            };
+            let parsed = super::parse("render", &args(&[flag, value]));
+            let resolved = parsed.and_then(|(mut options, _)| {
+                super::resolve(&mut options, &environment).map(|()| options)
+            });
+            assert_eq!(resolved.is_ok(), accepted, "{flag} {value}");
         }
     }
 }

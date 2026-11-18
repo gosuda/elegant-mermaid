@@ -14,14 +14,26 @@ func TestSegmentRules(t *testing.T) {
 		input string
 		want  []string
 	}{
-		{"", nil}, {"abc", []string{"a", "b", "c"}},
-		{"\r\n", []string{"\r\n"}}, {"a\rb", []string{"a", "\r", "b"}}, {"a\nb", []string{"a", "\n", "b"}}, {"a\x00b", []string{"a", "\x00", "b"}},
-		{"ᄀ각", []string{"ᄀ각"}}, {"가ᅡᆨ", []string{"가ᅡᆨ"}}, {"각ᆨ", []string{"각ᆨ"}},
-		{"á", []string{"á"}}, {"a\u200d", []string{"a\u200d"}}, {"कः", []string{"कः"}},
-		{"\u0600a", []string{"\u0600a"}}, {"\u0600\u0600a", []string{"\u0600\u0600a"}},
-		{"क्क", []string{"क्क"}}, {"क्\u0301क", []string{"क्\u0301क"}},
-		{"👩\u200d💻", []string{"👩\u200d💻"}}, {"👩́\u200d💻", []string{"👩́\u200d💻"}},
-		{"🇦🇧🇨🇩🇪", []string{"🇦🇧", "🇨🇩", "🇪"}}, {"🇦🇧a🇨🇩", []string{"🇦🇧", "a", "🇨🇩"}},
+		{"", nil},
+		{"abc", []string{"a", "b", "c"}},
+		{"\r\n", []string{"\r\n"}},
+		{"a\rb", []string{"a", "\r", "b"}},
+		{"a\nb", []string{"a", "\n", "b"}},
+		{"a\x00b", []string{"a", "\x00", "b"}},
+		{"ᄀ각", []string{"ᄀ각"}},
+		{"가ᅡᆨ", []string{"가ᅡᆨ"}},
+		{"각ᆨ", []string{"각ᆨ"}},
+		{"á", []string{"á"}},
+		{"a\u200d", []string{"a\u200d"}},
+		{"कः", []string{"कः"}},
+		{"\u0600a", []string{"\u0600a"}},
+		{"\u0600\u0600a", []string{"\u0600\u0600a"}},
+		{"क्क", []string{"क्क"}},
+		{"क्\u0301क", []string{"क्\u0301क"}},
+		{"👩\u200d💻", []string{"👩\u200d💻"}},
+		{"👩́\u200d💻", []string{"👩́\u200d💻"}},
+		{"🇦🇧🇨🇩🇪", []string{"🇦🇧", "🇨🇩", "🇪"}},
+		{"🇦🇧a🇨🇩", []string{"🇦🇧", "a", "🇨🇩"}},
 	}
 	base := len(cases)
 	for i := 1; i < base; i++ {

@@ -72,6 +72,7 @@ impl Parser<'_> {
                 Statement::AccDescrBlock(AccDescrBlock {
                     span: t.span,
                     value: t.span,
+                    text: self.text(&t),
                 })
             }
             k if direction(k) => {
@@ -106,24 +107,30 @@ impl Parser<'_> {
     }
     pub(super) fn acc_title(&mut self) -> Statement {
         let kw = self.next();
-        let value = self.accept(K::AccTitleValue).map_or(zero(), |t| t.span);
+        let token = self.accept(K::AccTitleValue);
+        let value = token.as_ref().map_or(zero(), |t| t.span);
+        let text = token.as_ref().map_or_else(String::new, |t| self.text(t));
         Statement::AccTitle(AccTitle {
             span: Span {
                 start: kw.span.start,
                 end: kw.span.end.max(value.end),
             },
             value,
+            text,
         })
     }
     pub(super) fn acc_descr(&mut self) -> Statement {
         let kw = self.next();
-        let value = self.accept(K::AccDescrValue).map_or(zero(), |t| t.span);
+        let token = self.accept(K::AccDescrValue);
+        let value = token.as_ref().map_or(zero(), |t| t.span);
+        let text = token.as_ref().map_or_else(String::new, |t| self.text(t));
         Statement::AccDescr(AccDescr {
             span: Span {
                 start: kw.span.start,
                 end: kw.span.end.max(value.end),
             },
             value,
+            text,
         })
     }
     pub(super) fn subgraph(&mut self) -> Statement {

@@ -2,13 +2,14 @@
 mod tests;
 mod text;
 pub use crate::error::RasterError;
+pub use crate::outlines::GlyphOutlines;
 use crate::{
     Scene,
     geom::Point,
     scene::*,
     theme::{self, Colour, Theme, Token},
 };
-pub use text::{GlyphOutlines, inter_outlines};
+pub use text::inter_outlines;
 use tiny_skia::{
     FillRule, LineCap, LineJoin, Paint, Path, PathBuilder, Pixmap, Stroke, StrokeDash, Transform,
 };

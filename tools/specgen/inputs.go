@@ -147,11 +147,12 @@ type inputs struct {
 
 	entities []entityRow
 
-	eaw      []byte
-	gbp      []byte
-	emoji    []byte
-	derived  []byte
-	propList []byte
+	eaw             []byte
+	gbp             []byte
+	emoji           []byte
+	derived         []byte
+	propList        []byte
+	generalCategory []byte
 
 	regularTTF  []byte
 	semiboldTTF []byte
@@ -315,7 +316,11 @@ func loadRegistries(root string, in *inputs) error {
 	if err != nil {
 		return err
 	}
-	in.lintRules, err = adoptedLintRules(rules)
+	diagnosticCodes := make(map[string]struct{}, len(in.diagnostics))
+	for _, r := range in.diagnostics {
+		diagnosticCodes[r.Code] = struct{}{}
+	}
+	in.lintRules, err = adoptedLintRules(rules, diagnosticCodes)
 	if err != nil {
 		return err
 	}
@@ -323,12 +328,17 @@ func loadRegistries(root string, in *inputs) error {
 	return err
 }
 
-func adoptedLintRules(rows []registryRow) ([]registryRow, error) {
+func adoptedLintRules(rows []registryRow, diagnosticCodes map[string]struct{}) ([]registryRow, error) {
 	adopted := make([]registryRow, 0, len(rows))
 	codes := make([]string, 0, len(rows))
 	for _, r := range rows {
 		if r.Status != "" && r.Status != "adopted" {
 			continue
+		}
+		executable := r.Source == "own" || strings.HasPrefix(r.Source, "mermaid-lint:")
+		if _, exists := diagnosticCodes[r.Code]; exists && executable &&
+			!strings.HasPrefix(r.Source, "mermaid-lint:suppression-") {
+			return nil, fmt.Errorf("lint rule %q duplicates a grammar diagnostic", r.Code)
 		}
 		adopted = append(adopted, r)
 		codes = append(codes, r.Code)
@@ -477,6 +487,7 @@ func loadUnicodeData(root string, in *inputs) error {
 		{"spec/data/unicode/GraphemeBreakProperty.txt", &in.gbp},
 		{"spec/data/unicode/emoji-data.txt", &in.emoji},
 		{"spec/data/unicode/DerivedCoreProperties.txt", &in.derived},
+		{"spec/data/unicode/DerivedGeneralCategory.txt", &in.generalCategory},
 		{"spec/data/unicode/PropList.txt", &in.propList},
 	}
 	for _, f := range files {

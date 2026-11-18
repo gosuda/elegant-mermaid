@@ -6,18 +6,18 @@ pub struct Parsed {
     pub diagnostics: Vec<diag::Diagnostic>,
     pub model: Option<model::Resolved>,
 }
-pub fn parse(bytes: &[u8]) -> Result<Parsed, String> {
+pub fn parse(bytes: &[u8]) -> Parsed {
     let document = elegant_mermaid::parse_bytes(bytes);
     let source = document.source().to_owned();
     let kind = document.kind();
     let diagnostics = document.diagnostics().to_vec();
     let model = document.into_resolved();
-    Ok(Parsed {
+    Parsed {
         source,
         kind,
         diagnostics,
         model,
-    })
+    }
 }
 pub fn has_errors(ds: &[diag::Diagnostic]) -> bool {
     ds.iter().any(|d| d.severity == diag::Severity::Error)

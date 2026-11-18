@@ -118,7 +118,7 @@ struct Cfg<'a> {
     pos: usize,
     depth: usize,
     json: bool,
-    yaml_value_indent: Option<usize>,
+    yaml_continuation_col: Option<usize>,
     stop: bool,
     diags: Vec<Diagnostic>,
     starts: Vec<(String, usize)>,
@@ -390,5 +390,8 @@ mod tests {
     }
     mod settled_grammar {
         include!("config_value/settled_grammar_tests.rs");
+    }
+    mod reader_rules {
+        include!("config_value/reader_rules_tests.rs");
     }
 }

@@ -31,6 +31,7 @@ func labelChain(t *testing.T, label bool) routedCase {
 	}
 	return routeCase(t, p, layers)
 }
+
 func TestLabelRankHalvesRankGap(t *testing.T) {
 	if got := labelChain(t, true).top; !reflect.DeepEqual(got, []int32{0, 3584, 7168}) {
 		t.Fatal("each gap is 1280 + half of rank_gap 3072 + one slot of 768", got)
@@ -39,6 +40,7 @@ func TestLabelRankHalvesRankGap(t *testing.T) {
 		t.Fatal("a dummy-only rank keeps the full rank_gap", got)
 	}
 }
+
 func TestRealNodeKeepsFullRankGap(t *testing.T) {
 	p, layers := handProper(t, 3, [][2]int32{{0, 1}, {1, 2}, {0, 2}})
 	for _, v := range layers[1] {
@@ -51,6 +53,7 @@ func TestRealNodeKeepsFullRankGap(t *testing.T) {
 		t.Fatal("a rank that holds a real node is not a label rank", got)
 	}
 }
+
 func TestHalfGapKeepsProfileSlotLinesAboveNextRank(t *testing.T) {
 	for _, profile := range []scene.Profile{scene.ProfileVector, scene.ProfileCell} {
 		params, err := DefaultParams(profile)
@@ -62,6 +65,7 @@ func TestHalfGapKeepsProfileSlotLinesAboveNextRank(t *testing.T) {
 		}
 	}
 }
+
 func labelEveryChain(p *Proper) {
 	for _, chain := range p.Chains {
 		if len(chain) >= 3 {
@@ -71,6 +75,7 @@ func labelEveryChain(p *Proper) {
 		}
 	}
 }
+
 func TestHalfGapKeepsSlotLinesAboveNextRank(t *testing.T) {
 	for i := range 100 {
 		p, layers := coordinateCase(t, i)

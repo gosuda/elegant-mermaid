@@ -1,6 +1,33 @@
 use super::{ast::Statement, parse};
 
 #[test]
+fn class_newline_separates_relation_target() -> Result<(), &'static str> {
+    for newline in ["\n", "\r\n", "\r"] {
+        let source = format!("classDiagram{newline}Foo ->{newline}Bar : x{newline}");
+        let parsed = parse(&source, &[]);
+        assert_eq!(parsed.diagnostics.len(), 1);
+        let diagnostic = &parsed.diagnostics[0];
+        assert_eq!(diagnostic.code, "class/unexpected-token");
+        let start = source.find("->").ok_or("relation arrow")? + 2;
+        assert_eq!(diagnostic.span.start, start);
+        assert_eq!(diagnostic.span.end, start + newline.len());
+        assert_eq!(&source[diagnostic.span.start..diagnostic.span.end], newline);
+    }
+    Ok(())
+}
+
+#[test]
+fn class_namespace_recovery_expected_statements() {
+    let source = "classDiagram\nnamespace N {\nA --> B\nclass C\n}\n";
+    let parsed = parse(source, &[]);
+    assert_eq!(parsed.diagnostics.len(), 1);
+    assert_eq!(
+        parsed.diagnostics[0].message,
+        "unexpected A, expected one of: CLASS, NAMESPACE, NOTE, NOTE_FOR"
+    );
+}
+
+#[test]
 fn class_statement_forms() {
     let source = "classDiagram\nclass Account {\n+name\n+save() bool\n}\nAccount --> User : owns\nnote for Account \"stored\"\nnamespace Domain {\nclass User\n}\n";
     let parsed = parse(source, &[]);
@@ -64,6 +91,44 @@ fn class_diagnostics() {
                 "diagnostic {diagnostic:?} has invalid span for source {source:?}"
             );
         }
+    }
+}
+
+#[test]
+fn class_label_text_accepts_every_character_but_colon_and_semicolon() {
+    for body in [
+        "A : \u{301}x",
+        "A : ★ y",
+        "A : x \u{301} y",
+        "A : x\u{1}y",
+        "A --> B : \u{301}x",
+        "A --> B : ★ y",
+        "A --> B : x \u{301} y",
+    ] {
+        let source = format!("classDiagram\n{body}\n");
+        let parsed = parse(&source, &[]);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "{body:?}: {:?}",
+            parsed.diagnostics
+        );
+    }
+    for body in [
+        "A : x : y",
+        "A : x ; y",
+        "A --> B : x : y",
+        "A --> B : x ; y",
+    ] {
+        let source = format!("classDiagram\n{body}\n");
+        let parsed = parse(&source, &[]);
+        assert!(
+            parsed
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "class/unexpected-token"),
+            "{body:?}: {:?}",
+            parsed.diagnostics
+        );
     }
 }
 

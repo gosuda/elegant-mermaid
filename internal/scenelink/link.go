@@ -20,6 +20,9 @@ type Font struct {
 
 type Outlines [2]Font
 
-var Scene func(any) (scene.Scene, bool)
-var NewOutlines func(Outlines) any
-var OutlinesOf func(any) (Outlines, bool)
+var (
+	Scene       func(any) (scene.Scene, bool)
+	NewScene    func(scene.Scene) any
+	NewOutlines func(Outlines) any
+	OutlinesOf  func(any) (Outlines, bool)
+)

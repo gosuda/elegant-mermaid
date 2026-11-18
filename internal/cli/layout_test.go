@@ -12,7 +12,7 @@ import (
 
 func TestLayoutModel(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "demo.mmd")
-	if err := os.WriteFile(path, []byte("flowchart\nA --> B\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("flowchart\nA --> B\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cases := []struct {

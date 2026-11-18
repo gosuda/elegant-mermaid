@@ -16,6 +16,7 @@ func TestStackedRouteLabels(t *testing.T) {
 		})
 	}
 }
+
 func stackedInput(kind string) (Input, string) {
 	in := step14Input()
 	owner := "e0"
@@ -30,6 +31,7 @@ func stackedInput(kind string) (Input, string) {
 	in.Labels = []Label{{ID: "first.label", Owner: owner, Text: "one"}, {ID: "second.label", Owner: owner, Text: "longer"}}
 	return in, owner
 }
+
 func assertLabelStack(t *testing.T, s scene.Scene, owner string) {
 	t.Helper()
 	var labels []scene.Label
@@ -46,6 +48,7 @@ func assertLabelStack(t *testing.T, s scene.Scene, owner string) {
 		t.Fatal("one-cell text height plus one-cell slot gap", labels)
 	}
 }
+
 func assertStackMembers(t *testing.T, labels []scene.Label) {
 	t.Helper()
 	if labels[0].ID != "first.label" || labels[1].ID != "second.label" {

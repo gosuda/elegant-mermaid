@@ -38,19 +38,19 @@ func TestFlatListEndToEnd(t *testing.T) {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
-	t.Setenv("EMD_BIN", binary)
+	t.Setenv("EMD_BIN", filepath.Join(t.TempDir(), "ambient-must-not-be-used"))
 	root := t.TempDir()
 	dir := filepath.Join(root, "corpus", "flowchart", "test")
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	sources := []string{"flowchart TD\nA --> B\n", "flowchart TD\nA[alpha] --> B\n", "flowchart TD\nA --> A\n", "flowchart TD\nA --> B\nB --> A\n", "flowchart TD\nA -->|yes| B\n"}
 	for i, source := range sources {
-		if err := os.WriteFile(filepath.Join(dir, string(rune('a'+i))+".mmd"), []byte(source), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, string(rune('a'+i))+".mmd"), []byte(source), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	got, err := execute([]string{"-root", root, "-flat-list", "flowchart"})
+	got, err := execute([]string{"-root", root, "-flat-list", "flowchart"}, binary)
 	if err != nil {
 		t.Fatal(err)
 	}

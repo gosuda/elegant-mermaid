@@ -73,11 +73,11 @@ func keywordThenSpace(word string) func(*lexer, int) int {
 		if !matchLiteral(l.src, l.pos, limit, word) {
 			return -1
 		}
-		pos := skipAllSpace(l.src, l.pos+len(word), limit)
-		if pos == l.pos+len(word) {
+		after := l.pos + len(word)
+		if !l.spaceFollows(after, limit) {
 			return -1
 		}
-		return pos
+		return l.spaceEnd(after, limit)
 	}
 }
 
@@ -86,11 +86,11 @@ func keywordSpacesColonSpaces(word string) func(*lexer, int) int {
 		if !matchLiteral(l.src, l.pos, limit, word) {
 			return -1
 		}
-		pos := skipAllSpace(l.src, l.pos+len(word), limit)
+		pos, limit := l.skipSpace(l.pos+len(word), limit)
 		if pos >= limit || l.src[pos] != ':' {
 			return -1
 		}
-		return skipAllSpace(l.src, pos+1, limit)
+		return l.spaceEnd(pos+1, limit)
 	}
 }
 
@@ -99,11 +99,11 @@ func keywordSpacesBrace(word string) func(*lexer, int) int {
 		if !matchLiteral(l.src, l.pos, limit, word) {
 			return -1
 		}
-		pos := skipAllSpace(l.src, l.pos+len(word), limit)
+		pos, limit := l.skipSpace(l.pos+len(word), limit)
 		if pos >= limit || l.src[pos] != '{' {
 			return -1
 		}
-		return skipAllSpace(l.src, pos+1, limit)
+		return l.spaceEnd(pos+1, limit)
 	}
 }
 
@@ -209,7 +209,7 @@ func numRule(l *lexer, limit int) int {
 func isMarkerStart(b byte) bool { return b == 'x' || b == 'o' || b == '<' }
 
 func linkRule(l *lexer, limit int) int {
-	pos := skipAllSpace(l.src, l.pos, limit)
+	pos, limit := l.skipSpace(l.pos, limit)
 	if pos < limit && isMarkerStart(l.src[pos]) {
 		pos++
 	}
@@ -219,27 +219,27 @@ func linkRule(l *lexer, limit int) int {
 		dash++
 	}
 	if dash >= 2 && pos < limit && markerEnd(l.src[pos]) {
-		return skipAllSpace(l.src, pos+1, limit)
+		return l.spaceEnd(pos+1, limit)
 	}
 	if dash >= 3 {
-		return skipAllSpace(l.src, pos, limit)
+		return l.spaceEnd(pos, limit)
 	}
 	return -1
 }
 
 func startLinkRule(l *lexer, limit int) int {
-	pos := skipAllSpace(l.src, l.pos, limit)
+	pos, limit := l.skipSpace(l.pos, limit)
 	if pos < limit && isMarkerStart(l.src[pos]) {
 		pos++
 	}
 	if pos+1 >= limit || l.src[pos] != '-' || l.src[pos+1] != '-' {
 		return -1
 	}
-	return skipAllSpace(l.src, pos+2, limit)
+	return l.spaceEnd(pos+2, limit)
 }
 
 func thickLinkRule(l *lexer, limit int) int {
-	pos := skipAllSpace(l.src, l.pos, limit)
+	pos, limit := l.skipSpace(l.pos, limit)
 	if pos < limit && isMarkerStart(l.src[pos]) {
 		pos++
 	}
@@ -249,27 +249,28 @@ func thickLinkRule(l *lexer, limit int) int {
 		eq++
 	}
 	if eq >= 2 && pos < limit && markerEnd(l.src[pos]) {
-		return skipAllSpace(l.src, pos+1, limit)
+		return l.spaceEnd(pos+1, limit)
 	}
 	if eq >= 3 {
-		return skipAllSpace(l.src, pos, limit)
+		return l.spaceEnd(pos, limit)
 	}
 	return -1
 }
 
 func thickStartLinkRule(l *lexer, limit int) int {
-	pos := skipAllSpace(l.src, l.pos, limit)
+	pos, limit := l.skipSpace(l.pos, limit)
 	if pos < limit && isMarkerStart(l.src[pos]) {
 		pos++
 	}
 	if pos+1 >= limit || l.src[pos] != '=' || l.src[pos+1] != '=' {
 		return -1
 	}
-	return skipAllSpace(l.src, pos+2, limit)
+	return l.spaceEnd(pos+2, limit)
 }
 
 func dottedLinkRule(l *lexer, limit int) int {
-	pos := dottedPrefix(l.src, skipAllSpace(l.src, l.pos, limit), limit)
+	pos, limit := l.skipSpace(l.pos, limit)
+	pos = dottedPrefix(l.src, pos, limit)
 	dots := 0
 	for pos < limit && l.src[pos] == '.' {
 		pos++
@@ -282,7 +283,7 @@ func dottedLinkRule(l *lexer, limit int) int {
 	if pos < limit && markerEnd(l.src[pos]) {
 		pos++
 	}
-	return skipAllSpace(l.src, pos, limit)
+	return l.spaceEnd(pos, limit)
 }
 
 func dottedPrefix(src []byte, pos, limit int) int {
@@ -296,18 +297,18 @@ func dottedPrefix(src []byte, pos, limit int) int {
 }
 
 func dottedStartLinkRule(l *lexer, limit int) int {
-	pos := skipAllSpace(l.src, l.pos, limit)
+	pos, limit := l.skipSpace(l.pos, limit)
 	if pos < limit && isMarkerStart(l.src[pos]) {
 		pos++
 	}
 	if pos+1 >= limit || l.src[pos] != '-' || l.src[pos+1] != '.' {
 		return -1
 	}
-	return skipAllSpace(l.src, pos+2, limit)
+	return l.spaceEnd(pos+2, limit)
 }
 
 func invisibleLinkRule(l *lexer, limit int) int {
-	pos := skipAllSpace(l.src, l.pos, limit)
+	pos, limit := l.skipSpace(l.pos, limit)
 	if pos+2 >= limit || l.src[pos] != '~' || l.src[pos+1] != '~' || l.src[pos+2] != '~' {
 		return -1
 	}
@@ -315,7 +316,7 @@ func invisibleLinkRule(l *lexer, limit int) int {
 	for pos < limit && l.src[pos] == '~' {
 		pos++
 	}
-	return skipAllSpace(l.src, pos, limit)
+	return l.spaceEnd(pos, limit)
 }
 
 func nodeStringRule(l *lexer, limit int) int {
@@ -397,49 +398,33 @@ func spaceRule(l *lexer, limit int) int {
 	return pos
 }
 
+func notIn(stops string) func(byte) bool {
+	return func(b byte) bool { return strings.IndexByte(stops, b) < 0 }
+}
+
 func accValueRun(l *lexer, limit int) int {
-	pos := l.pos
-	for pos < limit {
-		b := l.src[pos]
-		if b == '\n' || b == '\r' || b == ';' || b == '#' {
-			break
-		}
-		pos++
+	end, _ := l.runWhile(l.pos, limit, notIn("\n\r;#"))
+	return end
+}
+
+func nonEmptyRun(l *lexer, limit int, pred func(byte) bool) int {
+	end, _ := l.runWhile(l.pos, limit, pred)
+	if end == l.pos {
+		return -1
 	}
-	return pos
+	return end
 }
 
 func accBlockRun(l *lexer, limit int) int {
-	pos := l.pos
-	for pos < limit && l.src[pos] != '}' {
-		pos++
-	}
-	if pos == l.pos {
-		return -1
-	}
-	return pos
+	return nonEmptyRun(l, limit, notIn("}"))
 }
 
 func stringRun(l *lexer, limit int) int {
-	pos := l.pos
-	for pos < limit && l.src[pos] != '"' {
-		pos++
-	}
-	if pos == l.pos {
-		return -1
-	}
-	return pos
+	return nonEmptyRun(l, limit, notIn("\""))
 }
 
 func mdStringRun(l *lexer, limit int) int {
-	pos := l.pos
-	for pos < limit && l.src[pos] != '"' && l.src[pos] != '`' {
-		pos++
-	}
-	if pos == l.pos {
-		return -1
-	}
-	return pos
+	return nonEmptyRun(l, limit, notIn("\"`"))
 }
 
 func oneByteUnless(open byte) func(*lexer, int) int {
@@ -452,35 +437,21 @@ func oneByteUnless(open byte) func(*lexer, int) int {
 }
 
 func callbackNameRun(l *lexer, limit int) int {
-	pos := l.pos
-	if l.src[pos] == '"' {
+	if l.src[l.pos] == '"' {
 		return -1
 	}
-	for pos < limit && l.src[pos] != '(' {
-		pos++
-	}
-	if pos == l.pos {
-		return -1
-	}
-	return pos
+	return nonEmptyRun(l, limit, notIn("("))
 }
 
 func callbackArgsRun(l *lexer, limit int) int {
-	pos := l.pos
-	for pos < limit && l.src[pos] != ')' {
-		pos++
-	}
-	if pos == l.pos {
-		return -1
-	}
-	return pos
+	return nonEmptyRun(l, limit, notIn(")"))
 }
 
 func emptyCallArgs(l *lexer, limit int) int {
 	if l.pos >= limit || l.src[l.pos] != '(' {
 		return -1
 	}
-	pos := skipAllSpace(l.src, l.pos+1, limit)
+	pos, limit := l.skipSpace(l.pos+1, limit)
 	if pos < limit && l.src[pos] == ')' {
 		return pos + 1
 	}
@@ -488,29 +459,11 @@ func emptyCallArgs(l *lexer, limit int) int {
 }
 
 func shapePlainRun(l *lexer, limit int) int {
-	pos := l.pos
-	for pos < limit {
-		b := l.src[pos]
-		if b == '}' || b == '^' || b == '"' {
-			break
-		}
-		pos++
-	}
-	if pos == l.pos {
-		return -1
-	}
-	return pos
+	return nonEmptyRun(l, limit, notIn("}^\""))
 }
 
 func shapeQuotedRun(l *lexer, limit int) int {
-	pos := l.pos
-	for pos < limit && l.src[pos] != '"' {
-		pos++
-	}
-	if pos == l.pos {
-		return -1
-	}
-	return pos
+	return nonEmptyRun(l, limit, notIn("\""))
 }
 
 func ellipseTextRun(l *lexer, limit int) int {
@@ -565,10 +518,7 @@ func invTrapEndRule(l *lexer, limit int) int {
 }
 
 func trapTextRun(l *lexer, limit int) int {
-	pos := l.pos
-	for pos < limit && isTrapPlain(l.src[pos]) {
-		pos++
-	}
+	pos, _ := l.runWhile(l.pos, limit, isTrapPlain)
 	if pos == l.pos && pos+1 < limit && (l.src[pos] == '/' || l.src[pos] == '\\') && l.src[pos+1] != ']' {
 		return pos + 1
 	}
@@ -587,25 +537,19 @@ func isTrapPlain(b byte) bool {
 }
 
 func textRun(l *lexer, limit int) int {
-	pos := l.pos
 	inTag := false
-	for pos < limit {
-		b := l.src[pos]
-		if strings.ContainsRune("[](){}|", rune(b)) || b == '"' && !inTag {
-			break
+	return nonEmptyRun(l, limit, func(b byte) bool {
+		if strings.IndexByte("[](){}|", b) >= 0 || b == '"' && !inTag {
+			return false
 		}
-		if b == '<' {
+		switch b {
+		case '<':
 			inTag = true
-		}
-		if b == '>' {
+		case '>':
 			inTag = false
 		}
-		pos++
-	}
-	if pos == l.pos {
-		return -1
-	}
-	return pos
+		return true
+	})
 }
 
 func directionStatement(kw string) func(*lexer, int) int {
@@ -655,12 +599,5 @@ func anySpaceByte(l *lexer, limit int) int {
 }
 
 func anyNonSpace(l *lexer, limit int) int {
-	pos := l.pos
-	for pos < limit && !isJSSpace(l.src[pos]) {
-		pos++
-	}
-	if pos == l.pos {
-		return -1
-	}
-	return pos
+	return nonEmptyRun(l, limit, func(b byte) bool { return !isJSSpace(b) })
 }

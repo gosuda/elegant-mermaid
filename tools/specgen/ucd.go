@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"slices"
 	"strconv"
@@ -180,6 +181,7 @@ func applyWidthPass(vals []uint8, pass widthPass, data []byte) error {
 	}
 	return nil
 }
+
 func isWideEastAsian(s string) bool {
 	return s == "W" || s == "F"
 }
@@ -255,6 +257,36 @@ func buildIdeographic(propList []byte) ([]tableRange, error) {
 		}
 	}
 	return compressSparse(vals), nil
+}
+
+func buildAlphanumeric(derived, generalCategory []byte) ([]tableRange, error) {
+	if len(bytes.TrimSpace(derived)) == 0 {
+		return nil, fmt.Errorf("DerivedCoreProperties.txt: required source is missing or empty")
+	}
+	if len(bytes.TrimSpace(generalCategory)) == 0 {
+		return nil, fmt.Errorf("DerivedGeneralCategory.txt: required source is missing or empty")
+	}
+	vals := newScalarArray(0)
+	if err := assignAlphanumeric(vals, derived, "DerivedCoreProperties.txt", []string{"Alphabetic"}); err != nil {
+		return nil, err
+	}
+	if err := assignAlphanumeric(vals, generalCategory, "DerivedGeneralCategory.txt", []string{"Nd", "Nl", "No"}); err != nil {
+		return nil, err
+	}
+	return compressSparse(vals), nil
+}
+
+func assignAlphanumeric(vals []uint8, data []byte, name string, properties []string) error {
+	lines, err := parseUCD(data)
+	if err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	for _, line := range lines {
+		if slices.Contains(properties, line.field(1)) {
+			assignRange(vals, line.lo, line.hi, 1)
+		}
+	}
+	return nil
 }
 
 func lookupRange(ranges []tableRange, cp uint32) uint8 {

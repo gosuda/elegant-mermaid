@@ -1,32 +1,21 @@
 package layered
 
 import (
-	"strings"
-
 	"github.com/gosuda/elegant-mermaid/internal/geom"
 	"github.com/gosuda/elegant-mermaid/internal/measure"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 )
 
-func wrapLabel(text string, o scene.Options) ([]measure.Line, error) {
+func wrapLabel(text, kind string, o scene.Options) ([]measure.StyledLine, error) {
 	metric := metricFor(o.Profile)
 	maxWidth := int32(0)
 	if o.Profile == scene.ProfileCell {
-		text = terminalText(text)
 		maxWidth = o.MaxWidth
 	}
-	return measure.Wrap(text, measure.WrapTarget(metric.Profile, 0, maxWidth), metric)
-}
-func terminalText(text string) string {
-	return strings.Map(func(r rune) rune {
-		if r < 0x20 || r >= 0x7f && r <= 0x9f {
-			return '\ufffd'
-		}
-		return r
-	}, text)
+	return measure.StyledLines(text, measure.WrapTarget(metric.Profile, kindWrapWidth(o.Profile, kind), maxWidth), metric)
 }
 
-func measuredTitle(lines []measure.Line, o scene.Options) (geom.Size, error) {
+func measuredTitle(lines []measure.StyledLine, o scene.Options) (geom.Size, error) {
 	var width int32
 	for _, line := range lines {
 		width = max(width, line.Width)

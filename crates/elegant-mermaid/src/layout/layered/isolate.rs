@@ -18,8 +18,8 @@ pub fn layout(
     input: &Input,
     edges: &[EdgeOptions<'_>],
 ) -> Result<Option<(Scene, bool)>, LayoutError> {
-    super::regions::Metadata::validate(input)?;
-    let selected = select_isolated_groups(input);
+    let metadata = super::regions::Metadata::validate(input)?;
+    let selected = select_isolated_groups(input, &metadata.parents);
     if selected.is_empty() {
         return Ok(None);
     }
@@ -55,7 +55,7 @@ fn layout_children(
         let (child, child_edges) = child_input(input, edges, group, ids)?;
         let (scene, exhausted) = pipeline::layout_family(&child, &child_edges)?;
         budget |= exhausted;
-        let scene = without_margin(scene, input.profile)?;
+        let scene = without_margin(scene, pipeline::margin(input))?;
         let scene = strip_isolated_region_root(scene, &group.id);
         children.push((group.id.clone(), scene));
     }
@@ -145,6 +145,7 @@ fn child_input<'a>(
                 .collect::<Vec<_>>(),
         )?,
         region_sets: metadata.project(&retained_groups)?,
+        spacing: input.spacing,
     };
     Ok((child, child_edges))
 }
@@ -327,8 +328,7 @@ fn strip_isolated_region_root(scene: Scene, id: &str) -> Scene {
     Scene::new(scene.canvas(), dump, items)
 }
 
-fn without_margin(scene: Scene, profile: Profile) -> Result<Scene, LayoutError> {
-    let margin = pipeline::constant(profile, "canvas_margin");
+fn without_margin(scene: Scene, margin: i32) -> Result<Scene, LayoutError> {
     let by = Point {
         x: -margin,
         y: -margin,
@@ -366,9 +366,13 @@ fn without_margin(scene: Scene, profile: Profile) -> Result<Scene, LayoutError> 
     Ok(Scene::new(canvas, dump, items))
 }
 
-fn select_isolated_groups(input: &Input) -> Vec<(&crate::layout::input::Group, Vec<String>)> {
-    let mut selected: Vec<(&crate::layout::input::Group, Vec<String>)> = Vec::new();
-    for group in &input.groups {
+fn select_isolated_groups<'a>(
+    input: &'a Input,
+    parents: &[Option<usize>],
+) -> Vec<(&'a crate::layout::input::Group, Vec<String>)> {
+    let mut selected = Vec::new();
+    let mut eligible = vec![false; input.groups.len()];
+    for (index, group) in input.groups.iter().enumerate() {
         if input
             .region_sets
             .iter()
@@ -376,7 +380,7 @@ fn select_isolated_groups(input: &Input) -> Vec<(&crate::layout::input::Group, V
         {
             continue;
         }
-        if group.direction.is_empty() || selected.iter().any(|(_, ids)| ids.contains(&group.id)) {
+        if group.direction.is_empty() {
             continue;
         }
         let ids: Vec<_> = input
@@ -396,9 +400,23 @@ fn select_isolated_groups(input: &Input) -> Vec<(&crate::layout::input::Group, V
         {
             continue;
         }
-        selected.push((group, ids));
+        eligible[index] = true;
+        selected.push((index, ids));
     }
     selected
+        .into_iter()
+        .filter(|(index, _)| {
+            let mut parent = parents[*index];
+            while let Some(index) = parent {
+                if eligible[index] {
+                    return false;
+                }
+                parent = parents[index];
+            }
+            true
+        })
+        .map(|(index, ids)| (&input.groups[index], ids))
+        .collect()
 }
 
 pub(super) fn content_offset(
@@ -490,6 +508,113 @@ mod sizing_tests {
     use crate::scene::{BoxRole, DumpOptions};
 
     #[test]
+    fn postorder_er_groups_render_nested_directions() -> Result<(), crate::RenderError> {
+        let source = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../corpus/er/mermaid/entityRelationshipDiagram~0020.mmd"
+        ));
+        let document = crate::parse(source);
+        assert!(
+            !document.has_errors(),
+            "corpus fixture entityRelationshipDiagram~0020.mmd must parse without error diagnostics; got: {:?}",
+            document.diagnostics()
+        );
+        for profile in [crate::Profile::Vector, crate::Profile::Cell] {
+            let options = crate::LayoutOptions {
+                profile,
+                ..crate::LayoutOptions::default()
+            };
+            let scene = crate::layout(&document, &options)?;
+            let dump = scene.dump();
+            for id in ["TOP", "B1", "B2", "I1", "F1", "I2", "F2", "A", "B"] {
+                assert!(
+                    dump.contains(&format!("\"id\":\"{id}\"")),
+                    "the {:?} layout dump must contain a box for every declared ER entity; missing id {id:?}",
+                    profile
+                );
+            }
+        }
+        assert!(
+            !crate::render_svg(&document, &crate::SvgOptions::default())?.is_empty(),
+            "render_svg must produce non-empty SVG bytes for the ER corpus fixture"
+        );
+        assert!(
+            !crate::render_text(&document, &crate::TextOptions::default())?.is_empty(),
+            "render_text must produce non-empty text bytes for the ER corpus fixture"
+        );
+        Ok(())
+    }
+
+    const NESTED_DIRECTION_SOURCE: &str = "flowchart TB\n\
+  subgraph outer[Outer]\n\
+    a1[A1] --> a2[A2]\n\
+    subgraph inner[Inner]\n\
+      direction LR\n\
+      b1[B1] --> b2[B2] --> b3[B3]\n\
+    end\n\
+    a2 --> a3[A3]\n\
+  end\n\
+  s[Start] --> a1\n\
+  a3 --> e[End]\n";
+
+    #[derive(Debug, thiserror::Error)]
+    enum NestedError {
+        #[error("layout failed: {0}")]
+        Layout(#[from] crate::RenderError),
+        #[error("{0} is missing from the scene")]
+        Missing(String),
+    }
+
+    fn nested_rect(scene: &Scene, id: &str) -> Result<Rect, NestedError> {
+        scene
+            .boxes()
+            .iter()
+            .find(|b| b.id == id)
+            .map(|b| b.rect)
+            .or_else(|| scene.labels().iter().find(|l| l.id == id).map(|l| l.rect))
+            .ok_or_else(|| NestedError::Missing(id.to_owned()))
+    }
+
+    #[test]
+    fn nested_direction_subgraph_is_ranked_member_of_parent_cluster() -> Result<(), NestedError> {
+        let document = crate::parse(NESTED_DIRECTION_SOURCE);
+        assert!(!document.has_errors(), "{:?}", document.diagnostics());
+        for profile in [crate::Profile::Vector, crate::Profile::Cell] {
+            let options = crate::LayoutOptions {
+                profile,
+                ..crate::LayoutOptions::default()
+            };
+            let scene = crate::layout(&document, &options)?;
+            assert_eq!(scene.validate(), Ok(None), "{profile:?}");
+            let outer = nested_rect(&scene, "outer")?;
+            let inner = nested_rect(&scene, "inner")?;
+            let title = nested_rect(&scene, "outer.label")?;
+            let peer = nested_rect(&scene, "a1")?;
+            assert!(
+                inner.y >= title.y + title.h,
+                "{profile:?}: inner {inner:?} starts above the outer title {title:?}"
+            );
+            assert_eq!(
+                crate::geom::contains(outer, inner),
+                Ok(true),
+                "{profile:?}: outer {outer:?} must contain inner {inner:?}"
+            );
+            assert!(
+                inner.y < peer.y + peer.h && peer.y < inner.y + inner.h,
+                "{profile:?}: inner {inner:?} shares no rank with its peer {peer:?}"
+            );
+            if profile == crate::Profile::Cell {
+                let rect = |x, y, w, h| Rect { x, y, w, h };
+                assert_eq!(outer, rect(1, 1, 41, 31));
+                assert_eq!(inner, rect(10, 8, 31, 5));
+                assert_eq!(nested_rect(&scene, "b1")?, rect(16, 9, 6, 3));
+                assert_eq!(peer, rect(2, 9, 6, 3));
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
     fn sparse_sizes_follow_filtered_box_indices() -> Result<(), LayoutError> {
         let group = Group {
             id: "group".into(),
@@ -508,6 +633,7 @@ mod sizing_tests {
                     id: id.into(),
                     role: BoxRole::Node,
                     shape: String::new(),
+                    icon: false,
                     parent: String::new(),
                     exclusive: true,
                     text: String::new(),
@@ -520,6 +646,7 @@ mod sizing_tests {
             sizes: vec![SizeRule::Measured, SizeRule::Exact(Size { w: 1, h: 1 })],
             attachments: Vec::new(),
             region_sets: Vec::new(),
+            spacing: crate::layout::input::Spacing::default(),
         };
         let ids = vec!["fixed".into(), "trailing".into()];
         let (child, _) = child_input(&input, &[], &group, &ids)?;

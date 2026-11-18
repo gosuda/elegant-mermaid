@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 use crate::r#gen;
 use crate::geom::{Point, Rect, Size};
 
-mod dump;
+pub(crate) mod dump;
 pub mod metrics;
 mod projection;
 mod validate;
@@ -326,6 +326,10 @@ impl Scene {
     /// The groups, in draw order.
     pub fn items(&self) -> &[Group] {
         &self.items
+    }
+
+    pub(crate) fn items_mut(&mut self) -> &mut [Group] {
+        &mut self.items
     }
 
     /// The canonical layout dump of `spec/layout-dump.md`.

@@ -16,6 +16,11 @@ func main() {
 			Term:          os.Getenv("TERM"),
 			TermProgram:   os.Getenv("TERM_PROGRAM"),
 			ColorFGBG:     os.Getenv("COLORFGBG"),
+			ColorTerm:     os.Getenv("COLORTERM"),
+			NoColor:       os.Getenv("NO_COLOR"),
+			ForceColor:    os.Getenv("FORCE_COLOR"),
+			CLIColor:      os.Getenv("CLICOLOR"),
+			CLIColorForce: os.Getenv("CLICOLOR_FORCE"),
 		},
 	})
 	if err == nil {

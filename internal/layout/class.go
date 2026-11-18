@@ -102,18 +102,23 @@ func classConstant(profile scene.Profile, name string) int32 {
 }
 
 func ClassSize(rows [][]string, profile scene.Profile) (geom.Size, error) {
-	metric := measure.ForRole(measure.RoleLabel)
-	if profile == scene.ProfileCell {
-		metric = measure.CellMetric()
-	}
+	_, size, err := measuredClassRows(rows, profile)
+	return size, err
+}
+
+func measuredClassRows(rows [][]string, profile scene.Profile) ([][]measure.StyledLine, geom.Size, error) {
+	lines := make([][]measure.StyledLine, len(rows))
 	var width, height int64
-	for _, compartment := range rows {
-		height += int64(max(1, len(compartment))) * int64(classConstant(profile, "line_h"))
-		w, err := compartmentWidth(compartment, metric)
+	for i, compartment := range rows {
+		measured, err := measureClassCompartment(compartment, classCompartmentMetric(i, profile))
 		if err != nil {
-			return geom.Size{}, err
+			return nil, geom.Size{}, err
 		}
-		width = max(width, int64(w))
+		lines[i] = measured
+		for _, line := range measured {
+			width = max(width, int64(line.Width))
+		}
+		height += int64(max(1, len(lines[i]))) * int64(classConstant(profile, "line_h"))
 	}
 	width += 2 * int64(classConstant(profile, "class.padding"))
 	height += int64(max(0, len(rows)-1)) * int64(classConstant(profile, "class.separator"))
@@ -121,25 +126,38 @@ func ClassSize(rows [][]string, profile scene.Profile) (geom.Size, error) {
 		height += 2
 	}
 	if width > math.MaxInt32 || height > math.MaxInt32 {
-		return geom.Size{}, geom.ErrOverflow
+		return nil, geom.Size{}, geom.ErrOverflow
 	}
-	return geom.Size{W: int32(width), H: int32(height)}, nil
+	return lines, geom.Size{W: int32(width), H: int32(height)}, nil
 }
 
-func compartmentWidth(rows []string, metric measure.Metric) (int32, error) {
-	var width int32
-	for _, row := range rows {
-		w, err := metric.TextWidth(row)
-		if err != nil {
-			return 0, err
-		}
-		width = max(width, w)
+func classCompartmentMetric(index int, profile scene.Profile) measure.Metric {
+	if profile == scene.ProfileCell {
+		return measure.CellMetric()
 	}
-	return width, nil
+	if index == 0 {
+		return measure.ForRole(measure.RoleLabel)
+	}
+	return measure.ForRole(measure.RoleBody)
+}
+
+func measureClassCompartment(rows []string, metric measure.Metric) ([]measure.StyledLine, error) {
+	var lines []measure.StyledLine
+	for _, row := range rows {
+		pieces, err := measure.StyledLines(row, math.MaxInt32, metric)
+		if err != nil {
+			return nil, err
+		}
+		if len(pieces) == 0 {
+			pieces = []measure.StyledLine{{Runs: []measure.StyledRun{{Text: ""}}}}
+		}
+		lines = append(lines, pieces...)
+	}
+	return lines, nil
 }
 
 func layoutClass(in Input) (scene.Scene, []diag.Diagnostic, error) {
-	input, err := classFamilyInput(in)
+	input, measured, err := classFamilyInput(in)
 	if err != nil {
 		return scene.Scene{}, nil, err
 	}
@@ -149,7 +167,7 @@ func layoutClass(in Input) (scene.Scene, []diag.Diagnostic, error) {
 	if err != nil {
 		return s, nil, err
 	}
-	for i, rows := range in.ClassRows {
+	for i, rows := range measured {
 		if len(rows) > 0 {
 			replaceClassGroup(&s, in.Boxes[i].ID, rows)
 		}
@@ -161,20 +179,23 @@ func layoutClass(in Input) (scene.Scene, []diag.Diagnostic, error) {
 	}
 	return s, nil, nil
 }
-func classFamilyInput(in Input) (layered.Input, error) {
+
+func classFamilyInput(in Input) (layered.Input, [][][]measure.StyledLine, error) {
 	input := familyInput(in)
 	input.Sizes = make([]geom.Size, len(in.Boxes))
+	measured := make([][][]measure.StyledLine, len(in.ClassRows))
 	for i, rows := range in.ClassRows {
 		if len(rows) == 0 {
 			continue
 		}
-		size, err := ClassSize(rows, in.Profile)
+		lines, size, err := measuredClassRows(rows, in.Profile)
 		if err != nil {
-			return layered.Input{}, err
+			return layered.Input{}, nil, err
 		}
+		measured[i] = lines
 		input.Sizes[i] = size
 	}
-	return input, nil
+	return input, measured, nil
 }
 
 func noteStyle(s *scene.Scene, id string) {
@@ -190,7 +211,7 @@ func noteStyle(s *scene.Scene, id string) {
 	}
 }
 
-func replaceClassGroup(s *scene.Scene, id string, rows [][]string) {
+func replaceClassGroup(s *scene.Scene, id string, rows [][]measure.StyledLine) {
 	var rect geom.Rect
 	for _, b := range s.Boxes {
 		if b.ID == id {
@@ -205,7 +226,7 @@ func replaceClassGroup(s *scene.Scene, id string, rows [][]string) {
 	}
 }
 
-func classPrimitives(rect geom.Rect, rows [][]string, profile scene.Profile) []scene.Primitive {
+func classPrimitives(rect geom.Rect, rows [][]measure.StyledLine, profile scene.Profile) []scene.Primitive {
 	items := []scene.Primitive{&scene.Rect{Shape: scene.Shape{Style: "node"}, Rect: rect}}
 	y := rect.Y
 	right := rect.X + rect.W
@@ -221,18 +242,25 @@ func classPrimitives(rect geom.Rect, rows [][]string, profile scene.Profile) []s
 		}
 		height := int32(max(1, len(compartment))) * classConstant(profile, "line_h")
 		textRect := geom.Rect{X: rect.X + classConstant(profile, "class.padding"), Y: y, W: rect.W - 2*classConstant(profile, "class.padding"), H: height}
-		texts = append(texts, compartmentPrimitive(textRect, compartment))
+		role := scene.TextRoleBody
+		if i == 0 {
+			role = scene.TextRoleLabel
+		}
+		texts = append(texts, compartmentPrimitive(textRect, compartment, role))
 		y += height
 	}
 	return append(items, texts...)
 }
 
-func compartmentPrimitive(rect geom.Rect, rows []string) *scene.Text {
+func compartmentPrimitive(rect geom.Rect, rows []measure.StyledLine, role scene.TextRole) *scene.Text {
 	lines := make([][]scene.Run, len(rows))
-	for i, text := range rows {
-		lines[i] = []scene.Run{{Text: text}}
+	for i, line := range rows {
+		lines[i] = make([]scene.Run, len(line.Runs))
+		for j, run := range line.Runs {
+			lines[i][j] = scene.Run{Text: run.Text, Bold: run.Bold, Italic: run.Italic}
+		}
 	}
-	return &scene.Text{Rect: rect, Role: scene.TextRoleLabel, Size: 14, Align: scene.AlignStart, Style: "text", Lines: lines}
+	return &scene.Text{Rect: rect, Role: role, Size: 14, Align: scene.AlignStart, Style: "text", Lines: lines}
 }
 
 func classStroke(line string) string {

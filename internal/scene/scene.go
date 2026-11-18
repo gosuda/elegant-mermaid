@@ -206,6 +206,9 @@ type Box struct {
 	Parent    string
 	Exclusive bool
 	Direction string
+	Shape     string
+	Icon      bool
+	Text      string
 }
 
 type Route struct {
@@ -217,6 +220,9 @@ type Route struct {
 	MarkerStart string
 	MarkerEnd   string
 	Stroke      string
+	FromSide    geom.Side
+	ToSide      geom.Side
+	MinLength   int32
 }
 
 type Label struct {

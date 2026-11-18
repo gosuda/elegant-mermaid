@@ -425,6 +425,11 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
     },
     ConfigKey {
         kind: "block",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "block",
         key: "look",
         class: "honoured",
     },
@@ -1205,6 +1210,11 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
     },
     ConfigKey {
         kind: "class",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "class",
         key: "look",
         class: "honoured",
     },
@@ -1636,12 +1646,12 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
     ConfigKey {
         kind: "gitgraph",
         key: "mainBranchName",
-        class: "accepted-ignored",
+        class: "honoured",
     },
     ConfigKey {
         kind: "gitgraph",
         key: "mainBranchOrder",
-        class: "accepted-ignored",
+        class: "honoured",
     },
     ConfigKey {
         kind: "gitgraph",
@@ -2410,6 +2420,11 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
     },
     ConfigKey {
         kind: "requirement",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "requirement",
         key: "line_height",
         class: "accepted-ignored",
     },
@@ -2914,6 +2929,16 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
         class: "honoured",
     },
     ConfigKey {
+        kind: "swimlane",
+        key: "useMaxWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "swimlane",
+        key: "useWidth",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
         kind: "timeline",
         key: "activationWidth",
         class: "accepted-ignored",
@@ -3210,6 +3235,11 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
     },
     ConfigKey {
         kind: "usecase",
+        key: "layout",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "usecase",
         key: "look",
         class: "honoured",
     },
@@ -3321,6 +3351,11 @@ pub(crate) const CONFIG_KEYS: &[ConfigKey] = &[
     ConfigKey {
         kind: "wardley",
         key: "labelFontSize",
+        class: "accepted-ignored",
+    },
+    ConfigKey {
+        kind: "wardley",
+        key: "layout",
         class: "accepted-ignored",
     },
     ConfigKey {

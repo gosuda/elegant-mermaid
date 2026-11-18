@@ -24,30 +24,38 @@ fn invoke_bytes(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
-    child
-        .stdin
-        .take()
-        .ok_or("missing stdin")?
-        .write_all(source)?;
-    Ok(child.wait_with_output()?)
+    let mut stdin = child.stdin.take().ok_or("missing stdin")?;
+    let write = stdin.write_all(source);
+    drop(stdin);
+    match write {
+        Ok(()) => Ok(child.wait_with_output()?),
+        Err(err) => {
+            let output = child.wait_with_output()?;
+            if err.kind() == std::io::ErrorKind::BrokenPipe && !output.status.success() {
+                Ok(output)
+            } else {
+                Err(err.into())
+            }
+        }
+    }
 }
 #[test]
 fn command_contract() -> TestResult {
     for (args, code, message) in [
         (
-            vec!["render", "-e", "png"],
+            vec!["render", "-e", "gif"],
             2,
-            "invalid value png for -e; expected one of: svg, text",
+            "invalid value gif for -e; expected one of: svg, png, text",
         ),
         (
-            vec!["render", "-s", "2"],
+            vec!["render", "-s", "9"],
             2,
-            "unknown flag -s; run emd render --help",
+            "invalid value 9 for -s; expected one of: 1..8",
         ),
         (
-            vec!["render", "--svg-text", "paths"],
+            vec!["render", "--svg-text", "glyphs"],
             2,
-            "invalid value paths for --svg-text; expected one of: font",
+            "invalid value glyphs for --svg-text; expected one of: font, paths",
         ),
         (
             vec!["render", "--width", "9999999999999999999999"],
@@ -62,7 +70,7 @@ fn command_contract() -> TestResult {
         (
             vec!["render", "-t", "bad"],
             2,
-            "invalid value bad for -t; expected one of: elegant-light, elegant-dark",
+            "invalid value bad for -t; expected one of: base, catppuccin-latte, catppuccin-mocha, dark, default, elegant-dark, elegant-light, forest, github-dark, github-light, neo, neo-dark, neutral, nord, redux, redux-color, redux-dark, redux-dark-color, solarized-dark, solarized-light",
         ),
         (
             vec!["render", "-b", "red"],
@@ -444,6 +452,21 @@ fn binary_inference_cli_23_cli_24() -> TestResult {
         }
     }
     std::fs::remove_dir_all(dir)?;
+    Ok(())
+}
+
+#[test]
+fn transport_survives_early_argument_rejection() -> TestResult {
+    let payload = vec![b'x'; 1 << 17];
+    let path = std::env::temp_dir().join(format!("emd-infer-race-{}.unknown", std::process::id()));
+    let name = path.to_str().ok_or("non UTF-8 path")?;
+    let output = invoke_bytes(&["render", "-o", name], &payload)?;
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(output.stdout, b"");
+    assert_eq!(
+        output.stderr,
+        format!("cannot infer the output format from {name}; pass -e\n").as_bytes()
+    );
     Ok(())
 }
 

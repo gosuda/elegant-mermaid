@@ -9,7 +9,7 @@ impl<'a> Cfg<'a> {
             end,
             pos: start,
             depth: 0,
-            yaml_value_indent: None,
+            yaml_continuation_col: None,
             json,
             stop: false,
             diags: Vec::new(),
@@ -22,6 +22,9 @@ impl<'a> Cfg<'a> {
     }
 
     pub(super) fn at(&self, i: usize) -> Option<u8> {
+        if i >= self.end {
+            return None;
+        }
         self.b
             .get(i)
             .map(|c| if self.json && *c == b'\'' { b'"' } else { *c })
@@ -54,8 +57,8 @@ impl<'a> Cfg<'a> {
         }
         let e = match self.raw(p).unwrap_or(0) {
             b'\n' => p + 1,
-            b'\r' => p + self.eol(p),
-            b' ' | b'\t' => p + 1,
+            b'\r' if p + 1 < self.end && self.raw(p + 1) == Some(b'\n') => p + 2,
+            b'\r' | b' ' | b'\t' => p + 1,
             _ => self.token_run(p),
         };
         Span { start: p, end: e }

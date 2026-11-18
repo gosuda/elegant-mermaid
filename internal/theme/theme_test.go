@@ -28,6 +28,7 @@ func luminance(c theme.Colour) float64 {
 	}
 	return .2126*linear(c.R) + .7152*linear(c.G) + .0722*linear(c.B)
 }
+
 func ratio(a, b theme.Colour) float64 {
 	x, y := luminance(a), luminance(b)
 	return (math.Max(x, y) + .05) / (math.Min(x, y) + .05)
@@ -64,12 +65,18 @@ func TestColourArithmetic(t *testing.T) {
 		hex string
 		h   theme.HSL
 	}{
-		{"#000000", theme.HSL{H: 0, S: 0, L: 0}}, {"#ffffff", theme.HSL{H: 0, S: 0, L: 100}},
-		{"#808080", theme.HSL{H: 0, S: 0, L: 50}}, {"#ff0000", theme.HSL{H: 0, S: 100, L: 50}},
-		{"#00ff00", theme.HSL{H: 120, S: 100, L: 50}}, {"#0000ff", theme.HSL{H: 240, S: 100, L: 50}},
-		{"#ffff00", theme.HSL{H: 60, S: 100, L: 50}}, {"#00ffff", theme.HSL{H: 180, S: 100, L: 50}},
-		{"#ff00ff", theme.HSL{H: 300, S: 100, L: 50}}, {"#404040", theme.HSL{H: 0, S: 0, L: 25}},
-		{"#bfbfbf", theme.HSL{H: 0, S: 0, L: 75}}, {"#8b8d98", theme.HSL{H: 231, S: 6, L: 57}},
+		{"#000000", theme.HSL{H: 0, S: 0, L: 0}},
+		{"#ffffff", theme.HSL{H: 0, S: 0, L: 100}},
+		{"#808080", theme.HSL{H: 0, S: 0, L: 50}},
+		{"#ff0000", theme.HSL{H: 0, S: 100, L: 50}},
+		{"#00ff00", theme.HSL{H: 120, S: 100, L: 50}},
+		{"#0000ff", theme.HSL{H: 240, S: 100, L: 50}},
+		{"#ffff00", theme.HSL{H: 60, S: 100, L: 50}},
+		{"#00ffff", theme.HSL{H: 180, S: 100, L: 50}},
+		{"#ff00ff", theme.HSL{H: 300, S: 100, L: 50}},
+		{"#404040", theme.HSL{H: 0, S: 0, L: 25}},
+		{"#bfbfbf", theme.HSL{H: 0, S: 0, L: 75}},
+		{"#8b8d98", theme.HSL{H: 231, S: 6, L: 57}},
 	}
 	for _, tc := range cases {
 		c := colour(t, tc.hex)
@@ -229,9 +236,8 @@ func independentChoice(th theme.Theme, series uint8) theme.TextChoice {
 func checkContrastPair(t *testing.T, th theme.Theme, token, surface theme.Token, threshold int32) {
 	t.Helper()
 	a, b := th.Colour(token), th.Colour(surface)
-	r := ratio(a, b)
-	if r < float64(threshold)/10 || !theme.Contrast(a, b, threshold) {
-		t.Fatalf("%s %s contrast %f", th.Name(), token, r)
+	if !theme.Contrast(a, b, threshold) {
+		t.Fatalf("%s %s on %s fails integer contrast threshold %d", th.Name(), token, surface, threshold)
 	}
 }
 

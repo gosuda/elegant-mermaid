@@ -27,7 +27,7 @@ func frameSubgraph(in Input, id string, contents fixedContents, o scene.Options)
 	if err != nil {
 		return FixedGroup{}, err
 	}
-	lines, err := wrapLabel(groupText(in, id), o)
+	lines, err := wrapLabel(groupText(in, id), in.Kind, o)
 	if err != nil {
 		return FixedGroup{}, err
 	}
@@ -51,9 +51,9 @@ func frameSubgraph(in Input, id string, contents fixedContents, o scene.Options)
 	title := geom.Rect{X: (w - titleSize.W) / 2, Y: pad, W: titleSize.W, H: titleSize.H}
 	s.Canvas = geom.Size{W: w, H: h}
 	s.Options.Direction = o.Direction
-	title = orientRect(title, o.Direction, w, h)
+	title = orientRect(title, o.Direction, h)
 	orientScene(&s)
-	transform := frameTransform{dx: int64(pad), dy: int64(titleSize.H) + int64(pad), direction: o.Direction, width: w, height: h}
+	transform := frameTransform{dx: int64(pad), dy: int64(titleSize.H) + int64(pad), direction: o.Direction, height: h}
 	packing, err := framePacking(contents.packing, transform)
 	if err != nil {
 		return FixedGroup{}, err
@@ -64,6 +64,7 @@ func frameSubgraph(in Input, id string, contents fixedContents, o scene.Options)
 	}
 	return FixedGroup{ID: id, Scene: s, W: s.Canvas.W, H: s.Canvas.H, Title: title, Titles: titles, packing: packing}, nil
 }
+
 func unorientScene(s *scene.Scene) {
 	direction := s.Options.Direction
 	switch direction {
@@ -81,18 +82,20 @@ func unorientScene(s *scene.Scene) {
 	}
 	s.Options.Direction = direction
 }
+
 func inverseRect(r geom.Rect, d scene.Direction, w, h int32) geom.Rect {
 	switch d {
 	case scene.DirectionBT:
-		return orientRect(r, d, w, h)
+		return orientRect(r, d, h)
 	case scene.DirectionLR:
-		return orientRect(r, d, w, h)
+		return orientRect(r, d, h)
 	case scene.DirectionRL:
-		r = orientRect(r, scene.DirectionLR, w, h)
-		return orientRect(r, scene.DirectionBT, h, w)
+		r = orientRect(r, scene.DirectionLR, h)
+		return orientRect(r, scene.DirectionBT, w)
 	}
 	return r
 }
+
 func cloneSceneDump(s scene.Scene) scene.Scene {
 	s.Boxes = slices.Clone(s.Boxes)
 	s.Labels = slices.Clone(s.Labels)
@@ -102,6 +105,7 @@ func cloneSceneDump(s scene.Scene) scene.Scene {
 	}
 	return s
 }
+
 func expandComponentFixed(g *Graph, part *Layout) error {
 	for _, f := range g.Fixed {
 		box := findBox(part.Boxes, f.ID)
@@ -117,13 +121,30 @@ func expandComponentFixed(g *Graph, part *Layout) error {
 			return err
 		}
 		part.Titles = append(part.Titles, rootTitle)
-		appendFixedGeometry(part, child)
-		if err := embedPacking(part, f, g.Direction, box); err != nil {
+		inner := Layout{}
+		appendFixedGeometry(&inner, child)
+		if err := embedPacking(&inner, f, g.Direction, box); err != nil {
 			return err
 		}
+		area, err := itemArea(inner)
+		if err != nil {
+			return err
+		}
+		part.fixedArea += area
+		mergeFixedInner(part, inner)
 	}
 	return nil
 }
+
+func mergeFixedInner(part *Layout, inner Layout) {
+	part.Boxes = append(part.Boxes, inner.Boxes...)
+	part.Routes = append(part.Routes, inner.Routes...)
+	part.Labels = append(part.Labels, inner.Labels...)
+	part.Titles = append(part.Titles, inner.Titles...)
+	part.Extents = append(part.Extents, inner.Extents...)
+	part.LabelReservations = append(part.LabelReservations, inner.LabelReservations...)
+}
+
 func appendFixedGeometry(part *Layout, s scene.Scene) {
 	for _, b := range s.Boxes {
 		part.Boxes = append(part.Boxes, Box{ID: b.ID, Rect: b.Rect, Role: b.Role})
@@ -137,6 +158,7 @@ func appendFixedGeometry(part *Layout, s scene.Scene) {
 		}
 	}
 }
+
 func sceneGroupOwner(s scene.Scene, id string) bool {
 	for _, b := range s.Boxes {
 		if b.ID == id {
@@ -147,9 +169,9 @@ func sceneGroupOwner(s scene.Scene, id string) bool {
 }
 
 type frameTransform struct {
-	dx, dy        int64
-	direction     scene.Direction
-	width, height int32
+	dx, dy    int64
+	direction scene.Direction
+	height    int32
 }
 
 func (t frameTransform) boxes(boxes []Box) ([]Box, error) {
@@ -157,10 +179,11 @@ func (t frameTransform) boxes(boxes []Box) ([]Box, error) {
 		if err := translateBox(&boxes[i], t.dx, t.dy); err != nil {
 			return nil, err
 		}
-		boxes[i].Rect = orientRect(boxes[i].Rect, t.direction, t.width, t.height)
+		boxes[i].Rect = orientRect(boxes[i].Rect, t.direction, t.height)
 	}
 	return boxes, nil
 }
+
 func framePacking(packing packingReservations, t frameTransform) (packingReservations, error) {
 	loops, err := t.boxes(packing.loops)
 	if err != nil {
@@ -172,6 +195,7 @@ func framePacking(packing packingReservations, t frameTransform) (packingReserva
 	}
 	return packingReservations{loops: loops, labels: labels}, nil
 }
+
 func embedBoxes(boxes []Box, f FixedGroup, d scene.Direction, at geom.Rect) ([]Box, error) {
 	out := slices.Clone(boxes)
 	for i := range out {
@@ -182,6 +206,7 @@ func embedBoxes(boxes []Box, f FixedGroup, d scene.Direction, at geom.Rect) ([]B
 	}
 	return out, nil
 }
+
 func embedPacking(part *Layout, f FixedGroup, d scene.Direction, at geom.Rect) error {
 	loops, err := embedBoxes(f.packing.loops, f, d, at)
 	if err != nil {
@@ -207,10 +232,11 @@ func (t frameTransform) reservations(source []LabelReservation) ([]LabelReservat
 		if err != nil {
 			return nil, err
 		}
-		source[i].Rect = orientRect(rect, t.direction, t.width, t.height)
+		source[i].Rect = orientRect(rect, t.direction, t.height)
 	}
 	return source, nil
 }
+
 func embedReservations(source []LabelReservation, f FixedGroup, d scene.Direction, at geom.Rect) ([]LabelReservation, error) {
 	out := slices.Clone(source)
 	for i := range out {

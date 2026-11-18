@@ -1,9 +1,14 @@
+use std::borrow::Cow;
+
 use super::{
     ast::*,
     diagnostic,
-    lexer::{Token, lex},
+    lexer::{Token, lex_cleaned},
 };
-use crate::{diag::Diagnostic, source::Span};
+use crate::{
+    diag::Diagnostic,
+    source::{Span, cleaned::Cleaned},
+};
 
 pub struct Parsed<'a> {
     pub document: Start<'a>,
@@ -11,9 +16,11 @@ pub struct Parsed<'a> {
 }
 
 pub fn parse<'a>(source: &'a str, removed: &[Span]) -> Parsed<'a> {
+    let cleaned = Cleaned::new(source, removed);
     let mut parser = Parser {
         source,
-        tokens: lex(source, removed),
+        tokens: lex_cleaned(&cleaned),
+        cleaned,
         at: 0,
         diagnostics: Vec::new(),
     };
@@ -41,6 +48,7 @@ pub fn parse<'a>(source: &'a str, removed: &[Span]) -> Parsed<'a> {
 
 struct Parser<'a> {
     source: &'a str,
+    cleaned: Cleaned<'a>,
     tokens: Vec<Token<'a>>,
     at: usize,
     diagnostics: Vec<Diagnostic>,
@@ -79,7 +87,7 @@ impl<'a> Parser<'a> {
             },
             |t| t.span,
         );
-        let text = &self.source[span.start..span.end];
+        let text = self.cleaned.slice(span);
         self.diagnostics.push(diagnostic(
             "class/unexpected-token",
             format!("unexpected {text}, expected one of: {expected}"),
@@ -99,7 +107,7 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if depth > 0 && !matches!(self.kind(), "CLASS" | "NAMESPACE" | "NOTE") {
-                self.unexpected("CLASS, NAMESPACE, NOTE");
+                self.unexpected("CLASS, NAMESPACE, NOTE, NOTE_FOR");
                 self.recover();
                 continue;
             }
@@ -128,7 +136,7 @@ impl<'a> Parser<'a> {
             "NAMESPACE" => self.namespace(depth).map(Statement::Namespace),
             "ANNOTATION_START" => self.annotation(),
             "NOTE" => self.note(),
-            "DIRECTION" => self.direction(),
+            "direction_tb" | "direction_bt" | "direction_rl" | "direction_lr" => self.direction(),
             "STYLE" | "CLASSDEF" | "CSSCLASS" | "CLICK" => self.metadata(),
             "ALPHA" | "BQUOTE_STR" | "MINUS" => self.named(),
             "UNTERMINATED" => {
@@ -168,32 +176,29 @@ impl<'a> Parser<'a> {
         }
     }
     fn name(&mut self) -> Option<ClassName<'a>> {
-        if self.kind() == "UNTERMINATED" {
-            self.unterminated();
-            return None;
-        }
-        let first = self.tokens.get(self.at)?.span.start;
+        let first = self
+            .tokens
+            .get(self.at)
+            .map_or(self.source.len(), |token| token.span.start);
         let mut tokens = Vec::new();
         let mut value = String::new();
         let mut generic = String::new();
-        while matches!(
-            self.kind(),
-            "ALPHA" | "BQUOTE_STR" | "MINUS" | "DOT" | "GENERICTYPE"
-        ) {
+        while matches!(self.kind(), "ALPHA" | "BQUOTE_STR" | "MINUS" | "DOT") {
             let token = self.take()?;
-            if token.kind == "GENERICTYPE" {
-                generic = token.text.into();
-            } else {
-                value.push_str(token.text);
-            }
+            value.push_str(&token.text);
+            tokens.push(token);
+        }
+        if value.is_empty() {
+            self.reject_name();
+            return None;
+        }
+        if self.kind() == "GENERICTYPE" {
+            let token = self.take()?;
+            generic = token.text.to_string();
             tokens.push(token);
         }
         if self.kind() == "UNTERMINATED" {
             self.unterminated();
-            return None;
-        }
-        if value.is_empty() {
-            self.unexpected("ALPHA, BQUOTE_STR, MINUS, NUM, UNICODE_TEXT");
             return None;
         }
         Some(ClassName {
@@ -206,10 +211,14 @@ impl<'a> Parser<'a> {
             generic,
         })
     }
-    fn label(&mut self) -> Option<&'a str> {
-        if self.kind() != "SQS" {
-            return None;
+    fn reject_name(&mut self) {
+        if self.kind() == "UNTERMINATED" {
+            self.unterminated();
+        } else {
+            self.unexpected("ALPHA, BQUOTE_STR, MINUS, NUM, UNICODE_TEXT");
         }
+    }
+    fn label(&mut self) -> Option<Cow<'a, str>> {
         self.at += 1;
         let value = self.expect("STR")?.text;
         self.expect("SQE")?;
@@ -218,7 +227,11 @@ impl<'a> Parser<'a> {
     fn class(&mut self, depth: usize) -> Option<ClassStatement<'a>> {
         let start = self.take()?.span.start;
         let name = self.name()?;
-        let label = self.label();
+        let label = if self.kind() == "SQS" {
+            Some(self.label()?)
+        } else {
+            None
+        };
         let annotation = if self.kind() == "ANNOTATION_START" {
             Some(self.annotation_value()?)
         } else {
@@ -248,18 +261,11 @@ impl<'a> Parser<'a> {
             has_body,
         })
     }
-    fn css_shorthand(&mut self) -> Option<&'a str> {
-        if self.kind() != "COLON" {
+    fn css_shorthand(&mut self) -> Option<Cow<'a, str>> {
+        if self.kind() != "STYLE_SEPARATOR" {
             return None;
         }
-        let start = self.at;
-        for _ in 0..3 {
-            if self.kind() != "COLON" {
-                self.at = start;
-                return None;
-            }
-            self.at += 1;
-        }
+        self.at += 1;
         self.take().map(|t| t.text)
     }
     fn open(&mut self, depth: usize) -> Option<Token<'a>> {
@@ -328,7 +334,7 @@ impl<'a> Parser<'a> {
             };
             members.push(MemberStatement {
                 span,
-                text: &self.source[span.start..span.end],
+                text: self.cleaned.slice(span),
             });
         }
         if !self.close(&opening) {
@@ -339,11 +345,15 @@ impl<'a> Parser<'a> {
     fn namespace(&mut self, depth: usize) -> Option<NamespaceStatement<'a>> {
         let start = self.take()?.span.start;
         let name = self.name()?;
-        let label = self.label();
+        let label = if self.kind() == "SQS" {
+            Some(self.label()?)
+        } else {
+            None
+        };
         let opening = self.open(depth)?;
         let children = self.statements(depth + 1);
         if children.is_empty() {
-            self.unexpected("CLASS, NAMESPACE, NOTE");
+            self.unexpected("CLASS, NAMESPACE, NOTE, NOTE_FOR");
         }
         self.close(&opening);
         Some(NamespaceStatement {
@@ -358,7 +368,7 @@ impl<'a> Parser<'a> {
     }
     fn annotation_value(&mut self) -> Option<String> {
         self.expect("ANNOTATION_START")?;
-        let value = self.take()?.text.to_owned();
+        let value = self.take()?.text.into_owned();
         self.expect("ANNOTATION_END")?;
         Some(value)
     }
@@ -384,7 +394,7 @@ impl<'a> Parser<'a> {
             }
             return Some(Statement::Accessibility {
                 title: false,
-                text: &self.source[start..end],
+                text: self.cleaned.slice(Span { start, end }),
             });
         }
         if matches!(name.value.as_str(), "accTitle" | "accDescr") && self.kind() == "COLON" {
@@ -418,20 +428,23 @@ impl<'a> Parser<'a> {
         }
         self.relation(name).map(Statement::Relation)
     }
-    fn member_text(&mut self) -> Option<&'a str> {
+    fn member_text(&mut self) -> Option<Cow<'a, str>> {
         let start = self
             .tokens
             .get(self.at)
             .map_or(self.end(), |token| token.span.start);
         while !matches!(self.kind(), "EOF" | "NEWLINE" | "STRUCT_STOP") {
-            if matches!(self.kind(), "COLON" | "INVALID") {
+            if matches!(self.kind(), "COLON" | "SEMICOLON" | "STYLE_SEPARATOR") {
                 self.unexpected("NEWLINE");
                 self.recover();
                 return None;
             }
             self.at += 1;
         }
-        Some(&self.source[start..self.end().max(start)])
+        Some(self.cleaned.slice(Span {
+            start,
+            end: self.end().max(start),
+        }))
     }
     fn marker(&mut self) -> Option<&'static str> {
         let marker = match self.kind() {
@@ -468,7 +481,7 @@ impl<'a> Parser<'a> {
         let to = self.name()?;
         let label = if self.kind() == "COLON" {
             self.at += 1;
-            Some(self.rest())
+            Some(self.member_text()?)
         } else {
             None
         };
@@ -487,7 +500,7 @@ impl<'a> Parser<'a> {
             label,
         })
     }
-    fn rest(&mut self) -> &'a str {
+    fn rest(&mut self) -> Cow<'a, str> {
         let start = self
             .tokens
             .get(self.at)
@@ -495,17 +508,19 @@ impl<'a> Parser<'a> {
         while !matches!(self.kind(), "EOF" | "NEWLINE" | "STRUCT_STOP") {
             self.at += 1;
         }
-        &self.source[start..self.end().max(start)]
+        self.cleaned.slice(Span {
+            start,
+            end: self.end().max(start),
+        })
     }
     fn direction(&mut self) -> Option<Statement<'a>> {
-        self.at += 1;
-        let token = self.take()?;
-        if !matches!(token.text, "TB" | "BT" | "LR" | "RL") {
-            self.unexpected("BT, LR, RL, TB");
-            return None;
-        }
-        self.rest();
-        Some(Statement::Direction(token.text))
+        let direction = match self.take()?.kind {
+            "direction_tb" => "TB",
+            "direction_bt" => "BT",
+            "direction_rl" => "RL",
+            _ => "LR",
+        };
+        Some(Statement::Direction(Cow::Borrowed(direction)))
     }
     fn note(&mut self) -> Option<Statement<'a>> {
         let start = self.take()?.span.start;
@@ -525,32 +540,83 @@ impl<'a> Parser<'a> {
             text,
         })
     }
+    fn word(&self) -> &str {
+        self.tokens.get(self.at).map_or("", |token| &token.text)
+    }
+    fn at_word(&self, word: &str) -> bool {
+        matches!(self.kind(), "ALPHA" | "CALL" | "HREF") && self.word() == word
+    }
+    fn at_punctuation(&self, text: &str) -> bool {
+        self.kind() == "PUNCTUATION" && self.word() == text
+    }
     fn metadata(&mut self) -> Option<Statement<'a>> {
-        let kind = self.take()?.kind;
-        let target = self.take()?;
-        match kind {
-            "CSSCLASS" => Some(Statement::CssClass {
-                target: target.text,
-                name: self.take()?.text,
-            }),
-            "STYLE" => Some(Statement::Style {
-                target: target.text.into(),
-                text: self.rest(),
-            }),
-            "CLASSDEF" => Some(Statement::ClassDef {
-                target: target.text.into(),
-                text: self.rest(),
-            }),
-            _ => {
-                let mut values = Vec::new();
-                while !matches!(self.kind(), "NEWLINE" | "EOF") {
-                    values.push(self.take()?.text);
-                }
-                Some(Statement::Click {
+        match self.take()?.kind {
+            "CLICK" => self.click(),
+            "CSSCLASS" => {
+                let target = self.expect("STR")?;
+                Some(Statement::CssClass {
+                    target: target.text,
+                    name: self.take()?.text,
+                })
+            }
+            "STYLE" => {
+                let target = self.take()?;
+                Some(Statement::Style {
                     target: target.text.into(),
-                    values,
+                    text: self.rest(),
+                })
+            }
+            _ => {
+                let target = self.take()?;
+                Some(Statement::ClassDef {
+                    target: target.text.into(),
+                    text: self.rest(),
                 })
             }
         }
+    }
+    fn click(&mut self) -> Option<Statement<'a>> {
+        let target = self.name()?;
+        let mut values = Vec::new();
+        if self.at_word("href") {
+            values.push(self.take()?.text);
+        }
+        if self.at_word("call") {
+            values.push(self.take()?.text);
+            self.callback(&mut values)?;
+        } else {
+            values.push(self.expect("STR")?.text);
+        }
+        if self.kind() == "STR" {
+            values.push(self.take()?.text);
+        }
+        if self.kind() == "ALPHA" {
+            values.push(self.take()?.text);
+        }
+        Some(Statement::Click {
+            target: target.value,
+            values,
+        })
+    }
+    fn callback(&mut self, values: &mut Vec<Cow<'a, str>>) -> Option<()> {
+        values.push(self.take()?.text);
+        if self.kind() == "LOLLIPOP" {
+            values.push(self.take()?.text);
+            return Some(());
+        }
+        if !self.at_punctuation("(") {
+            self.unexpected("(");
+            return None;
+        }
+        values.push(self.take()?.text);
+        while !matches!(self.kind(), "EOF" | "NEWLINE") && !self.at_punctuation(")") {
+            values.push(self.take()?.text);
+        }
+        if !self.at_punctuation(")") {
+            self.unexpected(")");
+            return None;
+        }
+        values.push(self.take()?.text);
+        Some(())
     }
 }

@@ -13,6 +13,7 @@ import (
 func step14Input() Input {
 	return Input{Kind: "flowchart", Profile: scene.ProfileCell, Options: scene.DefaultOptions(), Boxes: []Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}, Routes: []Route{{ID: "e0", From: "A", To: "B", Orthogonal: true}}}
 }
+
 func step14Scene(t *testing.T, in Input) scene.Scene {
 	t.Helper()
 	s, _, err := Layout(in)
@@ -25,6 +26,7 @@ func step14Scene(t *testing.T, in Input) scene.Scene {
 	}
 	return s
 }
+
 func TestLabelNodes(t *testing.T) {
 	in := step14Input()
 	in.Labels = []Label{{ID: "e0.label", Owner: "e0", Text: "yes"}}
@@ -39,6 +41,7 @@ func TestLabelNodes(t *testing.T) {
 		t.Fatalf("label rank gap/canvas: %v %v", s.Boxes, s.Canvas)
 	}
 }
+
 func TestSelfLoops(t *testing.T) {
 	in := step14Input()
 	in.Boxes = in.Boxes[:1]
@@ -80,6 +83,7 @@ func TestTwoLabelledLoopsRenderEveryDirection(t *testing.T) {
 		})
 	}
 }
+
 func TestReversedLanes(t *testing.T) {
 	in := step14Input()
 	in.Routes = append(in.Routes, Route{ID: "e1", From: "B", To: "A", Orthogonal: true})
@@ -98,6 +102,7 @@ func TestReversedLanes(t *testing.T) {
 		}
 	}
 }
+
 func TestClusters(t *testing.T) {
 	in := step14Input()
 	in.Boxes[0].Parent = "G"
@@ -116,6 +121,7 @@ func TestClusters(t *testing.T) {
 		t.Fatal("frame paint order", s.Groups)
 	}
 }
+
 func TestSubgraphDirection(t *testing.T) {
 	in := step14Input()
 	in.Boxes[0].Parent = "G"
@@ -141,6 +147,7 @@ func TestSubgraphDirection(t *testing.T) {
 		t.Fatal("crossing direction was not diagnosed", ds)
 	}
 }
+
 func TestPacking(t *testing.T) {
 	in := step14Input()
 	in.Routes = nil
@@ -153,6 +160,7 @@ func TestPacking(t *testing.T) {
 		t.Fatal(s.Canvas)
 	}
 }
+
 func TestPortfolio(t *testing.T) {
 	in := step14Input()
 	in.Options.Thoroughness = 1
@@ -168,6 +176,7 @@ func TestPortfolio(t *testing.T) {
 		}
 	}
 }
+
 func TestLayoutLimitsBeforeMeasurement(t *testing.T) {
 	cases := []struct {
 		name string
@@ -194,6 +203,7 @@ func TestLayoutLimitsBeforeMeasurement(t *testing.T) {
 	in.Options.Limits.MaxTextBytes = 2
 	step14Scene(t, in)
 }
+
 func TestCellMeasurementNormalizesTerminalControls(t *testing.T) {
 	in := step14Input()
 	in.Routes = nil

@@ -23,6 +23,7 @@ func assertCellText(t *testing.T, s scene.Scene, texts ...string) {
 		}
 	}
 }
+
 func TestCellLabelGutterOrientation(t *testing.T) {
 	in := step14Input()
 	in.Labels = []Label{{ID: "e0.label", Owner: "e0", Text: "yes"}}
@@ -35,6 +36,7 @@ func TestCellLabelGutterOrientation(t *testing.T) {
 		assertCellText(t, s, "yes")
 	}
 }
+
 func TestGroupEntryTitleGutter(t *testing.T) {
 	in := groupRouteInput()
 	in.Boxes[0].Direction = ""
@@ -42,6 +44,7 @@ func TestGroupEntryTitleGutter(t *testing.T) {
 	in.Routes = append(in.Routes, Route{ID: "entry", From: "S", To: "A", Orthogonal: true})
 	assertCellText(t, step14Scene(t, in), "Title")
 }
+
 func TestReversedGroupTopTitleGutter(t *testing.T) {
 	in := groupRouteInput()
 	in.Boxes[0].Direction = ""
@@ -53,6 +56,7 @@ func TestReversedGroupTopTitleGutter(t *testing.T) {
 	}
 	assertCellText(t, s, "Title")
 }
+
 func TestDirectedGroupTitlesStayUpright(t *testing.T) {
 	for _, d := range []string{"TB", "BT", "LR", "RL"} {
 		in := groupRouteInput()

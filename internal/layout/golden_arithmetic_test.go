@@ -48,6 +48,7 @@ func TestTwoNodeGoldenArithmetic(t *testing.T) {
 	assertGoldenRoute(t, golden, expected)
 	assertGoldenLabel(t, golden, expected)
 }
+
 func labelledGoldenArithmetic(t *testing.T) goldenExpectations {
 	t.Helper()
 	a, b, label := labelAdvanceWidth(t, "A"), labelAdvanceWidth(t, "B"), labelAdvanceWidth(t, "yes")
@@ -72,18 +73,21 @@ func labelledGoldenArithmetic(t *testing.T) goldenExpectations {
 		route:  [][2]int32{{center, h + margin}, {center, firstChannel}, {left, firstChannel}, {left, labelTop + margin}, {left, labelTop + lh + margin}, {left, secondChannel}, {center, secondChannel}, {center, targetTop + margin}},
 	}
 }
+
 func assertGoldenCanvas(t *testing.T, golden arithmeticGolden, expected goldenExpectations) {
 	t.Helper()
 	if golden.Canvas != expected.canvas {
 		t.Fatalf("canvas %v; expected %v", golden.Canvas, expected.canvas)
 	}
 }
+
 func assertGoldenRoute(t *testing.T, golden arithmeticGolden, expected goldenExpectations) {
 	t.Helper()
 	if !slices.Equal(golden.Routes[0].Points, expected.route) {
 		t.Fatalf("route %v; expected %v", golden.Routes[0].Points, expected.route)
 	}
 }
+
 func assertGoldenLabel(t *testing.T, golden arithmeticGolden, expected goldenExpectations) {
 	t.Helper()
 	label := golden.Labels[0]
@@ -94,6 +98,7 @@ func assertGoldenLabel(t *testing.T, golden arithmeticGolden, expected goldenExp
 		t.Fatal("label text or wrapped lines", label)
 	}
 }
+
 func assertGoldenBoxes(t *testing.T, golden arithmeticGolden, expected [][4]int32) {
 	t.Helper()
 	for i, box := range golden.Boxes {
@@ -103,6 +108,7 @@ func assertGoldenBoxes(t *testing.T, golden arithmeticGolden, expected [][4]int3
 		}
 	}
 }
+
 func labelAdvanceWidth(t *testing.T, text string) int32 {
 	t.Helper()
 	var sum int64
@@ -112,6 +118,7 @@ func labelAdvanceWidth(t *testing.T, text string) int32 {
 	upem := int64(gen.AdvancesUpem[1])
 	return int32((sum*14*64 + upem - 1) / upem)
 }
+
 func goldenAdvance(t *testing.T, r rune) int64 {
 	t.Helper()
 	for _, row := range gen.Advances {
@@ -122,6 +129,7 @@ func goldenAdvance(t *testing.T, r rune) int64 {
 	t.Fatalf("golden glyph %q is missing", r)
 	return 0
 }
+
 func goldenConstant(t *testing.T, name string) int32 {
 	t.Helper()
 	for _, constant := range gen.LayoutConst {

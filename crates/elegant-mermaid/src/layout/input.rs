@@ -28,6 +28,31 @@ pub struct Input {
     /// Side constraints over original box indices; envelopes never enter the dump.
     pub attachments: Vec<Attachment>,
     pub region_sets: Vec<RegionSet>,
+    pub spacing: Spacing,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Spacing {
+    pub node_gap: i32,
+    pub rank_gap: i32,
+    pub canvas_margin: i32,
+}
+
+impl Spacing {
+    pub fn for_kind(profile: Profile, kind: &str) -> Self {
+        let value = |name: &str| {
+            let key = format!("{}.{kind}.{name}", profile.as_str());
+            crate::r#gen::layoutconst::LAYOUT_CONST
+                .iter()
+                .find(|row| row.name == key)
+                .map_or(0, |row| row.value)
+        };
+        Self {
+            node_gap: value("node_spacing"),
+            rank_gap: value("rank_spacing"),
+            canvas_margin: value("diagram_padding"),
+        }
+    }
 }
 
 /// Ordered child groups of one concurrent composite, using group indices.
@@ -56,11 +81,32 @@ pub struct Box {
     pub id: String,
     pub role: BoxRole,
     pub shape: String,
+    pub icon: bool,
     pub parent: String,
     pub exclusive: bool,
     pub text: String,
     pub direction: String,
 }
+/// An endpoint face in final screen coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RouteSide {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+impl RouteSide {
+    pub(crate) const fn token(self) -> &'static str {
+        match self {
+            Self::Up => "T",
+            Self::Down => "B",
+            Self::Left => "L",
+            Self::Right => "R",
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Route {
     pub id: String,
@@ -71,6 +117,8 @@ pub struct Route {
     pub marker_end: String,
     pub line: String,
     pub min_length: usize,
+    pub from_side: Option<RouteSide>,
+    pub to_side: Option<RouteSide>,
 }
 #[derive(Debug, Clone)]
 pub struct Label {

@@ -29,6 +29,7 @@
     "key": "htmlLabels",
     "class": "accepted-ignored"
   },
+  {"kind":"class","key":"layout","class":"accepted-ignored"},
   {
     "kind": "class",
     "key": "look",

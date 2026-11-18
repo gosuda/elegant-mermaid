@@ -430,7 +430,24 @@ fn step14_cell_controls_normalize_before_measurement_only() -> TestResult {
     let a = layout::families::layout(&raw)?.0;
     let b = layout::families::layout(&normalized)?.0;
     assert_eq!(a.boxes(), b.boxes());
-    assert_eq!(a.items(), b.items());
+    assert_eq!(a.canvas(), b.canvas());
+    assert_eq!(a.routes(), b.routes());
+    assert!(
+        a.labels()
+            .iter()
+            .map(|label| (&label.id, &label.owner, &label.rect))
+            .eq(b
+                .labels()
+                .iter()
+                .map(|label| (&label.id, &label.owner, &label.rect)))
+    );
+    let options = elegant_mermaid::cells::Options::default();
+    let rendered = elegant_mermaid::cells::render(&a, &options)?;
+    let normalized_rendered = elegant_mermaid::cells::render(&b, &options)?;
+    assert_eq!(rendered, normalized_rendered);
+    assert_eq!(rendered.refused_clusters, 0);
+    assert!(rendered.text.contains("���"), "{}", rendered.text);
+    assert_eq!(rendered.text.matches('�').count(), 3);
     {
         let observed = layout::modeldump::model_dump(&raw);
         assert!(

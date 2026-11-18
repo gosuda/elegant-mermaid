@@ -30,7 +30,7 @@ Authority (paths relative to `.references/mermaid/`):
 
 ## Lexer modes and first-match order
 
-There is one mode, `INITIAL`, for each notation. A quoted string or comment is one token, not a persistent lexer mode. The tables below give the explicit terminal order from the authority. Grammar literals are reserved tokens: constructor names and punctuation are not identifiers where the grammar requires a literal. Shared preprocessing handles frontmatter and directives before these rules.
+There is one mode, `INITIAL`, for each notation. A quoted string or comment is one token, not a persistent lexer mode. The tables below give the explicit terminal order from the authority. Langium places the keyword tokens of a grammar (literal text and the header) before every terminal, longest keyword first, and a word keyword yields to the identifier terminal when that terminal matches a longer text at the same position; so an identifier equal to a constructor name is a keyword, and an identifier that merely begins with one is an identifier. Hidden tokens cannot be shadowed by keywords. Shared preprocessing handles frontmatter, directives, and whole-line `%%` comments before these rules; a trailing `%%` comment stays in the text and is hidden by the lexer.
 
 - rrgrammar-04: Within `INITIAL`, the lexer MUST take the first matching rule in the following ordered lists; it MUST NOT use a later matching rule to reinterpret a consumed token. [just parity]
 
@@ -41,15 +41,15 @@ There is one mode, `INITIAL`, for each notation. A quoted string or comment is o
 | ABNF | TITLE (3), ACC_TITLE (4), ACC_DESCR (5), ABNF_RULENAME (7), ABNF_STRING (8), ABNF_NUMVAL (9), ABNF_REPEAT (10), ABNF_EXACT_REPEAT (11), ABNF_WHITESPACE (13), ABNF_YAML (14), ABNF_DIRECTIVE (15), ABNF_SINGLE_LINE_COMMENT (16), ABNF_COMMENT (17) |
 | PEG | TITLE (3), ACC_TITLE (4), ACC_DESCR (5), PEG_ID (7), PEG_STRING (8), PEG_WHITESPACE (10), PEG_YAML (11), PEG_DIRECTIVE (12), PEG_SINGLE_LINE_COMMENT (13), PEG_LINE_COMMENT (14) |
 
-- rrgrammar-05: `TITLE` MUST consume `title`, a colon, optional horizontal whitespace, and the rest of that physical line before `%%`; `ACC_TITLE` MUST consume `accTitle`, optional horizontal whitespace, a colon, and that line's value before `%%`. [just oracle]
-- rrgrammar-06: `ACC_DESCR` MUST consume `accDescr` followed by either a colon and one line before `%%`, or optional whitespace and a brace-delimited multiline value ending at the first `}`. [just oracle]
+- rrgrammar-05: `TITLE` MUST consume `title` and, when the next byte is a space or tab, that byte and the rest of the physical line up to a `%%` or the line ending; when the next byte is anything else it MUST consume `title` alone. `TITLE` has no colon. `ACC_TITLE` MUST consume `accTitle`, optional horizontal whitespace, a colon, and that line's value up to a `%%` or the line ending; without the colon it MUST NOT match, and the text is an identifier. [just oracle]
+- rrgrammar-06: `ACC_DESCR` MUST consume `accDescr` followed by either optional horizontal whitespace, a colon, and one line up to a `%%` or the line ending, or optional whitespace (line endings included) and a brace-delimited multiline value ending at the first `}`; when neither form matches, `ACC_DESCR` MUST NOT match and the text is an identifier. A brace form with no `}` before the end of the source is `railroad/unterminated`. [just oracle]
 - rrgrammar-07: Constructor, EBNF, and PEG identifiers MUST match `[A-Za-z_][\w-]*`, where `\w` is ASCII letters, digits, or underscore; ABNF rule names MUST match `[A-Za-z][A-Za-z0-9-]*`. Identifier comparison MUST be case-sensitive. [just oracle]
-- rrgrammar-08: Constructor, EBNF, and PEG strings MUST use matching single or double quotes; a backslash MUST consume the next character, and an unescaped quote of the opening kind MUST close the token; unescaped line endings MUST NOT occur inside a string. [just oracle]
-- rrgrammar-09: ABNF strings MUST use double quotes and MUST contain neither double quotes nor line endings; backslash MUST remain ordinary text. [just oracle]
+- rrgrammar-08: Constructor, EBNF, and PEG strings MUST use matching single or double quotes; a backslash MUST consume the next character, and an unescaped quote of the opening kind MUST close the token; a string MAY contain line endings, but a backslash MUST NOT be followed by CR, LF, U+2028, or U+2029. A string that reaches the end of the source without a close is `railroad/unterminated`. [just oracle]
+- rrgrammar-09: ABNF strings MUST use double quotes and MUST NOT contain a double quote; a string MAY contain line endings and backslash MUST remain ordinary text. A string that reaches the end of the source without a close is `railroad/unterminated`. [just oracle]
 - rrgrammar-10: ABNF numeric values MUST match `%[xXdDbB][0-9A-Fa-f]+(?:[-.][0-9A-Fa-f]+)*`; repeat tokens MUST match `[0-9]*\*[0-9]*` before the exact-count token `[0-9]+`. [just oracle]
 - rrgrammar-11: EBNF special sequences MUST start and end with `?`, MUST contain at least one non-whitespace character, and MUST contain neither a semicolon nor an internal `?`; the `?` postfix MUST remain available when this token does not match. [just oracle]
 - rrgrammar-12: Whitespace tokens MUST consume spaces, tabs, CR, and LF and MUST be hidden; `%%` comments MUST extend to the next line ending and MUST be hidden in all four notations. [just oracle]
-- rrgrammar-13: Constructor and EBNF MUST hide `/* ... */` comments through the first close; EBNF MUST also hide `(* ... *)` comments through the first close; ABNF MUST hide `;` through the line end; PEG MUST hide `#` through the line end. Comments MUST NOT nest. [just oracle]
+- rrgrammar-13: Constructor and EBNF MUST hide `/* ... */` comments through the first close, and a `/*` with no close is `railroad/unterminated`; EBNF MUST also hide `(* ... *)` comments through the first close, and a `(*` with no close MUST lex as the `(` and `*` tokens; ABNF MUST hide `;` and the rest of the line when the `;` is not directly followed by a line ending or the end of the source (otherwise `;` is the rule terminator); PEG MUST hide `#` through the line end. Constructor, EBNF, ABNF, and PEG MUST hide a `---` line, optional horizontal whitespace, a line ending, any text, and a closing `---` that ends the line or the source. Comments MUST NOT nest. [just oracle]
 
 ## Grammar
 
@@ -73,13 +73,13 @@ RailroadNonTerminalExpr = "nonterminal", "(", String, ")" ;
 RailroadSpecialExpr = "special", "(", String, ")" ;
 ```
 
-- rrgrammar-15: The EBNF parser MUST accept exactly these productions; a sequence MUST use commas, not bare juxtaposition. [just oracle]
+- rrgrammar-15: The EBNF parser MUST accept exactly these productions; the rule operator MUST be `=` or `::=` (a lone `:` is an invalid character), and a comma between terms is optional, so bare juxtaposition is a sequence. [just oracle]
 
 ```ebnf
 RailroadEbnf = Header, { Meta }, { EbnfRule } ;
-EbnfRule = Id, ("=" | ":" | "::="), EbnfChoice, ";" ;
+EbnfRule = Id, ("=" | "::="), EbnfChoice, ";" ;
 EbnfChoice = EbnfSequence, { "|", EbnfSequence } ;
-EbnfSequence = EbnfTerm, { ",", EbnfTerm } ;
+EbnfSequence = EbnfTerm, { [ "," ], EbnfTerm } ;
 EbnfTerm = EbnfPrimary, { EbnfPostfix } ;
 EbnfPrimary = EbnfTerminal | EbnfSpecial | EbnfNonTerminal | EbnfGroup | EbnfOptional | EbnfRepetition ;
 EbnfTerminal = String ; EbnfNonTerminal = Id ; EbnfSpecial = SpecialSequence ;
@@ -91,11 +91,11 @@ EbnfOptionalPostfix = "?" ; EbnfZeroOrMorePostfix = "*" ; EbnfOneOrMorePostfix =
 EbnfExceptionPostfix = "-", EbnfPrimary ;
 ```
 
-- rrgrammar-16: The ABNF parser MUST accept exactly these productions; semicolons MUST start comments and MUST NOT terminate rules. [just oracle]
+- rrgrammar-16: The ABNF parser MUST accept exactly these productions; a rule MUST end with the `;` token, which is a token only when a line ending or the end of the source follows it directly, and otherwise starts a comment that runs to the line end. [just oracle]
 
 ```ebnf
 RailroadAbnf = Header, { Meta }, { AbnfRule } ;
-AbnfRule = RuleName, "=", AbnfAlternation ;
+AbnfRule = RuleName, "=", AbnfAlternation, ";" ;
 AbnfAlternation = AbnfConcatenation, { "/", AbnfConcatenation } ;
 AbnfConcatenation = AbnfElement, { AbnfElement } ;
 AbnfElement = [ Repeat | ExactRepeat ], AbnfPrimary ;
@@ -138,8 +138,8 @@ PegGroup = "(", PegOrderedChoice, ")" ; PegAny = "." ;
 
 ## Recovery and diagnostics
 
-- rrgrammar-29: Recovery in constructor, EBNF, and PEG MUST skip through the next semicolon outside strings and comments at the current nesting level, or stop before an enclosing close delimiter; ABNF recovery MUST skip to the next physical line whose first visible tokens are `RuleName =`, or EOF. Recovery MUST NOT create a model rule from the rejected statement. [just go-check]
-- rrgrammar-30: Nesting MUST stop before level 65 under the shared nesting-limit diagnostic; this file MUST NOT introduce a railroad alias for that shared code. [just go-check]
+- rrgrammar-29: After an error inside a rule, recovery in constructor, EBNF, and PEG MUST skip tokens through the next `;` token that is outside every group opened after the error position, counting `(`, `[`, and `{` as opens and their closers as closes without going below zero; an unmatched closer at zero is skipped. A rule with an error MUST NOT enter the model. At statement start, a token that is not a metadata token (before the first rule), an identifier, or the end of the source MUST give `railroad/unknown-statement` and the same recovery; a metadata token after the first rule MUST give `railroad/unknown-statement` over that token alone. ABNF recovery MUST skip to the next token that is the first token of its physical line and is a rule name followed by `=`, or to the end of the source. [just go-check]
+- rrgrammar-30: Each `(`, `[`, and `{` that opens a nested expression MUST add one level, and each element of a postfix, prefix, or repeat chain on a term MUST add one level above the term's own level; the token that would reach level 65 MUST give the shared `limit/nesting-depth` diagnostic at that token, and parsing MUST stop there. This file MUST NOT introduce a railroad alias for that shared code. [just go-check]
 - rrgrammar-31: The diagnostic registry MUST contain exactly the railroad rows below; named diagnostics MUST take precedence over generic unterminated errors for the same failure. [just gen-check]
 
 | Code | Severity | Trigger | Message | Span |
@@ -150,8 +150,8 @@ PegGroup = "(", PegOrderedChoice, ")" ; PegAny = "." ;
 | `railroad/no-rules` | warning | Resolved document has no rule definitions | `diagram has no railroad rules` | Header keyword |
 | `railroad/repeat-max-ignored` | info | A repetition has a finite maximum | `finite repetition maximum MAX is not drawn` | Repeat operator or exact-count token |
 
-- rrgrammar-32: `TOKEN` MUST be the source token text; `LIST` MUST contain accepted token-kind names sorted bytewise and joined by `, `. Repetition notices MUST retain their source operator span after lowering; the maximum notice and no-rules warning MUST NOT invalidate a document. [just parity]
+- rrgrammar-32: `TOKEN` MUST be the source token text, or `EOF` at the end of the source; `LIST` MUST contain accepted token-kind names sorted bytewise and joined by `, `. A token-kind name is the literal text for a keyword or punctuation token (`=`, `::=`, `(`, `sequence`), and the terminal name for any other token: `TITLE`, `ACC_TITLE`, `ACC_DESCR`, the identifier terminal (`RR_ID`, `EBNF_ID`, `ABNF_RULENAME`, `PEG_ID`), the string terminal (`RR_STRING`, `EBNF_STRING`, `ABNF_STRING`, `PEG_STRING`), `EBNF_SPECIAL_SEQUENCE`, `ABNF_NUMVAL`, `ABNF_REPEAT`, `ABNF_EXACT_REPEAT`, and `EOF`. Repetition notices MUST retain their source operator span after lowering; the maximum notice and no-rules warning MUST NOT invalidate a document. [just parity]
 
 ## Authority readings and choices
 
-The four Langium grammars, not a general EBNF, ABNF, or PEG standard, define acceptance. EBNF requires commas; ABNF has no incremental `=/` rule, no case modifiers, and no semantic numeric decoding. Constructor sequence and choice accept one child and then collapse. PEG accepts only one prefix and one suffix per element. The ABNF grammar uses hidden newlines, so a valid next `name =` starts a rule by parser lookahead; physical lines are used only for recovery. Duplicates and unresolved references are accepted, not invented errors. Finite-repeat and no-rules diagnostics are product notices, not upstream parse failures. Config classifications describe this project's readers, not every upstream renderer setting. No layout dimensions or routing rules are defined here.
+The four Langium grammars, not a general EBNF, ABNF, or PEG standard, define acceptance. EBNF commas are optional; ABNF has no incremental `=/` rule, no case modifiers, and no semantic numeric decoding. Constructor sequence and choice accept one child and then collapse. PEG accepts only one prefix and one suffix per element. The ABNF grammar uses hidden newlines, so a valid next `name =` starts a rule by parser lookahead; physical lines are used only for recovery. Upstream compares the header keyword case-sensitively in the parser while its detector is case-insensitive; this project folds ASCII case in both places. Entity text such as `#amp;` stays literal. A diagram title is read and kept in the model but is not drawn, as upstream does not draw it. Duplicates and unresolved references are accepted, not invented errors. Finite-repeat and no-rules diagnostics are product notices, not upstream parse failures. Config classifications describe this project's readers, not every upstream renderer setting. Dimensions and routing are defined in `spec/layout/railroad.md`.

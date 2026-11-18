@@ -2,17 +2,6 @@ package main
 
 import "fmt"
 
-type arraySpec struct {
-	name     string
-	goName   string
-	rsName   string
-	leanName string
-	goElem   string
-	rsElem   string
-	leanElem string
-	values   []int64
-}
-
 func buildGeneratedTables(in *inputs) ([]renderable, error) {
 	computed, err := computeStartingTables(in)
 	if err != nil {
@@ -32,24 +21,26 @@ func buildGeneratedTables(in *inputs) ([]renderable, error) {
 		computed.graphemes,
 		computed.incb,
 		computed.ideographic,
+		computed.alphanumeric,
 	}
 	tables = append(tables, specTables...)
 	return append(tables, computed.sine, computed.lin16Table), nil
 }
 
 type computedTables struct {
-	kinds       *table
-	advances    *table
-	mathGreek   *table
-	mathGlyph   *table
-	upem        *arrayTable
-	width       *table
-	graphemes   *table
-	incb        *table
-	ideographic *table
-	sine        *arrayTable
-	lin16       [lin16Entries]uint16
-	lin16Table  *arrayTable
+	kinds        *table
+	advances     *table
+	mathGreek    *table
+	mathGlyph    *table
+	upem         *arrayTable
+	width        *table
+	graphemes    *table
+	incb         *table
+	ideographic  *table
+	alphanumeric *table
+	sine         *arrayTable
+	lin16        [lin16Entries]uint16
+	lin16Table   *arrayTable
 }
 
 func computeStartingTables(in *inputs) (*computedTables, error) {
@@ -65,53 +56,74 @@ func computeStartingTables(in *inputs) (*computedTables, error) {
 	if advanceErr != nil {
 		return nil, fmt.Errorf("advances: %w", advanceErr)
 	}
-	hasMathGlyph := regularMathGlyphs(advances)
-	mathGreek, greekErr := mathGreekTable(hasMathGlyph)
-	if greekErr != nil {
-		return nil, greekErr
+	mathGreek, mathGlyph, mathErr := buildMathTables(advances)
+	if mathErr != nil {
+		return nil, mathErr
 	}
-	mathGlyph, glyphErr := mathGlyphTable(hasMathGlyph)
-	if glyphErr != nil {
-		return nil, glyphErr
+	computed := &computedTables{
+		advances:   buildAdvancesTable(advances),
+		mathGreek:  mathGreek,
+		mathGlyph:  mathGlyph,
+		upem:       &arrayTable{name: "advancesupem", goName: "AdvancesUpem", rsName: "ADVANCES_UPEM", leanName: "advancesUpem", goElem: "int32", rsElem: "i32", leanElem: "Int", values: upemValues(upems)},
+		sine:       &arrayTable{name: "sine", goName: "SineTable", rsName: "SINE_TABLE", leanName: "sineTable", goElem: "int32", rsElem: "i32", leanElem: "Int", values: sineValues(sine)},
+		lin16:      lin16,
+		lin16Table: &arrayTable{name: "lin16", goName: "Lin16", rsName: "LIN16", leanName: "lin16", goElem: "uint16", rsElem: "u16", leanElem: "Nat", values: lin16Values(lin16)},
 	}
+	if err := computed.buildUnicodeTables(in); err != nil {
+		return nil, err
+	}
+	kinds, kindErr := buildKindTable(in.kinds)
+	if kindErr != nil {
+		return nil, kindErr
+	}
+	computed.kinds = kinds
+	return computed, nil
+}
+
+func (computed *computedTables) buildUnicodeTables(in *inputs) error {
 	widths, widthErr := buildUnicodeWidth(map[string][]byte{
 		"EastAsianWidth.txt":        in.eaw,
 		"emoji-data.txt":            in.emoji,
 		"GraphemeBreakProperty.txt": in.gbp,
 	})
 	if widthErr != nil {
-		return nil, widthErr
+		return widthErr
 	}
 	graphemes, graphemeErr := buildGraphemes(in.gbp, in.emoji)
 	if graphemeErr != nil {
-		return nil, graphemeErr
+		return graphemeErr
 	}
 	incb, incbErr := buildIncb(in.derived)
 	if incbErr != nil {
-		return nil, incbErr
+		return incbErr
 	}
 	ideographic, ideographicErr := buildIdeographic(in.propList)
 	if ideographicErr != nil {
-		return nil, ideographicErr
+		return ideographicErr
 	}
-	kinds, kindErr := buildKindTable(in.kinds)
-	if kindErr != nil {
-		return nil, kindErr
+	alphanumeric, alphanumericErr := buildAlphanumeric(in.derived, in.generalCategory)
+	if alphanumericErr != nil {
+		return alphanumericErr
 	}
-	return &computedTables{
-		kinds:       kinds,
-		advances:    buildAdvancesTable(advances),
-		mathGreek:   mathGreek,
-		mathGlyph:   mathGlyph,
-		upem:        newArrayTable(arraySpec{name: "advancesupem", goName: "AdvancesUpem", rsName: "ADVANCES_UPEM", leanName: "advancesUpem", goElem: "int32", rsElem: "i32", leanElem: "Int", values: upemValues(upems)}),
-		width:       buildWidthTable(widths),
-		graphemes:   buildGraphemeTable(graphemes),
-		incb:        buildIncbTable(incb),
-		ideographic: buildIdeographicTable(ideographic),
-		sine:        newArrayTable(arraySpec{name: "sine", goName: "SineTable", rsName: "SINE_TABLE", leanName: "sineTable", goElem: "int32", rsElem: "i32", leanElem: "Int", values: sineValues(sine)}),
-		lin16:       lin16,
-		lin16Table:  newArrayTable(arraySpec{name: "lin16", goName: "Lin16", rsName: "LIN16", leanName: "lin16", goElem: "uint16", rsElem: "u16", leanElem: "Nat", values: lin16Values(lin16)}),
-	}, nil
+	computed.width = buildWidthTable(widths)
+	computed.graphemes = buildGraphemeTable(graphemes)
+	computed.incb = buildIncbTable(incb)
+	computed.ideographic = buildIdeographicTable(ideographic)
+	computed.alphanumeric = buildAlphanumericTable(alphanumeric)
+	return nil
+}
+
+func buildMathTables(advances []advanceRow) (*table, *table, error) {
+	hasMathGlyph := regularMathGlyphs(advances)
+	greek, err := mathGreekTable(hasMathGlyph)
+	if err != nil {
+		return nil, nil, err
+	}
+	glyph, err := mathGlyphTable(hasMathGlyph)
+	if err != nil {
+		return nil, nil, err
+	}
+	return greek, glyph, nil
 }
 
 func buildRegistryTables(in *inputs, lin16 [lin16Entries]uint16) ([]renderable, error) {

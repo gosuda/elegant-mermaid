@@ -35,28 +35,30 @@ impl Lexer<'_> {
     pub(super) fn boundary(&self, p: usize, n: usize) -> bool {
         p >= n || !(self.bytes()[p].is_ascii_alphanumeric() || self.bytes()[p] == b'_')
     }
-    pub(super) fn keyword_then_space(&self, n: usize, s: &str) -> Option<usize> {
+    pub(super) fn keyword_then_space(&mut self, n: usize, s: &str) -> Option<usize> {
         if !self.matches(self.pos, n, s) {
             return None;
         }
-        let p = self.pos + s.len();
-        let end = self.run(p, n, js_space);
-        (end > p).then_some(end)
+        let after = self.pos + s.len();
+        if !self.space_follows(after, n) {
+            return None;
+        }
+        Some(self.space_end(after, n))
     }
-    pub(super) fn keyword_delimiter(&self, n: usize, s: &str, b: u8) -> Option<usize> {
+    pub(super) fn keyword_delimiter(&mut self, n: usize, s: &str, b: u8) -> Option<usize> {
         if !self.matches(self.pos, n, s) {
             return None;
         }
-        let p = self.run(self.pos + s.len(), n, js_space);
+        let (p, n) = self.skip_space(self.pos + s.len(), n);
         if p >= n || self.bytes()[p] != b {
             return None;
         }
-        Some(self.run(p + 1, n, js_space))
+        Some(self.space_end(p + 1, n))
     }
-    pub(super) fn keyword_spaces_colon_spaces(&self, n: usize, s: &str) -> Option<usize> {
+    pub(super) fn keyword_spaces_colon_spaces(&mut self, n: usize, s: &str) -> Option<usize> {
         self.keyword_delimiter(n, s, b':')
     }
-    pub(super) fn keyword_spaces_brace(&self, n: usize, s: &str) -> Option<usize> {
+    pub(super) fn keyword_spaces_brace(&mut self, n: usize, s: &str) -> Option<usize> {
         self.keyword_delimiter(n, s, b'{')
     }
     pub(super) fn end_keyword(&self, n: usize) -> Option<usize> {
@@ -98,45 +100,48 @@ impl Lexer<'_> {
     pub(super) fn num_rule(&self, n: usize) -> Option<usize> {
         self.nonempty(self.run(self.pos, n, |b| b.is_ascii_digit()))
     }
-    pub(super) fn link_start(&self, n: usize) -> usize {
-        let p = self.run(self.pos, n, js_space);
+    pub(super) fn solid_link(&mut self, n: usize, b: u8) -> Option<usize> {
+        let (mut p, n) = self.skip_space(self.pos, n);
         if p < n && marker_start(self.bytes()[p]) {
-            p + 1
-        } else {
-            p
+            p += 1;
         }
-    }
-    pub(super) fn solid_link(&self, n: usize, b: u8) -> Option<usize> {
-        let p = self.link_start(n);
         let end = self.run(p, n, |c| c == b);
         let count = end - p;
         if count >= 2 && end < n && marker_end(self.bytes()[end]) {
-            return Some(self.run(end + 1, n, js_space));
+            return Some(self.space_end(end + 1, n));
         }
-        (count >= 3).then(|| self.run(end, n, js_space))
+        (count >= 3).then(|| self.space_end(end, n))
     }
-    pub(super) fn solid_start(&self, n: usize, s: &str) -> Option<usize> {
-        let p = self.link_start(n);
-        self.matches(p, n, s)
-            .then(|| self.run(p + s.len(), n, js_space))
+    pub(super) fn solid_start(&mut self, n: usize, s: &str) -> Option<usize> {
+        let (mut p, n) = self.skip_space(self.pos, n);
+        if p < n && marker_start(self.bytes()[p]) {
+            p += 1;
+        }
+        if !self.matches(p, n, s) {
+            return None;
+        }
+        Some(self.space_end(p + s.len(), n))
     }
-    pub(super) fn link_rule(&self, n: usize) -> Option<usize> {
+    pub(super) fn link_rule(&mut self, n: usize) -> Option<usize> {
         self.solid_link(n, b'-')
     }
-    pub(super) fn thick_link_rule(&self, n: usize) -> Option<usize> {
+    pub(super) fn thick_link_rule(&mut self, n: usize) -> Option<usize> {
         self.solid_link(n, b'=')
     }
-    pub(super) fn start_link_rule(&self, n: usize) -> Option<usize> {
+    pub(super) fn start_link_rule(&mut self, n: usize) -> Option<usize> {
         self.solid_start(n, "--")
     }
-    pub(super) fn thick_start_link_rule(&self, n: usize) -> Option<usize> {
+    pub(super) fn thick_start_link_rule(&mut self, n: usize) -> Option<usize> {
         self.solid_start(n, "==")
     }
-    pub(super) fn dotted_start_link_rule(&self, n: usize) -> Option<usize> {
+    pub(super) fn dotted_start_link_rule(&mut self, n: usize) -> Option<usize> {
         self.solid_start(n, "-.")
     }
-    pub(super) fn dotted_link_rule(&self, n: usize) -> Option<usize> {
-        let mut p = self.link_start(n);
+    pub(super) fn dotted_link_rule(&mut self, n: usize) -> Option<usize> {
+        let (mut p, n) = self.skip_space(self.pos, n);
+        if p < n && marker_start(self.bytes()[p]) {
+            p += 1;
+        }
         if p < n && self.bytes()[p] == b'-' {
             p += 1;
         }
@@ -148,14 +153,14 @@ impl Lexer<'_> {
         if p < n && marker_end(self.bytes()[p]) {
             p += 1;
         }
-        Some(self.run(p, n, js_space))
+        Some(self.space_end(p, n))
     }
-    pub(super) fn invisible_link_rule(&self, n: usize) -> Option<usize> {
-        let p = self.run(self.pos, n, js_space);
+    pub(super) fn invisible_link_rule(&mut self, n: usize) -> Option<usize> {
+        let (p, n) = self.skip_space(self.pos, n);
         if !self.matches(p, n, "~~~") {
             return None;
         }
-        Some(self.run(self.run(p + 3, n, |b| b == b'~'), n, js_space))
+        Some(self.space_end(self.run(p + 3, n, |b| b == b'~'), n))
     }
     pub(super) fn node_string_rule(&self, n: usize) -> Option<usize> {
         let mut p = self.pos;
@@ -197,42 +202,42 @@ impl Lexer<'_> {
     pub(super) fn space_rule(&self, n: usize) -> Option<usize> {
         self.nonempty(self.run(self.pos, n, horizontal_space))
     }
-    pub(super) fn acc_value_run(&self, n: usize) -> Option<usize> {
-        Some(self.run(self.pos, n, |b| !b"\n\r;#".contains(&b)))
+    pub(super) fn acc_value_run(&mut self, n: usize) -> Option<usize> {
+        Some(self.run_while(self.pos, n, |b| !b"\n\r;#".contains(&b)).0)
     }
-    pub(super) fn acc_block_run(&self, n: usize) -> Option<usize> {
-        self.nonempty(self.run(self.pos, n, |b| b != b'}'))
+    pub(super) fn acc_block_run(&mut self, n: usize) -> Option<usize> {
+        self.run_nonempty(n, |b| b != b'}')
     }
-    pub(super) fn string_run(&self, n: usize) -> Option<usize> {
-        self.nonempty(self.run(self.pos, n, |b| b != b'"'))
+    pub(super) fn string_run(&mut self, n: usize) -> Option<usize> {
+        self.run_nonempty(n, |b| b != b'"')
     }
-    pub(super) fn md_string_run(&self, n: usize) -> Option<usize> {
-        self.nonempty(self.run(self.pos, n, |b| b != b'"' && b != b'`'))
+    pub(super) fn md_string_run(&mut self, n: usize) -> Option<usize> {
+        self.run_nonempty(n, |b| b != b'"' && b != b'`')
     }
     pub(super) fn one_byte_unless(&self, n: usize, b: u8) -> Option<usize> {
         (!(self.bytes()[self.pos] == b && self.pos + 1 < n && self.bytes()[self.pos + 1] == b))
             .then_some(self.pos + 1)
     }
-    pub(super) fn callback_name_run(&self, n: usize) -> Option<usize> {
+    pub(super) fn callback_name_run(&mut self, n: usize) -> Option<usize> {
         if self.bytes()[self.pos] == b'"' {
             return None;
         }
-        self.nonempty(self.run(self.pos, n, |b| b != b'('))
+        self.run_nonempty(n, |b| b != b'(')
     }
-    pub(super) fn callback_args_run(&self, n: usize) -> Option<usize> {
-        self.nonempty(self.run(self.pos, n, |b| b != b')'))
+    pub(super) fn callback_args_run(&mut self, n: usize) -> Option<usize> {
+        self.run_nonempty(n, |b| b != b')')
     }
-    pub(super) fn empty_call_args(&self, n: usize) -> Option<usize> {
-        if self.bytes()[self.pos] != b'(' {
+    pub(super) fn empty_call_args(&mut self, n: usize) -> Option<usize> {
+        if self.pos >= n || self.bytes()[self.pos] != b'(' {
             return None;
         }
-        let p = self.run(self.pos + 1, n, js_space);
+        let (p, n) = self.skip_space(self.pos + 1, n);
         (p < n && self.bytes()[p] == b')').then_some(p + 1)
     }
-    pub(super) fn shape_plain_run(&self, n: usize) -> Option<usize> {
-        self.nonempty(self.run(self.pos, n, |b| !b"}^\"".contains(&b)))
+    pub(super) fn shape_plain_run(&mut self, n: usize) -> Option<usize> {
+        self.run_nonempty(n, |b| !b"}^\"".contains(&b))
     }
-    pub(super) fn shape_quoted_run(&self, n: usize) -> Option<usize> {
+    pub(super) fn shape_quoted_run(&mut self, n: usize) -> Option<usize> {
         self.string_run(n)
     }
     pub(super) fn ellipse_text_run(&self, n: usize) -> Option<usize> {
@@ -256,8 +261,8 @@ impl Lexer<'_> {
     pub(super) fn inv_trap_end_rule(&self, n: usize) -> Option<usize> {
         self.matches(self.pos, n, "/]").then_some(self.pos + 2)
     }
-    pub(super) fn trap_text_run(&self, n: usize) -> Option<usize> {
-        let p = self.run(self.pos, n, |b| !b"\\[](){}/".contains(&b));
+    pub(super) fn trap_text_run(&mut self, n: usize) -> Option<usize> {
+        let (p, _) = self.run_while(self.pos, n, |b| !b"\\[](){}/".contains(&b));
         if p == self.pos
             && p + 1 < n
             && b"/\\".contains(&self.bytes()[p])
@@ -267,23 +272,19 @@ impl Lexer<'_> {
         }
         self.nonempty(p)
     }
-    pub(super) fn text_run(&self, n: usize) -> Option<usize> {
-        let mut p = self.pos;
+    pub(super) fn text_run(&mut self, n: usize) -> Option<usize> {
         let mut in_tag = false;
-        while p < n {
-            let b = self.bytes()[p];
+        self.run_nonempty(n, move |b| {
             if b"[](){}|".contains(&b) || b == b'"' && !in_tag {
-                break;
+                return false;
             }
-            if b == b'<' {
-                in_tag = true;
+            match b {
+                b'<' => in_tag = true,
+                b'>' => in_tag = false,
+                _ => {}
             }
-            if b == b'>' {
-                in_tag = false;
-            }
-            p += 1;
-        }
-        self.nonempty(p)
+            true
+        })
     }
     pub(super) fn direction_statement(&self, n: usize, s: &str) -> Option<usize> {
         let stop = self.run(self.pos, n, |b| b != b'\n');
@@ -304,7 +305,7 @@ impl Lexer<'_> {
     pub(super) fn any_space_byte(&self, n: usize) -> Option<usize> {
         (self.pos < n && js_space(self.bytes()[self.pos])).then_some(self.pos + 1)
     }
-    pub(super) fn any_non_space(&self, n: usize) -> Option<usize> {
-        self.nonempty(self.run(self.pos, n, |b| !js_space(b)))
+    pub(super) fn any_non_space(&mut self, n: usize) -> Option<usize> {
+        self.run_nonempty(n, |b| !js_space(b))
     }
 }

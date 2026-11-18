@@ -32,6 +32,7 @@ func TestBounds(t *testing.T) {
 		t.Fatal("outside write")
 	}
 }
+
 func TestASCIIAllMasks(t *testing.T) {
 	for s := StyleNone; s <= StyleDouble; s++ {
 		expected := " |-+||++-+-+++++"
@@ -45,6 +46,7 @@ func TestASCIIAllMasks(t *testing.T) {
 		}
 	}
 }
+
 func TestCheckedProducts(t *testing.T) {
 	for _, p := range [][2]int64{{math.MaxInt64, 2}, {math.MinInt64, -1}, {-1, math.MinInt64}} {
 		if _, err := multiply(p[0], p[1]); !errors.Is(err, geom.ErrOverflow) {

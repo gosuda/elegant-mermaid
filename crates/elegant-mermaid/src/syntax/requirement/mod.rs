@@ -1,0 +1,26 @@
+pub mod ast;
+pub mod lexer;
+pub mod parser;
+pub use parser::parse;
+
+fn diagnostic(
+    code: &'static str,
+    message: String,
+    span: crate::source::Span,
+) -> crate::diag::Diagnostic {
+    crate::diag::Diagnostic {
+        code,
+        severity: crate::diag::Severity::Error,
+        message,
+        span,
+        related: Vec::new(),
+        help: crate::r#gen::diagnostics::DIAGNOSTICS
+            .iter()
+            .find(|row| row.code == code)
+            .map_or("", |row| row.help)
+            .into(),
+        fixes: Vec::new(),
+    }
+}
+#[cfg(test)]
+mod tests;

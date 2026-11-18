@@ -23,6 +23,7 @@ func TestGroupModelTransport(t *testing.T) {
 		t.Fatalf("explicit empty values lost: %s", dump)
 	}
 }
+
 func TestGroupDirectionIsModelOnly(t *testing.T) {
 	in := groupRouteInput()
 	s := step14Scene(t, in)

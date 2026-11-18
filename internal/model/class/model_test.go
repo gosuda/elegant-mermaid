@@ -61,6 +61,7 @@ func assertResolvedRelation(t *testing.T, relation model.Relation) {
 		t.Fatal(relation)
 	}
 }
+
 func TestUnknownAnnotation(t *testing.T) {
 	f, _ := parser.Parse([]byte("classDiagram\n<<interface>> Missing\n"), nil)
 	_, ds := model.Resolve(nil, f)
@@ -68,6 +69,7 @@ func TestUnknownAnnotation(t *testing.T) {
 		t.Fatal(ds)
 	}
 }
+
 func TestMembers(t *testing.T) {
 	for _, c := range []struct {
 		input, text              string
@@ -79,6 +81,7 @@ func TestMembers(t *testing.T) {
 		}
 	}
 }
+
 func TestBareNames(t *testing.T) {
 	f, _ := parser.Parse([]byte("classDiagram\nUnused\nclass A\nclass A[\"new\"]\nnote for Missing \"text\"\n"), nil)
 	m, ds := model.Resolve(nil, f)

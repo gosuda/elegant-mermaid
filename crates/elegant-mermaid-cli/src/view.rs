@@ -1,9 +1,11 @@
+use crate::error::{ReplayError, UsageError, ViewError};
 use crate::termgfx;
 use crate::tui::{
     frame::frame,
     scheduler::{self, Command, Event, SchedulerState},
     state::*,
 };
+use crate::{input, paths};
 use crossterm::terminal;
 use elegant_mermaid::{self as mermaid, Cancel};
 use notify::Watcher;
@@ -11,6 +13,7 @@ use quanta::Instant;
 use std::{
     fs,
     io::{self, IsTerminal, Read, Write},
+    num::TryFromIntError,
     path::Path,
     sync::mpsc,
     time::Duration,
@@ -58,7 +61,7 @@ impl Viewer {
             self.image = result.image;
         }
     }
-    fn settle(&mut self) -> Result<(), String> {
+    fn settle(&mut self) -> Result<(), TryFromIntError> {
         while self.scheduler.inflight != 0 {
             if self.scheduler.cancelled {
                 self.scheduler = scheduler::step(self.scheduler, Event::RenderAborted).0;
@@ -125,7 +128,7 @@ fn render(
     options: &Options,
     number: u64,
     cancel: Cancel,
-) -> Result<ResultFrame, String> {
+) -> Result<ResultFrame, TryFromIntError> {
     if cancel.is_cancelled() {
         return Ok(ResultFrame {
             revision: RevisionResult::new(number),
@@ -149,14 +152,10 @@ fn render(
             image: None,
         });
     }
-    let selected = usize::try_from(state.block.map_or(1, |block| block.0).max(1))
-        .map_err(|error| error.to_string())?;
+    let selected = usize::try_from(state.block.map_or(1, |block| block.0).max(1))?;
     let (bytes, block) = if markdown {
         let index = selected.min(blocks.len());
-        let block = (
-            u32::try_from(index).map_err(|error| error.to_string())?,
-            u32::try_from(blocks.len()).map_err(|error| error.to_string())?,
-        );
+        let block = (u32::try_from(index)?, u32::try_from(blocks.len())?);
         (blocks[index - 1].source.as_ref(), Some(block))
     } else {
         (source, None)
@@ -183,7 +182,7 @@ fn render(
                 diagnostics: revision
                     .diagnostics
                     .into_iter()
-                    .chain(std::iter::once(error))
+                    .chain(std::iter::once(error.to_string()))
                     .collect(),
                 ..revision
             },
@@ -196,7 +195,7 @@ fn diagnose_revision(
     document: &mermaid::Document<'_>,
     number: u64,
     block: Option<(u32, u32)>,
-) -> Result<RevisionResult, String> {
+) -> Result<RevisionResult, TryFromIntError> {
     let initial = RevisionResult {
         kind: Some(document.kind().map_or("unknown", |kind| kind.id()).into()),
         block,
@@ -223,8 +222,8 @@ fn diagnose_revision(
             revision.diagnostics.push(format_diagnostic(
                 severity,
                 diagnostic.code,
-                u32::try_from(position.line).map_err(|error| error.to_string())?,
-                u32::try_from(position.column).map_err(|error| error.to_string())?,
+                u32::try_from(position.line)?,
+                u32::try_from(position.column)?,
                 &diagnostic.message,
             ));
             Ok(revision)
@@ -235,7 +234,7 @@ fn render_content(
     options: &Options,
     mode: Mode,
     cancel: Cancel,
-) -> Result<(FrameData, Option<Image>), String> {
+) -> Result<(FrameData, Option<Image>), ViewError> {
     let layout = mermaid::LayoutOptions {
         theme: options.theme.clone(),
         cancel,
@@ -252,20 +251,18 @@ fn render_content(
             },
             ..Default::default()
         },
-    )
-    .map_err(|error| error.to_string())?;
+    )?;
     let lines: Vec<String> = text.lines().map(str::to_owned).collect();
     let image = if mode.is_pixel() {
-        let scene = mermaid::layout(document, &layout).map_err(|error| error.to_string())?;
+        let scene = mermaid::layout(document, &layout)?;
         let rgba = mermaid::raster::rgba(
             &scene,
             &mermaid::raster::PngOptions::default(),
             &options.theme,
-        )
-        .map_err(|error| error.to_string())?;
+        )?;
         Some(Image {
-            width: usize::try_from(rgba.width).map_err(|error| error.to_string())?,
-            height: usize::try_from(rgba.height).map_err(|error| error.to_string())?,
+            width: usize::try_from(rgba.width)?,
+            height: usize::try_from(rgba.height)?,
             data: rgba.pixels,
         })
     } else {
@@ -311,7 +308,7 @@ impl Default for ViewArguments {
 }
 
 impl ViewArguments {
-    fn parse(mut self, args: &[String]) -> Result<Self, String> {
+    fn parse(mut self, args: &[String]) -> Result<Self, UsageError> {
         let mut flags = true;
         let mut index = 0;
         while index < args.len() {
@@ -321,30 +318,43 @@ impl ViewArguments {
                 flags = false;
                 continue;
             }
-            if flags && arg.starts_with('-') && arg != "-" {
-                if !matches!(arg.as_str(), "--script" | "--graphics" | "-t" | "--color") {
-                    return Err(format!("unknown flag {arg}; run emd view --help"));
-                }
-                let value = args
-                    .get(index)
-                    .ok_or_else(|| format!("missing value for {arg}"))?
-                    .clone();
-                index += 1;
-                match arg.as_str() {
-                    "--script" => self.script = Some(value),
-                    "--graphics" => self.mode = value,
-                    "-t" => self.theme = value,
-                    _ => self.color = value,
-                }
+            if flags && crate::options::is_flag(arg) {
+                self.set_flag(arg, args, &mut index)?;
             } else if self.path.replace(arg.clone()).is_some() {
-                return Err("view accepts one INPUT".into());
+                return Err(UsageError::ExtraInput { command: "view" });
             }
         }
         Ok(self)
     }
+
+    fn set_flag(
+        &mut self,
+        arg: &str,
+        args: &[String],
+        index: &mut usize,
+    ) -> Result<(), UsageError> {
+        let flag = crate::options::split_flag(arg)
+            .filter(|flag| matches!(flag.name, "script" | "graphics" | "t" | "color"))
+            .ok_or_else(|| UsageError::UnknownFlag {
+                flag: arg.to_owned(),
+                command: "view",
+            })?;
+        let value = flag.value(arg, || {
+            let next = args.get(*index).cloned();
+            *index += usize::from(next.is_some());
+            next
+        })?;
+        match flag.name {
+            "script" => self.script = Some(value),
+            "graphics" => self.mode = value,
+            "t" => self.theme = value,
+            _ => self.color = value,
+        }
+        Ok(())
+    }
 }
 
-fn prepare(args: &[String], environment: &Environment) -> Result<String, String> {
+fn prepare(args: &[String], environment: &Environment) -> Result<String, ViewError> {
     let ViewArguments {
         path,
         script,
@@ -352,16 +362,13 @@ fn prepare(args: &[String], environment: &Environment) -> Result<String, String>
         theme,
         color,
     } = ViewArguments::default().parse(args)?;
+    let path = path.filter(|p| p != "-").ok_or(UsageError::ViewNeedsFile)?;
     crate::options::choice(
         &mode,
         "--graphics",
         &["auto", "kitty", "iterm", "sixel", "cells"],
     )?;
     crate::options::choice(&color, "--color", &["auto", "always", "never"])?;
-    let path = path
-        .filter(|p| p != "-")
-        .ok_or("view requires a readable file path; stdin is not supported")?;
-    let source = fs::read(&path).map_err(|e| format!("cannot read {path}: {e}"))?;
     let theme = if !theme.is_empty() {
         theme
     } else if environment
@@ -375,7 +382,8 @@ fn prepare(args: &[String], environment: &Environment) -> Result<String, String>
     } else {
         DEFAULT_THEME.into()
     };
-    mermaid::theme::resolve(&theme).map_err(|e| e.to_string())?;
+    mermaid::theme::resolve(&theme)?;
+    let source = fs::read(&path).map_err(|source| input::read_error(&path, source))?;
     let mut viewer = Viewer {
         state: ViewState::new(&path, 80, 24, Mode::Cells),
         options: Options::new(&theme),
@@ -393,69 +401,113 @@ fn prepare(args: &[String], environment: &Environment) -> Result<String, String>
     live(&mut viewer, &mode, environment)?;
     Ok(String::new())
 }
-fn replay(viewer: &mut Viewer, script: &str) -> Result<(), String> {
-    let source =
-        fs::read_to_string(script).map_err(|error| format!("cannot read {script}: {error}"))?;
-    for (line, raw) in source.lines().enumerate() {
-        match replay_event(viewer, script, raw) {
+fn replay(viewer: &mut Viewer, script: &str) -> Result<(), ViewError> {
+    let bytes = fs::read(script).map_err(|source| input::read_error(script, source))?;
+    for (line, raw) in bytes.split(|byte| *byte == b'\n').enumerate() {
+        let event = std::str::from_utf8(raw)
+            .map_err(|_| ReplayError::InvalidUtf8)
+            .and_then(|text| replay_event(viewer, script, text));
+        match event {
             Ok(true) => break,
             Ok(false) => {}
-            Err(error) => return Err(format!("{script}:{}: {error}", line + 1)),
+            Err(source) => {
+                return Err(ViewError::Script {
+                    script: script.to_owned(),
+                    line: line + 1,
+                    source,
+                });
+            }
         }
     }
-    viewer.settle()
+    Ok(viewer.settle()?)
 }
 
-fn replay_event(viewer: &mut Viewer, script: &str, raw: &str) -> Result<bool, String> {
+fn replay_event(viewer: &mut Viewer, script: &str, raw: &str) -> Result<bool, ReplayError> {
     let text = raw.trim();
     if text.is_empty() || text.starts_with('#') {
         return Ok(false);
     }
     let (verb, rest) = text.split_once(' ').unwrap_or((text, ""));
+    let rest = rest.trim();
     match verb {
-        "settle" if rest.is_empty() => viewer.settle()?,
-        "file-delete" if rest.is_empty() => viewer.state.watch_lost = true,
-        "file-change" | "file-create" if !rest.is_empty() => {
-            let path = Path::new(script)
-                .parent()
-                .unwrap_or(Path::new("."))
-                .join(rest);
-            viewer.source = fs::read(path).map_err(|error| error.to_string())?;
-            if verb == "file-create" {
-                viewer.state.watch_lost = false;
-            }
-            viewer.edited();
+        "settle" => {
+            no_arguments(rest, ReplayError::SettleArguments)?;
+            viewer.settle()?;
         }
-        "key" if valid_key(rest) => return Ok(viewer.key(rest, false)),
+        "file-delete" => {
+            no_arguments(rest, ReplayError::DeleteArguments)?;
+            viewer.state.watch_lost = true;
+        }
+        "file-change" | "file-create" => replay_source(viewer, script, verb, rest)?,
         "resize" => {
             let (width, height) = replay_size(rest)?;
             viewer.state = std::mem::take(&mut viewer.state).resize(width, height);
         }
-        _ => return Err("bad arguments or unknown verb".into()),
+        "key" => return replay_key(viewer, rest),
+        _ => {
+            return Err(ReplayError::UnknownVerb {
+                verb: verb.to_owned(),
+            });
+        }
     }
     Ok(false)
 }
 
-fn replay_size(arguments: &str) -> Result<(usize, usize), String> {
-    let fields: Vec<_> = arguments.split(' ').collect();
-    if fields.len() != 2
-        || fields
-            .iter()
-            .any(|field| field.is_empty() || !field.bytes().all(|byte| byte.is_ascii_digit()))
-    {
-        return Err("bad arguments".into());
-    }
-    let width = fields[0]
-        .parse::<usize>()
-        .map_err(|error| error.to_string())?;
-    let height = fields[1]
-        .parse::<usize>()
-        .map_err(|error| error.to_string())?;
-    if width < MIN_WIDTH || height < MIN_HEIGHT {
-        return Err("size below minimum".into());
-    }
-    Ok((width, height))
+fn no_arguments(rest: &str, error: ReplayError) -> Result<(), ReplayError> {
+    if rest.is_empty() { Ok(()) } else { Err(error) }
 }
+
+fn replay_source(
+    viewer: &mut Viewer,
+    script: &str,
+    verb: &str,
+    argument: &str,
+) -> Result<(), ReplayError> {
+    if argument.is_empty() {
+        return Err(ReplayError::MissingSource);
+    }
+    let path = if argument.starts_with('/') {
+        argument.to_owned()
+    } else {
+        paths::join(&paths::directory(script), argument)
+    };
+    viewer.source = fs::read(&path).map_err(|source| input::read_error(&path, source))?;
+    if verb == "file-create" {
+        viewer.state.watch_lost = false;
+    }
+    viewer.edited();
+    Ok(())
+}
+
+fn replay_key(viewer: &mut Viewer, name: &str) -> Result<bool, ReplayError> {
+    if !valid_key(name) {
+        return Err(ReplayError::InvalidKey);
+    }
+    Ok(viewer.key(name, true))
+}
+
+fn replay_size(arguments: &str) -> Result<(usize, usize), ReplayError> {
+    let fields: Vec<&str> = arguments.split_whitespace().collect();
+    let [width, height] = fields[..] else {
+        return Err(ReplayError::ResizeArguments);
+    };
+    match (decimal(width), decimal(height)) {
+        (Some(width), Some(height)) if width >= MIN_WIDTH && height >= MIN_HEIGHT => {
+            Ok((width, height))
+        }
+        _ => Err(ReplayError::SizeBelowMinimum),
+    }
+}
+
+fn decimal(text: &str) -> Option<usize> {
+    if !text.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    text.parse::<i64>()
+        .ok()
+        .and_then(|value| usize::try_from(value).ok())
+}
+
 fn valid_key(s: &str) -> bool {
     (s.len() == 1 && s.as_bytes()[0].is_ascii_graphic())
         || matches!(s, "up" | "down" | "left" | "right" | "esc" | "ctrl-c")
@@ -469,31 +521,28 @@ impl Drop for TerminalGuard {
         let _ = stdout.flush();
     }
 }
-fn live(viewer: &mut Viewer, mode: &str, environment: &Environment) -> Result<(), String> {
+fn live(viewer: &mut Viewer, mode: &str, environment: &Environment) -> Result<(), ViewError> {
     if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
-        return Err("view requires a terminal unless --script is used".into());
+        return Err(UsageError::ViewNeedsTerminal.into());
     }
-    terminal::enable_raw_mode().map_err(|e| e.to_string())?;
+    terminal::enable_raw_mode()?;
     let _guard = TerminalGuard;
     if mode != "cells" {
         probe(viewer, mode, environment)?;
     }
     let status = std::process::Command::new("stty")
         .args(["min", "0", "time", "0"])
-        .status()
-        .map_err(|e| e.to_string())?;
+        .status()?;
     if !status.success() {
-        return Err("cannot configure terminal input".into());
+        return Err(ViewError::TerminalInput);
     }
-    io::stdout()
-        .write_all(b"\x1b[?1049h\x1b[?25l")
-        .map_err(|e| e.to_string())?;
-    let size = terminal::size().map_err(|e| e.to_string())?;
+    io::stdout().write_all(b"\x1b[?1049h\x1b[?25l")?;
+    let size = terminal::size()?;
     viewer.state = std::mem::take(&mut viewer.state).resize(
         usize::from(size.0).max(MIN_WIDTH),
         usize::from(size.1).max(MIN_HEIGHT),
     );
-    let target = fs::canonicalize(&viewer.state.path).map_err(|e| e.to_string())?;
+    let target = fs::canonicalize(&viewer.state.path)?;
     let (watch_tx, watch_rx) = mpsc::sync_channel(1);
     let watched = target.clone();
     let mut watcher = notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
@@ -504,18 +553,15 @@ fn live(viewer: &mut Viewer, mode: &str, environment: &Environment) -> Result<()
             return;
         }
         let _ = watch_tx.try_send(event);
-    })
-    .map_err(|e| e.to_string())?;
-    watcher
-        .watch(
-            target.parent().ok_or("missing parent directory")?,
-            notify::RecursiveMode::NonRecursive,
-        )
-        .map_err(|e| e.to_string())?;
+    })?;
+    watcher.watch(
+        target.parent().ok_or(ViewError::NoParent)?,
+        notify::RecursiveMode::NonRecursive,
+    )?;
     LiveSession::new().run(viewer, &target, &watch_rx)
 }
 
-type RenderCompletion = (bool, Result<ResultFrame, String>);
+type RenderCompletion = (bool, Result<ResultFrame, TryFromIntError>);
 
 struct LiveSession {
     worker: Option<std::thread::JoinHandle<()>>,
@@ -551,12 +597,12 @@ impl LiveSession {
         viewer: &mut Viewer,
         target: &Path,
         events: &mpsc::Receiver<notify::Result<notify::Event>>,
-    ) -> Result<(), String> {
+    ) -> Result<(), ViewError> {
         loop {
             let was_watch_lost = viewer.state.watch_lost;
             self.service_render(viewer)?;
             self.watch_timing.service(viewer, target, events);
-            let size = terminal::size().map_err(|error| error.to_string())?;
+            let size = terminal::size()?;
             let size = (
                 usize::from(size.0).max(MIN_WIDTH),
                 usize::from(size.1).max(MIN_HEIGHT),
@@ -577,7 +623,7 @@ impl LiveSession {
         }
     }
 
-    fn service_render(&mut self, viewer: &mut Viewer) -> Result<(), String> {
+    fn service_render(&mut self, viewer: &mut Viewer) -> Result<(), ViewError> {
         if self.worker.is_none() && viewer.scheduler.inflight != 0 {
             self.cancel = Cancel::new();
             let flag = self.cancel.clone();
@@ -598,7 +644,7 @@ impl LiveSession {
             return Ok(());
         };
         if let Some(handle) = self.worker.take() {
-            handle.join().map_err(|_| "render worker failed")?;
+            handle.join().map_err(|_| ViewError::WorkerFailed)?;
         }
         let event = if aborted && viewer.scheduler.cancelled {
             Event::RenderAborted
@@ -614,11 +660,9 @@ impl LiveSession {
         Ok(())
     }
 
-    fn service_input(&mut self, viewer: &mut Viewer) -> Result<bool, String> {
+    fn service_input(&mut self, viewer: &mut Viewer) -> Result<bool, ViewError> {
         let mut input = [0; 256];
-        let count = io::stdin()
-            .read(&mut input)
-            .map_err(|error| error.to_string())?;
+        let count = io::stdin().read(&mut input)?;
         self.pending.extend_from_slice(&input[..count]);
         while let Some(name) = next_key(&mut self.pending, &mut self.escape_at) {
             self.dirty |= key(&name) != Key::None;
@@ -715,7 +759,7 @@ fn next_key(pending: &mut Vec<u8>, escape_at: &mut Option<Instant>) -> Option<St
     Some("esc".into())
 }
 
-fn probe(viewer: &mut Viewer, requested: &str, environment: &Environment) -> Result<(), String> {
+fn probe(viewer: &mut Viewer, requested: &str, environment: &Environment) -> Result<(), ViewError> {
     let env = termgfx::probe::Environment {
         kitty_window_id: &environment.kitty_window_id,
         term: &environment.term,
@@ -723,18 +767,16 @@ fn probe(viewer: &mut Viewer, requested: &str, environment: &Environment) -> Res
     };
     let status = std::process::Command::new("stty")
         .args(["min", "0", "time", "0"])
-        .status()
-        .map_err(|e| e.to_string())?;
+        .status()?;
     if !status.success() {
-        return Err("cannot configure terminal probe".into());
+        return Err(ViewError::ProbeConfigure);
     }
     let probe_result = probe_replies(&env);
     let restored = std::process::Command::new("stty")
         .args(["min", "1", "time", "0"])
-        .status()
-        .map_err(|e| e.to_string())?;
+        .status()?;
     if !restored.success() {
-        return Err("cannot restore terminal probe".into());
+        return Err(ViewError::ProbeRestore);
     }
     let replies = probe_result?;
     let capability = replies.capability();
@@ -745,25 +787,23 @@ fn probe(viewer: &mut Viewer, requested: &str, environment: &Environment) -> Res
     } else {
         requested
     };
-    viewer.state.mode = Mode::parse(selected).ok_or("invalid graphics mode")?;
+    viewer.state.mode = Mode::parse(selected).ok_or(ViewError::GraphicsMode)?;
     viewer.state.fit = viewer.state.mode.is_pixel();
     Ok(())
 }
 
 fn probe_replies(
     environment: &termgfx::probe::Environment<'_>,
-) -> Result<termgfx::probe::Replies, String> {
+) -> io::Result<termgfx::probe::Replies> {
     let queries = termgfx::probe::queries(environment);
-    io::stdout()
-        .write_all(&queries)
-        .map_err(|e| e.to_string())?;
-    io::stdout().flush().map_err(|e| e.to_string())?;
+    io::stdout().write_all(&queries)?;
+    io::stdout().flush()?;
     let deadline = Instant::now() + Duration::from_millis(100);
     let mut replies = termgfx::probe::Replies::new();
     let mut bytes = Vec::new();
     while Instant::now() < deadline {
         let mut byte = [0];
-        if io::stdin().read(&mut byte).map_err(|e| e.to_string())? == 0 {
+        if io::stdin().read(&mut byte)? == 0 {
             std::thread::sleep(Duration::from_millis(1));
             continue;
         }
@@ -783,7 +823,7 @@ fn probe_replies(
     }
     Ok(replies)
 }
-fn composite(viewer: &Viewer, image: &Image) -> Result<Vec<u8>, String> {
+fn composite(viewer: &Viewer, image: &Image) -> Result<Vec<u8>, ViewError> {
     let state = &viewer.state;
     let w = state.viewport_pixel_width();
     let h = state.viewport_pixel_height();
@@ -791,8 +831,8 @@ fn composite(viewer: &Viewer, image: &Image) -> Result<Vec<u8>, String> {
         .checked_mul(h)
         .and_then(|n| n.checked_mul(4))
         .filter(|n| *n <= 268435456)
-        .ok_or("viewport too large")?;
-    let theme = mermaid::theme::resolve(&viewer.options.theme).map_err(|e| e.to_string())?;
+        .ok_or(ViewError::ViewportTooLarge)?;
+    let theme = mermaid::theme::resolve(&viewer.options.theme)?;
     let bg = theme.colour(mermaid::theme::Token::Background);
     let mut pixels = vec![0; length];
     let x0 = origin_offset(state.scaled_width(), w);
@@ -816,11 +856,11 @@ fn composite(viewer: &Viewer, image: &Image) -> Result<Vec<u8>, String> {
     Ok(pixels)
 }
 
-fn draw(viewer: &Viewer) -> Result<(), String> {
+fn draw(viewer: &Viewer) -> Result<(), ViewError> {
     let mut output = b"\x1b[H".to_vec();
     let text = frame(&viewer.state);
     if viewer.colour {
-        let theme = mermaid::theme::resolve(&viewer.options.theme).map_err(|e| e.to_string())?;
+        let theme = mermaid::theme::resolve(&viewer.options.theme)?;
         for line in text.lines() {
             let token = if line.contains("error ") {
                 mermaid::theme::Token::Error
@@ -829,7 +869,7 @@ fn draw(viewer: &Viewer) -> Result<(), String> {
             };
             let colour = theme.colour(token);
             let sgr = mermaid::cells::colour::sgr(colour, token, viewer.depth);
-            write!(output, "{sgr}{line}\x1b[39m\r\n").map_err(|e| e.to_string())?;
+            write!(output, "{sgr}{line}\x1b[39m\r\n")?;
         }
     } else {
         output.extend_from_slice(text.replace('\n', "\r\n").as_bytes());
@@ -842,27 +882,26 @@ fn draw(viewer: &Viewer) -> Result<(), String> {
         draw_image(viewer, image, &mut output)?;
     }
     let mut stdout = io::stdout().lock();
-    stdout
-        .write_all(&output)
-        .and_then(|()| stdout.flush())
-        .map_err(|e| e.to_string())
+    stdout.write_all(&output)?;
+    stdout.flush()?;
+    Ok(())
 }
 
-fn draw_image(viewer: &Viewer, image: &Image, output: &mut Vec<u8>) -> Result<(), String> {
+fn draw_image(viewer: &Viewer, image: &Image, output: &mut Vec<u8>) -> Result<(), ViewError> {
     let pixels = composite(viewer, image)?;
-    let width = u32::try_from(viewer.state.viewport_pixel_width()).map_err(|e| e.to_string())?;
-    let height = u32::try_from(viewer.state.viewport_pixel_height()).map_err(|e| e.to_string())?;
+    let width = u32::try_from(viewer.state.viewport_pixel_width())?;
+    let height = u32::try_from(viewer.state.viewport_pixel_height())?;
     output.extend_from_slice(b"\x1b[1;1H");
     if viewer.state.mode == Mode::Sixel {
-        return termgfx::sixel::encode(
+        termgfx::sixel::encode(
             &pixels,
-            i32::try_from(width).map_err(|e| e.to_string())?,
-            i32::try_from(height).map_err(|e| e.to_string())?,
+            i32::try_from(width)?,
+            i32::try_from(height)?,
             output,
-        )
-        .map_err(|e| e.to_string());
+        )?;
+        return Ok(());
     }
-    let png = mermaid::raster::encode_rgba(width, height, pixels).map_err(|e| e.to_string())?;
+    let png = mermaid::raster::encode_rgba(width, height, pixels)?;
     match viewer.state.mode {
         Mode::Kitty => termgfx::kitty::encode(&png, output),
         Mode::Iterm => termgfx::iterm::encode(&png, width, height, output),

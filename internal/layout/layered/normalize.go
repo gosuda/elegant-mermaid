@@ -14,17 +14,21 @@ type ProperNode struct {
 	Edge  int32
 	Label *EdgeLabel
 }
-type ProperEdge struct{ Tail, Head, Decl, Original int32 }
-type Proper struct {
-	Nodes    []ProperNode
-	Edges    []ProperEdge
-	Rank     []int32
-	Chains   [][]int32
-	Out, In  [][]int32
-	Original []Edge
-	Clusters []Cluster
-	Params
-}
+type (
+	ProperEdge struct{ Tail, Head, Decl, Original int32 }
+	Proper     struct {
+		Nodes    []ProperNode
+		Edges    []ProperEdge
+		Rank     []int32
+		Chains   [][]int32
+		Out, In  [][]int32
+		Original []Edge
+		Clusters []Cluster
+		Params
+		regionTitles  bool
+		reservedLanes []reservedLane
+	}
+)
 
 func Normalize(g *Graph, rank []int32) (*Proper, error) {
 	if err := validateGraph(g); err != nil {
@@ -37,7 +41,7 @@ func Normalize(g *Graph, rank []int32) (*Proper, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := &Proper{Rank: slices.Clone(rank), Chains: make([][]int32, len(g.Edges)), Params: g.Params}
+	p := &Proper{Rank: slices.Clone(rank), Chains: make([][]int32, len(g.Edges)), Params: g.Params, regionTitles: len(g.regions.sets) > 0}
 	p.Original = slices.Clone(g.Edges)
 	p.Clusters = slices.Clone(g.Clusters)
 	for _, n := range g.Nodes {
@@ -67,6 +71,7 @@ func normalizeSemanticEdges(p *Proper, edges []Edge, slot int32) error {
 	}
 	return nil
 }
+
 func (p *Proper) rebuildAdjacency() {
 	p.Out = make([][]int32, len(p.Nodes))
 	p.In = make([][]int32, len(p.Nodes))

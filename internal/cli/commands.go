@@ -11,21 +11,42 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 
+	mermaid "github.com/gosuda/elegant-mermaid"
 	"github.com/gosuda/elegant-mermaid/internal/cells"
 	"github.com/gosuda/elegant-mermaid/internal/diag"
+	"github.com/gosuda/elegant-mermaid/internal/fileerr"
+	"github.com/gosuda/elegant-mermaid/internal/icon"
 	"github.com/gosuda/elegant-mermaid/internal/layout"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
+	"github.com/gosuda/elegant-mermaid/internal/scenelink"
 	"github.com/gosuda/elegant-mermaid/internal/svg"
+	"github.com/gosuda/elegant-mermaid/internal/syntax"
+	themes "github.com/gosuda/elegant-mermaid/internal/theme"
+	"github.com/gosuda/elegant-mermaid/raster"
 )
 
+type stringList []string
+
+func (l *stringList) String() string { return strings.Join(*l, ",") }
+
+func (l *stringList) Set(value string) error {
+	*l = append(*l, value)
+	return nil
+}
+
 type commandOptions struct {
-	input, output, format, theme, background, charset, color, svgText string
-	width                                                             int
+	input, output, format, theme, background, charset, color, svgText, config string
+	width, scale                                                              int
+	iconPacks                                                                 stringList
+	site                                                                      syntax.ConfigValue
+	packs                                                                     []*icon.Pack
+	outlines                                                                  *scenelink.Outlines
 }
 
 func commandFlags(command string, args []string) (commandOptions, []string, error) {
-	o := commandOptions{charset: "unicode", color: "auto", svgText: "font"}
+	o := commandOptions{charset: "unicode", color: "auto", svgText: "font", scale: 2}
 	fs := flag.NewFlagSet(command, flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&o.color, "color", "auto", "")
@@ -40,6 +61,9 @@ func commandFlags(command string, args []string) (commandOptions, []string, erro
 		fs.StringVar(&o.charset, "charset", "unicode", "")
 		fs.StringVar(&o.svgText, "svg-text", "font", "")
 		fs.IntVar(&o.width, "width", 0, "")
+		fs.IntVar(&o.scale, "s", 2, "")
+		fs.StringVar(&o.config, "c", "", "")
+		fs.Var(&o.iconPacks, "icon-pack", "")
 	}
 	var positional []string
 	for len(args) > 0 {
@@ -49,28 +73,42 @@ func commandFlags(command string, args []string) (commandOptions, []string, erro
 			positional = append(positional, args...)
 			break
 		}
-		if !isModelFlag(a) {
+		if !isFlagArg(a) {
 			positional = append(positional, a)
 			continue
 		}
-		name := strings.TrimLeft(strings.SplitN(a, "=", 2)[0], "-")
-		if fs.Lookup(name) == nil {
-			return o, nil, fmt.Errorf("unknown flag %s; run emd %s --help", a, command)
+		token, ok := splitFlag(a)
+		if !ok || fs.Lookup(token.name) == nil {
+			return o, nil, unknownFlag(a, command)
 		}
+		name := token.name
 		part, rest, err := flagPart(a, args)
 		if err != nil {
 			return o, nil, err
 		}
 		args = rest
 		if err := fs.Parse(part); err != nil {
-			return o, nil, invalidValue(part[len(part)-1], "--width", "non-negative integers")
+			return o, nil, badNumber(name, part)
 		}
 	}
 	return o, positional, nil
 }
+
 func invalidValue(value, name, accepted string) error {
 	return fmt.Errorf("invalid value %s for %s; expected one of: %s", value, name, accepted)
 }
+
+func badNumber(name string, part []string) error {
+	value := part[len(part)-1]
+	if prefix, rest, ok := strings.Cut(value, "="); ok && strings.HasPrefix(prefix, "-") {
+		value = rest
+	}
+	if name == "s" {
+		return invalidValue(value, "-s", "1..8")
+	}
+	return invalidValue(value, "--width", "non-negative integers")
+}
+
 func validateChoice(value, name string, choices ...string) error {
 	if !slices.Contains(choices, value) {
 		return invalidValue(value, name, strings.Join(choices, ", "))
@@ -78,11 +116,16 @@ func validateChoice(value, name string, choices ...string) error {
 	return nil
 }
 
-func parseInput(path string, src []byte) (diag.FileDiagnostics, *layout.Diagram, error) {
+func parseDiagram(path string, src []byte) (diag.FileDiagnostics, *layout.Diagram) {
 	d := layout.ParseDiagram(src)
 	f := diag.FileDiagnostics{Path: path, Kind: d.Kind, Source: d.Source, Diagnostics: d.Diagnostics}
+	return f, d
+}
+
+func parseInput(path string, src []byte) (diag.FileDiagnostics, *layout.Diagram, error) {
+	f, d := parseDiagram(path, src)
 	if d.Found && !d.Supported() {
-		return f, d, fmt.Errorf("unsupported diagram kind: %s", d.Kind)
+		return f, d, errors.New("unsupported diagram kind")
 	}
 	return f, d, nil
 }
@@ -108,6 +151,9 @@ func renderCommand(cfg Config) error {
 	if err = resolveRenderOptions(&o, cfg); err != nil {
 		return err
 	}
+	if err = loadRenderInputs(&o); err != nil {
+		return err
+	}
 	return renderInput(cfg, o, path)
 }
 
@@ -123,72 +169,191 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	if err != nil {
 		return err
 	}
-	if err = writeDiagnostics(cfg.Stderr, path, src, f.Diagnostics, colourEnabled(o.color, cfg)); err != nil {
+	if err = rejectInvalidSource(cfg, o, f, src); err != nil {
+		return err
+	}
+	s, ds, err := layoutDiagram(cfg, o, m)
+	if err != nil {
+		return err
+	}
+	if err = diag.RenderText(cfg.Stderr, path, src, ds, diag.FrameOptions{}); err != nil {
+		return err
+	}
+	svgOptions, err := svgOptionsOf(o, m)
+	if err != nil {
+		return err
+	}
+	return serializeScene(cfg, o, s, svgOptions)
+}
+
+func rejectInvalidSource(cfg Config, o commandOptions, f diag.FileDiagnostics, src []byte) error {
+	if err := writeDiagnostics(cfg.Stderr, f.Path, src, f.Diagnostics, colourEnabled(o.color, cfg)); err != nil {
 		return err
 	}
 	if hasErrors(f.Diagnostics) {
 		return &ExitError{Code: 1}
 	}
+	return nil
+}
+
+func layoutDiagram(cfg Config, o commandOptions, m *layout.Diagram) (scene.Scene, []diag.Diagnostic, error) {
 	profile := scene.ProfileVector
 	if o.format == "text" {
 		profile = scene.ProfileCell
 	}
 	in, err := m.Input(profile, scene.Options{MaxWidth: int32(o.width)})
 	if err != nil {
-		return err
+		return scene.Scene{}, nil, resultError(cfg, err)
 	}
+	in.IconPacks = o.packs
 	s, ds, err := layout.Layout(in)
 	if err != nil {
-		return resultError(cfg, err)
+		return scene.Scene{}, nil, resultError(cfg, err)
 	}
-	if err = diag.RenderText(cfg.Stderr, path, src, ds, diag.FrameOptions{}); err != nil {
-		return err
+	ds = append(ds, layout.PlaceIcons(&s, m.IconRefs(), o.packs)...)
+	return s, ds, nil
+}
+
+func svgOptionsOf(o commandOptions, m *layout.Diagram) (svg.Options, error) {
+	look, err := m.Look(o.site)
+	if err != nil {
+		return svg.Options{}, err
 	}
-	return serializeScene(cfg, o, s, svg.Options{Theme: o.theme, Background: o.background, Kind: m.Kind, Title: m.AccTitle, Description: m.AccDescr})
+	return svg.Options{Theme: o.theme, Background: o.background, Text: svgTextMode(o.svgText), Outlines: o.outlines, Kind: m.Kind, Title: m.AccTitle, Description: m.AccDescr, Look: look, Links: m.Links()}, nil
+}
+
+func loadRenderInputs(o *commandOptions) error {
+	if o.config != "" {
+		text, err := readOperand(o.config)
+		if err != nil {
+			return err
+		}
+		if o.site, err = layout.ParseSiteConfig(text); err != nil {
+			return fmt.Errorf("%s: %w", o.config, err)
+		}
+	}
+	for _, path := range o.iconPacks {
+		data, err := readOperand(path)
+		if err != nil {
+			return err
+		}
+		pack, err := icon.Parse(data)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+		o.packs = append(o.packs, pack)
+	}
+	if o.svgText == "paths" && o.format == "svg" {
+		var err error
+		if o.outlines, err = interOutlines(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func readOperand(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fileerr.Read(path, err)
+	}
+	return data, nil
 }
 
 func serializeScene(cfg Config, o commandOptions, s scene.Scene, svgOptions svg.Options) error {
-	var err error
-	var out bytes.Buffer
-	if o.format == "svg" {
-		err = svg.Write(&out, s, svgOptions)
-	} else {
-		var r cells.Result
-		r, err = cells.Render(s, cells.Options{Charset: renderCharset(o.charset), Color: renderColour(o.color, cfg), Theme: o.theme})
-		out.Write(r.Text)
+	data, err := encodeScene(cfg, o, s, svgOptions)
+	if errors.Is(err, mermaid.ErrBadConfig) {
+		return err
 	}
 	if err != nil {
 		return resultError(cfg, err)
 	}
 	if o.output != "" {
-		return atomicOutput(o.output, out.Bytes())
+		if err = atomicOutput(o.output, data); err != nil {
+			return fileerr.Write(o.output, err)
+		}
+		return nil
 	}
-	_, err = cfg.Stdout.Write(out.Bytes())
+	_, err = cfg.Stdout.Write(data)
 	return err
 }
+
+func encodeScene(cfg Config, o commandOptions, s scene.Scene, svgOptions svg.Options) ([]byte, error) {
+	switch o.format {
+	case "svg":
+		var out bytes.Buffer
+		err := svg.Write(&out, s, svgOptions)
+		return out.Bytes(), err
+	case "png":
+		return encodePNG(o, s)
+	default:
+		r, err := cells.Render(s, cells.Options{Charset: renderCharset(o.charset), Color: renderColour(o.color, cfg), Theme: o.theme})
+		return r.Text, err
+	}
+}
+
+func encodePNG(o commandOptions, s scene.Scene) ([]byte, error) {
+	wrapped, ok := scenelink.NewScene(s).(*mermaid.Scene)
+	if !ok {
+		return nil, errors.New("cannot wrap the scene for rasterization")
+	}
+	pixels, err := raster.RGBA(wrapped, raster.RGBAOptions{Options: raster.Options{Scale: o.scale, Background: o.background}, Theme: o.theme})
+	if err != nil {
+		return nil, err
+	}
+	return raster.EncodePNG(pixels)
+}
+
+func svgTextMode(s string) svg.TextMode {
+	if s == "paths" {
+		return svg.TextPaths
+	}
+	return svg.TextFont
+}
+
+func interOutlines() (*scenelink.Outlines, error) {
+	fonts, ok := scenelink.OutlinesOf(raster.InterOutlines())
+	if !ok {
+		return nil, errors.New("cannot load the embedded glyph outlines")
+	}
+	return &fonts, nil
+}
+
 func resultError(cfg Config, err error) error {
 	if _, e := fmt.Fprintln(cfg.Stderr, err); e != nil {
 		return e
 	}
 	return &ExitError{Code: 1}
 }
+
 func renderCharset(s string) cells.Charset {
 	if s == "ascii" {
 		return cells.CharsetASCII
 	}
 	return cells.CharsetUnicode
 }
+
 func resolveRenderOptions(o *commandOptions, cfg Config) error {
 	if err := inferFormat(o, cfg); err != nil {
 		return err
 	}
+	if err := validateRenderValues(*o); err != nil {
+		return err
+	}
+	if o.format == "png" && o.output == "" && terminalWriter(cfg.Stdout) {
+		return errors.New("cannot write PNG to a terminal; use -o FILE.png or redirect stdout to a file")
+	}
+	return resolveTheme(o, cfg)
+}
+
+func validateRenderValues(o commandOptions) error {
 	if err := validateBackground(o.background); err != nil {
 		return err
 	}
 	for _, c := range []struct {
 		value, name string
 		choices     []string
-	}{{o.format, "-e", []string{"svg", "text"}}, {o.charset, "--charset", []string{"unicode", "ascii"}}, {o.color, "--color", []string{"auto", "always", "never"}}, {o.svgText, "--svg-text", []string{"font"}}} {
+	}{{o.format, "-e", []string{"svg", "png", "text"}}, {o.charset, "--charset", []string{"unicode", "ascii"}}, {o.color, "--color", []string{"auto", "always", "never"}}, {o.svgText, "--svg-text", []string{"font", "paths"}}} {
 		if err := validateChoice(c.value, c.name, c.choices...); err != nil {
 			return err
 		}
@@ -196,15 +361,26 @@ func resolveRenderOptions(o *commandOptions, cfg Config) error {
 	if o.width < 0 || int64(o.width) > 2147483647 {
 		return invalidValue(fmt.Sprint(o.width), "--width", "non-negative integers")
 	}
+	if o.scale < 1 || o.scale > 8 {
+		return invalidValue(fmt.Sprint(o.scale), "-s", "1..8")
+	}
+	return nil
+}
+
+func resolveTheme(o *commandOptions, cfg Config) error {
 	if o.theme == "" {
 		o.theme = "elegant-light"
-		if o.format == "text" && darkBackground(os.Getenv("COLORFGBG")) {
+		if o.format == "text" && darkBackground(cfg.Terminal.ColorFGBG) {
 			o.theme = "elegant-dark"
 		}
 	}
-	return validateChoice(o.theme, "-t", "elegant-light", "elegant-dark")
+	return validateChoice(o.theme, "-t", themes.Names()...)
 }
+
 func atomicOutput(path string, data []byte) (err error) {
+	if info, statErr := os.Lstat(path); statErr == nil && info.IsDir() {
+		return syscall.EISDIR
+	}
 	f, err := os.CreateTemp(filepath.Dir(path), ".emd-*")
 	if err != nil {
 		return err

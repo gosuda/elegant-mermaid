@@ -1,0 +1,13 @@
+[
+  {
+    "code": "block/no-blocks",
+    "severity": "warning",
+    "summary": "block diagram declares no blocks",
+    "help": "Add at least one block declaration.",
+    "rationale": "The header parses, but the rendered diagram is empty, so the missing content is easy to miss.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:block-no-blocks",
+    "status": "adopted"
+  }
+]

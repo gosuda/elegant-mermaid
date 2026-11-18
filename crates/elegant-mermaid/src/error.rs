@@ -120,4 +120,42 @@ mod tests {
             "pixel size error must retain width 16385: message={raster_message:?}"
         );
     }
+
+    #[test]
+    fn error_texts() {
+        let texts = [
+            (
+                RenderError::TooLarge {
+                    limit: 1,
+                    actual: 2,
+                }
+                .to_string(),
+                "model exceeds the limit of 1; actual 2",
+            ),
+            (RenderError::Overflow.to_string(), "arithmetic overflow"),
+            (
+                crate::geom::GeomError::Overflow.to_string(),
+                "arithmetic overflow",
+            ),
+            (crate::geom::GeomError::Domain.to_string(), "domain error"),
+            (
+                RasterError::PixelsTooLarge {
+                    width: 16385,
+                    height: 1,
+                }
+                .to_string(),
+                "image is too large: 16385x1 pixels",
+            ),
+            (
+                RasterError::Encode {
+                    message: "disk full".into(),
+                }
+                .to_string(),
+                "PNG encoding failed: disk full",
+            ),
+        ];
+        for (got, want) in texts {
+            assert_eq!(got, want);
+        }
+    }
 }

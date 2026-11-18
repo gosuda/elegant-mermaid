@@ -44,6 +44,7 @@ func TestOrderCrossAccumulator(t *testing.T) {
 		}
 	}
 }
+
 func orderCase(t *testing.T, index int) *Proper {
 	t.Helper()
 	src, err := random.Source("layered", index)
@@ -74,6 +75,7 @@ func orderCase(t *testing.T, index int) *Proper {
 	}
 	return p
 }
+
 func TestOrderRandomGraphs(t *testing.T) {
 	for index := range 200 {
 		p := orderCase(t, index)
@@ -136,6 +138,7 @@ func orderAssertTranspose(t *testing.T, g orderGraph, initial [][]int32) {
 		}
 	}
 }
+
 func orderAssertPermutation(t *testing.T, a, b [][]int32) {
 	t.Helper()
 	if len(a) != len(b) {
@@ -150,6 +153,7 @@ func orderAssertPermutation(t *testing.T, a, b [][]int32) {
 		}
 	}
 }
+
 func TestOrderHandGraphs(t *testing.T) {
 	p := &Proper{Nodes: make([]ProperNode, 4), Rank: []int32{0, 0, 1, 1}, Edges: []ProperEdge{{Tail: 0, Head: 3}, {Tail: 1, Head: 2}}}
 	got, err := Order(p, OrderOptions{})
@@ -173,6 +177,7 @@ func TestOrderHandGraphs(t *testing.T) {
 		t.Fatal("K3,3 minimum is nine")
 	}
 }
+
 func TestOrderBudgetAndGuards(t *testing.T) {
 	p := &Proper{}
 	g, l, err := orderPrepare(p)

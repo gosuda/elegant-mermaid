@@ -25,7 +25,11 @@ impl<'a> Cfg<'a> {
                 break;
             };
             if !out.inline {
-                out.value = self.nested_or_null(n);
+                let (value, start) = self.nested_or_null(n);
+                out.value = value;
+                if let Some(start) = start {
+                    out.value_start = start;
+                }
             }
             if self.stop {
                 break;
@@ -84,26 +88,28 @@ impl<'a> Cfg<'a> {
         }
     }
 
-    pub(super) fn nested_or_null(&mut self, n: usize) -> ConfigValue {
+    pub(super) fn nested_or_null(&mut self, n: usize) -> (ConfigValue, Option<usize>) {
         self.skip_lines();
         if self.stop || self.at_end() {
-            return ConfigValue::Null;
+            return (ConfigValue::Null, None);
         }
         let l = self.take_line(self.pos);
         if self.stop {
-            return ConfigValue::Null;
+            return (ConfigValue::Null, None);
         }
         if l.col > n {
             self.pos = l.content;
-            if matches!(self.raw(self.pos), Some(b'|' | b'>')) {
-                return match self.block_scalar(n) {
+            let start = l.content;
+            if self.block_scalar_start() {
+                let value = match self.block_scalar(n) {
                     Some(text) => ConfigValue::String(text),
                     None => ConfigValue::Null,
                 };
+                return (value, Some(start));
             }
-            return self.root_value(l.col);
+            return (self.node_value(l.col, n, n + 1), Some(start));
         }
-        ConfigValue::Null
+        (ConfigValue::Null, None)
     }
 
     pub(super) fn entry(&mut self, n: usize) -> Option<EntryOut> {
@@ -131,7 +137,7 @@ impl<'a> Cfg<'a> {
     }
 
     pub(super) fn entry_value(&mut self, n: usize) -> Option<(ConfigValue, bool, bool)> {
-        self.yaml_value_indent = Some(n);
+        self.yaml_continuation_col = Some(n + 1);
         match self.raw(self.pos) {
             None | Some(b'\r') | Some(b'\n') | Some(b'#') => {
                 self.finish_line()?;
@@ -180,12 +186,12 @@ impl<'a> Cfg<'a> {
         }
         match self.raw(self.pos) {
             Some(b'"') => {
-                self.yaml_value_indent = None;
+                self.yaml_continuation_col = None;
                 let (t, sp) = self.quoted_double()?;
                 self.entry_colon(t, sp)
             }
             Some(b'\'') => {
-                self.yaml_value_indent = None;
+                self.yaml_continuation_col = None;
                 let (t, sp) = self.quoted_single()?;
                 self.entry_colon(t, sp)
             }
@@ -224,14 +230,13 @@ impl<'a> Cfg<'a> {
                 Some((t, sp, cp))
             }
             None => {
-                self.skip_inline_ws();
-                self.fail(self.pos);
+                self.fail(self.content_end(self.pos));
                 None
             }
         }
     }
 
-    pub(super) fn plain_key_colon(&mut self) -> Option<usize> {
+    pub(super) fn plain_key_colon(&self) -> Option<usize> {
         let from = self.pos;
         let to = self.content_end(from);
         let mut j = from;
@@ -245,7 +250,6 @@ impl<'a> Cfg<'a> {
             }
             j += 1;
         }
-        self.pos = j;
         None
     }
 }

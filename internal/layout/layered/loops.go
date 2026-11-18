@@ -11,8 +11,15 @@ func loopBand(g *Graph, v int32) int64 {
 	}
 	return band
 }
+
 func sizeLoops(g *Graph) error {
 	for v := range g.Nodes {
+		if g.Nodes[v].Exact {
+			if err := sizeExactLoops(g, int32(v)); err != nil {
+				return err
+			}
+			continue
+		}
 		count, extent, err := nodeLoopExtent(g, int32(v))
 		if err != nil {
 			return err
@@ -34,6 +41,7 @@ func sizeLoops(g *Graph) error {
 	}
 	return nil
 }
+
 func nodeLoopExtent(g *Graph, v int32) (int64, int64, error) {
 	var count, extent int64
 	for _, e := range g.Edges {
@@ -57,6 +65,7 @@ func nodeLoopExtent(g *Graph, v int32) (int64, int64, error) {
 	}
 	return count, extent, nil
 }
+
 func Loops(g *Graph, boxes []Box) ([]EdgeRoute, error) {
 	if err := validateGraph(g); err != nil {
 		return nil, err
@@ -68,12 +77,25 @@ func Loops(g *Graph, boxes []Box) ([]EdgeRoute, error) {
 		return nil, ErrGraph
 	}
 	counts := make([]int64, len(g.Nodes))
+	totals := make([]int64, len(g.Nodes))
+	for _, e := range g.Edges {
+		if e.NodeLoop() {
+			totals[e.Tail]++
+		}
+	}
 	var out []EdgeRoute
 	for i, e := range g.Edges {
 		if !e.NodeLoop() {
 			continue
 		}
-		points, err := loopPoints(boxes[e.Tail].Rect, int64(g.Slot), loopBand(g, e.Tail), counts[e.Tail])
+		site := loopSite{rect: boxes[e.Tail].Rect, slot: int64(g.Slot), band: loopBand(g, e.Tail), index: counts[e.Tail], total: totals[e.Tail]}
+		var points []geom.Point
+		var err error
+		if g.Nodes[e.Tail].Exact {
+			points, err = site.exactPoints()
+		} else {
+			points, err = loopPoints(site.rect, site.slot, site.band, site.index)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -82,6 +104,7 @@ func Loops(g *Graph, boxes []Box) ([]EdgeRoute, error) {
 	}
 	return out, nil
 }
+
 func loopPoints(b geom.Rect, slot, band, index int64) ([]geom.Point, error) {
 	right, err := coordinate(int64(b.X) + int64(b.W))
 	if err != nil {
@@ -107,6 +130,7 @@ func loopPoints(b geom.Rect, slot, band, index int64) ([]geom.Point, error) {
 	}
 	return []geom.Point{{X: right, Y: ya}, {X: lane, Y: ya}, {X: lane, Y: yb}, {X: right, Y: yb}}, nil
 }
+
 func loopLabels(g *Graph, boxes []Box) (labelPlacement, error) {
 	counts := make([]int64, len(g.Nodes))
 	totals := make([]int64, len(g.Nodes))
@@ -135,10 +159,12 @@ func loopLabels(g *Graph, boxes []Box) (labelPlacement, error) {
 	}
 	return out, nil
 }
+
 func loopLabelRect(g *Graph, edge Edge, box geom.Rect, index, total int64) (geom.Rect, error) {
 	band := loopBand(g, edge.Tail)
 	arithmetic := coordinateArithmetic{}
-	x := arithmetic.add(int64(box.X)+int64(box.W), arithmetic.multiply(int64(g.Slot), total+1))
+	factor := loopLabelFactor(g, edge.Tail, total)
+	x := arithmetic.add(int64(box.X)+int64(box.W), arithmetic.multiply(int64(g.Slot), factor))
 	center := arithmetic.add(int64(box.Y), arithmetic.add(arithmetic.multiply(index, band), band/2))
 	y := arithmetic.subtract(center, int64(edge.Label.H)/2)
 	if arithmetic.err != nil {
@@ -163,7 +189,7 @@ func loopExtents(g *Graph, boxes []Box) ([]Box, error) {
 		if err != nil {
 			return nil, err
 		}
-		h, err := coordinate(counts[i] * loopBand(g, int32(i)))
+		h, err := coordinate(max(counts[i]*loopBand(g, int32(i)), exactHeight(n, boxes[i].Rect)))
 		if err != nil {
 			return nil, err
 		}

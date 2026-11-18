@@ -7,11 +7,13 @@ import (
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 )
 
-type point struct{ x, y float64 }
-type contour struct {
-	points []point
-	closed bool
-}
+type (
+	point   struct{ x, y float64 }
+	contour struct {
+		points []point
+		closed bool
+	}
+)
 
 func pointsOf(ps []geom.Point) []point {
 	out := make([]point, len(ps))

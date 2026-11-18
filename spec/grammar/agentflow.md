@@ -237,5 +237,6 @@ direction = direction_tb | direction_bt | direction_rl | direction_lr | directio
 
 - agentflow-55: A flow with `view: collapsed` MUST become a collapsedGroup node and MUST hide its descendants; edges MUST redirect hidden endpoints to the outermost visible collapsed ancestor, discard collapse-induced self-loops between distinct authored endpoints, and retain authored self-loops. [just oracle]
 - agentflow-56: Parent resolution MUST reject an assignment that closes a containment cycle, MUST retain earlier accepted assignments, and MUST emit agentflow/containment-violation at the child id with warning severity and message `container PARENT cannot contain CHILD because it closes a containment cycle`. [just oracle]
+- agentflow-57: A `click` link whose URL has an allowed scheme under state-58 MUST reach the scene as one `<a>` wrapping the scene group of role `node` whose owner is the target id; a link of any other scheme and a link without a URL MUST draw no anchor, and an empty tooltip MUST emit no `<title>`. Go and Rust MUST emit the same anchors. [just go-check: TestAgentflowClickLinksWrapTheirNode]
 
 The authority for clauses 55 and 56 is `agentflowDb.ts:1706-1855`. These rules run during model export even though the post-parse validator is empty. The containment warning is live; it is not a reserved-only diagnostic.

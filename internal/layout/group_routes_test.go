@@ -11,6 +11,7 @@ func groupRouteInput() Input {
 		{ID: "S", Role: scene.RoleGroup, Direction: "LR"}, {ID: "A", Parent: "S", Exclusive: true}, {ID: "B", Parent: "S", Exclusive: true}, {ID: "X", Exclusive: true},
 	}, Groups: []Group{{ID: "S"}}, Labels: []Label{{ID: "S.label", Owner: "S", Text: "S"}}, Routes: []Route{{ID: "inside", From: "A", To: "B", Orthogonal: true}}}
 }
+
 func TestGroupBoundaryRoutesPreserveIdentity(t *testing.T) {
 	cases := []struct {
 		name, from, to string
@@ -51,6 +52,7 @@ func assertGroupRouteIdentity(t *testing.T, s scene.Scene) {
 		t.Fatal("route dropped or duplicated", s.Routes)
 	}
 }
+
 func TestNestedGroupProxyRoutes(t *testing.T) {
 	in := groupRouteInput()
 	in.Boxes[0].Direction = ""

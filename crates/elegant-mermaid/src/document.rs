@@ -8,6 +8,7 @@ pub struct Document<'src> {
     kind: Option<DiagramKind>,
     diagnostics: Vec<Diagnostic>,
     starts: Vec<usize>,
+    look: crate::look::Look,
     pub(crate) model: Option<crate::model::Resolved>,
 }
 
@@ -26,6 +27,14 @@ pub fn parse_bytes(bytes: &[u8]) -> Document<'_> {
         |kind| crate::model::Resolved::parse(kind, &source, &prep.removed),
     );
     diagnostics.extend(resolved);
+    let layers: Vec<&crate::syntax::config_value::ConfigValue> = prep
+        .frontmatter
+        .iter()
+        .filter_map(|f| f.config.as_ref())
+        .chain(prep.init_config.iter())
+        .collect();
+    let (look, look_diagnostics) = crate::look::Look::read(&layers);
+    diagnostics.extend(look_diagnostics);
     if let Some(start) = bad {
         diagnostics.push(Diagnostic {
             code: "source/invalid-utf8",
@@ -47,6 +56,7 @@ pub fn parse_bytes(bytes: &[u8]) -> Document<'_> {
         kind: detection.kind,
         diagnostics,
         starts,
+        look,
         model,
     }
 }
@@ -57,6 +67,9 @@ impl Document<'_> {
     }
     pub fn into_resolved(self) -> Option<crate::model::Resolved> {
         self.model
+    }
+    pub fn look(&self) -> crate::look::Look {
+        self.look
     }
     pub fn source(&self) -> &str {
         &self.source

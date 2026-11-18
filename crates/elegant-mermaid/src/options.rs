@@ -80,6 +80,7 @@ pub struct LayoutOptions {
     pub thoroughness: u8,
     pub max_width: u32,
     pub limits: Limits,
+    pub icon_packs: Vec<crate::icons::IconPack>,
     pub config: Option<String>,
     pub cancel: Cancel,
 }
@@ -92,6 +93,7 @@ impl Default for LayoutOptions {
             thoroughness: DEFAULT_THOROUGHNESS,
             max_width: 0,
             limits: Limits::default(),
+            icon_packs: Vec::new(),
             config: None,
             cancel: Cancel::default(),
         }
@@ -110,6 +112,7 @@ pub struct SvgOptions {
     pub layout: LayoutOptions,
     pub background: String,
     pub text: TextMode,
+    pub outlines: Option<crate::GlyphOutlines>,
     pub id_prefix: String,
 }
 
@@ -186,6 +189,7 @@ mod tests {
         let svg = SvgOptions::default();
         assert_eq!(svg.background, "");
         assert_eq!(svg.text, TextMode::Font);
+        assert!(svg.outlines.is_none());
         assert_eq!(svg.id_prefix, "");
         assert_eq!(svg.layout.profile, Profile::Vector);
     }

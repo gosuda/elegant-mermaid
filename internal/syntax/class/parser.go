@@ -9,14 +9,16 @@ import (
 )
 
 type parser struct {
-	src    []byte
-	tokens []Token
-	at     int
-	diags  []diag.Diagnostic
+	src     []byte
+	cleaned *source.Cleaned
+	tokens  []Token
+	at      int
+	diags   []diag.Diagnostic
 }
 
 func Parse(src []byte, removed []source.Span) (*File, []diag.Diagnostic) {
-	p := parser{src: src, tokens: Lex(src, removed)}
+	cleaned := source.Clean(src, removed)
+	p := parser{src: src, cleaned: cleaned, tokens: lex(cleaned)}
 	f := &File{Span: source.Span{End: len(src)}}
 	p.newlines()
 	f.Header = p.take()
@@ -36,6 +38,10 @@ func Parse(src []byte, removed []source.Span) (*File, []diag.Diagnostic) {
 	}
 	diag.Sort(p.diags)
 	return f, p.diags
+}
+
+func (p *parser) text(start, end int) string {
+	return string(p.cleaned.Slice(source.Span{Start: start, End: end}))
 }
 
 func (p *parser) end() bool { return p.at >= len(p.tokens) }
@@ -77,7 +83,20 @@ func (p *parser) unexpected(t Token, expected string) {
 		p.issue("class/unterminated", "unterminated "+t.Text, t.Span)
 		return
 	}
-	p.issue("class/unexpected-token", fmt.Sprintf("unexpected %s, expected one of: %s", p.src[t.Span.Start:t.Span.End], expected), t.Span)
+	p.issue("class/unexpected-token", fmt.Sprintf("unexpected %s, expected one of: %s", p.text(t.Span.Start, t.Span.End), expected), t.Span)
+}
+
+func (p *parser) expect(kind, expected string) (Token, bool) {
+	t := p.peek()
+	if t.Kind == kind {
+		p.at++
+		return t, true
+	}
+	p.unexpected(t, expected)
+	if t.Kind == "UNTERMINATED" {
+		p.at++
+	}
+	return t, false
 }
 
 func (p *parser) recover() {
@@ -86,36 +105,39 @@ func (p *parser) recover() {
 	}
 }
 
+const childStatements = "CLASS, NAMESPACE, NOTE, NOTE_FOR"
+
+func childStart(kind string) bool {
+	return kind == "class" || kind == "namespace" || kind == "note"
+}
+
 func (p *parser) statements(depth int) Statements {
 	var out Statements
 	for !p.end() && p.peek().Kind != "}" {
-		before, diagnostics := p.at, len(p.diags)
-		s := p.statement(depth)
-		if len(p.diags) == diagnostics {
-			p.finishStatement(&s)
+		if p.accept("NEWLINE") {
+			continue
 		}
-		if !allowedChild(s, depth) {
-			p.unexpected(Token{Text: s.Kind, Span: s.Span}, "CLASS, NAMESPACE, NOTE, NOTE_FOR")
-		}
-		if p.keepStatement(s, diagnostics) {
-			out = append(out, s)
-		} else {
+		if depth > 0 && !childStart(p.peek().Kind) {
+			p.unexpected(p.peek(), childStatements)
 			p.recover()
+			continue
+		}
+		before, diagnostics := p.at, len(p.diags)
+		s, ok := p.statement(depth)
+		if len(p.diags) != diagnostics {
+			if ok {
+				out = append(out, s)
+			}
+			p.recover()
+			continue
 		}
 		if p.at == before {
 			p.at++
 		}
-		p.newlines()
+		p.finishStatement(&s)
+		out = append(out, s)
 	}
 	return out
-}
-
-func allowedChild(s Statement, depth int) bool {
-	return depth == 0 || s.Class != nil || s.Namespace != nil || s.Note != nil
-}
-
-func (p *parser) keepStatement(s Statement, diagnostics int) bool {
-	return len(p.diags) == diagnostics || s.Namespace != nil && s.Namespace.Identifier.Name.Value != ""
 }
 
 func (p *parser) finishStatement(s *Statement) {
@@ -134,58 +156,63 @@ func (p *parser) finishStatement(s *Statement) {
 	}
 }
 
-func (p *parser) statement(depth int) Statement {
+func (p *parser) statement(depth int) (Statement, bool) {
 	t := p.peek()
 	s := Statement{Kind: t.Kind, Span: t.Span}
+	var ok bool
 	switch t.Kind {
 	case "class":
-		s.Class = p.class()
+		s.Class, ok = p.class()
 	case "namespace":
-		s.Namespace = p.namespace(depth)
+		s.Namespace, ok = p.namespace(depth)
 	case "note":
-		s.Note = p.note()
+		s.Note, ok = p.note()
 	case "<<":
-		s.Annotation = p.annotation()
+		s.Annotation, ok = p.annotation()
 	case "ALPHA", "BQUOTE_STR", "-", "UNICODE_TEXT":
 		return p.named()
 	default:
-		p.otherStatement(&s)
+		ok = p.otherStatement(&s)
 	}
-	return s
+	return s, ok
 }
 
-func (p *parser) otherStatement(s *Statement) {
+func (p *parser) otherStatement(s *Statement) bool {
+	ok := true
 	switch s.Kind {
 	case "style", "cssClass", "classDef":
-		s.Style = p.style()
+		s.Style, ok = p.style()
 	case "click", "link", "callback":
-		s.Click = p.click()
+		s.Click, ok = p.click()
 	case "direction_tb", "direction_bt", "direction_rl", "direction_lr":
 		token := p.take()
 		s.Kind = "direction"
 		s.Value = strings.ToUpper(strings.TrimPrefix(token.Kind, "direction_"))
-	case "direction", "accTitle":
+	case "accTitle":
 		p.take()
 		p.accept(":")
 		s.Value = p.lineText()
 	case "accDescr":
-		s.Value = p.description()
+		s.Value, ok = p.description()
 	case "UNTERMINATED":
 		p.unexpected(p.take(), "statement")
+		ok = false
 	default:
 		t := p.take()
 		p.recover()
 		span := t.Span
-		span.End = p.peek().Span.Start
+		span.End = p.tokens[p.at-1].Span.End
 		p.issue("class/unknown-statement", "unknown statement "+t.Text, span)
+		ok = false
 	}
+	return ok
 }
 
 func nameToken(t Token) bool {
 	return t.Kind == "ALPHA" || t.Kind == "BQUOTE_STR" || t.Kind == "-" || t.Kind == "." || t.Kind == "UNICODE_TEXT"
 }
 
-func (p *parser) name() ClassName {
+func (p *parser) name() (ClassName, bool) {
 	n := ClassName{Span: p.peek().Span}
 	var value strings.Builder
 	for nameToken(p.peek()) {
@@ -196,57 +223,69 @@ func (p *parser) name() ClassName {
 	n.Value = value.String()
 	if n.Value == "" {
 		p.unexpected(p.peek(), "ALPHA, BQUOTE_STR, MINUS, NUM, UNICODE_TEXT")
+		return n, false
 	}
 	if p.peek().Kind == "GENERICTYPE" {
 		t := p.take()
 		n.Generic, n.Span.End = t.Text, t.Span.End
 	}
-	return n
-}
-
-func (p *parser) identifier() ClassIdentifier {
-	start := p.take().Span.Start
-	n := p.name()
-	id := ClassIdentifier{Name: n, Span: source.Span{Start: start, End: n.Span.End}}
-	if p.accept("[") {
-		id.HasLabel = true
-		t := p.take()
-		if t.Kind != "STR" {
-			p.unexpected(t, "STR")
-		}
-		id.Label = t.Text
-		if !p.accept("]") {
-			p.unexpected(p.peek(), "SQE")
-		}
-		id.Span.End = p.tokens[p.at-1].Span.End
+	if p.peek().Kind == "UNTERMINATED" {
+		p.unexpected(p.take(), "")
+		return n, false
 	}
-	return id
+	return n, true
 }
 
-func (p *parser) class() *ClassStatement {
-	id := p.identifier()
+func (p *parser) identifier() (ClassIdentifier, bool) {
+	start := p.take().Span.Start
+	n, ok := p.name()
+	id := ClassIdentifier{Name: n, Span: source.Span{Start: start, End: n.Span.End}}
+	if !ok || !p.accept("[") {
+		return id, ok
+	}
+	id.HasLabel = true
+	label, ok := p.expect("STR", "STR")
+	if !ok {
+		return id, false
+	}
+	id.Label = label.Text
+	if _, ok := p.expect("]", "SQE"); !ok {
+		return id, false
+	}
+	id.Span.End = p.tokens[p.at-1].Span.End
+	return id, true
+}
+
+func (p *parser) class() (*ClassStatement, bool) {
+	id, ok := p.identifier()
 	c := &ClassStatement{Identifier: id, Span: id.Span}
+	if !ok {
+		return c, false
+	}
 	if p.accept(":::") {
 		c.CSS = p.take().Text
 	}
 	if p.accept("<<") {
 		c.Annotation = p.take().Text
-		if !p.accept(">>") {
-			p.unexpected(p.peek(), "ANNOTATION_END")
+		if _, ok := p.expect(">>", "ANNOTATION_END"); !ok {
+			return c, false
 		}
 	}
 	if p.accept("{") {
 		c.HasBody = true
-		p.members(c)
+		if !p.members(c) {
+			return c, false
+		}
 		if c.CSS != "" && len(c.Members.Tokens) == 0 {
 			p.unexpected(p.peek(), "MEMBER")
+			return c, false
 		}
 	}
 	c.Span.End = p.tokens[p.at-1].Span.End
-	return c
+	return c, true
 }
 
-func (p *parser) members(c *ClassStatement) {
+func (p *parser) members(c *ClassStatement) bool {
 	open := p.tokens[p.at-1].Span.Start
 	for !p.end() && p.peek().Kind != "}" {
 		t := p.take()
@@ -263,10 +302,12 @@ func (p *parser) members(c *ClassStatement) {
 	}
 	if !p.accept("}") {
 		p.issue("class/unterminated", "unterminated {", source.Span{Start: open, End: len(p.src)})
+		return false
 	}
 	if len(c.Members.Tokens) > 0 {
 		c.Members.Span = source.Span{Start: c.Members.Tokens[0].Span.Start, End: c.Members.Tokens[len(c.Members.Tokens)-1].Span.End}
 	}
+	return true
 }
 
 func (p *parser) skipMemberBlock() {
@@ -281,33 +322,31 @@ func (p *parser) skipMemberBlock() {
 	}
 }
 
-func (p *parser) namespace(depth int) *NamespaceStatement {
-	id := p.identifier()
+func (p *parser) namespace(depth int) (*NamespaceStatement, bool) {
+	id, ok := p.identifier()
 	n := &NamespaceStatement{Identifier: id, Span: id.Span}
-	if id.Name.Value == "" {
-		return n
+	if !ok {
+		return n, false
 	}
 	if depth >= 64 {
 		p.issue("limit/nesting-depth", "nesting depth exceeds 64", id.Span)
 		p.recover()
-		return n
+		return n, false
 	}
-	if !p.accept("{") {
-		p.unexpected(p.peek(), "STRUCT_START")
-		return n
+	if _, ok := p.expect("{", "STRUCT_START"); !ok {
+		return n, false
 	}
 	open := p.tokens[p.at-1].Span.Start
-	p.newlines()
 	n.Children = p.statements(depth + 1)
 	if len(n.Children) == 0 {
-		p.unexpected(p.peek(), "CLASS, NAMESPACE, NOTE, NOTE_FOR")
+		p.unexpected(p.peek(), childStatements)
 	}
 	if !p.accept("}") {
 		p.issue("class/unterminated", "unterminated {", source.Span{Start: open, End: len(p.src)})
 	} else {
 		n.Span.End = p.tokens[p.at-1].Span.End
 	}
-	return n
+	return n, true
 }
 
 func (p *parser) lineText() string {
@@ -316,14 +355,14 @@ func (p *parser) lineText() string {
 	for !p.end() && p.peek().Kind != "NEWLINE" {
 		end = p.take().Span.End
 	}
-	return strings.TrimSpace(string(p.src[start:end]))
+	return strings.TrimSpace(p.text(start, end))
 }
 
-func (p *parser) description() string {
+func (p *parser) description() (string, bool) {
 	p.take()
 	if !p.accept("{") {
 		p.accept(":")
-		return p.lineText()
+		return p.lineText(), true
 	}
 	open := p.tokens[p.at-1].Span.Start
 	start := p.peek().Span.Start
@@ -333,6 +372,7 @@ func (p *parser) description() string {
 	end := p.peek().Span.Start
 	if !p.accept("}") {
 		p.issue("class/unterminated", "unterminated {", source.Span{Start: open, End: len(p.src)})
+		return "", false
 	}
-	return strings.TrimSpace(string(p.src[start:end]))
+	return strings.TrimSpace(p.text(start, end)), true
 }

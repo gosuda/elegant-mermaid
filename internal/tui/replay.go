@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,7 +10,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode/utf8"
+
+	"github.com/gosuda/elegant-mermaid/internal/fileerr"
 )
+
+var errInvalidUTF8 = errors.New("invalid UTF-8")
 
 type replaySession struct {
 	state     State
@@ -19,16 +24,15 @@ type replaySession struct {
 	scheduler Scheduler
 }
 
-func Replay(ctx context.Context, s State, src []byte, path string, out io.Writer) (err error) {
-	file, err := os.Open(path)
+func Replay(ctx context.Context, s State, src []byte, path string, out io.Writer) error {
+	script, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return fileerr.Read(path, err)
 	}
-	defer func() { err = errors.Join(err, file.Close()) }()
 	setSourceBlocks(&s, src)
 	session := replaySession{state: s, source: src, script: path}
-	session.scheduler.Edit()
-	if err = session.scan(ctx, file); err != nil {
+	session.send(EventEdited)
+	if err = session.scan(ctx, script); err != nil {
 		return err
 	}
 	session.settle(ctx)
@@ -39,25 +43,31 @@ func Replay(ctx context.Context, s State, src []byte, path string, out io.Writer
 	return err
 }
 
+func (session *replaySession) send(e Event) {
+	next, _ := Step(session.scheduler, e)
+	session.scheduler = next
+}
+
 func (session *replaySession) settle(ctx context.Context) {
 	for session.scheduler.Inflight != 0 {
 		if session.scheduler.Cancelled {
-			session.scheduler.Done()
+			session.send(EventRenderAborted)
 			continue
 		}
 		session.state.Displayed = session.scheduler.Inflight
 		session.state = Render(ctx, session.state, session.source)
-		session.scheduler.Done()
+		session.send(EventRenderDone)
 	}
 }
 
-func (session *replaySession) scan(ctx context.Context, input io.Reader) error {
-	scanner := bufio.NewScanner(input)
-	scanner.Buffer(make([]byte, 4096), 16*1024*1024)
-	line := 0
-	for scanner.Scan() {
-		line++
-		text := strings.TrimSpace(scanner.Text())
+func (session *replaySession) scan(ctx context.Context, script []byte) error {
+	for line := 1; len(script) > 0; line++ {
+		var raw []byte
+		raw, script, _ = bytes.Cut(script, []byte{'\n'})
+		if !utf8.Valid(raw) {
+			return fmt.Errorf("%s:%d: %w", session.script, line, errInvalidUTF8)
+		}
+		text := strings.TrimSpace(string(raw))
 		if text == "" || strings.HasPrefix(text, "#") {
 			continue
 		}
@@ -71,9 +81,6 @@ func (session *replaySession) scan(ctx context.Context, input io.Reader) error {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
-	}
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("%s:%d: %w", session.script, line, err)
 	}
 	return nil
 }
@@ -130,7 +137,7 @@ func (session *replaySession) sourceEvent(verb, arg string) error {
 	if verb == "file-create" {
 		session.state.WatchLost = false
 	}
-	session.scheduler.Edit()
+	session.send(EventEdited)
 	return nil
 }
 
@@ -157,7 +164,7 @@ func (session *replaySession) keyEvent(key string) (bool, error) {
 		session.reload()
 	}
 	if edit {
-		session.scheduler.Edit()
+		session.send(EventEdited)
 	}
 	return quit, nil
 }

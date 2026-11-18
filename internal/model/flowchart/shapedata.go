@@ -1,6 +1,7 @@
 package flowchart
 
 import (
+	"maps"
 	"strings"
 
 	"github.com/gosuda/elegant-mermaid/internal/gen"
@@ -55,11 +56,12 @@ type shapeBody struct {
 	srcAt []int
 	first int
 	last  int
+	end   int
 }
 
 func buildShapeBody(data *syngrammar.ShapeData) shapeBody {
 	var sb strings.Builder
-	body := shapeBody{first: data.Span.Start, last: data.Span.End}
+	body := shapeBody{first: data.Span.Start, last: data.Span.End, end: data.Span.End}
 	for _, tok := range data.Tokens {
 		for i := range len(tok.Text) {
 			body.srcAt = append(body.srcAt, tok.Span.Start+i)
@@ -120,14 +122,15 @@ func (r *resolver) shapeValues(data *syngrammar.ShapeData) (map[string]string, m
 
 func (b shapeBody) sourceSpan(span source.Span, at []int) source.Span {
 	start := b.sourceOffset(span.Start, at)
-	end := b.sourceOffset(span.End, at)
-	if end < start {
-		end = start
-	}
+	end := max(b.sourceOffset(span.End, at), start)
 	return source.Span{Start: start, End: end}
 }
 
 func (b shapeBody) sourceOffset(pos int, at []int) int {
+	return min(b.unboundedOffset(pos, at), b.end)
+}
+
+func (b shapeBody) unboundedOffset(pos int, at []int) int {
 	if len(at) == 0 {
 		return b.first
 	}
@@ -158,9 +161,7 @@ func (r *resolver) applyShapeData(node *Node, data *syngrammar.ShapeData) {
 	if node.Attrs == nil {
 		node.Attrs = map[string]string{}
 	}
-	for key, value := range values {
-		node.Attrs[key] = value
-	}
+	maps.Copy(node.Attrs, values)
 	if shape, ok := values["shape"]; ok {
 		id, resolved := resolveShapeID(shape)
 		if !resolved {
@@ -171,7 +172,7 @@ func (r *resolver) applyShapeData(node *Node, data *syngrammar.ShapeData) {
 		}
 	}
 	if label, ok := values["label"]; ok {
-		node.Label = decodeEntities(label)
+		node.Label = syn.DecodeEntities(label)
 	}
 	if img, ok := values["img"]; ok && img != "" {
 		node.Shape = "imageSquare"

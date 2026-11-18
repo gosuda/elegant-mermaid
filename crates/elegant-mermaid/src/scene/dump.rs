@@ -30,25 +30,85 @@ impl Stage {
     }
 }
 
+#[derive(Default)]
+pub(crate) struct ModelBox<'a> {
+    pub direction: &'a str,
+    pub shape: &'a str,
+    pub icon: bool,
+    pub text: Option<&'a str>,
+}
+
+#[derive(Default)]
+pub(crate) struct ModelRoute<'a> {
+    pub from_side: Option<&'a str>,
+    pub to_side: Option<&'a str>,
+    pub min_length: usize,
+}
+
 /// Writes the canonical layout dump of `spec/layout-dump.md`, with one LF after the final
 /// `}`.
 pub fn push_layout(out: &mut String, dump: &Dump, canvas: Size) {
-    push_dump(out, dump, Some(canvas), (Stage::Layout, &[]));
+    push_dump(
+        out,
+        dump,
+        Some(canvas),
+        (
+            Stage::Layout,
+            dump.boxes.iter().map(|_| ModelBox::default()),
+            dump.routes.iter().map(|_| ModelRoute::default()),
+        ),
+        &[],
+    );
 }
 
 /// Writes the model-stage dump of `spec/model-dump.md`: no canvas, no coordinates, and an
 /// empty `lines` array on every label.
 pub fn push_model(out: &mut String, dump: &Dump, directions: &[(&str, Direction)]) {
-    push_dump(out, dump, None, (Stage::Model, directions));
+    push_model_records(
+        out,
+        dump,
+        dump.boxes.iter().map(|item| ModelBox {
+            direction: directions
+                .iter()
+                .find(|(id, _)| *id == item.id)
+                .map_or("", |(_, direction)| direction.as_str()),
+            shape: "",
+            icon: false,
+            text: None,
+        }),
+        dump.routes.iter().map(|_| ModelRoute::default()),
+        &[],
+    );
 }
 
-fn push_dump(
+pub(crate) fn push_model_records<'a>(
+    out: &mut String,
+    dump: &Dump,
+    boxes: impl ExactSizeIterator<Item = ModelBox<'a>>,
+    routes: impl ExactSizeIterator<Item = ModelRoute<'a>>,
+    regions: &[Vec<i64>],
+) {
+    assert_eq!(boxes.len(), dump.boxes.len(), "model box declaration count");
+    assert_eq!(
+        routes.len(),
+        dump.routes.len(),
+        "model route declaration count"
+    );
+    push_dump(out, dump, None, (Stage::Model, boxes, routes), regions);
+}
+
+fn push_dump<'a>(
     out: &mut String,
     dump: &Dump,
     canvas: Option<Size>,
-    context: (Stage, &[(&str, Direction)]),
+    records: (
+        Stage,
+        impl ExactSizeIterator<Item = ModelBox<'a>>,
+        impl ExactSizeIterator<Item = ModelRoute<'a>>,
+    ),
+    regions: &[Vec<i64>],
 ) {
-    let (stage, directions) = context;
+    let (stage, boxes, routes) = records;
     out.push_str("{\"version\":1,\"stage\":");
     push_json_string(out, stage.as_str());
     out.push_str(",\"kind\":");
@@ -60,9 +120,10 @@ fn push_dump(
     if let Some(canvas) = canvas {
         push_canvas(out, canvas);
     }
-    push_boxes(out, &dump.boxes, stage, directions);
-    push_routes(out, &dump.routes, stage);
+    push_boxes(out, &dump.boxes, stage, boxes);
+    push_routes(out, &dump.routes, stage, routes);
     push_labels(out, &dump.labels, stage);
+    push_regions(out, regions);
     out.push_str("}\n");
 }
 
@@ -108,14 +169,14 @@ fn push_canvas(out: &mut String, canvas: Size) {
     out.push('}');
 }
 
-fn push_boxes(
+fn push_boxes<'a>(
     out: &mut String,
     boxes: &[SceneBox],
     stage: Stage,
-    directions: &[(&str, Direction)],
+    metadata: impl ExactSizeIterator<Item = ModelBox<'a>>,
 ) {
     out.push_str(",\n\"boxes\":[");
-    for (index, item) in boxes.iter().enumerate() {
+    for (index, (item, model)) in boxes.iter().zip(metadata).enumerate() {
         if index > 0 {
             out.push_str(",\n");
         }
@@ -130,24 +191,40 @@ fn push_boxes(
         push_json_string(out, &item.parent);
         out.push_str(",\"exclusive\":");
         out.push_str(if item.exclusive { "true" } else { "false" });
-        if stage == Stage::Model && item.role == super::BoxRole::Group {
-            out.push_str(",\"direction\":");
-            push_json_string(
-                out,
-                directions
-                    .iter()
-                    .find(|(id, _)| *id == item.id)
-                    .map_or("", |(_, direction)| direction.as_str()),
-            );
+        if stage == Stage::Model {
+            push_model_box_keys(out, item, &model);
         }
         out.push('}');
     }
     out.push(']');
 }
 
-fn push_routes(out: &mut String, routes: &[SceneRoute], stage: Stage) {
+fn push_model_box_keys(out: &mut String, item: &SceneBox, model: &ModelBox<'_>) {
+    if item.role == super::BoxRole::Group || !model.direction.is_empty() {
+        out.push_str(",\"direction\":");
+        push_json_string(out, model.direction);
+    }
+    if !matches!(model.shape, "" | "rect" | "squareRect") {
+        out.push_str(",\"shape\":");
+        push_json_string(out, model.shape);
+    }
+    if model.icon {
+        out.push_str(",\"icon\":true");
+    }
+    if let Some(text) = model.text {
+        out.push_str(",\"text\":");
+        push_json_string(out, text);
+    }
+}
+
+fn push_routes<'a>(
+    out: &mut String,
+    routes: &[SceneRoute],
+    stage: Stage,
+    metadata: impl ExactSizeIterator<Item = ModelRoute<'a>>,
+) {
     out.push_str(",\n\"routes\":[");
-    for (index, item) in routes.iter().enumerate() {
+    for (index, (item, model)) in routes.iter().zip(metadata).enumerate() {
         if index > 0 {
             out.push_str(",\n");
         }
@@ -163,10 +240,26 @@ fn push_routes(out: &mut String, routes: &[SceneRoute], stage: Stage) {
             push_points(out, &item.points);
         } else {
             push_route_style(out, item);
+            push_route_constraints(out, model);
         }
         out.push('}');
     }
     out.push(']');
+}
+
+fn push_route_constraints(out: &mut String, model: ModelRoute<'_>) {
+    if let Some(side) = model.from_side {
+        out.push_str(",\"from_side\":");
+        push_json_string(out, side);
+    }
+    if let Some(side) = model.to_side {
+        out.push_str(",\"to_side\":");
+        push_json_string(out, side);
+    }
+    if model.min_length > 1 {
+        out.push_str(",\"min_length\":");
+        push_int(out, i64::try_from(model.min_length).unwrap_or(i64::MAX));
+    }
 }
 
 fn push_route_style(out: &mut String, route: &SceneRoute) {
@@ -219,6 +312,27 @@ fn push_labels(out: &mut String, labels: &[SceneLabel], stage: Stage) {
             push_lines(out, &item.lines);
         }
         out.push_str("]}");
+    }
+    out.push(']');
+}
+
+fn push_regions(out: &mut String, regions: &[Vec<i64>]) {
+    if regions.is_empty() {
+        return;
+    }
+    out.push_str(",\n\"regions\":[");
+    for (index, set) in regions.iter().enumerate() {
+        if index > 0 {
+            out.push_str(",\n");
+        }
+        out.push('[');
+        for (at, value) in set.iter().enumerate() {
+            if at > 0 {
+                out.push(',');
+            }
+            push_int(out, *value);
+        }
+        out.push(']');
     }
     out.push(']');
 }

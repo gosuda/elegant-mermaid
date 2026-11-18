@@ -28,6 +28,7 @@ func (a *coordinateArithmetic) add(x, y int64) int64 {
 	}
 	return x + y
 }
+
 func (a *coordinateArithmetic) subtract(x, y int64) int64 {
 	if y == math.MinInt64 {
 		if x >= 0 {
@@ -38,6 +39,7 @@ func (a *coordinateArithmetic) subtract(x, y int64) int64 {
 	}
 	return a.add(x, -y)
 }
+
 func (a *coordinateArithmetic) multiply(x, y int64) int64 {
 	n, err := product(x, y)
 	if err != nil {
@@ -68,6 +70,7 @@ func coordinateParams(p *Proper) (Params, error) {
 	}
 	return d, nil
 }
+
 func coordinateLayers(p *Proper, layers [][]int32) ([]int32, error) {
 	if p == nil || len(p.Rank) != len(p.Nodes) {
 		return nil, ErrGraph
@@ -92,6 +95,7 @@ func coordinateLayers(p *Proper, layers [][]int32) ([]int32, error) {
 	}
 	return pos, nil
 }
+
 func coordinateLayer(p *Proper, layer []int32, rank int32, pos []int32, seen []bool) error {
 	for j, v := range layer {
 		if v < 0 || int(v) >= len(pos) || seen[v] || p.Rank[v] != rank {
@@ -102,6 +106,7 @@ func coordinateLayer(p *Proper, layer []int32, rank int32, pos []int32, seen []b
 	}
 	return nil
 }
+
 func coordinateEdges(p *Proper) error {
 	for _, e := range p.Edges {
 		if e.Tail < 0 || e.Head < 0 || int(e.Tail) >= len(p.Nodes) || int(e.Head) >= len(p.Nodes) {
@@ -113,6 +118,7 @@ func coordinateEdges(p *Proper) error {
 	}
 	return nil
 }
+
 func coordinateSizes(p *Proper) error {
 	if int64(len(p.Nodes)) > math.MaxInt32 || int64(len(p.Edges)) > math.MaxInt32 {
 		return geom.ErrOverflow
@@ -124,6 +130,7 @@ func coordinateSizes(p *Proper) error {
 	}
 	return nil
 }
+
 func typeOneConflicts(p *Proper, pos []int32) []bool {
 	chain := make([]bool, len(p.Edges))
 	inner := make([]bool, len(p.Edges))
@@ -143,10 +150,12 @@ func typeOneConflicts(p *Proper, pos []int32) []bool {
 	}
 	return marked
 }
+
 func borderChain(p *Proper, e ProperEdge) bool {
 	a, b := p.Nodes[e.Tail], p.Nodes[e.Head]
 	return (a.Border == BorderLeft || a.Border == BorderRight) && a.Border == b.Border && a.Parent == b.Parent
 }
+
 func crossesAmong(p *Proper, pos []int32, e ProperEdge, among []bool) bool {
 	for i, f := range p.Edges {
 		if !among[i] || p.Rank[e.Tail] != p.Rank[f.Tail] {
@@ -160,6 +169,7 @@ func crossesAmong(p *Proper, pos []int32, e ProperEdge, among []bool) bool {
 	}
 	return false
 }
+
 func newCoordinatePass(p *Proper, layers [][]int32, marked []bool, gap int64, pass int) *coordinatePass {
 	n := len(p.Nodes)
 	c := &coordinatePass{p: p, layers: make([][]int32, len(layers)), pos: make([]int32, n), rank: make([]int32, n), root: make([]int32, n), align: make([]int32, n), sink: make([]int32, n), x: make([]int64, n), shift: make([]int64, n), set: make([]bool, n), shifted: make([]bool, n), marked: marked, gap: gap}
@@ -184,6 +194,7 @@ func newCoordinatePass(p *Proper, layers [][]int32, marked []bool, gap int64, pa
 	}
 	return c
 }
+
 func (c *coordinatePass) neighbours(v int32) []int32 {
 	var edges []int32
 	for i, e := range c.p.Edges {
@@ -200,6 +211,7 @@ func (c *coordinatePass) neighbours(v int32) []int32 {
 	})
 	return edges
 }
+
 func (c *coordinatePass) other(e, v int32) int32 {
 	edge := c.p.Edges[e]
 	if edge.Tail == v {
@@ -207,17 +219,20 @@ func (c *coordinatePass) other(e, v int32) int32 {
 	}
 	return edge.Tail
 }
+
 func (c *coordinatePass) alignment() {
 	for _, layer := range c.layers {
 		c.alignLayer(layer)
 	}
 }
+
 func (c *coordinatePass) alignLayer(layer []int32) {
 	last := int32(-1)
 	for _, v := range layer {
 		last = c.alignNode(v, last)
 	}
 }
+
 func (c *coordinatePass) alignNode(v, last int32) int32 {
 	neighbours := c.neighbours(v)
 	if len(neighbours) == 0 {
@@ -235,6 +250,7 @@ func (c *coordinatePass) alignNode(v, last int32) int32 {
 	}
 	return last
 }
+
 func (c *coordinatePass) separation(a, b int32) int64 {
 	left, right := c.p.Nodes[a], c.p.Nodes[b]
 	gap := c.gap
@@ -245,12 +261,14 @@ func (c *coordinatePass) separation(a, b int32) int64 {
 	}
 	return int64(left.W)/2 + int64(left.Extent) + int64(right.W)/2 + int64(right.Extent) + gap
 }
+
 func (c *coordinatePass) predecessor(w int32) (int32, bool) {
 	if c.pos[w] == 0 {
 		return 0, false
 	}
 	return c.layers[c.rank[w]][c.pos[w]-1], true
 }
+
 func (c *coordinatePass) place(root int32, fuel *int) error {
 	stack := [][2]int32{{root, root}}
 	c.set[root] = true
@@ -280,6 +298,7 @@ func (c *coordinatePass) place(root int32, fuel *int) error {
 	}
 	return nil
 }
+
 func (c *coordinatePass) placeAfter(v, w, pred int32) {
 	u := c.root[pred]
 	if c.sink[v] == v {
@@ -289,6 +308,7 @@ func (c *coordinatePass) placeAfter(v, w, pred int32) {
 		c.x[v] = max(c.x[v], c.add(c.x[u], c.separation(pred, w)))
 	}
 }
+
 func (c *coordinatePass) finishBlock(v int32) {
 	for m := c.align[v]; m != v; m = c.align[m] {
 		c.x[m] = c.x[v]
@@ -296,6 +316,7 @@ func (c *coordinatePass) finishBlock(v int32) {
 		c.set[m] = true
 	}
 }
+
 func (c *coordinatePass) offsets() {
 	pairs := make([][][2]int32, len(c.layers))
 	for _, layer := range c.layers {
@@ -321,6 +342,7 @@ func (c *coordinatePass) offsets() {
 		c.x[v] = c.add(c.x[v], c.shift[c.sink[v]])
 	}
 }
+
 func (c *coordinatePass) shiftPairs(pairs [][2]int32) {
 	for _, pair := range pairs {
 		a, b := pair[0], pair[1]
@@ -332,6 +354,7 @@ func (c *coordinatePass) shiftPairs(pairs [][2]int32) {
 		}
 	}
 }
+
 func (c *coordinatePass) run(pass int) ([]int64, error) {
 	c.alignment()
 	fuel := 2 * len(c.x)
@@ -354,6 +377,7 @@ func (c *coordinatePass) run(pass int) ([]int64, error) {
 	}
 	return c.x, c.err
 }
+
 func (c *coordinatePass) placeLayer(layer []int32, fuel *int) error {
 	for _, v := range layer {
 		if c.root[v] != v || c.set[v] {
@@ -365,6 +389,7 @@ func (c *coordinatePass) placeLayer(layer []int32, fuel *int) error {
 	}
 	return nil
 }
+
 func CrossCoords(p *Proper, layers [][]int32) ([]int32, error) {
 	pos, err := coordinateLayers(p, layers)
 	if err != nil {
@@ -387,6 +412,7 @@ func CrossCoords(p *Proper, layers [][]int32) ([]int32, error) {
 	}
 	return balanceCoordinates(passes)
 }
+
 func balanceCoordinates(passes [4][]int64) ([]int32, error) {
 	widths := [4]int64{}
 	var arithmetic coordinateArithmetic
@@ -423,6 +449,7 @@ func balanceCoordinates(passes [4][]int64) ([]int32, error) {
 	}
 	return out, arithmetic.err
 }
+
 func rankHeights(p *Proper, layers [][]int32) []int32 {
 	h := make([]int32, len(layers))
 	for i, layer := range layers {
@@ -432,6 +459,7 @@ func rankHeights(p *Proper, layers [][]int32) []int32 {
 	}
 	return h
 }
+
 func RankCoords(p *Proper, layers [][]int32, r *Routing) ([]int32, []int32, error) {
 	if _, err := coordinateLayers(p, layers); err != nil {
 		return nil, nil, err
@@ -483,6 +511,7 @@ func labelRanks(p *Proper, layers [][]int32) []bool {
 	}
 	return out
 }
+
 func rankBandTops(h []int32, r *Routing, params Params, labelRank []bool) ([]int32, error) {
 	top := make([]int32, len(h))
 	for i := 1; i < len(top); i++ {

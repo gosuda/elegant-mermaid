@@ -25,14 +25,14 @@ rust-check FILTER='': build
     cargo deny --locked check
     cargo test --doc --locked -p elegant-mermaid
 
-# House lint: sloplint over the repository
+# House lint: upstream standard profile, failing on major findings
 slop:
-    sloplint check . --format agent --strictness standard --mode threshold --fail-on deny
+    sloplint check . --format agent --strictness standard --mode threshold --fail-on major
 
 # Build both binaries: bin/emd-go and bin/emd-rs
 build:
     go build -trimpath -o bin/emd-go ./cmd/emd
-    cargo build --release --locked -p elegant-mermaid-cli
+    cargo build --release --locked -p emd-cli
     cp "${CARGO_TARGET_DIR:-target}/release/emd" bin/emd-rs
 
 # Lean build with warnings as errors, then the proof hygiene audit
@@ -70,7 +70,7 @@ _corpus *ARGS:
         *) echo "unknown argument $arg; expected KIND=, SAMPLE=, JOBS=, or FILES=" >&2; exit 2 ;;
       esac
     done
-    if [ -n "$files" ]; then cat "$files"; else git ls-files -- 'corpus/*.mmd' ':!corpus/_out-of-scope/*'; fi \
+    if [ -n "$files" ]; then cat "$files"; else git ls-files -- 'corpus/*.mmd' ':!corpus/_out-of-scope/*' ':!corpus/termgfx/*'; fi \
       | awk -v kind="$kind" 'kind == "" || index($0, "corpus/" kind "/") == 1' \
       | LC_ALL=C sort \
       | awk -v n="$sample" '(NR - 1) % n == 0'
@@ -102,7 +102,12 @@ _oracle-one FILE:
     #!/usr/bin/env bash
     set -uo pipefail
     f={{ quote(FILE) }}
-    report="$(bin/emd-go check --output-format json "$f" 2>/dev/null)"
+    report="$(bin/emd-go check --output-format json "$f")"
+    status=$?
+    case "$status" in
+      0|1) ;;
+      *) echo "oracle: check failed with exit $status: $f" >&2; exit 1 ;;
+    esac
     printf '%s\n' "$report" | jaq -c --arg path "$f" '{path: $path, accept: (.summary.errors == 0), kind: .files[0].kind}'
 
 # Compare accept, reject, and kind with corpus/verdicts.json and corpus/divergences.json
@@ -223,6 +228,14 @@ _lean-parity-one FILE:
 lean-parity *ARGS:
     just _each _lean-parity-one {{ ARGS }}
 
+# Quality gates against the dagre and ELK baselines; accepts JOBS=<n>
+quality *ARGS:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    jobs="$(just _jobs {{ ARGS }})"
+    EMD_BIN=bin/emd-go node tools/upstream-oracle/baseline.mjs corpus/quality-corpus.txt "$jobs"
+    go run ./tools/quality -emd bin/emd-go -kinds flowchart -jobs "$jobs"
+
 # Format check on the staged content of Go and Rust files; the pre-commit hook runs it
 staged-format:
     #!/usr/bin/env bash
@@ -243,6 +256,15 @@ check-fast:
     just rust-check
     just parity KIND=flowchart FILES=corpus/flat-flowchart.txt SAMPLE=10
 
+# Contrast for built-in themes, no hex colour literal in back-end code, SVG titles, config-key coverage
+theme-check: build
+    go test -count=1 -run '^TestBuiltInThemeContrast$' ./internal/theme
+    cargo nextest run --locked -p elegant-mermaid --all-features -E 'test(built_in_theme_contrast)'
+    ! git grep -nE '#([0-9A-Fa-f]{3,4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})\b' -- '*.go' '*.rs' ':!*_test.go' ':!*_gen.go' ':!*/gen/*' ':!tools/*' ':!**/tests/**' ':!**/tests.rs' ':!**/*_tests.rs'
+    go test -count=1 -run '^TestCorpusSVGTitles$' ./internal/svg
+    cargo nextest run --locked -p elegant-mermaid --all-features -E 'test(corpus_svg_titles)'
+    node tools/upstream-oracle/config-keys.mjs --missing spec/data/config-keys
+
 # Run every gate whose subject exists, in order
 verify:
     just gen-check
@@ -258,3 +280,5 @@ verify:
     just kernel-diff
     just validate
     just lean-parity
+    just quality
+    just theme-check

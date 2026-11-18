@@ -293,6 +293,7 @@ impl Parser<'_> {
                     .first()
                     .map_or(TextKind::Plain, |t| text_kind(t.kind)),
                 text: self.concat(&tokens),
+                tokens: tokens.clone(),
             },
             tokens,
         )
@@ -355,6 +356,7 @@ impl Parser<'_> {
         let mut data = ShapeData {
             span: open.span,
             text: String::new(),
+            src_at: Vec::new(),
         };
         loop {
             if !self.at(K::ShapeData) {
@@ -365,10 +367,13 @@ impl Parser<'_> {
             }
             let token = self.next();
             data.span.end = token.span.end;
-            if token.text(self.src).is_empty() {
+            let text = token.text(self.src);
+            if text.is_empty() {
                 return data;
             }
-            data.text.push_str(token.text(self.src));
+            data.src_at
+                .extend((0..text.len()).map(|i| token.span.start + i));
+            data.text.push_str(text);
         }
     }
 }

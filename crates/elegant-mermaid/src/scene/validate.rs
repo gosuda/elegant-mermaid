@@ -180,6 +180,8 @@ impl<'a> Index<'a> {
     }
 
     /// The ancestors of a label's owner, which the dump holds as a route or as a box.
+    /// A box owner includes itself; a route owner keeps only its endpoint ancestors,
+    /// and a route id wins when box and route ids collide.
     fn owner_ancestors(&self, owner: &str) -> BTreeSet<&'a str> {
         match self.route(owner) {
             Some(route) => {
@@ -187,7 +189,13 @@ impl<'a> Index<'a> {
                 ids.extend(self.ancestors(&route.to));
                 ids
             }
-            None => self.ancestors(owner).into_iter().collect(),
+            None => {
+                let mut ids: BTreeSet<&'a str> = self.ancestors(owner).into_iter().collect();
+                if let Some(b) = self.bbox(owner) {
+                    ids.insert(b.id.as_str());
+                }
+                ids
+            }
         }
     }
 }
@@ -235,7 +243,7 @@ pub fn well_formed(canvas: Size, dump: &Dump) -> Result<(), Malformed> {
     check_boxes(&dump.boxes)?;
     dump.labels
         .iter()
-        .try_for_each(|label| check_rect("label", &label.id, label.rect))?;
+        .try_for_each(|label| check_rect(&format!("label {}", label.id), label.rect))?;
     dump.routes
         .iter()
         .try_for_each(|route| check_points(&route.id, &route.points))
@@ -303,7 +311,6 @@ fn check_relations(dump: &Dump) -> Result<(), Malformed> {
 fn check_canvas(canvas: Size) -> Result<(), Malformed> {
     check_rect(
         "canvas",
-        "",
         Rect {
             x: 0,
             y: 0,
@@ -316,16 +323,15 @@ fn check_canvas(canvas: Size) -> Result<(), Malformed> {
 fn check_boxes(boxes: &[SceneBox]) -> Result<(), Malformed> {
     boxes
         .iter()
-        .try_for_each(|b| check_rect("box", &b.id, b.rect))
+        .try_for_each(|b| check_rect(&format!("box {}", b.id), b.rect))
 }
 
-fn check_rect(kind: &str, id: &str, r: Rect) -> Result<(), Malformed> {
-    let named = format!("{kind} {id}");
+fn check_rect(named: &str, r: Rect) -> Result<(), Malformed> {
     if !rect_is_valid(r) {
-        return Err(Malformed::InvalidRect(named));
+        return Err(Malformed::InvalidRect(named.to_owned()));
     }
     if !rect_within_limit(r) {
-        return Err(Malformed::Coordinate(named));
+        return Err(Malformed::Coordinate(named.to_owned()));
     }
     Ok(())
 }

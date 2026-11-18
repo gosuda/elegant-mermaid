@@ -42,7 +42,8 @@ impl<'a> Cfg<'a> {
             }
             let c = self.raw(self.pos).unwrap_or(0);
             let escaped = !single && c == b'\\' && self.eol(self.pos + 1) > 0;
-            if !json && self.yaml_value_indent.is_some() && (self.eol(self.pos) > 0 || escaped) {
+            if !json && self.yaml_continuation_col.is_some() && (self.eol(self.pos) > 0 || escaped)
+            {
                 self.fold_quoted_break(&mut out, escaped)?;
                 continue;
             }

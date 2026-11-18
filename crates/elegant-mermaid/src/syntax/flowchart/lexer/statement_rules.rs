@@ -101,6 +101,15 @@ pub(super) static RULES: &[Rule] = &[
         modes: 1,
     },
     Rule {
+        matcher: |l, n| l.lit(n, "swimlane-beta"),
+        kind: Some(TokenKind::Graph),
+        act: Act::Graph,
+        push: None,
+        pop: false,
+        empty: false,
+        modes: 1,
+    },
+    Rule {
         matcher: |l, n| l.lit(n, "graph"),
         kind: Some(TokenKind::Graph),
         act: Act::Graph,

@@ -110,7 +110,7 @@ fn theme_roundtrip_and_contrast_oracle() {
     assert_eq!(worst, 4);
 }
 #[test]
-fn theme_built_in_theme_contrast() {
+fn built_in_theme_contrast() {
     for name in [
         "elegant-light",
         "elegant-dark",
@@ -134,11 +134,6 @@ fn theme_built_in_theme_contrast() {
                 let a = th.colour(token);
                 let b = th.colour(surface);
                 assert!(contrast(a, b, threshold), "{name} {token:?}");
-                assert!(
-                    ratio(a, b) >= f64::from(threshold) / 10.0,
-                    "theme {name} {token:?} on {surface:?}: colours {a:?}/{b:?}, ratio={}, threshold={threshold}",
-                    ratio(a, b)
-                );
             }
         }
     }

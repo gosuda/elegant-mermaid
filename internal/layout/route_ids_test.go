@@ -22,6 +22,7 @@ func TestGeneratedRouteIDsAvoidBoxes(t *testing.T) {
 	}
 	step14Scene(t, in)
 }
+
 func ambiguousOwnerInput() Input {
 	in := step14Input()
 	in.Boxes[0].ID = "e0"
@@ -29,12 +30,14 @@ func ambiguousOwnerInput() Input {
 	in.Labels = []Label{{ID: "ambiguous.label", Owner: "e0", Text: "ambiguous"}}
 	return in
 }
+
 func TestDirectLayoutRejectsAmbiguousOwners(t *testing.T) {
 	_, _, err := Layout(ambiguousOwnerInput())
 	if !errors.Is(err, layered.ErrGraph) {
 		t.Fatalf("ambiguous direct input accepted: %v", err)
 	}
 }
+
 func TestModelWriterRejectsAmbiguousOwners(t *testing.T) {
 	var out bytes.Buffer
 	err := WriteModelDump(&out, ambiguousOwnerInput())

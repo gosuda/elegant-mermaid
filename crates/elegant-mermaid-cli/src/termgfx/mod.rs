@@ -3,6 +3,9 @@ pub mod kitty;
 pub mod probe;
 pub mod sixel;
 
+#[cfg(test)]
+mod golden_tests;
+
 pub const ESC: u8 = 0x1B;
 pub const BEL: u8 = 0x07;
 pub const ST: [u8; 2] = [ESC, b'\\'];

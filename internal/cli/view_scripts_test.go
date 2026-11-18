@@ -7,45 +7,44 @@ import (
 	"testing"
 )
 
+const viewFixtures = "testdata/view"
+
 func TestViewScripts(t *testing.T) {
-	good := "flowchart LR\n A[stable-label] --> B\n"
-	bad := "flowchart LR\n A[broken --> B\n"
 	cases := []struct {
-		name, source, events string
-		width, height        int
-		present, absent      []string
+		name          string
+		width, height int
 	}{
-		{name: "empty", source: "%% comment only\n", width: 80, height: 24, present: []string{"Empty diagram: add a Mermaid header"}},
-		{name: "unknown", source: "unrecognised-kind\n", width: 80, height: 24, present: []string{"Diagnostics", "common/unknown-diagram-kind"}},
-		{name: "first-error", source: bad, width: 80, height: 24, present: []string{"Diagnostics", "flowchart/unclosed-node-bracket"}, absent: []string{"stable-label"}},
-		{name: "stale", source: good, events: "settle\nfile-change bad.mmd\nsettle\n", width: 80, height: 24, present: []string{"stable-label", "STALE revision 1;"}, absent: []string{"broken"}},
-		{name: "oversize", source: "flowchart LR\n A[one]-->B[two]-->C[three]-->D[four]-->E[five]-->F[six]-->G[seven]-->H[eight]\n", width: 80, height: 24, present: []string{"pan available"}},
-		{name: "resize", source: good, events: "settle\nresize 40 12\n", width: 40, height: 12, present: []string{"stable-label"}},
-		{name: "watch-return", source: good, events: "settle\nfile-delete\nfile-create returned.mmd\nsettle\n", width: 80, height: 24, present: []string{"returned-label"}, absent: []string{"WATCH LOST", "stable-label"}},
-		{name: "keys", source: good, events: "settle\nkey ?\n", width: 80, height: 24, present: []string{"+- Keys", "arrows, hjkl    pan", "q, Ctrl-C       quit"}},
+		{"empty", 80, 24},
+		{"unknown", 80, 24},
+		{"first-error", 80, 24},
+		{"stale", 80, 24},
+		{"oversize", 80, 24},
+		{"resize", 40, 12},
+		{"recreate", 80, 24},
+		{"keys", 80, 24},
 	}
+	t.Chdir(viewFixtures)
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			dir := t.TempDir()
-			input := filepath.Join(dir, "diagram.mmd")
-			script := filepath.Join(dir, "events")
-			writeViewInput(t, input, c.source)
-			writeViewInput(t, script, c.events)
-			writeViewInput(t, filepath.Join(dir, "bad.mmd"), bad)
-			writeViewInput(t, filepath.Join(dir, "returned.mmd"), "flowchart LR\n A[returned-label]-->B\n")
-			out, stderr, code := invoke(t, "", "view", input, "--script", script, "--color", "never")
+			want, err := os.ReadFile(c.name + ".txt")
+			if err != nil {
+				t.Fatal(err)
+			}
+			out, stderr, code := invoke(t, "", "view", c.name+".mmd", "--script", c.name+".script", "--color", "never")
 			if code != 0 || stderr != "" {
 				t.Fatalf("replay exit %d: %s", code, stderr)
 			}
 			assertViewDimensions(t, out, c.width, c.height)
-			assertViewTokens(t, out, c.present, c.absent)
+			if out != string(want) {
+				t.Fatalf("frame differs from %s/%s.txt:\n%s", viewFixtures, c.name, out)
+			}
 		})
 	}
 }
 
 func writeViewInput(t *testing.T, path, text string) {
 	t.Helper()
-	if err := os.WriteFile(path, []byte(text), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -66,16 +65,72 @@ func assertViewDimensions(t *testing.T, frame string, width, height int) {
 	}
 }
 
-func assertViewTokens(t *testing.T, frame string, present, absent []string) {
-	t.Helper()
-	for _, token := range present {
-		if !strings.Contains(frame, token) {
-			t.Fatalf("frame missing %q:\n%s", token, frame)
-		}
+func TestViewScriptErrors(t *testing.T) {
+	dir := t.TempDir()
+	writeViewInput(t, filepath.Join(dir, "good.mmd"), "flowchart LR\n A[alpha] --> B\n")
+	t.Chdir(dir)
+	for _, c := range []struct{ name, script, message string }{
+		{"unknown verb", "bogus 1 2\n", "events.script:1: unknown verb bogus\n"},
+		{"settle argument", "settle now\n", "events.script:1: settle takes no arguments\n"},
+		{"delete argument", "file-delete now\n", "events.script:1: file-delete takes no arguments\n"},
+		{"missing source", "file-change\n", "events.script:1: missing source path\n"},
+		{"unreadable source", "file-change nothere.mmd\n", "events.script:1: cannot read nothere.mmd: no such file or directory\n"},
+		{"resize arguments", "resize 80\n", "events.script:1: expected resize W H\n"},
+		{"resize too small", "resize 19 24\n", "events.script:1: size requires W >= 20 and H >= 5\n"},
+		{"resize overflow", "resize 99999999999999999999 24\n", "events.script:1: size requires W >= 20 and H >= 5\n"},
+		{"resize not a number", "resize 80 x\n", "events.script:1: size requires W >= 20 and H >= 5\n"},
+		{"empty key", "key\n", "events.script:1: invalid key\n"},
+		{"long key", "key ab\n", "events.script:1: invalid key\n"},
+		{"line number", "\n# comment\nbogus\n", "events.script:3: unknown verb bogus\n"},
+		{"invalid UTF-8", "settle\n\xff\n", "events.script:2: invalid UTF-8\n"},
+		{"invalid UTF-8 in a comment", "# \xc3(\nsettle\n", "events.script:1: invalid UTF-8\n"},
+		{"invalid UTF-8 in an argument", "file-change \xff.mmd\n", "events.script:1: invalid UTF-8\n"},
+		{"truncated UTF-8 before CRLF", "settle\r\n\xe2\x82\r\n", "events.script:2: invalid UTF-8\n"},
+		{"earlier error first", "bogus\n\xff\n", "events.script:1: unknown verb bogus\n"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			writeViewInput(t, "events.script", c.script)
+			out, stderr, code := invoke(t, "", "view", "good.mmd", "--script", "events.script")
+			if out != "" || code != 2 || stderr != c.message {
+				t.Fatalf("stdout=%q stderr=%q exit=%d; want stderr=%q exit=2", out, stderr, code, c.message)
+			}
+		})
 	}
-	for _, token := range absent {
-		if strings.Contains(frame, token) {
-			t.Fatalf("frame unexpectedly contains %q:\n%s", token, frame)
-		}
+}
+
+func TestViewScriptQuitSkipsInvalidUTF8(t *testing.T) {
+	dir := t.TempDir()
+	writeViewInput(t, filepath.Join(dir, "good.mmd"), "flowchart LR\n A[alpha] --> B\n")
+	t.Chdir(dir)
+	writeViewInput(t, "events.script", "settle\nkey q\n\xff\n")
+	out, stderr, code := invoke(t, "", "view", "good.mmd", "--script", "events.script")
+	if out == "" || stderr != "" || code != 0 {
+		t.Fatalf("stdout=%q stderr=%q exit=%d; want a frame and exit 0", out, stderr, code)
+	}
+}
+
+func TestViewScriptWhitespace(t *testing.T) {
+	dir := t.TempDir()
+	writeViewInput(t, filepath.Join(dir, "good.mmd"), "flowchart LR\n A[alpha] --> B\n")
+	t.Chdir(dir)
+	writeViewInput(t, "events.script", "settle\nresize  40   12 \n")
+	out, stderr, code := invoke(t, "", "view", "good.mmd", "--script", "events.script")
+	if code != 0 || stderr != "" {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	assertViewDimensions(t, out, 40, 12)
+}
+
+func TestViewScriptReload(t *testing.T) {
+	dir := t.TempDir()
+	writeViewInput(t, filepath.Join(dir, "good.mmd"), "flowchart LR\n A[alpha] --> B\n")
+	t.Chdir(dir)
+	writeViewInput(t, "events.script", "settle\nfile-delete\nkey r\nsettle\n")
+	out, stderr, code := invoke(t, "", "view", "good.mmd", "--script", "events.script")
+	if code != 0 || stderr != "" {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	if strings.Contains(out, "WATCH LOST") || !strings.Contains(out, "REV 2") {
+		t.Fatalf("key r must read the file again and clear the lost watch:\n%s", out)
 	}
 }

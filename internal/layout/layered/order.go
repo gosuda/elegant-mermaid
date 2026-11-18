@@ -32,12 +32,14 @@ type OrderResult struct {
 	Layers          [][]int32
 	BudgetExhausted bool
 }
-type orderFraction struct{ sum, count int64 }
-type orderGraph struct {
-	p            *Proper
-	above, below [][]int32
-	key          OrderKey
-}
+type (
+	orderFraction struct{ sum, count int64 }
+	orderGraph    struct {
+		p            *Proper
+		above, below [][]int32
+		key          OrderKey
+	}
+)
 
 func Order(p *Proper, opts OrderOptions) ([][]int32, error) {
 	r, err := OrderWithBudget(p, opts)
@@ -107,6 +109,7 @@ func orderPrepare(p *Proper) (orderGraph, [][]int32, error) {
 	}
 	return g, layers, nil
 }
+
 func validateOrderGraph(p *Proper) error {
 	if p == nil || len(p.Nodes) != len(p.Rank) || len(p.Nodes) > math.MaxInt32 || len(p.Edges) > math.MaxInt32 {
 		return ErrGraph
@@ -281,6 +284,7 @@ func crossPrefix(tree []int64, i int) int64 {
 	}
 	return sum
 }
+
 func crossAdd(tree []int64, i int) {
 	for i < len(tree) {
 		tree[i]++
@@ -301,6 +305,7 @@ func (g orderGraph) orderTranspose(layers [][]int32) error {
 	}
 	return nil
 }
+
 func (g orderGraph) orderTransposePass(layers [][]int32) bool {
 	pos := orderPositions(layers, len(g.p.Nodes))
 	changed := false
@@ -320,6 +325,7 @@ func (g orderGraph) orderTransposePass(layers [][]int32) bool {
 	}
 	return changed
 }
+
 func crossSwapDelta(a, b []int32, pos []int64) int64 {
 	var delta int64
 	for _, u := range a {

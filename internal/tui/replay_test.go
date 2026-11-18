@@ -11,11 +11,11 @@ import (
 func TestReplayKeepsGoodFrameAcrossInvalidRevision(t *testing.T) {
 	dir := t.TempDir()
 	bad := filepath.Join(dir, "bad.mmd")
-	if err := os.WriteFile(bad, []byte("not-a-diagram\n"), 0600); err != nil {
+	if err := os.WriteFile(bad, []byte("not-a-diagram\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	script := filepath.Join(dir, "events")
-	if err := os.WriteFile(script, []byte("settle\nfile-change bad.mmd\nsettle\nkey esc\nresize 120 24\n"), 0600); err != nil {
+	if err := os.WriteFile(script, []byte("settle\nfile-change bad.mmd\nsettle\nkey esc\nresize 120 24\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer
@@ -35,7 +35,7 @@ func TestReplayKeepsGoodFrameAcrossInvalidRevision(t *testing.T) {
 
 func TestReplayRejectsMalformedLineWithLocation(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "events")
-	if err := os.WriteFile(path, []byte("# comment\nresize 19 24\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("# comment\nresize 19 24\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	var output bytes.Buffer

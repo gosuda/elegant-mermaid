@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gosuda/elegant-mermaid/internal/source"
+	"github.com/gosuda/elegant-mermaid/internal/syntax"
 )
 
 var methodPattern = regexp.MustCompile(`^([#+~-])?(.+)\((.*)\)([\s$*])?(.*)([$*])?$`)
@@ -23,7 +24,7 @@ func ParseMember(text string, span source.Span) Member {
 		m.Name = memberName(strings.TrimRight(m.Name, "$*"))
 		m.Text = m.Visibility + genericText(m.Name)
 	}
-	m.Text = decodeEntities(m.Text)
+	m.Text = syntax.DecodeEntities(m.Text)
 	return m
 }
 

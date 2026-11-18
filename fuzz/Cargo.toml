@@ -41,3 +41,213 @@ path = "fuzz_targets/state.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "c4"
+path = "fuzz_targets/c4.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "requirement"
+path = "fuzz_targets/requirement.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "er"
+path = "fuzz_targets/er.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "agentflow"
+path = "fuzz_targets/agentflow.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "usecase"
+path = "fuzz_targets/usecase.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "math"
+path = "fuzz_targets/math.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "swimlane"
+path = "fuzz_targets/swimlane.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sequence"
+path = "fuzz_targets/sequence.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "mindmap"
+path = "fuzz_targets/mindmap.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "gitgraph"
+path = "fuzz_targets/gitgraph.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "eventmodeling"
+path = "fuzz_targets/eventmodeling.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "block"
+path = "fuzz_targets/block.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "xychart"
+path = "fuzz_targets/xychart.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "timeline"
+path = "fuzz_targets/timeline.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "railroad"
+path = "fuzz_targets/railroad.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "radar"
+path = "fuzz_targets/radar.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "cynefin"
+path = "fuzz_targets/cynefin.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "info"
+path = "fuzz_targets/info.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "packet"
+path = "fuzz_targets/packet.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "kanban"
+path = "fuzz_targets/kanban.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "quadrant"
+path = "fuzz_targets/quadrant.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ishikawa"
+path = "fuzz_targets/ishikawa.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pie"
+path = "fuzz_targets/pie.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "journey"
+path = "fuzz_targets/journey.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "venn"
+path = "fuzz_targets/venn.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "architecture"
+path = "fuzz_targets/architecture.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sankey"
+path = "fuzz_targets/sankey.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "treemap"
+path = "fuzz_targets/treemap.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "treeview"
+path = "fuzz_targets/treeview.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "wardley"
+path = "fuzz_targets/wardley.rs"
+test = false
+doc = false
+bench = false

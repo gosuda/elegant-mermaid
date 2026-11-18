@@ -18,13 +18,15 @@ func drawChain(p *Proper, e ProperEdge) bool {
 	original := p.Original[e.Original]
 	return !original.Synthetic && !original.Reversed
 }
+
 func reversedRuns(p *Proper, x []int32, r *Routing) error {
 	right, maxLabel := reversedLaneBounds(p, x)
+	lanes := laneSequence{right: right, maxLabel: maxLabel}
 	for i, e := range p.Original {
 		if !e.Reversed || e.Synthetic || e.SelfLoop() {
 			continue
 		}
-		lane, err := coordinate(right + int64(p.Slot) + int64(len(r.Reversed))*(2*int64(p.Slot)+maxLabel))
+		lane, err := lanes.next(p, i)
 		if err != nil {
 			return err
 		}
@@ -49,6 +51,7 @@ func reversedLaneBounds(p *Proper, x []int32) (int64, int64) {
 	}
 	return right, maxLabel
 }
+
 func newReversedRun(p *Proper, r *Routing, i, lane int32) (ReversedRun, error) {
 	first, last, err := routeChainEnds(p, i)
 	if err != nil {
@@ -57,18 +60,21 @@ func newReversedRun(p *Proper, r *Routing, i, lane int32) (ReversedRun, error) {
 	e := p.Original[i]
 	run := ReversedRun{Edge: i, Lane: lane, SourceX: r.TargetX[last], TargetX: r.SourceX[first], TargetRunX: r.sourceRun(int(first)), SourceGap: p.Rank[e.Tail] - 1, TargetGap: p.Rank[e.Head]}
 	run.SourceSegment = appendReversedSegment(&r.Gaps[run.SourceGap], run.SourceX, lane, e.Decl, 0)
-	run.TargetSegment = appendReversedSegment(&r.Gaps[run.TargetGap], run.TargetRunX, lane, e.Decl, 1)
+	run.TargetSegment = appendReversedSegment(&r.Gaps[run.TargetGap], gutterRun(p, r, e.Head, first), lane, e.Decl, 1)
 	return run, nil
 }
+
 func appendReversedSegment(gap *RoutingGap, x, lane, decl, order int32) int32 {
 	index := int32(len(gap.Segments))
 	gap.Segments = append(gap.Segments, RoutingSegment{Tail: -1, Head: -1, Decl: decl, Slot: -1, SourceX: x, TargetX: lane, Order: order})
 	return index
 }
+
 func (g routeGeometry) slotLine(gap, index int32) (int32, error) {
 	slot := g.r.Gaps[gap].Segments[index].Slot
 	return coordinate(int64(g.top[gap]) + int64(g.heights[gap]) + int64(g.slot)*(int64(slot)+1) + int64(g.slot)/2)
 }
+
 func (g routeGeometry) reversedPoints(routes []EdgeRoute, labels *labelPlacement) error {
 	p, y, r := g.p, g.y, g.r
 	for _, run := range r.Reversed {
@@ -81,7 +87,7 @@ func (g routeGeometry) reversedPoints(routes []EdgeRoute, labels *labelPlacement
 			return err
 		}
 		e := p.Original[run.Edge]
-		bottom, err := coordinate(int64(y[e.Head]) + int64(p.Nodes[e.Head].H))
+		bottom, err := coordinate(int64(y[e.Head]) + int64(semanticHeight(p, e.Head)))
 		if err != nil {
 			return err
 		}

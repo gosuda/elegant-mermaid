@@ -2,12 +2,12 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/gosuda/elegant-mermaid/internal/termgfx"
@@ -15,7 +15,12 @@ import (
 	"github.com/gosuda/elegant-mermaid/internal/tui"
 )
 
-type viewOptions struct{ path, theme, graphics, color, script string }
+var errViewExtraInput = errors.New("view accepts one INPUT")
+
+type viewOptions struct {
+	path, theme, graphics, color, script string
+	replay                               bool
+}
 
 func viewCommand(ctx context.Context, cfg Config) error {
 	options, err := parseView(cfg.Args[1:])
@@ -34,7 +39,7 @@ func viewCommand(ctx context.Context, cfg Config) error {
 	}
 	state := tui.New(options.path, options.theme)
 	state.Color = int(renderColour(options.color, cfg))
-	if options.script != "" {
+	if options.replay {
 		return tui.Replay(ctx, state, src, options.script, cfg.Stdout)
 	}
 	if options.graphics != "auto" {
@@ -67,8 +72,12 @@ func parseView(args []string) (viewOptions, error) {
 	if err != nil {
 		return options, err
 	}
-	if len(paths) != 1 || paths[0] == "-" {
-		return options, fmt.Errorf("view requires a readable file path; stdin is not supported")
+	fs.Visit(func(f *flag.Flag) { options.replay = options.replay || f.Name == "script" })
+	if len(paths) > 1 {
+		return options, errViewExtraInput
+	}
+	if len(paths) == 0 || paths[0] == "-" {
+		return options, errors.New("view requires a readable file path; stdin is not supported")
 	}
 	options.path = paths[0]
 	return options, nil
@@ -82,13 +91,16 @@ func viewPositionals(fs *flag.FlagSet, args []string) ([]string, error) {
 		if arg == "--" {
 			return append(paths, args...), nil
 		}
-		if !strings.HasPrefix(arg, "-") || arg == "-" {
+		if !isFlagArg(arg) {
+			if len(paths) > 0 {
+				return nil, errViewExtraInput
+			}
 			paths = append(paths, arg)
 			continue
 		}
-		name := strings.TrimLeft(strings.SplitN(arg, "=", 2)[0], "-")
-		if fs.Lookup(name) == nil {
-			return nil, fmt.Errorf("unknown flag %s; run emd view --help", arg)
+		token, ok := splitFlag(arg)
+		if !ok || fs.Lookup(token.name) == nil {
+			return nil, unknownFlag(arg, "view")
 		}
 		part, rest, err := flagPart(arg, args)
 		if err != nil {

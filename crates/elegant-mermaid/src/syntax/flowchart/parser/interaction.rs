@@ -10,6 +10,7 @@ impl Parser<'_> {
             span: token.span,
             kind: text_kind(token.kind),
             text: self.text(&token),
+            tokens: vec![token],
         })
     }
     pub(super) fn click(&mut self) -> Statement {
@@ -19,31 +20,33 @@ impl Parser<'_> {
         let action = match self.peek().kind {
             K::CallbackName => self.callback(&mut span),
             K::Href | K::Str | K::MdStr => self.click_link(&mut span),
-            _ => {
-                let alpha = self.alpha();
-                let mut href = String::new();
-                let mut tooltip = None;
-                if let Some(alpha) = alpha {
-                    span.end = alpha.span.end;
-                    href = alpha.text;
-                    self.skip_spaces();
-                    if let Some(tip) = self.click_string() {
-                        span.end = tip.span.end;
-                        tooltip = Some(tip.text);
-                    }
-                }
-                ClickAction::Link {
-                    href,
-                    tooltip,
-                    target: None,
-                }
-            }
+            _ => self.plain_call(&mut span),
         };
         Statement::Click(ClickStatement {
             span,
             target: kw.span,
             action,
         })
+    }
+    fn plain_call(&mut self, span: &mut Span) -> ClickAction {
+        let mut name = String::new();
+        let mut name_span = zero();
+        let mut tooltip = None;
+        if let Some(alpha) = self.alpha() {
+            span.end = alpha.span.end;
+            name_span = alpha.span;
+            name = alpha.text;
+            self.skip_spaces();
+            if let Some(tip) = self.click_string() {
+                span.end = tip.span.end;
+                tooltip = Some(tip.text);
+            }
+        }
+        ClickAction::PlainCall {
+            name,
+            name_span,
+            tooltip,
+        }
     }
     pub(super) fn callback(&mut self, span: &mut Span) -> ClickAction {
         let name = self.next();
@@ -65,6 +68,7 @@ impl Parser<'_> {
         }
         ClickAction::Call {
             name: self.text(&name),
+            name_span: name.span,
             args,
             tooltip,
         }
@@ -79,6 +83,7 @@ impl Parser<'_> {
             span.end = action_span.end;
             return ClickAction::Link {
                 href: String::new(),
+                href_span: zero(),
                 tooltip: None,
                 target: None,
             };
@@ -97,6 +102,7 @@ impl Parser<'_> {
         span.end = action_span.end;
         ClickAction::Link {
             href: url.text,
+            href_span: url.span,
             tooltip,
             target,
         }

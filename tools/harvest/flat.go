@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -15,9 +14,19 @@ import (
 )
 
 type flatModel struct {
-	Boxes  []struct{ ID, Role, Parent string }
-	Routes []struct{ ID, From, To string }
-	Labels []struct{ Owner string }
+	Boxes []struct {
+		ID     string `json:"id"`
+		Role   string `json:"role"`
+		Parent string `json:"parent"`
+	} `json:"boxes"`
+	Routes []struct {
+		ID   string `json:"id"`
+		From string `json:"from"`
+		To   string `json:"to"`
+	} `json:"routes"`
+	Labels []struct {
+		Owner string `json:"owner"`
+	} `json:"labels"`
 }
 
 type flatResult struct {
@@ -25,11 +34,11 @@ type flatResult struct {
 	err    error
 }
 
-func flatList(root, kind string) (string, error) {
-	if filepath.Base(kind) != kind || slices.Contains([]string{"", ".", "..", "_out-of-scope"}, kind) {
+func flatList(root, kind, binaryOverride string) (string, error) {
+	if filepath.Base(kind) != kind || slices.Contains([]string{"", ".", "..", "_out-of-scope", "termgfx"}, kind) {
 		return "", fmt.Errorf("invalid flat-list kind %q", kind)
 	}
-	binary, err := flatBinary(root)
+	binary, err := flatBinary(root, binaryOverride)
 	if err != nil {
 		return "", err
 	}
@@ -51,8 +60,8 @@ func flatList(root, kind string) (string, error) {
 	return out.String(), nil
 }
 
-func flatBinary(root string) (string, error) {
-	binary := os.Getenv("EMD_BIN")
+func flatBinary(root, binaryOverride string) (string, error) {
+	binary := binaryOverride
 	if binary == "" {
 		binary = filepath.Join("bin", "emd-go")
 	}
@@ -114,7 +123,11 @@ func inspectFlatFile(root, binary, path string) flatResult {
 	if err != nil && !errors.As(err, &status) {
 		return flatResult{err: err}
 	}
-	var check struct{ Summary struct{ Errors *int } }
+	var check struct {
+		Summary struct {
+			Errors *int `json:"errors"`
+		} `json:"summary"`
+	}
 	if decodeErr := json.Unmarshal(data, &check); decodeErr != nil {
 		return flatResult{err: fmt.Errorf("decode check: %w", decodeErr)}
 	}

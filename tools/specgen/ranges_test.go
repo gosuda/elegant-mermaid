@@ -121,3 +121,58 @@ func TestIncbAndIdeographic(t *testing.T) {
 	require.Equal(t, uint8(1), lookupRange(ideographic, 0x4E00))
 	require.Equal(t, uint8(0), lookupRange(ideographic, 'A'))
 }
+
+func TestAlphanumericUnionRanges(t *testing.T) {
+	derived := []byte("0000 ; Alphabetic\n0041..0042 ; Alphabetic\n0043 ; Lowercase # Alphabetic\n0050 ; Alphabetic_Extra\n0055 ; InCB ; Extend\n0558 ; Alphabetic\n10FFFF ; Alphabetic\n")
+	categories := []byte("0030..0039 ; Nd\n0042..0043 ; Nl\n0044 ; No\n0050 ; Lu # Alphabetic\n0051 ; N # Nd\n0052 ; Other_Numeric\n0060 ; Mn\n0061 ; Nd\n")
+	ranges, err := buildAlphanumeric(derived, categories)
+	require.NoError(t, err)
+	require.Equal(t, []tableRange{
+		{Lo: 0, Hi: 0, Val: 1},
+		{Lo: 0x30, Hi: 0x39, Val: 1},
+		{Lo: 0x41, Hi: 0x44, Val: 1},
+		{Lo: 0x61, Hi: 0x61, Val: 1},
+		{Lo: 0x558, Hi: 0x558, Val: 1},
+		{Lo: maxScalar, Hi: maxScalar, Val: 1},
+	}, ranges)
+}
+
+func TestAlphanumericRequiresSources(t *testing.T) {
+	cases := []struct {
+		name string
+		data []byte
+	}{
+		{"nil", nil},
+		{"empty", []byte{}},
+		{"whitespace", []byte(" \t\r\n")},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ranges, err := buildAlphanumeric(tc.data, []byte("0030 ; Nd\n"))
+			require.EqualError(t, err, "DerivedCoreProperties.txt: required source is missing or empty")
+			require.Nil(t, ranges)
+			ranges, err = buildAlphanumeric([]byte("0041 ; Alphabetic\n"), tc.data)
+			require.EqualError(t, err, "DerivedGeneralCategory.txt: required source is missing or empty")
+			require.Nil(t, ranges)
+		})
+	}
+}
+
+func TestAlphanumericMalformedData(t *testing.T) {
+	cases := []struct {
+		name string
+		data string
+	}{
+		{"invalid-code-point", "not-hex ; Alphabetic"},
+		{"inverted-range", "0042..0041 ; Nd"},
+		{"out-of-range", "110000 ; No"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := buildAlphanumeric([]byte(tc.data), []byte("0030 ; Nd\n"))
+			require.ErrorContains(t, err, "DerivedCoreProperties.txt:")
+			_, err = buildAlphanumeric([]byte("0041 ; Alphabetic\n"), []byte(tc.data))
+			require.ErrorContains(t, err, "DerivedGeneralCategory.txt:")
+		})
+	}
+}

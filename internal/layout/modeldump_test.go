@@ -54,6 +54,53 @@ func TestModelGolden(t *testing.T) {
 	}
 }
 
+func TestArchitectureModelDumpTextPresence(t *testing.T) {
+	for _, tc := range []struct {
+		name, source, text string
+	}{
+		{"empty", "architecture-beta\ngroup g\n", ""},
+		{"equal-id", "architecture-beta\ngroup g[g]\n", "g"},
+	} {
+		for _, profile := range []scene.Profile{scene.ProfileCell, scene.ProfileVector} {
+			t.Run(tc.name+"/"+profile.String(), func(t *testing.T) {
+				checkArchitectureGroupText(t, tc.source, tc.text, profile)
+			})
+		}
+	}
+}
+
+func checkArchitectureGroupText(t *testing.T, source, wantText string, profile scene.Profile) {
+	t.Helper()
+	d := ParseDiagram([]byte(source))
+	if len(d.Diagnostics) != 0 {
+		t.Fatalf("fixture diagnostics: %+v", d.Diagnostics)
+	}
+	in, err := d.Input(profile, scene.Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dump struct {
+		Boxes []map[string]json.RawMessage `json:"boxes"`
+	}
+	if err := json.Unmarshal(dumpInput(t, in), &dump); err != nil {
+		t.Fatal(err)
+	}
+	if len(dump.Boxes) != 1 || string(dump.Boxes[0]["id"]) != `"g"` {
+		t.Fatalf("expected group g, got %+v", dump.Boxes)
+	}
+	raw, present := dump.Boxes[0]["text"]
+	if !present {
+		t.Fatal("group text key is missing")
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		t.Fatal(err)
+	}
+	if text != wantText {
+		t.Fatalf("group text = %q, want %q", text, wantText)
+	}
+}
+
 func TestFallbackGroupTitleTransport(t *testing.T) {
 	for _, direction := range []string{"LR", "TD"} {
 		in, ok := inputSource(t, []byte("graph "+direction+"\nsubgraph one\nA --> B\nend\n"))

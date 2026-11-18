@@ -1,0 +1,35 @@
+[
+  {
+    "code": "radar/no-curves",
+    "severity": "warning",
+    "summary": "radar diagram declares no curves",
+    "help": "Add at least one curve row with a value for each axis.",
+    "rationale": "The chart parses and renders an empty grid, so the missing curves are easy to miss.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:radar-no-curves",
+    "status": "adopted"
+  },
+  {
+    "code": "radar/curve-length-mismatch",
+    "severity": "warning",
+    "summary": "radar curve value count does not match the axis count",
+    "help": "Give the curve one value per declared axis.",
+    "rationale": "A positional curve with the wrong length renders a polygon whose points sit on the wrong axes.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:radar-curve-length-mismatch",
+    "status": "adopted"
+  },
+  {
+    "code": "radar/duplicate-axis",
+    "severity": "warning",
+    "summary": "two radar axes carry the same label",
+    "help": "Give each axis a distinct label.",
+    "rationale": "Two axes with one label make the chart ambiguous, because a plotted value cannot be told which axis it belongs to.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:radar-duplicate-axis",
+    "status": "adopted"
+  }
+]

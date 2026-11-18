@@ -22,6 +22,7 @@ pub fn from_class(
         sizes: Vec::new(),
         attachments: Vec::new(),
         region_sets: Vec::new(),
+        spacing: super::input::Spacing::default(),
     };
     append_classes(&mut input, model, profile)?;
     append_notes(&mut input, model);
@@ -62,6 +63,7 @@ fn append_classes(input: &mut Input, model: &Model, profile: Profile) -> Result<
             id: class.id.clone(),
             role: BoxRole::Node,
             shape: "classBox".into(),
+            icon: false,
             parent: class.parent.clone(),
             exclusive: true,
             text,
@@ -78,6 +80,7 @@ fn append_notes(input: &mut Input, model: &Model) {
             id: note.id.clone(),
             role: BoxRole::Node,
             shape: "note".into(),
+            icon: false,
             parent: note.parent.clone(),
             exclusive: true,
             text: note.text.clone(),
@@ -92,6 +95,7 @@ fn append_namespaces(input: &mut Input, model: &Model) {
             id: namespace.id.clone(),
             role: BoxRole::Group,
             shape: String::new(),
+            icon: false,
             parent: namespace.parent.clone(),
             exclusive: false,
             text: namespace.label.clone(),
@@ -127,6 +131,8 @@ fn append_relations(input: &mut Input, model: &Model) {
             marker_end: relation.marker_end.clone(),
             line: if relation.dashed { "dashed" } else { "normal" }.into(),
             min_length: 1,
+            from_side: None,
+            to_side: None,
         });
     }
     for (index, note) in model
@@ -144,6 +150,8 @@ fn append_relations(input: &mut Input, model: &Model) {
             marker_end: "none".into(),
             line: "dashed".into(),
             min_length: 1,
+            from_side: None,
+            to_side: None,
         });
     }
 }
@@ -175,13 +183,20 @@ pub fn compartment_size(compartments: &[Vec<String>], profile: Profile) -> Resul
     let separator = i64::from(constant(profile, "separator")?);
     let mut width = 0i64;
     let mut rows = 0i64;
-    for compartment in compartments {
-        rows = rows
-            .checked_add(i64::try_from(compartment.len().max(1)).map_err(|_| GeomError::Overflow)?)
-            .ok_or(GeomError::Overflow)?;
+    for (index, compartment) in compartments.iter().enumerate() {
+        let mut compartment_rows = 0i64;
         for row in compartment {
-            width = width.max(i64::from(text_width(row, profile)?));
+            let lines = piece_lines(row, profile, compartment_role(index))?;
+            compartment_rows = compartment_rows
+                .checked_add(i64::try_from(lines.len().max(1)).map_err(|_| GeomError::Overflow)?)
+                .ok_or(GeomError::Overflow)?;
+            for line in &lines {
+                width = width.max(i64::from(line.width));
+            }
         }
+        rows = rows
+            .checked_add(compartment_rows.max(1))
+            .ok_or(GeomError::Overflow)?;
     }
     let line_height = if profile == Profile::Cell {
         1
@@ -203,10 +218,73 @@ pub fn compartment_size(compartments: &[Vec<String>], profile: Profile) -> Resul
     })
 }
 
-fn text_width(text: &str, profile: Profile) -> Result<i32, GeomError> {
-    match profile {
-        Profile::Cell => crate::measure::cell_width(text),
-        Profile::Vector => crate::measure::vector_width(text, 14, crate::measure::Weight::Semibold),
+fn compartment_role(index: usize) -> crate::measure::Role {
+    if index == 0 {
+        crate::measure::Role::Label
+    } else {
+        crate::measure::Role::Body
+    }
+}
+
+fn metric(profile: Profile, role: crate::measure::Role) -> crate::measure::Metric {
+    if profile == Profile::Cell {
+        crate::measure::Metric::Cell
+    } else {
+        crate::measure::Metric::for_role(role)
+    }
+}
+
+/// The styled lines of one structural text piece: accepted br tags force
+/// lines (math-05), bold and italic runs measure at their own weights
+/// (math-03, math-04), escapes lose their backslash, unsupported markup
+/// stays literal (math-07, math-08), and math spans stay opaque. An empty
+/// piece yields no line.
+fn piece_lines<'a>(
+    piece: &'a str,
+    profile: Profile,
+    role: crate::measure::Role,
+) -> Result<Vec<crate::measure::StyledLine<'a>>, GeomError> {
+    crate::measure::styled_lines(piece, i32::MAX, metric(profile, role))
+}
+
+/// The scene runs of one structural text piece: one line per styled line,
+/// each carrying its bold and italic flags. An empty piece keeps one empty
+/// plain line, so plain rows emit exactly what `Run::plain` emitted.
+fn run_lines(
+    piece: &str,
+    profile: Profile,
+    role: crate::measure::Role,
+) -> Result<Vec<Vec<crate::scene::Run>>, GeomError> {
+    let lines = piece_lines(piece, profile, role)?;
+    let mapped = lines
+        .iter()
+        .map(|line| {
+            let runs: Vec<crate::scene::Run> = line
+                .runs
+                .iter()
+                .map(|run| crate::scene::Run {
+                    text: run.text.to_string(),
+                    bold: run.bold,
+                    italic: run.italic,
+                })
+                .collect();
+            if runs.is_empty() {
+                vec![crate::scene::Run::plain(String::new())]
+            } else {
+                runs
+            }
+        })
+        .collect::<Vec<_>>();
+    if mapped.is_empty() {
+        return Ok(vec![vec![crate::scene::Run::plain(String::new())]]);
+    }
+    Ok(mapped)
+}
+
+fn layout_error(error: GeomError) -> super::layered::LayoutError {
+    match error {
+        GeomError::Domain => super::layered::LayoutError::Domain,
+        GeomError::Overflow => super::layered::LayoutError::Overflow,
     }
 }
 
@@ -273,6 +351,7 @@ fn table_items(
         items: Vec<Item>,
         texts: Vec<Item>,
         cell: bool,
+        profile: Profile,
         line_height: i32,
         separator: i32,
         padding: i32,
@@ -309,13 +388,15 @@ fn table_items(
                     .checked_add(self.separator)
                     .ok_or(super::layered::LayoutError::Overflow)?;
             }
+            let role = compartment_role(index);
             let lines = if compartment.is_empty() {
                 Vec::new()
             } else {
-                compartment
-                    .split('\n')
-                    .map(|line| vec![Run::plain(line)])
-                    .collect::<Vec<_>>()
+                let mut lines = Vec::new();
+                for piece in compartment.split('\n') {
+                    lines.extend(run_lines(piece, self.profile, role).map_err(layout_error)?);
+                }
+                lines
             };
             let height = i32::try_from(lines.len().max(1))
                 .ok()
@@ -336,7 +417,11 @@ fn table_items(
                     w: width,
                     h: height,
                 },
-                role: TextRole::Label,
+                role: match role {
+                    crate::measure::Role::Label => TextRole::Label,
+                    crate::measure::Role::Body => TextRole::Body,
+                    crate::measure::Role::Title => TextRole::Title,
+                },
                 size: 14,
                 align: Align::Start,
                 style: TextStyle::Text,
@@ -368,6 +453,7 @@ fn table_items(
         items,
         texts,
         cell,
+        profile,
         line_height,
         separator,
         padding,
@@ -421,5 +507,306 @@ mod tests {
             compartment_size(&[Vec::new(), Vec::new(), Vec::new()], Profile::Vector).unwrap(),
             Size { w: 2048, h: 3968 }
         );
+    }
+    #[test]
+    fn class_rows_measure_rendered_runs_and_force_lines() {
+        let padding = constant(Profile::Vector, "padding").unwrap();
+        let line_height = crate::measure::Role::Label.line_height_px() * 64;
+        let hot =
+            crate::measure::vector_width("hot", 14, crate::measure::Weight::Semibold).unwrap();
+        assert_eq!(
+            compartment_size(&[vec!["**hot**".into()]], Profile::Vector).unwrap(),
+            Size {
+                w: hot + 2 * padding,
+                h: line_height
+            }
+        );
+        let a = crate::measure::vector_width("a", 14, crate::measure::Weight::Semibold).unwrap();
+        let b = crate::measure::vector_width("b", 14, crate::measure::Weight::Semibold).unwrap();
+        assert_eq!(
+            compartment_size(&[vec!["a<br>b".into()]], Profile::Vector).unwrap(),
+            Size {
+                w: a.max(b) + 2 * padding,
+                h: 2 * line_height
+            }
+        );
+        let items = table_items(
+            "a<br>b",
+            crate::geom::Rect {
+                x: 0,
+                y: 0,
+                w: 4000,
+                h: 4000,
+            },
+            Profile::Vector,
+        )
+        .unwrap();
+        let text = items
+            .iter()
+            .filter_map(|item| match item {
+                crate::scene::Item::Text(text) => Some(text.clone()),
+                _ => None,
+            })
+            .next()
+            .unwrap();
+        assert_eq!(
+            text.lines
+                .iter()
+                .map(|line| line.iter().map(|run| run.text.as_str()).collect::<Vec<_>>())
+                .collect::<Vec<_>>(),
+            [["a"], ["b"]]
+        );
+    }
+    #[test]
+    fn class_runs_carry_flags_and_markup_edges() {
+        let rect = crate::geom::Rect {
+            x: 0,
+            y: 0,
+            w: 8000,
+            h: 8000,
+        };
+        let first_text = |text: &str| {
+            table_items(text, rect, Profile::Vector)
+                .unwrap()
+                .iter()
+                .filter_map(|item| match item {
+                    crate::scene::Item::Text(text) => Some(text.clone()),
+                    _ => None,
+                })
+                .next()
+                .unwrap()
+        };
+        assert_eq!(
+            first_text("**b** *i* tail").lines,
+            vec![vec![
+                crate::scene::Run {
+                    text: "b".into(),
+                    bold: true,
+                    italic: false
+                },
+                crate::scene::Run {
+                    text: " ".into(),
+                    bold: false,
+                    italic: false
+                },
+                crate::scene::Run {
+                    text: "i".into(),
+                    bold: false,
+                    italic: true
+                },
+                crate::scene::Run {
+                    text: " tail".into(),
+                    bold: false,
+                    italic: false
+                },
+            ]]
+        );
+        assert_eq!(
+            first_text(r"a\*b").lines,
+            vec![vec![
+                crate::scene::Run {
+                    text: "a".into(),
+                    bold: false,
+                    italic: false
+                },
+                crate::scene::Run {
+                    text: "*".into(),
+                    bold: false,
+                    italic: false
+                },
+                crate::scene::Run {
+                    text: "b".into(),
+                    bold: false,
+                    italic: false
+                },
+            ]]
+        );
+        assert_eq!(
+            first_text("a_b *x").lines,
+            vec![vec![crate::scene::Run {
+                text: "a_b *x".into(),
+                bold: false,
+                italic: false
+            }]]
+        );
+        assert_eq!(
+            first_text("**b** $$\\frac{a}{b}$$").lines,
+            vec![vec![
+                crate::scene::Run {
+                    text: "b".into(),
+                    bold: true,
+                    italic: false
+                },
+                crate::scene::Run {
+                    text: " ".into(),
+                    bold: false,
+                    italic: false
+                },
+                crate::scene::Run {
+                    text: "$$\\frac{a}{b}$$".into(),
+                    bold: false,
+                    italic: false
+                },
+            ]]
+        );
+    }
+    #[test]
+    fn class_cell_profile_measures_rendered_cells_but_keeps_flags() {
+        let padding = constant(Profile::Cell, "padding").unwrap();
+        let ab = crate::measure::cell_width("ab").unwrap();
+        assert_eq!(
+            compartment_size(&[vec!["**ab**".into()]], Profile::Cell).unwrap(),
+            Size {
+                w: ab + 2 * padding,
+                h: 3
+            }
+        );
+        assert_eq!(
+            compartment_size(&[vec!["a<br>b".into()]], Profile::Cell)
+                .unwrap()
+                .h,
+            4
+        );
+        let items = table_items(
+            "**ab**",
+            crate::geom::Rect {
+                x: 0,
+                y: 0,
+                w: 4000,
+                h: 4000,
+            },
+            Profile::Cell,
+        )
+        .unwrap();
+        let text = items
+            .iter()
+            .filter_map(|item| match item {
+                crate::scene::Item::Text(text) => Some(text.clone()),
+                _ => None,
+            })
+            .next()
+            .unwrap();
+        assert_eq!(
+            text.lines,
+            vec![vec![crate::scene::Run {
+                text: "ab".into(),
+                bold: true,
+                italic: false
+            }]]
+        );
+    }
+    fn member_advance_width(segments: &[(&str, u8)]) -> i32 {
+        let upem = crate::r#gen::advancesupem::ADVANCES_UPEM;
+        let denominator = i64::from(upem[0]) * i64::from(upem[1]);
+        let numerator: i64 = segments
+            .iter()
+            .map(|&(text, weight)| {
+                let units: i64 = text
+                    .chars()
+                    .map(|ch| {
+                        i64::from(
+                            crate::r#gen::advances::ADVANCES
+                                .iter()
+                                .find(|row| row.weight == weight && row.cp == u32::from(ch))
+                                .unwrap()
+                                .units,
+                        )
+                    })
+                    .sum();
+                units * 14 * 64 * (denominator / i64::from(upem[usize::from(weight)]))
+            })
+            .sum();
+        i32::try_from((numerator + denominator - 1) / denominator).unwrap()
+    }
+
+    #[test]
+    fn class_member_roles_measure_and_render_at_declared_weights() {
+        let rendered = "+AAAAAAAAx";
+        for (member, bold, italic) in [
+            ("+AAAAAAAAx", false, false),
+            ("+**AAAAAAAA**x", true, false),
+            ("+*AAAAAAAA*x", false, true),
+        ] {
+            let segments = [("+", 0), ("AAAAAAAA", u8::from(bold)), ("x", 0)];
+            let expected_runs = if bold || italic {
+                vec![
+                    crate::scene::Run {
+                        text: "+".into(),
+                        bold: false,
+                        italic: false,
+                    },
+                    crate::scene::Run {
+                        text: "AAAAAAAA".into(),
+                        bold,
+                        italic,
+                    },
+                    crate::scene::Run {
+                        text: "x".into(),
+                        bold: false,
+                        italic: false,
+                    },
+                ]
+            } else {
+                vec![crate::scene::Run {
+                    text: rendered.into(),
+                    bold: false,
+                    italic: false,
+                }]
+            };
+            let source = format!("classDiagram\nclass C {{\n{member}\n}}\n");
+            let parsed = crate::syntax::class::parse(&source, &[]);
+            let (model, _) = crate::model::class::resolve(&source, &parsed.document);
+            for profile in [Profile::Vector, Profile::Cell] {
+                let input = from_class(&model, profile, DumpOptions::default()).unwrap();
+                let (scene, _) = layout(&input).unwrap();
+                let expected_width = if profile == Profile::Vector {
+                    member_advance_width(&[("C", 1)]).max(member_advance_width(&segments))
+                        + 2 * 1024
+                } else {
+                    10 + 2 * 2
+                };
+                assert_eq!(scene.boxes()[0].rect.w, expected_width);
+                let texts = scene
+                    .items()
+                    .iter()
+                    .flat_map(|group| &group.items)
+                    .filter_map(|item| match item {
+                        crate::scene::Item::Text(text) => Some(text),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                assert_eq!(texts[0].role, crate::scene::TextRole::Label);
+                assert_eq!(
+                    texts[0].lines,
+                    vec![vec![crate::scene::Run {
+                        text: "C".into(),
+                        bold: false,
+                        italic: false,
+                    }]]
+                );
+                let member_text = texts
+                    .iter()
+                    .find(|text| {
+                        text.lines
+                            .iter()
+                            .flatten()
+                            .map(|run| run.text.as_str())
+                            .collect::<String>()
+                            == rendered
+                    })
+                    .unwrap();
+                assert_eq!(member_text.role, crate::scene::TextRole::Body);
+                assert_eq!(
+                    member_text.rect.w,
+                    expected_width
+                        - if profile == Profile::Vector {
+                            2 * 1024
+                        } else {
+                            2 * 2
+                        }
+                );
+                assert_eq!(member_text.lines, vec![expected_runs.clone()]);
+            }
+        }
     }
 }

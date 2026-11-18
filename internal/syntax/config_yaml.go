@@ -104,11 +104,15 @@ func (r *configReader) requireEnd() bool {
 	if !r.skipBlankAndComments() {
 		return false
 	}
-	if r.pos < r.end {
-		r.failMalformed(r.pos)
+	if r.pos >= r.end {
+		return true
+	}
+	if r.markerAt(r.pos) {
+		r.fail(codeMalformed, msgMultiDocument, r.span(r.pos, r.pos+3))
 		return false
 	}
-	return true
+	r.failMalformed(r.pos)
+	return false
 }
 
 func (r *configReader) parseYAMLBlockMap(col int) (ConfigValue, bool) {
@@ -270,7 +274,7 @@ func (r *configReader) parseEntryKey() (string, source.Span, bool) {
 		return "", source.Span{}, false
 	}
 	if b := r.src[start]; b == '"' || b == '\'' {
-		return r.parseQuotedKey(start, lineContent)
+		return r.parseQuotedKey(lineContent)
 	}
 	if r.plainStartFails(start) {
 		r.failMalformed(start)
@@ -294,13 +298,13 @@ func (r *configReader) mapColonFails(start, lineContent int) bool {
 	return false
 }
 
-func (r *configReader) parseQuotedKey(start, lineContent int) (string, source.Span, bool) {
+func (r *configReader) parseQuotedKey(lineContent int) (string, source.Span, bool) {
 	value, ok := r.parseScalarValue()
 	if !ok {
 		return "", source.Span{}, false
 	}
 	r.skipInlineSpace()
-	if r.pos >= lineContent || !colonEndsKey(r.src, r.pos, lineContent) {
+	if r.pos >= lineContent || r.src[r.pos] != ':' || !colonEndsKey(r.src, r.pos, lineContent) {
 		r.failMalformed(r.pos)
 		return "", source.Span{}, false
 	}
@@ -442,6 +446,7 @@ func (r *configReader) readBlockScalar(col int, style blockStyle, chomp chompMod
 func (r *configReader) blockScalarValue(text string, headerStart int) ConfigValue {
 	return ConfigValue{Kind: ValueString, Text: text, Span: r.span(headerStart, r.pos)}
 }
+
 func (r *configReader) blockContentStart(col int) (int, int, bool) {
 	blankPrefix := 0
 	for cursor := r.pos; cursor < r.end; {

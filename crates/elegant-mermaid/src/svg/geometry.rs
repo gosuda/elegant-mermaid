@@ -1,4 +1,5 @@
 use super::{ConfigError, Point, Rect};
+use crate::outlines::Command;
 use crate::scene::{MarkerAxis, MarkerRefItem, PathCommand};
 pub(super) fn number(v: i64) -> String {
     let h = (i128::from(v).abs() * 100 + 32) / 64;
@@ -11,6 +12,19 @@ pub(super) fn number(v: i64) -> String {
         s.insert(0, '-');
     }
     s
+}
+pub(super) fn glyph_path(commands: &[Command]) -> String {
+    let n = |v: i32| number(v.into());
+    commands
+        .iter()
+        .map(|c| match *c {
+            Command::Move(x, y) => format!("M{} {}", n(x), n(y)),
+            Command::Line(x, y) => format!("L{} {}", n(x), n(y)),
+            Command::Quad(cx, cy, x, y) => format!("Q{} {} {} {}", n(cx), n(cy), n(x), n(y)),
+            Command::Close => "Z".into(),
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 fn pair(p: Point) -> String {
     format!("{} {}", number(p.x.into()), number(p.y.into()))

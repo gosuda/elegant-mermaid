@@ -8,24 +8,21 @@ type directionRule struct {
 }
 
 var directionRules = []directionRule{
-	{"direction_tb", regexp.MustCompile(`direction[ \t]+TB`)},
-	{"direction_bt", regexp.MustCompile(`direction[ \t]+BT`)},
-	{"direction_rl", regexp.MustCompile(`direction[ \t]+RL`)},
-	{"direction_lr", regexp.MustCompile(`direction[ \t]+LR`)},
+	{"direction_tb", regexp.MustCompile(`^[^\r\n]*direction\s+TB[^\r\n]*`)},
+	{"direction_bt", regexp.MustCompile(`^[^\r\n]*direction\s+BT[^\r\n]*`)},
+	{"direction_rl", regexp.MustCompile(`^[^\r\n]*direction\s+RL[^\r\n]*`)},
+	{"direction_lr", regexp.MustCompile(`^[^\r\n]*direction\s+LR[^\r\n]*`)},
 }
 
 func (l *lexer) directionLine() bool {
-	end := l.at
-	for end < len(l.src) && l.src[end] != '\r' && l.src[end] != '\n' {
-		end++
-	}
 	for _, rule := range directionRules {
-		if !rule.pattern.Match(l.src[l.at:end]) {
+		length := len(rule.pattern.Find(l.src[l.at:]))
+		if length == 0 {
 			continue
 		}
 		start := l.at
-		l.at = end
-		l.emit(rule.kind, start, end)
+		l.at += length
+		l.emit(rule.kind, start, l.at)
 		return true
 	}
 	return false

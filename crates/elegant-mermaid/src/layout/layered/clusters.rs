@@ -2,7 +2,7 @@ use super::{
     LayoutError,
     graph::{Edge, Graph, Node, Proper, ProperEdge, ProperNode},
 };
-use crate::{geom::Rect, layout::input::Input, scene::BoxRole};
+use crate::{geom::Rect, layout::input::Input};
 
 pub struct Cluster {
     pub node: usize,
@@ -115,11 +115,7 @@ fn connect_ranked_members(
         {
             continue;
         }
-        if input
-            .boxes
-            .iter()
-            .any(|b| b.id == other.id && b.role == BoxRole::Group)
-        {
+        if input.groups.iter().any(|group| group.id == other.id) {
             continue;
         }
         edges.push(Edge {

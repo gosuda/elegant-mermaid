@@ -1,0 +1,57 @@
+[
+  {
+    "code": "quadrant/duplicate-point",
+    "severity": "warning",
+    "summary": "two data points have the same label",
+    "help": "Rename one of the points, or merge them.",
+    "rationale": "Identical labels render overlapping markers, which is usually a copy-paste mistake.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:quadrant-duplicate-point",
+    "status": "adopted"
+  },
+  {
+    "code": "quadrant/no-points",
+    "severity": "warning",
+    "summary": "quadrant chart has labels but no data points",
+    "help": "Add at least one point line.",
+    "rationale": "The plot parses, but it renders empty, so the missing data is easy to miss.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:quadrant-no-points",
+    "status": "adopted"
+  },
+  {
+    "code": "quadrant/missing-x-axis",
+    "severity": "warning",
+    "summary": "quadrant chart has data points but no x-axis label",
+    "help": "Add an x-axis line that names the axis.",
+    "rationale": "The default axis text hides what the chart is comparing.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:quadrant-missing-x-axis",
+    "status": "adopted"
+  },
+  {
+    "code": "quadrant/missing-y-axis",
+    "severity": "warning",
+    "summary": "quadrant chart has data points but no y-axis label",
+    "help": "Add a y-axis line that names the axis.",
+    "rationale": "The default axis text hides what the chart is comparing.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:quadrant-missing-y-axis",
+    "status": "adopted"
+  },
+  {
+    "code": "quadrant/duplicate-quadrant",
+    "severity": "warning",
+    "summary": "the same quadrant region is labeled more than once",
+    "help": "Label each quadrant region once.",
+    "rationale": "Mermaid keeps only the last label, so the earlier ones are silently dropped.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:quadrant-duplicate-quadrant",
+    "status": "adopted"
+  }
+]

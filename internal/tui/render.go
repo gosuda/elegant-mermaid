@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	mermaid "github.com/gosuda/elegant-mermaid"
+	"github.com/gosuda/elegant-mermaid/internal/fileerr"
 	"github.com/gosuda/elegant-mermaid/internal/source"
 	"github.com/gosuda/elegant-mermaid/raster"
 )
@@ -156,7 +157,7 @@ func renderFailure(s State, err error) State {
 func Read(path string) ([]byte, error) {
 	src, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read %s: %w", path, err)
+		return nil, fileerr.Read(path, err)
 	}
 	return src, nil
 }

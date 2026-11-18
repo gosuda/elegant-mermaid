@@ -7,9 +7,7 @@ import (
 
 func TestClusters(t *testing.T) {
 	g := &Graph{Nodes: []Node{{ID: "A", Decl: 1, Parent: "G"}, {ID: "B", Decl: 2, Parent: "G"}}, Edges: []Edge{{Tail: 0, Head: 1, MinLen: 1}}, Clusters: []Cluster{{ID: "G", Decl: 0}}}
-	if err := clusterBorders(g); err != nil {
-		t.Fatal(err)
-	}
+	clusterBorders(g)
 	rank, err := Rank(g)
 	if err != nil {
 		t.Fatal(err)
@@ -18,9 +16,7 @@ func TestClusters(t *testing.T) {
 		t.Fatalf("T->A->B->B_C gives ranks0,1,2,3: %v", rank)
 	}
 	empty := &Graph{Clusters: []Cluster{{ID: "empty"}}}
-	if err := clusterBorders(empty); err != nil {
-		t.Fatal(err)
-	}
+	clusterBorders(empty)
 	rank, err = Rank(empty)
 	if err != nil {
 		t.Fatal(err)
@@ -32,9 +28,7 @@ func TestClusters(t *testing.T) {
 
 func TestRankingConstraintsDoNotNormalize(t *testing.T) {
 	g := &Graph{Nodes: []Node{{ID: "A", Decl: 1, Parent: "G", W: 5, H: 3}, {ID: "B", Decl: 2, Parent: "G", W: 5, H: 3}}, Edges: []Edge{{Tail: 0, Head: 1, MinLen: 1}}, Clusters: []Cluster{{ID: "G", Decl: 0}}}
-	if err := clusterBorders(g); err != nil {
-		t.Fatal(err)
-	}
+	clusterBorders(g)
 	rank, err := Rank(g)
 	if err != nil {
 		t.Fatal(err)

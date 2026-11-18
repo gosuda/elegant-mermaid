@@ -21,4 +21,5 @@ func allocateRouteIDs(boxes []Box, count int) []string {
 	}
 	return ids
 }
+
 func routeIDTaken(taken map[string]struct{}, id string) bool { _, exists := taken[id]; return exists }

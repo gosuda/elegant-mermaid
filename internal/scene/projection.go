@@ -87,7 +87,7 @@ func (e routeAttachments) matches(points []geom.Point) bool {
 }
 
 func (e routeAttachments) markerPoint(v *MarkerRef, r Route, markerIndex int) geom.Point {
-	if v.At == e.first && v.At == e.last {
+	if e.first == e.last && v.At == e.first {
 		target := r.MarkerEnd == v.Marker && (r.MarkerStart != v.Marker || markerIndex > 0)
 		if target {
 			return e.b

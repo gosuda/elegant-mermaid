@@ -228,4 +228,5 @@ require (
 	honnef.co/go/tools v0.8.2 // indirect
 	mvdan.cc/gofumpt v0.12.0 // indirect
 	mvdan.cc/unparam v0.0.0-20260823230713-2fa3d841b0c8 // indirect
+	pgregory.net/rapid v1.3.0 // indirect
 )

@@ -33,8 +33,8 @@ const (
 )
 
 var (
-	ErrOverflow = errors.New("geom: overflow")
-	ErrDomain   = errors.New("geom: domain")
+	ErrOverflow = errors.New("arithmetic overflow")
+	ErrDomain   = errors.New("domain error")
 )
 
 func FloorDiv(a, b int64) int64 {

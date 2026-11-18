@@ -137,8 +137,6 @@ type TextOptions struct {
 	Color   ColorMode
 }
 
-type IconPack struct{}
-
 type GlyphOutlines struct{ fonts scenelink.Outlines }
 
 type Block struct {

@@ -1,7 +1,7 @@
 use super::*;
 
 #[test]
-fn composite_samples_integer_nearest_neighbours() -> Result<(), String> {
+fn composite_samples_integer_nearest_neighbours() -> Result<(), ViewError> {
     let image = Image {
         width: 2,
         height: 1,

@@ -19,23 +19,25 @@ type terminalInput interface {
 	Close() error
 }
 
-type renderResult struct{ state State }
-type liveSession struct {
-	state                  State
-	source                 []byte
-	input                  terminalInput
-	output                 io.Writer
-	watcher                *fsnotify.Watcher
-	absolute               string
-	scheduler              Scheduler
-	results                chan renderResult
-	cancel                 context.CancelFunc
-	finished               chan struct{}
-	dirty                  bool
-	changed, retry, escape time.Time
-	keys                   []byte
-	fd                     int
-}
+type (
+	renderResult struct{ state State }
+	liveSession  struct {
+		state                  State
+		source                 []byte
+		input                  terminalInput
+		output                 io.Writer
+		watcher                *fsnotify.Watcher
+		absolute               string
+		scheduler              Scheduler
+		results                chan renderResult
+		cancel                 context.CancelFunc
+		finished               chan struct{}
+		dirty                  bool
+		changed, retry, escape time.Time
+		keys                   []byte
+		fd                     int
+	}
+)
 
 func probe(terminal graphicsTerminal, mode termgfx.Mode) (termgfx.Mode, int, int, error) {
 	if _, err := terminal.output.Write(termgfx.QueryBytes(terminal.environment)); err != nil {
@@ -182,11 +184,18 @@ func (session *liveSession) stopRender() {
 }
 
 func (session *liveSession) edited(ctx context.Context) {
-	if session.scheduler.Edit() {
+	next, cmd := Step(session.scheduler, EventEdited)
+	session.scheduler = next
+	session.applyCommand(ctx, cmd)
+}
+
+func (session *liveSession) applyCommand(ctx context.Context, cmd Command) {
+	switch cmd.Kind {
+	case CommandStartRender:
 		session.startRender(ctx)
-		return
+	case CommandCancelRender:
+		session.cancel()
 	}
-	session.cancel()
 }
 
 func (session *liveSession) run(ctx context.Context) error {
@@ -234,10 +243,12 @@ func (session *liveSession) resize() error {
 func (session *liveSession) event(ctx context.Context) error {
 	select {
 	case result := <-session.results:
-		if session.scheduler.Done() {
+		next, cmd := Step(session.scheduler, EventRenderDone)
+		session.scheduler = next
+		if cmd.Kind == CommandDisplay {
 			session.display(result.state)
 		} else {
-			session.startRender(ctx)
+			session.applyCommand(ctx, cmd)
 		}
 	case event, ok := <-session.watcher.Events:
 		if !ok {

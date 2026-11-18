@@ -38,25 +38,55 @@ type operand struct {
 }
 
 type opEntry struct {
-	args []operandKind
-	fn   func([]operand) string
+	args  [4]operandKind
+	arity int
+	fn    func(*[4]operand) string
 }
 
-var opTable = map[string]opEntry{
-	"translate":          {[]operandKind{kindTuple4, kindInt, kindInt}, evalTranslate},
-	"inflate":            {[]operandKind{kindTuple4, kindInt}, evalInflate},
-	"union":              {[]operandKind{kindTuple4, kindTuple4}, evalUnion},
-	"intersects":         {[]operandKind{kindTuple4, kindTuple4}, evalIntersects},
-	"contains":           {[]operandKind{kindTuple4, kindTuple4}, evalContains},
-	"place_after":        {[]operandKind{kindAxis, kindTuple4, kindInt, kindTuple2}, evalPlaceAfter},
-	"compact":            {[]operandKind{kindAxis, kindInt, kindTuple4List}, evalCompact},
-	"segments_cross":     {[]operandKind{kindTuple4, kindTuple4}, evalSegmentsCross},
-	"is_orthogonal":      {[]operandKind{kindTuple2List}, evalIsOrthogonal},
-	"polyline_hits_rect": {[]operandKind{kindTuple2List, kindTuple4}, evalPolylineHitsRect},
-	"count_inversions":   {[]operandKind{kindIntList}, evalCountInversions},
-	"isqrt":              {[]operandKind{kindInt}, evalIsqrt},
-	"sin_q15":            {[]operandKind{kindInt}, evalSinQ15},
-	"cos_q15":            {[]operandKind{kindInt}, evalCosQ15},
+func operation(name string) (opEntry, bool) {
+	switch name {
+	case "translate":
+		return opEntry{[4]operandKind{kindTuple4, kindInt, kindInt}, 3, evalTranslate}, true
+	case "inflate":
+		return opEntry{[4]operandKind{kindTuple4, kindInt}, 2, evalInflate}, true
+	case "union":
+		return opEntry{[4]operandKind{kindTuple4, kindTuple4}, 2, evalUnion}, true
+	case "intersects":
+		return opEntry{[4]operandKind{kindTuple4, kindTuple4}, 2, evalIntersects}, true
+	case "contains":
+		return opEntry{[4]operandKind{kindTuple4, kindTuple4}, 2, evalContains}, true
+	case "place_after":
+		return opEntry{[4]operandKind{kindAxis, kindTuple4, kindInt, kindTuple2}, 4, evalPlaceAfter}, true
+	}
+	return collectionOperation(name)
+}
+
+func collectionOperation(name string) (opEntry, bool) {
+	switch name {
+	case "compact":
+		return opEntry{[4]operandKind{kindAxis, kindInt, kindTuple4List}, 3, evalCompact}, true
+	case "segments_cross":
+		return opEntry{[4]operandKind{kindTuple4, kindTuple4}, 2, evalSegmentsCross}, true
+	case "is_orthogonal":
+		return opEntry{[4]operandKind{kindTuple2List}, 1, evalIsOrthogonal}, true
+	case "polyline_hits_rect":
+		return opEntry{[4]operandKind{kindTuple2List, kindTuple4}, 2, evalPolylineHitsRect}, true
+	case "count_inversions":
+		return opEntry{[4]operandKind{kindIntList}, 1, evalCountInversions}, true
+	}
+	return scalarOperation(name)
+}
+
+func scalarOperation(name string) (opEntry, bool) {
+	switch name {
+	case "isqrt":
+		return opEntry{[4]operandKind{kindInt}, 1, evalIsqrt}, true
+	case "sin_q15":
+		return opEntry{[4]operandKind{kindInt}, 1, evalSinQ15}, true
+	case "cos_q15":
+		return opEntry{[4]operandKind{kindInt}, 1, evalCosQ15}, true
+	}
+	return opEntry{}, false
 }
 
 func Eval(r io.Reader, w io.Writer) error {
@@ -90,27 +120,27 @@ func evalLine(line string) (string, bool) {
 	if arrow < 1 || arrow != len(fields)-2 {
 		return "", false
 	}
-	entry, ok := opTable[fields[0]]
-	if !ok || len(entry.args) != arrow-1 {
+	entry, ok := operation(fields[0])
+	if !ok || entry.arity != arrow-1 {
 		return "", false
 	}
-	args, ok := parseArgs(fields[1:arrow], entry.args)
+	var args [4]operand
+	ok = parseArgs(fields[1:arrow], entry.args, &args)
 	if !ok || !validResult(fields[arrow+1]) {
 		return "", false
 	}
-	return entry.fn(args) + "\n", true
+	return entry.fn(&args) + "\n", true
 }
 
-func parseArgs(tokens []string, kinds []operandKind) ([]operand, bool) {
-	args := make([]operand, len(kinds))
-	for i, kind := range kinds {
-		arg, ok := parseOperand(tokens[i], kind)
+func parseArgs(tokens []string, kinds [4]operandKind, args *[4]operand) bool {
+	for i := range tokens {
+		arg, ok := parseOperand(tokens[i], kinds[i])
 		if !ok {
-			return nil, false
+			return false
 		}
 		args[i] = arg
 	}
-	return args, true
+	return true
 }
 
 func arrowIndex(fields []string) int {
@@ -324,37 +354,37 @@ func isListToken(s string) bool {
 	return true
 }
 
-func evalTranslate(args []operand) string {
+func evalTranslate(args *[4]operand) string {
 	r, err := Translate(rectOf(args[0]), int32(args[1].val), int32(args[2].val))
 	return rectToken(r, err)
 }
 
-func evalInflate(args []operand) string {
+func evalInflate(args *[4]operand) string {
 	r, err := Inflate(rectOf(args[0]), int32(args[1].val))
 	return rectToken(r, err)
 }
 
-func evalUnion(args []operand) string {
+func evalUnion(args *[4]operand) string {
 	r, err := Union(rectOf(args[0]), rectOf(args[1]))
 	return rectToken(r, err)
 }
 
-func evalIntersects(args []operand) string {
+func evalIntersects(args *[4]operand) string {
 	v, err := Intersects(rectOf(args[0]), rectOf(args[1]))
 	return boolToken(v, err)
 }
 
-func evalContains(args []operand) string {
+func evalContains(args *[4]operand) string {
 	v, err := Contains(rectOf(args[0]), rectOf(args[1]))
 	return boolToken(v, err)
 }
 
-func evalPlaceAfter(args []operand) string {
+func evalPlaceAfter(args *[4]operand) string {
 	r, err := PlaceAfter(args[0].axis, rectOf(args[1]), int32(args[2].val), sizeOf(args[3]))
 	return rectToken(r, err)
 }
 
-func evalCompact(args []operand) string {
+func evalCompact(args *[4]operand) string {
 	items := make([]Rect, len(args[2].list))
 	for i, o := range args[2].list {
 		items[i] = rectOf(o)
@@ -366,21 +396,21 @@ func evalCompact(args []operand) string {
 	return rectListToken(out)
 }
 
-func evalSegmentsCross(args []operand) string {
+func evalSegmentsCross(args *[4]operand) string {
 	v, err := SegmentsCross(segOf(args[0]), segOf(args[1]))
 	return boolToken(v, err)
 }
 
-func evalIsOrthogonal(args []operand) string {
+func evalIsOrthogonal(args *[4]operand) string {
 	return boolToken(IsOrthogonal(pointsOf(args[0].list)), nil)
 }
 
-func evalPolylineHitsRect(args []operand) string {
+func evalPolylineHitsRect(args *[4]operand) string {
 	v, err := PolylineHitsRect(pointsOf(args[0].list), rectOf(args[1]))
 	return boolToken(v, err)
 }
 
-func evalCountInversions(args []operand) string {
+func evalCountInversions(args *[4]operand) string {
 	xs := make([]int32, len(args[0].list))
 	for i, o := range args[0].list {
 		xs[i] = int32(o.val)
@@ -389,16 +419,16 @@ func evalCountInversions(args []operand) string {
 	return intToken(int64(n), err)
 }
 
-func evalIsqrt(args []operand) string {
+func evalIsqrt(args *[4]operand) string {
 	v, err := Isqrt(args[0].val)
 	return intToken(v, err)
 }
 
-func evalSinQ15(args []operand) string {
+func evalSinQ15(args *[4]operand) string {
 	return intToken(int64(SinQ15(int32(args[0].val))), nil)
 }
 
-func evalCosQ15(args []operand) string {
+func evalCosQ15(args *[4]operand) string {
 	return intToken(int64(CosQ15(int32(args[0].val))), nil)
 }
 

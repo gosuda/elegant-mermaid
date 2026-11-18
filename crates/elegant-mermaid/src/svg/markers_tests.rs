@@ -104,16 +104,16 @@ fn svg_marker_outlines() {
             "<polyline class='emd-s-edge' points='6,18 10,10 14,18' stroke-width='1'/>\n",
         ),
     ] {
-        let mut r = Renderer {
-            theme: theme::resolve("").unwrap(),
-            used: BTreeSet::new(),
-        };
+        let mut r = Renderer::new(theme::resolve("").unwrap(), Look::default());
         let got = r
-            .marker(&MarkerRefItem {
-                marker: MarkerName::new(name).unwrap(),
-                at: Point { x: 640, y: 640 },
-                axis,
-            })
+            .marker(
+                &MarkerRefItem {
+                    marker: MarkerName::new(name).unwrap(),
+                    at: Point { x: 640, y: 640 },
+                    axis,
+                },
+                0,
+            )
             .unwrap();
         assert_eq!(got, want, "{name}/{}", axis.as_str());
     }

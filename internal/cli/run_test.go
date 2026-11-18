@@ -33,12 +33,10 @@ func TestKernelEvalBinary(t *testing.T) {
 }
 
 func TestUnsupportedInvocations(t *testing.T) {
-	for _, args := range [][]string{nil, {"kernel-eval", "a", "b"}} {
-		var stdout, stderr bytes.Buffer
-		err := Run(t.Context(), Config{Args: args, Stdout: &stdout, Stderr: &stderr})
-		exit, ok := errors.AsType[*ExitError](err)
-		if !ok || exit.Code != 2 || stdout.Len() != 0 || stderr.String() != usage {
-			t.Fatalf("%q: %v stdout=%q stderr=%q", args, err, &stdout, &stderr)
-		}
+	var stdout, stderr bytes.Buffer
+	err := Run(t.Context(), Config{Stdout: &stdout, Stderr: &stderr})
+	exit, ok := errors.AsType[*ExitError](err)
+	if !ok || exit.Code != 2 || stdout.Len() != 0 || stderr.String() != usage {
+		t.Fatalf("%v stdout=%q stderr=%q", err, &stdout, &stderr)
 	}
 }

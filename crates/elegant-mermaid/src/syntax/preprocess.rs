@@ -65,6 +65,7 @@ pub fn preprocess(src: &str) -> Preprocessed {
 
 struct Fence {
     start: usize,
+    indent_end: usize,
     end: usize,
 }
 
@@ -87,7 +88,7 @@ impl<'a> Prep<'a> {
         let Some(f) = fence_at(self.b, 0) else {
             return;
         };
-        let Some(c) = closing_fence(self.b, f.end) else {
+        let Some(c) = closing_fence(self.b, f.end, &self.b[..f.indent_end]) else {
             return;
         };
         let body = Span {
@@ -282,21 +283,31 @@ impl<'a> Prep<'a> {
 
     fn comment_scan(&mut self) {
         let len = self.b.len();
+        let mut blanked = SpanCursor::new(merge_spans(self.spans.clone()));
+        let mut blank_from: Option<usize> = None;
         let mut p = self.region;
         while p < len {
             let e = line_content_end(self.b, p, len);
+            let nl = e + eol_len(self.b, e);
             if self.comment_line(p, e) {
                 self.spans.push(Span {
-                    start: p,
-                    end: e + eol_len(self.b, e),
+                    start: blank_from.take().unwrap_or(p),
+                    end: nl,
                 });
+            } else if self.blank_line(p, e, &mut blanked) {
+                blank_from.get_or_insert(p);
+            } else {
+                blank_from = None;
             }
-            let nl = e + eol_len(self.b, e);
             if nl <= p {
                 break;
             }
             p = nl;
         }
+    }
+
+    fn blank_line(&self, start: usize, end: usize, removed: &mut SpanCursor) -> bool {
+        (start..end).all(|i| matches!(self.b.get(i), Some(b' ') | Some(b'\t')) || removed.covers(i))
     }
 
     fn comment_line(&self, ls: usize, e: usize) -> bool {
@@ -367,13 +378,16 @@ fn fence_at(b: &[u8], from: usize) -> Option<Fence> {
     }
     Some(Fence {
         start: from,
+        indent_end: i,
         end: e + el,
     })
 }
 
-fn closing_fence(b: &[u8], mut from: usize) -> Option<Fence> {
+fn closing_fence(b: &[u8], mut from: usize, indent: &[u8]) -> Option<Fence> {
     while from < b.len() {
-        if let Some(f) = fence_at(b, from) {
+        if let Some(f) = fence_at(b, from)
+            && &b[from..f.indent_end] == indent
+        {
             return Some(f);
         }
         let e = line_content_end(b, from, b.len());
@@ -397,7 +411,7 @@ fn merge_spans(mut spans: Vec<Span>) -> Vec<Span> {
     let mut out: Vec<Span> = Vec::new();
     for s in spans {
         match out.last_mut() {
-            Some(l) if s.start < l.end => {
+            Some(l) if s.start <= l.end => {
                 if s.end > l.end {
                     l.end = s.end;
                 }
@@ -406,6 +420,24 @@ fn merge_spans(mut spans: Vec<Span>) -> Vec<Span> {
         }
     }
     out
+}
+
+struct SpanCursor {
+    spans: Vec<Span>,
+    next: usize,
+}
+
+impl SpanCursor {
+    fn new(spans: Vec<Span>) -> Self {
+        Self { spans, next: 0 }
+    }
+
+    fn covers(&mut self, offset: usize) -> bool {
+        while self.spans.get(self.next).is_some_and(|s| s.end <= offset) {
+            self.next += 1;
+        }
+        self.spans.get(self.next).is_some_and(|s| s.start <= offset)
+    }
 }
 
 fn merge_top(base: &[Entry], add: &[Entry]) -> Vec<Entry> {
@@ -440,3 +472,7 @@ fn merge_one(base: &[Entry], add: &[Entry]) -> Vec<Entry> {
 #[cfg(test)]
 #[path = "preprocess_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "preprocess/comment_tests.rs"]
+mod comment_tests;

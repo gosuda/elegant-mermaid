@@ -1,6 +1,9 @@
+use super::label::{StyledLine, StyledRun};
+use super::width::{Weight, advance_sum, scaled_width, upem};
 use super::{Cluster, Metric, segment};
 use crate::r#gen::ideographic::IDEOGRAPHIC;
 use crate::geom::GeomError;
+use crate::source::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Line<'a> {
@@ -33,15 +36,220 @@ fn boundary(previous: Cluster<'_>, next: Cluster<'_>) -> bool {
         _ => false,
     }
 }
-struct Wrapper<'a> {
-    text: &'a str,
-    clusters: Vec<Cluster<'a>>,
-    offsets: Vec<usize>,
-    prefix: Vec<i64>,
-    metric: Metric,
+/// How one wrapper computes the width of a cluster range and builds its
+/// lines: the plain metric of `measure::wrap`, or the styled runs of a
+/// label.
+enum Widths<'a> {
+    Metric {
+        metric: Metric,
+        text: &'a str,
+        offsets: Vec<usize>,
+        prefix: Vec<i64>,
+    },
+    Styled(StyledWidths<'a>),
 }
-impl<'a> Wrapper<'a> {
-    fn new(text: &'a str, metric: Metric) -> Result<Self, GeomError> {
+
+/// The style flags of one styled run.
+pub(crate) struct RunScale {
+    pub bold: bool,
+    pub italic: bool,
+}
+
+/// The scaling of one weight group of a styled region. Groups only bucket
+/// the units per weight; the line width is one ceiling of their combined
+/// rational sum.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) struct GroupScale {
+    pub cell: bool,
+    pub size_px: i32,
+    pub weight: Weight,
+    pub font_family: bool,
+}
+
+impl GroupScale {
+    fn width(&self, units: i64) -> Result<i64, GeomError> {
+        if self.cell {
+            return Ok(units);
+        }
+        scaled_width(units, self.size_px, self.weight)
+    }
+}
+
+/// The tokens (runs) and clusters of one styled label region: token byte
+/// ranges and styles carry the styling, cluster byte spans and per-weight
+/// unit parts carry the atomic measurement.
+pub(crate) struct StyledWidths<'a> {
+    pub token_texts: Vec<&'a str>,
+    pub token_ranges: Vec<(usize, usize)>,
+    pub token_sources: Vec<Span>,
+    pub token_group: Vec<usize>,
+    pub token_math: Vec<Option<crate::math::vector::FormulaBox>>,
+    pub scales: Vec<RunScale>,
+    pub groups: Vec<GroupScale>,
+    pub cluster_span: Vec<(usize, usize)>,
+    pub prefixes: Vec<Vec<i64>>,
+}
+
+fn scaled_rational(pairs: &[(i64, Weight)], size_px: i32) -> Result<i64, GeomError> {
+    if let [(units, weight)] = pairs {
+        return scaled_width(*units, size_px, *weight);
+    }
+    let mut denominator = 1i128;
+    for (_, weight) in pairs {
+        denominator = denominator
+            .checked_mul(i128::from(upem(*weight)))
+            .ok_or(GeomError::Overflow)?;
+    }
+    let mut numerator = 0i128;
+    for (units, weight) in pairs {
+        let factor = denominator / i128::from(upem(*weight));
+        let term = i128::from(*units)
+            .checked_mul(factor)
+            .ok_or(GeomError::Overflow)?;
+        numerator = numerator.checked_add(term).ok_or(GeomError::Overflow)?;
+    }
+    let size64 = i64::from(size_px)
+        .checked_mul(64)
+        .ok_or(GeomError::Overflow)?;
+    let numerator = numerator
+        .checked_mul(i128::from(size64))
+        .ok_or(GeomError::Overflow)?;
+    let quotient = (numerator + denominator - 1) / denominator;
+    i64::try_from(quotient).map_err(|_| GeomError::Overflow)
+}
+
+impl<'a> StyledWidths<'a> {
+    fn span_width(&self, from: usize, to: usize) -> Result<i32, GeomError> {
+        let mut cell_units = 0i64;
+        let mut vector: Vec<(i64, Weight)> = Vec::new();
+        let mut size_px = 0i32;
+        let mut font_family = false;
+        for (group, prefix) in self.groups.iter().zip(&self.prefixes) {
+            let units = prefix[to] - prefix[from];
+            if units == 0 {
+                continue;
+            }
+            font_family |= group.font_family;
+            if group.cell {
+                cell_units = cell_units.checked_add(units).ok_or(GeomError::Overflow)?;
+            } else {
+                size_px = group.size_px;
+                vector.push((units, group.weight));
+            }
+        }
+        let scaled = if vector.is_empty() {
+            cell_units
+        } else {
+            scaled_rational(&vector, size_px)?
+                .checked_add(cell_units)
+                .ok_or(GeomError::Overflow)?
+        };
+        let scaled = if font_family {
+            crate::geom::floor_div(scaled.checked_mul(108).ok_or(GeomError::Overflow)?, 100)
+        } else {
+            scaled
+        };
+        i32::try_from(scaled).map_err(|_| GeomError::Overflow)
+    }
+
+    fn source_start(&self, at: usize) -> usize {
+        let token = self
+            .token_ranges
+            .partition_point(|(_, stop)| *stop <= at)
+            .min(self.token_ranges.len() - 1);
+        self.source_at(token, at)
+    }
+
+    fn source_end(&self, at: usize) -> usize {
+        let token = self
+            .token_ranges
+            .partition_point(|(_, stop)| *stop < at)
+            .min(self.token_ranges.len() - 1);
+        self.source_at(token, at)
+    }
+
+    fn source_at(&self, token: usize, at: usize) -> usize {
+        let (start, stop) = self.token_ranges[token];
+        let source = self.token_sources[token];
+        if at == stop {
+            source.end
+        } else if stop - start == source.end - source.start {
+            source.start + at - start
+        } else {
+            source.start
+        }
+    }
+
+    fn line(&self, from: usize, end: usize) -> Result<StyledLine<'a>, GeomError> {
+        let start = self.cluster_span[from].0;
+        let stop = self.cluster_span[end - 1].1;
+        let first = self
+            .token_ranges
+            .partition_point(|(_, token_stop)| *token_stop <= start)
+            .min(self.token_ranges.len() - 1);
+        let beyond = self
+            .token_ranges
+            .partition_point(|(token_start, _)| *token_start < stop);
+        let mut runs = Vec::new();
+        for token in first..beyond {
+            let (token_start, token_stop) = self.token_ranges[token];
+            let lo = start.max(token_start);
+            let hi = stop.min(token_stop);
+            if lo >= hi {
+                continue;
+            }
+            let text = &self.token_texts[token][lo - token_start..hi - token_start];
+            if let Some(formula) = self.token_math[token].as_ref() {
+                runs.push(StyledRun {
+                    text: self.token_texts[token],
+                    bold: false,
+                    italic: false,
+                    width: formula.w,
+                    math: Some(formula.clone()),
+                });
+                continue;
+            }
+            let group = self.token_group[token];
+            let units = if self.groups[group].cell {
+                i64::from(super::cell_width(text)?)
+            } else {
+                advance_sum(text, self.groups[group].weight)?
+            };
+            runs.push(StyledRun {
+                text,
+                bold: self.scales[token].bold,
+                italic: self.scales[token].italic,
+                width: i32::try_from(self.groups[group].width(units)?)
+                    .map_err(|_| GeomError::Overflow)?,
+                math: None,
+            });
+        }
+        let text: String = runs.iter().map(|run| run.text).collect();
+        Ok(StyledLine {
+            runs,
+            text,
+            width: self.span_width(from, end)?,
+            source: Span {
+                start: self.source_start(start),
+                end: self.source_end(stop),
+            },
+        })
+    }
+}
+
+/// One wrapped line: the plain line of `measure::wrap`, or a styled line of
+/// a label.
+pub(crate) enum WrappedLine<'a> {
+    Plain(Line<'a>),
+    Styled(StyledLine<'a>),
+}
+
+pub(super) struct Wrapper<'clusters, 'widths> {
+    clusters: Vec<Cluster<'clusters>>,
+    widths: Widths<'widths>,
+}
+impl<'clusters, 'widths> Wrapper<'clusters, 'widths> {
+    fn metric(text: &'widths str, metric: Metric) -> Result<Wrapper<'widths, 'widths>, GeomError> {
         let clusters = segment(text);
         let mut offsets = vec![0];
         let mut prefix = vec![0i64];
@@ -55,24 +263,44 @@ impl<'a> Wrapper<'a> {
             offsets.push(offset);
             prefix.push(sum);
         }
-        Ok(Self {
-            text,
+        Ok(Wrapper {
             clusters,
-            offsets,
-            prefix,
-            metric,
+            widths: Widths::Metric {
+                metric,
+                text,
+                offsets,
+                prefix,
+            },
         })
+    }
+    pub(super) fn styled(clusters: Vec<Cluster<'clusters>>, widths: StyledWidths<'widths>) -> Self {
+        Self {
+            clusters,
+            widths: Widths::Styled(widths),
+        }
     }
     fn width(&self, from: usize, to: usize) -> Result<i32, GeomError> {
-        self.metric
-            .width_from_units(self.prefix[to] - self.prefix[from])
+        match &self.widths {
+            Widths::Metric { metric, prefix, .. } => {
+                metric.width_from_units(prefix[to] - prefix[from])
+            }
+            Widths::Styled(styled) => styled.span_width(from, to),
+        }
     }
-    fn line(&self, from: usize, end: usize, next: usize) -> Result<Line<'a>, GeomError> {
-        Ok(Line {
-            text: &self.text[self.offsets[from]..self.offsets[end]],
-            separator: &self.text[self.offsets[end]..self.offsets[next]],
-            width: self.width(from, end)?,
-        })
+    fn line(
+        &self,
+        from: usize,
+        end: usize,
+        next: usize,
+    ) -> Result<WrappedLine<'widths>, GeomError> {
+        match &self.widths {
+            Widths::Metric { text, offsets, .. } => Ok(WrappedLine::Plain(Line {
+                text: &text[offsets[from]..offsets[end]],
+                separator: &text[offsets[end]..offsets[next]],
+                width: self.width(from, end)?,
+            })),
+            Widths::Styled(styled) => Ok(WrappedLine::Styled(styled.line(from, end)?)),
+        }
     }
     fn end(&self, start: usize, target: i32) -> Result<usize, GeomError> {
         let mut lo = start + 1;
@@ -110,7 +338,7 @@ impl<'a> Wrapper<'a> {
         }
         result
     }
-    fn run(&self, target: i32) -> Result<Vec<Line<'a>>, GeomError> {
+    pub(super) fn run(&self, target: i32) -> Result<Vec<WrappedLine<'widths>>, GeomError> {
         let mut lines = Vec::new();
         let mut start = 0;
         let n = self.clusters.len();
@@ -153,25 +381,35 @@ fn forced(text: &str) -> Option<(usize, usize)> {
             .map(|tag| (i, tag.len()))
     })
 }
-pub fn wrap(text: &str, target: i32, metric: Metric) -> Result<Vec<Line<'_>>, GeomError> {
+fn wrap_all(text: &str, target: i32, metric: Metric) -> Result<Vec<WrappedLine<'_>>, GeomError> {
     let mut lines = Vec::new();
     let mut rest = text;
     while let Some((at, len)) = forced(rest) {
-        let mut part = Wrapper::new(&rest[..at], metric)?.run(target)?;
-        if let Some(last) = part.last_mut() {
-            let sep_start = at - last.separator.len();
-            last.separator = &rest[sep_start..at + len];
-        } else {
-            part.push(Line {
+        let mut part = Wrapper::metric(&rest[..at], metric)?.run(target)?;
+        match part.last_mut() {
+            Some(WrappedLine::Plain(last)) => {
+                let sep_start = at - last.separator.len();
+                last.separator = &rest[sep_start..at + len];
+            }
+            _ => part.push(WrappedLine::Plain(Line {
                 text: "",
                 separator: &rest[..len],
                 width: 0,
-            });
+            })),
         }
         lines.extend(part);
         rest = &rest[at + len..];
     }
-    lines.extend(Wrapper::new(rest, metric)?.run(target)?);
+    lines.extend(Wrapper::metric(rest, metric)?.run(target)?);
+    Ok(lines)
+}
+pub fn wrap(text: &str, target: i32, metric: Metric) -> Result<Vec<Line<'_>>, GeomError> {
+    let mut lines = Vec::new();
+    for wrapped in wrap_all(text, target, metric)? {
+        if let WrappedLine::Plain(line) = wrapped {
+            lines.push(line);
+        }
+    }
     Ok(lines)
 }
 #[cfg(test)]

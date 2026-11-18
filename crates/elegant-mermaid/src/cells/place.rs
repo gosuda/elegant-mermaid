@@ -40,7 +40,7 @@ impl Canvas {
         row: usize,
         ink: Token,
     ) -> Result<usize, GeomError> {
-        let mut col = line_start(
+        let col = line_start(
             label.align,
             label.rect.x,
             label.rect.w,
@@ -48,6 +48,15 @@ impl Canvas {
         )?;
         let row = i32::try_from(row).map_err(|_| GeomError::Overflow)?;
         let y = label.rect.y.checked_add(row).ok_or(GeomError::Overflow)?;
+        self.place_clusters(text, col, y, ink)
+    }
+    pub(super) fn place_clusters(
+        &mut self,
+        text: &str,
+        mut col: i32,
+        y: i32,
+        ink: Token,
+    ) -> Result<usize, GeomError> {
         let mut refused = 0;
         for cluster in measure::segment(text) {
             let width =

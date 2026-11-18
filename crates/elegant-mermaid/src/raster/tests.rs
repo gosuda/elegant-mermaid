@@ -32,27 +32,85 @@ fn fixture(kind: &str) -> Result<Scene, Box<dyn Error>> {
         &crate::options::LayoutOptions::default(),
     )?)
 }
+fn accepted_fixture(kind: &str) -> Result<Scene, Box<dyn Error>> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../corpus")
+        .join(kind);
+    for path in fixture_files(&root)? {
+        let src = String::from_utf8_lossy(&std::fs::read(&path)?).into_owned();
+        let document = crate::parse(&src);
+        if !document.has_errors() {
+            return Ok(crate::layout(
+                &document,
+                &crate::options::LayoutOptions::default(),
+            )?);
+        }
+    }
+    Err(format!("no accepted corpus fixture for {kind}").into())
+}
 #[test]
 fn png_kinds() -> Result<(), Box<dyn Error>> {
-    for kind in ["flowchart", "class"] {
-        let scene = fixture(kind)?;
-        let bytes = png(&scene, &PngOptions::default())?;
-        let image = Pixmap::decode_png(&bytes)?;
-        assert_eq!(
-            image.width(),
-            u32::try_from((i64::from(scene.canvas().w) * 2 + 63) / 64)?
-        );
-        assert_eq!(
-            image.height(),
-            u32::try_from((i64::from(scene.canvas().h) * 2 + 63) / 64)?
-        );
-        let first = image.pixels().first().ok_or("empty PNG")?;
-        assert!(
-            image.pixels().iter().any(|p| p != first),
-            "png_kinds: expected {} to hold (observed false)",
-            stringify!(image.pixels().iter().any(|p| p != first))
-        );
+    let kinds: Vec<_> = crate::layout::families::FAMILIES
+        .iter()
+        .map(|family| family.kind)
+        .collect();
+    assert!(kinds.len() >= 3, "implemented kinds: {kinds:?}");
+    for kind in kinds {
+        let scene = accepted_fixture(kind)?;
+        for scale in [1u32, 2] {
+            let bytes = png(
+                &scene,
+                &PngOptions {
+                    scale,
+                    ..PngOptions::default()
+                },
+            )?;
+            let image = Pixmap::decode_png(&bytes)?;
+            let side = |units: i32| u32::try_from((i64::from(units) * i64::from(scale) + 63) / 64);
+            assert_eq!(image.width(), side(scene.canvas().w)?, "{kind} @{scale}");
+            assert_eq!(image.height(), side(scene.canvas().h)?, "{kind} @{scale}");
+            let first = image.pixels().first().ok_or("empty PNG")?;
+            assert!(
+                image.pixels().iter().any(|p| p != first),
+                "png_kinds: {kind} @{scale} is a single colour"
+            );
+        }
     }
+    Ok(())
+}
+#[test]
+fn png_svg_text_paths_use_the_embedded_inter_outlines() -> Result<(), Box<dyn Error>> {
+    let source = "flowchart LR\n  A[Start] --> B{Choice}\n  B -->|yes| C[Done]\n";
+    let font = crate::render_svg_str(source, &crate::SvgOptions::default())?;
+    let paths = crate::render_svg_str(
+        source,
+        &crate::SvgOptions {
+            text: crate::TextMode::Paths,
+            outlines: Some(inter_outlines()),
+            ..crate::SvgOptions::default()
+        },
+    )?;
+    assert!(font.contains("<text"), "{font}");
+    assert!(paths.contains("<path class='emd-s-text' d='M"), "{paths}");
+    assert!(
+        !paths.contains("<text") && !paths.contains("<tspan"),
+        "{paths}"
+    );
+    assert_eq!(
+        paths.matches("<path class='emd-s-text'").count(),
+        font.matches("<text").count()
+    );
+    let missing = crate::render_svg_str(
+        source,
+        &crate::SvgOptions {
+            text: crate::TextMode::Paths,
+            ..crate::SvgOptions::default()
+        },
+    );
+    assert!(matches!(
+        missing,
+        Err(crate::RenderError::InvalidConfig { errors: 1 })
+    ));
     Ok(())
 }
 fn scene(size: Size) -> Scene {

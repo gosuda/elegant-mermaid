@@ -6,32 +6,6 @@ import (
 	"github.com/gosuda/elegant-mermaid/internal/termgfx"
 )
 
-type Scheduler struct {
-	Latest, Inflight, Displayed uint64
-	Cancelled                   bool
-}
-
-func (s *Scheduler) Edit() bool {
-	s.Latest++
-	if s.Inflight == 0 {
-		s.Inflight = s.Latest
-		return true
-	}
-	s.Cancelled = true
-	return false
-}
-
-func (s *Scheduler) Done() bool {
-	if s.Cancelled {
-		s.Inflight = s.Latest
-		s.Cancelled = false
-		return false
-	}
-	s.Displayed = s.Inflight
-	s.Inflight = 0
-	return true
-}
-
 type State struct {
 	Path, Kind, Theme                       string
 	Width, Height, Block, Blocks            int

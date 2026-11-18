@@ -28,6 +28,7 @@ func TestPipelineDirections(t *testing.T) {
 		}
 	}
 }
+
 func TestPipelineComponents(t *testing.T) {
 	in := Input{Kind: "flowchart", Boxes: []scene.Box{{ID: "A", Exclusive: true}, {ID: "B", Exclusive: true}}}
 	o := scene.DefaultOptions()

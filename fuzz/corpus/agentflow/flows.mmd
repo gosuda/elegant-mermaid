@@ -1,0 +1,21 @@
+agentflow-beta LR
+accTitle: Research pipeline
+accDescr {Flows with shared global inputs and connectors}
+global
+  source[Shared source]
+end
+flow research[Research]
+  direction TB
+  query[Query] --> fetch[[Fetch]]
+  fetch -.- reference[Reference]
+  fetch -- failed --x retry[Retry]
+end
+flow delivery[Delivery]
+  draft[Draft] --> publish{{Publish}}
+end
+connector bridge[Handoff]
+source --> query
+fetch edge@--> bridge
+bridge --> draft
+classDef active fill:#abc,stroke:#123
+class fetch active

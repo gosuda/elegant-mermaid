@@ -58,6 +58,7 @@ type lexer struct {
 	pos     int
 	removed []source.Span
 	rm      int
+	reach   int
 	frames  []modeFrame
 	diags   []diag.Diagnostic
 	toks    []Token
@@ -119,18 +120,88 @@ func (l *lexer) skipRemoved() {
 	}
 }
 
+func (l *lexer) removedFrom(p int) int {
+	j := l.rm
+	for j < len(l.removed) && l.removed[j].End <= p {
+		j++
+	}
+	return j
+}
+
 func (l *lexer) limitAt(p int) int {
-	if l.rm < len(l.removed) && p < l.removed[l.rm].Start {
-		return l.removed[l.rm].Start
+	if j := l.removedFrom(p); j < len(l.removed) && p < l.removed[j].Start {
+		return l.removed[j].Start
 	}
 	return len(l.src)
+}
+
+func (l *lexer) skipRemovedAt(p int) int {
+	if j := l.removedFrom(p); j < len(l.removed) && p >= l.removed[j].Start {
+		return l.removed[j].End
+	}
+	return p
+}
+
+func (l *lexer) hop(pos, limit int) (int, int, bool) {
+	if pos < limit || limit >= len(l.src) {
+		return pos, limit, false
+	}
+	next := l.skipRemovedAt(pos)
+	if next == pos {
+		return pos, limit, false
+	}
+	limit = l.limitAt(next)
+	l.reach = max(l.reach, limit)
+	return next, limit, true
+}
+
+func (l *lexer) runWhile(pos, limit int, pred func(byte) bool) (int, int) {
+	for {
+		for pos < limit && pred(l.src[pos]) {
+			pos++
+		}
+		next, nextLimit, hopped := l.hop(pos, limit)
+		if !hopped {
+			return pos, limit
+		}
+		pos, limit = next, nextLimit
+	}
+}
+
+func (l *lexer) skipSpace(pos, limit int) (int, int) {
+	return l.runWhile(pos, limit, isJSSpace)
+}
+
+func (l *lexer) spaceEnd(pos, limit int) int {
+	end, _ := l.skipSpace(pos, limit)
+	return end
+}
+
+func (l *lexer) spaceFollows(pos, limit int) bool {
+	if pos >= limit {
+		pos = l.skipRemovedAt(pos)
+	}
+	return pos < len(l.src) && isJSSpace(l.src[pos])
 }
 
 func (l *lexer) text(start, end int) string {
 	if start < 0 || start > end || end > len(l.src) {
 		return ""
 	}
-	return string(l.src[start:end])
+	j := l.removedFrom(start)
+	if j >= len(l.removed) || l.removed[j].Start >= end {
+		return string(l.src[start:end])
+	}
+	var sb strings.Builder
+	at := start
+	for ; j < len(l.removed) && l.removed[j].Start < end; j++ {
+		sb.Write(l.src[at:l.removed[j].Start])
+		at = l.removed[j].End
+	}
+	if at < end {
+		sb.Write(l.src[at:end])
+	}
+	return sb.String()
 }
 
 func (l *lexer) span(start, end int) source.Span { return source.Span{Start: start, End: end} }
@@ -173,8 +244,9 @@ func (l *lexer) step() (lexRule, bool) {
 	limit := l.limitAt(l.pos)
 	for i := range rules {
 		r := rules[i]
+		l.reach = limit
 		end := r.match(l, limit)
-		if end < 0 || end > limit {
+		if end < 0 || end > l.reach {
 			continue
 		}
 		if end == l.pos && !r.allowEmpty {
@@ -207,7 +279,7 @@ func (l *lexer) emit(r *lexRule, end int) {
 	switch r.act {
 	case actOpenString:
 		if l.top() == modeCallbackName {
-			l.report(unexpectedDiagnostic(codeUnexpectedToken, tok.Span, tok.Text, []string{"CALLBACKNAME"}))
+			l.report(unexpectedDiagnostic(tok.Span, tok.Text, []string{"CALLBACKNAME"}))
 		}
 		l.openQuote = start
 		l.push(modeString, tok.Span)
@@ -217,13 +289,13 @@ func (l *lexer) emit(r *lexRule, end int) {
 		l.push(modeMDString, tok.Span)
 		return
 	case actCloseString, actCloseMDString:
-		l.endString(start, end)
+		l.endString(end)
 		return
 	case actShapeOpen:
 		tok.Text = ""
 		l.push(modeShapeData, tok.Span)
 	case actShapeRun:
-		tok.Text, tok.BRs = replaceLineEnds(l.src[start:end])
+		tok.Text, tok.BRs = replaceLineEnds([]byte(l.text(start, end)))
 		l.keep(tok)
 		return
 	case actGraph:
@@ -281,16 +353,14 @@ func (l *lexer) shapeToken(tok Token) {
 
 func (l *lexer) contentToken(tok Token) {
 	tok.StringOpen = l.openQuote
-	if l.firstCont >= 0 {
-		tok.SplitContinuation = true
-	} else {
+	if l.firstCont < 0 {
 		l.firstCont = len(l.toks)
 	}
 	l.lastCont = len(l.toks)
 	l.keep(tok)
 }
 
-func (l *lexer) endString(start, end int) {
+func (l *lexer) endString(end int) {
 	open := l.openQuote
 	l.pop()
 	l.openQuote = -1
@@ -313,7 +383,7 @@ func (l *lexer) recordUnexpected() {
 			size = s
 		}
 	}
-	l.report(unexpectedDiagnostic(codeUnexpectedToken, l.span(start, start+size), l.text(start, start+size), expectedFor(l.top())))
+	l.report(unexpectedDiagnostic(l.span(start, start+size), l.text(start, start+size), expectedFor(l.top())))
 	l.frames = []modeFrame{{mode: modeInitial}}
 	l.openQuote = -1
 	l.firstCont, l.lastCont = -1, -1

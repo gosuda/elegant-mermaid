@@ -38,7 +38,7 @@ type MalformedError struct {
 }
 
 func (e *MalformedError) Error() string {
-	return "malformed dump: " + e.Reason
+	return "malformed layout dump: " + e.Reason
 }
 
 func (e *MalformedError) Unwrap() error { return ErrMalformed }
@@ -66,77 +66,67 @@ func (d *Dump) buildIndex() (*index, error) {
 		labels: make(map[string]*Label, len(d.Labels)),
 		anc:    make(map[string][]string, len(d.Boxes)),
 	}
-	if err := ix.addBoxes(d.Boxes); err != nil {
-		return nil, err
-	}
 	if err := checkCanvas(d.Canvas); err != nil {
 		return nil, err
 	}
-	if err := ix.addRoutes(d.Routes); err != nil {
+	if err := ix.addUnique(d); err != nil {
 		return nil, err
 	}
-	if err := ix.addLabels(d.Labels); err != nil {
+	if err := ix.checkRelations(d); err != nil {
 		return nil, err
 	}
-	return ix, ix.checkParentChains(d.Boxes)
+	if err := d.checkShapes(); err != nil {
+		return nil, err
+	}
+	for i := range d.Boxes {
+		ix.anc[d.Boxes[i].ID] = ix.ancestors(d.Boxes[i].ID)
+	}
+	return ix, nil
 }
 
-func (ix *index) addBoxes(boxes []Box) error {
-	for i := range boxes {
-		b := &boxes[i]
+func (ix *index) addUnique(d *Dump) error {
+	for i := range d.Boxes {
+		b := &d.Boxes[i]
 		if _, dup := ix.boxes[b.ID]; dup {
-			return malformedf("duplicate box id %s", b.ID)
-		}
-		if err := checkRect("box "+b.ID, b.Rect); err != nil {
-			return err
+			return malformedf("box id %s appears twice", b.ID)
 		}
 		ix.boxes[b.ID] = b
 	}
-	return nil
-}
-
-func (ix *index) addRoutes(routes []Route) error {
-	for i := range routes {
-		r := &routes[i]
+	for i := range d.Routes {
+		r := &d.Routes[i]
 		if _, dup := ix.routes[r.ID]; dup {
-			return malformedf("duplicate route id %s", r.ID)
-		}
-		if err := ix.checkEndpoint(r, r.From); err != nil {
-			return err
-		}
-		if err := ix.checkEndpoint(r, r.To); err != nil {
-			return err
-		}
-		for _, p := range r.Points {
-			if err := checkPoint("route "+r.ID, p); err != nil {
-				return err
-			}
+			return malformedf("route id %s appears twice", r.ID)
 		}
 		ix.routes[r.ID] = r
 	}
-	return nil
-}
-
-func (ix *index) checkEndpoint(r *Route, boxID string) error {
-	if _, ok := ix.boxes[boxID]; !ok {
-		return malformedf("route %s names unknown box %s", r.ID, boxID)
+	for i := range d.Labels {
+		l := &d.Labels[i]
+		if _, dup := ix.labels[l.ID]; dup {
+			return malformedf("label id %s appears twice", l.ID)
+		}
+		ix.labels[l.ID] = l
 	}
 	return nil
 }
 
-func (ix *index) addLabels(labels []Label) error {
-	for i := range labels {
-		l := &labels[i]
-		if _, dup := ix.labels[l.ID]; dup {
-			return malformedf("duplicate label id %s", l.ID)
+func (ix *index) checkRelations(d *Dump) error {
+	for i := range d.Routes {
+		r := &d.Routes[i]
+		for _, end := range [...]string{r.From, r.To} {
+			if _, ok := ix.boxes[end]; !ok {
+				return malformedf("route %s names unknown box %s", r.ID, end)
+			}
 		}
-		if !ix.ownerExists(l.Owner) {
-			return malformedf("label %s names unknown owner %s", l.ID, l.Owner)
+	}
+	for i := range d.Labels {
+		if l := &d.Labels[i]; !ix.ownerExists(l.Owner) {
+			return malformedf("label %s has unknown owner %s", l.ID, l.Owner)
 		}
-		if err := checkRect("label "+l.ID, l.Rect); err != nil {
+	}
+	for i := range d.Boxes {
+		if err := ix.checkParent(&d.Boxes[i]); err != nil {
 			return err
 		}
-		ix.labels[l.ID] = l
 	}
 	return nil
 }
@@ -147,55 +137,72 @@ func (ix *index) ownerExists(owner string) bool {
 	return isRoute || isBox
 }
 
-func (ix *index) checkParentChains(boxes []Box) error {
-	for i := range boxes {
-		if _, err := ix.walkAncestors(boxes[i].ID); err != nil {
-			return err
-		}
+func (ix *index) checkParent(b *Box) error {
+	if b.Parent == "" {
+		return nil
+	}
+	if _, ok := ix.boxes[b.Parent]; !ok {
+		return malformedf("box %s has unknown parent %s", b.ID, b.Parent)
+	}
+	if slices.Contains(ix.ancestors(b.ID), b.ID) {
+		return malformedf("box %s is its own ancestor", b.ID)
 	}
 	return nil
 }
 
-func (ix *index) walkAncestors(id string) ([]string, error) {
+func (ix *index) ancestors(id string) []string {
 	var out []string
-	seen := make(map[string]struct{}, len(ix.boxes))
-	for cur := ix.boxes[id].Parent; cur != ""; {
-		parent, ok := ix.boxes[cur]
-		if !ok {
-			return nil, malformedf("box %s names unknown parent %s", id, cur)
-		}
-		if _, dup := seen[cur]; dup {
-			return nil, malformedf("box %s has a parent cycle", id)
-		}
-		seen[cur] = struct{}{}
-		out = append(out, cur)
-		cur = parent.Parent
+	for cur := ix.boxes[id]; cur != nil && cur.Parent != "" && len(out) < len(ix.boxes); cur = ix.boxes[cur.Parent] {
+		out = append(out, cur.Parent)
 	}
-	ix.anc[id] = out
-	return out, nil
+	return out
 }
 
 func (ix *index) ancestorsOf(id string) []string {
 	return ix.anc[id]
 }
 
-func checkRect(kind string, r geom.Rect) error {
-	if r.W < 0 || r.H < 0 {
-		return malformedf("%s has a negative size", kind)
+func (d *Dump) checkShapes() error {
+	for i := range d.Boxes {
+		if err := checkRect("box "+d.Boxes[i].ID, d.Boxes[i].Rect); err != nil {
+			return err
+		}
 	}
-	for _, v := range [4]int64{int64(r.X), int64(r.Y), int64(r.X) + int64(r.W), int64(r.Y) + int64(r.H)} {
-		if v < -geom.CoordLimit || v > geom.CoordLimit {
-			return malformedf("%s has a coordinate beyond the limit", kind)
+	for i := range d.Labels {
+		if err := checkRect("label "+d.Labels[i].ID, d.Labels[i].Rect); err != nil {
+			return err
+		}
+	}
+	for i := range d.Routes {
+		for _, p := range d.Routes[i].Points {
+			if !pointWithinLimit(p) {
+				return malformedf("route %s has a coordinate beyond the limit", d.Routes[i].ID)
+			}
 		}
 	}
 	return nil
 }
-func checkPoint(kind string, p geom.Point) error {
-	if int64(p.X) < -geom.CoordLimit || int64(p.X) > geom.CoordLimit ||
-		int64(p.Y) < -geom.CoordLimit || int64(p.Y) > geom.CoordLimit {
-		return malformedf("%s has a point beyond the limit", kind)
+
+func checkRect(name string, r geom.Rect) error {
+	right, bottom := int64(r.X)+int64(r.W), int64(r.Y)+int64(r.H)
+	if r.W < 0 || r.H < 0 || !fitsInt32(right) || !fitsInt32(bottom) {
+		return malformedf("%s has an invalid rectangle", name)
+	}
+	for _, v := range [4]int64{int64(r.X), int64(r.Y), right, bottom} {
+		if v < -geom.CoordLimit || v > geom.CoordLimit {
+			return malformedf("%s has a coordinate beyond the limit", name)
+		}
 	}
 	return nil
+}
+
+func fitsInt32(v int64) bool {
+	return v >= int64(geom.I32Min) && v <= int64(geom.I32Max)
+}
+
+func pointWithinLimit(p geom.Point) bool {
+	return int64(p.X) >= -geom.CoordLimit && int64(p.X) <= geom.CoordLimit &&
+		int64(p.Y) >= -geom.CoordLimit && int64(p.Y) <= geom.CoordLimit
 }
 
 func checkCanvas(s geom.Size) error {
@@ -477,6 +484,7 @@ func (v *validator) ownerAncestry(owner string) map[string]struct{} {
 		v.addAncestors(anc, r.To)
 		return anc
 	}
+	anc[owner] = struct{}{}
 	v.addAncestors(anc, owner)
 	return anc
 }

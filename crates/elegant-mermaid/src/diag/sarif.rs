@@ -54,11 +54,13 @@ fn push_rules(out: &mut String, files: &[&SarifFile<'_>]) {
             ordered_codes.push(diagnostic.code);
         }
     }
-    for diagnostic in &codes {
-        if !ordered_codes.contains(diagnostic) {
-            ordered_codes.push(diagnostic);
-        }
-    }
+    let mut unknown: Vec<&'static str> = codes
+        .iter()
+        .copied()
+        .filter(|code| !ordered_codes.contains(code))
+        .collect();
+    unknown.sort_unstable();
+    ordered_codes.extend(unknown);
     for (position, code) in ordered_codes.iter().enumerate() {
         if position > 0 {
             out.push(',');
@@ -293,6 +295,52 @@ mod ordering_tests {
         assert_eq!(
             out,
             "{\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"emd\",\"version\":\"v\",\"rules\":[]}},\"results\":[]}]}\n"
+        );
+    }
+
+    #[test]
+    fn sarif_lists_unknown_rules_in_byte_order_after_registry_rules() {
+        let index = LineIndex::new("abc");
+        let diagnostic = |code: &'static str| Diagnostic {
+            code,
+            severity: Severity::Info,
+            message: code.to_owned(),
+            span: Span { start: 0, end: 1 },
+            related: vec![],
+            help: String::new(),
+            fixes: vec![],
+        };
+        let diagnostics = [
+            diagnostic("custom/zeta"),
+            diagnostic("custom/alpha"),
+            diagnostic("flowchart/duplicate-ids"),
+            diagnostic("custom/mid"),
+        ];
+        let files = [SarifFile {
+            path: "a",
+            index: &index,
+            diagnostics: &diagnostics,
+        }];
+        let mut out = String::new();
+        push_sarif(&mut out, "v", &files);
+        let rules = out
+            .split("\"rules\":[")
+            .nth(1)
+            .and_then(|rest| rest.split("]}},\"results\"").next())
+            .unwrap_or("");
+        let ids: Vec<&str> = rules
+            .split("{\"id\":\"")
+            .skip(1)
+            .filter_map(|part| part.split('"').next())
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                "flowchart/duplicate-ids",
+                "custom/alpha",
+                "custom/mid",
+                "custom/zeta"
+            ]
         );
     }
 }

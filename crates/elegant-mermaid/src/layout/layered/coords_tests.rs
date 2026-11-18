@@ -197,7 +197,7 @@ fn layered_coordinates_oracle() {
         }
         let r = route(&p, &ls, &x).unwrap();
         let (y, top) = rank_coords(&p, &ls, &r).unwrap();
-        let (routes, _) = route_points(&p, &ls, &x, &y, &top, &r).unwrap();
+        let (routes, _) = route_points(&p, &ls, &x, &y, &top, &r, &[]).unwrap();
         assert_slot_geometry(&p, &ls, &r, &top);
         for e in routes {
             assert!(
@@ -345,7 +345,7 @@ fn layered_coordinate_twin_vectors() {
         let (y, top) = rank_coords(&p, &ls, &r).unwrap();
         assert_eq!(top, tops[i]);
         assert_eq!(y, ys[i]);
-        let (routes, _) = route_points(&p, &ls, &x, &y, &top, &r).unwrap();
+        let (routes, _) = route_points(&p, &ls, &x, &y, &top, &r, &[]).unwrap();
         assert_eq!(routes.len(), go_routes[i].len());
         for (edge, want) in routes.iter().zip(go_routes[i]) {
             assert_eq!(

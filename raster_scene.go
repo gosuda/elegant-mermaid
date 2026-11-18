@@ -13,6 +13,9 @@ func init() {
 		}
 		return s.value, true
 	}
+	scenelink.NewScene = func(value scene.Scene) any {
+		return &Scene{value: value}
+	}
 	scenelink.NewOutlines = func(fonts scenelink.Outlines) any {
 		return &GlyphOutlines{fonts: fonts}
 	}

@@ -20,6 +20,7 @@ func frameLoopGraph(g *Graph, id string, box Box) (*Graph, []int32) {
 	}
 	return frame, indices
 }
+
 func sizeFrameLoops(g *Graph) error {
 	for i := range g.Clusters {
 		c := &g.Clusters[i]
@@ -43,6 +44,7 @@ func sizeFrameLoops(g *Graph) error {
 	}
 	return nil
 }
+
 func componentFrameLoops(g *Graph, part *Layout) error {
 	for _, box := range part.Boxes {
 		frame, indices := frameLoopGraph(g, box.ID, box)

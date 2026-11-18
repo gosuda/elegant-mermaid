@@ -17,6 +17,7 @@ func TestLimitsPrecedeGraphResolution(t *testing.T) {
 		t.Fatalf("limit must precede missing endpoint: %v", err)
 	}
 }
+
 func TestTextBudgetCountsOwnedResolvedText(t *testing.T) {
 	in := Input{Kind: "flowchart", Boxes: []scene.Box{{ID: "fallback"}, {ID: "group", Role: scene.RoleGroup}}, Text: []string{"fallback", "Group"}, Labels: []scene.Label{{ID: "label", Owner: "edge", Text: "é"}}}
 	in.Routes = []scene.Route{{ID: "edge", From: "fallback", To: "fallback"}}

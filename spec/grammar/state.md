@@ -238,3 +238,4 @@ eol = NL | ';' ;
 
 - state-56: An unreachable helper or accidental undefined semantic value MUST NOT add a new statement form. [just oracle]
 - state-57: Go and Rust MUST resolve the same ordered boxes, clusters, transitions, notes, and labels under both metric profiles. [just parity]
+- state-58: A `click` link whose URL, trimmed of ASCII whitespace, starts with `http:`, `https:`, or `mailto:` with the scheme compared ASCII case-insensitively MUST reach the scene as one `<a>` wrapping the scene group of role `node` whose owner is the target id. A target that is a composite state or is absent, and a link of any other scheme, MUST draw no anchor, and an empty tooltip MUST emit no `<title>`. Go and Rust MUST emit the same anchors. [just go-check: TestStateClickLinksWrapTheirSimpleStateOnly]

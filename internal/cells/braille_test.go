@@ -25,6 +25,7 @@ func naiveInside(p []geom.Point, x, y int64) bool {
 	}
 	return count%2 == 1
 }
+
 func TestFill(t *testing.T) {
 	for _, p := range [][]geom.Point{{{}, {X: 1024}, {X: 1024, Y: 1024}, {Y: 1024}}, {{}, {X: 1024}, {Y: 1024}}} {
 		c := canvas(t, 3, 2)
@@ -42,6 +43,7 @@ func TestFill(t *testing.T) {
 		}
 	}
 }
+
 func neighbouringDots(c *Canvas, p geom.Point) []geom.Point {
 	var out []geom.Point
 	for dy := int32(-1); dy <= 1; dy++ {
@@ -54,6 +56,7 @@ func neighbouringDots(c *Canvas, p geom.Point) []geom.Point {
 	}
 	return out
 }
+
 func hasDot(c *Canvas, p geom.Point) bool {
 	if p.X < 0 || p.Y < 0 {
 		return false
@@ -61,6 +64,7 @@ func hasDot(c *Canvas, p geom.Point) bool {
 	v, ok := c.Cell(int(p.X)/2, int(p.Y)/4)
 	return ok && v.Dots&DotBit(int(p.X), int(p.Y)) != 0
 }
+
 func reachableDots(c *Canvas, a geom.Point) map[geom.Point]bool {
 	seen := map[geom.Point]bool{a: true}
 	queue := []geom.Point{a}
@@ -76,6 +80,7 @@ func reachableDots(c *Canvas, a geom.Point) map[geom.Point]bool {
 	}
 	return seen
 }
+
 func TestStrokeConnected(t *testing.T) {
 	s := uint32(1)
 	for range 2000 {

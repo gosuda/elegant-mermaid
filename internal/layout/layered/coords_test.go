@@ -71,6 +71,7 @@ func coordinateCase(t *testing.T, index int) (*Proper, [][]int32) {
 	}
 	return p, layers
 }
+
 func coordinateStatement(g *Graph, line string) {
 	var a, b int
 	if _, err := fmt.Sscanf(line, "n%d --> n%d", &a, &b); err == nil {
@@ -117,11 +118,13 @@ func oraclePass(p *Proper, layers [][]int32, pass int) []int64 {
 	}
 	return out
 }
+
 func (o *oracleCoordinate) alignLayers() {
 	for _, layer := range o.layers {
 		o.alignLayer(layer)
 	}
 }
+
 func (o *oracleCoordinate) neighbours(v int32) []int32 {
 	var ns []int32
 	for _, e := range o.p.Edges {
@@ -136,6 +139,7 @@ func (o *oracleCoordinate) neighbours(v int32) []int32 {
 	slices.SortStableFunc(ns, func(a, b int32) int { return cmp.Compare(o.pos[a], o.pos[b]) })
 	return ns
 }
+
 func (o *oracleCoordinate) alignLayer(layer []int32) {
 	last := -1
 	for _, v := range layer {
@@ -155,9 +159,11 @@ func (o *oracleCoordinate) alignLayer(layer []int32) {
 		}
 	}
 }
+
 func (o *oracleCoordinate) sep(a, b int32) int64 {
 	return int64(o.p.Nodes[a].W)/2 + int64(o.p.Nodes[b].W)/2 + int64(o.p.NodeGap)
 }
+
 func (o *oracleCoordinate) place(v int32) {
 	if _, ok := o.x[v]; ok {
 		return
@@ -186,6 +192,7 @@ func (o *oracleCoordinate) place(v int32) {
 		o.sink[m] = o.sink[v]
 	}
 }
+
 func (o *oracleCoordinate) offsets() {
 	for r, l := range o.layers {
 		if len(l) == 0 {
@@ -198,6 +205,7 @@ func (o *oracleCoordinate) offsets() {
 		o.offsetRank(r)
 	}
 }
+
 func (o *oracleCoordinate) offsetRank(r int) {
 	for _, row := range o.layers {
 		for j := 1; j < len(row); j++ {
@@ -205,6 +213,7 @@ func (o *oracleCoordinate) offsetRank(r int) {
 		}
 	}
 }
+
 func (o *oracleCoordinate) offsetPair(r int, a, b int32) {
 	sa, sb := o.sink[a], o.sink[b]
 	if sa == sb || o.rank[sb] != r {
@@ -216,6 +225,7 @@ func (o *oracleCoordinate) offsetPair(r int, a, b int32) {
 		o.shift[sa] = d
 	}
 }
+
 func (o *oracleCoordinate) initialize(layers [][]int32, pass int) {
 	for r := range layers {
 		i := r
@@ -236,6 +246,7 @@ func (o *oracleCoordinate) initialize(layers [][]int32, pass int) {
 		}
 	}
 }
+
 func (o *oracleCoordinate) conflicts() {
 	for _, e := range o.p.Edges {
 		if o.p.Nodes[e.Tail].Dummy && o.p.Nodes[e.Head].Dummy {
@@ -244,6 +255,7 @@ func (o *oracleCoordinate) conflicts() {
 		o.markCrossings(e)
 	}
 }
+
 func (o *oracleCoordinate) markCrossings(e ProperEdge) {
 	for _, f := range o.p.Edges {
 		if !o.p.Nodes[f.Tail].Dummy || !o.p.Nodes[f.Head].Dummy || o.p.Rank[e.Tail] != o.p.Rank[f.Tail] {
@@ -256,6 +268,7 @@ func (o *oracleCoordinate) markCrossings(e ProperEdge) {
 		o.blocked[[2]int32{e.Head, e.Tail}] = true
 	}
 }
+
 func oracleCoordinates(p *Proper, layers [][]int32) []int32 {
 	var passes [4][]int64
 	width := [4]int64{}
@@ -283,6 +296,7 @@ func oracleCoordinates(p *Proper, layers [][]int32) []int32 {
 	}
 	return out
 }
+
 func TestCoordinatesOracle(t *testing.T) {
 	for i := range 200 {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
@@ -299,6 +313,7 @@ func TestCoordinatesOracle(t *testing.T) {
 		})
 	}
 }
+
 func checkCoordinateSeparation(t *testing.T, p *Proper, layers [][]int32, x []int32) {
 	t.Helper()
 	for _, layer := range layers {
@@ -311,6 +326,7 @@ func checkCoordinateSeparation(t *testing.T, p *Proper, layers [][]int32, x []in
 		}
 	}
 }
+
 func TestCoordinateOverflow(t *testing.T) {
 	p, layers := handProper(t, 3, nil)
 	for i := range p.Nodes {

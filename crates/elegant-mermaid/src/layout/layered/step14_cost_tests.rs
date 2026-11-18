@@ -66,6 +66,7 @@ fn embedded_nodes_and_routes_change_the_parent_cost_denominator() -> Result<(), 
             id: "S".into(),
             role: BoxRole::Group,
             shape: String::new(),
+            icon: false,
             parent: String::new(),
             exclusive: false,
             text: "S".into(),
@@ -77,6 +78,7 @@ fn embedded_nodes_and_routes_change_the_parent_cost_denominator() -> Result<(), 
         sizes: Vec::new(),
         attachments: Vec::new(),
         region_sets: Vec::new(),
+        spacing: crate::layout::input::Spacing::default(),
     };
     let graph = Graph {
         nodes: vec![Node {

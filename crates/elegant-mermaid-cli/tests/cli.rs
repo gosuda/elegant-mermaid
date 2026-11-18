@@ -118,9 +118,11 @@ fn kernel_eval_reports_an_unreadable_file() -> io::Result<()> {
     let outcome = run(&[OsStr::new("kernel-eval"), missing.as_os_str()])?;
     assert_eq!(outcome.code, Some(2));
     assert_eq!(outcome.stdout, "");
-    let prefix = format!("cannot read {}: ", missing.display());
-    assert!(outcome.stderr.starts_with(&prefix), "{}", outcome.stderr);
-    assert!(outcome.stderr.ends_with('\n'), "{}", outcome.stderr);
+    let expected = format!(
+        "cannot read {}: no such file or directory\n",
+        missing.display()
+    );
+    assert_eq!(outcome.stderr, expected);
     Ok(())
 }
 
@@ -144,10 +146,7 @@ fn kernel_eval_rejects_extra_positionals() -> io::Result<()> {
     ])?;
     assert_eq!(outcome.code, Some(2));
     assert_eq!(outcome.stdout, "");
-    assert_eq!(
-        outcome.stderr,
-        "unknown flag more; run emd kernel-eval --help\n"
-    );
+    assert_eq!(outcome.stderr, "kernel-eval accepts one INPUT\n");
     Ok(())
 }
 

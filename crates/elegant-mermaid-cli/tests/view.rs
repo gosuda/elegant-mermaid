@@ -213,9 +213,14 @@ fn view_pty() -> io::Result<()> {
     Ok(())
 }
 
-fn replay(executable: &Path, source: &Path, script: &Path) -> io::Result<String> {
+fn fixtures() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../internal/cli/testdata/view")
+}
+
+fn replay(executable: &Path, source: &str, script: &Path) -> io::Result<String> {
     let mut process = Running::spawn(
         Command::new(executable)
+            .current_dir(fixtures())
             .arg("view")
             .arg(source)
             .arg("--script")
@@ -227,156 +232,59 @@ fn replay(executable: &Path, source: &Path, script: &Path) -> io::Result<String>
 
 #[test]
 fn view_scripts() -> io::Result<()> {
-    let scratch = Scratch::new()?;
-    let valid = "flowchart LR\n  A[alpha] --> B\n";
-    scratch.write("bad.mmd", "flowchart LR\n A[broken\n")?;
-    scratch.write("returned.mmd", "flowchart LR\n A[returned] --> B\n")?;
-    let chain = (0..35)
-        .map(|index| format!("n{index}[node{index}]"))
-        .collect::<Vec<_>>()
-        .join(" --> ");
-    let large = format!("flowchart LR\n {chain}\n");
-    let cases = [
-        ("empty", "", "settle\n", 80, 24),
-        ("unknown", "not-a-kind\n", "settle\n", 80, 24),
-        (
-            "first-error",
-            "flowchart LR\n A[broken\n",
-            "settle\n",
-            80,
-            24,
-        ),
-        (
-            "stale",
-            valid,
-            "settle\nfile-change bad.mmd\nsettle\nkey esc\n",
-            80,
-            24,
-        ),
-        ("oversize", large.as_str(), "settle\n", 80, 24),
-        ("resize", valid, "settle\nresize 40 12\n", 40, 12),
-        (
-            "recreate",
-            valid,
-            "settle\nfile-delete\nfile-create returned.mmd\nsettle\n",
-            80,
-            24,
-        ),
-        ("keys", valid, "settle\nkey ?\n", 80, 24),
-    ];
     let executable = fs::canonicalize(binary())?;
-    for (name, source_text, actions, width, height) in cases {
-        let source = scratch.write(&format!("{name}.mmd"), source_text)?;
-        let script = scratch.write(&format!("{name}.script"), actions)?;
-        let output = replay(&executable, &source, &script)?;
-        assert_eq!(output.lines().count(), height, "{name}");
-        assert!(
-            output.lines().all(|line| line.chars().count() == width),
-            "{name}"
-        );
-        assert!(
-            !output.bytes().any(|byte| byte == b'\r' || byte == 0x1b),
-            "{name}"
-        );
-        ReplayObservation {
-            name,
-            frame: &output,
-            source: &source,
-        }
-        .assert_behavior(&scratch, &executable)?;
-        if let Some(go) = std::env::var_os("EMD_GO_BIN") {
-            let go = fs::canonicalize(go)?;
-            assert_eq!(
-                output,
-                replay(&go, &source, &script)?,
-                "cross-language replay: {name}"
-            );
-        }
+    for name in [
+        "empty",
+        "unknown",
+        "first-error",
+        "stale",
+        "oversize",
+        "resize",
+        "recreate",
+        "keys",
+    ] {
+        let expected = fs::read_to_string(fixtures().join(format!("{name}.txt")))?;
+        let frame = replay(
+            &executable,
+            &format!("{name}.mmd"),
+            Path::new(&format!("{name}.script")),
+        )?;
+        assert_eq!(frame, expected, "frame differs from {name}.txt");
     }
     Ok(())
 }
 
-struct ReplayObservation<'a> {
-    name: &'a str,
-    frame: &'a str,
-    source: &'a Path,
+#[test]
+fn view_scripts_keep_the_error_count_visible_when_wide() -> io::Result<()> {
+    let scratch = Scratch::new()?;
+    let script = scratch.write("empty-wide.script", "settle\nresize 160 24\n")?;
+    let executable = fs::canonicalize(binary())?;
+    let wide = replay(&executable, "empty.mmd", &script)?;
+    assert_eq!(
+        wide.lines().count(),
+        24,
+        "empty wide frame must keep 24 rows"
+    );
+    assert!(
+        wide.lines().all(|line| line.chars().count() == 160),
+        "empty wide frame rows must have 160 scalar values: {wide}"
+    );
+    assert!(
+        wide.contains("E 1 errors W 0 warnings"),
+        "the empty revision keeps its common/empty-source error when the counters fit: {wide}"
+    );
+    Ok(())
 }
 
-impl ReplayObservation<'_> {
-    fn assert_behavior(&self, scratch: &Scratch, executable: &Path) -> io::Result<()> {
-        let name = self.name;
-        let output = self.frame;
-        let source = self.source;
-        match name {
-            "empty" => {
-                assert!(
-                    output.contains("Empty diagram:") && !output.contains("+- Diagnostics"),
-                    "empty source must show the empty viewport instead of a diagnostic panel: {output}"
-                );
-                let wide_script = scratch.write("empty-wide.script", "settle\nresize 160 24\n")?;
-                let wide = replay(executable, source, &wide_script)?;
-                assert_eq!(
-                    wide.lines().count(),
-                    24,
-                    "empty wide frame must retain 24 rows"
-                );
-                assert!(
-                    wide.lines().all(|line| line.chars().count() == 160),
-                    "empty wide frame rows must have 160 scalar values: {wide}"
-                );
-                assert!(
-                    wide.contains("E 1 errors W 0 warnings"),
-                    "empty revision must retain its single common/empty-source error when counters fit: {wide}"
-                );
-            }
-            "unknown" => {
-                assert!(
-                    output.contains("Diagnostics") && output.contains("unknown-diagram-kind"),
-                    "view_scripts: expected {} to hold (observed false)",
-                    stringify!(
-                        output.contains("Diagnostics") && output.contains("unknown-diagram-kind")
-                    )
-                )
-            }
-            "first-error" => assert!(
-                output.contains("Diagnostics")
-                    && output.contains("error ")
-                    && output.contains("No valid revision yet; fix the source or press r"),
-                "first parse error must open diagnostics and identify the absence of a good revision: {output}"
-            ),
-            "stale" => assert!(
-                output.contains("alpha")
-                    && !output.contains("broken")
-                    && output.contains("STALE revision 1; latest revision 2 has errors"),
-                "view_scripts: expected {} to hold (observed false)",
-                stringify!(
-                    output.contains("alpha")
-                        && !output.contains("broken")
-                        && output.contains("STALE revision 1; latest revision 2 has errors")
-                )
-            ),
-            "oversize" => assert!(
-                output.contains("pan available"),
-                "view_scripts: expected {} to hold (observed false)",
-                stringify!(output.contains("pan available"))
-            ),
-            "resize" => assert!(
-                output.contains("alpha"),
-                "view_scripts: expected {} to hold (observed false)",
-                stringify!(output.contains("alpha"))
-            ),
-            "recreate" => assert!(
-                output.contains("returned") && !output.contains("WATCH LOST"),
-                "view_scripts: expected {} to hold (observed false)",
-                stringify!(output.contains("returned") && !output.contains("WATCH LOST"))
-            ),
-            "keys" => assert!(
-                output.contains("Keys") && output.contains("next, previous block"),
-                "view_scripts: expected {} to hold (observed false)",
-                stringify!(output.contains("Keys") && output.contains("next, previous block"))
-            ),
-            _ => return Err(io::Error::other(format!("unrecognised replay case {name}"))),
-        }
-        Ok(())
-    }
+#[test]
+fn view_script_reload() -> io::Result<()> {
+    let scratch = Scratch::new()?;
+    let script = scratch.write("reload.script", "settle\nfile-delete\nkey r\nsettle\n")?;
+    let executable = fs::canonicalize(binary())?;
+    let frame = replay(&executable, "stale.mmd", &script)?;
+    assert!(
+        !frame.contains("WATCH LOST") && frame.contains("REV 2"),
+        "key r must read the file again and clear the lost watch: {frame}"
+    );
+    Ok(())
 }

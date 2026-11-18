@@ -14,7 +14,7 @@ func (p *parser) parseSubgraph() Stmt {
 		sg.Span.End = header.end
 	}
 	if sg.ID == nil {
-		p.report(unexpectedDiagnostic(codeUnexpectedToken, p.peek().Span, p.peek().Text, []string{"NODE_STRING", "STR"}))
+		p.report(unexpectedDiagnostic(p.peek().Span, p.peek().Text, []string{"NODE_STRING", "STR"}))
 	}
 	if p.atAny(TokNewline, TokSemi) {
 		p.next()

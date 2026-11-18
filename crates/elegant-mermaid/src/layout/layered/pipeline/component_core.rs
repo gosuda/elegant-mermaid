@@ -10,7 +10,7 @@ use crate::measure;
 use crate::scene::BoxRole;
 
 pub(in crate::layout::layered) struct Measurements<'text, 'scene> {
-    pub route_lines: Vec<Vec<measure::Line<'text>>>,
+    pub route_lines: Vec<Vec<measure::StyledLine<'text>>>,
     pub titles: Vec<Size>,
     pub route_stacks: Vec<labels::Stack>,
     pub fixed: &'scene [isolate::Fixed<'scene>],
@@ -130,7 +130,9 @@ pub(super) fn component_core(
         y: &y,
         gutter,
     };
-    let (mut routes, _) = route::route_points(&drawn, &ordered.layers, &x, &y, &top, &r)?;
+    let cluster_tops: Vec<usize> = clusters.iter().map(|cluster| cluster.node).collect();
+    let (mut routes, _) =
+        route::route_points(&drawn, &ordered.layers, &x, &y, &top, &r, &cluster_tops)?;
     let mut placed = labels::place(
         label_nodes,
         labels::Placement {

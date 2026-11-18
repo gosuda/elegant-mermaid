@@ -27,6 +27,7 @@ func routeCase(t *testing.T, p *Proper, layers [][]int32) routedCase {
 	}
 	return routeWith(t, p, layers, x, nil)
 }
+
 func routeWith(t *testing.T, p *Proper, layers [][]int32, x []int32, renumber func(*RoutingGap)) routedCase {
 	t.Helper()
 	r, err := Route(p, layers, x)
@@ -48,6 +49,7 @@ func routeWith(t *testing.T, p *Proper, layers [][]int32, x []int32, renumber fu
 	}
 	return routedCase{p, layers, x, y, top, r, routes}
 }
+
 func TestRoutingRandom(t *testing.T) {
 	for i := range 200 {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
@@ -64,6 +66,7 @@ func TestRoutingRandom(t *testing.T) {
 		})
 	}
 }
+
 func checkBands(t *testing.T, c routedCase) {
 	t.Helper()
 	h := rankHeights(c.p, c.layers)
@@ -73,6 +76,7 @@ func checkBands(t *testing.T, c routedCase) {
 		}
 	}
 }
+
 func checkSlots(t *testing.T, c routedCase) {
 	t.Helper()
 	for _, gap := range c.r.Gaps {
@@ -85,6 +89,7 @@ func checkSlots(t *testing.T, c routedCase) {
 		}
 	}
 }
+
 func checkRoute(t *testing.T, c routedCase, r EdgeRoute) {
 	t.Helper()
 	if !geom.IsOrthogonal(r.Points) {
@@ -110,6 +115,7 @@ func checkRoute(t *testing.T, c routedCase, r EdgeRoute) {
 		}
 	}
 }
+
 func handProper(t *testing.T, n int, edges [][2]int32) (*Proper, [][]int32) {
 	t.Helper()
 	params, err := DefaultParams(scene.ProfileVector)
@@ -140,6 +146,7 @@ func handProper(t *testing.T, n int, edges [][2]int32) (*Proper, [][]int32) {
 	}
 	return p, layers
 }
+
 func TestStraightRoute(t *testing.T) {
 	p, l := handProper(t, 2, [][2]int32{{0, 1}})
 	c := routeCase(t, p, l)
@@ -151,6 +158,7 @@ func TestStraightRoute(t *testing.T) {
 		t.Fatal(c.routes)
 	}
 }
+
 func TestDiamondPorts(t *testing.T) {
 	p, l := handProper(t, 4, [][2]int32{{0, 1}, {0, 2}, {1, 3}, {2, 3}})
 	c := routeCase(t, p, l)
@@ -180,6 +188,7 @@ func TestDiamondPorts(t *testing.T) {
 		}
 	}
 }
+
 func TestThreePorts(t *testing.T) {
 	p, l := handProper(t, 4, [][2]int32{{0, 1}, {0, 2}, {0, 3}})
 	x := []int32{2000, 0, 2000, 4000}
@@ -191,9 +200,11 @@ func TestThreePorts(t *testing.T) {
 		t.Fatal(r.SourceX)
 	}
 }
+
 func slotSegment(source, target, decl, order int32) RoutingSegment {
 	return RoutingSegment{Tail: -1, Head: -1, Decl: decl, Slot: -1, SourceX: source, TargetX: target, Order: order}
 }
+
 func TestSegmentOrderKey(t *testing.T) {
 	cases := []struct {
 		name string
@@ -215,6 +226,7 @@ func TestSegmentOrderKey(t *testing.T) {
 		t.Error("equal keys must compare equal")
 	}
 }
+
 func TestNumberRoutingGapDirection(t *testing.T) {
 	gap := RoutingGap{Segments: []RoutingSegment{
 		slotSegment(100, 900, 3, 0),
@@ -231,6 +243,7 @@ func TestNumberRoutingGapDirection(t *testing.T) {
 		t.Fatalf("slots %v count %d", slots, gap.Slots)
 	}
 }
+
 func routesCrossings(t *testing.T, routes []EdgeRoute) int64 {
 	t.Helper()
 	var total int64
@@ -245,6 +258,7 @@ func routesCrossings(t *testing.T, routes []EdgeRoute) int64 {
 	}
 	return total
 }
+
 func numberByOldKey(gap *RoutingGap) {
 	order := make([]int, len(gap.Segments))
 	for i := range order {
@@ -269,6 +283,7 @@ func numberByOldKey(gap *RoutingGap) {
 		gap.Slots = max(gap.Slots, s.Slot+1)
 	}
 }
+
 func edgeSlots(c routedCase) []int32 {
 	slots := make([]int32, len(c.p.Edges))
 	for i := range slots {
@@ -276,6 +291,7 @@ func edgeSlots(c routedCase) []int32 {
 	}
 	return slots
 }
+
 func checkFan(t *testing.T, c routedCase, slots []int32, crossings int64) {
 	t.Helper()
 	if got := edgeSlots(c); !reflect.DeepEqual(got, slots) {
@@ -285,6 +301,7 @@ func checkFan(t *testing.T, c routedCase, slots []int32, crossings int64) {
 		t.Fatalf("%d crossings among the routes of one fan, want %d", n, crossings)
 	}
 }
+
 func TestFanSlotOrder(t *testing.T) {
 	cases := []struct {
 		name       string

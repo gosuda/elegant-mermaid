@@ -20,52 +20,84 @@ func points(ps []geom.Point) string {
 	}
 	return b.String()
 }
+
 func rectAttrs(p geom.Rect) string {
 	return "x='" + number(int64(p.X)) + "' y='" + number(int64(p.Y)) + "' width='" + number(int64(p.W)) + "' height='" + number(int64(p.H)) + "'"
 }
-func (r *renderer) primitive(p scene.Primitive) (string, error) {
+
+type outline struct {
+	tag, geometry string
+	shape         scene.Shape
+	segments      []segment
+}
+
+func (r *renderer) outlineOf(p scene.Primitive) (outline, bool) {
 	switch v := p.(type) {
 	case *scene.Rect:
-		return r.element("rect", v.Shape, rectAttrs(v.Rect))
+		return outline{"rect", rectAttrs(v.Rect), v.Shape, rectSegments(v.Rect)}, true
 	case *scene.RoundRect:
-		return r.element("rect", v.Shape, rectAttrs(v.Rect)+" rx='"+number(int64(v.R))+"' ry='"+number(int64(v.R))+"'")
+		radius := number(int64(r.look.Radius(v.R)))
+		o := outline{tag: "rect", geometry: rectAttrs(v.Rect) + " rx='" + radius + "' ry='" + radius + "'", shape: v.Shape}
+		if v.R == 0 {
+			o.segments = rectSegments(v.Rect)
+		}
+		return o, true
 	case *scene.Ellipse:
-		return r.element("ellipse", v.Shape, fmt.Sprintf("cx='%s' cy='%s' rx='%s' ry='%s'", number(int64(v.CX)), number(int64(v.CY)), number(int64(v.RX)), number(int64(v.RY))))
+		return outline{tag: "ellipse", geometry: fmt.Sprintf("cx='%s' cy='%s' rx='%s' ry='%s'", number(int64(v.CX)), number(int64(v.CY)), number(int64(v.RX)), number(int64(v.RY))), shape: v.Shape}, true
 	case *scene.Polygon:
-		return r.element("polygon", v.Shape, "points='"+points(v.Points)+"'")
+		return outline{"polygon", "points='" + points(v.Points) + "'", v.Shape, closedPointSegments(v.Points)}, true
 	case *scene.Polyline:
 		if v.Corner > 0 {
-			return r.element("path", v.Shape, "d='"+rounded(v.Points, v.Corner)+"'")
+			return outline{"path", "d='" + rounded(v.Points, v.Corner) + "'", v.Shape, openPointSegments(v.Points)}, true
 		}
-		return r.element("polyline", v.Shape, "points='"+points(v.Points)+"'")
+		return outline{"polyline", "points='" + points(v.Points) + "'", v.Shape, openPointSegments(v.Points)}, true
 	case *scene.Path:
-		return r.element("path", v.Shape, "d='"+pathData(v.Commands)+"'")
+		return outline{"path", "d='" + pathData(v.Commands) + "'", v.Shape, pathSegments(v.Commands)}, true
+	}
+	return outline{}, false
+}
+
+func (r *renderer) primitive(p scene.Primitive, index int) (string, error) {
+	if o, ok := r.outlineOf(p); ok {
+		if len(o.segments) > 0 && r.look.Kind == scene.LookHandDrawn {
+			switch v := p.(type) {
+			case *scene.RoundRect:
+				o.geometry = rectAttrs(v.Rect)
+			case *scene.Polyline:
+				o.tag, o.geometry = "polyline", "points='"+points(v.Points)+"'"
+			}
+			return r.sketch(o, index)
+		}
+		return r.element(o.tag, o.shape, o.geometry)
+	}
+	switch v := p.(type) {
 	case *scene.MarkerRef:
-		return r.marker(v)
+		return r.marker(v, index)
 	case *scene.Text:
+		if r.outlines != nil {
+			return r.textPaths(v)
+		}
 		return r.text(v)
 	default:
 		return "", &ConfigError{"SymbolRef is not a vector primitive"}
 	}
 }
+
 func (r *renderer) element(tag string, s scene.Shape, geometry string) (string, error) {
-	a, e := r.attributes(s)
+	key, row, e := r.shapeKey(s)
 	if e != nil {
 		return "", e
 	}
-	parts := strings.SplitN(a, " ", 2)
-	tail := ""
-	if len(parts) > 1 {
-		tail = " " + parts[1]
-	}
-	return "<" + tag + " " + parts[0] + " " + geometry + tail + "/>\n", nil
+	return "<" + tag + " class='emd-s-" + key + "' " + geometry + r.strokeAttributes(s, row) + "/>\n", nil
 }
+
 func abs(v int64) int64 {
 	if v < 0 {
 		return -v
 	}
 	return v
 }
+
 func direction(a, b geom.Point) (int64, int64, int64) {
 	dx, dy := int64(b.X)-int64(a.X), int64(b.Y)-int64(a.Y)
 	l := abs(dx) + abs(dy)
@@ -77,6 +109,7 @@ func direction(a, b geom.Point) (int64, int64, int64) {
 	}
 	return dx, dy, l
 }
+
 func rounded(ps []geom.Point, limit int32) string {
 	if len(ps) == 0 {
 		return ""
@@ -91,6 +124,7 @@ func rounded(ps []geom.Point, limit int32) string {
 	}
 	return b.String()
 }
+
 func corner(a, p, c geom.Point, limit int32) string {
 	ux, uy, l1 := direction(a, p)
 	vx, vy, l2 := direction(p, c)
@@ -108,6 +142,7 @@ func corner(a, p, c geom.Point, limit int32) string {
 	}
 	return fmt.Sprintf(" L %s %s A %s %s 0 0 %d %s %s", number(int64(p.X)-radius*ux), number(int64(p.Y)-radius*uy), number(radius), number(radius), sweep, number(int64(p.X)+radius*vx), number(int64(p.Y)+radius*vy))
 }
+
 func pathData(cs []scene.Command) string {
 	var b strings.Builder
 	for i, c := range cs {
@@ -118,6 +153,7 @@ func pathData(cs []scene.Command) string {
 	}
 	return b.String()
 }
+
 func command(c scene.Command) string {
 	switch v := c.(type) {
 	case *scene.MoveTo:
@@ -133,6 +169,7 @@ func command(c scene.Command) string {
 	}
 	return ""
 }
+
 func floor(a, b int64) int64 {
 	q, r := a/b, a%b
 	if r < 0 {
@@ -140,6 +177,7 @@ func floor(a, b int64) int64 {
 	}
 	return q
 }
+
 func arc(a *scene.ArcTo) string {
 	angle := int32((int64(a.A0) + int64(a.Sweep)) % 65536)
 	x := int64(a.CX) + floor(2*int64(a.R)*int64(geom.CosQ15(angle))+32768, 65536)
@@ -153,7 +191,8 @@ func arc(a *scene.ArcTo) string {
 	}
 	return fmt.Sprintf("A %s %s 0 %d %d %s %s", number(int64(a.R)), number(int64(a.R)), large, sweep, number(x), number(y))
 }
-func (r *renderer) marker(m *scene.MarkerRef) (string, error) {
+
+func (r *renderer) marker(m *scene.MarkerRef, index int) (string, error) {
 	for _, row := range gen.Markers {
 		if row.Name != m.Marker {
 			continue
@@ -176,10 +215,11 @@ func (r *renderer) marker(m *scene.MarkerRef) (string, error) {
 		case "open":
 			style, tag = "edge", "polyline"
 		}
-		return r.markerParts(tag, style, ps, row.Breaks)
+		return r.markerParts(outline{tag: tag, shape: scene.Shape{Style: style}}, ps, row.Breaks, index)
 	}
 	return "", &ConfigError{"unknown marker: " + m.Marker}
 }
+
 func markerPoint(p, ref [2]int32, m *scene.MarkerRef) (geom.Point, error) {
 	x, y := int64(p[0])-int64(ref[0]), int64(p[1])-int64(ref[1])
 	switch m.Axis {
@@ -198,24 +238,41 @@ func markerPoint(p, ref [2]int32, m *scene.MarkerRef) (geom.Point, error) {
 	return geom.Point{X: int32(x), Y: int32(y)}, nil
 }
 
-func (r *renderer) markerParts(tag, style string, ps []geom.Point, breaks []uint32) (string, error) {
+func (r *renderer) markerParts(o outline, ps []geom.Point, breaks []uint32, index int) (string, error) {
 	var out strings.Builder
+	s := newSketcher(r.look.Seed, index)
 	start := 0
 	for _, end := range breaks {
-		text, err := r.element(tag, scene.Shape{Style: style}, "points='"+points(ps[start:int(end)])+"'")
+		text, err := r.markerContour(o.tag, o.shape.Style, ps[start:int(end)], &s)
 		if err != nil {
 			return "", err
 		}
 		out.WriteString(text)
 		start = int(end)
 	}
-	text, err := r.element(tag, scene.Shape{Style: style}, "points='"+points(ps[start:])+"'")
+	text, err := r.markerContour(o.tag, o.shape.Style, ps[start:], &s)
 	if err != nil {
 		return "", err
 	}
 	out.WriteString(text)
 	return out.String(), nil
 }
+
+func (r *renderer) markerContour(tag, style string, ps []geom.Point, s *sketcher) (string, error) {
+	geometry := "points='" + points(ps) + "'"
+	shape := scene.Shape{Style: style}
+	if r.look.Kind != scene.LookHandDrawn {
+		return r.element(tag, shape, geometry)
+	}
+	var segments []segment
+	if tag == "polygon" {
+		segments = closedPointSegments(ps)
+	} else {
+		segments = openPointSegments(ps)
+	}
+	return r.sketchShape(outline{tag, geometry, shape, segments}, s)
+}
+
 func (r *renderer) text(t *scene.Text) (string, error) {
 	if _, e := styleRow(t.Style); e != nil {
 		return "", e
@@ -250,6 +307,7 @@ func (r *renderer) text(t *scene.Text) (string, error) {
 	b.WriteString("</text>\n")
 	return b.String(), nil
 }
+
 func runText(run scene.Run) string {
 	out := escape(run.Text)
 	if run.Italic {

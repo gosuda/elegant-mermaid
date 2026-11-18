@@ -1,5 +1,6 @@
 //! Borrowed styled labels (spec/math.md, math-01 through math-11).
 
+use crate::r#gen::alphanumeric::ALPHANUMERIC;
 use crate::source::Span;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -91,15 +92,18 @@ fn escape_len(source: &str, at: usize) -> Option<usize> {
         .then_some(2)
 }
 
+fn alphanumeric(value: char) -> bool {
+    if value.is_ascii() {
+        return value.is_ascii_alphanumeric();
+    }
+    let cp = u32::from(value);
+    let index = ALPHANUMERIC.partition_point(|row| row.hi < cp);
+    ALPHANUMERIC.get(index).is_some_and(|row| row.lo <= cp)
+}
+
 fn intraword(source: &str, at: usize) -> bool {
-    source[..at]
-        .chars()
-        .next_back()
-        .is_some_and(char::is_alphanumeric)
-        && source[at + 1..]
-            .chars()
-            .next()
-            .is_some_and(char::is_alphanumeric)
+    source[..at].chars().next_back().is_some_and(alphanumeric)
+        && source[at + 1..].chars().next().is_some_and(alphanumeric)
 }
 
 fn math_end(source: &str, mut at: usize, end: usize) -> Option<usize> {
@@ -151,122 +155,177 @@ fn text<'a>(label: &mut Label<'a>, value: &'a str, span: Span, style: Style) {
     }
 }
 
+fn plain_text<'a>(label: &mut Label<'a>, source: &'a str, plain: usize, at: usize, style: Style) {
+    text(
+        label,
+        &source[plain..at],
+        Span {
+            start: plain,
+            end: at,
+        },
+        style,
+    );
+}
+
+fn escape<'a>(
+    label: &mut Label<'a>,
+    source: &'a str,
+    plain: usize,
+    span: Span,
+    style: Style,
+) -> usize {
+    plain_text(label, source, plain, span.start, style);
+    text(label, &source[span.start + 1..span.end], span, style);
+    span.end
+}
+
+fn line_break<'a>(
+    label: &mut Label<'a>,
+    source: &'a str,
+    plain: usize,
+    span: Span,
+    style: Style,
+) -> usize {
+    plain_text(label, source, plain, span.start, style);
+    let index = label.lines.len() - 1;
+    label.lines[index].break_span = Some(span);
+    label.lines.push(Line {
+        segments: Vec::new(),
+        break_span: None,
+    });
+    span.end
+}
+
+fn math<'a>(
+    label: &mut Label<'a>,
+    source: &'a str,
+    plain: usize,
+    span: Span,
+    style: Style,
+) -> usize {
+    plain_text(label, source, plain, span.start, style);
+    let index = label.lines.len() - 1;
+    label.lines[index].segments.push(Segment::Math(Math {
+        source: &source[span.start + 2..span.end - 2],
+        span,
+        formula_span: Span {
+            start: span.start + 2,
+            end: span.end - 2,
+        },
+    }));
+    span.end
+}
+
+fn emphasis<'a>(
+    label: &mut Label<'a>,
+    source: &'a str,
+    plain: usize,
+    delimiter: &str,
+    span: Span,
+    style: Style,
+) -> usize {
+    plain_text(label, source, plain, span.start - delimiter.len(), style);
+    scan(
+        source,
+        span,
+        Style {
+            bold: delimiter == "**",
+            italic: delimiter != "**",
+        },
+        Mode::Emphasis,
+        label,
+    );
+    span.end + delimiter.len()
+}
+
+fn construct<'a>(
+    label: &mut Label<'a>,
+    source: &'a str,
+    rest: Span,
+    plain: usize,
+    style: Style,
+    mode: Mode,
+) -> Option<usize> {
+    let Span { start: at, end } = rest;
+    if let Some(len) = escape_len(source, at) {
+        return Some(escape(
+            label,
+            source,
+            plain,
+            Span {
+                start: at,
+                end: at + len,
+            },
+            style,
+        ));
+    }
+    if let Some(len) = break_len(source, at) {
+        return Some(line_break(
+            label,
+            source,
+            plain,
+            Span {
+                start: at,
+                end: at + len,
+            },
+            style,
+        ));
+    }
+    if source[at..end].starts_with("$$")
+        && let Some(close) = math_end(source, at + 2, end)
+    {
+        return Some(math(
+            label,
+            source,
+            plain,
+            Span {
+                start: at,
+                end: close + 2,
+            },
+            style,
+        ));
+    }
+    if mode == Mode::Label
+        && let Some(delimiter) = delimiter(source, at)
+        && let Some(close) = emphasis_end(source, at + delimiter.len(), end, delimiter)
+    {
+        return Some(emphasis(
+            label,
+            source,
+            plain,
+            delimiter,
+            Span {
+                start: at + delimiter.len(),
+                end: close,
+            },
+            style,
+        ));
+    }
+    None
+}
+
+fn plain_step(source: &str, at: usize, end: usize, mode: Mode) -> usize {
+    if mode == Mode::Label
+        && let Some(delimiter) = delimiter(source, at)
+    {
+        return delimiter.len();
+    }
+    source[at..end].chars().next().map_or(0, char::len_utf8)
+}
+
 fn scan<'a>(source: &'a str, range: Span, style: Style, mode: Mode, label: &mut Label<'a>) {
     let mut at = range.start;
     let mut plain = at;
     let end = range.end;
     while at < end {
-        let rest = &source[at..end];
-        if let Some(len) = escape_len(source, at) {
-            text(
-                label,
-                &source[plain..at],
-                Span {
-                    start: plain,
-                    end: at,
-                },
-                style,
-            );
-            text(
-                label,
-                &source[at + 1..at + len],
-                Span {
-                    start: at,
-                    end: at + len,
-                },
-                style,
-            );
-            at += len;
-        } else if let Some(len) = break_len(source, at) {
-            text(
-                label,
-                &source[plain..at],
-                Span {
-                    start: plain,
-                    end: at,
-                },
-                style,
-            );
-            let index = label.lines.len() - 1;
-            label.lines[index].break_span = Some(Span {
-                start: at,
-                end: at + len,
-            });
-            label.lines.push(Line {
-                segments: Vec::new(),
-                break_span: None,
-            });
-            at += len;
-        } else if rest.starts_with("$$")
-            && let Some(close) = math_end(source, at + 2, end)
-        {
-            text(
-                label,
-                &source[plain..at],
-                Span {
-                    start: plain,
-                    end: at,
-                },
-                style,
-            );
-            let index = label.lines.len() - 1;
-            label.lines[index].segments.push(Segment::Math(Math {
-                source: &source[at + 2..close],
-                span: Span {
-                    start: at,
-                    end: close + 2,
-                },
-                formula_span: Span {
-                    start: at + 2,
-                    end: close,
-                },
-            }));
-            at = close + 2;
-        } else if mode == Mode::Label
-            && let Some(delimiter) = delimiter(source, at)
-        {
-            if let Some(close) = emphasis_end(source, at + delimiter.len(), end, delimiter) {
-                text(
-                    label,
-                    &source[plain..at],
-                    Span {
-                        start: plain,
-                        end: at,
-                    },
-                    style,
-                );
-                scan(
-                    source,
-                    Span {
-                        start: at + delimiter.len(),
-                        end: close,
-                    },
-                    Style {
-                        bold: delimiter == "**",
-                        italic: delimiter != "**",
-                    },
-                    Mode::Emphasis,
-                    label,
-                );
-                at = close + delimiter.len();
-            } else {
-                at += delimiter.len();
-                continue;
-            }
+        if let Some(next) = construct(label, source, Span { start: at, end }, plain, style, mode) {
+            at = next;
+            plain = at;
         } else {
-            if let Some(ch) = rest.chars().next() {
-                at += ch.len_utf8();
-            }
-            continue;
+            at += plain_step(source, at, end, mode);
         }
-        plain = at;
     }
-    text(
-        label,
-        &source[plain..end],
-        Span { start: plain, end },
-        style,
-    );
+    plain_text(label, source, plain, end, style);
 }
 
 fn delimiter(source: &str, at: usize) -> Option<&'static str> {

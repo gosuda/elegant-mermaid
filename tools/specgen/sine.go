@@ -37,7 +37,7 @@ func sineTable() ([sineEntries]int32, error) {
 func sineEntry(pi, scale, scaleSquared *big.Int, index int) (int32, error) {
 	arg := new(big.Int).Mul(pi, big.NewInt(int64(index)))
 	arg.Quo(arg, big.NewInt(2048))
-	sin := taylorSine(arg, scale, scaleSquared)
+	sin := taylorSine(arg, scaleSquared)
 	scaled := new(big.Int).Mul(sin, big.NewInt(32768))
 	rounded, err := roundHalfUpDiv(scaled, scale)
 	if err != nil {
@@ -49,7 +49,7 @@ func sineEntry(pi, scale, scaleSquared *big.Int, index int) (int32, error) {
 	return int32(rounded.Int64()), nil
 }
 
-func taylorSine(x, scale, scaleSquared *big.Int) *big.Int {
+func taylorSine(x, scaleSquared *big.Int) *big.Int {
 	sum := new(big.Int).Set(x)
 	xSquared := new(big.Int).Mul(x, x)
 	term := new(big.Int).Set(x)

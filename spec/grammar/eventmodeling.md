@@ -36,6 +36,8 @@ This file fixes syntax and model resolution for `eventmodeling`.
 |69|EM_ML_COMMENT (hidden)|`/*` through first `*/`, including line ends|
 |70|EM_SL_COMMENT (hidden)|`//` through line end|
 
+- eventmodeling-29: The lexer MUST NOT produce `EM_ACC_DESCR`, `EM_ACC_TITLE`, or `EM_TITLE`. Upstream lists `EM_ID` first, so the words `accDescr`, `accTitle`, and `title` lex as identifiers, and a line that starts with one is an unknown statement. The implementation MUST follow that behaviour, because upstream rejects such input. [just oracle]
+
 - eventmodeling-07: Shared preprocessing MUST handle frontmatter, directives, Mermaid comments, and line endings before this grammar; block and inline payloads MUST remain opaque text, not JSON or executable HTML. [just parity]
 
 ## Grammar
@@ -107,7 +109,7 @@ EM_FI = EM_FID ;
 - eventmodeling-20: Every stored relation MUST have sourceBox and targetBox references, source and target coordinate records, and visual properties; sourceBox MUST be the referenced or inferred earlier box and targetBox MUST be the current frame box. There MUST be no separate relation type, label, multiplicity, or GWT edge. The arrow text points from the current declaration to a source identifier syntactically, but the stored relation runs from that source box to the current box. [just parity]
 - eventmodeling-21: `entity`, `data`, `note`, and `gwt` declarations MUST remain in their separate AST lists. The database MUST use only frames to create boxes and relations; notes and GWT statements MUST NOT create displayed nodes or relations. A data reference MUST select the first data declaration with that exact name. An unresolved data reference MUST leave inline data unchanged, or contribute no data when inline data is absent. [just oracle]
 - eventmodeling-22: Text resolution MUST retain the database's extraction order: inline data first, referenced data second when found. For inline data it MUST apply JavaScript `substring(indexOf('{') + 1)`, then `substring(0, lastIndexOf('}') - 1)` to that result. For referenced data it MUST apply `substring(indexOf('{\n') + 2)`, then the same second operation, and append a line break. JavaScript substring MUST clamp negative bounds to zero and exchange reversed bounds. The model MUST store the resulting text, not upstream HTML wrappers. [just parity]
-- eventmodeling-23: Accessibility and title tokens MUST populate common metadata through the shared metadata rules; later assignments MUST replace earlier values. Geometry, text wrapping, theme paint, and static escaping MUST follow their shared specifications. [just parity]
+- eventmodeling-23: Accessibility and title text MUST stay empty for this kind, because eventmodeling-29 leaves the metadata tokens unreachable. Geometry, text wrapping, theme paint, and static escaping MUST follow their shared specifications. [just parity]
 - eventmodeling-24: Acceptance MUST follow `packages/parser/src/parse.ts:133-149` and `diagrams/eventmodeling/parser.ts:8-14`: lexer/parser errors and duplicate frame IDs reject input. The editor validator in `language/eventmodeling/event-modeling-validator.ts:23-65` MUST NOT add rejection rules to this entry point; it is not run by `parse`. Missing references and disallowed source-type pairs MUST NOT become error diagnostics here. [just oracle]
 
 ## Diagnostics

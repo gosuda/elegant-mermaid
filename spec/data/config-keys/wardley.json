@@ -2,6 +2,7 @@
   {"kind":"wardley","key":"axisFontSize","class":"accepted-ignored"},
   {"kind":"wardley","key":"height","class":"honoured"},
   {"kind":"wardley","key":"labelFontSize","class":"accepted-ignored"},
+  {"kind":"wardley","key":"layout","class":"accepted-ignored"},
   {"kind":"wardley","key":"look","class":"honoured"},
   {"kind":"wardley","key":"nodeLabelOffset","class":"accepted-ignored"},
   {"kind":"wardley","key":"nodeRadius","class":"accepted-ignored"},

@@ -32,6 +32,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 15,
     },
     Const {
+        name: "cell.architecture.badge",
+        value: 1,
+    },
+    Const {
         name: "cell.architecture.bfs_cap",
         value: 2000,
     },
@@ -48,8 +52,16 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 1,
     },
     Const {
+        name: "cell.architecture.label_gap",
+        value: 0,
+    },
+    Const {
         name: "cell.architecture.label_wrap",
         value: 13,
+    },
+    Const {
+        name: "cell.architecture.line_thickness",
+        value: 1,
     },
     Const {
         name: "cell.architecture.padding",
@@ -64,12 +76,28 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 6,
     },
     Const {
+        name: "cell.architecture.ring_cap",
+        value: 4,
+    },
+    Const {
+        name: "cell.architecture.title_inset",
+        value: 1,
+    },
+    Const {
         name: "cell.arrow_half",
         value: 0,
     },
     Const {
         name: "cell.arrow_len",
         value: 0,
+    },
+    Const {
+        name: "cell.block.bend_cost",
+        value: 4,
+    },
+    Const {
+        name: "cell.block.line_thickness",
+        value: 1,
     },
     Const {
         name: "cell.block.padding",
@@ -132,6 +160,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 15,
     },
     Const {
+        name: "cell.cynefin.box_pad",
+        value: 1,
+    },
+    Const {
         name: "cell.cynefin.confusion_permille",
         value: 150,
     },
@@ -142,6 +174,30 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "cell.cynefin.height",
         value: 38,
+    },
+    Const {
+        name: "cell.cynefin.item_gap",
+        value: 0,
+    },
+    Const {
+        name: "cell.cynefin.item_pad_x",
+        value: 0,
+    },
+    Const {
+        name: "cell.cynefin.item_pad_y",
+        value: 0,
+    },
+    Const {
+        name: "cell.cynefin.label_gap",
+        value: 1,
+    },
+    Const {
+        name: "cell.cynefin.name_gap",
+        value: 1,
+    },
+    Const {
+        name: "cell.cynefin.pad",
+        value: 1,
     },
     Const {
         name: "cell.cynefin.wave_segments",
@@ -216,6 +272,14 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 2,
     },
     Const {
+        name: "cell.gantt.exclude_years_max",
+        value: 5,
+    },
+    Const {
+        name: "cell.gantt.label_gap",
+        value: 1,
+    },
+    Const {
         name: "cell.gantt.label_gutter",
         value: 10,
     },
@@ -224,16 +288,52 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 1,
     },
     Const {
+        name: "cell.gantt.section_pad",
+        value: 1,
+    },
+    Const {
         name: "cell.gantt.side_pad",
         value: 10,
+    },
+    Const {
+        name: "cell.gantt.tick_cap",
+        value: 512,
+    },
+    Const {
+        name: "cell.gantt.tick_estimate_cap",
+        value: 10000,
+    },
+    Const {
+        name: "cell.gantt.tick_label_gap",
+        value: 0,
+    },
+    Const {
+        name: "cell.gantt.tick_length",
+        value: 1,
+    },
+    Const {
+        name: "cell.gantt.title_pad",
+        value: 0,
     },
     Const {
         name: "cell.gantt.top_pad",
         value: 4,
     },
     Const {
+        name: "cell.gantt.vert_width",
+        value: 1,
+    },
+    Const {
         name: "cell.gantt.width",
         value: 150,
+    },
+    Const {
+        name: "cell.gitgraph.branch_pad_x",
+        value: 0,
+    },
+    Const {
+        name: "cell.gitgraph.branch_pad_y",
+        value: 0,
     },
     Const {
         name: "cell.gitgraph.commit_radius",
@@ -242,6 +342,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "cell.gitgraph.commit_step",
         value: 4,
+    },
+    Const {
+        name: "cell.gitgraph.label_gap",
+        value: 2,
     },
     Const {
         name: "cell.gitgraph.label_offset",
@@ -256,8 +360,16 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 2,
     },
     Const {
-        name: "cell.info.font_size",
+        name: "cell.gitgraph.tag_offset",
         value: 0,
+    },
+    Const {
+        name: "cell.gitgraph.tag_pad",
+        value: 0,
+    },
+    Const {
+        name: "cell.info.font_size",
+        value: 1024,
     },
     Const {
         name: "cell.info.height",
@@ -314,6 +426,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "cell.ishikawa.spine_base_length",
         value: 40,
+    },
+    Const {
+        name: "cell.ishikawa.spine_inset",
+        value: 2,
     },
     Const {
         name: "cell.journey.band_height",
@@ -508,6 +624,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 32,
     },
     Const {
+        name: "cell.packet.margin_x",
+        value: 0,
+    },
+    Const {
         name: "cell.packet.padding_x",
         value: 1,
     },
@@ -518,6 +638,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "cell.packet.row_height",
         value: 3,
+    },
+    Const {
+        name: "cell.packet.show_bits_pad",
+        value: 0,
     },
     Const {
         name: "cell.paint.dash_dashed_off",
@@ -544,11 +668,27 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 0,
     },
     Const {
+        name: "cell.pie.legend_offset",
+        value: 0,
+    },
+    Const {
         name: "cell.pie.legend_row",
         value: 0,
     },
     Const {
+        name: "cell.pie.legend_size",
+        value: 0,
+    },
+    Const {
         name: "cell.pie.margin",
+        value: 0,
+    },
+    Const {
+        name: "cell.pie.text_position_m",
+        value: 0,
+    },
+    Const {
+        name: "cell.pie.title_pad",
         value: 0,
     },
     Const {
@@ -580,12 +720,28 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 2,
     },
     Const {
+        name: "cell.quadrant.axis_font_px",
+        value: 16,
+    },
+    Const {
+        name: "cell.quadrant.axis_label_padding_px",
+        value: 5,
+    },
+    Const {
         name: "cell.quadrant.height",
         value: 32,
     },
     Const {
+        name: "cell.quadrant.label_font_px",
+        value: 16,
+    },
+    Const {
         name: "cell.quadrant.padding",
         value: 1,
+    },
+    Const {
+        name: "cell.quadrant.point_font_px",
+        value: 12,
     },
     Const {
         name: "cell.quadrant.point_radius",
@@ -596,31 +752,55 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 1,
     },
     Const {
+        name: "cell.quadrant.text_top_pad",
+        value: 0,
+    },
+    Const {
         name: "cell.quadrant.title_band",
         value: 3,
+    },
+    Const {
+        name: "cell.quadrant.title_font_px",
+        value: 20,
+    },
+    Const {
+        name: "cell.quadrant.title_padding_px",
+        value: 10,
     },
     Const {
         name: "cell.quadrant.width",
         value: 63,
     },
     Const {
+        name: "cell.radar.anchor_q15",
+        value: 0,
+    },
+    Const {
         name: "cell.radar.curve_tension",
-        value: 170,
+        value: 0,
     },
     Const {
         name: "cell.radar.height",
-        value: 38,
+        value: 0,
     },
     Const {
         name: "cell.radar.label_gap_x",
-        value: 3,
+        value: 0,
     },
     Const {
         name: "cell.radar.label_gap_y",
-        value: 2,
+        value: 0,
+    },
+    Const {
+        name: "cell.radar.legend_marker",
+        value: 0,
     },
     Const {
         name: "cell.radar.legend_row",
+        value: 0,
+    },
+    Const {
+        name: "cell.radar.legend_text_gap",
         value: 0,
     },
     Const {
@@ -629,15 +809,15 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     },
     Const {
         name: "cell.radar.ticks_default",
-        value: 5,
+        value: 0,
     },
     Const {
         name: "cell.radar.ticks_max",
-        value: 32,
+        value: 0,
     },
     Const {
         name: "cell.radar.width",
-        value: 75,
+        value: 0,
     },
     Const {
         name: "cell.railroad.arc_radius",
@@ -713,11 +893,15 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     },
     Const {
         name: "cell.sankey.height",
-        value: 25,
+        value: 0,
     },
     Const {
         name: "cell.sankey.iterations",
-        value: 6,
+        value: 0,
+    },
+    Const {
+        name: "cell.sankey.label_gap",
+        value: 0,
     },
     Const {
         name: "cell.sankey.node_padding",
@@ -733,7 +917,7 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     },
     Const {
         name: "cell.sankey.width",
-        value: 75,
+        value: 0,
     },
     Const {
         name: "cell.sequence.activation_top",
@@ -872,8 +1056,40 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 3,
     },
     Const {
+        name: "cell.treemap.dense_leaves",
+        value: 20,
+    },
+    Const {
+        name: "cell.treemap.header_border",
+        value: 1,
+    },
+    Const {
+        name: "cell.treemap.header_gap",
+        value: 1,
+    },
+    Const {
+        name: "cell.treemap.header_label_inset",
+        value: 2,
+    },
+    Const {
+        name: "cell.treemap.header_label_min",
+        value: 3,
+    },
+    Const {
+        name: "cell.treemap.header_label_size",
+        value: 768,
+    },
+    Const {
+        name: "cell.treemap.header_value_inset",
+        value: 2,
+    },
+    Const {
+        name: "cell.treemap.header_value_size",
+        value: 640,
+    },
+    Const {
         name: "cell.treemap.height",
-        value: 0,
+        value: 32,
     },
     Const {
         name: "cell.treemap.inner_padding_x",
@@ -882,6 +1098,62 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "cell.treemap.inner_padding_y",
         value: 1,
+    },
+    Const {
+        name: "cell.treemap.leaf_label_min",
+        value: 512,
+    },
+    Const {
+        name: "cell.treemap.leaf_label_min_dense",
+        value: 256,
+    },
+    Const {
+        name: "cell.treemap.leaf_label_size",
+        value: 2432,
+    },
+    Const {
+        name: "cell.treemap.leaf_label_size_dense",
+        value: 1024,
+    },
+    Const {
+        name: "cell.treemap.leaf_min_display",
+        value: 1,
+    },
+    Const {
+        name: "cell.treemap.leaf_min_display_dense",
+        value: 1,
+    },
+    Const {
+        name: "cell.treemap.leaf_pad",
+        value: 1,
+    },
+    Const {
+        name: "cell.treemap.leaf_pad_dense",
+        value: 1,
+    },
+    Const {
+        name: "cell.treemap.leaf_spacing",
+        value: 0,
+    },
+    Const {
+        name: "cell.treemap.leaf_spacing_dense",
+        value: 0,
+    },
+    Const {
+        name: "cell.treemap.leaf_value_min",
+        value: 384,
+    },
+    Const {
+        name: "cell.treemap.leaf_value_min_dense",
+        value: 256,
+    },
+    Const {
+        name: "cell.treemap.leaf_value_size",
+        value: 1792,
+    },
+    Const {
+        name: "cell.treemap.leaf_value_size_dense",
+        value: 896,
     },
     Const {
         name: "cell.treemap.rho_q30",
@@ -904,12 +1176,20 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 2000,
     },
     Const {
+        name: "cell.treemap.title_band",
+        value: 2,
+    },
+    Const {
         name: "cell.treemap.value_bits",
         value: 24,
     },
     Const {
+        name: "cell.treemap.value_scale_percent",
+        value: 60,
+    },
+    Const {
         name: "cell.treemap.width",
-        value: 0,
+        value: 120,
     },
     Const {
         name: "cell.treeview.desc_gap",
@@ -917,11 +1197,11 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     },
     Const {
         name: "cell.treeview.icon_gap",
-        value: 0,
+        value: 1,
     },
     Const {
         name: "cell.treeview.icon_size",
-        value: 0,
+        value: 1,
     },
     Const {
         name: "cell.treeview.line_thickness",
@@ -937,7 +1217,7 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     },
     Const {
         name: "cell.treeview.row_indent",
-        value: 0,
+        value: 4,
     },
     Const {
         name: "cell.usecase.diagram_padding",
@@ -988,8 +1268,76 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 0,
     },
     Const {
+        name: "cell.wardley.annotation_radius",
+        value: 1,
+    },
+    Const {
+        name: "cell.wardley.arrow_head",
+        value: 1,
+    },
+    Const {
+        name: "cell.wardley.arrow_shaft",
+        value: 1,
+    },
+    Const {
+        name: "cell.wardley.arrow_tip",
+        value: 3,
+    },
+    Const {
+        name: "cell.wardley.arrow_width",
+        value: 8,
+    },
+    Const {
+        name: "cell.wardley.axis_gap",
+        value: 0,
+    },
+    Const {
+        name: "cell.wardley.axis_size",
+        value: 768,
+    },
+    Const {
+        name: "cell.wardley.box_pad",
+        value: 1,
+    },
+    Const {
         name: "cell.wardley.height",
         value: 38,
+    },
+    Const {
+        name: "cell.wardley.inertia_gap",
+        value: 2,
+    },
+    Const {
+        name: "cell.wardley.inertia_width",
+        value: 1,
+    },
+    Const {
+        name: "cell.wardley.label_gap",
+        value: 1,
+    },
+    Const {
+        name: "cell.wardley.label_size",
+        value: 640,
+    },
+    Const {
+        name: "cell.wardley.link_label_gap",
+        value: 1,
+    },
+    Const {
+        name: "cell.wardley.market_dot",
+        value: 0,
+    },
+    Const {
+        name: "cell.wardley.market_ring",
+        value: 0,
+    },
+    Const {
+        name: "cell.wardley.node_radius",
+        value: 1,
+    },
+    Const {
+        name: "cell.wardley.note_size",
+        value: 704,
     },
     Const {
         name: "cell.wardley.padding_x",
@@ -1000,8 +1348,32 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 3,
     },
     Const {
+        name: "cell.wardley.pipeline_height",
+        value: 3,
+    },
+    Const {
+        name: "cell.wardley.pipeline_pad",
+        value: 2,
+    },
+    Const {
+        name: "cell.wardley.square_size",
+        value: 1,
+    },
+    Const {
+        name: "cell.wardley.stage_gap",
+        value: 1,
+    },
+    Const {
         name: "cell.wardley.width",
         value: 113,
+    },
+    Const {
+        name: "cell.xychart.axis_line",
+        value: 1,
+    },
+    Const {
+        name: "cell.xychart.axis_title_pad",
+        value: 0,
     },
     Const {
         name: "cell.xychart.bar_padding_m",
@@ -1020,8 +1392,48 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 200,
     },
     Const {
+        name: "cell.xychart.label_pad_x",
+        value: 1,
+    },
+    Const {
+        name: "cell.xychart.label_pad_y",
+        value: 0,
+    },
+    Const {
+        name: "cell.xychart.legend_item_gap",
+        value: 0,
+    },
+    Const {
+        name: "cell.xychart.legend_marker",
+        value: 1,
+    },
+    Const {
+        name: "cell.xychart.legend_marker_gap",
+        value: 1,
+    },
+    Const {
+        name: "cell.xychart.legend_pad",
+        value: 1,
+    },
+    Const {
         name: "cell.xychart.plot_reserved_percent",
         value: 50,
+    },
+    Const {
+        name: "cell.xychart.point_label_offset",
+        value: 1,
+    },
+    Const {
+        name: "cell.xychart.point_label_size",
+        value: 768,
+    },
+    Const {
+        name: "cell.xychart.tick_length",
+        value: 1,
+    },
+    Const {
+        name: "cell.xychart.title_pad",
+        value: 0,
     },
     Const {
         name: "cell.xychart.width",
@@ -1052,6 +1464,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 7680,
     },
     Const {
+        name: "vector.architecture.badge",
+        value: 1536,
+    },
+    Const {
         name: "vector.architecture.bfs_cap",
         value: 2000,
     },
@@ -1068,8 +1484,16 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 512,
     },
     Const {
+        name: "vector.architecture.label_gap",
+        value: 256,
+    },
+    Const {
         name: "vector.architecture.label_wrap",
         value: 7168,
+    },
+    Const {
+        name: "vector.architecture.line_thickness",
+        value: 0,
     },
     Const {
         name: "vector.architecture.padding",
@@ -1084,12 +1508,28 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 7680,
     },
     Const {
+        name: "vector.architecture.ring_cap",
+        value: 4,
+    },
+    Const {
+        name: "vector.architecture.title_inset",
+        value: 768,
+    },
+    Const {
         name: "vector.arrow_half",
         value: 256,
     },
     Const {
         name: "vector.arrow_len",
         value: 512,
+    },
+    Const {
+        name: "vector.block.bend_cost",
+        value: 4096,
+    },
+    Const {
+        name: "vector.block.line_thickness",
+        value: 0,
     },
     Const {
         name: "vector.block.padding",
@@ -1152,6 +1592,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 15,
     },
     Const {
+        name: "vector.cynefin.box_pad",
+        value: 512,
+    },
+    Const {
         name: "vector.cynefin.confusion_permille",
         value: 150,
     },
@@ -1162,6 +1606,30 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "vector.cynefin.height",
         value: 38400,
+    },
+    Const {
+        name: "vector.cynefin.item_gap",
+        value: 256,
+    },
+    Const {
+        name: "vector.cynefin.item_pad_x",
+        value: 768,
+    },
+    Const {
+        name: "vector.cynefin.item_pad_y",
+        value: 256,
+    },
+    Const {
+        name: "vector.cynefin.label_gap",
+        value: 256,
+    },
+    Const {
+        name: "vector.cynefin.name_gap",
+        value: 512,
+    },
+    Const {
+        name: "vector.cynefin.pad",
+        value: 512,
     },
     Const {
         name: "vector.cynefin.wave_segments",
@@ -1236,6 +1704,14 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 1280,
     },
     Const {
+        name: "vector.gantt.exclude_years_max",
+        value: 5,
+    },
+    Const {
+        name: "vector.gantt.label_gap",
+        value: 320,
+    },
+    Const {
         name: "vector.gantt.label_gutter",
         value: 4800,
     },
@@ -1244,16 +1720,52 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 256,
     },
     Const {
+        name: "vector.gantt.section_pad",
+        value: 640,
+    },
+    Const {
         name: "vector.gantt.side_pad",
         value: 4800,
+    },
+    Const {
+        name: "vector.gantt.tick_cap",
+        value: 512,
+    },
+    Const {
+        name: "vector.gantt.tick_estimate_cap",
+        value: 10000,
+    },
+    Const {
+        name: "vector.gantt.tick_label_gap",
+        value: 128,
+    },
+    Const {
+        name: "vector.gantt.tick_length",
+        value: 384,
+    },
+    Const {
+        name: "vector.gantt.title_pad",
+        value: 128,
     },
     Const {
         name: "vector.gantt.top_pad",
         value: 3200,
     },
     Const {
+        name: "vector.gantt.vert_width",
+        value: 128,
+    },
+    Const {
         name: "vector.gantt.width",
         value: 76800,
+    },
+    Const {
+        name: "vector.gitgraph.branch_pad_x",
+        value: 768,
+    },
+    Const {
+        name: "vector.gitgraph.branch_pad_y",
+        value: 512,
     },
     Const {
         name: "vector.gitgraph.commit_radius",
@@ -1262,6 +1774,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "vector.gitgraph.commit_step",
         value: 2560,
+    },
+    Const {
+        name: "vector.gitgraph.label_gap",
+        value: 1536,
     },
     Const {
         name: "vector.gitgraph.label_offset",
@@ -1274,6 +1790,14 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "vector.gitgraph.lane_pitch",
         value: 3200,
+    },
+    Const {
+        name: "vector.gitgraph.tag_offset",
+        value: 1024,
+    },
+    Const {
+        name: "vector.gitgraph.tag_pad",
+        value: 256,
     },
     Const {
         name: "vector.info.font_size",
@@ -1334,6 +1858,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "vector.ishikawa.spine_base_length",
         value: 16000,
+    },
+    Const {
+        name: "vector.ishikawa.spine_inset",
+        value: 1280,
     },
     Const {
         name: "vector.journey.band_height",
@@ -1528,6 +2056,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 32,
     },
     Const {
+        name: "vector.packet.margin_x",
+        value: 64,
+    },
+    Const {
         name: "vector.packet.padding_x",
         value: 320,
     },
@@ -1538,6 +2070,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "vector.packet.row_height",
         value: 2048,
+    },
+    Const {
+        name: "vector.packet.show_bits_pad",
+        value: 1024,
     },
     Const {
         name: "vector.paint.dash_dashed_off",
@@ -1564,12 +2100,28 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 28800,
     },
     Const {
+        name: "vector.pie.legend_offset",
+        value: 13824,
+    },
+    Const {
         name: "vector.pie.legend_row",
         value: 1408,
     },
     Const {
+        name: "vector.pie.legend_size",
+        value: 1152,
+    },
+    Const {
         name: "vector.pie.margin",
         value: 2560,
+    },
+    Const {
+        name: "vector.pie.text_position_m",
+        value: 750,
+    },
+    Const {
+        name: "vector.pie.title_pad",
+        value: 512,
     },
     Const {
         name: "vector.pivot_factor",
@@ -1600,12 +2152,28 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 1664,
     },
     Const {
+        name: "vector.quadrant.axis_font_px",
+        value: 16,
+    },
+    Const {
+        name: "vector.quadrant.axis_label_padding_px",
+        value: 5,
+    },
+    Const {
         name: "vector.quadrant.height",
         value: 32000,
     },
     Const {
+        name: "vector.quadrant.label_font_px",
+        value: 16,
+    },
+    Const {
         name: "vector.quadrant.padding",
         value: 320,
+    },
+    Const {
+        name: "vector.quadrant.point_font_px",
+        value: 12,
     },
     Const {
         name: "vector.quadrant.point_radius",
@@ -1616,12 +2184,28 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 320,
     },
     Const {
+        name: "vector.quadrant.text_top_pad",
+        value: 320,
+    },
+    Const {
         name: "vector.quadrant.title_band",
         value: 2560,
     },
     Const {
+        name: "vector.quadrant.title_font_px",
+        value: 20,
+    },
+    Const {
+        name: "vector.quadrant.title_padding_px",
+        value: 10,
+    },
+    Const {
         name: "vector.quadrant.width",
         value: 32000,
+    },
+    Const {
+        name: "vector.radar.anchor_q15",
+        value: 328,
     },
     Const {
         name: "vector.radar.curve_tension",
@@ -1640,8 +2224,16 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 1216,
     },
     Const {
+        name: "vector.radar.legend_marker",
+        value: 768,
+    },
+    Const {
         name: "vector.radar.legend_row",
         value: 1280,
+    },
+    Const {
+        name: "vector.radar.legend_text_gap",
+        value: 256,
     },
     Const {
         name: "vector.radar.margin",
@@ -1738,6 +2330,10 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "vector.sankey.iterations",
         value: 6,
+    },
+    Const {
+        name: "vector.sankey.label_gap",
+        value: 384,
     },
     Const {
         name: "vector.sankey.node_padding",
@@ -1892,6 +2488,38 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 3200,
     },
     Const {
+        name: "vector.treemap.dense_leaves",
+        value: 20,
+    },
+    Const {
+        name: "vector.treemap.header_border",
+        value: 0,
+    },
+    Const {
+        name: "vector.treemap.header_gap",
+        value: 640,
+    },
+    Const {
+        name: "vector.treemap.header_label_inset",
+        value: 384,
+    },
+    Const {
+        name: "vector.treemap.header_label_min",
+        value: 960,
+    },
+    Const {
+        name: "vector.treemap.header_label_size",
+        value: 768,
+    },
+    Const {
+        name: "vector.treemap.header_value_inset",
+        value: 640,
+    },
+    Const {
+        name: "vector.treemap.header_value_size",
+        value: 640,
+    },
+    Const {
         name: "vector.treemap.height",
         value: 32000,
     },
@@ -1902,6 +2530,62 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
     Const {
         name: "vector.treemap.inner_padding_y",
         value: 640,
+    },
+    Const {
+        name: "vector.treemap.leaf_label_min",
+        value: 512,
+    },
+    Const {
+        name: "vector.treemap.leaf_label_min_dense",
+        value: 256,
+    },
+    Const {
+        name: "vector.treemap.leaf_label_size",
+        value: 2432,
+    },
+    Const {
+        name: "vector.treemap.leaf_label_size_dense",
+        value: 1024,
+    },
+    Const {
+        name: "vector.treemap.leaf_min_display",
+        value: 640,
+    },
+    Const {
+        name: "vector.treemap.leaf_min_display_dense",
+        value: 512,
+    },
+    Const {
+        name: "vector.treemap.leaf_pad",
+        value: 256,
+    },
+    Const {
+        name: "vector.treemap.leaf_pad_dense",
+        value: 128,
+    },
+    Const {
+        name: "vector.treemap.leaf_spacing",
+        value: 128,
+    },
+    Const {
+        name: "vector.treemap.leaf_spacing_dense",
+        value: 64,
+    },
+    Const {
+        name: "vector.treemap.leaf_value_min",
+        value: 384,
+    },
+    Const {
+        name: "vector.treemap.leaf_value_min_dense",
+        value: 256,
+    },
+    Const {
+        name: "vector.treemap.leaf_value_size",
+        value: 1792,
+    },
+    Const {
+        name: "vector.treemap.leaf_value_size_dense",
+        value: 896,
     },
     Const {
         name: "vector.treemap.rho_q30",
@@ -1924,8 +2608,16 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 2000,
     },
     Const {
+        name: "vector.treemap.title_band",
+        value: 1920,
+    },
+    Const {
         name: "vector.treemap.value_bits",
         value: 24,
+    },
+    Const {
+        name: "vector.treemap.value_scale_percent",
+        value: 60,
     },
     Const {
         name: "vector.treemap.width",
@@ -2008,8 +2700,76 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 51200,
     },
     Const {
+        name: "vector.wardley.annotation_radius",
+        value: 640,
+    },
+    Const {
+        name: "vector.wardley.arrow_head",
+        value: 512,
+    },
+    Const {
+        name: "vector.wardley.arrow_shaft",
+        value: 960,
+    },
+    Const {
+        name: "vector.wardley.arrow_tip",
+        value: 1280,
+    },
+    Const {
+        name: "vector.wardley.arrow_width",
+        value: 3840,
+    },
+    Const {
+        name: "vector.wardley.axis_gap",
+        value: 128,
+    },
+    Const {
+        name: "vector.wardley.axis_size",
+        value: 768,
+    },
+    Const {
+        name: "vector.wardley.box_pad",
+        value: 640,
+    },
+    Const {
         name: "vector.wardley.height",
         value: 38400,
+    },
+    Const {
+        name: "vector.wardley.inertia_gap",
+        value: 960,
+    },
+    Const {
+        name: "vector.wardley.inertia_width",
+        value: 384,
+    },
+    Const {
+        name: "vector.wardley.label_gap",
+        value: 320,
+    },
+    Const {
+        name: "vector.wardley.label_size",
+        value: 640,
+    },
+    Const {
+        name: "vector.wardley.link_label_gap",
+        value: 512,
+    },
+    Const {
+        name: "vector.wardley.market_dot",
+        value: 269,
+    },
+    Const {
+        name: "vector.wardley.market_ring",
+        value: 461,
+    },
+    Const {
+        name: "vector.wardley.node_radius",
+        value: 384,
+    },
+    Const {
+        name: "vector.wardley.note_size",
+        value: 704,
     },
     Const {
         name: "vector.wardley.padding_x",
@@ -2020,8 +2780,32 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 3072,
     },
     Const {
+        name: "vector.wardley.pipeline_height",
+        value: 1536,
+    },
+    Const {
+        name: "vector.wardley.pipeline_pad",
+        value: 960,
+    },
+    Const {
+        name: "vector.wardley.square_size",
+        value: 614,
+    },
+    Const {
+        name: "vector.wardley.stage_gap",
+        value: 256,
+    },
+    Const {
         name: "vector.wardley.width",
         value: 57600,
+    },
+    Const {
+        name: "vector.xychart.axis_line",
+        value: 128,
+    },
+    Const {
+        name: "vector.xychart.axis_title_pad",
+        value: 320,
     },
     Const {
         name: "vector.xychart.bar_padding_m",
@@ -2040,8 +2824,48 @@ pub(crate) const LAYOUT_CONST: &[Const] = &[
         value: 200,
     },
     Const {
+        name: "vector.xychart.label_pad_x",
+        value: 320,
+    },
+    Const {
+        name: "vector.xychart.label_pad_y",
+        value: 320,
+    },
+    Const {
+        name: "vector.xychart.legend_item_gap",
+        value: 448,
+    },
+    Const {
+        name: "vector.xychart.legend_marker",
+        value: 672,
+    },
+    Const {
+        name: "vector.xychart.legend_marker_gap",
+        value: 314,
+    },
+    Const {
+        name: "vector.xychart.legend_pad",
+        value: 640,
+    },
+    Const {
         name: "vector.xychart.plot_reserved_percent",
         value: 50,
+    },
+    Const {
+        name: "vector.xychart.point_label_offset",
+        value: 640,
+    },
+    Const {
+        name: "vector.xychart.point_label_size",
+        value: 768,
+    },
+    Const {
+        name: "vector.xychart.tick_length",
+        value: 320,
+    },
+    Const {
+        name: "vector.xychart.title_pad",
+        value: 640,
     },
     Const {
         name: "vector.xychart.width",

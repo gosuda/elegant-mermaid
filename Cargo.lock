@@ -150,7 +150,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "elegant-mermaid-cli"
+name = "elegant-mermaid-wasm"
+version = "0.1.0"
+dependencies = [
+ "elegant-mermaid",
+ "thiserror",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "emd-cli"
 version = "0.1.0"
 dependencies = [
  "base64",
@@ -159,6 +168,7 @@ dependencies = [
  "notify",
  "quanta",
  "thiserror",
+ "tiny-skia",
 ]
 
 [[package]]

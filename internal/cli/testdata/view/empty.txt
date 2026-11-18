@@ -1,0 +1,24 @@
+Empty diagram: add a Mermaid header such as flowchart TD; waiting for changes   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+... | No valid revision yet; fix the source or press r | - | cells | - | E 1 err
+? help  q quit  d diagnostics  arrows/hjkl pan  0 fit                           

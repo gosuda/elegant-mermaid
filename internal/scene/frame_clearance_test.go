@@ -77,7 +77,7 @@ func TestFrameClearanceLabels(t *testing.T) {
 		{"straddles the right border", geom.Rect{X: 35, Y: 20, W: 10, H: 5}, ClauseFrameClearance},
 		{"touches the left border from inside", geom.Rect{X: 0, Y: 20, W: 10, H: 5}, ClauseFrameClearance},
 		{"touches the bottom border from inside", geom.Rect{X: 10, Y: 35, W: 10, H: 5}, ClauseFrameClearance},
-		{"covers a member", geom.Rect{X: 0, Y: 0, W: 50, H: 50}, ClauseLabelClearance},
+		{"covers a member", geom.Rect{X: 0, Y: 0, W: 50, H: 50}, ClauseFrameClearance},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

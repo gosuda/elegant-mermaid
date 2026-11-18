@@ -4,12 +4,10 @@ import (
 	"embed"
 	"image"
 	"image/color"
-	"sort"
 	"sync"
 
 	mermaid "github.com/gosuda/elegant-mermaid"
 	"github.com/gosuda/elegant-mermaid/internal/gen"
-	"github.com/gosuda/elegant-mermaid/internal/geom"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 	"github.com/gosuda/elegant-mermaid/internal/scenelink"
 	"github.com/gosuda/elegant-mermaid/internal/theme"
@@ -96,45 +94,6 @@ func loadGlyph(f *sfnt.Font, b *sfnt.Buffer, cp rune, upem int32) (scenelink.Gly
 	return g, nil
 }
 
-func glyph(f scenelink.Font, cp rune) scenelink.Glyph {
-	i := sort.Search(len(f.Glyphs), func(i int) bool { return f.Glyphs[i].Rune >= cp })
-	if i < len(f.Glyphs) && f.Glyphs[i].Rune == cp {
-		return f.Glyphs[i]
-	}
-	return scenelink.Glyph{Rune: cp, Advance: fallbackAdvance(f.UnitsPerEm, cp)}
-}
-
-func fallbackAdvance(upem int32, cp rune) int32 {
-	i := sort.Search(len(gen.UnicodeWidth), func(i int) bool { return gen.UnicodeWidth[i].Hi >= uint32(cp) })
-	if i < len(gen.UnicodeWidth) && gen.UnicodeWidth[i].Lo <= uint32(cp) && gen.UnicodeWidth[i].Value == 2 {
-		return upem
-	}
-	return (6*upem + 5) / 10
-}
-
-func runFont(t *scene.Text, run scene.Run) int {
-	if run.Bold {
-		return 1
-	}
-	if run.Italic || t.Role == scene.TextRoleBody {
-		return 0
-	}
-	return 1
-}
-
-func lineWidth(t *scene.Text, line []scene.Run, data scenelink.Outlines) int64 {
-	var total int64
-	for _, run := range line {
-		f := data[runFont(t, run)]
-		var sum int64
-		for _, cp := range run.Text {
-			sum += int64(glyph(f, cp).Advance)
-		}
-		total += (sum*int64(t.Size)*64 + int64(f.UnitsPerEm) - 1) / int64(f.UnitsPerEm)
-	}
-	return total
-}
-
 func (r *renderer) text(t *scene.Text) error {
 	data, err := embeddedOutlines()
 	if err != nil {
@@ -144,30 +103,15 @@ func (r *renderer) text(t *scene.Text) error {
 	if err != nil {
 		return err
 	}
-	lh := int64(1280)
-	if t.Role == scene.TextRoleTitle {
-		lh = 1536
-	}
 	for k, line := range t.Lines {
-		x := textLeft(t, lineWidth(t, line, data))
-		y := int64(t.Rect.Y) + int64(k)*lh + lh/2 + int64(t.Size)*64*35/100
+		x := scenelink.TextLeft(t, data.LineWidth(t, line))
 		z := vector.NewRasterizer(r.image.Bounds().Dx(), r.image.Bounds().Dy())
-		r.drawLine(z, t, line, data, x, y)
+		for g, at := range data.Glyphs(t, line, x, scenelink.Baseline(t, k)) {
+			r.drawGlyph(z, g, at)
+		}
 		z.Draw(r.image, r.image.Bounds(), image.NewUniform(ink), image.Point{})
 	}
 	return nil
-}
-
-func textLeft(t *scene.Text, w int64) int64 {
-	x := int64(t.Rect.X)
-	switch t.Align {
-	case scene.AlignMiddle:
-		return x + int64(t.Rect.W)/2 - w/2
-	case scene.AlignEnd:
-		return x + int64(t.Rect.W) - w
-	default:
-		return x
-	}
 }
 
 func (r *renderer) textPaint(t *scene.Text) (color.NRGBA, error) {
@@ -185,38 +129,12 @@ func (r *renderer) textPaint(t *scene.Text) (color.NRGBA, error) {
 	return r.fillPaint(name, t.Series, 255)
 }
 
-func (r *renderer) drawLine(z *vector.Rasterizer, t *scene.Text, line []scene.Run, data scenelink.Outlines, x, y int64) {
-	for _, run := range line {
-		f := data[runFont(t, run)]
-		var prefix int64
-		for _, cp := range run.Text {
-			g := glyph(f, cp)
-			origin := x + rounded(prefix*int64(t.Size)*64, int64(f.UnitsPerEm))
-			r.drawGlyph(z, g, glyphPlacement{upem: f.UnitsPerEm, size: t.Size, x: origin, y: y, run: run})
-			prefix += int64(g.Advance)
-		}
-		x += rounded(prefix*int64(t.Size)*64, int64(f.UnitsPerEm))
-	}
-}
-
-func rounded(a, b int64) int64 { return geom.FloorDiv(2*a+b, 2*b) }
-
-type glyphPlacement struct {
-	upem, size int32
-	x, y       int64
-	run        scene.Run
-}
-
-func (r *renderer) drawGlyph(z *vector.Rasterizer, g scenelink.Glyph, at glyphPlacement) {
+func (r *renderer) drawGlyph(z *vector.Rasterizer, g scenelink.Glyph, at scenelink.Placement) {
 	for _, c := range g.Commands {
 		var ps [3]point
 		for i, p := range c.Points {
-			h := rounded(int64(p[1])*int64(at.size)*64, int64(at.upem))
-			px := at.x + rounded(int64(p[0])*int64(at.size)*64, int64(at.upem))
-			if at.run.Italic {
-				px += geom.FloorDiv(13*h, 64)
-			}
-			ps[i] = point{float64(px) * r.scale, float64(at.y-h) * r.scale}
+			x, y := at.Point(p[0], p[1])
+			ps[i] = point{float64(x) * r.scale, float64(y) * r.scale}
 		}
 		glyphCommand(z, c.Op, ps)
 	}
@@ -224,15 +142,15 @@ func (r *renderer) drawGlyph(z *vector.Rasterizer, g scenelink.Glyph, at glyphPl
 }
 
 func glyphCommand(z *vector.Rasterizer, op uint8, p [3]point) {
-	switch sfnt.SegmentOp(op) {
-	case sfnt.SegmentOpMoveTo:
+	switch op {
+	case scenelink.OpMoveTo:
 		z.ClosePath()
 		z.MoveTo(float32(p[0].x), float32(p[0].y))
-	case sfnt.SegmentOpLineTo:
+	case scenelink.OpLineTo:
 		z.LineTo(float32(p[0].x), float32(p[0].y))
-	case sfnt.SegmentOpQuadTo:
+	case scenelink.OpQuadTo:
 		z.QuadTo(float32(p[0].x), float32(p[0].y), float32(p[1].x), float32(p[1].y))
-	case sfnt.SegmentOpCubeTo:
+	case scenelink.OpCubeTo:
 		z.CubeTo(float32(p[0].x), float32(p[0].y), float32(p[1].x), float32(p[1].y), float32(p[2].x), float32(p[2].y))
 	}
 }

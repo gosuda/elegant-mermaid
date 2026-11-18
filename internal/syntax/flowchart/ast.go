@@ -278,39 +278,76 @@ type EmptyStatement struct {
 	node
 }
 
-var shapeByOpener = map[TokenKind]string{
-	TokSQS:                  "squareRect",
-	TokPS:                   "roundedRect",
-	TokDoubleCircleStart:    "doublecircle",
-	TokEllipseStart:         "ellipse",
-	TokStadiumStart:         "stadium",
-	TokSubroutineStart:      "subroutine",
-	TokCylinderStart:        "cylinder",
-	TokDiamondStart:         "diamond",
-	TokTagEnd:               "odd",
-	TokTrapStart:            "trapezoid",
-	TokInvTrapStart:         "inv_trapezoid",
-	TokVertexWithPropsStart: "rect",
+func shapeByOpener(k TokenKind) string {
+	switch k {
+	case TokSQS:
+		return "squareRect"
+	case TokPS:
+		return "roundedRect"
+	case TokDiamondStart:
+		return "diamond"
+	case TokTagEnd:
+		return "odd"
+	case TokTrapStart:
+		return "trapezoid"
+	case TokInvTrapStart:
+		return "inv_trapezoid"
+	case TokVertexWithPropsStart:
+		return "rect"
+	}
+	return compoundShapeByOpener(k)
 }
 
-var closerByOpener = map[TokenKind][]TokenKind{
-	TokSQS:                  {TokSQE},
-	TokPS:                   {TokPE},
-	TokDoubleCircleStart:    {TokDoubleCircleEnd},
-	TokEllipseStart:         {TokEllipseEnd},
-	TokStadiumStart:         {TokStadiumEnd},
-	TokSubroutineStart:      {TokSubroutineEnd},
-	TokCylinderStart:        {TokCylinderEnd},
-	TokDiamondStart:         {TokDiamondStop},
-	TokTagEnd:               {TokSQE},
-	TokTrapStart:            {TokTrapEnd, TokInvTrapEnd},
-	TokInvTrapStart:         {TokInvTrapEnd, TokTrapEnd},
-	TokVertexWithPropsStart: {TokSQE},
+func compoundShapeByOpener(k TokenKind) string {
+	switch k {
+	case TokDoubleCircleStart:
+		return "doublecircle"
+	case TokEllipseStart:
+		return "ellipse"
+	case TokStadiumStart:
+		return "stadium"
+	case TokSubroutineStart:
+		return "subroutine"
+	case TokCylinderStart:
+		return "cylinder"
+	}
+	return ""
+}
+
+func closerByOpener(k TokenKind) (TokenKind, TokenKind) {
+	switch k {
+	case TokSQS, TokTagEnd, TokVertexWithPropsStart:
+		return TokSQE, TokNone
+	case TokPS:
+		return TokPE, TokNone
+	case TokDiamondStart:
+		return TokDiamondStop, TokNone
+	case TokTrapStart:
+		return TokTrapEnd, TokInvTrapEnd
+	case TokInvTrapStart:
+		return TokInvTrapEnd, TokTrapEnd
+	}
+	return compoundCloserByOpener(k), TokNone
+}
+
+func compoundCloserByOpener(k TokenKind) TokenKind {
+	switch k {
+	case TokDoubleCircleStart:
+		return TokDoubleCircleEnd
+	case TokEllipseStart:
+		return TokEllipseEnd
+	case TokStadiumStart:
+		return TokStadiumEnd
+	case TokSubroutineStart:
+		return TokSubroutineEnd
+	case TokCylinderStart:
+		return TokCylinderEnd
+	}
+	return TokNone
 }
 
 func isLabelOpener(k TokenKind) bool {
-	_, ok := shapeByOpener[k]
-	return ok
+	return shapeByOpener(k) != ""
 }
 
 func isIDToken(k TokenKind) bool {

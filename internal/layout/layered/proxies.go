@@ -16,6 +16,7 @@ func clusterIndex(g *Graph, id string) int {
 	}
 	return -1
 }
+
 func sourceEndpoint(g *Graph, in Input, r scene.Route) (int32, string) {
 	index := clusterIndex(g, r.From)
 	if index < 0 {
@@ -27,6 +28,7 @@ func sourceEndpoint(g *Graph, in Input, r scene.Route) (int32, string) {
 	}
 	return cluster.Bottom, r.From
 }
+
 func targetEndpoint(g *Graph, in Input, r scene.Route) (int32, string) {
 	index := clusterIndex(g, r.To)
 	if index < 0 {
@@ -38,6 +40,7 @@ func targetEndpoint(g *Graph, in Input, r scene.Route) (int32, string) {
 	}
 	return cluster.Top, r.To
 }
+
 func modelEdge(g *Graph, in Input, r scene.Route) (Edge, error) {
 	tail, source := sourceEndpoint(g, in, r)
 	head, target := targetEndpoint(g, in, r)
@@ -51,6 +54,7 @@ func modelEdge(g *Graph, in Input, r scene.Route) (Edge, error) {
 	}
 	return edge, nil
 }
+
 func inputGroup(in Input, id string) bool {
 	for _, b := range in.Boxes {
 		if b.ID == id {
@@ -83,6 +87,7 @@ func routeChainEnds(p *Proper, original int32) (int32, int32, error) {
 	}
 	return first, last, nil
 }
+
 func chainEdgeIndex(p *Proper, indices []int32, original int32) int32 {
 	for _, index := range indices {
 		if p.Edges[index].Original == original {
@@ -92,11 +97,15 @@ func chainEdgeIndex(p *Proper, indices []int32, original int32) int32 {
 	return -1
 }
 
-type horizontalSpan struct{ Lo, Hi int32 }
-type proxySide struct {
-	anchor int32
-	bounds horizontalSpan
-}
+type (
+	horizontalSpan struct{ Lo, Hi int32 }
+	proxySide      struct {
+		anchor int32
+		bounds horizontalSpan
+		end    proxyEnd
+	}
+)
+
 type proxyGeometry struct {
 	proper  *Proper
 	routing *Routing
@@ -123,16 +132,19 @@ func groupProxyPorts(p *Proper, x []int32, r *Routing) error {
 		if err != nil {
 			return err
 		}
-		if err := geometry.placeSide(ports, proxySide{anchor: c.Top, bounds: top}); err != nil {
-			return err
-		}
-		if err := geometry.placeSide(ports, proxySide{anchor: c.Bottom, bounds: bottom}); err != nil {
-			return err
+		for _, end := range [...]proxyEnd{proxySource, proxyTarget} {
+			if err := geometry.placeSide(ports, proxySide{anchor: c.Top, bounds: top, end: end}); err != nil {
+				return err
+			}
+			if err := geometry.placeSide(ports, proxySide{anchor: c.Bottom, bounds: bottom, end: end}); err != nil {
+				return err
+			}
 		}
 	}
 	geometry.installGutters(ports)
 	return nil
 }
+
 func collectProxyPorts(p *Proper) ([]proxyPort, error) {
 	var ports []proxyPort
 	for i, edge := range p.Original {
@@ -152,6 +164,7 @@ func collectProxyPorts(p *Proper) ([]proxyPort, error) {
 	}
 	return ports, nil
 }
+
 func proxyEnds(p *Proper, index int32) (proxyPort, proxyPort, error) {
 	first, last, err := routeChainEnds(p, index)
 	if err != nil {
@@ -170,10 +183,11 @@ func proxyEnds(p *Proper, index int32) (proxyPort, proxyPort, error) {
 	}
 	return source, target, nil
 }
+
 func (g proxyGeometry) placeSide(ports []proxyPort, side proxySide) error {
 	var selected []proxyPort
 	for _, port := range ports {
-		if port.anchor == side.anchor {
+		if port.anchor == side.anchor && port.end == side.end {
 			selected = append(selected, port)
 		}
 	}
@@ -199,6 +213,7 @@ func (g proxyGeometry) placeSide(ports []proxyPort, side proxySide) error {
 	}
 	return nil
 }
+
 func (g proxyGeometry) compare(a, b proxyPort) int {
 	if d := cmp.Compare(g.x[a.neighbour], g.x[b.neighbour]); d != 0 {
 		return d
@@ -211,6 +226,7 @@ func (g proxyGeometry) compare(a, b proxyPort) int {
 	}
 	return cmp.Compare(a.origin, b.origin)
 }
+
 func (g proxyGeometry) installGutters(ports []proxyPort) {
 	for i, cluster := range g.proper.Clusters {
 		for _, port := range ports {
@@ -220,12 +236,14 @@ func (g proxyGeometry) installGutters(ports []proxyPort) {
 		}
 	}
 }
+
 func setTopGutter(r *Routing, index int, left int32) {
 	if len(r.SourceRunX) == 0 {
 		r.SourceRunX = slices.Clone(r.SourceX)
 	}
 	r.SourceRunX[index] = left
 }
+
 func clusterBounds(p *Proper, x []int32) ([]horizontalSpan, error) {
 	bounds := make([]horizontalSpan, len(p.Clusters))
 	indices := make(map[string]int, len(p.Clusters))
@@ -255,6 +273,7 @@ func clusterBounds(p *Proper, x []int32) ([]horizontalSpan, error) {
 	}
 	return bounds, nil
 }
+
 func borderSpan(node ProperNode, x int32) (horizontalSpan, error) {
 	lo, err := coordinate(int64(x) - int64(node.W)/2)
 	if err != nil {
@@ -266,6 +285,7 @@ func borderSpan(node ProperNode, x int32) (horizontalSpan, error) {
 	}
 	return horizontalSpan{Lo: lo, Hi: hi}, nil
 }
+
 func clusterRankBounds(p *Proper, x []int32, cluster string, rank int32) (horizontalSpan, error) {
 	var bounds horizontalSpan
 	var left, right bool

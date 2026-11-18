@@ -8,8 +8,10 @@ import (
 	"github.com/gosuda/elegant-mermaid/internal/termgfx"
 )
 
-const keyRow = "? help  q quit  d diagnostics  arrows/hjkl pan  0 fit"
-const emptyMessage = "Empty diagram: add a Mermaid header such as flowchart TD; waiting for changes"
+const (
+	keyRow       = "? help  q quit  d diagnostics  arrows/hjkl pan  0 fit"
+	emptyMessage = "Empty diagram: add a Mermaid header such as flowchart TD; waiting for changes"
+)
 
 func pad(text string, width int) string {
 	clean := strings.Map(func(r rune) rune {

@@ -3,6 +3,7 @@ package layered
 import (
 	"math"
 	"slices"
+	"strings"
 
 	"github.com/gosuda/elegant-mermaid/internal/gen"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
@@ -11,27 +12,34 @@ import (
 )
 
 type Input struct {
-	Kind   string
-	Boxes  []scene.Box
-	Routes []scene.Route
-	Labels []scene.Label
-	Text   []string
-	Edges  []EdgeOptions
-	Fixed  []FixedGroup
-	Sizes  []geom.Size
+	Kind        string
+	Boxes       []scene.Box
+	Routes      []scene.Route
+	Labels      []scene.Label
+	Text        []string
+	Edges       []EdgeOptions
+	Fixed       []FixedGroup
+	Sizes       []geom.Size
+	Exact       []bool
+	Attachments []Attachment
+	RegionSets  []RegionSet
 }
-type GroupOptions struct{ ID, Direction string }
-type FixedGroup struct {
-	ID      string
-	Scene   scene.Scene
-	W, H    int32
-	Title   geom.Rect
-	Titles  []Box
-	packing packingReservations
-}
+type (
+	GroupOptions struct{ ID, Direction string }
+	FixedGroup   struct {
+		ID      string
+		Scene   scene.Scene
+		W, H    int32
+		Title   geom.Rect
+		Titles  []Box
+		packing packingReservations
+	}
+)
+
 type EdgeOptions struct {
 	MarkerStart, MarkerEnd, Stroke string
 	MinLength                      int32
+	FromSide, ToSide               geom.Side
 }
 type Options struct {
 	Scene             scene.Options
@@ -40,9 +48,9 @@ type Options struct {
 	capturePacking    *packingReservations
 }
 type scenePreparation struct {
-	input  Input
-	layout Layout
-	lines  [][]measure.Line
+	layout    Layout
+	labelRuns map[string][][]scene.Run
+	boxRuns   map[string][][]scene.Run
 }
 type packingReservations struct {
 	loops  []Box
@@ -57,9 +65,13 @@ func constant(profile scene.Profile, name string) int32 {
 	}
 	return 0
 }
+
 func LayoutFamily(in Input, opts Options) (scene.Scene, error) {
 	s := scene.Scene{Dump: scene.Dump{Kind: in.Kind, Options: opts.Scene}}
 	if err := enforceLimits(in, opts.Scene); err != nil {
+		return s, err
+	}
+	if err := validateAttachments(in); err != nil {
 		return s, err
 	}
 	prepared, err := prepareSubgraphs(in, opts)
@@ -77,13 +89,24 @@ func LayoutFamily(in Input, opts Options) (scene.Scene, error) {
 	if opts.capturePacking != nil {
 		*opts.capturePacking = packingReservations{loops: part.Extents, labels: part.LabelReservations}
 	}
-	s, err = layoutScene(in, opts.Scene, scenePreparation{input: prepared, layout: part, lines: lines})
-	projectFinalScene(&s, opts, err)
+	s, err = layoutScene(in, opts.Scene, scenePreparation{layout: part, boxRuns: measuredBoxRuns(prepared, lines), labelRuns: measuredLabelRuns(g, prepared, lines)})
+	if err == nil {
+		err = lowerVectorMath(&s, g, prepared, lines)
+	}
 	if part.BudgetExhausted && opts.BudgetExhausted != nil {
 		*opts.BudgetExhausted = true
 	}
 	return s, err
 }
+
+func lowerVectorMath(s *scene.Scene, g *Graph, in Input, lines [][]measure.StyledLine) error {
+	if s.Options.Profile != scene.ProfileVector {
+		return nil
+	}
+	boxes, labels := measuredMathLines(g, in, lines)
+	return lowerMeasuredMath(s, boxes, labels)
+}
+
 func layoutScene(in Input, o scene.Options, prepared scenePreparation) (scene.Scene, error) {
 	s := scene.Scene{Dump: scene.Dump{Kind: in.Kind, Options: o}}
 	s.Boxes = slices.Clone(in.Boxes)
@@ -91,27 +114,20 @@ func layoutScene(in Input, o scene.Options, prepared scenePreparation) (scene.Sc
 	s.Labels = slices.Clone(in.Labels)
 	applyLayout(&s, prepared.layout)
 	orientScene(&s)
-	if err := addMargin(&s, constant(o.Profile, "canvas_margin")); err != nil {
+	margin := canvasMargin(o.Profile, in.Kind)
+	if err := addMargin(&s, margin); err != nil {
 		return s, err
 	}
-	lines := prepared.lines
-	if len(prepared.input.Fixed) > 0 {
-		var err error
-		lines, err = allBoxLines(in, o)
-		if err != nil {
-			return s, err
-		}
-	}
-	if err := fillLabelLines(&s, o); err != nil {
-		return s, err
-	}
-	titles, err := sceneTitles(prepared.layout, o)
+	lines := prepared.boxRuns
+	fillLabelLines(&s, prepared.labelRuns)
+	titles, err := sceneTitles(prepared.layout, o, margin)
 	if err != nil {
 		return s, err
 	}
-	assembleScene(&s, lines, in.Edges, titles)
+	assembleScene(&s, lines, in.Edges, titles, prepared.labelRuns)
 	return s, nil
 }
+
 func layoutComponents(g *Graph, thoroughness int) (Layout, error) {
 	parts, err := Components(g)
 	if err != nil {
@@ -128,6 +144,7 @@ func layoutComponents(g *Graph, thoroughness int) (Layout, error) {
 	}
 	return Pack(layouts, PackOptions{MaxWidth: g.MaxWidth, Gap: g.NodeGap, AspectNum: g.AspectNum, AspectDen: g.AspectDen})
 }
+
 func applyLayout(s *scene.Scene, part Layout) {
 	s.Canvas = geom.Size{W: part.Width, H: part.Height}
 	for i := range s.Boxes {
@@ -149,17 +166,19 @@ func applyLayout(s *scene.Scene, part Layout) {
 		}
 	}
 }
+
 func metricFor(profile scene.Profile) measure.Metric {
 	if profile == scene.ProfileCell {
 		return measure.CellMetric()
 	}
 	return measure.ForRole(measure.RoleLabel)
 }
-func allBoxLines(in Input, o scene.Options) ([][]measure.Line, error) {
-	lines := make([][]measure.Line, len(in.Boxes))
+
+func allBoxLines(in Input, o scene.Options) ([][]measure.StyledLine, error) {
+	lines := make([][]measure.StyledLine, len(in.Boxes))
 	for i := range in.Boxes {
 		text := inputBoxText(in, i)
-		ls, err := wrapLabel(text, o)
+		ls, err := wrapLabel(text, in.Kind, o)
 		if err != nil {
 			return nil, err
 		}
@@ -167,18 +186,31 @@ func allBoxLines(in Input, o scene.Options) ([][]measure.Line, error) {
 	}
 	return lines, nil
 }
-func measuredGraph(in Input, o scene.Options) (*Graph, [][]measure.Line, error) {
+
+func measuredParams(in Input, o scene.Options) (Params, error) {
 	if err := enforceLimits(in, o); err != nil {
-		return nil, nil, err
+		return Params{}, err
 	}
 	p, err := DefaultParams(o.Profile)
 	if err != nil {
-		return nil, nil, err
+		return Params{}, err
 	}
+	p.applyKindSpacing(o.Profile, in.Kind)
 	if o.Profile == scene.ProfileCell {
 		p.MaxWidth = o.MaxWidth
 	}
+	return p, nil
+}
+
+func measuredGraph(in Input, o scene.Options) (*Graph, [][]measure.StyledLine, error) {
+	p, err := measuredParams(in, o)
+	if err != nil {
+		return nil, nil, err
+	}
 	g := &Graph{Params: p, Fixed: in.Fixed, Direction: o.Direction}
+	if g.regions, err = graphRegions(in, o.Profile); err != nil {
+		return nil, nil, err
+	}
 	lines, err := allBoxLines(in, o)
 	if err != nil {
 		return nil, nil, err
@@ -198,9 +230,13 @@ func measuredGraph(in Input, o scene.Options) (*Graph, [][]measure.Line, error) 
 		return nil, nil, err
 	}
 	clusterRankEdges(g)
+	if err := connectAttachments(g, in); err != nil {
+		return nil, nil, err
+	}
 	return g, lines, nil
 }
-func populateNodes(g *Graph, in Input, o scene.Options, lines [][]measure.Line) error {
+
+func populateNodes(g *Graph, in Input, o scene.Options, lines [][]measure.StyledLine) error {
 	for i, b := range in.Boxes {
 		if b.Role == scene.RoleGroup && fixedGroup(in.Fixed, b.ID) == nil {
 			title, err := measuredTitle(lines[i], o)
@@ -210,24 +246,48 @@ func populateNodes(g *Graph, in Input, o scene.Options, lines [][]measure.Line) 
 			g.Clusters = append(g.Clusters, Cluster{ID: b.ID, Parent: b.Parent, Decl: int32(i), Lines: lines[i], TitleSize: title})
 			continue
 		}
-		node, err := measuredNode(b.ID, int32(i), lines[i], o.Profile)
+		node, err := inputNode(in, o, i, lines[i])
 		if err != nil {
 			return err
-		}
-		if i < len(in.Sizes) && in.Sizes[i] != (geom.Size{}) {
-			node.W = max(in.Sizes[i].W, constant(o.Profile, "node_min_w"))
-			node.H = max(in.Sizes[i].H, constant(o.Profile, "node_min_h"))
-		}
-		node.Parent = b.Parent
-		node.Role = b.Role
-		if fixed := fixedGroup(in.Fixed, b.ID); fixed != nil {
-			node.W = fixed.W
-			node.H = fixed.H
 		}
 		g.Nodes = append(g.Nodes, node)
 	}
 	return nil
 }
+
+func inputNode(in Input, o scene.Options, i int, lines []measure.StyledLine) (Node, error) {
+	b := in.Boxes[i]
+	node, err := measuredNode(b.ID, int32(i), lines, o.Profile)
+	if err != nil {
+		return Node{}, err
+	}
+	if err := applyInputSize(&node, in, i, o.Profile); err != nil {
+		return Node{}, err
+	}
+	node.Parent = b.Parent
+	node.Role = b.Role
+	if fixed := fixedGroup(in.Fixed, b.ID); fixed != nil {
+		node.W = fixed.W
+		node.H = fixed.H
+	}
+	return node, nil
+}
+
+func applyInputSize(node *Node, in Input, i int, profile scene.Profile) error {
+	if i < len(in.Exact) && in.Exact[i] && i < len(in.Sizes) {
+		if in.Sizes[i].W < 0 || in.Sizes[i].H < 0 {
+			return ErrGraph
+		}
+		node.W, node.H, node.Exact = in.Sizes[i].W, in.Sizes[i].H, true
+		return nil
+	}
+	if i < len(in.Sizes) && in.Sizes[i] != (geom.Size{}) {
+		node.W = max(in.Sizes[i].W, constant(profile, "node_min_w"))
+		node.H = max(in.Sizes[i].H, constant(profile, "node_min_h"))
+	}
+	return nil
+}
+
 func graphEdges(g *Graph, in Input, o scene.Options) error {
 	for i, r := range in.Routes {
 		edge, err := modelEdge(g, in, r)
@@ -238,9 +298,9 @@ func graphEdges(g *Graph, in Input, o scene.Options) error {
 		if err != nil {
 			return err
 		}
-		length := int32(1)
+		length := max(edgeOptionsAt(in.Edges, i).MinLength, 1)
 		if label != nil {
-			length = 2
+			length = max(length, 2)
 		}
 		edge.ID = r.ID
 		edge.MinLen = length
@@ -250,13 +310,14 @@ func graphEdges(g *Graph, in Input, o scene.Options) error {
 	}
 	return nil
 }
+
 func measureEdgeLabel(in Input, owner string, o scene.Options) (*EdgeLabel, error) {
 	var aggregate EdgeLabel
 	for _, label := range in.Labels {
 		if label.Owner != owner {
 			continue
 		}
-		item, err := measureLabel(label, o)
+		item, err := measureLabel(label, in.Kind, o)
 		if err != nil {
 			return nil, err
 		}
@@ -269,8 +330,9 @@ func measureEdgeLabel(in Input, owner string, o scene.Options) (*EdgeLabel, erro
 	}
 	return &aggregate, nil
 }
-func measureLabel(label scene.Label, o scene.Options) (MeasuredLabel, error) {
-	lines, err := wrapLabel(label.Text, o)
+
+func measureLabel(label scene.Label, kind string, o scene.Options) (MeasuredLabel, error) {
+	lines, err := wrapLabel(label.Text, kind, o)
 	if err != nil {
 		return MeasuredLabel{}, err
 	}
@@ -287,6 +349,7 @@ func measureLabel(label scene.Label, o scene.Options) (MeasuredLabel, error) {
 	}
 	return item, nil
 }
+
 func (label *EdgeLabel) append(item MeasuredLabel, slot int32) error {
 	height := int64(label.H) + int64(item.H)
 	if len(label.Items) > 0 {
@@ -301,6 +364,7 @@ func (label *EdgeLabel) append(item MeasuredLabel, slot int32) error {
 	label.Items = append(label.Items, item)
 	return nil
 }
+
 func orientSizes(g *Graph, d scene.Direction) {
 	if d != scene.DirectionLR && d != scene.DirectionRL {
 		return
@@ -309,7 +373,8 @@ func orientSizes(g *Graph, d scene.Direction) {
 		g.Nodes[i].W, g.Nodes[i].H = g.Nodes[i].H, g.Nodes[i].W
 	}
 }
-func measuredNode(id string, decl int32, lines []measure.Line, profile scene.Profile) (Node, error) {
+
+func measuredNode(id string, decl int32, lines []measure.StyledLine, profile scene.Profile) (Node, error) {
 	var tw int32
 	for _, l := range lines {
 		tw = max(tw, l.Width)
@@ -321,6 +386,7 @@ func measuredNode(id string, decl int32, lines []measure.Line, profile scene.Pro
 	}
 	return Node{ID: id, Decl: decl, W: max(int32(w), constant(profile, "node_min_w")), H: max(int32(h), constant(profile, "node_min_h"))}, nil
 }
+
 func nodeIndex(g *Graph, id string) int32 {
 	for i, n := range g.Nodes {
 		if n.ID == id {
@@ -329,7 +395,8 @@ func nodeIndex(g *Graph, id string) int32 {
 	}
 	return -1
 }
-func orientPoint(p geom.Point, d scene.Direction, w, h int32) geom.Point {
+
+func orientPoint(p geom.Point, d scene.Direction, h int32) geom.Point {
 	switch d {
 	case scene.DirectionBT:
 		p.Y = h - p.Y
@@ -340,8 +407,9 @@ func orientPoint(p geom.Point, d scene.Direction, w, h int32) geom.Point {
 	}
 	return p
 }
-func orientRect(r geom.Rect, d scene.Direction, w, h int32) geom.Rect {
-	p := orientPoint(geom.Point{X: r.X, Y: r.Y}, d, w, h)
+
+func orientRect(r geom.Rect, d scene.Direction, h int32) geom.Rect {
+	p := orientPoint(geom.Point{X: r.X, Y: r.Y}, d, h)
 	switch d {
 	case scene.DirectionBT:
 		p.Y -= r.H
@@ -354,24 +422,26 @@ func orientRect(r geom.Rect, d scene.Direction, w, h int32) geom.Rect {
 	r.X, r.Y = p.X, p.Y
 	return r
 }
+
 func orientScene(s *scene.Scene) {
 	d := s.Options.Direction
 	w, h := s.Canvas.W, s.Canvas.H
 	for i := range s.Boxes {
-		s.Boxes[i].Rect = orientRect(s.Boxes[i].Rect, d, w, h)
+		s.Boxes[i].Rect = orientRect(s.Boxes[i].Rect, d, h)
 	}
 	for i := range s.Labels {
-		s.Labels[i].Rect = orientRect(s.Labels[i].Rect, d, w, h)
+		s.Labels[i].Rect = orientRect(s.Labels[i].Rect, d, h)
 	}
 	for i := range s.Routes {
 		for j, p := range s.Routes[i].Points {
-			s.Routes[i].Points[j] = orientPoint(p, d, w, h)
+			s.Routes[i].Points[j] = orientPoint(p, d, h)
 		}
 	}
 	if d == scene.DirectionLR || d == scene.DirectionRL {
 		s.Canvas.W, s.Canvas.H = h, w
 	}
 }
+
 func addMargin(s *scene.Scene, margin int32) error {
 	part := Layout{}
 	for _, b := range s.Boxes {
@@ -406,23 +476,88 @@ func addMargin(s *scene.Scene, margin int32) error {
 	s.Canvas = geom.Size{W: w, H: h}
 	return nil
 }
-func fillLabelLines(s *scene.Scene, o scene.Options) error {
-	for i := range s.Labels {
-		lines, err := wrapLabel(s.Labels[i].Text, o)
-		if err != nil {
-			return err
-		}
-		s.Labels[i].Lines = make([]string, 0, len(lines))
-		for _, l := range lines {
-			s.Labels[i].Lines = append(s.Labels[i].Lines, l.Text)
+
+func measuredBoxRuns(in Input, lines [][]measure.StyledLine) map[string][][]scene.Run {
+	runs := make(map[string][][]scene.Run, len(in.Boxes))
+	for i, box := range in.Boxes {
+		runs[box.ID] = textRuns(lines[i])
+	}
+	for _, fixed := range in.Fixed {
+		for _, group := range fixed.Scene.Groups {
+			if group.Role != scene.GroupRoleNode && group.Role != scene.GroupRoleGroup {
+				continue
+			}
+			for _, item := range group.Items {
+				if text, ok := item.(*scene.Text); ok {
+					runs[group.Owner] = text.Lines
+					break
+				}
+			}
 		}
 	}
-	return nil
+	return runs
 }
-func assembleScene(s *scene.Scene, lines [][]measure.Line, edges []EdgeOptions, titles []Box) {
-	for i, b := range s.Boxes {
+
+func measuredLabelRuns(g *Graph, in Input, lines [][]measure.StyledLine) map[string][][]scene.Run {
+	runs := make(map[string][][]scene.Run, len(in.Labels))
+	for _, edge := range g.Edges {
+		if edge.Label != nil {
+			for _, item := range edge.Label.Items {
+				runs[item.ID] = textRuns(item.Lines)
+			}
+		}
+	}
+	for _, label := range in.Labels {
+		for i, box := range in.Boxes {
+			if label.Owner == box.ID {
+				runs[label.ID] = textRuns(lines[i])
+			}
+		}
+	}
+	for _, fixed := range in.Fixed {
+		appendFixedLabelRuns(runs, fixed.Scene)
+	}
+	return runs
+}
+
+func appendFixedLabelRuns(runs map[string][][]scene.Run, s scene.Scene) {
+	for _, group := range s.Groups {
+		var labels []scene.Label
+		for _, label := range s.Labels {
+			if label.Owner == group.Owner {
+				labels = append(labels, label)
+			}
+		}
+		index := 0
+		for _, item := range group.Items {
+			text, ok := item.(*scene.Text)
+			if !ok || index >= len(labels) {
+				continue
+			}
+			runs[labels[index].ID] = text.Lines
+			index++
+		}
+	}
+}
+
+func fillLabelLines(s *scene.Scene, runs map[string][][]scene.Run) {
+	for i := range s.Labels {
+		lines := runs[s.Labels[i].ID]
+		s.Labels[i].Lines = make([]string, 0, len(lines))
+		for _, line := range lines {
+			var text strings.Builder
+			for _, run := range line {
+				text.WriteString(run.Text)
+			}
+			s.Labels[i].Lines = append(s.Labels[i].Lines, text.String())
+		}
+	}
+}
+
+func assembleScene(s *scene.Scene, lines map[string][][]scene.Run, edges []EdgeOptions, titles []Box, labelRuns map[string][][]scene.Run) {
+	for _, b := range s.Boxes {
 		if b.Role == scene.RoleGroup {
-			s.Groups = append(s.Groups, clusterGroup(s, b, lines[i], titles))
+			s.Groups = append(s.Groups, clusterGroup(s, b, lines[b.ID], titles))
 		}
 	}
 	for i, r := range s.Routes {
@@ -433,25 +568,30 @@ func assembleScene(s *scene.Scene, lines [][]measure.Line, edges []EdgeOptions, 
 		group := &scene.Group{Role: scene.GroupRoleEdge, Owner: r.ID, Items: edgeItems(r, options, s.Options.Profile)}
 		for _, l := range s.Labels {
 			if l.Owner == r.ID {
-				group.Items = append(group.Items, labelPrimitive(l, s.Options.Profile))
+				group.Items = append(group.Items, labelPrimitive(l, labelRuns[l.ID]))
 			}
 		}
 		s.Groups = append(s.Groups, group)
 	}
-	for i, b := range s.Boxes {
+	for _, b := range s.Boxes {
 		if b.Role == scene.RoleNode {
-			s.Groups = append(s.Groups, boxGroup(b, lines[i], s.Options.Profile))
+			s.Groups = append(s.Groups, boxGroup(b, lines[b.ID], s.Options.Profile))
 		}
 	}
 }
-func textRuns(lines []measure.Line) [][]scene.Run {
+
+func textRuns(lines []measure.StyledLine) [][]scene.Run {
 	runs := make([][]scene.Run, len(lines))
 	for i, l := range lines {
-		runs[i] = []scene.Run{{Text: l.Text}}
+		runs[i] = make([]scene.Run, len(l.Runs))
+		for j, run := range l.Runs {
+			runs[i][j] = scene.Run{Text: run.Text, Bold: run.Bold, Italic: run.Italic}
+		}
 	}
 	return runs
 }
-func clusterGroup(s *scene.Scene, b scene.Box, lines []measure.Line, titles []Box) *scene.Group {
+
+func clusterGroup(s *scene.Scene, b scene.Box, lines [][]scene.Run, titles []Box) *scene.Group {
 	group := boxGroup(b, lines, s.Options.Profile)
 	text, ok := group.Items[1].(*scene.Text)
 	if ok {
@@ -459,7 +599,8 @@ func clusterGroup(s *scene.Scene, b scene.Box, lines []measure.Line, titles []Bo
 	}
 	return group
 }
-func boxGroup(b scene.Box, lines []measure.Line, p scene.Profile) *scene.Group {
+
+func boxGroup(b scene.Box, lines [][]scene.Run, p scene.Profile) *scene.Group {
 	role, style := scene.GroupRoleNode, "node"
 	rect := b.Rect
 	rect.H = int32(len(lines)) * constant(p, "line_h")
@@ -470,15 +611,13 @@ func boxGroup(b scene.Box, lines []measure.Line, p scene.Profile) *scene.Group {
 	} else {
 		rect.Y += (b.Rect.H - rect.H) / 2
 	}
-	return &scene.Group{Role: role, Owner: b.ID, Items: []scene.Primitive{&scene.Rect{Shape: scene.Shape{Style: style}, Rect: b.Rect}, &scene.Text{Rect: rect, Role: scene.TextRoleLabel, Size: 14, Align: scene.AlignMiddle, Style: "text", Lines: textRuns(lines)}}}
+	return &scene.Group{Role: role, Owner: b.ID, Items: []scene.Primitive{&scene.Rect{Shape: scene.Shape{Style: style}, Rect: b.Rect}, &scene.Text{Rect: rect, Role: scene.TextRoleLabel, Size: 14, Align: scene.AlignMiddle, Style: "text", Lines: lines}}}
 }
-func labelPrimitive(l scene.Label, p scene.Profile) *scene.Text {
-	lines := make([][]scene.Run, len(l.Lines))
-	for i, text := range l.Lines {
-		lines[i] = []scene.Run{{Text: text}}
-	}
+
+func labelPrimitive(l scene.Label, lines [][]scene.Run) *scene.Text {
 	return &scene.Text{Rect: l.Rect, Role: scene.TextRoleLabel, Size: 14, Align: scene.AlignMiddle, Style: "text", Lines: lines}
 }
+
 func edgeItems(route scene.Route, options EdgeOptions, profile scene.Profile) []scene.Primitive {
 	if options.Stroke == "invisible" {
 		return nil
@@ -505,6 +644,7 @@ func edgeItems(route scene.Route, options EdgeOptions, profile scene.Profile) []
 	}
 	return items
 }
+
 func markerAxis(a, b geom.Point) scene.Axis {
 	dx, dy := int64(b.X)-int64(a.X), int64(b.Y)-int64(a.Y)
 	if abs64(dx) >= abs64(dy) {
@@ -518,6 +658,7 @@ func markerAxis(a, b geom.Point) scene.Axis {
 	}
 	return scene.AxisPlusY
 }
+
 func abs64(x int64) int64 {
 	if x < 0 {
 		return -x

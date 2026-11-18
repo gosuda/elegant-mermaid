@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use super::lexer::Token;
 use crate::source::Span;
 
@@ -19,8 +21,8 @@ pub struct ClassName<'a> {
 pub struct ClassStatement<'a> {
     pub span: Span,
     pub name: ClassName<'a>,
-    pub label: Option<&'a str>,
-    pub css_class: Option<&'a str>,
+    pub label: Option<Cow<'a, str>>,
+    pub css_class: Option<Cow<'a, str>>,
     pub annotation: Option<String>,
     pub members: Vec<MemberStatement<'a>>,
     pub has_body: bool,
@@ -29,14 +31,14 @@ pub struct ClassStatement<'a> {
 #[derive(Debug, Clone)]
 pub struct MemberStatement<'a> {
     pub span: Span,
-    pub text: &'a str,
+    pub text: Cow<'a, str>,
 }
 
 #[derive(Debug, Clone)]
 pub struct NamespaceStatement<'a> {
     pub span: Span,
     pub name: ClassName<'a>,
-    pub label: Option<&'a str>,
+    pub label: Option<Cow<'a, str>>,
     pub children: Vec<Statement<'a>>,
 }
 
@@ -45,12 +47,12 @@ pub struct RelationStatement<'a> {
     pub span: Span,
     pub from: ClassName<'a>,
     pub to: ClassName<'a>,
-    pub multiplicity_start: Option<&'a str>,
-    pub multiplicity_end: Option<&'a str>,
+    pub multiplicity_start: Option<Cow<'a, str>>,
+    pub multiplicity_end: Option<Cow<'a, str>>,
     pub marker_start: Option<&'static str>,
     pub marker_end: Option<&'static str>,
     pub dashed: bool,
-    pub label: Option<&'a str>,
+    pub label: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone)]
@@ -69,27 +71,27 @@ pub enum Statement<'a> {
     Note {
         span: Span,
         target: Option<ClassName<'a>>,
-        text: &'a str,
+        text: Cow<'a, str>,
     },
-    Direction(&'a str),
+    Direction(Cow<'a, str>),
     Accessibility {
         title: bool,
-        text: &'a str,
+        text: Cow<'a, str>,
     },
     Style {
         target: String,
-        text: &'a str,
+        text: Cow<'a, str>,
     },
     ClassDef {
         target: String,
-        text: &'a str,
+        text: Cow<'a, str>,
     },
     CssClass {
-        target: &'a str,
-        name: &'a str,
+        target: Cow<'a, str>,
+        name: Cow<'a, str>,
     },
     Click {
         target: String,
-        values: Vec<&'a str>,
+        values: Vec<Cow<'a, str>>,
     },
 }

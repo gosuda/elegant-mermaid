@@ -87,6 +87,7 @@ func (s *siblingOrder) leftBorders(pos []int64) {
 		s.key[c] = s.meanKey(c)
 	}
 }
+
 func (s *siblingOrder) meanKey(c int) orderFraction {
 	var key orderFraction
 	for r := s.first[c]; r <= s.last[c]; r++ {

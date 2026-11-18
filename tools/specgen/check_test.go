@@ -39,6 +39,13 @@ func writeFontFixture(t *testing.T, root string) {
 	}
 }
 
+func writeGenerationFixture(t *testing.T, root string) {
+	t.Helper()
+	writeFontFixture(t, root)
+	writeFile(t, filepath.Join(root, "spec", "data", "unicode", "DerivedCoreProperties.txt"), "0041 ; Alphabetic\n")
+	writeFile(t, filepath.Join(root, "spec", "data", "unicode", "DerivedGeneralCategory.txt"), "0030 ; Nd\n")
+}
+
 func TestStrictJSONRejectsDuplicateKeys(t *testing.T) {
 	var target map[string]int
 	err := unmarshalStrict([]byte(`{"a":1,"a":2}`), &target)
@@ -96,7 +103,7 @@ func TestRequirementRejectsLineWithoutID(t *testing.T) {
 func TestCheckDetectsHandEditedGeneratedFile(t *testing.T) {
 	root := t.TempDir()
 	writeKindsFixture(t, root)
-	writeFontFixture(t, root)
+	writeGenerationFixture(t, root)
 	require.NoError(t, generateRoot(root, discard{}))
 	require.NoError(t, checkRoot(root, discard{}))
 
@@ -111,9 +118,9 @@ func TestCheckDetectsHandEditedGeneratedFile(t *testing.T) {
 	require.NoError(t, checkRoot(root, discard{}))
 }
 
-func TestAbsentInputsGenerateEmptyTables(t *testing.T) {
+func TestAbsentOptionalInputsGenerateEmptyTables(t *testing.T) {
 	root := t.TempDir()
-	writeFontFixture(t, root)
+	writeGenerationFixture(t, root)
 	require.NoError(t, generateRoot(root, discard{}))
 	for _, name := range []string{"kinds", "markers", "glyphjoin", "seriestext", "strokeok", "entities"} {
 		data, err := os.ReadFile(filepath.Join(root, "internal", "gen", name+".go"))
@@ -125,7 +132,7 @@ func TestAbsentInputsGenerateEmptyTables(t *testing.T) {
 
 func TestGenerateIsIdempotent(t *testing.T) {
 	root := t.TempDir()
-	writeFontFixture(t, root)
+	writeGenerationFixture(t, root)
 	writeFile(t, filepath.Join(root, "spec", "data", "scripts.json"), `[{"base":"U+0031","sup":"U+00B9","sub":"U+2081"}]`)
 	require.NoError(t, generateRoot(root, discard{}))
 	first, err := os.ReadFile(filepath.Join(root, "internal", "gen", "scripts.go"))
@@ -134,4 +141,51 @@ func TestGenerateIsIdempotent(t *testing.T) {
 	second, err := os.ReadFile(filepath.Join(root, "internal", "gen", "scripts.go"))
 	require.NoError(t, err)
 	require.Equal(t, string(first), string(second))
+}
+
+func TestAdoptedLintRulesDiagnosticOwnership(t *testing.T) {
+	collisions := []string{
+		"eventmodeling/duplicate-frame-id",
+		"gitgraph/duplicate-commit-id",
+		"journey/score-out-of-range",
+		"venn/no-sets",
+	}
+	diagnosticCodes := make(map[string]struct{}, len(collisions))
+	for _, code := range collisions {
+		diagnosticCodes[code] = struct{}{}
+	}
+	for _, code := range collisions {
+		for _, source := range []string{"own", "mermaid-lint:semantic-rule"} {
+			for _, status := range []string{"", "adopted"} {
+				t.Run(code+"/"+source+"/"+status, func(t *testing.T) {
+					_, err := adoptedLintRules([]registryRow{{
+						Code: code, Source: source, Status: status,
+					}}, diagnosticCodes)
+					require.EqualError(t, err, `lint rule "`+code+`" duplicates a grammar diagnostic`)
+				})
+			}
+		}
+	}
+
+	t.Run("exemptions and noncolliding semantic rules", func(t *testing.T) {
+		rows := []registryRow{
+			{Code: collisions[0], Source: "mermaid-lint:eventmodeling-duplicate-frame-id", Status: "rejected"},
+			{Code: collisions[0], Source: "maid:parser", Status: "adopted"},
+			{Code: collisions[1], Source: "mermaid-lint:suppression-unused", Status: "adopted"},
+			{Code: "eventmodeling/undefined-frame", Source: "mermaid-lint:eventmodeling-undefined-frame", Status: "adopted"},
+			{Code: "gitgraph/duplicate-tag", Source: "own"},
+		}
+		got, err := adoptedLintRules(rows, diagnosticCodes)
+		require.NoError(t, err)
+		require.Equal(t, rows[1:], got)
+	})
+
+	t.Run("adopted codes remain unique", func(t *testing.T) {
+		rows := []registryRow{
+			{Code: "gitgraph/duplicate-tag", Source: "own"},
+			{Code: "gitgraph/duplicate-tag", Source: "mermaid-lint:gitgraph-duplicate-tag", Status: "adopted"},
+		}
+		_, err := adoptedLintRules(rows, diagnosticCodes)
+		require.ErrorContains(t, err, "adopted lint rule")
+	})
 }

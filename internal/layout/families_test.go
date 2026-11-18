@@ -224,7 +224,7 @@ func handPipeline(in Input) (scene.Scene, error) {
 			end = ""
 		}
 		input.Routes = append(input.Routes, scene.Route{ID: route.ID, From: route.From, To: route.To, Orthogonal: true})
-		input.Edges = append(input.Edges, layered.EdgeOptions{MarkerStart: start, MarkerEnd: end, Stroke: route.Line, MinLength: int32(route.MinLength)})
+		input.Edges = append(input.Edges, layered.EdgeOptions{MarkerStart: start, MarkerEnd: end, Stroke: route.Line, MinLength: edgeMinLength(in.Kind, route)})
 	}
 	options := in.Options
 	options.Direction = in.Direction

@@ -313,3 +313,4 @@ classLiteralName = BQUOTE_STR ;
 
 - class-059: No unreachable authority helper MUST expand the accepted language. [just oracle]
 - class-060: The Go and Rust AST and resolved relations MUST agree in declaration order under both metric profiles. [just parity]
+- class-061: The text after the colon of a member statement or of a relation label MUST accept every character except colon, LF, and semicolon, including a combining mark at its first position, a symbol, and a control character; a colon or semicolon inside that text MUST raise `class/unexpected-token`, and Go and Rust MUST give the same result. [just go-check: TestLabelTextAcceptsEveryCharacterButColonAndSemicolon]

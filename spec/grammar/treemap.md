@@ -100,8 +100,8 @@ MyNumber = NUMBER2 ;
 - treemap-28: Resolution MUST push each Section with its indentation after attaching it; indentation jumps MUST NOT create intermediate sections, and a leaf MUST NOT become a parent. [just oracle]
 - treemap-29: Resolution MUST retain root order and child order; duplicate names MUST remain distinct nodes, and the database view MUST enumerate nodes in preorder with structural depth rather than indentation width. [just parity]
 - treemap-30: The model MUST expose an unnamed synthetic root whose children are all root items; section aggregate values MUST be derived from descendants rather than parsed as section literals. [just parity]
-- treemap-31: Validation MUST remember when the first item without an INDENTATION token occurs and MUST reject every later item without indentation; it MUST NOT infer that the first indented item establishes a root indentation. [just oracle]
-- treemap-32: An empty diagram and multiple indented root items MUST NOT fail the single-root check; no positivity, duplicate-name, missing-class, or indentation-step check MUST be added. [just oracle]
+- treemap-31: Several items without an INDENTATION token MUST all become roots without a diagnostic; `mermaid.parse` of the pinned upstream accepts them, and the oracle verdict of the corpus is authoritative over the single-root validator. [just oracle]
+- treemap-32: An empty diagram and multiple indented root items MUST NOT fail a root check; no positivity, duplicate-name, missing-class, or indentation-step check MUST be added. [just oracle]
 - treemap-33: Nesting beyond 64 structural levels MUST use the shared `limit/nesting-depth` diagnostic and MUST NOT recurse further. [just go-check]
 
 ## Diagnostics
@@ -113,13 +113,12 @@ MyNumber = NUMBER2 ;
 | `treemap/unexpected-token` | error | A known statement has a token that its production cannot consume | Offending token, or zero-width EOF | `unexpected TOKEN, expected one of: LIST` |
 | `treemap/unknown-statement` | error | No row or metadata production accepts the statement start | First token through recovery boundary, excluding line end | `unknown statement TOKEN` |
 | `treemap/unterminated` | error | EOF inside a quoted name or accessibility brace body | Opening delimiter through EOF | `unterminated TOKEN` |
-| `treemap/multiple-roots` | error | A later item has no indentation after an unindented item was seen | Later item's span, excluding its indentation | `multiple root nodes are not allowed in a treemap` |
 
 - treemap-35: LIST MUST name accepted token kinds in ascending byte order joined by `, `, and TOKEN MUST be the source token text; an unterminated construct MUST emit only its unterminated diagnostic. [just parity]
 - treemap-36: A missing TreemapDB in the upstream adapter MUST be treated as an integration failure, not as an input diagnostic; the adapter has no other input-dependent thrown validation beyond parser and validator failures. [just oracle]
 
 ## Upstream readings
 
-The header detector boundary follows this repository's shared detection contract. The grammar declares visible indentation before hidden whitespace; indentation is counted as raw spaces and tabs. The single-root validator tests absence of indentation, not the minimum indentation among rows. These distinctions are intentional readings of the cited authority.
+The header detector boundary follows this repository's shared detection contract. The grammar declares visible indentation before hidden whitespace; indentation is counted as raw spaces and tabs. The upstream single-root validator is not run by `mermaid.parse`, and the corpus holds files with several unindented roots that the oracle accepts, so this project raises no multiple-roots diagnostic. These distinctions are intentional readings of the cited authority.
 
 The schema file `packages/mermaid/src/schemas/config.schema.yaml:476-525` defines inherited base keys but contains no treemap definition in this checkout. The local interface `diagrams/treemap/types.ts:69-80` supplies its nine kind-specific keys. Their classification is in `spec/data/config-keys/treemap.json`; this is not a claim that a missing schema definition exists.

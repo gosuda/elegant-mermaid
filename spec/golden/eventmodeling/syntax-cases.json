@@ -1,0 +1,777 @@
+[
+ {
+  "name": "accTitle",
+  "source": "eventmodeling\naccTitle: x\ntf 01 ui A\n",
+  "accept": false
+ },
+ {
+  "name": "accDescr",
+  "source": "eventmodeling\naccDescr: x\ntf 01 ui A\n",
+  "accept": false
+ },
+ {
+  "name": "accDescr block",
+  "source": "eventmodeling\naccDescr {\n x\n}\ntf 01 ui A\n",
+  "accept": false
+ },
+ {
+  "name": "title",
+  "source": "eventmodeling\ntitle My Title\ntf 01 ui A\n",
+  "accept": false
+ },
+ {
+  "name": "title bare",
+  "source": "eventmodeling\ntitle\ntf 01 ui A\n",
+  "accept": false
+ },
+ {
+  "name": "kw entity data",
+  "source": "eventmodeling\ntf 01 evt data\n",
+  "accept": false
+ },
+ {
+  "name": "kw entity text",
+  "source": "eventmodeling\ntf 01 evt text\n",
+  "accept": false
+ },
+ {
+  "name": "kw entity tf",
+  "source": "eventmodeling\ntf 01 evt tf\n",
+  "accept": false
+ },
+ {
+  "name": "kw prefix entity",
+  "source": "eventmodeling\ntf 01 evt datax\n",
+  "accept": true
+ },
+ {
+  "name": "fid 1000",
+  "source": "eventmodeling\ntf 1000 evt A\n",
+  "accept": false
+ },
+ {
+  "name": "fid 4",
+  "source": "eventmodeling\ntf 4 evt A\n",
+  "accept": true
+ },
+ {
+  "name": "inline dq",
+  "source": "eventmodeling\ntf 01 evt A \"x\"\n",
+  "accept": true
+ },
+ {
+  "name": "inline sq",
+  "source": "eventmodeling\ntf 01 evt A 'x'\n",
+  "accept": true
+ },
+ {
+  "name": "inline brace",
+  "source": "eventmodeling\ntf 01 evt A { x }\n",
+  "accept": true
+ },
+ {
+  "name": "unterminated dq",
+  "source": "eventmodeling\ntf 01 evt A \"x\ntf 02 evt B\n",
+  "accept": false
+ },
+ {
+  "name": "qualified3",
+  "source": "eventmodeling\ntf 01 evt A.B.C\n",
+  "accept": true
+ },
+ {
+  "name": "qualified spaced",
+  "source": "eventmodeling\ntf 01 evt A . B\n",
+  "accept": true
+ },
+ {
+  "name": "qualified trailing dot",
+  "source": "eventmodeling\ntf 01 evt A.\n",
+  "accept": false
+ },
+ {
+  "name": "header comment",
+  "source": "eventmodeling %% c\ntf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "header glued",
+  "source": "eventmodelingx\ntf 01 ui A\n",
+  "accept": false
+ },
+ {
+  "name": "header same line",
+  "source": "eventmodeling tf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "semicolon",
+  "source": "eventmodeling\ntf 01 ui A; tf 02 cmd B\n",
+  "accept": false
+ },
+ {
+  "name": "same line stmts",
+  "source": "eventmodeling\ntf 01 ui A tf 02 cmd B\n",
+  "accept": true
+ },
+ {
+  "name": "dangling arrow",
+  "source": "eventmodeling\ntf 01 ui A ->>\n",
+  "accept": false
+ },
+ {
+  "name": "datatype",
+  "source": "eventmodeling\ntf 01 ui A `json` { a }\n",
+  "accept": true
+ },
+ {
+  "name": "datatype bad",
+  "source": "eventmodeling\ntf 01 ui A `foo` { a }\n",
+  "accept": false
+ },
+ {
+  "name": "datatype unterminated",
+  "source": "eventmodeling\ntf 01 ui A `json { a }\n",
+  "accept": false
+ },
+ {
+  "name": "gwt",
+  "source": "eventmodeling\ntf 01 ui A\nentity X\ngwt 01 given ui A then evt X\n",
+  "accept": true
+ },
+ {
+  "name": "gwt noent",
+  "source": "eventmodeling\ntf 01 ui A\ngwt 01 given ui A then evt X\n",
+  "accept": true
+ },
+ {
+  "name": "gwt when",
+  "source": "eventmodeling\nentity A\nentity B\nentity C\ntf 01 ui A\ngwt 01 given ui A when cmd B then evt C\n",
+  "accept": true
+ },
+ {
+  "name": "data inline",
+  "source": "eventmodeling\ndata Foo { a }\n",
+  "accept": false
+ },
+ {
+  "name": "data block",
+  "source": "eventmodeling\ndata Foo {\n a\n}\n",
+  "accept": true
+ },
+ {
+  "name": "data typed block",
+  "source": "eventmodeling\ndata Foo `json` {\n a\n}\n",
+  "accept": true
+ },
+ {
+  "name": "note",
+  "source": "eventmodeling\ntf 01 ui A\nnote 01 {\n hi\n}\n",
+  "accept": true
+ },
+ {
+  "name": "indented",
+  "source": "  eventmodeling\n  tf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "dup frame",
+  "source": "eventmodeling\ntf 01 ui A\ntf 01 cmd B\n",
+  "accept": false
+ },
+ {
+  "name": "dup frame rf",
+  "source": "eventmodeling\ntf 01 ui A\nrf 01 cmd B\n",
+  "accept": false
+ },
+ {
+  "name": "01 vs 1",
+  "source": "eventmodeling\ntf 01 ui A\ntf 1 cmd B\n",
+  "accept": true
+ },
+ {
+  "name": "block comment",
+  "source": "eventmodeling\n/* x */\ntf 01 ui A\n// y\n",
+  "accept": true
+ },
+ {
+  "name": "unterminated block comment",
+  "source": "eventmodeling\n/* x \ntf 01 ui A\n",
+  "accept": false
+ },
+ {
+  "name": "entity only",
+  "source": "eventmodeling\nentity A\n",
+  "accept": true
+ },
+ {
+  "name": "empty",
+  "source": "eventmodeling\n",
+  "accept": true
+ },
+ {
+  "name": "empty eof",
+  "source": "eventmodeling",
+  "accept": true
+ },
+ {
+  "name": "at sign",
+  "source": "eventmodeling\ntf 01 ui A @\n",
+  "accept": false
+ },
+ {
+  "name": "reference unknown",
+  "source": "eventmodeling\ntf 01 ui A ->> 09\n",
+  "accept": true
+ },
+ {
+  "name": "ref data unknown",
+  "source": "eventmodeling\ntf 01 ui A [[Nope]]\n",
+  "accept": true
+ },
+ {
+  "name": "ref data wrong",
+  "source": "eventmodeling\ntf 01 ui A [[ nope ]] { a }\n",
+  "accept": true
+ },
+ {
+  "name": "ref and inline",
+  "source": "eventmodeling\ntf 01 ui A [[N]] { a }\ndata N {\n x\n}\n",
+  "accept": true
+ },
+ {
+  "name": "inline then ref",
+  "source": "eventmodeling\ntf 01 ui A { a } [[N]]\n",
+  "accept": false
+ },
+ {
+  "name": "arrow after ref",
+  "source": "eventmodeling\ntf 01 ui A [[N]] ->> 02\n",
+  "accept": false
+ },
+ {
+  "name": "upper kw",
+  "source": "eventmodeling\nTF 01 ui A\n",
+  "accept": false
+ },
+ {
+  "name": "frame type bad",
+  "source": "eventmodeling\ntf 01 foo A\n",
+  "accept": false
+ },
+ {
+  "name": "tf missing id",
+  "source": "eventmodeling\ntf ui A\n",
+  "accept": false
+ },
+ {
+  "name": "unicode name",
+  "source": "eventmodeling\ntf 01 ui Ä\n",
+  "accept": false
+ },
+ {
+  "name": "tab sep",
+  "source": "eventmodeling\ntf\t01\tui\tA\n",
+  "accept": true
+ },
+ {
+  "name": "crlf",
+  "source": "eventmodeling\r\ntf 01 ui A\r\n",
+  "accept": true
+ },
+ {
+  "name": "cr only",
+  "source": "eventmodeling\rtf 01 ui A\r",
+  "accept": true
+ },
+ {
+  "name": "block crlf",
+  "source": "eventmodeling\r\ndata D {\r\n a\r\n}\r\n",
+  "accept": true
+ },
+ {
+  "name": "kw eventmodeling twice",
+  "source": "eventmodeling\neventmodeling\n",
+  "accept": false
+ },
+ {
+  "name": "block close x",
+  "source": "eventmodeling\ndata D {\n a\n}x\n",
+  "accept": false
+ },
+ {
+  "name": "block close space",
+  "source": "eventmodeling\ndata D {\n a\n} \n",
+  "accept": true
+ },
+ {
+  "name": "block close eof",
+  "source": "eventmodeling\ndata D {\n a\n}",
+  "accept": true
+ },
+ {
+  "name": "block indented close",
+  "source": "eventmodeling\ndata D {\n a\n }\n",
+  "accept": false
+ },
+ {
+  "name": "block empty",
+  "source": "eventmodeling\ndata D {\n}\n",
+  "accept": true
+ },
+ {
+  "name": "block empty content line",
+  "source": "eventmodeling\ndata D {\n\n}\n",
+  "accept": true
+ },
+ {
+  "name": "block opener spaces",
+  "source": "eventmodeling\ndata D {  \n a\n}\n",
+  "accept": true
+ },
+ {
+  "name": "block opener text",
+  "source": "eventmodeling\ndata D { a\n b\n}\n",
+  "accept": false
+ },
+ {
+  "name": "block then stmt same line",
+  "source": "eventmodeling\ndata D {\n a\n} tf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "block close then stmt next",
+  "source": "eventmodeling\ndata D {\n a\n}\ntf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "block with inner close",
+  "source": "eventmodeling\ndata D {\n a\n}\n b\n}\n",
+  "accept": false
+ },
+ {
+  "name": "block unterminated",
+  "source": "eventmodeling\ndata D {\n a\n",
+  "accept": false
+ },
+ {
+  "name": "inline greedy two stmts",
+  "source": "eventmodeling\ntf 01 evt A { a } tf 02 evt B { b }\n",
+  "accept": true
+ },
+ {
+  "name": "inline empty braces",
+  "source": "eventmodeling\ntf 01 evt A {}\n",
+  "accept": true
+ },
+ {
+  "name": "inline dq empty",
+  "source": "eventmodeling\ntf 01 evt A \"\"\n",
+  "accept": true
+ },
+ {
+  "name": "inline sq with dq inside",
+  "source": "eventmodeling\ntf 01 evt A 'a\"b'\n",
+  "accept": true
+ },
+ {
+  "name": "inline sl comment after",
+  "source": "eventmodeling\ntf 01 evt A { a } // c\n",
+  "accept": true
+ },
+ {
+  "name": "inline then comment brace",
+  "source": "eventmodeling\ntf 01 evt A { a } // c }\n",
+  "accept": true
+ },
+ {
+  "name": "frame comment trailing",
+  "source": "eventmodeling\ntf 01 evt A %% c\ntf 02 evt B\n",
+  "accept": true
+ },
+ {
+  "name": "note bad ref",
+  "source": "eventmodeling\nnote 01 {\n hi\n}\n",
+  "accept": true
+ },
+ {
+  "name": "note inline",
+  "source": "eventmodeling\nnote 01 { hi }\n",
+  "accept": false
+ },
+ {
+  "name": "note typed",
+  "source": "eventmodeling\ntf 01 ui A\nnote 01 `md` {\n hi\n}\n",
+  "accept": true
+ },
+ {
+  "name": "gwt no when",
+  "source": "eventmodeling\ngwt 01 given ui A then evt X\n",
+  "accept": true
+ },
+ {
+  "name": "gwt missing then",
+  "source": "eventmodeling\ngwt 01 given ui A\n",
+  "accept": false
+ },
+ {
+  "name": "gwt missing given",
+  "source": "eventmodeling\ngwt 01 then evt X\n",
+  "accept": false
+ },
+ {
+  "name": "gwt multi",
+  "source": "eventmodeling\ngwt 01 given ui A cmd B when evt C then evt D evt E\n",
+  "accept": true
+ },
+ {
+  "name": "gwt dotted",
+  "source": "eventmodeling\ngwt 01 given ui A.B then evt X\n",
+  "accept": false
+ },
+ {
+  "name": "entity qualified",
+  "source": "eventmodeling\nentity A.B.C\n",
+  "accept": true
+ },
+ {
+  "name": "entity kw",
+  "source": "eventmodeling\nentity data\n",
+  "accept": false
+ },
+ {
+  "name": "data name kw",
+  "source": "eventmodeling\ndata ui {\n}\n",
+  "accept": false
+ },
+ {
+  "name": "data qualified",
+  "source": "eventmodeling\ndata A.B {\n}\n",
+  "accept": false
+ },
+ {
+  "name": "ref qualified",
+  "source": "eventmodeling\ntf 01 ui A [[A.B]]\n",
+  "accept": false
+ },
+ {
+  "name": "arrow multi",
+  "source": "eventmodeling\ntf 01 ui A ->> 02 ->> 03 ->> 04\n",
+  "accept": true
+ },
+ {
+  "name": "arrow 4 digits",
+  "source": "eventmodeling\ntf 01 ui A ->> 1234\n",
+  "accept": false
+ },
+ {
+  "name": "rf rf",
+  "source": "eventmodeling\nrf 01 ui A\nrf 02 cmd B ->> 01\n",
+  "accept": true
+ },
+ {
+  "name": "resetframe full",
+  "source": "eventmodeling\nresetframe 01 processor P\n",
+  "accept": true
+ },
+ {
+  "name": "type spelling",
+  "source": "eventmodeling\ntf 01 readmodel R\ntf 02 rmo R\ntf 03 pcr P\ntf 04 evt E\n",
+  "accept": true
+ },
+ {
+  "name": "arrow chars",
+  "source": "eventmodeling\ntf 01 ui A ->>02\n",
+  "accept": true
+ },
+ {
+  "name": "arrow no space",
+  "source": "eventmodeling\ntf 01 ui A->>01\n",
+  "accept": true
+ },
+ {
+  "name": "frame no space type",
+  "source": "eventmodeling\ntf 01ui A\n",
+  "accept": true
+ },
+ {
+  "name": "id with digits",
+  "source": "eventmodeling\ntf 01 ui A1_b2\n",
+  "accept": true
+ },
+ {
+  "name": "id underscore",
+  "source": "eventmodeling\ntf 01 ui _A\n",
+  "accept": true
+ },
+ {
+  "name": "id digit lead",
+  "source": "eventmodeling\ntf 01 ui 1A\n",
+  "accept": false
+ },
+ {
+  "name": "id digits",
+  "source": "eventmodeling\ntf 01 ui 123\n",
+  "accept": false
+ },
+ {
+  "name": "data id digits",
+  "source": "eventmodeling\ndata 12 {\n}\n",
+  "accept": false
+ },
+ {
+  "name": "header trailing text",
+  "source": "eventmodeling foo\n",
+  "accept": false
+ },
+ {
+  "name": "header frontmatter",
+  "source": "---\ntitle: x\n---\neventmodeling\ntf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "header directive",
+  "source": "%%{init: {}}%%\neventmodeling\ntf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "init mid",
+  "source": "eventmodeling\n%%{init: {}}%%\ntf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "comment before header",
+  "source": "%% c\neventmodeling\n",
+  "accept": true
+ },
+ {
+  "name": "ws form feed",
+  "source": "eventmodeling\n\ftf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "nbsp",
+  "source": "eventmodeling\n tf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "bom",
+  "source": "﻿eventmodeling\ntf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "ml comment inline",
+  "source": "eventmodeling\ntf 01 /* c */ ui A\n",
+  "accept": true
+ },
+ {
+  "name": "sl comment mid",
+  "source": "eventmodeling\ntf 01 // c\n ui A\n",
+  "accept": true
+ },
+ {
+  "name": "percent in stmt",
+  "source": "eventmodeling\ntf 01 ui A %\n",
+  "accept": false
+ },
+ {
+  "name": "backtick alone",
+  "source": "eventmodeling\ntf 01 ui A `\n",
+  "accept": false
+ },
+ {
+  "name": "backtick typed no payload",
+  "source": "eventmodeling\ntf 01 ui A `json`\n",
+  "accept": false
+ },
+ {
+  "name": "backtick typed block in tf",
+  "source": "eventmodeling\ntf 01 ui A `json` {\n a\n}\n",
+  "accept": false
+ },
+ {
+  "name": "json then inline ws",
+  "source": "eventmodeling\ntf 01 ui A `json`{ a }\n",
+  "accept": true
+ },
+ {
+  "name": "ref spaces",
+  "source": "eventmodeling\ntf 01 ui A [[ N ]]\n",
+  "accept": true
+ },
+ {
+  "name": "ref single bracket",
+  "source": "eventmodeling\ntf 01 ui A [N]\n",
+  "accept": false
+ },
+ {
+  "name": "ref unterminated",
+  "source": "eventmodeling\ntf 01 ui A [[N\n",
+  "accept": false
+ },
+ {
+  "name": "ref unterminated eof",
+  "source": "eventmodeling\ntf 01 ui A [[N",
+  "accept": false
+ },
+ {
+  "name": "ref closed single",
+  "source": "eventmodeling\ntf 01 ui A [[N]\n",
+  "accept": false
+ },
+ {
+  "name": "quote then comment quote",
+  "source": "eventmodeling\ntf 01 evt A \"x\" // c \"y\"\n",
+  "accept": true
+ },
+ {
+  "name": "quote then statement",
+  "source": "eventmodeling\ntf 01 evt A \"x\" tf 02 evt B\n",
+  "accept": true
+ },
+ {
+  "name": "payload alone",
+  "source": "eventmodeling\ntf 01 evt A { a }\n{ b }\n",
+  "accept": false
+ },
+ {
+  "name": "block double close",
+  "source": "eventmodeling\ndata D {\n}\n}\n",
+  "accept": true
+ },
+ {
+  "name": "block close after text close",
+  "source": "eventmodeling\ndata D {\n a\n}x\n}\n",
+  "accept": true
+ },
+ {
+  "name": "block lone cr",
+  "source": "eventmodeling\rdata D {\r a\r}\r",
+  "accept": true
+ },
+ {
+  "name": "block tab opener",
+  "source": "eventmodeling\ndata D {\t\t\n a\n}\n",
+  "accept": true
+ },
+ {
+  "name": "yaml mid",
+  "source": "eventmodeling\ntf 01 ui A\n---\nx: 1\n---\ntf 02 cmd B\n",
+  "accept": true
+ },
+ {
+  "name": "yaml unclosed",
+  "source": "eventmodeling\n---\nx: 1\ntf 01 ui A\n",
+  "accept": false
+ },
+ {
+  "name": "dash alone",
+  "source": "eventmodeling\ntf 01 ui A -\n",
+  "accept": false
+ },
+ {
+  "name": "arrow after type",
+  "source": "eventmodeling\ntf 01 ui ->> 02\n",
+  "accept": false
+ },
+ {
+  "name": "gwt then kw",
+  "source": "eventmodeling\ngwt 01 given ui A then evt B tf 02 ui C\n",
+  "accept": true
+ },
+ {
+  "name": "gwt when twice",
+  "source": "eventmodeling\ngwt 01 given ui A when cmd B when cmd C then evt D\n",
+  "accept": false
+ },
+ {
+  "name": "note typed bad",
+  "source": "eventmodeling\nnote 01 `x` {\n}\n",
+  "accept": false
+ },
+ {
+  "name": "note no block",
+  "source": "eventmodeling\nnote 01\n",
+  "accept": false
+ },
+ {
+  "name": "tf eof",
+  "source": "eventmodeling\ntf",
+  "accept": false
+ },
+ {
+  "name": "tf fid eof",
+  "source": "eventmodeling\ntf 01",
+  "accept": false
+ },
+ {
+  "name": "tf type eof",
+  "source": "eventmodeling\ntf 01 ui",
+  "accept": false
+ },
+ {
+  "name": "brace unterminated",
+  "source": "eventmodeling\ntf 01 ui A {\n",
+  "accept": false
+ },
+ {
+  "name": "slash",
+  "source": "eventmodeling\ntf 01 ui A /\n",
+  "accept": false
+ },
+ {
+  "name": "pct",
+  "source": "eventmodeling\n% x\n",
+  "accept": false
+ },
+ {
+  "name": "entity eof",
+  "source": "eventmodeling\nentity",
+  "accept": false
+ },
+ {
+  "name": "data eof",
+  "source": "eventmodeling\ndata",
+  "accept": false
+ },
+ {
+  "name": "data id eof",
+  "source": "eventmodeling\ndata D",
+  "accept": false
+ },
+ {
+  "name": "ref empty",
+  "source": "eventmodeling\ntf 01 ui A [[]]\n",
+  "accept": false
+ },
+ {
+  "name": "ref data typed",
+  "source": "eventmodeling\ntf 01 ui A [[N]] `json` { a }\n",
+  "accept": true
+ },
+ {
+  "name": "multi ref",
+  "source": "eventmodeling\ntf 01 ui A [[N]] [[M]]\n",
+  "accept": false
+ },
+ {
+  "name": "inline typed text",
+  "source": "eventmodeling\ntf 01 ui A `text` \"x\"\n",
+  "accept": true
+ },
+ {
+  "name": "upper header",
+  "source": "eventmodeling\nTF 01 ui A\nEVENTMODELING\n",
+  "accept": false
+ },
+ {
+  "name": "eventmodeling pct",
+  "source": "eventmodeling%%x\ntf 01 ui A\n",
+  "accept": true
+ },
+ {
+  "name": "ls payload",
+  "source": "eventmodeling\ntf 01 ui A {a b}\n",
+  "accept": false
+ }
+]

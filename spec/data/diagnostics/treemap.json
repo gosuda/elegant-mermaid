@@ -25,14 +25,5 @@
     "rationale": "Quoted names and accessibility bodies need closing delimiters.",
     "fix_safety": "none",
     "aliases": []
-  },
-  {
-    "code": "treemap/multiple-roots",
-    "severity": "error",
-    "summary": "multiple root nodes are not allowed in a treemap",
-    "help": "",
-    "rationale": "The upstream validator rejects a second item without indentation.",
-    "fix_safety": "none",
-    "aliases": []
   }
 ]

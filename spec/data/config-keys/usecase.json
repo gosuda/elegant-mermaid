@@ -4,6 +4,7 @@
   {"kind":"usecase","key":"actorFontWeight","class":"accepted-ignored"},
   {"kind":"usecase","key":"colorScheme","class":"accepted-ignored"},
   {"kind":"usecase","key":"diagramPadding","class":"honoured"},
+  {"kind":"usecase","key":"layout","class":"accepted-ignored"},
   {"kind":"usecase","key":"look","class":"honoured"},
   {"kind":"usecase","key":"minNodeWidth","class":"honoured"},
   {"kind":"usecase","key":"nodeSpacing","class":"honoured"},

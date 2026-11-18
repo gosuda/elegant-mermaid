@@ -25,6 +25,7 @@ func (bound *layoutBoundary) add(rect geom.Rect) error {
 	bound.rect = next
 	return err
 }
+
 func (bound *layoutBoundary) boxes(boxes []Box) error {
 	for _, box := range boxes {
 		if err := bound.add(box.Rect); err != nil {
@@ -33,6 +34,7 @@ func (bound *layoutBoundary) boxes(boxes []Box) error {
 	}
 	return nil
 }
+
 func (bound *layoutBoundary) routes(routes []EdgeRoute) error {
 	for _, route := range routes {
 		for _, point := range route.Points {
@@ -43,6 +45,7 @@ func (bound *layoutBoundary) routes(routes []EdgeRoute) error {
 	}
 	return nil
 }
+
 func layoutBounds(part Layout) (geom.Rect, error) {
 	var bound layoutBoundary
 	for _, boxes := range [4][]Box{part.Boxes, part.Labels, part.Extents, part.Titles} {
@@ -74,6 +77,7 @@ func (area *packingArea) rectangle(rect geom.Rect) error {
 	area.total += value
 	return nil
 }
+
 func (area *packingArea) boxes(boxes []Box) error {
 	for _, box := range boxes {
 		if err := area.rectangle(box.Rect); err != nil {
@@ -82,6 +86,7 @@ func (area *packingArea) boxes(boxes []Box) error {
 	}
 	return nil
 }
+
 func (area *packingArea) labels(part Layout) error {
 	reserved := make(map[string]struct{})
 	for _, envelope := range part.LabelReservations {
@@ -105,6 +110,7 @@ func (area *packingArea) labels(part Layout) error {
 	}
 	return nil
 }
+
 func (area *packingArea) routes(routes []EdgeRoute) error {
 	for _, route := range routes {
 		bounds, err := layoutBounds(Layout{Routes: []EdgeRoute{route}})
@@ -117,6 +123,7 @@ func (area *packingArea) routes(routes []EdgeRoute) error {
 	}
 	return nil
 }
+
 func itemArea(part Layout) (int64, error) {
 	var area packingArea
 	for _, boxes := range [3][]Box{part.Boxes, part.Extents, part.Titles} {
@@ -130,8 +137,9 @@ func itemArea(part Layout) (int64, error) {
 	if err := area.routes(part.Routes); err != nil {
 		return 0, err
 	}
-	return area.total, nil
+	return area.total - part.fixedArea, nil
 }
+
 func packingTarget(parts []Layout, opts PackOptions) (int64, error) {
 	if opts.MaxWidth > 0 {
 		return int64(opts.MaxWidth), nil
@@ -179,6 +187,7 @@ func (s *shelf) place(w, h int64) (int64, int64) {
 	s.items++
 	return x, y
 }
+
 func (s *shelf) area() (int64, error) {
 	height := s.y + s.rowHeight
 	if s.width != 0 && height > math.MaxInt64/s.width {
@@ -186,6 +195,7 @@ func (s *shelf) area() (int64, error) {
 	}
 	return s.width * height, nil
 }
+
 func shelfArea(sizes []geom.Size, gap, target int64) (int64, error) {
 	s := shelf{gap: gap, target: target}
 	for _, size := range sizes {
@@ -193,6 +203,7 @@ func shelfArea(sizes []geom.Size, gap, target int64) (int64, error) {
 	}
 	return s.area()
 }
+
 func minAreaTarget(parts []Layout, gap, aspect int64) (int64, error) {
 	sizes := make([]geom.Size, len(parts))
 	for i, part := range parts {
@@ -220,6 +231,7 @@ func minAreaTarget(parts []Layout, gap, aspect int64) (int64, error) {
 	}
 	return best, nil
 }
+
 func Pack(parts []Layout, opts PackOptions) (Layout, error) {
 	if opts.MaxWidth < 0 || opts.Gap < 0 {
 		return Layout{}, ErrGraph
@@ -252,6 +264,7 @@ func Pack(parts []Layout, opts PackOptions) (Layout, error) {
 	out.Height = bounds.H
 	return out, err
 }
+
 func translateLayout(part *Layout, dx, dy int64) error {
 	for _, boxes := range [4][]Box{part.Boxes, part.Labels, part.Extents, part.Titles} {
 		if err := translateBoxes(boxes, dx, dy); err != nil {
@@ -268,6 +281,7 @@ func translateLayout(part *Layout, dx, dy int64) error {
 	}
 	return nil
 }
+
 func translateBox(box *Box, dx, dy int64) error {
 	rect, err := rectangle(int64(box.Rect.X)+dx, int64(box.Rect.Y)+dy, int64(box.Rect.W), int64(box.Rect.H))
 	if err != nil {
@@ -276,6 +290,7 @@ func translateBox(box *Box, dx, dy int64) error {
 	box.Rect = rect
 	return nil
 }
+
 func translateBoxes(boxes []Box, dx, dy int64) error {
 	for i := range boxes {
 		if err := translateBox(&boxes[i], dx, dy); err != nil {
@@ -284,6 +299,7 @@ func translateBoxes(boxes []Box, dx, dy int64) error {
 	}
 	return nil
 }
+
 func translateReservations(reservations []LabelReservation, dx, dy int64) error {
 	for i := range reservations {
 		rect := reservations[i].Rect
@@ -295,6 +311,7 @@ func translateReservations(reservations []LabelReservation, dx, dy int64) error 
 	}
 	return nil
 }
+
 func translatePoints(points []geom.Point, dx, dy int64) error {
 	for i := range points {
 		x, err := coordinate(int64(points[i].X) + dx)

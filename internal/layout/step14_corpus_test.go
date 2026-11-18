@@ -38,6 +38,7 @@ func TestRandomCompoundLayeredValidity(t *testing.T) {
 		}
 	}
 }
+
 func TestAcceptedFlowchartCorpusLayouts(t *testing.T) {
 	accepted := 0
 	err := filepath.WalkDir("../../corpus/flowchart", func(path string, entry os.DirEntry, walkErr error) error {

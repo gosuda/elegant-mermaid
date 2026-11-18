@@ -17,12 +17,14 @@ func canvas(t *testing.T, w, h int) *Canvas {
 	}
 	return c
 }
+
 func rectangle(c *Canvas, s Style) {
 	c.HSegment(0, 4, 0, s)
 	c.HSegment(0, 4, 2, s)
 	c.VSegment(0, 0, 2, s)
 	c.VSegment(4, 0, 2, s)
 }
+
 func TestRectangles(t *testing.T) {
 	rows := []struct {
 		s    Style
@@ -36,6 +38,7 @@ func TestRectangles(t *testing.T) {
 		}
 	}
 }
+
 func TestMasks(t *testing.T) {
 	want := []string{" ╵╶└╷│┌├╴┘─┴┐┤┬┼", " ╹╺┗╻┃┏┣╸┛━┻┓┫┳╋", " ╵╶╚╷║╔╠╴╝═╩╗╣╦╬", " ╵╶╰╷│╭├╴╯─┴╮┤┬┼", " ╵╶└╷┆┌├╴┘┄┴┐┤┬┼"}
 	styles := []Style{StyleLight, StyleHeavy, StyleDouble, StyleRounded, StyleDotted}
@@ -47,6 +50,7 @@ func TestMasks(t *testing.T) {
 		}
 	}
 }
+
 func TestLabelsAndJunctions(t *testing.T) {
 	c := canvas(t, 5, 3)
 	rectangle(c, StyleLight)
@@ -71,6 +75,7 @@ func TestLabelsAndJunctions(t *testing.T) {
 		t.Fatal(v)
 	}
 }
+
 func TestMergePermutation(t *testing.T) {
 	s := uint32(1)
 	for range 2000 {
@@ -84,6 +89,7 @@ func TestMergePermutation(t *testing.T) {
 		}
 	}
 }
+
 func dots(c *Canvas) []geom.Point {
 	var out []geom.Point
 	for y := range c.H * 4 {
@@ -96,6 +102,7 @@ func dots(c *Canvas) []geom.Point {
 	}
 	return out
 }
+
 func TestBrailleStroke(t *testing.T) {
 	want := []geom.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 2, Y: 1}, {X: 3, Y: 1}, {X: 4, Y: 2}, {X: 5, Y: 2}, {X: 6, Y: 3}, {X: 7, Y: 3}}
 	for _, p := range [][2]geom.Point{{{X: 0, Y: 0}, {X: 7, Y: 3}}, {{X: 7, Y: 3}, {X: 0, Y: 0}}} {
@@ -118,6 +125,7 @@ func TestBrailleStroke(t *testing.T) {
 		}
 	}
 }
+
 func TestVertices(t *testing.T) {
 	p, e := Ellipse(geom.Point{}, 10, 20)
 	if e != nil || len(p) != 64 || p[0] != (geom.Point{X: 10}) || p[16] != (geom.Point{Y: -20}) {
@@ -138,6 +146,7 @@ func TestCubicVertices(t *testing.T) {
 		t.Fatal(p, e)
 	}
 }
+
 func TestTextColour(t *testing.T) {
 	c := canvas(t, 8, 1)
 	c.AttachInk(0, 0, BitN|BitS, StyleLight, TokenBorder)

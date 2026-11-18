@@ -1,4 +1,5 @@
 use super::parse;
+use crate::diag::Severity;
 use crate::model::flowchart::resolve;
 
 #[test]
@@ -357,4 +358,67 @@ fn flowchart_title_only_subgraph_ids() {
     assert_eq!(model.groups.len(), 2);
     assert_eq!(model.groups[1].id, "subGraph2");
     assert_eq!(model.groups[1].title, "Quoted group");
+}
+
+#[test]
+fn flowchart_chain_continues_after_comment_line() {
+    let source = "flowchart TD\nA --> B\n  --> C\n  %% c\n  --> H\n";
+    let removed = crate::syntax::preprocess::preprocess(source).removed;
+    let parsed = parse(source, &removed);
+    assert!(
+        parsed.diagnostics.is_empty(),
+        "expected parsed.diagnostics.is_empty(); observed diagnostics={:?}",
+        parsed.diagnostics
+    );
+    let (model, diagnostics) = resolve(source, &parsed.document);
+    assert!(
+        diagnostics.is_empty(),
+        "expected diagnostics.is_empty(); observed diagnostics={:?}",
+        diagnostics
+    );
+    assert_eq!(
+        model
+            .edges
+            .iter()
+            .map(|edge| (edge.from.as_str(), edge.to.as_str()))
+            .collect::<Vec<_>>(),
+        [("A", "B"), ("B", "C"), ("C", "H")]
+    );
+}
+
+#[test]
+fn flowchart_click_continues_after_comment_line() {
+    let source = "flowchart TD\nA\nB\nclick\n%% c\n A callback\n";
+    let removed = crate::syntax::preprocess::preprocess(source).removed;
+    let parsed = parse(source, &removed);
+    assert!(
+        parsed.diagnostics.is_empty(),
+        "expected parsed.diagnostics.is_empty(); observed diagnostics={:?}",
+        parsed.diagnostics
+    );
+    let (model, diagnostics) = resolve(source, &parsed.document);
+    assert!(
+        diagnostics
+            .iter()
+            .all(|d| d.code == "interaction/callback-ignored" && d.severity == Severity::Info),
+        "expected only interaction/callback-ignored info; observed diagnostics={:?}",
+        diagnostics
+    );
+    assert_eq!(model.clicks.len(), 1);
+    assert_eq!(
+        &source[model.clicks[0].target.start..model.clicks[0].target.end],
+        "A"
+    );
+    let at = source.len() - "callback\n".len();
+    assert_eq!(
+        model.clicks[0].action,
+        crate::syntax::flowchart::ast::ClickAction::PlainCall {
+            name: "callback".into(),
+            name_span: crate::source::Span {
+                start: at,
+                end: at + "callback".len(),
+            },
+            tooltip: None,
+        }
+    );
 }

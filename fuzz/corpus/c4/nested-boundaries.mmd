@@ -1,0 +1,13 @@
+C4Container
+Enterprise_Boundary(b0, "Bank") {
+  System_Boundary(b1, "Web") {
+    Container(app, "App", "Java", "Serves pages")
+    ContainerDb(db, "Database", "SQL")
+  }
+  Boundary(b2, "Edge") {
+    ContainerQueue(q, "Queue")
+  }
+}
+Rel_Down(app, db, "Reads")
+Rel_Right(app, q, "Publishes")
+UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")

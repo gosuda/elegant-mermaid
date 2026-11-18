@@ -17,14 +17,22 @@ type Result struct {
 	RefusedClusters int
 	RouteConflicts  int
 }
-type ProfileError struct{ Profile scene.Profile }
+type ProfileError struct{ Want, Got scene.Profile }
 
 func (e *ProfileError) Error() string {
-	return "cells: expected cell profile, got " + e.Profile.String()
+	return "cells: expected " + e.Want.String() + " profile, got " + e.Got.String()
 }
+
 func Render(s scene.Scene, opts Options) (Result, error) {
+	if s.Options.Profile == scene.ProfileVector {
+		return RenderBraille(s, opts)
+	}
+	return renderCells(s, opts)
+}
+
+func renderCells(s scene.Scene, opts Options) (Result, error) {
 	if s.Options.Profile != scene.ProfileCell {
-		return Result{}, &ProfileError{s.Options.Profile}
+		return Result{}, &ProfileError{Want: scene.ProfileCell, Got: s.Options.Profile}
 	}
 	t, err := theme.Resolve(opts.Theme)
 	if err != nil {
@@ -70,6 +78,7 @@ func (c *Canvas) drawGroup(g *scene.Group, charset Charset, t theme.Theme) ([]*s
 	}
 	return labels, nil
 }
+
 func lineStyle(s scene.Shape, base Style) Style {
 	switch {
 	case s.Line == scene.LineDouble:
@@ -82,6 +91,7 @@ func lineStyle(s scene.Shape, base Style) Style {
 		return base
 	}
 }
+
 func tokenNamed(name string, series uint8) Token {
 	if name == "series" {
 		return TokenSeries0 + Token(series%12)
@@ -106,9 +116,11 @@ func paint(s scene.Shape, t theme.Theme) (Token, uint8) {
 	}
 	return TokenLine, 1
 }
+
 func (c *Canvas) symbol(at geom.Point, g rune, ink Token) {
 	c.Put(int(at.X), int(at.Y), func(v *Cell) { v.Symbol = max(v.Symbol, g); v.Ink = max(v.Ink, ink) })
 }
+
 func (c *Canvas) marker(p *scene.MarkerRef, charset Charset) {
 	for _, m := range gen.Markers {
 		if m.Name != p.Marker {
@@ -124,6 +136,7 @@ func (c *Canvas) marker(p *scene.MarkerRef, charset Charset) {
 		return
 	}
 }
+
 func (c *Canvas) draw(p scene.Primitive, charset Charset, t theme.Theme) error {
 	switch v := p.(type) {
 	case *scene.Rect:
@@ -150,6 +163,7 @@ func (c *Canvas) draw(p scene.Primitive, charset Charset, t theme.Theme) error {
 	}
 	return nil
 }
+
 func (c *Canvas) rectangle(r geom.Rect, s scene.Shape, base Style, charset Charset, t theme.Theme) error {
 	if _, err := checkedPoint(int64(r.X)+int64(r.W), int64(r.Y)+int64(r.H)); err != nil {
 		return err
@@ -169,6 +183,7 @@ func (c *Canvas) rectangle(r geom.Rect, s scene.Shape, base Style, charset Chars
 	c.inkSegment(geom.Point{X: int32(x + w - 1), Y: r.Y}, geom.Point{X: int32(x + w - 1), Y: int32(y + h - 1)}, style, ink)
 	return nil
 }
+
 func (c *Canvas) thinRect(r geom.Rect, s scene.Shape, charset Charset, t theme.Theme) error {
 	ink, cell := paint(s, t)
 	if cell == 2 {
@@ -187,6 +202,7 @@ func (c *Canvas) thinRect(r geom.Rect, s scene.Shape, charset Charset, t theme.T
 	c.inkSegment(geom.Point{X: r.X, Y: r.Y}, geom.Point{X: r.X + r.W - 1, Y: r.Y + r.H - 1}, lineStyle(s, StyleLight), ink)
 	return nil
 }
+
 func (c *Canvas) inkSegment(a, b geom.Point, style Style, ink Token) {
 	c.Segment(a, b, style)
 	if a.Y == b.Y {
@@ -199,6 +215,7 @@ func (c *Canvas) inkSegment(a, b geom.Point, style Style, ink Token) {
 		c.Put(int(a.X), y, func(v *Cell) { v.Ink = max(v.Ink, ink) })
 	}
 }
+
 func (c *Canvas) polyline(ps []geom.Point, style Style, ink Token) error {
 	if geom.IsOrthogonal(ps) {
 		for i := 1; i < len(ps); i++ {
@@ -216,6 +233,7 @@ func (c *Canvas) polyline(ps []geom.Point, style Style, ink Token) error {
 	}
 	return c.dotLines(dots, ink)
 }
+
 func (c *Canvas) dotLines(ps []geom.Point, ink Token) error {
 	for i := 1; i < len(ps); i++ {
 		if err := c.StrokeDots(ps[i-1], ps[i], ink); err != nil {
@@ -224,6 +242,7 @@ func (c *Canvas) dotLines(ps []geom.Point, ink Token) error {
 	}
 	return nil
 }
+
 func (c *Canvas) polygon(p *scene.Polygon, charset Charset, t theme.Theme) error {
 	ink, cell := paint(p.Shape, t)
 	if cell == 0 || len(p.Points) == 0 {
@@ -255,6 +274,7 @@ func (c *Canvas) polygon(p *scene.Polygon, charset Charset, t theme.Theme) error
 	ps = append(ps, ps[0])
 	return c.dotLines(ps, ink)
 }
+
 func (c *Canvas) ellipse(p *scene.Ellipse, charset Charset, t theme.Theme) error {
 	ink, cell := paint(p.Shape, t)
 	if cell == 0 {
@@ -283,6 +303,7 @@ func (c *Canvas) ellipse(p *scene.Ellipse, charset Charset, t theme.Theme) error
 	ps = append(ps, ps[0])
 	return c.dotLines(ps, ink)
 }
+
 func (c *Canvas) path(p *scene.Path, t theme.Theme) error {
 	ink, cell := paint(p.Shape, t)
 	if cell == 0 {
@@ -304,6 +325,7 @@ func (c *Canvas) path(p *scene.Path, t theme.Theme) error {
 	}
 	return nil
 }
+
 func pathPoints(cmd scene.Command, current, start geom.Point) ([]geom.Point, geom.Point, error) {
 	switch v := cmd.(type) {
 	case *scene.MoveTo:
@@ -338,6 +360,7 @@ func cubicPoints(v *scene.CubicTo, current geom.Point) ([]geom.Point, geom.Point
 	ps, e := Cubic([4]geom.Point{current, a, b, d})
 	return ps, d, e
 }
+
 func arcPoints(v *scene.ArcTo, current geom.Point) ([]geom.Point, geom.Point, error) {
 	center, e := CellDot(geom.Point{X: v.CX, Y: v.CY})
 	if e != nil {
@@ -366,6 +389,7 @@ func routeConflicts(routes []scene.Route) int {
 	}
 	return count
 }
+
 func routePairConflicts(p, q []geom.Point) int {
 	cells := map[geom.Point]bool{}
 	for i := 1; i < len(p); i++ {
@@ -375,6 +399,7 @@ func routePairConflicts(p, q []geom.Point) int {
 	}
 	return len(cells)
 }
+
 func recordRouteOverlap(cells map[geom.Point]bool, a, b, c, d geom.Point) {
 	if a == b || c == d {
 		return
@@ -382,6 +407,7 @@ func recordRouteOverlap(cells map[geom.Point]bool, a, b, c, d geom.Point) {
 	recordHorizontalOverlap(cells, a, b, c, d)
 	recordVerticalOverlap(cells, a, b, c, d)
 }
+
 func recordHorizontalOverlap(cells map[geom.Point]bool, a, b, c, d geom.Point) {
 	if a.Y != b.Y || c.Y != d.Y || a.Y != c.Y {
 		return
@@ -391,6 +417,7 @@ func recordHorizontalOverlap(cells map[geom.Point]bool, a, b, c, d geom.Point) {
 		cells[geom.Point{X: int32(x), Y: a.Y}] = true
 	}
 }
+
 func recordVerticalOverlap(cells map[geom.Point]bool, a, b, c, d geom.Point) {
 	if a.X != b.X || c.X != d.X || a.X != c.X {
 		return

@@ -21,6 +21,7 @@ This file defines the tree layout family: its entry points and inputs, the mindm
     |`mindmap.padding`|10|640|1|
     |`mindmap.max_node_width`|200|12800|24|
     |`mindmap.sibling_gap`|20|1280|1 row|
+    |`mindmap.level_gap`|40|2560|4|
     |`mindmap.label_wrap`|180|11520|22|
     |`mindmap.contour_cap`|2000|2000|2000|
     Config defaults `padding` 10 and `maxNodeWidth` 200 (`config.schema.yaml` lines 1228 to 1234).
@@ -31,12 +32,17 @@ This file defines the tree layout family: its entry points and inputs, the mindm
 - tree-08: The root MUST sit at `(0, 0)`, child `i` of the root (0-based, declaration order) MUST go right iff `i` is even, and every deeper node MUST stay on the side of its root child. [just lean-parity]
 - tree-09: A child's box left MUST be its parent's box right plus `level_gap` on the right side, and its box right MUST be its parent's box left minus `level_gap` on the left side. [just lean-parity]
     Levels are not shared columns.
-- tree-10: Each mindmap subtree MUST have a contour of its boxes, and each later sibling `B` MUST be placed below the union contour `A` of the earlier siblings by the rule `y_B = max over overlapping x-ranges of (A_bottom(x) - B_top(x)) + sibling_gap`. [just lean-parity]
-    A contour holds, for each node, its box y-range over its box x-range. Two boxes overlap in x when they share positive length. The first child of a parent sits at relative `y = 0`. `B_top` and `A_bottom` are relative to the sibling roots.
+- tree-10: Each mindmap subtree MUST have a contour of its boxes, and each later sibling `B` MUST be placed below the union contour `A` of the earlier siblings on its side by the rule `y_B = max over every box a of A and every box b of B whose x-ranges overlap of (a.bottom - b.top) + sibling_gap`. [just lean-parity]
+    A contour holds, for each node, its box y-range over its widened x-range. Measure x outward from the root: on the right side `u = x`, on the left side `u = -x`. A box with inner edge `i` (the edge that faces its parent) and outer edge `o` has the widened x-range `[i - level_gap, o]` in `u`. On the right side this is `[x - level_gap, x + w]`. On the left side it is `[x, x + w + level_gap]`. Two boxes overlap in x when their widened x-ranges share positive length. The first child of a parent sits at relative `y = 0`. `b.top` and `a.bottom` are relative to the sibling roots, with `top = y_ref - floor_div(h, 2)` and `bottom = top + h`.
+    The widened range includes the level gap between a box and its parent, because the trunk of a route runs there (requirement tree-45). A range that holds the box only would let a trunk cross a box of an earlier sibling.
 - tree-11: The parent y MUST be `floor_div(y_first + y_last, 2)` over its children. [just lean-parity]
 - tree-12: Each side's stack MUST be centred on the root, shifted by `-floor_div(y_first + y_last, 2)`. [just lean-parity]
 - tree-13: The box top MUST be `y - floor_div(h, 2)`, and every division in mindmap MUST be `floor_div`. [just lean-parity]
     Implementations MUST compute the contour rule exactly. A faster method is conforming only when it returns the same integers on every tree in `tools/randgraph`.
+- tree-45: A mindmap route MUST run from the outer edge of its parent box at the parent reference line, to the trunk, along the trunk to the child reference line, and to the inner edge of the child box. [just validate]
+    The trunk lies at the outer edge of the parent plus `floor_div(level_gap, 2)` in the outward direction. On the right side the route points are `(x_p + w_p, y_p)`, `(x_p + w_p + floor_div(level_gap, 2), y_p)`, `(x_p + w_p + floor_div(level_gap, 2), y_c)`, and `(x_c, y_c)`. On the left side they are `(x_p, y_p)`, `(x_p - floor_div(level_gap, 2), y_p)`, `(x_p - floor_div(level_gap, 2), y_c)`, and `(x_c + w_c, y_c)`. When `y_p = y_c`, the route has the first and last point only. `y_p` and `y_c` are the reference lines `y_ref` of the parent and the child.
+- tree-46: The mindmap adapter MUST name box `i` (declaration order) `n<i>`, and route `k` (declaration order of the child) `e<k>` from the parent box to the child box, with a plain end marker `none` and the line kind `normal`. [just parity]
+    A label record `n<i>.label` exists only when the node text differs from the box id.
 
 ## Treeview
 
@@ -82,18 +88,18 @@ This file defines the tree layout family: its entry points and inputs, the mindm
     `total` counts all descendants on both sides. If `total = 0`, both lengths are `spine_base_length`. Then each length is raised to `max_depth_count * cause_min_spacing`. `spine_y = max(upper_len, spine_base_length)`. Upstream: lines 106 to 118.
 - tree-24: Pair `p` MUST hold causes `2p` (upper) and `2p + 1` (lower), and pair `p` MUST attach at spine x `x_p`. [just lean-parity]
     The next attach point is the minimum left edge of pair `p`'s labels (`ishikawaRenderer.ts` lines 139 to 146).
-- tree-25: The `k`-th child (0-based, child count `c`) of a rib MUST attach at `x = par_x0 + floor_div((par_x1 - par_x0) * (c - k), c + 1)` on the rib. [just lean-parity]
-    Upstream `lerp`, lines 413 to 417.
-- tree-26: A sub-rib with children MUST have horizontal length `bone_base + c * bone_per_child`, and a leaf sub-rib MUST have length `bone_stub`. [just lean-parity]
+- tree-25: A sub-rib MUST use the depth-dependent `depthBone` construction, with the head at depth 0, primary causes at depth 1, and their children at depth 2. [just lean-parity]
+    Write a parent bone as `(par.x0, par.t0, par.x1, par.t1, par.count, par.drawn)`, where `t` is distance from the spine and `par.drawn` counts previously placed odd-depth children. At odd depth, `x0 = par.x0 + floor_div((par.x1 - par.x0) * (par.count - par.drawn), par.count + 1)`; the bone runs from `(x0, par.t0)` to `(x0 - floor_div((t - par.t0) * rib_cos_q15, rib_sin_q15), t)`, then increments `par.drawn`. At even depth, require `par.t1 > par.t0`, set `x0 = par.x0 + floor_div((par.x1 - par.x0) * (t - par.t0), par.t1 - par.t0)`, and run horizontally from `(x0, t)` to `(x0 - length, t)`. Screen y is `spine_y - t` above the spine and `spine_y + t` below it.
+- tree-26: An even-depth horizontal sub-rib MUST have length `max(if c > 0 then bone_base + c * bone_per_child else bone_stub, (c + 1) * margin)`, where `c` is its child count and `margin = floor_div(max_descendant_height * rib_cos_q15, rib_sin_q15) + 3`. [just lean-parity]
 
 ## Integer rules for the proofs
 
 - tree-27: The proof MUST take root children as alternating sides by declaration order, with child `i` right iff `i mod 2 = 0`, deeper nodes keeping the side of their root ancestor, and each side as a non-layered tidy tree. [just proofs]
     Sibling separation is `mindmap.sibling_gap` (vertical, between a box and the union contour of earlier siblings), the level gap is `mindmap.level_gap` (horizontal), and all values are integers rounded with `floor_div`.
 - tree-28: The proof MUST take a subtree contour as the list of its boxes `(left, right, top, bottom)` relative to the subtree root, and the contour of earlier siblings as the list of their boxes. [just proofs]
-    Two boxes overlap in x when they share a positive length.
+    Two boxes overlap in x when their widened x-ranges of requirement tree-10 share a positive length.
 - tree-29: The proof MUST take treeview rows as the pre-order list, with a child's x equal to its parent's x plus `treeview.row_indent + treeview.padding_x` and row height `text_h + 2 * treeview.padding_y`. [just proofs]
-- tree-30: The proof MUST take the ishikawa spine as running left to right, cause `i` above the spine iff `i` is even, and the sub-causes of one cause on parallel ribs with the same integer slope. [just proofs]
+- tree-30: The proof MUST take the ishikawa spine as running left to right, cause `i` above the spine iff `i` is even, and sub-causes as the even-depth horizontal and odd-depth integer diagonal construction of requirements tree-25 and tree-26, not equal direction vectors between parents and children. [just proofs]
 
 ## Theorems
 
@@ -101,7 +107,7 @@ This file defines the tree layout family: its entry points and inputs, the mindm
     Statement: the contour merge over the boxes of earlier siblings visits each box once.
     Proof approach: fuel-bounded loop; invariant: remaining fuel >= remaining boxes; the fuel is `mindmap.contour_cap`.
 - tree-32: The proof `mindmap_siblings_separated` MUST hold in `proofs/Elegant/Tree.lean`. [just proofs]
-    Statement: for siblings `i < j` on one side, every box of `j` lies at least `mindmap.sibling_gap` below every box of `i` that overlaps it in x.
+    Statement: for siblings `i < j` on one side, every box of `j` lies at least `mindmap.sibling_gap` below every box of `i` whose widened x-range overlaps its own (requirement tree-10).
     Proof approach: induction on the child list; `y_j` is a `max` over the overlapping boxes of the earlier siblings; `omega`.
 - tree-33: The proof `mindmap_parent_centred` MUST hold in `proofs/Elegant/Tree.lean`. [just proofs]
     Statement: `abs (2 * y parent - (y first + y last)) <= 1`.
@@ -128,12 +134,12 @@ This file defines the tree layout family: its entry points and inputs, the mindm
     Statement: on one side, causes `i < j` have `rib_x i < rib_x j`, and the rib intervals are pairwise disjoint.
     Proof approach: `compact_preserves_order` and `compact_pairwise_disjoint` over the rib slots.
 - tree-41: The proof `ishikawa_subcause_parallel` MUST hold in `proofs/Elegant/Tree.lean`. [just proofs]
-    Statement: every sub-cause rib of one cause has the same integer direction vector as the cause rib.
-    Proof approach: by construction; definitional.
-- tree-42: The proof `tree_valid` MUST hold in `proofs/Elegant/Tree.lean`. [just proofs]
-    Statement: `WellFormed m -> WithinLimits m -> Tree.layout m = .ok s -> HardConstraints s` for the three kinds.
-    Proof approach: combines the rows above.
+    Statement: for `depthBone`, even depth gives `(x0,t) -> (x0 - boneLength(p,count,margin),t)`; odd depth gives `(x0,par.t0) -> (x0 - floor_div((t - par.t0) * p.cos,p.sin),t)`; screen y is `spine - t` above and `spine + t` below. This does not assert parent-child equal vectors.
+    Proof approach: unfold `depthBone`, `boneLength`, and `ordinate`; split on depth parity.
+- tree-42: The proof `Elegant.Tree.tree_valid` MUST hold in `proofs/Elegant/FamilyValidity.lean`. [just proofs]
+    Statement: `WellFormed m -> WithinLimits m -> m.kind ∈ ["mindmap", "treeview", "ishikawa"] -> Elegant.kindLayout m = some (.ok result) -> HardConstraints result.scene.layoutDump`.
+    Proof approach: dispatch on the family membership and apply the public kind validity proofs, which combine the geometry rows above.
 - tree-43: The mindmap contour merge MUST recurse on the fuel `mindmap.contour_cap` (`spec/data/layout-constants.json`, value 2000, equal to the node limit, which bounds the depth). [just proofs]
     The treeview and ishikawa phases have no loop: they recurse structurally on the tree.
-- tree-44: The Lean reference module MUST be `proofs/Elegant/Tree.lean`, serving the kinds `mindmap`, `treeview` (header `treeView-beta`), and `ishikawa` (`ishikawa`, `ishikawa-beta`), with the functions `Tree.mindmap`, `Tree.treeview`, `Tree.ishikawa`, and `Tree.layout`. [just proofs]
+- tree-44: The per-kind geometry reference module MUST remain `proofs/Elegant/Tree.lean`, serving the kinds `mindmap`, `treeview` (header `treeView-beta`), and `ishikawa` (`ishikawa`, `ishikawa-beta`). Unified model-stage dispatch MUST use `Elegant.kindLayout` in `proofs/Elegant/KindLayout.lean`; family validity MUST use `Elegant.Tree.tree_valid` in `proofs/Elegant/FamilyValidity.lean` over the explicit family domain in tree-42. [just proofs]
     The `mindmap` packet MUST build this family module, because `mindmap` is the family's first kind. The other tree kinds wait for it. Every packet gates on `just proofs` and `just lean-parity KIND=<kind>`.

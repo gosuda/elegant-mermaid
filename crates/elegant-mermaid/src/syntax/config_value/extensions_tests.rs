@@ -124,3 +124,60 @@ fn yaml_extensions_compact_duplicate_preserves_key_span() {
     let span = diagnostics[0].span;
     assert_eq!(&src[span.start..span.end], "café");
 }
+
+#[test]
+fn config_quoted_gantt_frontmatter() -> Result<(), &'static str> {
+    let src = include_str!("../../../../../corpus/gantt/mermaid/gantt~0011.mmd");
+    let start = src.find('\n').ok_or("missing opening fence newline")? + 1;
+    let end = start + src[start..].find("---").ok_or("missing closing fence")?;
+    let (value, diagnostics) = parse_config_yaml(src, start, end);
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    let config = mapping(mapping(value)[2].value.clone());
+    assert_eq!(config[0].value, ConfigValue::String(" // YAML supports multiline strings using a newline markers: \n #item36 { fill: CadetBlue }       \n\n// Custom marker workaround CSS from forum (below)    \n rect[id^=workaround] { height: calc(100% - 50px) ; transform: translate(9px, 25px); y: 0; width: 1.5px; stroke: none; fill: red; }   \n text[id^=workaround] { fill: red; y: 100%; font-size: 15px;} ".into()));
+    Ok(())
+}
+
+#[test]
+fn config_quoted_closing_line() {
+    for quote in ["\"", "'"] {
+        for (text, want) in [
+            ("  key: Qone\n  two\n  Q", "one two "),
+            ("  key: Qone\n two\n Q", "one two "),
+            ("  key: Qone\n\ttwo\nQ", "one two "),
+            ("key: Qone \n  two\n\n  three\nQ", "one two\nthree "),
+            ("key: Q#{}[],:;\n---x\nQ", "#{}[],:; ---x "),
+        ] {
+            let src = text.replace('Q', quote);
+            let (value, diagnostics) = parse_config_yaml(&src, 0, src.len());
+            assert!(diagnostics.is_empty(), "{diagnostics:?}");
+            assert_eq!(mapping(value)[0].value, ConfigValue::String(want.into()));
+        }
+    }
+}
+
+#[test]
+fn config_quoted_unterminated_continuation() {
+    let src = "key: \"one\nsecond";
+    let (_, diagnostics) = parse_config_yaml(src, 0, src.len());
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].code, C_MALFORMED);
+    assert_eq!(
+        diagnostics[0].span,
+        Span {
+            start: src.len(),
+            end: src.len()
+        }
+    );
+}
+
+#[test]
+fn config_quoted_document_marker() {
+    for marker in ["---", "..."] {
+        let src = format!("key: \"one\n{marker}\n two\"");
+        let (_, diagnostics) = parse_config_yaml(&src, 0, src.len());
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, C_MALFORMED);
+        assert_eq!(diagnostics[0].message, "malformed config value");
+        assert_eq!(diagnostics[0].span, Span { start: 10, end: 13 });
+    }
+}

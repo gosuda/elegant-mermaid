@@ -27,9 +27,10 @@ pub struct RenderResult {
     pub route_conflicts: usize,
 }
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("cells: expected cell profile, got {}", profile.as_str())]
+#[error("cells: expected {} profile, got {}", want.as_str(), got.as_str())]
 pub struct ProfileError {
-    pub profile: Profile,
+    pub want: Profile,
+    pub got: Profile,
 }
 #[derive(Debug, thiserror::Error)]
 pub enum RenderError {
@@ -41,12 +42,12 @@ pub enum RenderError {
     Theme(#[from] ThemeError),
 }
 pub fn render(scene: &Scene, options: &Options) -> Result<RenderResult, RenderError> {
-    if scene.profile() != Profile::Cell {
-        return Err(ProfileError {
-            profile: scene.profile(),
-        }
-        .into());
+    match scene.profile() {
+        Profile::Vector => super::raster::render_braille(scene, options),
+        Profile::Cell => render_cells(scene, options),
     }
+}
+fn render_cells(scene: &Scene, options: &Options) -> Result<RenderResult, RenderError> {
     let theme = theme::resolve(&options.theme)?;
     let size = scene.canvas();
     let mut canvas = Canvas::new(size.w, size.h)?;
@@ -75,7 +76,7 @@ fn line_style(shape: Shape, base: Style) -> Style {
         _ => base,
     }
 }
-fn named_token(name: &str, series: u8) -> Token {
+pub(super) fn named_token(name: &str, series: u8) -> Token {
     if name == "series" {
         return Token::ALL[7 + usize::from(series % 12)];
     }

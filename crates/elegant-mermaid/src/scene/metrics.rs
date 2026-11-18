@@ -360,7 +360,7 @@ pub fn read_dump(source: &str) -> Result<Scene, DumpError> {
     let (root, diagnostics) =
         crate::syntax::config_value::parse_config_json(&escaped, 0, escaped.len());
     if !diagnostics.is_empty() {
-        return Err("malformed layout dump".into());
+        return Err("invalid JSON".into());
     }
     decode_dump(&root)
 }
@@ -507,3 +507,7 @@ fn decode_label(value: &Value) -> Result<super::SceneLabel, DumpError> {
             .collect::<Result<_, _>>()?,
     })
 }
+
+#[cfg(test)]
+#[path = "metrics_dump_tests.rs"]
+mod dump_tests;

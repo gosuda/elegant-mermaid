@@ -1,6 +1,7 @@
 package flowchart
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/gosuda/elegant-mermaid/internal/diag"
@@ -55,7 +56,7 @@ func (p *parser) finishVertexStatement(stmt *VertexStatement, clean bool) Stmt {
 			p.report(plainDiagnostic(codeLinkMissing, p.peek().Span))
 		} else if clean {
 			tok := p.peek()
-			p.report(unexpectedDiagnostic(codeUnexpectedToken, tok.Span, tok.Text, vertexFollowNames()))
+			p.report(unexpectedDiagnostic(tok.Span, tok.Text, vertexFollowNames()))
 		}
 		p.skipToStatementBoundary()
 	}
@@ -137,7 +138,7 @@ func (p *parser) parseVertex() (Vertex, bool) {
 		return vertex, true
 	}
 	p.next()
-	vertex.Shape = shapeByOpener[opener.Kind]
+	vertex.Shape = shapeByOpener(opener.Kind)
 	vertex.Label = true
 	if opener.Kind == TokVertexWithPropsStart {
 		p.parseRectProps()
@@ -145,7 +146,8 @@ func (p *parser) parseVertex() (Vertex, bool) {
 	if (opener.Kind == TokPS || opener.Kind == TokDiamondStart) && p.at(opener.Kind) {
 		return p.parsePairedVertex(vertex, opener), true
 	}
-	text := p.parseText(closerByOpener[opener.Kind]...)
+	closers, count := labelClosers(opener.Kind)
+	text := p.parseText(closers[:count]...)
 	vertex.Text = text
 	vertex.Span = source.Span{Start: id.Span.Start, End: p.closeLabel(opener, text)}
 	return vertex, true
@@ -179,13 +181,14 @@ func (p *parser) parseRectProps() {
 			continue
 		}
 		tok := p.peek()
-		p.report(unexpectedDiagnostic(codeUnexpectedToken, tok.Span, tok.Text, []string{want.Name()}))
+		p.report(unexpectedDiagnostic(tok.Span, tok.Text, []string{want.Name()}))
 	}
 }
 
 func (p *parser) closeLabel(opener Token, text Text) int {
 	p.reportLabelRules(text, opener)
-	if closer, ok := p.acceptCloser(closerByOpener[opener.Kind]); ok {
+	closers, count := labelClosers(opener.Kind)
+	if closer, ok := p.acceptCloser(closers[:count]); ok {
 		return closer.Span.End
 	}
 	p.end = endStateUnclosedBracket
@@ -207,10 +210,8 @@ func textEnd(text Text, opener Token) int {
 }
 
 func (p *parser) acceptCloser(accepted []TokenKind) (Token, bool) {
-	for _, k := range accepted {
-		if p.at(k) {
-			return p.next(), true
-		}
+	if slices.ContainsFunc(accepted, p.at) {
+		return p.next(), true
 	}
 	return Token{}, false
 }
@@ -258,6 +259,7 @@ func openingQuote(tok Token) source.Span {
 	}
 	return source.Span{Start: tok.StringOpen, End: tok.StringOpen + 1}
 }
+
 func labelRuleFor(first TokenKind) string {
 	switch first {
 	case TokStr:
@@ -335,12 +337,7 @@ func finishText(text Text) Text {
 }
 
 func isCloser(k TokenKind, closers []TokenKind) bool {
-	for _, want := range closers {
-		if k == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(closers, k)
 }
 
 func (p *parser) parseIdString() (IdString, bool) {
@@ -366,7 +363,6 @@ const (
 func (p *parser) tryParseLink() (Link, linkOutcome) {
 	save := p.i
 	p.skipSpaces()
-	link := Link{}
 	stmt := LinkStatement{}
 	if p.at(TokLinkID) {
 		id := p.parseLinkID()
@@ -378,8 +374,7 @@ func (p *parser) tryParseLink() (Link, linkOutcome) {
 		stmt.Span = spanJoin(stmt.Span, open.Span)
 		p.reportArrowInvalid(open)
 		p.reportUnsupportedMarker()
-		link.Statement = stmt
-		link.Span = stmt.Span
+		link := Link{Statement: stmt, Span: stmt.Span}
 		if arrow, ok := p.tryParseArrowText(); ok {
 			link.Arrow = &arrow
 			link.Span = spanJoin(link.Span, arrow.Span)
@@ -394,18 +389,16 @@ func (p *parser) tryParseLink() (Link, linkOutcome) {
 	stmt.Open = start
 	stmt.Span = spanJoin(stmt.Span, start.Span)
 	edge := p.parseEdgeText()
-	link.Edge = &edge
 	end, ok := p.accept(TokLink)
 	if !ok {
 		tok := p.peek()
-		p.report(unexpectedDiagnostic(codeUnexpectedToken, tok.Span, tok.Text, []string{"LINK"}))
+		p.report(unexpectedDiagnostic(tok.Span, tok.Text, []string{"LINK"}))
 		p.i = save
 		return Link{}, linkBroken
 	}
 	stmt.End = &end
 	stmt.Span = spanJoin(stmt.Span, end.Span)
-	link.Statement = stmt
-	link.Span = spanJoin(stmt.Span, edge.Span)
+	link := Link{Statement: stmt, Edge: &edge, Span: spanJoin(stmt.Span, edge.Span)}
 	if arrow, ok := p.tryParseArrowText(); ok {
 		link.Arrow = &arrow
 		link.Span = spanJoin(link.Span, arrow.Span)
@@ -495,4 +488,16 @@ func tokenLabelKind(k TokenKind) LabelKind {
 	default:
 		return LabelPlain
 	}
+}
+
+func labelClosers(k TokenKind) ([2]TokenKind, int) {
+	first, second := closerByOpener(k)
+	closers := [2]TokenKind{first, second}
+	if first == TokNone {
+		return closers, 0
+	}
+	if second == TokNone {
+		return closers, 1
+	}
+	return closers, 2
 }

@@ -43,17 +43,7 @@ func TestMathGreekFontMapping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	previous := ""
-	mapped := make(map[string]uint32)
-	for _, row := range tbl.rows {
-		name := row[0].(string)
-		cp := row[1].(uint32)
-		if name <= previous || !hasGlyph(cp) {
-			t.Fatalf("mapping %q U+%04X is unordered or absent from cmap", name, cp)
-		}
-		previous = name
-		mapped[name] = cp
-	}
+	mapped := assertMathGreekFontCoverage(t, tbl, hasGlyph)
 	for _, tc := range []struct {
 		name              string
 		primary, fallback uint32
@@ -74,6 +64,22 @@ func TestMathGreekFontMapping(t *testing.T) {
 			t.Fatalf("unsupported Greek command %s was generated", name)
 		}
 	}
+}
+
+func assertMathGreekFontCoverage(t *testing.T, tbl *table, hasGlyph func(uint32) bool) map[string]uint32 {
+	t.Helper()
+	previous := ""
+	mapped := make(map[string]uint32)
+	for _, row := range tbl.rows {
+		name := row[0].(string)
+		cp := row[1].(uint32)
+		if name <= previous || !hasGlyph(cp) {
+			t.Fatalf("mapping %q U+%04X is unordered or absent from cmap", name, cp)
+		}
+		previous = name
+		mapped[name] = cp
+	}
+	return mapped
 }
 
 func TestMathGreekFallback(t *testing.T) {
@@ -135,14 +141,19 @@ func TestMathGlyphMapping(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assertMathGlyphSubstitutions(t, tbl, hasGlyph)
+	if !hasGlyph(0x22C5) && len(tbl.rows) == 0 {
+		t.Fatal("missing logical dot must generate the approved font substitution")
+	}
+}
+
+func assertMathGlyphSubstitutions(t *testing.T, tbl *table, hasGlyph func(uint32) bool) {
+	t.Helper()
 	for _, row := range tbl.rows {
 		logical, physical := row[0].(uint32), row[1].(uint32)
 		if logical != 0x22C5 || physical != 0x00B7 || hasGlyph(logical) || !hasGlyph(physical) {
 			t.Fatalf("unapproved or unnecessary font substitution: U+%04X -> U+%04X", logical, physical)
 		}
-	}
-	if !hasGlyph(0x22C5) && len(tbl.rows) == 0 {
-		t.Fatal("missing logical dot must generate the approved font substitution")
 	}
 }
 

@@ -63,6 +63,16 @@ impl Params {
             cluster_pad: lookup("cluster_pad")?,
         })
     }
+
+    pub fn spaced(mut self, spacing: crate::layout::input::Spacing) -> Self {
+        if spacing.node_gap != 0 {
+            self.node_gap = spacing.node_gap;
+        }
+        if spacing.rank_gap != 0 {
+            self.rank_gap = spacing.rank_gap;
+        }
+        self
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

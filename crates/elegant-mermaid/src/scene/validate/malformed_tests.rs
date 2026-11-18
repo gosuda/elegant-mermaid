@@ -204,7 +204,7 @@ fn scope_and_owner_ancestors_follow_the_relations() {
     let owner: Vec<&str> = index.owner_ancestors("e0").into_iter().collect();
     assert_eq!(owner, ["I", "O"]);
     let boxed: Vec<&str> = index.owner_ancestors("B").into_iter().collect();
-    assert_eq!(boxed, ["O"]);
+    assert_eq!(boxed, ["B", "O"]);
 }
 
 #[test]
@@ -235,6 +235,6 @@ fn a_canvas_beyond_the_limit_is_malformed() {
     };
     assert_eq!(
         well_formed(oversized, &dump),
-        Err(Malformed::Coordinate(String::from("canvas ")))
+        Err(Malformed::Coordinate(String::from("canvas")))
     );
 }

@@ -23,6 +23,9 @@ mod attachment_parts;
 mod attachment_routes;
 #[path = "pipeline/attachments.rs"]
 mod attachments;
+#[path = "pipeline/endpoint_sides.rs"]
+mod endpoint_sides;
+pub(crate) use endpoint_sides::reroute_endpoints;
 #[path = "pipeline/component_core.rs"]
 mod component_core;
 #[path = "pipeline/component_input.rs"]
@@ -50,8 +53,26 @@ pub(super) fn constant(profile: Profile, name: &str) -> i32 {
         })
         .map_or(0, |r| r.value)
 }
+pub(super) fn margin(input: &Input) -> i32 {
+    match input.spacing.canvas_margin {
+        0 => constant(input.profile, "canvas_margin"),
+        value => value,
+    }
+}
 fn narrow(n: i64) -> Result<i32, LayoutError> {
     i32::try_from(n).map_err(|_| LayoutError::Overflow)
+}
+fn kind_wrapping_width(profile: Profile, kind: &str) -> i32 {
+    crate::r#gen::layoutconst::LAYOUT_CONST
+        .iter()
+        .find(|r| {
+            r.name
+                .strip_prefix(profile.as_str())
+                .and_then(|s| s.strip_prefix('.'))
+                .and_then(|s| s.strip_prefix(kind))
+                == Some(".wrapping_width")
+        })
+        .map_or(0, |r| r.value)
 }
 fn text(input: &Input, index: usize) -> &str {
     let b = &input.boxes[index];
@@ -64,20 +85,30 @@ fn text(input: &Input, index: usize) -> &str {
 fn measured<'a>(
     input: &'a Input,
     edges: &[EdgeOptions<'_>],
-) -> Result<(Graph, Vec<Vec<measure::Line<'a>>>), LayoutError> {
+) -> Result<(Graph, Vec<Vec<measure::StyledLine<'a>>>), LayoutError> {
     let p = input.profile;
     let metric = if p == Profile::Cell {
         Metric::cell()
     } else {
         Metric::for_role(Role::Label)
     };
+    let params = Params::for_profile(p.as_str())?.spaced(input.spacing);
+    let mut lines = Vec::new();
+    let target = measure::wrap_target(
+        metric,
+        kind_wrapping_width(p, input.kind),
+        if p == Profile::Cell {
+            i32::try_from(input.options.max_width).map_err(|_| LayoutError::Overflow)?
+        } else {
+            0
+        },
+    );
     let mut graph = Graph {
         nodes: Vec::new(),
         edges: Vec::new(),
-        params: Params::for_profile(p.as_str())?,
+        params,
     };
-    let mut lines = Vec::new();
-    measure_nodes(input, metric, &mut graph, &mut lines)?;
+    measure_nodes(input, metric, target, &mut graph, &mut lines)?;
     for (i, r) in input.routes.iter().enumerate() {
         let tail = graph
             .nodes
@@ -114,24 +145,13 @@ fn measured<'a>(
 fn measure_nodes<'a>(
     input: &'a Input,
     metric: Metric,
+    target: i32,
     graph: &mut Graph,
-    lines: &mut Vec<Vec<measure::Line<'a>>>,
+    lines: &mut Vec<Vec<measure::StyledLine<'a>>>,
 ) -> Result<(), LayoutError> {
     let p = input.profile;
     for (i, b) in input.boxes.iter().enumerate() {
-        let ls = measure::wrap(
-            text(input, i),
-            measure::wrap_target(
-                metric,
-                0,
-                if p == Profile::Cell {
-                    i32::try_from(input.options.max_width).map_err(|_| LayoutError::Overflow)?
-                } else {
-                    0
-                },
-            ),
-            metric,
-        )?;
+        let ls = measure::styled_lines(text(input, i), target, metric)?;
         let tw = ls.iter().map(|l| l.width).max().unwrap_or(0);
         let w = narrow(
             i64::from(tw)
@@ -283,23 +303,6 @@ pub(super) fn layout_unisolated(
     edges: &[EdgeOptions<'_>],
     fixed: &[super::isolate::Fixed<'_>],
 ) -> Result<(Scene, bool), LayoutError> {
-    let original_input = input;
-    let normalized;
-    let input = if input.profile == Profile::Cell
-        && input
-            .boxes
-            .iter()
-            .map(|b| b.text.as_str())
-            .chain(input.labels.iter().map(|l| l.text.as_str()))
-            .any(|text| {
-                text.chars()
-                    .any(|c| matches!(u32::from(c), 0..=31 | 127..=159))
-            }) {
-        normalized = normalized_input(input);
-        &normalized
-    } else {
-        input
-    };
     let route_lines = measure_route_labels(input)?;
     let (mut g, lines) = measured(input, edges)?;
     let titles = lines
@@ -337,7 +340,7 @@ pub(super) fn layout_unisolated(
     let mut budget = false;
     let text = DumpText {
         input,
-        original: original_input,
+        original: input,
         nodes: &lines,
         routes: route_lines,
     };
@@ -349,7 +352,7 @@ pub(super) fn layout_unisolated(
     }
     dump.labels
         .sort_by_key(|label| input.labels.iter().position(|l| l.id == label.id));
-    let margin = constant(input.profile, "canvas_margin");
+    let margin = margin(input);
     for (_, rect) in &mut placed_titles {
         rect.x = narrow(i64::from(rect.x) + i64::from(margin))?;
         rect.y = narrow(i64::from(rect.y) + i64::from(margin))?;
@@ -359,7 +362,14 @@ pub(super) fn layout_unisolated(
         orient_rect(rect, input.direction, canvas.h);
     }
     orient(&mut dump, &mut canvas);
-    let items = assemble(&dump, &placed_titles, &lines, edges);
+    let items = assemble(
+        &dump,
+        input,
+        &placed_titles,
+        &lines,
+        &measurements.route_lines,
+        edges,
+    )?;
     Ok((Scene::new(canvas, dump, items), budget))
 }
 
@@ -555,8 +565,8 @@ fn collect_components(
 struct DumpText<'a, 'text> {
     input: &'a Input,
     original: &'a Input,
-    nodes: &'a [Vec<measure::Line<'text>>],
-    routes: &'a [Vec<measure::Line<'text>>],
+    nodes: &'a [Vec<measure::StyledLine<'text>>],
+    routes: &'a [Vec<measure::StyledLine<'text>>],
 }
 
 fn write_component(
@@ -699,7 +709,7 @@ fn orient(dump: &mut Dump, canvas: &mut Size) {
         std::mem::swap(&mut canvas.w, &mut canvas.h);
     }
 }
-fn measure_route_labels(input: &Input) -> Result<Vec<Vec<measure::Line<'_>>>, LayoutError> {
+fn measure_route_labels(input: &Input) -> Result<Vec<Vec<measure::StyledLine<'_>>>, LayoutError> {
     let metric = if input.profile == Profile::Cell {
         Metric::cell()
     } else {
@@ -707,7 +717,7 @@ fn measure_route_labels(input: &Input) -> Result<Vec<Vec<measure::Line<'_>>>, La
     };
     let width = measure::wrap_target(
         metric,
-        0,
+        kind_wrapping_width(input.profile, input.kind),
         if input.profile == Profile::Cell {
             i32::try_from(input.options.max_width).map_err(|_| LayoutError::Overflow)?
         } else {
@@ -719,7 +729,7 @@ fn measure_route_labels(input: &Input) -> Result<Vec<Vec<measure::Line<'_>>>, La
         .iter()
         .map(|label| {
             if input.routes.iter().any(|r| r.id == label.owner) {
-                measure::wrap(&label.text, width, metric)
+                measure::styled_lines(&label.text, width, metric)
             } else {
                 Ok(Vec::new())
             }
@@ -741,33 +751,6 @@ fn edge_sizes(
                 .map_or((0, 0), |stack| (stack.size.w, stack.size.h)))
         })
         .collect()
-}
-fn normalized_input(input: &Input) -> Input {
-    fn normalize(text: &mut String) {
-        if text
-            .chars()
-            .any(|c| matches!(u32::from(c), 0..=31 | 127..=159))
-        {
-            *text = text
-                .chars()
-                .map(|c| {
-                    if matches!(u32::from(c), 0..=31 | 127..=159) {
-                        '\u{fffd}'
-                    } else {
-                        c
-                    }
-                })
-                .collect();
-        }
-    }
-    let mut out = input.clone();
-    for b in &mut out.boxes {
-        normalize(&mut b.text);
-    }
-    for label in &mut out.labels {
-        normalize(&mut label.text);
-    }
-    out
 }
 
 fn orient_rect(rect: &mut Rect, direction: Direction, height: i32) {

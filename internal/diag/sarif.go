@@ -1,6 +1,8 @@
 package diag
 
 import (
+	"maps"
+	"slices"
 	"strconv"
 
 	"github.com/gosuda/elegant-mermaid/internal/gen"
@@ -163,13 +165,7 @@ func orderedRuleCodes(codes []string) []string {
 	}
 	out := make([]string, 0, len(present))
 	out = appendRegistryCodes(out, present)
-	for _, code := range codes {
-		if present[code] {
-			delete(present, code)
-			out = append(out, code)
-		}
-	}
-	return out
+	return append(out, slices.Sorted(maps.Keys(present))...)
 }
 
 func appendRegistryCodes(out []string, present map[string]bool) []string {

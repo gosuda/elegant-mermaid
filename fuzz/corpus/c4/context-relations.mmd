@@ -1,0 +1,9 @@
+C4Context
+title System Context diagram
+Person(customer, "Customer", "A user of the bank")
+System(bank, "Banking System", "Holds accounts")
+System_Ext(mail, "Mail System")
+Rel(customer, bank, "Uses", "HTTPS")
+Rel_Back(mail, bank, "Sends email")
+BiRel(customer, mail, "Reads")
+UpdateRelStyle(customer, bank, $textColor="blue", $offsetY="-10")

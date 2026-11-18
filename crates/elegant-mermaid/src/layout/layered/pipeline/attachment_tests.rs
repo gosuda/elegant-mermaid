@@ -20,12 +20,14 @@ fn input(profile: Profile, direction: Direction) -> Input {
         sizes: Vec::new(),
         attachments: Vec::new(),
         region_sets: Vec::new(),
+        spacing: crate::layout::input::Spacing::default(),
     }
 }
 
 fn node(input: &mut Input, id: &str, parent: &str) -> usize {
     let index = input.boxes.len();
     input.boxes.push(InputBox {
+        icon: false,
         id: id.into(),
         role: BoxRole::Node,
         shape: String::new(),
@@ -70,6 +72,8 @@ fn edge(input: &mut Input, from: &str, to: &str, label: &str) {
         marker_end: String::new(),
         line: "solid".into(),
         min_length: 1,
+        from_side: None,
+        to_side: None,
     });
 }
 

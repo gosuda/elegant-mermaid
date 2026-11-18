@@ -46,10 +46,12 @@ func (d *Document) HasErrors() bool {
 	}
 	return false
 }
+
 func (d *Document) Position(offset int) Position {
 	p := d.index.Position(offset)
 	return Position{Line: p.Line, Column: p.Column}
 }
+
 func publicDiagnostics(ds []diag.Diagnostic) []Diagnostic {
 	out := make([]Diagnostic, len(ds))
 	for i, v := range ds {
@@ -67,6 +69,7 @@ func publicDiagnostics(ds []diag.Diagnostic) []Diagnostic {
 	}
 	return out
 }
+
 func cloneDiagnostics(ds []Diagnostic) []Diagnostic {
 	out := slices.Clone(ds)
 	for i := range out {
@@ -78,6 +81,7 @@ func cloneDiagnostics(ds []Diagnostic) []Diagnostic {
 	}
 	return out
 }
+
 func MarkdownBlocks(src []byte) []Block {
 	blocks := markdown.Blocks(src)
 	out := make([]Block, len(blocks))

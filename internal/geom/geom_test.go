@@ -5,6 +5,8 @@ import (
 	"math"
 	"math/big"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 type rng struct {
@@ -508,57 +510,95 @@ func isqrtExact(n int64, m int64) bool {
 
 func TestOperationErrors(t *testing.T) {
 	invalid := Rect{0, 0, -1, 0}
-	check := func(name string, err, want error) {
-		t.Helper()
-		if !errors.Is(err, want) {
-			t.Fatalf("%s: got %v want %v", name, err, want)
-		}
+	{
+		_, err := Translate(invalid, 1, 1)
+		require.ErrorIs(t, err, ErrDomain, "translate with an invalid rect must fail with ErrDomain")
 	}
-	_, err := Translate(invalid, 1, 1)
-	check("translate invalid rect", err, ErrDomain)
-	_, err = Translate(Rect{0, 0, 1, 1}, math.MaxInt32, 0)
-	check("translate overflow", err, ErrOverflow)
-	_, err = Translate(invalid, math.MaxInt32, 0)
-	check("translate domain before overflow", err, ErrDomain)
-	_, err = Inflate(invalid, 1)
-	check("inflate invalid rect", err, ErrDomain)
-	_, err = Inflate(Rect{0, 0, 4, 4}, -3)
-	check("inflate negative size", err, ErrDomain)
-	_, err = Inflate(Rect{2147483646, 0, 1, 1}, 1)
-	check("inflate overflow", err, ErrOverflow)
-	_, err = Inflate(Rect{2147483646, 0, 1, 1}, -5)
-	check("inflate domain before overflow", err, ErrDomain)
-	_, err = Union(Rect{2147483647, 0, 0, 0}, Rect{-2147483648, 0, 0, 0})
-	check("union overflow", err, ErrOverflow)
-	_, err = Union(invalid, Rect{0, 0, 0, 0})
-	check("union domain", err, ErrDomain)
-	_, err = Intersects(invalid, Rect{0, 0, 0, 0})
-	check("intersects domain", err, ErrDomain)
-	_, err = Contains(Rect{0, 0, 0, 0}, invalid)
-	check("contains domain", err, ErrDomain)
-	_, err = PlaceAfter(AxisX, Rect{2147483647, 0, 0, 0}, -1, Size{1, 1})
-	check("place_after negative gap", err, ErrDomain)
-	_, err = PlaceAfter(AxisX, Rect{0, 0, 0, 0}, 0, Size{-1, 1})
-	check("place_after negative size", err, ErrDomain)
-	_, err = PlaceAfter(AxisX, Rect{2147483647, 0, 0, 0}, 0, Size{1, 1})
-	check("place_after overflow", err, ErrOverflow)
-	_, err = PlaceAfter(AxisX, invalid, -1, Size{-1, 1})
-	check("place_after domain before overflow", err, ErrDomain)
-	_, err = Compact(AxisX, -1, nil)
-	check("compact negative gap", err, ErrDomain)
-	_, err = Compact(AxisX, 1, []Rect{invalid})
-	check("compact invalid item", err, ErrDomain)
-	_, err = Compact(AxisX, 1, []Rect{{0, 0, 2147483647, 0}, {0, 0, 1, 1}})
-	check("compact overflow", err, ErrOverflow)
+	{
+		_, err := Translate(Rect{0, 0, 1, 1}, math.MaxInt32, 0)
+		require.ErrorIs(t, err, ErrOverflow, "translate past the int32 edge must fail with ErrOverflow")
+	}
+	{
+		_, err := Translate(invalid, math.MaxInt32, 0)
+		require.ErrorIs(t, err, ErrDomain, "an invalid rect must fail with ErrDomain before the overflow is reached")
+	}
+	{
+		_, err := Inflate(invalid, 1)
+		require.ErrorIs(t, err, ErrDomain, "inflate with an invalid rect must fail with ErrDomain")
+	}
+	{
+		_, err := Inflate(Rect{0, 0, 4, 4}, -3)
+		require.ErrorIs(t, err, ErrDomain, "inflate that would produce a negative size must fail with ErrDomain")
+	}
+	{
+		_, err := Inflate(Rect{2147483646, 0, 1, 1}, 1)
+		require.ErrorIs(t, err, ErrOverflow, "inflate past the int32 edge must fail with ErrOverflow")
+	}
+	{
+		_, err := Inflate(Rect{2147483646, 0, 1, 1}, -5)
+		require.ErrorIs(t, err, ErrDomain, "a negative inflate size must fail with ErrDomain before the overflow is reached")
+	}
+	{
+		_, err := Union(Rect{2147483647, 0, 0, 0}, Rect{-2147483648, 0, 0, 0})
+		require.ErrorIs(t, err, ErrOverflow, "a union spanning the full int32 range must fail with ErrOverflow")
+	}
+	{
+		_, err := Union(invalid, Rect{0, 0, 0, 0})
+		require.ErrorIs(t, err, ErrDomain, "union with an invalid rect must fail with ErrDomain")
+	}
+	{
+		_, err := Intersects(invalid, Rect{0, 0, 0, 0})
+		require.ErrorIs(t, err, ErrDomain, "intersects with an invalid rect must fail with ErrDomain")
+	}
+	{
+		_, err := Contains(Rect{0, 0, 0, 0}, invalid)
+		require.ErrorIs(t, err, ErrDomain, "contains with an invalid inner rect must fail with ErrDomain")
+	}
+	{
+		_, err := PlaceAfter(AxisX, Rect{2147483647, 0, 0, 0}, -1, Size{1, 1})
+		require.ErrorIs(t, err, ErrDomain, "place_after with a negative gap must fail with ErrDomain")
+	}
+	{
+		_, err := PlaceAfter(AxisX, Rect{0, 0, 0, 0}, 0, Size{-1, 1})
+		require.ErrorIs(t, err, ErrDomain, "place_after with a negative size must fail with ErrDomain")
+	}
+	{
+		_, err := PlaceAfter(AxisX, Rect{2147483647, 0, 0, 0}, 0, Size{1, 1})
+		require.ErrorIs(t, err, ErrOverflow, "place_after past the int32 edge must fail with ErrOverflow")
+	}
+	{
+		_, err := PlaceAfter(AxisX, invalid, -1, Size{-1, 1})
+		require.ErrorIs(t, err, ErrDomain, "invalid place_after inputs must fail with ErrDomain before the overflow is reached")
+	}
+	{
+		_, err := Compact(AxisX, -1, nil)
+		require.ErrorIs(t, err, ErrDomain, "compact with a negative gap must fail with ErrDomain")
+	}
+	{
+		_, err := Compact(AxisX, 1, []Rect{invalid})
+		require.ErrorIs(t, err, ErrDomain, "compact with an invalid item must fail with ErrDomain")
+	}
+	{
+		_, err := Compact(AxisX, 1, []Rect{{0, 0, 2147483647, 0}, {0, 0, 1, 1}})
+		require.ErrorIs(t, err, ErrOverflow, "compact past the int32 edge must fail with ErrOverflow")
+	}
 	diag := Segment{A: Point{0, 0}, B: Point{1, 1}}
-	_, err = SegmentsCross(diag, diag)
-	check("segments_cross domain", err, ErrDomain)
-	_, err = PolylineHitsRect([]Point{{0, 0}}, invalid)
-	check("polyline_hits_rect invalid rect", err, ErrDomain)
-	_, err = PolylineHitsRect([]Point{{1 << 30, 0}}, Rect{0, 0, 1, 1})
-	check("polyline_hits_rect point outside limit", err, ErrDomain)
-	_, err = PolylineHitsRect([]Point{{0, 0}}, Rect{0, 0, (1 << 29) + 1, 0})
-	check("polyline_hits_rect edge outside limit", err, ErrDomain)
+	{
+		_, err := SegmentsCross(diag, diag)
+		require.ErrorIs(t, err, ErrDomain, "segments_cross with a diagonal segment must fail with ErrDomain")
+	}
+	{
+		_, err := PolylineHitsRect([]Point{{0, 0}}, invalid)
+		require.ErrorIs(t, err, ErrDomain, "polyline_hits_rect with an invalid rect must fail with ErrDomain")
+	}
+	{
+		_, err := PolylineHitsRect([]Point{{1 << 30, 0}}, Rect{0, 0, 1, 1})
+		require.ErrorIs(t, err, ErrDomain, "a point outside the coordinate limit must fail with ErrDomain")
+	}
+	{
+		_, err := PolylineHitsRect([]Point{{0, 0}}, Rect{0, 0, (1 << 29) + 1, 0})
+		require.ErrorIs(t, err, ErrDomain, "a rect edge outside the coordinate limit must fail with ErrDomain")
+	}
 }
 
 func TestSinQ15(t *testing.T) {

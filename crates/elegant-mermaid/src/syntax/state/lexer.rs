@@ -1,4 +1,6 @@
-use crate::source::Span;
+use std::borrow::Cow;
+
+use crate::source::{Span, cleaned::Cleaned};
 
 pub const MODES: &[&str] = &[
     "INITIAL",
@@ -31,14 +33,18 @@ pub const MODES: &[&str] = &[
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token<'a> {
     pub kind: &'static str,
-    pub text: &'a str,
+    pub text: Cow<'a, str>,
     pub span: Span,
 }
 
 pub fn lex<'a>(source: &'a str, removed: &[Span]) -> Vec<Token<'a>> {
+    lex_cleaned(&Cleaned::new(source, removed))
+}
+
+pub(crate) fn lex_cleaned<'c>(cleaned: &Cleaned<'c>) -> Vec<Token<'c>> {
     Scanner {
-        source,
-        removed,
+        cleaned,
+        source: cleaned.text(),
         at: 0,
         modes: vec!["INITIAL"],
         tokens: Vec::new(),
@@ -47,16 +53,16 @@ pub fn lex<'a>(source: &'a str, removed: &[Span]) -> Vec<Token<'a>> {
     }
     .run()
 }
-struct Scanner<'a, 'r> {
+struct Scanner<'a, 'c> {
+    cleaned: &'a Cleaned<'c>,
     source: &'a str,
-    removed: &'r [Span],
     at: usize,
     modes: Vec<&'static str>,
-    tokens: Vec<Token<'a>>,
+    tokens: Vec<Token<'c>>,
     pending: Option<usize>,
     opening: Option<usize>,
 }
-impl<'a> Scanner<'a, '_> {
+impl<'a, 'c> Scanner<'a, 'c> {
     fn mode(&self) -> &'static str {
         self.modes.last().copied().unwrap_or("INITIAL")
     }
@@ -70,42 +76,33 @@ impl<'a> Scanner<'a, '_> {
         self.pop();
         self.modes.push(mode);
     }
-    fn emit(&mut self, kind: &'static str, length: usize, value: &'a str) {
+    fn emit(&mut self, kind: &'static str, length: usize, value: &str) {
         let pending = self.pending.take();
         let start = if kind == "UNTERMINATED" {
             self.opening.or(pending).unwrap_or(self.at)
         } else {
             pending.unwrap_or(self.at)
         };
-        let value = if kind == "UNTERMINATED" {
-            &self.source[start..self.at + length]
+        let end = self.at + length;
+        let text = if kind == "UNTERMINATED" {
+            self.cleaned.cow(start, end)
         } else {
-            value
+            let from = value.as_ptr().addr() - self.source.as_ptr().addr();
+            self.cleaned.cow(from, from + value.len())
         };
         self.tokens.push(Token {
             kind,
-            text: value,
-            span: Span {
-                start,
-                end: self.at + length,
-            },
+            text,
+            span: self.cleaned.span(start, end),
         });
-        self.at += length;
+        self.at = end;
     }
     fn raw(&mut self, kind: &'static str, length: usize) {
         let value = &self.source[self.at..self.at + length];
         self.emit(kind, length, value);
     }
-    fn run(mut self) -> Vec<Token<'a>> {
+    fn run(mut self) -> Vec<Token<'c>> {
         while self.at < self.source.len() {
-            if let Some(span) = self
-                .removed
-                .iter()
-                .find(|s| s.start <= self.at && self.at < s.end)
-            {
-                self.at = span.end;
-                continue;
-            }
             let before = self.at;
             let mode = self.mode();
             let count = self.tokens.len();
@@ -127,11 +124,8 @@ impl<'a> Scanner<'a, '_> {
             let start = self.opening.or(self.pending).unwrap_or(self.at);
             self.tokens.push(Token {
                 kind: "UNTERMINATED",
-                text: &self.source[start..],
-                span: Span {
-                    start,
-                    end: self.at,
-                },
+                text: self.cleaned.cow(start, self.source.len()),
+                span: self.cleaned.span(start, self.at),
             });
         }
         if matches!(

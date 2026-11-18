@@ -258,3 +258,86 @@ fn json_grammar_failures() {
         Span { start: 9, end: 12 },
     );
 }
+
+#[test]
+fn json_literal_fails_at_first_rejected_byte() {
+    for (src, start, end) in [
+        ("{\"a\": truBe}", 9, 12),
+        ("{\"a\": tru}", 9, 10),
+        ("{\"a\": nulx}", 9, 11),
+        ("{\"a\": fals}", 10, 11),
+        ("{\"a\": True}", 6, 11),
+        ("{\"a\": x}", 6, 8),
+    ] {
+        let (_, ds) = parse_config_json(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start, end },
+        );
+    }
+}
+
+#[test]
+fn json_number_fails_at_first_rejected_byte() {
+    for (src, start, end) in [
+        ("{\"a\": -}", 7, 8),
+        ("{\"a\": -x}", 7, 9),
+        ("{\"a\": 1.}", 8, 9),
+        ("{\"a\": 1.x}", 8, 10),
+        ("{\"a\": 1e}", 8, 9),
+        ("{\"a\": 1e+}", 9, 10),
+        ("{\"a\": 1.5e-x}", 11, 13),
+        ("{\"a\": 1.\n}", 8, 9),
+    ] {
+        let (_, ds) = parse_config_json(src, 0, src.len());
+        check(
+            &ds,
+            C_MALFORMED,
+            "malformed config value",
+            Span { start, end },
+        );
+    }
+}
+
+#[test]
+fn root_plain_scalar_continues_at_column_zero() {
+    let src = "a\nb\n\nc\n";
+    let (v, ds) = parse_config_yaml(src, 0, src.len());
+    assert!(
+        ds.is_empty(),
+        "expected ds.is_empty(); observed ds={:?}",
+        ds
+    );
+    assert_eq!(v, ConfigValue::String(String::from("a b\nc")));
+    let src = "   a\nb\n";
+    let (_, ds) = parse_config_yaml(src, 0, src.len());
+    check(
+        &ds,
+        C_MALFORMED,
+        "malformed config value",
+        Span { start: 5, end: 6 },
+    );
+}
+
+#[test]
+fn quoted_colon_line_is_a_scalar() {
+    for quote in ["\"", "'"] {
+        for (name, src, want) in [
+            ("next line", "a:\n  Qx: yQ\n", "x: y"),
+            ("plain continuation", "a: v\n  Qx: yQ\n", "v Qx: yQ"),
+        ] {
+            let src = src.replace('Q', quote);
+            let want = want.replace('Q', quote);
+            assert_eq!(text(entry_value(&src, "a")), want, "{name}");
+        }
+        let item = format!("a:\n  - {quote}x: y{quote}\n");
+        assert_eq!(
+            sequence(entry_value(&item, "a")),
+            vec![ConfigValue::String(String::from("x: y"))]
+        );
+        let root = format!("{quote}a: b{quote}\n");
+        assert_eq!(parse_top(&root), ConfigValue::String(String::from("a: b")));
+    }
+}

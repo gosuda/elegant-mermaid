@@ -33,6 +33,7 @@ pub(crate) fn from_state(
         sizes: Vec::new(),
         attachments: Vec::new(),
         region_sets: Vec::new(),
+        spacing: super::input::Spacing::default(),
     };
     let mut names = Names::new(model);
     let region_ids: Vec<_> = model
@@ -95,6 +96,7 @@ fn append_state(
         } else {
             BoxRole::Node
         },
+        icon: false,
         shape: if composite.is_some() {
             String::new()
         } else {
@@ -197,6 +199,7 @@ fn append_regions(input: &mut Input, model: &Model, ids: &[String]) -> Vec<usize
             id: id.clone(),
             role: BoxRole::Group,
             shape: String::new(),
+            icon: false,
             parent: parent.clone(),
             exclusive: false,
             text: String::new(),
@@ -248,21 +251,22 @@ fn append_notes(input: &mut Input, model: &Model, names: &mut Names) -> Result<(
         }
         let id = names.claim(&format!("{}.note", state.id));
         let note_index = input.boxes.len();
+        let (side, direction) = match note.position.as_str() {
+            "left of" => (AttachmentSide::Left, "left"),
+            "right of" => (AttachmentSide::Right, "right"),
+            _ => return Err(GeomError::Domain),
+        };
         input.boxes.push(Box {
             id,
             role: BoxRole::Node,
             shape: "note".into(),
+            icon: false,
             parent: input.boxes[target].parent.clone(),
             exclusive: true,
             text: note.text.value.clone(),
-            direction: String::new(),
+            direction: direction.into(),
         });
         input.sizes.push(SizeRule::Measured);
-        let side = match note.position.as_str() {
-            "left of" => AttachmentSide::Left,
-            "right of" => AttachmentSide::Right,
-            _ => return Err(GeomError::Domain),
-        };
         input.attachments.push(Attachment {
             target,
             note: note_index,
@@ -296,6 +300,8 @@ fn append_transitions(input: &mut Input, model: &Model, names: &mut Names) {
             marker_end: "point".into(),
             line: "normal".into(),
             min_length: if label.is_some() { 2 } else { 1 },
+            from_side: None,
+            to_side: None,
         });
     }
 }
@@ -429,6 +435,56 @@ mod tests {
             assert_eq!(
                 input.groups[region].parent, "C",
                 "all concurrent regions must share their composite parent"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn composite_source_route_starts_on_frame_top() -> Result<(), GeomError> {
+        for profile in [Profile::Vector, Profile::Cell] {
+            let input = adapt(
+                "stateDiagram-v2\n  state Active {\n    A --> B\n    --\n    C --> D\n  }\n  Active --> A\n",
+                profile,
+            )?;
+            let (scene, _) = layout(&input)?;
+            let frame = scene
+                .boxes()
+                .iter()
+                .find(|b| b.id == "Active")
+                .ok_or(GeomError::Domain)?;
+            let route = scene
+                .routes()
+                .iter()
+                .find(|r| r.from == "Active" && r.to == "A")
+                .ok_or(GeomError::Domain)?;
+            let first = route.points.first().ok_or(GeomError::Domain)?;
+            assert!(
+                first.y == frame.rect.y
+                    && first.x >= frame.rect.x
+                    && first.x <= frame.rect.x + frame.rect.w,
+                "{profile:?}: route from composite must start on the frame top edge, \
+                 got {:?} with frame {:?}",
+                first,
+                frame.rect
+            );
+            let second = route.points.get(1).ok_or(GeomError::Domain)?;
+            assert!(
+                second.x == frame.rect.x
+                    && second.y >= frame.rect.y
+                    && second.y <= frame.rect.y + frame.rect.h,
+                "{profile:?}: route from composite must leave through the frame left edge, \
+                 got {:?} with frame {:?}",
+                second,
+                frame.rect
+            );
+            assert!(
+                route
+                    .points
+                    .windows(2)
+                    .all(|w| w[0].x == w[1].x || w[0].y == w[1].y),
+                "{profile:?}: route must stay orthogonal, got {:?}",
+                route.points
             );
         }
         Ok(())

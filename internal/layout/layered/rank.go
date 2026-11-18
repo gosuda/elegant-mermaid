@@ -42,7 +42,7 @@ func rankComponentGraph(g *Graph, members []int32) (*Graph, []int32) {
 	for _, v := range members {
 		included[v] = true
 	}
-	component := &Graph{Params: g.Params, Direction: g.Direction}
+	component := &Graph{Params: g.Params, Direction: g.Direction, Attachments: g.Attachments, semantic: g.semantic}
 	indices := make([]int32, 0, len(members))
 	local := make([]int32, len(g.Nodes))
 	for v, n := range g.Nodes {
@@ -62,8 +62,10 @@ func rankComponentGraph(g *Graph, members []int32) (*Graph, []int32) {
 	}
 	component.Clusters = componentClusters(g, included, local)
 	component.Fixed = componentFixed(g, included)
+	component.regions = g.regions
 	return component, indices
 }
+
 func componentClusters(g *Graph, included []bool, local []int32) []Cluster {
 	var clusters []Cluster
 	for _, c := range g.Clusters {
@@ -75,6 +77,7 @@ func componentClusters(g *Graph, included []bool, local []int32) []Cluster {
 	}
 	return clusters
 }
+
 func componentFixed(g *Graph, included []bool) []FixedGroup {
 	var fixed []FixedGroup
 	for _, f := range g.Fixed {

@@ -21,6 +21,126 @@ pub const FAMILIES: &[Family] = &[
         kind: "state",
         layout: super::state::layout,
     },
+    Family {
+        kind: "c4",
+        layout: super::c4::layout,
+    },
+    Family {
+        kind: "requirement",
+        layout: super::requirement::layout,
+    },
+    Family {
+        kind: "er",
+        layout: super::er::layout,
+    },
+    Family {
+        kind: "agentflow",
+        layout: super::agentflow::layout,
+    },
+    Family {
+        kind: "usecase",
+        layout: super::usecase::layout,
+    },
+    Family {
+        kind: "swimlane",
+        layout: super::swimlane::layout,
+    },
+    Family {
+        kind: "sequence",
+        layout: super::sequence::layout,
+    },
+    Family {
+        kind: "mindmap",
+        layout: super::mindmap::layout,
+    },
+    Family {
+        kind: "gitgraph",
+        layout: super::gitgraph::layout,
+    },
+    Family {
+        kind: "eventmodeling",
+        layout: super::eventmodeling::layout,
+    },
+    Family {
+        kind: "block",
+        layout: super::block::layout,
+    },
+    Family {
+        kind: "xychart",
+        layout: super::xychart::layout,
+    },
+    Family {
+        kind: "timeline",
+        layout: super::timeline::layout,
+    },
+    Family {
+        kind: "railroad",
+        layout: super::railroad::layout,
+    },
+    Family {
+        kind: "radar",
+        layout: super::radar::layout,
+    },
+    Family {
+        kind: "cynefin",
+        layout: super::cynefin::layout,
+    },
+    Family {
+        kind: "info",
+        layout: super::info::layout,
+    },
+    Family {
+        kind: "packet",
+        layout: super::packet::layout,
+    },
+    Family {
+        kind: "kanban",
+        layout: super::kanban::layout,
+    },
+    Family {
+        kind: "wardley",
+        layout: super::wardley::layout,
+    },
+    Family {
+        kind: "pie",
+        layout: super::pie::layout,
+    },
+    Family {
+        kind: "quadrant",
+        layout: super::quadrant::layout,
+    },
+    Family {
+        kind: "journey",
+        layout: super::journey::layout,
+    },
+    Family {
+        kind: "ishikawa",
+        layout: super::ishikawa::layout,
+    },
+    Family {
+        kind: "gantt",
+        layout: super::gantt::layout,
+    },
+    Family {
+        kind: "venn",
+        layout: super::venn::layout,
+    },
+    Family {
+        kind: "architecture",
+        layout: super::architecture::layout,
+    },
+    Family {
+        kind: "treeview",
+        layout: super::treeview::layout,
+    },
+    Family {
+        kind: "treemap",
+        layout: super::treemap::layout,
+    },
+    Family {
+        kind: "sankey",
+        layout: super::sankey::layout,
+    },
 ];
 pub fn layout(
     input: &Input,

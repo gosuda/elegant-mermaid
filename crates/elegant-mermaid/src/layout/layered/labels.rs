@@ -34,7 +34,10 @@ pub struct Placed {
     pub reservations: Vec<(usize, Rect)>,
 }
 
-pub fn stacks(input: &Input, lines: &[Vec<measure::Line<'_>>]) -> Result<Vec<Stack>, LayoutError> {
+pub fn stacks(
+    input: &Input,
+    lines: &[Vec<measure::StyledLine<'_>>],
+) -> Result<Vec<Stack>, LayoutError> {
     let slot = super::pipeline::constant(input.profile, "slot");
     input
         .routes
@@ -73,7 +76,7 @@ pub fn stacks(input: &Input, lines: &[Vec<measure::Line<'_>>]) -> Result<Vec<Sta
         .collect()
 }
 
-fn label_size(input: &Input, measured: &[measure::Line<'_>]) -> Result<Size, LayoutError> {
+fn label_size(input: &Input, measured: &[measure::StyledLine<'_>]) -> Result<Size, LayoutError> {
     let width = measured.iter().map(|line| line.width).max().unwrap_or(0);
     let height = narrow(
         i64::try_from(measured.len()).map_err(|_| LayoutError::Overflow)?

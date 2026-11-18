@@ -9,6 +9,7 @@ import (
 
 	"github.com/gosuda/elegant-mermaid/internal/cells"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
+	"github.com/gosuda/elegant-mermaid/internal/icon"
 	"github.com/gosuda/elegant-mermaid/internal/layout"
 	"github.com/gosuda/elegant-mermaid/internal/layout/layered"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
@@ -36,6 +37,7 @@ func Layout(ctx context.Context, d *Document, o LayoutOptions) (*Scene, error) {
 	if err != nil {
 		return nil, err
 	}
+	in.IconPacks = iconPacks(o.IconPacks)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -46,6 +48,7 @@ func Layout(ctx context.Context, d *Document, o LayoutOptions) (*Scene, error) {
 	if err != nil {
 		return nil, renderError(err)
 	}
+	layout.PlaceIcons(&value, d.diagram.IconRefs(), in.IconPacks)
 	return &Scene{value: value}, nil
 }
 
@@ -59,6 +62,7 @@ func documentLayoutInput(d *Document, options scene.Options) (layout.Input, erro
 	}
 	return in, nil
 }
+
 func layoutOptions(o LayoutOptions) (scene.Options, error) {
 	if o.Profile > ProfileCell || o.Thoroughness < 0 || o.Thoroughness > 5 || o.MaxWidth < 0 || int64(o.MaxWidth) > math.MaxInt32 {
 		return scene.Options{}, fmt.Errorf("%w: invalid layout option", ErrBadConfig)
@@ -69,10 +73,10 @@ func layoutOptions(o LayoutOptions) (scene.Options, error) {
 	if _, err := theme.Resolve(o.Theme); err != nil {
 		return scene.Options{}, fmt.Errorf("%w: %v", ErrBadConfig, err)
 	}
-	if len(o.IconPacks) != 0 {
-		return scene.Options{}, fmt.Errorf("%w: icon packs are not supported", ErrBadConfig)
+	if err := validateIconPacks(o.IconPacks); err != nil {
+		return scene.Options{}, err
 	}
-	if err := validateLayoutConfig(o.Config); err != nil {
+	if _, err := siteConfig(o.Config); err != nil {
 		return scene.Options{}, err
 	}
 	return scene.Options{Profile: scene.Profile(o.Profile), Thoroughness: int32(o.Thoroughness), MaxWidth: int32(o.MaxWidth), Limits: scene.Limits{MaxNodes: int32(o.Limits.MaxNodes), MaxEdges: int32(o.Limits.MaxEdges), MaxTextBytes: int32(o.Limits.MaxTextBytes)}}, nil
@@ -87,33 +91,70 @@ func validateModelLimits(l Limits) error {
 	return nil
 }
 
-func validateLayoutConfig(config []byte) error {
-	if len(bytes.TrimSpace(config)) == 0 {
-		return nil
-	}
-	value, ds := syntax.ParseConfigYAML(config, 0, len(config))
-	if len(ds) != 0 || value.Kind != syntax.ValueMapping {
-		return fmt.Errorf("%w: config must be a valid mapping", ErrBadConfig)
+func validateIconPacks(packs []*IconPack) error {
+	for _, p := range packs {
+		if p == nil || p.pack == nil {
+			return fmt.Errorf("%w: nil icon pack", ErrBadConfig)
+		}
 	}
 	return nil
 }
-func renderError(err error) error {
-	sentinel := ErrBadConfig
-	if errors.Is(err, layered.ErrTooLarge) {
-		sentinel = ErrTooLarge
-	} else if errors.Is(err, geom.ErrOverflow) {
-		sentinel = ErrOverflow
+
+func iconPacks(packs []*IconPack) []*icon.Pack {
+	out := make([]*icon.Pack, len(packs))
+	for i, p := range packs {
+		out[i] = p.pack
 	}
-	return fmt.Errorf("%w: %v", sentinel, err)
+	return out
 }
+
+func siteConfig(config []byte) (syntax.ConfigValue, error) {
+	value, err := layout.ParseSiteConfig(config)
+	if err != nil {
+		return syntax.ConfigValue{}, fmt.Errorf("%w: %v", ErrBadConfig, err)
+	}
+	return value, nil
+}
+
+type classifiedError struct {
+	sentinel error
+	cause    error
+}
+
+func (e *classifiedError) Error() string        { return e.cause.Error() }
+func (e *classifiedError) Is(target error) bool { return target == e.sentinel }
+func (e *classifiedError) Unwrap() error        { return e.cause }
+
+func renderError(err error) error {
+	switch {
+	case errors.Is(err, layered.ErrTooLarge):
+		return &classifiedError{sentinel: ErrTooLarge, cause: err}
+	case errors.Is(err, geom.ErrOverflow):
+		return &classifiedError{sentinel: ErrOverflow, cause: err}
+	}
+	return fmt.Errorf("%w: %v", ErrBadConfig, err)
+}
+
 func RenderSVG(ctx context.Context, d *Document, o SVGOptions) ([]byte, error) {
 	o.Profile = ProfileVector
 	s, err := Layout(ctx, d, o.LayoutOptions)
 	if err != nil {
 		return nil, err
 	}
+	site, err := siteConfig(o.Config)
+	if err != nil {
+		return nil, err
+	}
+	look, err := d.diagram.Look(site)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrBadConfig, err)
+	}
 	var out bytes.Buffer
-	opts := svg.Options{Theme: o.Theme, Background: o.Background, Text: svg.TextMode(o.Text), IDPrefix: o.IDPrefix, Kind: d.kind.String(), Title: d.diagram.AccTitle, Description: d.diagram.AccDescr}
+	opts := svg.Options{Theme: o.Theme, Background: o.Background, Text: svg.TextMode(o.Text), IDPrefix: o.IDPrefix, Kind: d.kind.String(), Title: d.diagram.AccTitle, Description: d.diagram.AccDescr, Look: look, Links: d.diagram.Links()}
+	if o.Outlines != nil {
+		fonts := o.Outlines.fonts
+		opts.Outlines = &fonts
+	}
 	err = svg.Write(&out, s.value, opts)
 	if cancelled := ctx.Err(); cancelled != nil {
 		return nil, cancelled
@@ -123,12 +164,14 @@ func RenderSVG(ctx context.Context, d *Document, o SVGOptions) ([]byte, error) {
 	}
 	return out.Bytes(), nil
 }
+
 func RenderSVGSource(ctx context.Context, src []byte, o SVGOptions) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	return RenderSVG(ctx, Parse(src), o)
 }
+
 func RenderText(ctx context.Context, d *Document, o TextOptions) ([]byte, error) {
 	o.Profile = ProfileCell
 	if err := ctx.Err(); err != nil {
@@ -153,6 +196,7 @@ func RenderText(ctx context.Context, d *Document, o TextOptions) ([]byte, error)
 	}
 	return result.Text, nil
 }
+
 func RenderTextSource(ctx context.Context, src []byte, o TextOptions) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

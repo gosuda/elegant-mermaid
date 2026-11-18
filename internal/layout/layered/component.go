@@ -5,23 +5,50 @@ import (
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 )
 
+type orderedComponent struct {
+	regions         *componentRegions
+	proper          *Proper
+	order           OrderResult
+	budgetExhausted bool
+}
+
 func runComponent(g *Graph, opts OrderOptions) (Layout, error) {
-	rank, err := RankWithBudget(g)
+	ordered, err := orderComponent(g, opts)
 	if err != nil {
 		return Layout{}, err
+	}
+	return ordered.place(g)
+}
+
+func orderComponent(g *Graph, opts OrderOptions) (orderedComponent, error) {
+	regions, err := newComponentRegions(g)
+	if err != nil {
+		return orderedComponent{}, err
+	}
+	rank, err := regions.rank(g)
+	if err != nil {
+		return orderedComponent{}, err
 	}
 	p, err := Normalize(g, rank.Ranks)
 	if err != nil {
-		return Layout{}, err
+		return orderedComponent{}, err
 	}
 	if err := sizeProperPorts(g, p); err != nil {
-		return Layout{}, err
+		return orderedComponent{}, err
+	}
+	if err := regions.constrain(p); err != nil {
+		return orderedComponent{}, err
 	}
 	order, err := OrderWithBudget(p, opts)
 	if err != nil {
-		return Layout{}, err
+		return orderedComponent{}, err
 	}
-	x, err := CrossCoords(p, order.Layers)
+	return orderedComponent{regions: regions, proper: p, order: order, budgetExhausted: rank.BudgetExhausted || order.BudgetExhausted}, nil
+}
+
+func (c orderedComponent) place(g *Graph) (Layout, error) {
+	p, order := c.proper, c.order
+	x, err := c.regions.crossCoords(p, order.Layers)
 	if err != nil {
 		return Layout{}, err
 	}
@@ -33,12 +60,15 @@ func runComponent(g *Graph, opts OrderOptions) (Layout, error) {
 	if err != nil {
 		return Layout{}, err
 	}
+	if err := reserveExactRanks(g, p, order.Layers, y, top); err != nil {
+		return Layout{}, err
+	}
 	routes, labels, err := RoutePoints(p, order.Layers, x, y, top, routing)
 	if err != nil {
 		return Layout{}, err
 	}
 	placement := componentPlacement{proper: p, x: x, y: y, bounds: routing.ClusterBounds}
-	return placement.finish(g, Layout{Routes: routes, Labels: labels, LabelReservations: routing.LabelReservations, BudgetExhausted: rank.BudgetExhausted || order.BudgetExhausted})
+	return placement.finish(g, Layout{Routes: routes, Labels: labels, LabelReservations: routing.LabelReservations, BudgetExhausted: c.budgetExhausted})
 }
 
 type componentPlacement struct {
@@ -80,6 +110,7 @@ func (placement componentPlacement) finish(g *Graph, part Layout) (Layout, error
 	}
 	return part, nil
 }
+
 func componentLoops(g *Graph, boxes []Box, part *Layout) error {
 	loops, err := Loops(g, boxes)
 	if err != nil {
@@ -97,6 +128,7 @@ func componentLoops(g *Graph, boxes []Box, part *Layout) error {
 	part.Extents, err = loopExtents(g, boxes)
 	return err
 }
+
 func visibleRoutes(g *Graph, source []EdgeRoute) []EdgeRoute {
 	routes := make([]EdgeRoute, 0, len(source))
 	for i, r := range source {
@@ -109,6 +141,7 @@ func visibleRoutes(g *Graph, source []EdgeRoute) []EdgeRoute {
 	}
 	return routes
 }
+
 func clusterFrame(c Cluster, bounds horizontalSpan, y []int32) (geom.Rect, error) {
 	top, bottom := y[c.Top], y[c.Bottom]
 	if bottom < top {

@@ -43,8 +43,10 @@ const (
 	ColorTruecolor
 )
 
-type RGB = theme.Colour
-type ColourLookup func(Token) RGB
+type (
+	RGB          = theme.Colour
+	ColourLookup func(Token) RGB
+)
 
 func distance(a, b RGB) int {
 	r := int(a.R) - int(b.R)
@@ -52,6 +54,7 @@ func distance(a, b RGB) int {
 	z := int(a.B) - int(b.B)
 	return r*r + g*g + z*z
 }
+
 func cube(v uint8) int {
 	if v < 48 {
 		return 0
@@ -61,6 +64,7 @@ func cube(v uint8) int {
 	}
 	return (int(v) - 35) / 40
 }
+
 func ANSI256(c RGB) int {
 	levels := [6]uint8{0, 95, 135, 175, 215, 255}
 	r, g, b := cube(c.R), cube(c.G), cube(c.B)
@@ -80,6 +84,7 @@ func ANSI256(c RGB) int {
 	}
 	return index
 }
+
 func ANSI16(c RGB) int {
 	raw := [16][3]uint8{{0, 0, 0}, {205, 0, 0}, {0, 205, 0}, {205, 205, 0}, {0, 0, 238}, {205, 0, 205}, {0, 205, 205}, {229, 229, 229}, {127, 127, 127}, {255, 0, 0}, {0, 255, 0}, {255, 255, 0}, {92, 92, 255}, {255, 0, 255}, {0, 255, 255}, {255, 255, 255}}
 	var palette [16]RGB
@@ -94,6 +99,7 @@ func ANSI16(c RGB) int {
 	}
 	return best
 }
+
 func SGR(mode ColorMode, token Token, lookup ColourLookup) string {
 	if token <= TokenFG {
 		return "\x1b[39m"

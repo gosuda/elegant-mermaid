@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const REPOSITORY_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CORPUS_DIRECTORY = join(REPOSITORY_ROOT, 'corpus');
 const REGISTRY_PATH = join(REPOSITORY_ROOT, 'spec', 'data', 'kinds.json');
-const SKIPPED_DIRECTORIES = new Set(['.cache', '_out-of-scope']);
+const SKIPPED_DIRECTORIES = new Set(['.cache', '_out-of-scope', 'termgfx']);
 const PSEUDO_DIAGRAM_TYPES = new Set(['error', '---']);
 
 function fail(message) {

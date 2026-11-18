@@ -141,7 +141,7 @@ fn collect_lanes(
             head: edge.head,
             decl: edge.decl,
             slot: -1,
-            source_x: leading_boundary(p, x, edge.tail, source),
+            source_x: leading_boundary(p, x, edge.tail, source)?,
             target_x: lane,
             edges: Vec::new(),
         });
@@ -151,7 +151,7 @@ fn collect_lanes(
             head: edge.head,
             decl: edge.decl,
             slot: -1,
-            source_x: leading_boundary(p, x, edge.head, target),
+            source_x: leading_boundary(p, x, edge.head, target)?,
             target_x: lane,
             edges: Vec::new(),
         });
@@ -233,20 +233,154 @@ pub fn place(
     Ok(labels)
 }
 
-fn leading_boundary(p: &Proper, x: &[i32], node: usize, port: i32) -> i32 {
+fn leading_boundary(p: &Proper, x: &[i32], node: usize, port: i32) -> Result<i32, LayoutError> {
     let anchor = &p.nodes[node];
     if anchor.node.h != 0 || anchor.node.id.is_empty() {
-        return port;
+        return Ok(port);
     }
-    p.nodes
-        .iter()
-        .enumerate()
-        .filter(|(i, candidate)| {
-            candidate.edge == -2
-                && candidate.node.decl == anchor.node.decl
-                && p.rank[*i] == p.rank[node]
-        })
-        .map(|(i, _)| x[i])
-        .min()
-        .unwrap_or(port)
+    let mut frame_left = None::<i64>;
+    for (i, candidate) in p.nodes.iter().enumerate() {
+        if candidate.edge == -2 && candidate.node.decl == anchor.node.decl {
+            let left = i64::from(x[i]) - i64::from(candidate.node.w) / 2;
+            frame_left = Some(frame_left.map_or(left, |lowest| lowest.min(left)));
+        }
+    }
+    frame_left.map_or(Ok(port), narrow)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layout::layered::graph::{Node, Params, Proper, ProperNode};
+    use crate::{LayoutOptions, Profile, layout, parse};
+
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+    const SOURCE: &str = "flowchart TB\n  n1[T]\n  subgraph g2[g2]\n    n3[X]\n  end\n  n3 --> n1\n  g2 --> n3\n  n1 --> g2\n";
+
+    fn border(id: &str, decl: i32, w: i32, edge: i32) -> ProperNode {
+        ProperNode {
+            node: Node {
+                id: id.to_owned(),
+                decl,
+                w,
+                h: 0,
+            },
+            dummy: false,
+            label: false,
+            edge,
+        }
+    }
+
+    #[test]
+    fn layered_leading_boundary_is_the_frame_left_edge() -> TestResult {
+        let p = Proper {
+            nodes: vec![
+                border("g", 0, 0, -4),
+                border("", 0, 512, -2),
+                border("", 0, 512, -2),
+                border("", 0, 640, -2),
+                border("", 1, 512, -2),
+                border("", 0, 512, -3),
+            ],
+            edges: Vec::new(),
+            rank: vec![0, 0, 1, 2, 0, 0],
+            chains: Vec::new(),
+            out: Vec::new(),
+            r#in: Vec::new(),
+            params: Params::for_profile("vector")?,
+        };
+        let x = [0, 3000, 2900, 3100, 100, 100];
+        let frame_left = p
+            .nodes
+            .iter()
+            .zip(x)
+            .filter(|(n, _)| n.edge == -2 && n.node.decl == 0)
+            .map(|(n, x)| x - n.node.w / 2)
+            .min()
+            .ok_or("no left border")?;
+        assert_eq!(leading_boundary(&p, &x, 0, -999)?, frame_left);
+        assert_eq!(leading_boundary(&p, &x, 5, -999)?, -999);
+        Ok(())
+    }
+
+    fn channel_runs(points: &[Point], frame_left: i32, frame_top: i32) -> Vec<(i32, i32)> {
+        points
+            .windows(2)
+            .filter(|w| {
+                w[0].y == w[1].y
+                    && w[0].y > frame_top
+                    && w[0].x != w[1].x
+                    && (w[0].x == frame_left || w[1].x == frame_left)
+            })
+            .map(|w| (w[0].y, w[0].x.max(w[1].x)))
+            .collect()
+    }
+
+    fn orient(a: Point, b: Point, c: Point) -> i64 {
+        (i64::from(b.x - a.x) * i64::from(c.y - a.y) - i64::from(b.y - a.y) * i64::from(c.x - a.x))
+            .signum()
+    }
+
+    fn crossings(p: &[Point], q: &[Point]) -> usize {
+        let mut count = 0;
+        for a in p.windows(2) {
+            for b in q.windows(2) {
+                if orient(a[0], a[1], b[0]) * orient(a[0], a[1], b[1]) == -1
+                    && orient(b[0], b[1], a[0]) * orient(b[0], b[1], a[1]) == -1
+                {
+                    count += 1;
+                }
+            }
+        }
+        count
+    }
+
+    #[test]
+    fn layered_reversed_run_at_group_top_starts_at_frame_left() -> TestResult {
+        for profile in [Profile::Vector, Profile::Cell] {
+            let options = LayoutOptions {
+                profile,
+                thoroughness: 1,
+                ..LayoutOptions::default()
+            };
+            let scene = layout(&parse(SOURCE), &options)?;
+            let rect = |id: &str| scene.boxes().iter().find(|b| b.id == id).map(|b| b.rect);
+            let route = |id: &str| {
+                scene
+                    .routes()
+                    .iter()
+                    .find(|r| r.id == id)
+                    .map(|r| r.points.as_slice())
+            };
+            let (frame, n1) = (rect("g2").ok_or("no g2")?, rect("n1").ok_or("no n1")?);
+            let (e1, e2) = (route("e1").ok_or("no e1")?, route("e2").ok_or("no e2")?);
+            assert!(
+                n1.y > frame.y,
+                "{profile:?}: n1 must lie below g2 so that e2 is drawn upward as a reversed run"
+            );
+            let first = channel_runs(e1, frame.x, frame.y);
+            let second = channel_runs(e2, frame.x, frame.y);
+            assert_eq!(
+                (first.len(), second.len()),
+                (1, 1),
+                "{profile:?}: each route needs one channel run on the frame_left gutter"
+            );
+            assert!(
+                first[0].0 < second[0].0,
+                "{profile:?}: both runs start at frame_left and go right, so the lower decl (e1) takes the lower slot line: {first:?} {second:?}"
+            );
+            let descent = e1.last().ok_or("empty e1")?;
+            assert!(
+                descent.x > frame.x && descent.x < second[0].1 && descent.y > second[0].0,
+                "{profile:?}: e1 must descend through the e2 run"
+            );
+            assert_eq!(
+                crossings(e1, e2),
+                1,
+                "{profile:?}: e1 descends through the higher e2 slot line"
+            );
+        }
+        Ok(())
+    }
 }

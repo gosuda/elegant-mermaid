@@ -45,7 +45,7 @@ fn state_alias_keeps_body_and_colon_identifier_distinction() -> Result<(), &'sta
         return Err("expected alias declaration");
     };
     assert_eq!(id.text.trim(), "a: detail");
-    assert_eq!(description.as_ref().map(|t| t.text), Some("First"));
+    assert_eq!(description.as_ref().map(|t| t.text.as_ref()), Some("First"));
     assert!(
         body.is_none(),
         "alias without braces must not acquire a body: {body:?}"
@@ -107,7 +107,7 @@ fn state_rejects_entire_chained_transition_and_recovers_inside_scope() -> Result
     let StatementKind::Transition { from, to, .. } = &children[0].kind else {
         return Err("expected surviving transition");
     };
-    assert_eq!((from.id.text, to.id.text), ("D", "E"));
+    assert_eq!((from.id.text.as_ref(), to.id.text.as_ref()), ("D", "E"));
     Ok(())
 }
 
@@ -147,7 +147,7 @@ fn state_quoted_descriptions_and_block_notes_retain_physical_line_ends() -> Resu
         return Err("expected attached note");
     };
     assert_eq!(text.text, "first\r\nsecond");
-    assert_eq!((position.value, target.text), ("left_of", "A"));
+    assert_eq!((position.value, target.text.as_ref()), ("left_of", "A"));
     Ok(())
 }
 
@@ -201,8 +201,11 @@ fn state_styles_keep_order_and_literal_components() -> Result<(), &'static str> 
     else {
         return Err("expected transition");
     };
-    assert_eq!(from.css_class.as_ref().map(|t| t.text), Some("marked"));
-    assert_eq!(description.as_ref().map(|t| t.text), Some(": go"));
+    assert_eq!(
+        from.css_class.as_ref().map(|t| t.text.as_ref()),
+        Some("marked")
+    );
+    assert_eq!(description.as_ref().map(|t| t.text.as_ref()), Some(": go"));
     Ok(())
 }
 
@@ -215,7 +218,7 @@ fn state_comment_split_and_source_order_are_observable() -> Result<(), &'static 
     let ids: Vec<_> = tokens
         .iter()
         .filter(|t| t.kind == "ID")
-        .map(|t| t.text)
+        .map(|t| t.text.as_ref())
         .collect();
     assert_eq!(ids, ["A"]);
     let direction = tokens
@@ -320,7 +323,7 @@ fn state_directives_and_symbol_alternatives_keep_typed_facts() -> Result<(), &'s
     let stereotypes: Vec<_> = statements
         .iter()
         .filter_map(|s| match &s.kind {
-            StatementKind::Stereotype { id, stereotype } => Some((id.text, *stereotype)),
+            StatementKind::Stereotype { id, stereotype } => Some((id.text.as_ref(), *stereotype)),
             _ => None,
         })
         .collect();
@@ -335,12 +338,12 @@ fn state_directives_and_symbol_alternatives_keep_typed_facts() -> Result<(), &'s
     let StatementKind::FloatingNote { text, id } = &statements[4].kind else {
         return Err("floating note must remain distinct");
     };
-    assert_eq!((text.text, id.text.trim()), ("memo", "Float"));
+    assert_eq!((text.text.as_ref(), id.text.trim()), ("memo", "Float"));
     let StatementKind::Click { url, tooltip, .. } = &statements[5].kind else {
         return Err("expected quoted link");
     };
     assert_eq!(url.text, "https://example.com");
-    assert_eq!(tooltip.as_ref().map(|t| t.text), Some("tip"));
+    assert_eq!(tooltip.as_ref().map(|t| t.text.as_ref()), Some("tip"));
     let StatementKind::Click { tooltip, .. } = &statements[6].kind else {
         return Err("expected href link");
     };
@@ -473,8 +476,14 @@ fn state_composite_opens_brace_on_next_line_keeps_children_and_spans() -> Result
     else {
         return Err("expected transition after the composite");
     };
-    assert_eq!((from.id.text, to.id.text), ("Parent", "Other"));
-    assert_eq!(description.as_ref().map(|t| t.text), Some(": label"));
+    assert_eq!(
+        (from.id.text.as_ref(), to.id.text.as_ref()),
+        ("Parent", "Other")
+    );
+    assert_eq!(
+        description.as_ref().map(|t| t.text.as_ref()),
+        Some(": label")
+    );
     Ok(())
 }
 

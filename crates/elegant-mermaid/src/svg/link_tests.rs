@@ -54,6 +54,7 @@ fn render(links: &[OwnerLink<'_>]) -> String {
 fn svg_links_wrap_matching_owner_and_escape_url_and_tooltip() {
     let links = [OwnerLink {
         owner: "A",
+        role: GroupRole::Node,
         url: SafeUrl::new(" \tHTTPS://example.test/?a='\"<&> \n").unwrap(),
         tooltip: Some("Open 'A' \"now\" <&>"),
     }];
@@ -84,16 +85,19 @@ fn svg_links_duplicate_owner_uses_last_record_and_ignores_absent_owners() {
     let links = [
         OwnerLink {
             owner: "edge0",
+            role: GroupRole::Edge,
             url: SafeUrl::new("http://first.test").unwrap(),
             tooltip: Some("old"),
         },
         OwnerLink {
             owner: "absent",
+            role: GroupRole::Node,
             url: SafeUrl::new("https://absent.test").unwrap(),
             tooltip: None,
         },
         OwnerLink {
             owner: "edge0",
+            role: GroupRole::Edge,
             url: SafeUrl::new("mailto:last@example.test").unwrap(),
             tooltip: None,
         },
@@ -121,5 +125,35 @@ fn svg_links_duplicate_owner_uses_last_record_and_ignores_absent_owners() {
         out.replace(opening, "").replace("</a>\n", ""),
         render(&[]),
         "a tooltip-free link must leave all other output unchanged"
+    );
+}
+
+#[test]
+fn svg_links_require_the_matching_group_role_and_a_nonempty_owner() {
+    let url = SafeUrl::new("https://example.test").unwrap();
+    let links = [
+        OwnerLink {
+            owner: "A",
+            role: GroupRole::Group,
+            url,
+            tooltip: None,
+        },
+        OwnerLink {
+            owner: "A",
+            role: GroupRole::Edge,
+            url,
+            tooltip: None,
+        },
+        OwnerLink {
+            owner: "",
+            role: GroupRole::Decor,
+            url,
+            tooltip: None,
+        },
+    ];
+    assert_eq!(
+        render(&links),
+        render(&[]),
+        "a link whose role or owner does not match a group must leave the output unchanged"
     );
 }

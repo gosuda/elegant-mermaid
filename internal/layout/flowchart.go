@@ -18,7 +18,7 @@ func FromFlowchart(m *flowchart.Model, profile scene.Profile, options scene.Opti
 		if isGroup(m, n.ID) {
 			continue
 		}
-		in.Boxes = append(in.Boxes, Box{ID: n.ID, Role: scene.RoleNode, Shape: n.Shape, Parent: nodeParent(m, n.ID), Exclusive: true, Text: nodeText(n)})
+		in.Boxes = append(in.Boxes, Box{ID: n.ID, Role: scene.RoleNode, Shape: n.Shape, Icon: n.Attrs["icon"] != "", Parent: nodeParent(m, n.ID), Exclusive: true, Text: nodeText(n)})
 	}
 	for _, g := range m.Groups {
 		in.Boxes = append(in.Boxes, Box{ID: g.ID, Role: scene.RoleGroup, Parent: g.Parent, Text: g.Title, Direction: g.Direction})

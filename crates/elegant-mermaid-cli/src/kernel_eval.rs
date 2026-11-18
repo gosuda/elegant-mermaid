@@ -4,27 +4,32 @@ use std::path::Path;
 
 use elegant_mermaid::geom::CaseError;
 
+use crate::error::{InputError, UsageError};
+use crate::input;
+
 const USAGE: &str = "Usage: emd kernel-eval FILE\n";
+const COMMAND: &str = "kernel-eval";
 
 pub(crate) struct Failure {
     pub(crate) stdout: String,
     pub(crate) error: KernelError,
 }
 
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum KernelError {
-    UnknownToken(String),
-    Unreadable { path: String, error: String },
+    #[error(transparent)]
+    Usage(#[from] UsageError),
+    #[error(transparent)]
+    Input(#[from] InputError),
+    #[error("bad case line {0}")]
     BadLine(usize),
 }
 
-impl KernelError {
-    pub(crate) fn message(&self) -> String {
-        match self {
-            KernelError::UnknownToken(token) => {
-                format!("unknown flag {token}; run emd kernel-eval --help")
-            }
-            KernelError::Unreadable { path, error } => format!("cannot read {path}: {error}"),
-            KernelError::BadLine(line) => format!("bad case line {line}"),
+impl From<KernelError> for Failure {
+    fn from(error: KernelError) -> Self {
+        Self {
+            stdout: String::new(),
+            error,
         }
     }
 }
@@ -40,24 +45,16 @@ pub(crate) fn eval_file(args: &[OsString]) -> Result<String, Failure> {
 }
 
 fn eval_input(args: &[OsString], input: &mut impl Read) -> Result<String, Failure> {
-    match parse(args) {
-        Ok(Invocation::Help) => Ok(USAGE.to_owned()),
-        Ok(Invocation::Stdin) => {
+    match parse(args)? {
+        Invocation::Help => Ok(USAGE.to_owned()),
+        Invocation::Stdin => {
             let mut bytes = Vec::new();
-            input.read_to_end(&mut bytes).map_err(|error| Failure {
-                stdout: String::new(),
-                error: KernelError::Unreadable {
-                    path: "-".to_owned(),
-                    error: error.to_string(),
-                },
+            input.read_to_end(&mut bytes).map_err(|source| {
+                KernelError::from(input::read_error(input::STDIN_LABEL, source))
             })?;
             evaluate(&bytes)
         }
-        Ok(Invocation::File(path)) => run_cases(path),
-        Err(error) => Err(Failure {
-            stdout: String::new(),
-            error,
-        }),
+        Invocation::File(path) => run_cases(path),
     }
 }
 
@@ -75,10 +72,14 @@ fn parse(args: &[OsString]) -> Result<Invocation<'_>, KernelError> {
             return Ok(Invocation::Help);
         }
         if flag {
-            return Err(KernelError::UnknownToken(text.into_owned()));
+            return Err(UsageError::UnknownFlag {
+                flag: text.into_owned(),
+                command: COMMAND,
+            }
+            .into());
         }
         if file.is_some() {
-            return Err(KernelError::UnknownToken(text.into_owned()));
+            return Err(UsageError::ExtraInput { command: COMMAND }.into());
         }
         file = Some(arg.as_os_str());
     }
@@ -90,13 +91,8 @@ fn parse(args: &[OsString]) -> Result<Invocation<'_>, KernelError> {
 }
 
 fn run_cases(path: &OsStr) -> Result<String, Failure> {
-    let bytes = std::fs::read(Path::new(path)).map_err(|error| Failure {
-        stdout: String::new(),
-        error: KernelError::Unreadable {
-            path: path.to_string_lossy().into_owned(),
-            error: error.to_string(),
-        },
-    })?;
+    let bytes = std::fs::read(Path::new(path))
+        .map_err(|source| KernelError::from(input::read_error(&path.to_string_lossy(), source)))?;
     evaluate(&bytes)
 }
 
@@ -120,14 +116,14 @@ mod tests {
         for args in [vec![], vec![OsString::from("-")]] {
             let mut input = &b"isqrt 99 -> 9\ncount_inversions [3,1,2] -> 2\n"[..];
             let result = eval_input(&args, &mut input)
-                .map_err(|failure| (failure.stdout, failure.error.message()));
+                .map_err(|failure| (failure.stdout, failure.error.to_string()));
             assert!(
                 matches!(&result, Ok(out) if out == "9\n2\n"),
                 "stdin kernel cases must emit both results for {args:?}: {result:?}"
             );
             let mut bad = &b"isqrt 99 -> 9\ncount_inversions [3,1,2] -> 2\nbroken\n"[..];
             let result = eval_input(&args, &mut bad)
-                .map_err(|failure| (failure.stdout, failure.error.message()));
+                .map_err(|failure| (failure.stdout, failure.error.to_string()));
             assert!(
                 matches!(&result, Err((stdout, error))
                 if stdout == "9\n2\n" && error == "bad case line 3"),
@@ -142,7 +138,7 @@ mod tests {
         std::fs::write(&path, b"isqrt 99 -> 9\ncount_inversions [3,1,2] -> 2\n")?;
         let args = [path.clone().into_os_string()];
         let result = eval_input(&args, &mut std::io::empty())
-            .map_err(|failure| (failure.stdout, failure.error.message()));
+            .map_err(|failure| (failure.stdout, failure.error.to_string()));
         assert!(
             matches!(&result, Ok(out) if out == "9\n2\n"),
             "file kernel cases must emit both results for {args:?}: {result:?}"
@@ -152,7 +148,7 @@ mod tests {
             b"isqrt 99 -> 9\ncount_inversions [3,1,2] -> 2\nbroken\n",
         )?;
         let result = eval_input(&args, &mut std::io::empty())
-            .map_err(|failure| (failure.stdout, failure.error.message()));
+            .map_err(|failure| (failure.stdout, failure.error.to_string()));
         assert!(
             matches!(&result, Err((stdout, error))
             if stdout == "9\n2\n" && error == "bad case line 3"),
@@ -161,10 +157,10 @@ mod tests {
         std::fs::remove_file(path)?;
         let args = [OsString::from("a"), OsString::from("b")];
         let result = eval_input(&args, &mut std::io::empty())
-            .map_err(|failure| (failure.stdout, failure.error.message()));
+            .map_err(|failure| (failure.stdout, failure.error.to_string()));
         assert!(
             matches!(&result, Err((stdout, error))
-            if stdout.is_empty() && error == "unknown flag b; run emd kernel-eval --help"),
+            if stdout.is_empty() && error == "kernel-eval accepts one INPUT"),
             "extra kernel operand must be rejected without output for {args:?}: {result:?}"
         );
         Ok(())

@@ -8,31 +8,31 @@ import (
 
 	"github.com/gosuda/elegant-mermaid/internal/cells"
 	"github.com/gosuda/elegant-mermaid/internal/diag"
+	"github.com/gosuda/elegant-mermaid/internal/fileerr"
 	"github.com/gosuda/elegant-mermaid/internal/layout"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 )
 
 func layoutModel(cfg Config) error {
-	metrics, dump, args, err := metricArgs(cfg.Args)
+	o, err := layoutFlags(cfg.Args[1:])
 	if err != nil {
 		return err
 	}
-	cfg.Args = args
-	parseArgs := args[1:]
-	path, profile, err := modelArgs(parseArgs)
-	if err != nil {
-		return err
-	}
-	if metrics && profile == scene.ProfileCell {
+	if o.metrics && o.profile == scene.ProfileCell {
 		return errors.New("--metrics needs --profile vector")
 	}
-	if dump != "" {
-		return writeDumpMetrics(cfg, dump)
+	if o.dumped && !o.metrics {
+		return errors.New("--dump requires --metrics")
 	}
-	return layoutSource(cfg, path, profile, metrics)
+	if o.dumped {
+		return writeDumpMetrics(cfg, o.dump)
+	}
+	return layoutSource(cfg, o)
 }
 
-func layoutSource(cfg Config, path string, profile scene.Profile, metrics bool) error {
+func layoutSource(cfg Config, o layoutOptions) error {
+	path := o.path
+	profile := o.profile
 	src, err := modelSource(cfg, path)
 	if err != nil {
 		return err
@@ -52,21 +52,21 @@ func layoutSource(cfg Config, path string, profile scene.Profile, metrics bool) 
 	}
 	in, err := m.Input(profile, scene.Options{})
 	if err != nil {
-		return err
+		return resultError(cfg, err)
 	}
-	if metrics {
+	if o.metrics {
 		return writeSourceMetrics(cfg, path, src, in, m)
 	}
-	return writeLayoutResult(cfg, path, src, in)
+	return writeLayoutResult(cfg, path, src, in, o.model)
 }
 
-func writeLayoutResult(cfg Config, path string, src []byte, in layout.Input) error {
-	if modelStage(cfg.Args[1:]) {
+func writeLayoutResult(cfg Config, path string, src []byte, in layout.Input, model bool) error {
+	if model {
 		return layout.WriteModelDump(cfg.Stdout, in)
 	}
 	s, diagnostics, err := layout.Layout(in)
 	if err != nil {
-		return err
+		return resultError(cfg, err)
 	}
 	if err = diag.RenderText(cfg.Stderr, path, src, diagnostics, diag.FrameOptions{}); err != nil {
 		return err
@@ -88,7 +88,7 @@ func modelSource(cfg Config, path string) ([]byte, error) {
 	if path != "-" {
 		src, err := os.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("cannot read %s: %w", path, err)
+			return nil, fileerr.Read(path, err)
 		}
 		return src, nil
 	}
@@ -99,151 +99,140 @@ func modelSource(cfg Config, path string) ([]byte, error) {
 	if terminalWriter(input) {
 		return nil, errors.New("missing INPUT; pass a path or pipe Mermaid source")
 	}
-	return io.ReadAll(input)
+	src, err := io.ReadAll(input)
+	if err != nil {
+		return nil, fileerr.Read(stdinPath, err)
+	}
+	return src, nil
 }
 
-func modelArgs(args []string) (string, scene.Profile, error) {
-	path := "-"
-	profile := scene.ProfileVector
-	positional := false
-	flags := true
-	for i := 0; i < len(args); i++ {
-		a := args[i]
-		if flags && a == "--" {
-			flags = false
-			continue
-		}
-		if flags && modelValueFlag(a) {
-			n, err := consumeModelFlag(args[i:], &profile)
-			if err != nil {
-				return "", profile, err
+type layoutOptions struct {
+	path          string
+	profile       scene.Profile
+	dump          string
+	model         bool
+	metrics       bool
+	dumped        bool
+	positionalSet bool
+}
+
+func layoutFlags(args []string) (layoutOptions, error) {
+	o := layoutOptions{path: "-", profile: scene.ProfileVector}
+	for len(args) > 0 {
+		arg := args[0]
+		args = args[1:]
+		switch {
+		case arg == "--":
+			return o, o.setPaths(args)
+		case isFlagArg(arg):
+			var err error
+			if args, err = o.setFlag(arg, args); err != nil {
+				return o, err
 			}
-			i += n
-			continue
+		default:
+			if err := o.setPath(arg); err != nil {
+				return o, err
+			}
 		}
-		if flags && isModelFlag(a) {
-			return "", profile, fmt.Errorf("unknown flag %s; run emd layout --help", a)
-		}
-		if positional {
-			return "", profile, errors.New("layout accepts one INPUT")
-		}
-		path = a
-		positional = true
 	}
-	return path, profile, nil
+	return o, nil
 }
 
-func modelValueFlag(a string) bool {
-	return a == "--stage" || a == "--profile"
-}
-
-func isModelFlag(a string) bool {
-	return len(a) > 1 && a[0] == '-'
-}
-
-func consumeModelFlag(args []string, profile *scene.Profile) (int, error) {
-	if len(args) < 2 {
-		return 0, fmt.Errorf("missing value for %s", args[0])
-	}
-	return 1, modelFlag(args[0], args[1], profile)
-}
-
-func modelFlag(flag, value string, profile *scene.Profile) error {
-	if flag == "--stage" {
-		if value != "model" && value != "layout" {
-			return fmt.Errorf("invalid value %s for --stage; expected one of: model, layout", value)
+func (o *layoutOptions) setPaths(paths []string) error {
+	for _, path := range paths {
+		if err := o.setPath(path); err != nil {
+			return err
 		}
-		return nil
-	}
-	switch value {
-	case "vector":
-		*profile = scene.ProfileVector
-	case "cell":
-		*profile = scene.ProfileCell
-	default:
-		return fmt.Errorf("invalid value %s for --profile; expected one of: vector, cell", value)
 	}
 	return nil
 }
 
-func modelStage(args []string) bool {
-	for i := 0; i+1 < len(args); i++ {
-		if args[i] == "--" {
-			break
-		}
-		if args[i] == "--stage" && args[i+1] == "model" {
-			return true
-		}
+func (o *layoutOptions) setPath(path string) error {
+	if o.positionalSet {
+		return errors.New("layout accepts one INPUT")
 	}
-	return false
+	o.path, o.positionalSet = path, true
+	return nil
 }
 
-func metricArgs(args []string) (bool, string, []string, error) {
-	out := make([]string, 0, len(args))
-	metrics := false
-	dump := ""
-	for i := 0; i < len(args); i++ {
-		if args[i] == "--" {
-			out = append(out, args[i:]...)
-			break
-		}
-		switch args[i] {
-		case "--metrics":
-			metrics = true
-		case "--dump":
-			if i+1 == len(args) {
-				return false, "", nil, errors.New("missing value for --dump")
-			}
-			i++
-			dump = args[i]
-		default:
-			out = append(out, args[i])
-		}
+func (o *layoutOptions) setFlag(arg string, rest []string) ([]string, error) {
+	token, ok := splitFlag(arg)
+	if !ok {
+		return nil, unknownFlag(arg, "layout")
 	}
-	if dump != "" && !metrics {
-		return false, "", nil, errors.New("--dump requires --metrics")
+	switch token.name {
+	case "metrics":
+		on, err := token.switchValue()
+		o.metrics = on
+		return rest, err
+	case "profile", "stage", "dump":
+		value, rest, err := token.operand(arg, rest)
+		if err != nil {
+			return nil, err
+		}
+		return rest, o.setValue(token.name, value)
 	}
-	return metrics, dump, out, nil
+	return nil, unknownFlag(arg, "layout")
 }
+
+func (o *layoutOptions) setValue(name, value string) error {
+	switch {
+	case name == "dump":
+		o.dump, o.dumped = value, true
+	case name == "stage" && (value == "model" || value == "layout"):
+		o.model = value == "model"
+	case name == "profile" && value == "vector":
+		o.profile = scene.ProfileVector
+	case name == "profile" && value == "cell":
+		o.profile = scene.ProfileCell
+	case name == "stage":
+		return invalidValue(value, "--stage", "model, layout")
+	default:
+		return invalidValue(value, "--profile", "vector, cell")
+	}
+	return nil
+}
+
 func writeDumpMetrics(cfg Config, path string) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return fileerr.Read(path, err)
 	}
 	d, err := scene.ReadMetricDump(data)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", path, err)
 	}
 	m, err := scene.MeasureMetrics(&d, 0)
 	if err != nil {
-		return err
+		return resultError(cfg, err)
 	}
 	_, err = cfg.Stdout.Write(m.AppendJSON(nil))
 	return err
 }
+
 func writeSourceMetrics(cfg Config, path string, src []byte, in layout.Input, model *layout.Diagram) error {
 	s, ds, err := layout.Layout(in)
 	if err != nil {
-		return err
+		return resultError(cfg, err)
 	}
 	if err = diag.RenderText(cfg.Stderr, path, src, ds, diag.FrameOptions{}); err != nil {
 		return err
 	}
 	cell, err := model.Input(scene.ProfileCell, scene.Options{})
 	if err != nil {
-		return err
+		return resultError(cfg, err)
 	}
 	cs, _, err := layout.Layout(cell)
 	if err != nil {
-		return err
+		return resultError(cfg, err)
 	}
 	rendered, err := cells.Render(cs, cells.Options{})
 	if err != nil {
-		return err
+		return resultError(cfg, err)
 	}
 	m, err := scene.MeasureMetrics(&s.Dump, rendered.RefusedClusters)
 	if err != nil {
-		return err
+		return resultError(cfg, err)
 	}
 	m.HardOK = m.HardOK && rendered.RouteConflicts == 0
 	_, err = cfg.Stdout.Write(m.AppendJSON(nil))

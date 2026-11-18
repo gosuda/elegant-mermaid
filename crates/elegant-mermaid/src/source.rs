@@ -1,5 +1,9 @@
 use std::borrow::Cow;
 
+pub(crate) mod cleaned;
+#[cfg(test)]
+mod comment_barrier_tests;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
     pub start: usize,

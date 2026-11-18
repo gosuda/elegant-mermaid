@@ -89,17 +89,102 @@ fn balance(s: &str) {
     );
 }
 #[test]
-fn svg_golden() {
-    assert_eq!(
-        output(
-            &sample(),
-            &Options {
-                kind: "flowchart",
-                ..Options::default()
-            }
-        ),
-        include_str!("../../../../internal/svg/testdata/two-box.svg")
+fn svg_two_boxes_preserve_geometry_text_and_accessibility() {
+    let svg = output(
+        &sample(),
+        &Options {
+            kind: "flowchart",
+            ..Options::default()
+        },
     );
+    let tags: Vec<_> = svg
+        .split('<')
+        .skip(1)
+        .filter_map(|part| part.split_once('>').map(|(tag, _)| tag))
+        .collect();
+    assert_svg_canvas(&tags);
+    assert_svg_accessibility(&svg, &tags);
+    assert_svg_node_geometry(&tags);
+    assert_svg_node_text(&svg, &tags);
+}
+
+fn assert_svg_canvas(tags: &[&str]) {
+    let root = tags.iter().find(|tag| tag.starts_with("svg ")).unwrap();
+    assert_eq!(attribute(root, "xmlns"), Some("http://www.w3.org/2000/svg"));
+    assert_eq!(attribute(root, "viewBox"), Some("0 0 200 60"));
+    assert_eq!(attribute(root, "width"), Some("200"));
+    assert_eq!(attribute(root, "height"), Some("60"));
+}
+
+fn assert_svg_accessibility(svg: &str, tags: &[&str]) {
+    let root = tags.iter().find(|tag| tag.starts_with("svg ")).unwrap();
+    assert_eq!(attribute(root, "role"), Some("graphics-document document"));
+    assert_eq!(attribute(root, "aria-roledescription"), Some("diagram"));
+    let title_id = attribute(root, "aria-labelledby").unwrap();
+    let title = tags.iter().find(|tag| tag.starts_with("title ")).unwrap();
+    assert_eq!(attribute(title, "id"), Some(title_id));
+    assert!(
+        svg.contains(">Mermaid flowchart diagram</title>"),
+        "SVG must include the default accessible flowchart title; SVG: {svg}"
+    );
+}
+
+fn assert_svg_node_geometry(tags: &[&str]) {
+    let boxes: Vec<_> = tags
+        .iter()
+        .filter(|tag| tag.starts_with("rect ") && attribute(tag, "class") == Some("emd-s-node"))
+        .collect();
+    assert_eq!(boxes.len(), 2);
+    for (tag, x) in boxes.iter().zip(["10", "130"]) {
+        assert_eq!(attribute(tag, "x"), Some(x));
+        assert_eq!(attribute(tag, "y"), Some("10"));
+        assert_eq!(attribute(tag, "width"), Some("60"));
+        assert_eq!(attribute(tag, "height"), Some("40"));
+    }
+    assert_eq!(attribute(boxes[1], "rx"), Some("8"));
+    assert_eq!(attribute(boxes[1], "ry"), Some("8"));
+    assert_eq!(
+        tags.iter()
+            .filter(|tag| attribute(tag, "class") == Some("emd-node"))
+            .count(),
+        2
+    );
+}
+
+fn assert_svg_node_text(svg: &str, tags: &[&str]) {
+    let labels: Vec<_> = tags.iter().filter(|tag| tag.starts_with("text ")).collect();
+    assert_eq!(labels.len(), 2);
+    for (tag, x) in labels.iter().zip(["40", "160"]) {
+        assert_eq!(attribute(tag, "x"), Some(x));
+        assert_eq!(attribute(tag, "text-anchor"), Some("middle"));
+        assert_eq!(attribute(tag, "font-size"), Some("14"));
+    }
+    let lines: Vec<_> = tags
+        .iter()
+        .filter(|tag| tag.starts_with("tspan "))
+        .collect();
+    assert_eq!(lines.len(), 2);
+    for line in lines {
+        assert_eq!(attribute(line, "y"), Some("24.89"));
+    }
+    assert!(
+        svg.contains(">A</tspan>"),
+        "first node label must preserve A in a tspan; SVG: {svg}"
+    );
+    assert!(
+        svg.contains(">B</tspan>"),
+        "second node label must preserve B in a tspan; SVG: {svg}"
+    );
+}
+
+fn attribute<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
+    let start = tag.find(&format!(" {name}="))? + name.len() + 2;
+    let value = &tag[start..];
+    let quote = value.chars().next()?;
+    if quote != '\'' && quote != '"' {
+        return None;
+    }
+    value[1..].split_once(quote).map(|(value, _)| value)
 }
 #[test]
 fn svg_number() {
@@ -154,16 +239,16 @@ fn svg_markers() {
         (MarkerAxis::PlusY, "10,10 6,2 14,2"),
         (MarkerAxis::MinusY, "10,10 14,18 6,18"),
     ] {
-        let mut r = Renderer {
-            theme: theme::resolve("").unwrap(),
-            used: BTreeSet::new(),
-        };
+        let mut r = Renderer::new(theme::resolve("").unwrap(), Look::default());
         assert!(
-            r.marker(&MarkerRefItem {
-                marker: MarkerName::new("point").unwrap(),
-                at: Point { x: 640, y: 640 },
-                axis
-            })
+            r.marker(
+                &MarkerRefItem {
+                    marker: MarkerName::new("point").unwrap(),
+                    at: Point { x: 640, y: 640 },
+                    axis
+                },
+                0
+            )
             .unwrap()
             .contains(want),
             "svg markers: contract r.marker(&MarkerRefItem {{ marker: MarkerName::new(\"point\").unwrap(), at: Point {{ x: 640, y: 640 }}, axis }}) .unwrap() .contains(want) failed; observed predicate=false"
@@ -233,4 +318,61 @@ fn svg_invalid() {
             "svg invalid: contract write(&mut String::new(), &sample(), &o).is_err() failed; observed predicate=false"
         );
     }
+}
+
+#[test]
+fn corpus_svg_titles() -> Result<(), Box<dyn std::error::Error>> {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let inventory = std::process::Command::new("python3")
+        .args([
+            "-c",
+            "import json\nv=json.load(open('corpus/verdicts.json'))\nfor p in sorted(v): print(p)",
+        ])
+        .current_dir(&root)
+        .output()?;
+    assert!(
+        inventory.status.success(),
+        "{}",
+        String::from_utf8_lossy(&inventory.stderr)
+    );
+    let paths = String::from_utf8(inventory.stdout)?;
+    assert!(!paths.is_empty(), "no corpus fixtures");
+    let mut accepted = 0;
+    let mut failures = Vec::new();
+    for path in paths.lines() {
+        let source = std::fs::read(root.join(path))?;
+        let document = crate::parse_bytes(&source);
+        if document.has_errors() {
+            continue;
+        }
+        accepted += 1;
+        let svg = match crate::render_svg(&document, &crate::SvgOptions::default()) {
+            Ok(svg) => svg,
+            Err(error) => {
+                failures.push(format!("{path}: {error}"));
+                continue;
+            }
+        };
+        let root_tag = svg.split('<').find_map(|part| {
+            part.strip_prefix("svg ")
+                .and_then(|tag| tag.split_once('>').map(|(tag, _)| tag))
+        });
+        let labelled_by = root_tag.and_then(|tag| attribute(tag, "aria-labelledby"));
+        let has_title = svg.split('<').any(|part| {
+            let Some((tag, content)) = part.split_once('>') else {
+                return false;
+            };
+            tag.starts_with("title ")
+                && labelled_by.is_some_and(|id| !id.is_empty() && attribute(tag, "id") == Some(id))
+                && !content.trim().is_empty()
+        });
+        if !has_title {
+            failures.push(format!(
+                "{path}: SVG has no non-empty title referenced by aria-labelledby"
+            ));
+        }
+    }
+    assert!(accepted > 0, "no accepted corpus fixtures");
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+    Ok(())
 }

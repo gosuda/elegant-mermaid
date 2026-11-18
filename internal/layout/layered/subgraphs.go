@@ -14,6 +14,7 @@ func fixedGroup(groups []FixedGroup, id string) *FixedGroup {
 	}
 	return nil
 }
+
 func inputParent(in Input, id string) string {
 	for _, b := range in.Boxes {
 		if b.ID == id {
@@ -22,6 +23,7 @@ func inputParent(in Input, id string) string {
 	}
 	return ""
 }
+
 func inputInside(in Input, id, group string) bool {
 	for fuel := len(in.Boxes) + 1; id != "" && fuel > 0; fuel-- {
 		if id == group {
@@ -31,6 +33,7 @@ func inputInside(in Input, id, group string) bool {
 	}
 	return false
 }
+
 func crossingGroup(in Input, id string) bool {
 	for _, r := range in.Routes {
 		if properEndpoint(in, r.From, id) != properEndpoint(in, r.To, id) {
@@ -39,10 +42,15 @@ func crossingGroup(in Input, id string) bool {
 	}
 	return false
 }
+
 func properEndpoint(in Input, id, group string) bool {
 	return id != group && inputInside(in, id, group)
 }
+
 func prepareSubgraphs(in Input, opts Options) (Input, error) {
+	if err := validateRegionSets(in); err != nil {
+		return Input{}, err
+	}
 	prepared := in
 	prepared.Boxes = slices.Clone(in.Boxes)
 	prepared.Text = slices.Clone(in.Text)
@@ -51,24 +59,48 @@ func prepareSubgraphs(in Input, opts Options) (Input, error) {
 	prepared.Edges = slices.Clone(in.Edges)
 	for _, box := range in.Boxes {
 		g := GroupOptions{ID: box.ID, Direction: box.Direction}
-		if box.Role != scene.RoleGroup || g.Direction == "" || !hasInputBox(prepared, g.ID) {
+		if !directedGroup(in, prepared, box) {
 			continue
 		}
 		if crossingGroup(in, g.ID) {
-			if opts.IgnoredDirections != nil {
-				*opts.IgnoredDirections = append(*opts.IgnoredDirections, g.ID)
-			}
+			recordIgnoredDirection(opts, g.ID)
 			continue
 		}
-		fixed, err := layoutSubgraph(in, g, opts)
+		folded, err := foldSubgraph(in, prepared, g, opts)
 		if err != nil {
 			return Input{}, err
 		}
-		prepared = collapseSubgraph(prepared, g.ID)
-		prepared.Fixed = append(prepared.Fixed, fixed)
+		prepared = folded
 	}
 	return prepared, nil
 }
+
+func directedGroup(in, prepared Input, box scene.Box) bool {
+	return box.Role == scene.RoleGroup && box.Direction != "" && hasInputBox(prepared, box.ID) && !regionMember(in, box.ID)
+}
+
+func recordIgnoredDirection(opts Options, id string) {
+	if opts.IgnoredDirections != nil {
+		*opts.IgnoredDirections = append(*opts.IgnoredDirections, id)
+	}
+}
+
+func foldSubgraph(in, prepared Input, g GroupOptions, opts Options) (Input, error) {
+	fixed, err := layoutSubgraph(in, g, opts)
+	if err != nil {
+		return Input{}, err
+	}
+	collapsed := collapseSubgraph(prepared, g.ID)
+	if collapsed.Attachments, err = projectAttachments(prepared, retainedBoxes(prepared, collapsed)); err != nil {
+		return Input{}, err
+	}
+	if collapsed.RegionSets, err = collapsedRegionSets(prepared, g.ID, collapsed); err != nil {
+		return Input{}, err
+	}
+	collapsed.Fixed = append(collapsed.Fixed, fixed)
+	return collapsed, nil
+}
+
 func hasInputBox(in Input, id string) bool {
 	for _, b := range in.Boxes {
 		if b.ID == id {
@@ -77,8 +109,17 @@ func hasInputBox(in Input, id string) bool {
 	}
 	return false
 }
+
 func layoutSubgraph(in Input, g GroupOptions, opts Options) (FixedGroup, error) {
 	sub := subgraphInput(in, g.ID)
+	attachments, err := projectAttachments(in, retainedBoxes(in, sub))
+	if err != nil {
+		return FixedGroup{}, err
+	}
+	sub.Attachments = attachments
+	if sub.RegionSets, err = subgraphRegionSets(in, sub); err != nil {
+		return FixedGroup{}, err
+	}
 	opts.Scene.Direction, _ = scene.ParseDirection(g.Direction)
 	var packing packingReservations
 	opts.capturePacking = &packing
@@ -86,6 +127,7 @@ func layoutSubgraph(in Input, g GroupOptions, opts Options) (FixedGroup, error) 
 	if err != nil {
 		return FixedGroup{}, err
 	}
+	stripRegionRoot(&s, g.ID)
 	margin := constant(opts.Scene.Profile, "canvas_margin")
 	if err := shiftScene(&s, -int64(margin), -int64(margin)); err != nil {
 		return FixedGroup{}, err
@@ -94,6 +136,7 @@ func layoutSubgraph(in Input, g GroupOptions, opts Options) (FixedGroup, error) 
 	s.Canvas.H -= 2 * margin
 	return frameSubgraph(in, g.ID, fixedContents{scene: s, packing: packing}, opts.Scene)
 }
+
 func subOwner(in Input, id string) bool {
 	for _, r := range in.Routes {
 		if r.ID == id {
@@ -102,6 +145,7 @@ func subOwner(in Input, id string) bool {
 	}
 	return false
 }
+
 func collapseSubgraph(in Input, id string) Input {
 	out := Input{Kind: in.Kind, Fixed: in.Fixed}
 	for i, b := range in.Boxes {
@@ -110,6 +154,7 @@ func collapseSubgraph(in Input, id string) Input {
 		}
 		out.Boxes = append(out.Boxes, b)
 		out.Text = append(out.Text, inputBoxText(in, i))
+		appendBoxSizes(&out, in, i)
 	}
 	for i, r := range in.Routes {
 		if properEndpoint(in, r.From, id) && properEndpoint(in, r.To, id) {
@@ -124,6 +169,7 @@ func collapseSubgraph(in Input, id string) Input {
 	}
 	return out
 }
+
 func shiftScene(s *scene.Scene, dx, dy int64) error {
 	for i := range s.Boxes {
 		b := Box{Rect: s.Boxes[i].Rect}
@@ -159,6 +205,7 @@ func inputBoxText(in Input, index int) string {
 	}
 	return in.Boxes[index].ID
 }
+
 func appendInputRoute(out *Input, in Input, index int) {
 	out.Routes = append(out.Routes, in.Routes[index])
 	option := EdgeOptions{}
@@ -167,26 +214,41 @@ func appendInputRoute(out *Input, in Input, index int) {
 	}
 	out.Edges = append(out.Edges, option)
 }
+
 func subgraphInput(in Input, id string) Input {
+	owns := ownsRegions(in, id)
 	sub := Input{Kind: in.Kind}
 	for i, b := range in.Boxes {
-		if b.ID == id || !inputInside(in, b.ID, id) {
+		member, ok := subgraphMember(in, b, id, owns)
+		if !ok {
 			continue
 		}
-		if b.Parent == id {
-			b.Parent = ""
-		}
-		sub.Boxes = append(sub.Boxes, b)
+		sub.Boxes = append(sub.Boxes, member)
 		sub.Text = append(sub.Text, inputBoxText(in, i))
+		appendBoxSizes(&sub, in, i)
 	}
 	subgraphRoutes(&sub, in, id)
 	for _, l := range in.Labels {
-		if labelOwnerPresent(sub, l.Owner) {
+		if l.Owner != id && labelOwnerPresent(sub, l.Owner) {
 			sub.Labels = append(sub.Labels, l)
 		}
 	}
 	return sub
 }
+
+func subgraphMember(in Input, b scene.Box, id string, owns bool) (scene.Box, bool) {
+	if !inputInside(in, b.ID, id) || b.ID == id && !owns {
+		return b, false
+	}
+	switch {
+	case b.ID == id:
+		b.Parent, b.Direction = "", ""
+	case b.Parent == id && !owns:
+		b.Parent = ""
+	}
+	return b, true
+}
+
 func subgraphRoutes(out *Input, in Input, id string) {
 	for i, r := range in.Routes {
 		if properEndpoint(in, r.From, id) && properEndpoint(in, r.To, id) {

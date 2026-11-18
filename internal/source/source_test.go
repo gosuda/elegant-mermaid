@@ -42,13 +42,7 @@ func randomText(x *xorshift32) []byte {
 }
 
 func naivePosition(src []byte, offset int) Position {
-	target := offset
-	if target < 0 {
-		target = 0
-	}
-	if target > len(src) {
-		target = len(src)
-	}
+	target := min(max(0, offset), len(src))
 	for target > 0 && target < len(src) && src[target]&0xC0 == 0x80 {
 		target--
 	}

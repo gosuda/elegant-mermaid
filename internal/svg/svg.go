@@ -8,7 +8,9 @@ import (
 	"unicode"
 
 	"github.com/gosuda/elegant-mermaid/internal/gen"
+	"github.com/gosuda/elegant-mermaid/internal/interaction"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
+	"github.com/gosuda/elegant-mermaid/internal/scenelink"
 	"github.com/gosuda/elegant-mermaid/internal/theme"
 )
 
@@ -23,6 +25,9 @@ type Options struct {
 	Theme, Background                              string
 	Text                                           TextMode
 	IDPrefix, Title, Description, Kind, FontFamily string
+	Look                                           scene.Look
+	Links                                          []interaction.OwnerLink
+	Outlines                                       *scenelink.Outlines
 }
 type ConfigError struct{ Reason string }
 
@@ -30,13 +35,16 @@ func (e *ConfigError) Error() string { return "svg: " + e.Reason }
 
 type renderer struct {
 	strings.Builder
-	theme theme.Theme
-	used  map[string]bool
+	theme    theme.Theme
+	used     map[string]bool
+	look     scene.Look
+	sketched sketchedClasses
+	outlines *scenelink.Outlines
 }
 
 func Write(w io.Writer, s scene.Scene, opts Options) error {
-	if opts.Text != TextFont {
-		return &ConfigError{"text paths are not supported"}
+	if err := validateText(opts); err != nil {
+		return err
 	}
 	if !validPrefix(opts.IDPrefix) {
 		return &ConfigError{"invalid ID prefix"}
@@ -45,31 +53,71 @@ func Write(w io.Writer, s scene.Scene, opts Options) error {
 	if err != nil {
 		return err
 	}
-	var body strings.Builder
-	for i, g := range s.Groups {
-		fmt.Fprintf(&body, "<g class='emd-%s' id='%sg%d'>\n", g.Role.String(), escape(opts.IDPrefix), i)
-		for _, p := range g.Items {
-			out, e := r.primitive(p)
-			if e != nil {
-				return e
-			}
-			body.WriteString(out)
-		}
-		body.WriteString("</g>\n")
+	r.look = opts.Look
+	if opts.Text == TextPaths {
+		r.outlines = opts.Outlines
 	}
+	body, err := r.body(s, opts)
+	if err != nil {
+		return err
+	}
+	if err := r.document(s, opts, bg, body); err != nil {
+		return err
+	}
+	_, err = io.WriteString(w, r.String())
+	return err
+}
+
+func (r *renderer) body(s scene.Scene, opts Options) (string, error) {
+	links := indexLinks(opts.Links)
+	var body strings.Builder
+	index := 0
+	for i, g := range s.Groups {
+		link, linked := links[linkKey{g.Owner, g.Role}]
+		if linked {
+			body.WriteString(link.open())
+		}
+		next, err := r.group(&body, g, i, index, opts.IDPrefix)
+		if err != nil {
+			return "", err
+		}
+		index = next
+		if linked {
+			body.WriteString("</a>\n")
+		}
+	}
+	return body.String(), nil
+}
+
+func (r *renderer) group(body *strings.Builder, g *scene.Group, i, index int, idPrefix string) (int, error) {
+	fmt.Fprintf(body, "<g class='emd-%s' id='%sg%d'>\n", g.Role.String(), escape(idPrefix), i)
+	for _, p := range g.Items {
+		out, err := r.primitive(p, index)
+		index++
+		if err != nil {
+			return index, err
+		}
+		body.WriteString(out)
+	}
+	body.WriteString("</g>\n")
+	return index, nil
+}
+
+func (r *renderer) document(s scene.Scene, opts Options, bg, body string) error {
 	width, height := number(int64(s.Canvas.W)), number(int64(s.Canvas.H))
 	r.header(opts, width, height)
 	r.WriteString("<style>\n.emd-bg{fill:" + bg + "}\n")
 	if err := r.styles(); err != nil {
 		return err
 	}
-	r.WriteString(".emd-t-title{font-weight:600}\n.emd-t-label{font-weight:600}\n.emd-t-body{font-weight:400}\n</style>\n")
+	r.WriteString(".emd-t-title{font-weight:600}\n.emd-t-label{font-weight:600}\n.emd-t-body{font-weight:400}\n")
+	r.WriteString("</style>\n")
 	fmt.Fprintf(&r.Builder, "<rect class='emd-bg' x='0' y='0' width='%s' height='%s'/>\n", width, height)
-	r.WriteString(body.String())
+	r.WriteString(body)
 	r.WriteString("</svg>\n")
-	_, err = io.WriteString(w, r.String())
-	return err
+	return nil
 }
+
 func (r *renderer) header(opts Options, width, height string) {
 	title := opts.Title
 	if title == "" {
@@ -89,6 +137,7 @@ func (r *renderer) header(opts Options, width, height string) {
 		fmt.Fprintf(&r.Builder, "<desc id='%sdesc'>%s</desc>\n", opts.IDPrefix, escape(opts.Description))
 	}
 }
+
 func validPrefix(s string) bool {
 	if s == "" {
 		return true
@@ -100,6 +149,7 @@ func validPrefix(s string) bool {
 	}
 	return true
 }
+
 func number(v int64) string {
 	sign := ""
 	if v < 0 {
@@ -113,6 +163,7 @@ func number(v int64) string {
 	}
 	return sign + out
 }
+
 func escape(s string) string {
 	var b strings.Builder
 	for _, c := range s {
@@ -134,6 +185,7 @@ func escape(s string) string {
 	}
 	return b.String()
 }
+
 func xmlRune(c rune) rune {
 	if c == '\n' || c == '\r' || c == '\t' {
 		return c
@@ -143,6 +195,7 @@ func xmlRune(c rune) rune {
 	}
 	return c
 }
+
 func prepare(opts Options) (renderer, string, error) {
 	t, err := theme.Resolve(opts.Theme)
 	if err != nil {
@@ -158,12 +211,14 @@ func prepare(opts Options) (renderer, string, error) {
 	}
 	return renderer{theme: t, used: make(map[string]bool)}, bg, nil
 }
+
 func class(style string, n uint8) string {
 	if strings.HasPrefix(style, "series") || style == "text-on-series" {
 		return style + "-" + strconv.Itoa(int(n))
 	}
 	return style
 }
+
 func styleRow(name string) (gen.Style, error) {
 	for _, s := range gen.Styles {
 		if s.Name == name {
@@ -172,6 +227,7 @@ func styleRow(name string) (gen.Style, error) {
 	}
 	return gen.Style{}, &ConfigError{"unknown style " + name}
 }
+
 func colourToken(name string, n uint8) (theme.Token, error) {
 	if name == "series" {
 		return theme.Series0 + theme.Token(n%12), nil
@@ -183,6 +239,7 @@ func colourToken(name string, n uint8) (theme.Token, error) {
 	}
 	return 0, &ConfigError{"unknown colour token " + name}
 }
+
 func (r *renderer) fillColour(name string, n uint8) (string, error) {
 	if name == "none" {
 		return name, nil
@@ -193,6 +250,7 @@ func (r *renderer) fillColour(name string, n uint8) (string, error) {
 	}
 	return r.theme.Colour(token).Hex(), nil
 }
+
 func (r *renderer) strokeColour(name string, n uint8) (string, error) {
 	if name == "none" {
 		return name, nil
@@ -204,21 +262,107 @@ func (r *renderer) strokeColour(name string, n uint8) (string, error) {
 	return r.theme.Colour(r.theme.Stroke(token)).Hex(), nil
 }
 
-var styleOrder = []string{"node", "group", "band", "note", "edge", "rule", "mark", "mark-hollow", "ink", "ink-line", "series", "series-line", "series-tint", "series-flow", "error", "warning", "success", "plate", "text", "text-muted", "text-inverse", "text-on-series"}
+func styleName(i int) string {
+	switch {
+	case i < 6:
+		return structuralStyleName(i)
+	case i < 10:
+		return symbolStyleName(i)
+	case i < 14:
+		return seriesStyleName(i)
+	case i < 18:
+		return surfaceStyleName(i)
+	default:
+		return textStyleName(i)
+	}
+}
+
+func structuralStyleName(i int) string {
+	switch i {
+	case 0:
+		return "node"
+	case 1:
+		return "group"
+	case 2:
+		return "band"
+	case 3:
+		return "note"
+	case 4:
+		return "edge"
+	case 5:
+		return "rule"
+	default:
+		panic("invalid structural style index")
+	}
+}
+
+func symbolStyleName(i int) string {
+	switch i {
+	case 6:
+		return "mark"
+	case 7:
+		return "mark-hollow"
+	case 8:
+		return "ink"
+	case 9:
+		return "ink-line"
+	default:
+		panic("invalid symbol style index")
+	}
+}
+
+func seriesStyleName(i int) string {
+	switch i {
+	case 10:
+		return "series"
+	case 11:
+		return "series-line"
+	case 12:
+		return "series-tint"
+	case 13:
+		return "series-flow"
+	default:
+		panic("invalid series style index")
+	}
+}
+
+func surfaceStyleName(i int) string {
+	switch i {
+	case 14:
+		return "error"
+	case 15:
+		return "warning"
+	case 16:
+		return "success"
+	case 17:
+		return "plate"
+	default:
+		panic("invalid surface style index")
+	}
+}
+
+func textStyleName(i int) string {
+	switch i {
+	case 18:
+		return "text"
+	case 19:
+		return "text-muted"
+	case 20:
+		return "text-inverse"
+	case 21:
+		return "text-on-series"
+	default:
+		panic("invalid text style index")
+	}
+}
 
 func (r *renderer) styles() error {
-	for _, name := range styleOrder {
-		for n := uint8(0); n < 12; n++ {
+	for i := range 22 {
+		name := styleName(i)
+		for n := range uint8(12) {
 			key := class(name, n)
-			if !r.used[key] {
-				continue
-			}
-			row, e := styleRow(name)
-			if e != nil {
-				return e
-			}
-			if e = r.styleRule(key, row, n); e != nil {
-				return e
+			if err := r.usedStyle(key, name, n, r.sketched[i][n]); err != nil {
+				return err
 			}
 			if key == name {
 				break
@@ -227,6 +371,23 @@ func (r *renderer) styles() error {
 	}
 	return nil
 }
+
+func (r *renderer) usedStyle(key, name string, n, flags uint8) error {
+	if !r.used[key] && flags == 0 {
+		return nil
+	}
+	row, err := styleRow(name)
+	if err != nil {
+		return err
+	}
+	if r.used[key] {
+		if err := r.styleRule(key, row, n); err != nil {
+			return err
+		}
+	}
+	return r.sketchRules(key, row, n, flags)
+}
+
 func (r *renderer) styleRule(key string, row gen.Style, n uint8) error {
 	fill := row.Fill
 	if fill == "on-series" {
@@ -249,6 +410,9 @@ func (r *renderer) styleRule(key string, row gen.Style, n uint8) error {
 			return e
 		}
 		r.WriteString(";stroke:" + s)
+		if row.Stroke != "none" {
+			r.WriteString(";stroke-linecap:round;stroke-linejoin:round")
+		}
 	}
 	if row.Tint == 1 {
 		r.WriteString(";fill-opacity:0.4")
@@ -259,21 +423,27 @@ func (r *renderer) styleRule(key string, row gen.Style, n uint8) error {
 	r.WriteString("}\n")
 	return nil
 }
-func (r *renderer) attributes(s scene.Shape) (string, error) {
+
+func (r *renderer) shapeKey(s scene.Shape) (string, gen.Style, error) {
 	row, e := styleRow(s.Style)
 	if e != nil {
-		return "", e
+		return "", gen.Style{}, e
 	}
 	key := class(s.Style, s.Series)
 	r.used[key] = true
-	out := "class='emd-s-" + key + "'"
+	return key, row, nil
+}
+
+func (r *renderer) strokeAttributes(s scene.Shape, row gen.Style) string {
+	out := ""
 	if row.Stroke != "none" {
 		v := int64(64)
-		switch s.Width.Kind {
+		width := r.look.Width(s.Width)
+		switch width.Kind {
 		case scene.WidthEmphasis:
 			v = 128
 		case scene.WidthUnits:
-			v = int64(s.Width.Units)
+			v = int64(width.Units)
 		}
 		out += " stroke-width='" + number(v) + "'"
 	}
@@ -283,5 +453,5 @@ func (r *renderer) attributes(s scene.Shape) (string, error) {
 	case scene.LineDashed:
 		out += " stroke-dasharray='8 4'"
 	}
-	return out, nil
+	return out
 }

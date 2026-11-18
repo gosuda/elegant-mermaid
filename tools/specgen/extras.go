@@ -45,13 +45,12 @@ func readmeWithKinds(in *inputs) ([]byte, error) {
 		return nil, nil
 	}
 	text := string(in.readme)
-	start := strings.Index(text, kindsStartMarker)
-	if start < 0 {
+	head, rest, ok := strings.Cut(text, kindsStartMarker)
+	if !ok {
 		return nil, errors.New("README.md lacks the kinds start marker")
 	}
-	rest := text[start+len(kindsStartMarker):]
-	end := strings.Index(rest, kindsEndMarker)
-	if end < 0 {
+	_, tail, ok := strings.Cut(rest, kindsEndMarker)
+	if !ok {
 		return nil, errors.New("README.md lacks the kinds end marker")
 	}
 	var block strings.Builder
@@ -61,7 +60,7 @@ func readmeWithKinds(in *inputs) ([]byte, error) {
 		fmt.Fprintf(&block, "- `%s`\n", kind.ID)
 	}
 	block.WriteString(kindsEndMarker)
-	replaced := text[:start] + block.String() + rest[end+len(kindsEndMarker):]
+	replaced := head + block.String() + tail
 	return []byte(replaced), nil
 }
 
@@ -71,7 +70,9 @@ func tokensCSS(themes []themeInput) outFile {
 	light, dark := splitSchemes(themes)
 	writeRule(&b, ":root", light)
 	b.WriteString("\n")
-	writeRule(&b, "@media (prefers-color-scheme: dark)", dark)
+	b.WriteString("@media (prefers-color-scheme: dark) {\n")
+	writeRule(&b, ":root", dark)
+	b.WriteString("}\n")
 	return outFile{path: "playground/src/lib/tokens.css", content: []byte(b.String())}
 }
 

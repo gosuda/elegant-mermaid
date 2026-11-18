@@ -22,12 +22,12 @@
   {
     "kind": "gitgraph",
     "key": "mainBranchName",
-    "class": "accepted-ignored"
+    "class": "honoured"
   },
   {
     "kind": "gitgraph",
     "key": "mainBranchOrder",
-    "class": "accepted-ignored"
+    "class": "honoured"
   },
   {
     "kind": "gitgraph",

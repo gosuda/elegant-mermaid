@@ -96,7 +96,8 @@ func (r *configReader) parseYAMLScalar(owner int) (ConfigValue, bool) {
 		return ConfigValue{}, false
 	}
 	last := value.Span.End - r.origin
-	text := string(r.src[start:last])
+	var b strings.Builder
+	b.Write(r.src[start:last])
 	for {
 		p, blank, more := r.yamlPlainContinuation(owner)
 		if !more {
@@ -105,12 +106,13 @@ func (r *configReader) parseYAMLScalar(owner int) (ConfigValue, bool) {
 		r.pos = p
 		next := r.readPlainBlockScalar()
 		last = next.Span.End - r.origin
-		text += yamlPlainFoldSeparator(blank) + string(r.src[p:last])
+		b.WriteString(yamlPlainFoldSeparator(blank))
+		b.Write(r.src[p:last])
 	}
 	if r.failed {
 		return ConfigValue{}, false
 	}
-	value = resolvePlain(text, r.span(start, last))
+	value = resolvePlain(b.String(), r.span(start, last))
 	return value, r.finishLineValue()
 }
 
@@ -222,13 +224,26 @@ func (r *configReader) yamlEscapedLineBreak(quote, c byte) bool {
 	return quote == '"' && c == '\\' && r.pos+1 < r.end && isLineBreak(r.src[r.pos+1])
 }
 
-func (r *configReader) foldYAMLQuotedLine(owner int, b *strings.Builder, separator string) bool {
-	p, blank, ok := r.yamlContinuation(owner)
-	if !ok {
-		if !r.failed {
-			r.failMalformed(r.pos)
+func (r *configReader) foldYAMLQuotedLine(_ int, b *strings.Builder, separator string) bool {
+	_, p := splitLine(r.src, r.pos, r.end)
+	blank := 0
+	for {
+		for p < r.end && (r.src[p] == ' ' || r.src[p] == '\t') {
+			p++
 		}
-		return false
+		if p == r.end {
+			r.failMalformed(p)
+			return false
+		}
+		if r.markerAt(p) {
+			r.failMalformed(p)
+			return false
+		}
+		if !isLineBreak(r.src[p]) {
+			break
+		}
+		blank++
+		_, p = splitLine(r.src, p, r.end)
 	}
 	if blank > 0 {
 		separator = strings.Repeat("\n", blank)

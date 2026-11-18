@@ -218,7 +218,6 @@ var Diagnostics = []Diagnostic{
 	{"timeline/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "The token must fit the current production.", "none", []string{}},
 	{"timeline/unknown-statement", "error", "unknown statement TOKEN", "", "An unknown statement must not create a period.", "none", []string{}},
 	{"timeline/unterminated", "error", "unterminated TOKEN", "", "An accessibility description block needs its closing brace.", "none", []string{}},
-	{"treemap/multiple-roots", "error", "multiple root nodes are not allowed in a treemap", "", "The upstream validator rejects a second item without indentation.", "none", []string{}},
 	{"treemap/unexpected-token", "error", "unexpected TOKEN, expected one of: LIST", "", "Each token must fit the selected row or metadata production.", "none", []string{}},
 	{"treemap/unknown-statement", "error", "unknown statement TOKEN", "", "Unknown statements must not create hierarchy items.", "none", []string{}},
 	{"treemap/unterminated", "error", "unterminated TOKEN", "", "Quoted names and accessibility bodies need closing delimiters.", "none", []string{}},

@@ -15,6 +15,33 @@ import (
 	parser "github.com/gosuda/elegant-mermaid/internal/syntax/class"
 )
 
+func TestNewlineSeparatesRelationTarget(t *testing.T) {
+	for _, ending := range []string{"\n", "\r\n", "\r"} {
+		src := []byte("classDiagram" + ending + "Foo ->" + ending + "Bar : x" + ending)
+		_, diagnostics := parser.Parse(src, nil)
+		if len(diagnostics) != 1 {
+			t.Fatalf("ending %q: expected one incomplete-relation diagnostic, got %v", ending, diagnostics)
+		}
+		d := diagnostics[0]
+		if d.Code != "class/unexpected-token" || d.Message != "unexpected "+ending+", expected one of: DOTTED_LINE, LINE" {
+			t.Fatalf("ending %q: unexpected diagnostic: %v", ending, d)
+		}
+		start := len("classDiagram") + len(ending) + len("Foo ->")
+		want := source.Span{Start: start, End: start + len(ending)}
+		if d.Span != want || string(src[d.Span.Start:d.Span.End]) != ending {
+			t.Fatalf("ending %q: diagnostic must cover only the separating newline: %v, want %v", ending, d.Span, want)
+		}
+	}
+}
+
+func TestNamespaceRecoveryExpectedStatements(t *testing.T) {
+	src := []byte("classDiagram\nnamespace N {\nA --> B\nclass C\n}\n")
+	_, diagnostics := parser.Parse(src, nil)
+	if len(diagnostics) != 1 || diagnostics[0].Message != "unexpected A, expected one of: CLASS, NAMESPACE, NOTE, NOTE_FOR" {
+		t.Fatalf("unexpected namespace recovery: %v", diagnostics)
+	}
+}
+
 func TestStatements(t *testing.T) {
 	for _, body := range []string{
 		"class Animal", "class Animal {\n+String name\n+eat() void\n}",
@@ -36,8 +63,10 @@ func TestStatements(t *testing.T) {
 
 func TestDiagnostics(t *testing.T) {
 	cases := []struct{ body, code string }{
-		{"@ nonsense", "class/unknown-statement"}, {"A -> B", "class/unexpected-token"},
-		{"class A {\n+f()", "class/unterminated"}, {"note \"broken", "class/unterminated"},
+		{"@ nonsense", "class/unknown-statement"},
+		{"A -> B", "class/unexpected-token"},
+		{"class A {\n+f()", "class/unterminated"},
+		{"note \"broken", "class/unterminated"},
 		{"class A {\n{bad}\n}", "class/nested-member-block"},
 		{"class A {}; class B", "class/unexpected-token"},
 		{"namespace N {\nA --> B\n}", "class/unexpected-token"},
@@ -48,6 +77,27 @@ func TestDiagnostics(t *testing.T) {
 			src := []byte("classDiagram\n" + c.body)
 			_, ds := parser.Parse(src, nil)
 			assertDiagnostic(t, src, ds, c.code)
+		})
+	}
+}
+
+func TestLabelTextAcceptsEveryCharacterButColonAndSemicolon(t *testing.T) {
+	for _, body := range []string{
+		"A : \u0301x", "A : ★ y", "A : x \u0301 y", "A : x\x01y",
+		"A --> B : \u0301x", "A --> B : ★ y", "A --> B : x \u0301 y",
+	} {
+		t.Run(body, func(t *testing.T) {
+			_, ds := parser.Parse([]byte("classDiagram\n"+body+"\n"), nil)
+			if len(ds) > 0 {
+				t.Fatal(ds)
+			}
+		})
+	}
+	for _, body := range []string{"A : x : y", "A : x ; y", "A --> B : x : y", "A --> B : x ; y"} {
+		t.Run(body, func(t *testing.T) {
+			src := []byte("classDiagram\n" + body + "\n")
+			_, ds := parser.Parse(src, nil)
+			assertDiagnostic(t, src, ds, "class/unexpected-token")
 		})
 	}
 }

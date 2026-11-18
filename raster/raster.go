@@ -23,8 +23,10 @@ type Options struct {
 	Background string
 }
 
-var ErrPixelsTooLarge = errors.New("raster pixels too large")
-var ErrEncode = errors.New("raster encoding failed")
+var (
+	ErrPixelsTooLarge = errors.New("raster pixels too large")
+	ErrEncode         = errors.New("raster encoding failed")
+)
 
 type ErrorKind uint8
 
@@ -41,7 +43,14 @@ type RasterError struct {
 }
 
 func (e *RasterError) Error() string {
-	return fmt.Sprintf("raster: %s (%d by %d)", e.Message, e.Width, e.Height)
+	switch e.Kind {
+	case PixelsTooLarge:
+		return fmt.Sprintf("image is too large: %dx%d pixels", e.Width, e.Height)
+	case Encode:
+		return "PNG encoding failed: " + e.Message
+	default:
+		return "invalid configuration: " + e.Message
+	}
 }
 
 func (e *RasterError) Unwrap() error {
@@ -86,11 +95,17 @@ func RGBA(s *mermaid.Scene, o RGBAOptions) (*image.RGBA, error) {
 	}
 	return drawScene(value, o)
 }
+
 func encodeScene(s scene.Scene, o Options) ([]byte, error) {
 	pixels, err := drawScene(s, RGBAOptions{Options: o})
 	if err != nil {
 		return nil, err
 	}
+	return EncodePNG(pixels)
+}
+
+// EncodePNG encodes a rendered pixel buffer exactly as PNG does.
+func EncodePNG(pixels *image.RGBA) ([]byte, error) {
 	var out bytes.Buffer
 	encoder := png.Encoder{CompressionLevel: png.BestCompression}
 	if err := encoder.Encode(&out, pixels); err != nil {
@@ -148,7 +163,7 @@ func newRenderer(s scene.Scene, o RGBAOptions) (*renderer, error) {
 func pixelSize(canvas geom.Size, scale int) (image.Point, error) {
 	w, h := (int64(canvas.W)*int64(scale)+63)/64, (int64(canvas.H)*int64(scale)+63)/64
 	if w > 16384 || h > 16384 || w*h > 67108864 {
-		return image.Point{}, &RasterError{Kind: PixelsTooLarge, Width: w, Height: h, Message: "pixel limit exceeded"}
+		return image.Point{}, &RasterError{Kind: PixelsTooLarge, Width: w, Height: h}
 	}
 	if w <= 0 || h <= 0 {
 		return image.Point{}, badConfig("empty canvas")

@@ -1,6 +1,8 @@
 package flowchart
 
 import (
+	"slices"
+
 	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/source"
 )
@@ -78,13 +80,7 @@ func (p *parser) peek() Token {
 func (p *parser) at(k TokenKind) bool { return p.peek().Kind == k }
 
 func (p *parser) atAny(ks ...TokenKind) bool {
-	k := p.peek().Kind
-	for _, want := range ks {
-		if k == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(ks, p.peek().Kind)
 }
 
 func (p *parser) next() Token {

@@ -82,11 +82,11 @@ func TestErrorsAreDistinctAndWrappable(t *testing.T) {
 	for i, a := range sentinels {
 		for j, b := range sentinels {
 			if i != j {
-				assert.False(t, errors.Is(a, b))
+				assert.False(t, errors.Is(a, b), "distinct sentinels %s and %s must not satisfy errors.Is", a, b)
 			}
 		}
 		wrapped := fmt.Errorf("layout failed: %w", a)
-		assert.True(t, errors.Is(wrapped, a))
+		assert.True(t, errors.Is(wrapped, a), "%v must satisfy errors.Is against its own sentinel %s", wrapped, a)
 		assert.Equal(t, "layout failed: "+a.Error(), wrapped.Error())
 	}
 }
@@ -101,8 +101,15 @@ func TestBlockHostOffset(t *testing.T) {
 		},
 	}
 	for _, test := range []struct{ offset, want int }{
-		{-1, 10}, {0, 10}, {1, 11}, {2, 12}, {3, 12},
-		{4, 20}, {5, 21}, {6, 21}, {100, 21},
+		{-1, 10},
+		{0, 10},
+		{1, 11},
+		{2, 12},
+		{3, 12},
+		{4, 20},
+		{5, 21},
+		{6, 21},
+		{100, 21},
 	} {
 		assert.Equal(t, test.want, block.HostOffset(test.offset))
 	}

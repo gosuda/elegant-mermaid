@@ -33,5 +33,7 @@
     "kind": "swimlane",
     "key": "theme",
     "class": "honoured"
-  }
+  },
+  {"kind":"swimlane","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"swimlane","key":"useWidth","class":"accepted-ignored"}
 ]

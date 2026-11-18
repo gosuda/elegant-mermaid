@@ -6,6 +6,7 @@ use crate::{
 
 #[derive(Debug, Clone, Default)]
 pub struct Model {
+    pub declarations: Vec<Declaration>,
     pub classes: Vec<Class>,
     pub namespaces: Vec<Namespace>,
     pub relations: Vec<Relation>,
@@ -19,6 +20,16 @@ pub struct Model {
     taken: std::collections::BTreeSet<String>,
 }
 #[derive(Debug, Clone)]
+pub struct Declaration {
+    pub class: usize,
+    pub span: Span,
+}
+#[derive(Debug, Clone)]
+pub struct MethodCandidate {
+    pub key: String,
+    pub span: Span,
+}
+#[derive(Debug, Clone)]
 pub struct Class {
     pub id: String,
     pub label: String,
@@ -29,6 +40,7 @@ pub struct Class {
     pub annotations: Vec<String>,
     pub attributes: Vec<Member>,
     pub methods: Vec<Member>,
+    pub method_candidates: Vec<MethodCandidate>,
     pub styles: Vec<String>,
     pub interaction: Vec<String>,
     pub interface_owner: String,
@@ -149,6 +161,7 @@ impl Model {
             annotations: Vec::new(),
             attributes: Vec::new(),
             methods: Vec::new(),
+            method_candidates: Vec::new(),
             styles: Vec::new(),
             interaction: Vec::new(),
             interface_owner: String::new(),
@@ -189,7 +202,7 @@ impl Model {
             Statement::Note { span, target, text } => {
                 self.note(*span, target.as_ref(), text, parent)
             }
-            Statement::Direction(direction) => self.direction = (*direction).into(),
+            Statement::Direction(direction) => self.direction = direction.as_ref().into(),
             Statement::Accessibility { title, text } => {
                 if *title {
                     self.acc_title = text.trim().into();
@@ -202,13 +215,17 @@ impl Model {
     }
     fn class(&mut self, statement: &ClassStatement<'_>, parent: &str) {
         let index = self.ensure(&statement.name);
+        self.declarations.push(Declaration {
+            class: index,
+            span: statement.name.span,
+        });
         let class = &mut self.classes[index];
-        if let Some(label) = statement.label {
-            class.label = label.into();
+        if let Some(label) = &statement.label {
+            class.label = label.as_ref().into();
         }
         class.parent = parent.into();
-        if let Some(css) = statement.css_class {
-            class.css_classes.push(css.into());
+        if let Some(css) = &statement.css_class {
+            class.css_classes.push(css.as_ref().into());
         }
         if let Some(annotation) = &statement.annotation {
             class.annotations.push(annotation.clone());
@@ -267,7 +284,7 @@ impl Model {
             .find(|namespace| namespace.id == qualified)
         {
             namespace.explicit = true;
-            if let Some(label) = statement.label.filter(|s| !s.is_empty()) {
+            if let Some(label) = statement.label.as_deref().filter(|s| !s.is_empty()) {
                 namespace.label = label.into();
             }
         }
@@ -305,10 +322,16 @@ impl Model {
             to_span: relation.to.span,
             marker_start: relation.marker_start.unwrap_or("none").into(),
             marker_end: relation.marker_end.unwrap_or("none").into(),
-            multiplicity_start: relation.multiplicity_start.map(|s| s.trim().into()),
-            multiplicity_end: relation.multiplicity_end.map(|s| s.trim().into()),
+            multiplicity_start: relation
+                .multiplicity_start
+                .as_deref()
+                .map(|s| s.trim().into()),
+            multiplicity_end: relation
+                .multiplicity_end
+                .as_deref()
+                .map(|s| s.trim().into()),
             dashed: relation.dashed,
-            label: relation.label.unwrap_or("").trim().into(),
+            label: relation.label.as_deref().unwrap_or("").trim().into(),
         });
     }
     fn interface<'a>(&mut self, name: &ClassName<'a>, owner: &ClassName<'_>) -> ClassName<'a> {
@@ -323,7 +346,7 @@ impl Model {
         match statement {
             Statement::Style { target, text } => {
                 for class in self.classes.iter_mut().filter(|class| class.id == *target) {
-                    class.styles.push((*text).into());
+                    class.styles.push(text.as_ref().into());
                 }
             }
             Statement::CssClass { target, name } => {
@@ -332,24 +355,25 @@ impl Model {
                     .iter_mut()
                     .filter(|class| target.split(',').any(|id| id.trim() == class.id))
                 {
-                    class.css_classes.push((*name).into());
+                    class.css_classes.push(name.as_ref().into());
                 }
             }
             Statement::ClassDef { target, text } => {
-                self.definitions.push((target.clone(), (*text).into()));
+                self.definitions
+                    .push((target.clone(), text.as_ref().into()));
                 for class in self
                     .classes
                     .iter_mut()
                     .filter(|class| class.css_classes.iter().any(|name| name.contains(target)))
                 {
-                    class.styles.push((*text).into());
+                    class.styles.push(text.as_ref().into());
                 }
             }
             Statement::Click { target, values } => {
                 for class in self.classes.iter_mut().filter(|class| class.id == *target) {
                     class
                         .interaction
-                        .extend(values.iter().map(|value| (*value).into()));
+                        .extend(values.iter().map(|value| value.as_ref().into()));
                 }
             }
             _ => {}
@@ -359,6 +383,12 @@ impl Model {
 
 impl Class {
     fn add_member(&mut self, member: &MemberStatement<'_>) {
+        if member.text.contains('(') {
+            self.method_candidates.push(MethodCandidate {
+                key: member.text.split_whitespace().collect::<Vec<_>>().join(" "),
+                span: member.span,
+            });
+        }
         let text = member.text.trim();
         if text.is_empty() {
             return;

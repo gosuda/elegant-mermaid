@@ -2,6 +2,7 @@ package diag
 
 import (
 	"encoding/json"
+	"slices"
 	"testing"
 
 	"github.com/gosuda/elegant-mermaid/internal/source"
@@ -71,6 +72,31 @@ func TestAppendSARIFLevelsAndRuleOrder(t *testing.T) {
 		}
 	}
 	checkSARIFRules(t, log)
+}
+
+func TestAppendSARIFRulesListUnknownCodesInByteOrder(t *testing.T) {
+	files := []FileDiagnostics{{
+		Path:   "<stdin>",
+		Source: []byte("abc"),
+		Diagnostics: []Diagnostic{
+			{Code: "custom/zeta", Severity: SeverityInfo, Message: "z", Span: source.Span{Start: 0, End: 1}},
+			{Code: "custom/alpha", Severity: SeverityInfo, Message: "a", Span: source.Span{Start: 1, End: 2}},
+			{Code: "flowchart/duplicate-ids", Severity: SeverityError, Message: "e", Span: source.Span{Start: 2, End: 3}},
+			{Code: "custom/mid", Severity: SeverityInfo, Message: "m", Span: source.Span{Start: 2, End: 3}},
+		},
+	}}
+	var log decodedSARIF
+	if err := json.Unmarshal(AppendSARIF(nil, "0.1.0", files), &log); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	var rules []string
+	for _, r := range log.Runs[0].Tool.Driver.Rules {
+		rules = append(rules, r.ID)
+	}
+	want := []string{"flowchart/duplicate-ids", "custom/alpha", "custom/mid", "custom/zeta"}
+	if !slices.Equal(rules, want) {
+		t.Fatalf("rules = %v, want %v", rules, want)
+	}
 }
 
 func checkSARIFRules(t *testing.T, log decodedSARIF) {
