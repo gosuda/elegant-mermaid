@@ -17,12 +17,15 @@ seams of the executed pipeline:
 * `LabelRunsClearExclusiveBoxes` — the route-label seam, stated per
   component run like `FrameClearRuns` (FlatC6.lean): the placed rect of a
   measured label on an edge misses the `RouteImpl.boxRect` of every real
-  node outside the edge's run scope, and the dump-level bridges carry the
-  executed transport of both rectangles.  The bridge is a disjunction: for
-  boxes of the label's own component run it returns the run witness; for
-  boxes of another executed part it returns the distinct-part evidence
-  (both rects transported from distinct packed shelf rectangles), which
-  the packing separation premise `PartsSeparated` settles.  To be discharged at the family
+  node outside the edge's scope, the edge's own endpoints included — the
+  scope is the label's own edge (`edge`/`decl`) with the run-side condition
+  on `nodeDecl` against the endpoints' cluster paths. The dump-level
+  bridges carry the executed transport of both rectangles.  The bridge is
+  a disjunction: for boxes of the label's own component run it returns the
+  run witness; for boxes of another executed part it returns the
+  distinct-part evidence (both rects transported from distinct packed
+  shelf rectangles), which the packing separation premise
+  `PartsSeparated` settles.  To be discharged at the family
   seam from `RouteScopeClearance.componentRun_exclusive_clear` (route-point
   avoidance under `PipelineImpl.FrameClearance`) and the envelope placement
   (`PipelineImpl.labelEnvelope`, `Labels.stackRects_contained`);
@@ -44,27 +47,31 @@ def routeLabelRect (P : PipelineImpl.Params) (cg : Graph) (run : PipelineImpl.Ru
 
 /-- Route-label seam, run-local half (the `FrameClearRuns` shape): for every
 executed component run, the placed rect of a measured label on an edge
-misses the frame rect of every real node outside that edge's run scope. -/
+misses the frame rect of every real node outside that edge's scope, the
+edge's own endpoints included. The scope is stated through the label's own
+edge: `e` is the component-graph edge carrying declaration `decl`, and the
+run-side condition matches the dump-side `labelOwnerAnc` scope — the node's
+declaration lies in neither endpoint's cluster path. The free proper-edge
+indices previously quantifying this scope excluded exactly the endpoint
+boxes the validator requires the label to miss (see
+`proofs/wip/Layered/ExclusiveBoxInLabelRunRefuted.lean`), so they are gone. -/
 def RunLocalLabelClearance (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
   ∀ (execution : PipelineImpl.SceneExecution inp o res)
     (comp : List Nat) (candidate : Nat) (run : PipelineImpl.Run)
-    (orderOptions : OrderOptions) (cg : Graph) (edge decl v i₀ i₁ : Nat)
-    (l : PipelineImpl.MeasuredLabel),
+    (orderOptions : OrderOptions) (cg : Graph) (edge decl v : Nat)
+    (e : Edge) (l : PipelineImpl.MeasuredLabel),
     comp ∈ PipelineImpl.components execution.graph →
     cg = PipelineImpl.componentCandidate execution.graph comp candidate →
     PipelineImpl.componentRun execution.params cg execution.measured orderOptions = .ok run →
+    (cg.edges[edge]?) = some e →
     (cg.edges[edge]?).map (·.decl) = some decl →
     l ∈ PipelineImpl.routeLabels execution.measured decl →
     v < run.proper.nodes.length →
     RouteImpl.IsReal run.proper v →
-    v ≠ (RouteImpl.edgeAt run.proper i₀).tail →
-    v ≠ (RouteImpl.edgeAt run.proper i₁).head →
     RouteImpl.nodeDecl run.proper v ∉
-      ((run.proper.nodes[(RouteImpl.edgeAt run.proper i₀).tail]?).map
-        (·.node.clusterPath)).getD [] →
+      ((cg.nodes[e.tail]?).map (·.clusterPath)).getD [] →
     RouteImpl.nodeDecl run.proper v ∉
-      ((run.proper.nodes[(RouteImpl.edgeAt run.proper i₁).head]?).map
-        (·.node.clusterPath)).getD [] →
+      ((cg.nodes[e.head]?).map (·.clusterPath)).getD [] →
     ¬ (routeLabelRect execution.params cg run execution.measured l).meetsInterior
         (RouteImpl.boxRect run.proper run.xs run.ys v)
 
@@ -110,9 +117,11 @@ def PartsSeparated (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
 dump box outside its owner scope are either the executed transports (pack
 shift, orientation, canvas margin) of the placed label rect and the
 `boxRect` of a real node of the SAME component run satisfying the run-local
-scope conditions, or — when the box belongs to another executed part — the
-transports of contents of two distinct packed shelf rectangles, which the
-packing separation (`PartsSeparated`) keeps apart. -/
+scope — the node's declaration lies in neither endpoint cluster path of the
+label's own component-graph edge, endpoints included — or, when the box
+belongs to another executed part, the transports of contents of two
+distinct packed shelf rectangles, which the packing separation
+(`PartsSeparated`) keeps apart. -/
 def RouteLabelDumpBridges (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
   ∀ (execution : PipelineImpl.SceneExecution inp o res) (l : SceneLabel) (index : Nat)
     (source : ModelLabel) (measured : PipelineImpl.MeasuredLabel) (b : Box),
@@ -124,23 +133,20 @@ def RouteLabelDumpBridges (inp : Input) (o : Options) (res : FamilyResult) : Pro
     b.exclusive = true →
     b.id ∉ res.scene.layoutDump.labelOwnerAnc l.toLabel →
     (∃ (comp : List Nat) (candidate : Nat) (run : PipelineImpl.Run)
-      (orderOptions : OrderOptions) (cg : Graph) (edge decl v i₀ i₁ : Nat)
-      (px py m h : Int) (d : Direction),
+      (orderOptions : OrderOptions) (cg : Graph) (edge decl v : Nat)
+      (e : Edge) (px py m h : Int) (d : Direction),
       comp ∈ PipelineImpl.components execution.graph ∧
       cg = PipelineImpl.componentCandidate execution.graph comp candidate ∧
       PipelineImpl.componentRun execution.params cg execution.measured orderOptions = .ok run ∧
+      (cg.edges[edge]?) = some e ∧
       (cg.edges[edge]?).map (·.decl) = some decl ∧
       measured ∈ PipelineImpl.routeLabels execution.measured decl ∧
       v < run.proper.nodes.length ∧
       RouteImpl.IsReal run.proper v ∧
-      v ≠ (RouteImpl.edgeAt run.proper i₀).tail ∧
-      v ≠ (RouteImpl.edgeAt run.proper i₁).head ∧
       RouteImpl.nodeDecl run.proper v ∉
-        ((run.proper.nodes[(RouteImpl.edgeAt run.proper i₀).tail]?).map
-          (·.node.clusterPath)).getD [] ∧
+        ((cg.nodes[e.tail]?).map (·.clusterPath)).getD [] ∧
       RouteImpl.nodeDecl run.proper v ∉
-        ((run.proper.nodes[(RouteImpl.edgeAt run.proper i₁).head]?).map
-          (·.node.clusterPath)).getD [] ∧
+        ((cg.nodes[e.head]?).map (·.clusterPath)).getD [] ∧
       l.rect = PipelineImpl.shiftRect m m
         (PipelineImpl.orientRect d h (PipelineImpl.shiftRect px py
           (routeLabelRect execution.params cg run execution.measured measured))) ∧
@@ -217,15 +223,15 @@ theorem layout_c7 {inp : Input} {o : Options} {res : FamilyResult}
   cases hbranch with
   | inl hmeas =>
     obtain ⟨measured, hmeasured⟩ := hmeas
-    obtain ⟨comp, candidate, run, orderOptions, cg, edge, decl, v, i₀, i₁,
-        px, py, m, hgt, hdir, hcomp, hcg, hrun, hedge, hmlabel, hv, hreal, hv0, hv1,
+    obtain ⟨comp, candidate, run, orderOptions, cg, edge, decl, v, e,
+        px, py, m, hgt, hdir, hcomp, hcg, hrun, he, hedge, hmlabel, hv, hreal,
         hs0, hs1, hlreq, hbreq⟩ |
       ⟨packed, c, d, labelPart, boxPart, shelfc, shelfd, rl, r, hpacked,
         hcpart, hcshelf, hdpart, hdshelf, hcd, hrlmem, hrmem, hlrect, hbrect⟩ :=
       hseam1.2 execution sl index source measured b hsl hsource hid hmeasured
         hb hex hscope
     · have hclr := hseam1.1 execution comp candidate run orderOptions cg edge decl v
-        i₀ i₁ measured hcomp hcg hrun hedge hmlabel hv hreal hv0 hv1 hs0 hs1
+        e measured hcomp hcg hrun he hedge hmlabel hv hreal hs0 hs1
       have hrect : sl.toLabel.rect = sl.rect := rfl
       rw [hrect, hlreq, hbreq]
       exact PipelineImpl.not_meetsInterior_transport hclr

@@ -1366,3 +1366,5 @@ Elegant.Kinds.Architecture.architecture_c2
 Elegant.Ishikawa.hard_b_slot_mono_of_pos_lt
 Elegant.Ishikawa.ishikawa_hard_b_real
 Elegant.Kinds.flowchart_valid_of_seams
+Elegant.Layered.PipelineImpl.labelBelongsToRun
+Elegant.Layered.PipelineImpl.runLocalLabelClearance_holds

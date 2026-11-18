@@ -18,6 +18,7 @@ import Elegant.Layered.BracketInsidePremisesProof
 import Elegant.Layered.FlatGroupEndpointsProof
 import Elegant.Layered.ForeignBorderSpansProof
 import Elegant.Layered.ForeignNonGroupSpansProof
+import Elegant.Layered.RunLocalLabelClearanceProof
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -54,9 +55,14 @@ structure LayeredSeams : Prop where
   titleCopySpan : ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecution inp o res),
     titleCopySpanClearStrict execution.params execution.graph
-  labelRuns : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    WellFormed (inputModel inp o) → framedParents inp = true →
-    LabelRunsClearExclusiveBoxes inp o res
+  runLocalLoopSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    RunLocalLoopSeparation inp o res
+  runLocalForwardSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    RunLocalForwardSeparation inp o res
+  runLocalReversedSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    RunLocalReversedSeparation inp o res
+  exclusiveBoxInLabelRun : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    ExclusiveBoxInLabelRun inp o res
   captions : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     SceneCaptionBoxContainment inp o res
@@ -99,6 +105,12 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
     layout_c7 hwf hfp hsep s1 s2 h
   have hflat8b : FlatC8b := fun inp o res hwf _ h =>
     layout_c8b h hwf (S.frameLabels inp o res)
+  have hlabelRuns : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      LabelRunsClearExclusiveBoxes inp o res := fun inp o res hwf hfp =>
+    ⟨runLocalLabelClearance_holds hwf hfp (S.runLocalLoopSeparation inp o res)
+        (S.runLocalForwardSeparation inp o res) (S.runLocalReversedSeparation inp o res),
+      routeLabelDumpBridges hwf (labelBelongsToRun hwf) (S.exclusiveBoxInLabelRun inp o res)⟩
   have hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       BracketInsidePremises inp o res := fun inp o res =>
     bracketInsidePremises (S.dummyRowClear inp o res) (S.titleCopySpan inp o res)
@@ -145,7 +157,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       subInputWellFormed h,
     layoutRecursive_c6_of_flat S.flatC6 hclear subInputWellFormed hstepC6
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
-    layoutRecursive_c7_of_flat hflat7 (fun _ _ _ => labelsC7_partsSeparated) S.labelRuns
+    layoutRecursive_c7_of_flat hflat7 (fun _ _ _ => labelsC7_partsSeparated) hlabelRuns
       S.captions subInputWellFormed hstepC7
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c8a_of_flat

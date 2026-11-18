@@ -10,15 +10,20 @@ strictly weaker executed facts, each stated as a named `def` so that they can
 be discharged independently from the executed pipeline:
 
 * `LabelBelongsToRun` — a measured scene label is the common transport
-  (`shiftRect` margin, `orientRect`, component pack shift) of the run-local
-  placed rect `routeLabelRect` of its own edge in some executed component run;
+  (`shiftRect` margin, `orientRect`, component pack shift) of the placed rect
+  `routeLabelRect` of its own edge in some executed component run;
 * `ExclusiveBoxInLabelRun` — anchored to any witness `LabelBelongsToRun` may
   return, and conditional on the same-run case: an exclusive dump box outside
   the label's owner scope either is the transport of the `boxRect` of a real
-  node of that run satisfying the run-local scope conditions, or belongs to
-  another executed part — in which case the label and the box are transports
-  of contents of two distinct packed shelf rectangles, which the packing
-  separation (`LabelsC7.PartsSeparated`) keeps apart.
+  node of that run whose declaration lies in neither endpoint cluster path
+  of the label's own component-graph edge (endpoints included), or belongs
+  to another executed part: the label and the box are the transported
+  contents of two distinct packed shelf rectangles, which the packing
+  separation (`LabelsC7.PartsSeparated`) keeps apart.  The scope is stated
+  through the label's own edge (`edge`/`decl`/`e`), never through free
+  proper-edge indices: the free-index form excluded exactly the endpoint
+  boxes the validator requires the label to miss (see
+  `proofs/wip/Layered/ExclusiveBoxInLabelRunRefuted.lean`).
 
 `routeLabelDumpBridges` is their combination: the box branch is attached to
 the label witness, giving the disjunction the seam needs. -/
@@ -49,16 +54,17 @@ def LabelBelongsToRun (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
 /-- Executed box half, anchored to any label witness: for every witness that
 `LabelBelongsToRun` may return, an exclusive dump box outside the label's
 owner scope either is the transport of the `boxRect` of a real node of that
-run satisfying the run-local scope conditions (the same-run case), or lies in
-another executed part: the label and the box are the transported contents of
-two distinct packed shelf rectangles, which the packing separation
+run whose declaration lies in neither endpoint cluster path of the label's
+own component-graph edge (endpoints included), or lies in another executed
+part: the label and the box are the transported contents of two distinct
+packed shelf rectangles, which the packing separation
 (`LabelsC7.PartsSeparated`) keeps apart. -/
 def ExclusiveBoxInLabelRun (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
   ∀ (execution : PipelineImpl.SceneExecution inp o res) (l : SceneLabel) (index : Nat)
     (source : ModelLabel) (measured : PipelineImpl.MeasuredLabel)
     (comp : List Nat) (candidate : Nat) (run : PipelineImpl.Run)
-    (orderOptions : OrderOptions) (cg : Graph) (edge decl i₀ i₁ : Nat)
-    (px py m h : Int) (d : Direction),
+    (orderOptions : OrderOptions) (cg : Graph) (edge decl : Nat)
+    (e : Edge) (px py m h : Int) (d : Direction),
     l ∈ res.scene.labels →
     inp.labels[index]? = some source →
     l.id = source.id →
@@ -66,6 +72,7 @@ def ExclusiveBoxInLabelRun (inp : Input) (o : Options) (res : FamilyResult) : Pr
     comp ∈ PipelineImpl.components execution.graph →
     cg = PipelineImpl.componentCandidate execution.graph comp candidate →
     PipelineImpl.componentRun execution.params cg execution.measured orderOptions = .ok run →
+    (cg.edges[edge]?) = some e →
     (cg.edges[edge]?).map (·.decl) = some decl →
     measured ∈ PipelineImpl.routeLabels execution.measured decl →
     l.rect = PipelineImpl.shiftRect m m
@@ -78,14 +85,10 @@ def ExclusiveBoxInLabelRun (inp : Input) (o : Options) (res : FamilyResult) : Pr
     (∃ v : Nat,
       v < run.proper.nodes.length ∧
       RouteImpl.IsReal run.proper v ∧
-      v ≠ (RouteImpl.edgeAt run.proper i₀).tail ∧
-      v ≠ (RouteImpl.edgeAt run.proper i₁).head ∧
       RouteImpl.nodeDecl run.proper v ∉
-        ((run.proper.nodes[(RouteImpl.edgeAt run.proper i₀).tail]?).map
-          (·.node.clusterPath)).getD [] ∧
+        ((cg.nodes[e.tail]?).map (·.clusterPath)).getD [] ∧
       RouteImpl.nodeDecl run.proper v ∉
-        ((run.proper.nodes[(RouteImpl.edgeAt run.proper i₁).head]?).map
-          (·.node.clusterPath)).getD [] ∧
+        ((cg.nodes[e.head]?).map (·.clusterPath)).getD [] ∧
       b.rect = PipelineImpl.shiftRect m m
         (PipelineImpl.orientRect d h (PipelineImpl.shiftRect px py
           (RouteImpl.boxRect run.proper run.xs run.ys v)))) ∨
@@ -118,23 +121,26 @@ def ExclusiveBoxInLabelRun (inp : Input) (o : Options) (res : FamilyResult) : Pr
 branch of `ExclusiveBoxInLabelRun` to the label witness of
 `LabelBelongsToRun`. -/
 theorem routeLabelDumpBridges {inp : Input} {o : Options} {res : FamilyResult}
-    (hwf : WellFormed (inputModel inp o))
+    (_hwf : WellFormed (inputModel inp o))
     (hlabel : LabelBelongsToRun inp o res)
     (hbox : ExclusiveBoxInLabelRun inp o res) :
     RouteLabelDumpBridges inp o res := by
-  have _hwf := hwf
   intro execution l index source measured b hlmem hin hleq hmeasured hdump hex hscope
-  obtain ⟨comp, candidate, run, orderOptions, cg, edge, decl, i₀, i₁, px, py, m, hgt, dir,
+  obtain ⟨comp, candidate, run, orderOptions, cg, edge, decl, _i₀, _i₁, px, py, m, hgt, dir,
     hcomp, hcg, hrun, hedge, hmlabel, hrect⟩ :=
     hlabel execution l index source measured hlmem hin hleq hmeasured
-  obtain ⟨v, hv, hreal, hv0, hv1, hs0, hs1, hbrect⟩ |
+  obtain ⟨e, he⟩ : ∃ e, (cg.edges[edge]?) = some e := by
+    cases h : cg.edges[edge]? with
+    | none => simp [h] at hedge
+    | some e => exact ⟨e, rfl⟩
+  obtain ⟨v, hv, hreal, hs0, hs1, hbrect⟩ |
     ⟨packed, c, d', labelPart, boxPart, shelfc, shelfd, rl, r, hpacked, hcpart,
       hcshelf, hdpart, hdshelf, hcd, hrlmem, hrmem, hlrect, hbrect⟩ :=
-    hbox execution l index source measured comp candidate run orderOptions cg edge decl
-      i₀ i₁ px py m hgt dir hlmem hin hleq hmeasured hcomp hcg hrun hedge hmlabel hrect
+    hbox execution l index source measured comp candidate run orderOptions cg edge decl e
+      px py m hgt dir hlmem hin hleq hmeasured hcomp hcg hrun he hedge hmlabel hrect
       b hdump hex hscope
-  · exact Or.inl ⟨comp, candidate, run, orderOptions, cg, edge, decl, v, i₀, i₁, px, py,
-      m, hgt, dir, hcomp, hcg, hrun, hedge, hmlabel, hv, hreal, hv0, hv1, hs0, hs1,
+  · exact Or.inl ⟨comp, candidate, run, orderOptions, cg, edge, decl, v, e, px, py,
+      m, hgt, dir, hcomp, hcg, hrun, he, hedge, hmlabel, hv, hreal, hs0, hs1,
       hrect, hbrect⟩
   · exact Or.inr ⟨packed, c, d', labelPart, boxPart, shelfc, shelfd, rl, r, hpacked,
       hcpart, hcshelf, hdpart, hdshelf, hcd, hrlmem, hrmem, hlrect, hbrect⟩
