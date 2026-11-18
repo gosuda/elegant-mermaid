@@ -16,6 +16,7 @@ import Elegant.Layered.SubInputWellFormedFacts
 import Elegant.Layered.ExpandChildC6StepFacts
 import Elegant.Layered.BracketInsidePremisesProof
 import Elegant.Layered.FlatGroupEndpointsProof
+import Elegant.Layered.ForeignBorderSpansProof
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -58,7 +59,9 @@ structure LayeredSeams : Prop where
   captions : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     SceneCaptionBoxContainment inp o res
-  foreignBorderSpans : ForeignBorderSpansSeparated
+  foreignClusterRankSpans : ForeignClusterRankSpans
+  foreignBorderLayerOrder : ForeignBorderLayerOrder
+  foreignBorderChainXAligned : ForeignBorderChainXAligned
   foreignNonGroupSpans : ForeignNonGroupSpansClear
   frameLabels : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     ∀ (execution : SceneExecution inp o res),
@@ -143,7 +146,10 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       S.captions subInputWellFormed hstepC7
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c8a_of_flat
-      (flatC8a_of_span_seams S.foreignBorderSpans S.foreignNonGroupSpans hbracket)
+      (flatC8a_of_span_seams
+        (foreignBorderSpansSeparated S.foreignClusterRankSpans S.foreignBorderLayerOrder
+          S.foreignBorderChainXAligned)
+        S.foreignNonGroupSpans hbracket)
       subInputsWellFormed hstepC8a
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c8b_of_flat hflat8b subInputsWellFormed hstepC8b
