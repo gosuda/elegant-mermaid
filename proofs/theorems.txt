@@ -1362,3 +1362,4 @@ Elegant.Ishikawa.branch5_root_order
 Elegant.Ishikawa.hard_b_branch5_placement_block'
 Elegant.Layered.PipelineImpl.foreignNonGroupSpansClear
 Elegant.Kinds.Treemap.treemap_c7_of_kernels
+Elegant.Kinds.Architecture.architecture_c2
