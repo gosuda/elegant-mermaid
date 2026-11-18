@@ -1350,3 +1350,5 @@ Elegant.Ishikawa.witness_satisfies_placement_block
 Elegant.Ishikawa.hard_b_branch5_placement_block
 Elegant.Layered.PipelineImpl.componentRun_inside_prefix
 Elegant.Layered.PipelineImpl.bracketInsidePremises
+Elegant.Kinds.Architecture.RouteClearance.route_misses_foreign_box
+Elegant.Kinds.Architecture.architecture_c6
