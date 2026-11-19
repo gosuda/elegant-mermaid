@@ -643,3 +643,9 @@ import Elegant.Layered.ExactFlatC6KeysPathsProof
 import Elegant.Layered.ExpandChildParentFrameFlatCaptionProof
 import Elegant.Layered.RegionNotesFamilyValid
 import Elegant.Kinds.StateValidRegions
+import Elegant.Layered.ExactCaptionMarkerBandProof
+import Elegant.Layered.ExactFlatC6LoopSepProof
+import Elegant.Layered.ExactFlatC6LoopSepNonSelfProof
+import Elegant.Layered.RegionPartSizing
+import Elegant.Layered.RegionPositionsDisjoint
+import Elegant.Layered.RegionFallbackCaption
