@@ -1637,3 +1637,13 @@ Elegant.Layered.PipelineImpl.stepC8aAncestry_holds
 Elegant.Kinds.IshikawaFinal.descendantOrdInterval
 Elegant.Ishikawa.flatJointFlatten
 Elegant.Layered.PipelineImpl.x_tailPort_holds
+Elegant.Layered.PipelineImpl.stepC6_layoutX
+Elegant.Layered.PipelineImpl.stepC8a_layoutX
+Elegant.Layered.PipelineImpl.stepC8b_layoutX
+Elegant.Layered.PipelineImpl.stepC7_layoutX
+Elegant.Layered.PipelineImpl.runLocalLoopFootprint_executed
+Elegant.Layered.PipelineImpl.loopReservation_general
+Elegant.Layered.PipelineImpl.loopFootprintSeparation_general
+Elegant.Layered.PipelineImpl.loopBoxZero_of_nonplain
+Elegant.Ishikawa.hardBDeeperDescEnvelope
+Elegant.Ishikawa.hardBDeeperEnvTransport'''
