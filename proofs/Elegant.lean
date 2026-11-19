@@ -703,3 +703,5 @@ import Elegant.Layered.RegionNestFactsProof
 import Elegant.Layered.ExactFallbackFrameFactsProof
 import Elegant.Layered.ExpandChildFitPerCallGuardProof
 import Elegant.Layered.ExpandChildStepStrictnessProof
+import Elegant.Layered.ExactFlatC6LoopScopeProof
+import Elegant.Layered.ExactCaptionBandsProof
