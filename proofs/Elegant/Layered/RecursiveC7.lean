@@ -1,7 +1,10 @@
+import Elegant.Layered.BoxRouteIdsDisjoint
+import Elegant.Layered.InputFixedFit
+import Elegant.Layered.LabelsC7
 import Elegant.Layered.RecursiveC6
 import Elegant.Layered.RecursiveCallContext
 import Elegant.Layered.RecursiveCallParams
-import Elegant.Layered.LabelsC7
+import Elegant.Layered.SceneBounds
 
 set_option autoImplicit false
 
@@ -274,42 +277,56 @@ theorem layoutRecursive_c7_of_flat (hflat7 : FlatC7)
       LabelRunsClearExclusiveBoxes inp o res)
     (hseam2 : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
+      InputFixedFit inp o →
       SceneCaptionBoxContainment inp o res)
     (hsub : SubInputWellFormed)
     (hgeo : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
+      BoxRouteIdsDisjoint inp →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC7Step P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
+      InputFixedFit inp o → BoxRouteIdsDisjoint inp →
       layoutRecursive fuel inp o = .ok res → Validator.C7 res.scene.layoutDump := by
   intro fuel
   induction fuel with
   | zero =>
-      intro inp o res hwf hframed h
+      intro inp o res hwf hframed hfit hdisjoint h
       exact hflat7 inp o res hwf hframed (hsep inp o res) (hseam1 inp o res hwf hframed)
-        (hseam2 inp o res hwf hframed) h
+        (hseam2 inp o res hwf hframed hfit) h
   | succ fuel ih =>
-      intro inp o res hwf hframed h
+      intro inp o res hwf hframed hfit hdisjoint h
       have hboxIds : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
       have hcovered : RoutesCovered inp := inputRoutesCovered hwf
       rcases layoutRecursive_succ_sources h with ⟨_, hlayout⟩ |
         ⟨group, _P0, _metric0, _child0, _titleLines0, _parent0, hg, _, _, _, _, _, _⟩
       · exact hflat7 inp o res hwf hframed (hsep inp o res) (hseam1 inp o res hwf hframed)
-          (hseam2 inp o res hwf hframed) hlayout
+          (hseam2 inp o res hwf hframed hfit) hlayout
       · obtain ⟨P, metric, child, titleLines, parent, _frame, _lines, _dx, _dy,
           hP, hm, hchild, hwrap, hparentAt, hexpandAt, _, _, _, _, _, _, _, _⟩ :=
           layoutRecursive_embedding_assembly_sources hboxIds hcovered hg h
         obtain ⟨hwfChild, hframedChild, hwfParent, hframedParent⟩ :=
           hsub fuel inp o group P metric titleLines child parent hwf hframed hP hm hwrap
             hchild hparentAt
-        have hchildC7 := ih _ _ _ hwfChild hframedChild hchild
-        have hparentC7 := ih _ _ _ hwfParent hframedParent hparentAt
+        have hfitChild := hfit.childSubInput group
+        have hdisjChild := hdisjoint.childSubInput group
+        have hcm := layoutRecursive_canvas_margins fuel hchild
+        have hcw : 2 * P.canvasMargin ≤ child.scene.canvas.w := by
+          rw [checkedParams_canvasMargin hP]
+          exact hcm.1
+        have hch : 2 * P.canvasMargin ≤ child.scene.canvas.h := by
+          rw [checkedParams_canvasMargin hP]
+          exact hcm.2
+        have hfitParent := InputFixedFit.parentSubInput hwf hfit hP hm hwrap hcw hch
+        have hdisjParent := hdisjoint.parentSubInput group P titleLines child
+        have hchildC7 := ih _ _ _ hwfChild hframedChild hfitChild hdisjChild hchild
+        have hparentC7 := ih _ _ _ hwfParent hframedParent hfitParent hdisjParent hparentAt
         have hstep := hgeo fuel P inp o group titleLines _ parent child res hexpandAt hframed
-          ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
+          hdisjoint ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
           ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
         exact expandChild_c7 hchildC7 hparentC7 hstep hexpandAt
 

@@ -4,6 +4,8 @@ import Elegant.Layered.RecursiveC78
 import Elegant.Layered.RecursiveBEq
 import Elegant.Layered.RecursiveCallParams
 import Elegant.Layered.RecursiveBLiftsA
+import Elegant.Layered.InputFixedFit
+import Elegant.Layered.BoxRouteIdsDisjoint
 
 set_option autoImplicit false
 
@@ -41,7 +43,17 @@ abbrev FlatC8aB (base : Input → Options → Except LayoutError FamilyResult) :
 abbrev FlatC8bB (base : Input → Options → Except LayoutError FamilyResult) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
+    InputFixedFit inp o →
     base inp o = .ok res → Validator.C8b res.scene.layoutDump
+
+/-- Every `layoutRecursiveB base` result keeps the canvas margins inside the
+canvas: the margin bound `InputFixedFit.parentSubInput` needs for the fresh
+fixed size. -/
+def CanvasMarginsB (base : Input → Options → Except LayoutError FamilyResult) : Prop :=
+  ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
+    layoutRecursiveB base fuel inp o = .ok res →
+    ∀ (P : Params), checkedParams o.profile inp.kind = .ok P →
+      2 * P.canvasMargin ≤ res.scene.canvas.w ∧ 2 * P.canvasMargin ≤ res.scene.canvas.h
 
 /-- `layoutRecursiveB` preserves C6 from the flat B fact, the global
 frame-clearance fact, the sub-input well-formedness fact stated over
@@ -121,6 +133,7 @@ step over `ExpandChildCallContextB` followed by `ExpandChildCallParams`. -/
 theorem layoutRecursiveB_c7
     (base : Input → Options → Except LayoutError FamilyResult)
     (hflat7 : FlatC7B base)
+    (hmargins : CanvasMarginsB base)
     (hsep : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       PartsSeparated inp o res)
     (hseam1 : ∀ (inp : Input) (o : Options) (res : FamilyResult),
@@ -128,6 +141,7 @@ theorem layoutRecursiveB_c7
       LabelRunsClearExclusiveBoxes inp o res)
     (hseam2 : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
+      InputFixedFit inp o →
       SceneCaptionBoxContainment inp o res)
     (hsub : ∀ (fuel : Nat) (inp : Input) (o : Options) (group : ModelBox)
       (P : Params) (metric : Measure.Metric) (titleLines : List Measure.Line)
@@ -155,33 +169,54 @@ theorem layoutRecursiveB_c7
       (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
+      BoxRouteIdsDisjoint inp →
       ExpandChildCallContextB base fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC7Step P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
+      InputFixedFit inp o → BoxRouteIdsDisjoint inp →
       layoutRecursiveB base fuel inp o = .ok res →
       Validator.C7 res.scene.layoutDump := by
   intro fuel
   induction fuel with
   | zero =>
-    intro inp o res hwf hframed h
+    intro inp o res hwf hframed hfit _hdisjoint h
     have hbase : base inp o = .ok res := by simpa [layoutRecursiveB] using h
     exact hflat7 inp o res hwf hframed (hsep inp o res)
-      (hseam1 inp o res hwf hframed) (hseam2 inp o res hwf hframed) hbase
+      (hseam1 inp o res hwf hframed) (hseam2 inp o res hwf hframed hfit) hbase
   | succ fuel ih =>
-    intro inp o res hwf hframed h
+    intro inp o res hwf hframed hfit hdisjoint h
     rcases layoutRecursiveB_succ_sources base h with ⟨_, hbase⟩ |
       ⟨group, P, metric, child, titleLines, parent, hg, hP, hm,
         hchild, hwrap, hparent, hexpand⟩
     · exact hflat7 inp o res hwf hframed (hsep inp o res)
-        (hseam1 inp o res hwf hframed) (hseam2 inp o res hwf hframed) hbase
+        (hseam1 inp o res hwf hframed) (hseam2 inp o res hwf hframed hfit) hbase
     · obtain ⟨hwfChild, hframedChild, hwfParent, hframedParent⟩ :=
         hsub fuel inp o group P metric titleLines child parent
           hwf hframed hP hm hwrap hchild hparent
-      have hchildC7 := ih _ _ _ hwfChild hframedChild hchild
-      have hparentC7 := ih _ _ _ hwfParent hframedParent hparent
+      have hfitChild : InputFixedFit
+          (Elegant.Layered.PipelineImpl.childSubInput inp group)
+          (Elegant.Layered.PipelineImpl.childSubOptions o group) :=
+        hfit.childSubInput group
+      have hdisjointChild : BoxRouteIdsDisjoint
+          (Elegant.Layered.PipelineImpl.childSubInput inp group) :=
+        hdisjoint.childSubInput group
+      have hPchild : checkedParams
+          (Elegant.Layered.PipelineImpl.childSubOptions o group).profile
+          (Elegant.Layered.PipelineImpl.childSubInput inp group).kind = .ok P := hP
+      have hmarg := hmargins fuel
+        (Elegant.Layered.PipelineImpl.childSubInput inp group)
+        (Elegant.Layered.PipelineImpl.childSubOptions o group) child hchild P hPchild
+      have hfitParent : InputFixedFit
+          (Elegant.Layered.PipelineImpl.parentSubInput inp group P titleLines child) o :=
+        InputFixedFit.parentSubInput hwf hfit hP hm hwrap hmarg.1 hmarg.2
+      have hdisjointParent : BoxRouteIdsDisjoint
+          (Elegant.Layered.PipelineImpl.parentSubInput inp group P titleLines child) :=
+        hdisjoint.parentSubInput group P titleLines child
+      have hchildC7 := ih _ _ _ hwfChild hframedChild hfitChild hdisjointChild hchild
+      have hparentC7 := ih _ _ _ hwfParent hframedParent hfitParent hdisjointParent hparent
       have hparams : ExpandChildCallParams P inp o group titleLines
           ((max 1 titleLines.length : Int) * P.lineH) :=
         ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
@@ -190,7 +225,7 @@ theorem layoutRecursiveB_c7
         ⟨hwf, hg, rfl, hchild, hparent, hexpand⟩
       have hstep := hgeo fuel P inp o group titleLines
         ((max 1 titleLines.length : Int) * P.lineH) parent child res
-        hexpand hframed hctx hparams
+        hexpand hframed hdisjoint hctx hparams
       exact expandChild_c7 hchildC7 hparentC7 hstep hexpand
 
 /-- `layoutRecursiveB` preserves C8a from the flat B fact, the sub-input fact
@@ -267,6 +302,7 @@ over `layoutRecursiveB base`, and a per-call step over
 theorem layoutRecursiveB_c8b
     (base : Input → Options → Except LayoutError FamilyResult)
     (hflat8b : FlatC8bB base)
+    (hmargins : CanvasMarginsB base)
     (hsub : ∀ (fuel : Nat) (inp : Input) (o : Options) (group : ModelBox)
       (P : Params) (metric : Measure.Metric) (titleLines : List Measure.Line)
       (child parent : FamilyResult),
@@ -299,25 +335,39 @@ theorem layoutRecursiveB_c8b
       ExpandChildC8bStep P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
+      InputFixedFit inp o →
       layoutRecursiveB base fuel inp o = .ok res →
       Validator.C8b res.scene.layoutDump := by
   intro fuel
   induction fuel with
   | zero =>
-    intro inp o res hwf hframed h
+    intro inp o res hwf hframed hfit h
     have hbase : base inp o = .ok res := by simpa [layoutRecursiveB] using h
-    exact hflat8b inp o res hwf hframed hbase
+    exact hflat8b inp o res hwf hframed hfit hbase
   | succ fuel ih =>
-    intro inp o res hwf hframed h
+    intro inp o res hwf hframed hfit h
     rcases layoutRecursiveB_succ_sources base h with ⟨_, hbase⟩ |
       ⟨group, P, metric, child, titleLines, parent, hg, hP, hm,
         hchild, hwrap, hparent, hexpand⟩
-    · exact hflat8b inp o res hwf hframed hbase
+    · exact hflat8b inp o res hwf hframed hfit hbase
     · obtain ⟨hwfChild, hframedChild, hwfParent, hframedParent⟩ :=
         hsub fuel inp o group P metric titleLines child parent
           hwf hframed hP hm hwrap hchild hparent
-      have hchildC8b := ih _ _ _ hwfChild hframedChild hchild
-      have hparentC8b := ih _ _ _ hwfParent hframedParent hparent
+      have hfitChild : InputFixedFit
+          (Elegant.Layered.PipelineImpl.childSubInput inp group)
+          (Elegant.Layered.PipelineImpl.childSubOptions o group) :=
+        hfit.childSubInput group
+      have hPchild : checkedParams
+          (Elegant.Layered.PipelineImpl.childSubOptions o group).profile
+          (Elegant.Layered.PipelineImpl.childSubInput inp group).kind = .ok P := hP
+      have hmarg := hmargins fuel
+        (Elegant.Layered.PipelineImpl.childSubInput inp group)
+        (Elegant.Layered.PipelineImpl.childSubOptions o group) child hchild P hPchild
+      have hfitParent : InputFixedFit
+          (Elegant.Layered.PipelineImpl.parentSubInput inp group P titleLines child) o :=
+        InputFixedFit.parentSubInput hwf hfit hP hm hwrap hmarg.1 hmarg.2
+      have hchildC8b := ih _ _ _ hwfChild hframedChild hfitChild hchild
+      have hparentC8b := ih _ _ _ hwfParent hframedParent hfitParent hparent
       have hparams : ExpandChildCallParams P inp o group titleLines
           ((max 1 titleLines.length : Int) * P.lineH) :=
         ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
@@ -328,5 +378,3 @@ theorem layoutRecursiveB_c8b
         ((max 1 titleLines.length : Int) * P.lineH) parent child res
         hexpand hframed hctx hparams
       exact expandChild_c8b hchildC8b hparentC8b hstep hexpand
-
-end Elegant.Layered.PipelineImpl

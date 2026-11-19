@@ -3,6 +3,7 @@ import Elegant.Layered.ExpandChildStepsFacts
 import Elegant.Layered.ExpandChildStructureFacts
 import Elegant.Layered.FramedParentsSub
 import Elegant.Layered.InsetFit
+import Elegant.Layered.InputFixedFit
 import Elegant.Layered.LabelsC8b
 import Elegant.Layered.OutputParentContained
 import Elegant.Layered.PipelineFacts
@@ -251,6 +252,7 @@ private theorem parentScene_c8b
     {titleLines : List Measure.Line} {titleHeight : Int}
     {parent child res : FamilyResult}
     (hflat8b : FlatC8b)
+    (hfit : InputFixedFit (parentSubInput inp group P titleLines child) o)
     (hgeoAll : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -296,7 +298,7 @@ private theorem parentScene_c8b
   have hparent : layoutRecursive fuel (parentSubInput inp group P titleLines child) o = .ok parent := hctx.2.2.2.2.1
   exact layoutRecursive_c8b_of_flat hflat8b subInputsWellFormed hstep fuel
     (parentSubInput inp group P titleLines child) o parent
-    (parentInput_wellFormed hctx) (parentInput_framed hframed hctx) hparent
+    (parentInput_wellFormed hctx) (parentInput_framed hframed hctx) hfit hparent
 
 /-- The parent scene satisfies C3: the flat clause needs no seam, so the
 inset lift applies directly. -/
@@ -770,7 +772,8 @@ theorem expandChild_parentFrame_labels
     (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
     (hframed : framedParents inp = true)
     (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
-      parent child res) :
+      parent child res)
+    (hfit : InputFixedFit (parentSubInput inp group P titleLines child) o) :
     ∀ (frame : Box) (titleLines' : List Measure.Line) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
     dx = frame.rect.x + (childInset group.direction P.clusterPad
@@ -783,7 +786,7 @@ theorem expandChild_parentFrame_labels
     ∀ pl ∈ parent.scene.labels, pl.owner ≠ group.id →
       Disjoint frame.rect pl.rect := by
   intro frame titleLines' dx dy hframe hdx hdy hwrap pl hplMem hown
-  have hC8b := parentScene_c8b hflat8b hgeoAll hownersAll hexpand hframed hctx
+  have hC8b := parentScene_c8b hflat8b hfit hgeoAll hownersAll hexpand hframed hctx
   obtain ⟨hrole, _⟩ := parentFrame_role_isolation hexpand hframed hctx
     hancAll hframe hdx hdy hwrap
   have hframeMem : frame ∈ parent.scene.layoutDump.boxes :=

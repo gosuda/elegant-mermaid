@@ -27,8 +27,13 @@ import Elegant.Layered.DummyNestedMarkerProof
 import Elegant.Layered.ForeignBorderAnchorsProof
 import Elegant.Layered.SideMarkerPathsProof
 import Elegant.Layered.ExpandChildLabelFactsProof
+import Elegant.Layered.InputFixedFit
+import Elegant.Layered.BoxRouteIdsDisjoint
+import Elegant.Layered.MergedRouteIdsProof
+import Elegant.Layered.RouteLabelsPlacedProof
+import Elegant.Layered.BottomSyntheticRankProof
+import Elegant.Layered.DummyChainRankProof
 import ElegantGeometry.Validator
-
 set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
@@ -49,13 +54,17 @@ abbrev RecursiveStepFacts
 
 /-- Every fact the layered family validity theorem still takes as a premise.
 Each field is a named OPEN statement about the executed pipeline; a field
-leaves this structure when its discharge theorem lands.  No field is known to
-be false: the refuted `GroupAttach`, `GroupAnchors`, and universal nonempty-id
-statements were replaced by the four group endpoint fields and a premise on the input.  The
-sub-input well-formedness seams are discharged (`SubInputWellFormedFacts.lean`). -/
+leaves this structure when its discharge theorem lands.  The refuted
+`GroupAttach`, `GroupAnchors`, and universal nonempty-id statements were
+replaced by the four group endpoint fields and a premise on the input.  The
+sub-input well-formedness seams are discharged (`SubInputWellFormedFacts.lean`), as are the
+group-rank, route-label, dummy-row, title-copy, border-layer-order, side-marker,
+label-owner, and label-scope seams (`DummyChainRankProof.lean`,
+`BottomSyntheticRankProof.lean`, `RouteLabelsPlacedProof.lean`,
+`DummyNestedMarkerProof.lean`, `TitleCopySpanProof.lean`,
+`ForeignBorderAnchorsProof.lean`, `SideMarkerPathsProof.lean`,
+`ExpandChildLabelFactsProof.lean`, `MergedRouteIdsProof.lean`). -/
 structure LayeredSeams : Prop where
-  groupTopRank : GroupTopSubtreeRankProper
-  groupBottomBoundary : GroupBottomBoundaryFacts
   flatC6 : FlatC6
   runLocalLoopSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     RunLocalLoopSeparation inp o res
@@ -65,14 +74,14 @@ structure LayeredSeams : Prop where
     RunLocalReversedSeparation inp o res
   exclusiveBoxInLabelRun : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     ExclusiveBoxInLabelRun inp o res
-  routeLabelsPlaced : RouteLabelsPlaced
   captions : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    WellFormed (inputModel inp o) → framedParents inp = true →
+    WellFormed (inputModel inp o) → framedParents inp = true → InputFixedFit inp o →
     SceneCaptionBoxContainment inp o res
   foreignClusterRankSpans : ForeignClusterRankSpans
   foreignBorderChainXAligned : ForeignBorderChainXAligned
   bracketMarkersAtRank : BracketMarkersAtRank
   frameLabels : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true → InputFixedFit inp o →
     ∀ (execution : SceneExecution inp o res),
       LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
         FallbackCaptionClear execution
@@ -84,15 +93,15 @@ structure LayeredSeams : Prop where
   stepC8bGeometry : RecursiveStepFacts ExpandChildC8bGeometry
   stepC8aAncestry : RecursiveStepFacts
     (fun _ _ _ group _ parent child res => ExpandChildC8aAncestry group parent child res)
-  stepC7LabelScopes : RecursiveStepFacts
-    (fun P _ _ group _ parent child res => ExpandChildC7LabelScopes P group parent child res)
 
-/-- Layered family validity for an input with nonempty box ids, modulo exactly
-the fields of `LayeredSeams`.  `hids` is a premise on the input:
-`modelWellFormed` accepts an empty box id, and the C2 merge of the recursion
-needs nonempty ids. -/
+/-- Layered family validity for an input with nonempty box ids, fixed-size room
+for labeled boxes, and disjoint box route ids, modulo exactly the fields of
+`LayeredSeams`.  `hids` is a premise on the input: `modelWellFormed` accepts an
+empty box id, and the C2 merge of the recursion needs nonempty ids.  `layoutFamily`
+runs the recursion on the same input, so `hfix` and `hdisj` carry over directly. -/
 theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Options}
     {res : FamilyResult} (hids : ∀ m ∈ inp.boxes, m.id ≠ "")
+    (hfix : InputFixedFit inp o) (hdisj : BoxRouteIdsDisjoint inp)
     (h : layoutFamily inp o = .ok res) :
     HardConstraints res.scene.layoutDump := by
   obtain ⟨hwf, hrec⟩ := layoutFamily_success h
@@ -101,14 +110,14 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
   have hflat3 : FlatC3' := fun inp o res hwf hfp h => layout_c3 h hwf hfp
   have hflat7 : FlatC7 := fun inp o res hwf hfp hsep s1 s2 h =>
     layout_c7 hwf hfp hsep s1 s2 h
-  have hflat8b : FlatC8b := fun inp o res hwf _ h =>
-    layout_c8b h hwf (S.frameLabels inp o res)
+  have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
+    layout_c8b h hwf (S.frameLabels inp o res hwf hfp hfit)
   have hlabelRuns : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       LabelRunsClearExclusiveBoxes inp o res := fun inp o res hwf hfp =>
     ⟨runLocalLabelClearance_holds hwf hfp (S.runLocalLoopSeparation inp o res)
         (S.runLocalForwardSeparation inp o res) (S.runLocalReversedSeparation inp o res),
-      routeLabelDumpBridges hwf (labelBelongsToRun hwf S.routeLabelsPlaced)
+      routeLabelDumpBridges hwf (labelBelongsToRun hwf routeLabelsPlaced)
         (S.exclusiveBoxInLabelRun inp o res)⟩
   have hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
@@ -118,16 +127,32 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       (fun execution => titleCopySpanClearStrict_executed hwfInp hframedInp execution)
   have hstepC6 : RecursiveStepFacts ExpandChildC6Step :=
     expandChild_c6_step_of_geometry S.stepC6Geometry S.stepC6Anchors
-  have hstepC7 : RecursiveStepFacts ExpandChildC7Step :=
-    expandChild_c7_step_of_geometry S.stepC7Geometry
-      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
-          hparams =>
-        expandChild_c7_structure fuel P inp o group titleLines titleHeight parent child res
-          hexpand hframed hctx
-          (expandChild_label_owners fuel P inp o group titleLines titleHeight parent child
-            res hexpand hframed hctx hparams)
-          (S.stepC7LabelScopes fuel P inp o group titleLines titleHeight parent child res
+  have hstepC7 : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true → BoxRouteIdsDisjoint inp →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight
+        parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildC7Step P inp o group titleHeight parent child res :=
+    by
+    intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
+      hdisjoint hctx hparams
+    intro frame tl dx dy hframe hdx hdy hwrap
+    obtain ⟨s1, s2, s3, s4, s5, s6, s7, s8⟩ :=
+      expandChild_c7_structure fuel P inp o group titleLines titleHeight parent child res
+        hexpand hframed hctx
+        (expandChild_label_owners fuel P inp o group titleLines titleHeight parent child res
+          hexpand hframed hctx hparams)
+        (expandChild_c7_label_scopes_of_disjoint hexpand hframed hctx hparams hdisjoint
+          (S.stepC8aAncestry fuel P inp o group titleLines titleHeight parent child res
             hexpand hframed hctx hparams))
+        frame tl dx dy hframe hdx hdy hwrap
+    obtain ⟨g1, g2, g3, g4⟩ :=
+      S.stepC7Geometry fuel P inp o group titleLines titleHeight parent child res
+        hexpand hframed hctx hparams frame tl dx dy hframe hdx hdy hwrap
+    exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
   have hstepC8a : RecursiveStepFacts ExpandChildC8aStep :=
     expandChild_c8a_step_of_geometry S.stepC8aGeometry
       (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
@@ -158,14 +183,15 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       hwf hfp hrec).2,
     layoutFamily_c4 h,
     layoutFamily_c5_measured
-      (flatGroupEndpoints S.groupTopRank S.groupBottomBoundary groupTailPortOnYs
+      (flatGroupEndpoints groupTopSubtreeRankProper'
+        (groupBottomBoundaryFacts_of_dummy bottomDummyRankLe) groupTailPortOnYs
         groupAnchorSelection)
       subInputWellFormed h,
     layoutRecursive_c6_of_flat S.flatC6 hclear subInputWellFormed hstepC6
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c7_of_flat hflat7 (fun _ _ _ => labelsC7_partsSeparated) hlabelRuns
       S.captions subInputWellFormed hstepC7
-      (inp.boxes.length + 1) inp o res hwf hfp hrec,
+      (inp.boxes.length + 1) inp o res hwf hfp hfix hdisj hrec,
     layoutRecursive_c8a_of_flat
       (flatC8a_of_span_seams
         (foreignBorderSpansSeparated S.foreignClusterRankSpans foreignBorderLayerOrder'
@@ -176,6 +202,6 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       subInputsWellFormed hstepC8a
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c8b_of_flat hflat8b subInputsWellFormed hstepC8b
-      (inp.boxes.length + 1) inp o res hwf hfp hrec⟩
+      (inp.boxes.length + 1) inp o res hwf hfp hfix hrec⟩
 
 end Elegant.Layered.PipelineImpl

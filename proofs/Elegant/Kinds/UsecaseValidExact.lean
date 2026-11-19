@@ -1,4 +1,6 @@
 import Elegant.Layered.FamilyAssemblyB
+import Elegant.Layered.InputFixedFit
+import Elegant.Layered.BoxRouteIdsDisjoint
 import Elegant.Layered.ExactFlatFacts
 import Elegant.Layered.ExactBorder2UnchangedProof
 import Elegant.Layered.SubInputWellFormedFacts
@@ -40,6 +42,9 @@ structure ExactSeams (exactIds : List String) : Prop where
   flatC8a : Layered.PipelineImpl.FlatC8aB (Layered.PipelineImpl.layoutX exactIds)
   /-- Plain counterpart: `layout_c8b` plus `S.frameLabels`. -/
   flatC8b : Layered.PipelineImpl.FlatC8bB (Layered.PipelineImpl.layoutX exactIds)
+  /-- Residual: the canvas-margin bound the C7/C8b lifts need. -/
+  canvasMargins :
+    Layered.PipelineImpl.CanvasMarginsB (Layered.PipelineImpl.layoutX exactIds)
   /-- Plain counterpart: `frameClearanceSeam_holds` over `S.dummyRowClear`/`S.titleCopySpan`. -/
   frameClear :
     ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
@@ -52,13 +57,12 @@ structure ExactSeams (exactIds : List String) : Prop where
       WellFormed (Layered.inputModel inp o) →
         Layered.framedParents inp = true →
           Layered.LabelRunsClearExclusiveBoxes inp o res
-  /-- Plain counterpart: `LayeredSeams.routeLabelsPlaced` (open seam even for plain). -/
-  routeLabelsPlaced : Layered.PipelineImpl.RouteLabelsPlaced
   /-- Plain counterpart: `LayeredSeams.captions`. -/
   captions :
     ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
       WellFormed (Layered.inputModel inp o) →
         Layered.framedParents inp = true →
+          Layered.PipelineImpl.InputFixedFit inp o →
           Layered.SceneCaptionBoxContainment inp o res
   /-- Plain counterpart: `subInputWellFormed` transported through `layoutRecursive_eq_B`. -/
   subInputB :
@@ -97,6 +101,7 @@ structure ExactSeams (exactIds : List String) : Prop where
       (parent child res : Layered.FamilyResult),
       Layered.PipelineImpl.expandChild P inp o group titleHeight parent child = .ok res →
       Layered.framedParents inp = true →
+        Layered.PipelineImpl.BoxRouteIdsDisjoint inp →
       Layered.PipelineImpl.ExpandChildCallContextB
         (Layered.PipelineImpl.layoutX exactIds) fuel P inp o group titleLines titleHeight
         parent child res →
@@ -155,10 +160,10 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
   flatC7 := R.flatC7
   flatC8a := R.flatC8a
   flatC8b := R.flatC8b
+  canvasMargins := R.canvasMargins
   frameClear := R.frameClear
   partsSep := fun _ _ _ => Layered.PipelineImpl.labelsC7_partsSeparated
   labelRuns := R.labelRuns
-  routeLabelsPlaced := R.routeLabelsPlaced
   captions := R.captions
   subInputC2 := Layered.PipelineImpl.subInputWellFormedC2
   subInputB := R.subInputB
@@ -174,9 +179,9 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
 `Usecase.layout` satisfies the hard constraints. The nested recursion flattens
 through `layoutRecursiveB_compose` to the combined fuel
 `(m.boxes.length + 1) + (m.boxes.length + 1)` over `layoutX actorIds`, and the
-nine clauses follow from the base-parametric lifts at that fuel (C5 through
 the per-route `layoutRecursiveB_c5`). `WellFormed`, `WithinLimits` and the
-`sizes` equation are the public validity premises; the family theorem derives
+`sizes` equation are the public validity premises, with `hfix`/`hdisj` the
+fixed-size and route-id premises on the usecase input; the family theorem derives
 its own guards from the success equation, and `hids` transports from model
 boxes to family-input boxes. The draw-shapes post-pass stays a separate draft. -/
 theorem usecase_family_valid_of_exactSeams {m : Model} {fixed : List (String × Size)}
@@ -185,6 +190,8 @@ theorem usecase_family_valid_of_exactSeams {m : Model} {fixed : List (String × 
     (hids : ∀ b ∈ m.boxes, b.id ≠ "")
     (hwf : WellFormed m) (hlim : WithinLimits m)
     (hfixed : sizes m = .ok fixed)
+    (hfix : Layered.PipelineImpl.InputFixedFit (input m fixed) m.options)
+    (hdisj : Layered.PipelineImpl.BoxRouteIdsDisjoint (input m fixed))
     (h : Layered.layoutFamilyB
       (Layered.PipelineImpl.layoutRecursiveX (actorIds m) (m.boxes.length + 1))
       (input m fixed) m.options = .ok res) :
@@ -225,14 +232,15 @@ theorem usecase_family_valid_of_exactSeams {m : Model} {fixed : List (String × 
     Layered.PipelineImpl.layoutRecursiveB_c6 _ S.flatC6 S.frameClear S.subInputB S.stepC6
       ((m.boxes.length + 1) + (m.boxes.length + 1))
       (input m fixed) m.options res hwf' hfp hrec,
-    Layered.PipelineImpl.layoutRecursiveB_c7 _ S.flatC7 S.partsSep S.labelRuns S.captions
-      S.subInputB S.stepC7 ((m.boxes.length + 1) + (m.boxes.length + 1))
-      (input m fixed) m.options res hwf' hfp hrec,
+    Layered.PipelineImpl.layoutRecursiveB_c7 _ S.flatC7 S.canvasMargins S.partsSep
+      S.labelRuns S.captions S.subInputB S.stepC7
+      ((m.boxes.length + 1) + (m.boxes.length + 1))
+      (input m fixed) m.options res hwf' hfp hfix hdisj hrec,
     Layered.PipelineImpl.layoutRecursiveB_c8a _ S.flatC8a S.subInputB S.stepC8a
       ((m.boxes.length + 1) + (m.boxes.length + 1))
       (input m fixed) m.options res hwf' hfp hrec,
-    Layered.PipelineImpl.layoutRecursiveB_c8b _ S.flatC8b S.subInputB S.stepC8b
-      ((m.boxes.length + 1) + (m.boxes.length + 1))
-      (input m fixed) m.options res hwf' hfp hrec⟩
+    Layered.PipelineImpl.layoutRecursiveB_c8b _ S.flatC8b S.canvasMargins S.subInputB
+      S.stepC8b ((m.boxes.length + 1) + (m.boxes.length + 1))
+      (input m fixed) m.options res hwf' hfp hfix hrec⟩
 
 end Elegant.Kinds.Usecase

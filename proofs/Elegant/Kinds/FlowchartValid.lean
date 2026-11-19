@@ -1,5 +1,7 @@
 import Elegant.Layered.FamilyAssembly
 import Elegant.Kinds.Flowchart
+import Elegant.Layered.InputFixedFit
+import Elegant.Layered.BoxRouteIdsDisjoint
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -35,11 +37,14 @@ box ids satisfies the hard constraints. -/
 theorem flowchart_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
     {m : Model} {r : Layered.FamilyResult}
     (hids : ∀ b ∈ m.boxes, b.id ≠ "")
+    (hdisj : Layered.PipelineImpl.BoxRouteIdsDisjoint (Flowchart.input m))
     (h : Flowchart.layout m = .ok r) :
     HardConstraints r.scene.layoutDump := by
   obtain ⟨res, hf, hd⟩ := flowchart_layout_spec h
   rw [hd]
-  exact Layered.PipelineImpl.layoutFamily_valid_of_seams S hids hf
+  exact Layered.PipelineImpl.layoutFamily_valid_of_seams S hids
+    (Layered.PipelineImpl.inputFixedFit_of_nil (inp := Flowchart.input m) rfl)
+    hdisj hf
 
 end Kinds
 end Elegant
