@@ -1508,3 +1508,9 @@ Elegant.Layered.PipelineImpl.SceneExecution.component_child_frame_strictInside
 Elegant.Layered.PipelineImpl.exclusiveBoxInLabelRun
 Elegant.Layered.PipelineImpl.dummyNestedMarkerBelow_wf
 Elegant.Layered.PipelineImpl.dummyInsideProxyRowClear_executed'
+Elegant.Layered.PipelineImpl.properDeclPreserved
+Elegant.Layered.PipelineImpl.runClusterPathGroupMembers
+Elegant.Layered.PipelineImpl.captionRunClear
+Elegant.Layered.PipelineImpl.captionSelfTop
+Elegant.Kinds.Usecase.exactBaseSeams
+Elegant.Kinds.Usecase.usecase_family_valid_of_exactSeams
