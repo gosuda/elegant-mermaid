@@ -37,8 +37,12 @@ lines. This module states the executed form (with `P := execution.params` and
 * (2b) member or descendant (`fNode.clusterPath.contains tNode.decl`, distinct
   declarations) is `CaptionMemberDescDisjoint` (residual: one disjointness).
 * (2c) ancestor (`tNode.clusterPath.contains fNode.decl`, distinct
-  declarations) is proved from (1) plus `CaptionAncestorFrameStrict`, the
-  frame-only nesting conclusion for that pair (residual: no caption content).
+  declarations) splits on the ancestor position's border: a group ancestor
+  (`-2`) is proved from (1) plus `CaptionAncestorGroupFrameStrict`, the
+  frame-only nesting conclusion for that pair (residual: no caption content);
+  the bottom marker (`2`) is `CaptionAncestorMarkerClear` (residual: one case,
+  no caption content); any other ancestor border is
+  `CaptionAncestorOtherClear` (narrow residual: zero probe observations).
 
 Each residual is strictly simpler than the target conjunct it serves (a
 strict subset of the inequalities, or a single case with caption content
@@ -48,13 +52,16 @@ configs): 510 self-strict pairs, 2400 related pairs (of which 180
 ancestor-frame, 180 descendant-frame and 1530 member), zero violations.
 
 Note on `ChildFrameStrictVertical`: case (2c) assumes the frame-nesting
-conclusion `CaptionAncestorFrameStrict` directly instead. Applying
+conclusion `CaptionAncestorGroupFrameStrict` for group ancestors directly
+instead. Applying
 `SceneExecution.component_child_frame_strictInside` would additionally need
 the `ModelBox` parent evidence (`hparentBox`/`hchildBox`/`hparentRef`), a
 member-free discharge of `ParentFrameRightEdgePos`, and induction over the
 ancestor chain; none of that is available, so the designated single-pair
 residual cannot be connected and the nesting conclusion is assumed as the
-narrower frame-only residual.
+narrower frame-only residual. Non-group ancestors are covered separately by
+`CaptionAncestorMarkerClear`, proved from the top-band bound and the ancestor
+bottom-marker band.
 -/
 
 /-- Residual (1, horizontal): the transported caption keeps a positive gap
@@ -123,20 +130,66 @@ def CaptionSameDeclMarkerDisjoint (P : Params) (cg : Graph) (run : Run)
        frameRect P cg run pos = g0 →
        Disjoint g0 (transportCaption P o lines comp i stored0)
 
- /-- Residual (2c, frame nesting): an ancestor position frames the child group
- frame strictly. Pure frames, no caption content, hence strictly simpler than
- the target conjunct. Probe: 180 ancestor-frame pairs, zero violations.
- Missing: transitive ancestor nesting (induction over the ancestor chain with
- single-step `component_child_frame_strictInside`, box-parent derivation from
- `clusterPath` containment, and a member-free `ParentFrameRightEdgePos`
- discharge). -/
- def CaptionAncestorFrameStrict (P : Params) (cg : Graph) (run : Run) : Prop :=
-   ∀ (i pos : Nat) (tNode fNode : Node),
-     cg.nodes[i]? = some tNode → tNode.border = -2 →
-     cg.nodes[pos]? = some fNode →
-     tNode.decl ≠ fNode.decl →
-     tNode.clusterPath.contains fNode.decl = true →
-     (frameRect P cg run pos).StrictInside (frameRect P cg run i)
+ /-- Residual (2c-group, frame nesting): a group ancestor position frames the
+ child group frame strictly. Pure frames, no caption content, hence strictly
+ simpler than the target conjunct. Probe: `PartCaptionRunClear` counts 180
+ ancestor-frame pairs with zero violations; the dedicated marker probe (3
+ nested inputs × 4 direction/profile configs) observes 60 group-ancestor pairs,
+ all strictly nested. Missing: transitive ancestor nesting (induction over the
+ ancestor chain with single-step `component_child_frame_strictInside`,
+ box-parent derivation from `clusterPath` containment, and a member-free
+ `ParentFrameRightEdgePos` discharge). Proved for executed runs in
+ `CaptionAncestorFrameProof` (`captionAncestorGroupFrameStrict_executed`). -/
+def CaptionAncestorGroupFrameStrict (P : Params) (cg : Graph) (run : Run) : Prop :=
+  ∀ (i pos : Nat) (tNode fNode : Node),
+    cg.nodes[i]? = some tNode → tNode.border = -2 →
+    cg.nodes[pos]? = some fNode → fNode.border = -2 →
+    tNode.decl ≠ fNode.decl →
+    tNode.clusterPath.contains fNode.decl = true →
+    (frameRect P cg run pos).StrictInside (frameRect P cg run i)
+
+ /-- Residual (2c-marker): the ancestor's bottom marker (`2`) is disjoint from
+ the transported caption. One case, no caption content, hence strictly simpler
+ than the target conjunct. Probe: `wip/Probe/CaptionAncestorMarkerTProbe` (3
+ nested inputs × 4 direction/profile configs) observes 60 bottom-marker
+ ancestor pairs, all disjoint and none strictly inside, with zero violations.
+ Proved for executed runs in `CaptionAncestorFrameProof`
+ (`captionAncestorMarkerClear_executed`): the caption lies in its own top band
+ while the ancestor's bottom marker band lies strictly below it. -/
+def CaptionAncestorMarkerClear (P : Params) (cg : Graph) (run : Run)
+    (o : Options) (lines : List (List Measure.Line)) (comp : List Nat) : Prop :=
+  ∀ (i : Nat) (stored0 : Rect) (tNode : Node),
+    (i, stored0) ∈ componentTitles P cg run →
+    cg.nodes[i]? = some tNode → tNode.border = -2 →
+    ∀ (pos : Nat) (fNode : Node) (g0 : Rect),
+      cg.nodes[pos]? = some fNode →
+      tNode.decl ≠ fNode.decl →
+      tNode.clusterPath.contains fNode.decl = true →
+      fNode.border = 2 →
+      frameRect P cg run pos = g0 →
+      Disjoint g0 (transportCaption P o lines comp i stored0)
+
+ /-- Residual (2c-other): an ancestor position that is neither a group frame
+ nor a bottom marker is disjoint from the transported caption or strictly
+ inside it. Candidate nodes have border `0`, `-2` or `2` by
+ `componentCandidate_marker_shape`, so this covers only plain (`0`) ancestors
+ in practice; side markers (`±1`) and title copies (`3`) do not occur in the
+ candidate graph. Probe: `wip/Probe/CaptionAncestorMarkerTProbe` observes zero
+ such pairs across all 3 nested inputs × 4 direction/profile configs. Narrower
+ than the target conjunct (one case, no caption content). -/
+def CaptionAncestorOtherClear (P : Params) (cg : Graph) (run : Run)
+    (o : Options) (lines : List (List Measure.Line)) (comp : List Nat) : Prop :=
+  ∀ (i : Nat) (stored0 : Rect) (tNode : Node),
+    (i, stored0) ∈ componentTitles P cg run →
+    cg.nodes[i]? = some tNode → tNode.border = -2 →
+    ∀ (pos : Nat) (fNode : Node) (g0 : Rect),
+      cg.nodes[pos]? = some fNode →
+      tNode.decl ≠ fNode.decl →
+      tNode.clusterPath.contains fNode.decl = true →
+      fNode.border ≠ -2 → fNode.border ≠ 2 →
+      frameRect P cg run pos = g0 →
+      Disjoint g0 (transportCaption P o lines comp i stored0) ∨
+      g0.StrictInside (transportCaption P o lines comp i stored0)
 
 /-- Strict-inside transitivity for the ancestor case. -/
 theorem captionStrictInside_trans {o m i : Rect}
@@ -789,20 +842,25 @@ theorem captionSameDeclClear_executed
      (hmemrel : fNode.clusterPath.contains tNode.decl = true)
      (hnonplain : fNode.border ≠ 0)
      (hframe : frameRect P cg run pos = g0) :
-     Disjoint g0 (transportCaption P o lines comp i stored0) ∨
-     g0.StrictInside (transportCaption P o lines comp i stored0) :=
-   Or.inl (hmemdesc _ _ _ hmem hnode hborder _ _ _ hfn hne hmemrel hnonplain hframe)
+    Disjoint g0 (transportCaption P o lines comp i stored0) ∨
+    g0.StrictInside (transportCaption P o lines comp i stored0) :=
+  Or.inl (hmemdesc _ _ _ hmem hnode hborder _ _ _ hfn hne hmemrel hnonplain hframe)
 
-/-- Case (2c): ancestor position. The ancestor frame strictly contains the
-child frame (residual), the child frame strictly contains the caption by
-(1), so the ancestor frame strictly contains the caption. -/
+/-- Case (2c): ancestor position, split on the ancestor position's border. A
+group ancestor frame strictly contains the child frame (residual), the child
+frame strictly contains the caption by (1), so the ancestor frame strictly
+contains the caption. The bottom marker is disjoint from the caption by the
+marker residual; any other border is covered by the narrow other residual. -/
 theorem captionAncestorClear_executed
     {i : Nat} {stored0 : Rect} {tNode : Node}
     {P : Params} {cg : Graph} {run : Run}
     {o : Options} {lines : List (List Measure.Line)} {comp : List Nat}
     (hself : (frameRect P cg run i).StrictInside
       (transportCaption P o lines comp i stored0))
-    (hnest : CaptionAncestorFrameStrict P cg run)
+    (hnest : CaptionAncestorGroupFrameStrict P cg run)
+    (hmarkAnc : CaptionAncestorMarkerClear P cg run o lines comp)
+    (hotherAnc : CaptionAncestorOtherClear P cg run o lines comp)
+    (hmem : (i, stored0) ∈ componentTitles P cg run)
     (hnode : cg.nodes[i]? = some tNode)
     (hborder : tNode.border = -2)
     {pos : Nat} {fNode : Node} {g0 : Rect}
@@ -812,9 +870,15 @@ theorem captionAncestorClear_executed
     (hframe : frameRect P cg run pos = g0) :
     Disjoint g0 (transportCaption P o lines comp i stored0) ∨
     g0.StrictInside (transportCaption P o lines comp i stored0) := by
-  have hnest' := hnest i pos tNode fNode hnode hborder hfn hne hancrel
-  rw [hframe] at hnest'
-  exact Or.inr (captionStrictInside_trans hnest' hself)
+  by_cases hgroup : fNode.border = -2
+  · have hnest' := hnest i pos tNode fNode hnode hborder hfn hgroup hne hancrel
+    rw [hframe] at hnest'
+    exact Or.inr (captionStrictInside_trans hnest' hself)
+  · by_cases hmark : fNode.border = 2
+    · exact Or.inl (hmarkAnc i stored0 tNode hmem hnode hborder pos fNode g0 hfn hne
+        hancrel hmark hframe)
+    · exact hotherAnc i stored0 tNode hmem hnode hborder pos fNode g0 hfn hne hancrel
+        hgroup hmark hframe
 theorem captionLocalClear_executed {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res) (_hwf : WellFormed (inputModel inp o))
     {comp : List Nat} (_hcomp : comp ∈ components execution.graph)
@@ -827,8 +891,12 @@ theorem captionLocalClear_executed {inp : Input} {o : Options} {res : FamilyResu
       (componentCandidate execution.graph comp candidate) run o execution.lines comp)
     (hmemdesc : CaptionMemberDescDisjoint execution.params
       (componentCandidate execution.graph comp candidate) run o execution.lines comp)
-    (hnest : CaptionAncestorFrameStrict execution.params
-      (componentCandidate execution.graph comp candidate) run) :
+    (hnest : CaptionAncestorGroupFrameStrict execution.params
+      (componentCandidate execution.graph comp candidate) run)
+    (hmarkAnc : CaptionAncestorMarkerClear execution.params
+      (componentCandidate execution.graph comp candidate) run o execution.lines comp)
+    (hotherAnc : CaptionAncestorOtherClear execution.params
+      (componentCandidate execution.graph comp candidate) run o execution.lines comp) :
     (∀ (i : Nat) (stored0 : Rect) (tNode : Node),
       (i, stored0) ∈ componentTitles execution.params
         (componentCandidate execution.graph comp candidate) run →
@@ -869,8 +937,10 @@ theorem captionLocalClear_executed {inp : Input} {o : Options} {res : FamilyResu
         · by_cases hplain : fNode.border = 0
           · exact Or.inl (captionPlainMemberClear_proved execution _hcomp hrun hmem hnode hborder
               hfn hne hplain hft hframe)
-          · exact captionMemberDescClear_executed hmemdesc hmem hnode hborder hfn hne hft hplain hframe
-        · exact captionAncestorClear_executed hself hnest hnode hborder hfn hne htf hframe
+          · exact captionMemberDescClear_executed hmemdesc hmem hnode hborder hfn hne hft hplain
+              hframe
+        · exact captionAncestorClear_executed hself hnest hmarkAnc hotherAnc hmem hnode hborder
+            hfn hne htf hframe
 
 /-- Executed `captionRunClear`: the bounded run-level caption clearance for
 an executed run. Same short proof as `captionRunClear`, with the executed
@@ -889,12 +959,17 @@ theorem captionRunClear_executed {inp : Input} {o : Options} {res : FamilyResult
       (componentCandidate execution.graph comp candidate) run o execution.lines comp)
     (hmemdesc : CaptionMemberDescDisjoint execution.params
       (componentCandidate execution.graph comp candidate) run o execution.lines comp)
-    (hnest : CaptionAncestorFrameStrict execution.params
-      (componentCandidate execution.graph comp candidate) run) :
+    (hnest : CaptionAncestorGroupFrameStrict execution.params
+      (componentCandidate execution.graph comp candidate) run)
+    (hmarkAnc : CaptionAncestorMarkerClear execution.params
+      (componentCandidate execution.graph comp candidate) run o execution.lines comp)
+    (hotherAnc : CaptionAncestorOtherClear execution.params
+      (componentCandidate execution.graph comp candidate) run o execution.lines comp) :
     CaptionRunClear execution.params (componentCandidate execution.graph comp candidate) run
       (transportCapSize execution.params o execution.lines comp) := by
   have hlocal :=
-     captionLocalClear_executed execution _hwf _hcomp hrun hside hmark hmemdesc hnest
+     captionLocalClear_executed execution _hwf _hcomp hrun hside hmark hmemdesc hnest hmarkAnc
+       hotherAnc
   unfold CaptionRunClear
   intro i stored0 tNode hmem hnode hborder pos g0 hpos hframe
   cases hfn : (componentCandidate execution.graph comp candidate).nodes[pos]? with
