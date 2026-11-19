@@ -218,16 +218,12 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
     (flatGroupEndpoints groupTopSubtreeRankProper'
       (groupBottomBoundaryFacts_of_dummy bottomDummyRankLe)
       groupTailPortOnYs groupAnchorSelection)
-  flatC6 := flatC6_closed S.partFrameWitness S.loopRectTopReal S.loopRectFixedReal
-    S.loopRectTitleReal S.loopRectBottomReal S.loopRectRangeDegReal
-    S.loopFootprintTopSeparation S.loopFootprintBeyondProper
+  flatC6 := flatC6_closed S.partFrameWitness (fun inp o res hwf hfp => loopRectTopReal_holds hwf hfp (S.loopRectTopForeign inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (S.loopRectTitleCopy inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) S.loopFootprintTopSeparation S.loopFootprintBeyondProper
   flatC7 := fun inp o res hwf hfp hsep hseam1 hseam2 hb =>
     layout_c7 hwf hfp hsep hseam1 hseam2 hb
   flatC8a := flatC8a_of_span_seams
-    (foreignBorderSpansSeparated foreignClusterRankSpans'
-      foreignBorderLayerOrder' S.foreignBorderChainXAligned)
-    (foreignNonGroupSpansClear bracketMarkersAtRank'
-      plainClearOfSideMarker' (sideMarkerSpanAligned' S.foreignBorderChainXAligned))
+    (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+    (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
     (fun inp o res hwf hfp =>
       bracketInsidePremises
         (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
@@ -242,10 +238,8 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
       (S.executedPartFrameCores inp o res hwf hfp execution)
       (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
         (flatC8a_executed execution hwf hfp
-          (foreignBorderSpansSeparated foreignClusterRankSpans'
-            foreignBorderLayerOrder' S.foreignBorderChainXAligned)
-          (foreignNonGroupSpansClear bracketMarkersAtRank'
-            plainClearOfSideMarker' (sideMarkerSpanAligned' S.foreignBorderChainXAligned))
+          (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+          (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
           (fun inp o res hwf hfp =>
             bracketInsidePremises
               (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
@@ -266,16 +260,14 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
   partsSep := fun _ _ _ => labelsC7_partsSeparated
   captions := fun inp o res hwf hfp hfit =>
     sceneCaptionBoxContainment_of_fit hwf hfp hfit
-      (S.titleExclusiveSamePart inp o res hwf hfp)
+      (titleExclusiveSamePart_holds (foreignBorderChainXAligned' S.foreignBorderDivergeStable) inp o res hwf hfp)
       (titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
       (fun execution => frameLabels_executed execution hwf hfp hfit
         (S.executedPartFrameCores inp o res hwf hfp execution)
         (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
           (flatC8a_executed execution hwf hfp
-            (foreignBorderSpansSeparated foreignClusterRankSpans'
-              foreignBorderLayerOrder' S.foreignBorderChainXAligned)
-            (foreignNonGroupSpansClear bracketMarkersAtRank'
-              plainClearOfSideMarker' (sideMarkerSpanAligned' S.foreignBorderChainXAligned))
+            (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+            (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
             (fun inp o res hwf hfp =>
               bracketInsidePremises
                 (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
@@ -366,7 +358,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         parent child res).mpr hctxB)
   stepC6 := fun fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctxB hparams =>
-    expandChild_c6_step_of_geometry S.stepC6Geometry stepC6Anchors_holds
+     expandChild_c6_step_of_geometry (c6Geometry_of_seams S) stepC6Anchors_holds
       fuel P inp o group titleLines titleHeight parent child res hexpand hframed
       ((expandChildCallContext_iff fuel P inp o group titleLines titleHeight
         parent child res).mpr hctxB)
@@ -389,7 +381,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
             child res hexpand hframed hctx hparams))
         frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨g1, g2, g3, g4⟩ :=
-      S.stepC7Geometry fuel P inp o group titleLines titleHeight parent child res
+       (c7Geometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
         hexpand hframed hctx hparams frame tl dx dy hframe hdx hdy hwrap
     exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
   stepC8a := fun fuel P inp o group titleLines titleHeight parent child res
@@ -407,7 +399,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
       hparams
   stepC8b := fun fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctxB hparams =>
-    expandChild_c8b_step_of_geometry S.stepC8bGeometry
+     expandChild_c8b_step_of_geometry (c8bGeometry_of_seams S)
       (fun fuel P inp o group titleLines titleHeight parent child res hexpand
         hframed hctx hparams =>
         expandChild_c8b_structure fuel P inp o group titleLines titleHeight
