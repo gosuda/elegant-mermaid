@@ -218,7 +218,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
     (flatGroupEndpoints groupTopSubtreeRankProper'
       (groupBottomBoundaryFacts_of_dummy bottomDummyRankLe)
       groupTailPortOnYs groupAnchorSelection)
-  flatC6 := flatC6_closed S.partFrameWitness (fun inp o res hwf hfp => loopRectTopReal_holds hwf hfp (S.loopRectTopForeign inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (S.loopRectTitleCopy inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) S.loopFootprintTopSeparation S.loopFootprintBeyondProper
+  flatC6 := flatC6_closed S.partFrameWitness (fun inp o res hwf hfp => loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (S.loopRectTitleCopy inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) S.loopFootprintTopSeparation S.loopFootprintBeyondProper
   flatC7 := fun inp o res hwf hfp hsep hseam1 hseam2 hb =>
     layout_c7 hwf hfp hsep hseam1 hseam2 hb
   flatC8a := flatC8a_of_span_seams
@@ -235,7 +235,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
   flatC8b := fun inp o res hwf hfp hfit hb =>
     layout_c8b hb hwf (fun execution => frameLabels_executed execution hwf hfp hfit
-      (S.executedPartFrameCores inp o res hwf hfp execution)
+      (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (S.loopHullRightCover inp o res hwf hfp execution) (S.loopHullRightNeighborCover inp o res hwf hfp execution))
       (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
         (flatC8a_executed execution hwf hfp
           (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
@@ -263,7 +263,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
       (titleExclusiveSamePart_holds (foreignBorderChainXAligned' S.foreignBorderDivergeStable) inp o res hwf hfp)
       (titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
       (fun execution => frameLabels_executed execution hwf hfp hfit
-        (S.executedPartFrameCores inp o res hwf hfp execution)
+        (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (S.loopHullRightCover inp o res hwf hfp execution) (S.loopHullRightNeighborCover inp o res hwf hfp execution))
         (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
           (flatC8a_executed execution hwf hfp
             (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
