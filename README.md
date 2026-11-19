@@ -19,7 +19,7 @@ The three diagram rows are the same bytes the repository ships as the text-rende
 
 ## Why use it
 
-- **One binary, no browser:** `emd` renders without a JavaScript runtime or a DOM; the npm package ships the compiled binary.
+- **One binary, no browser:** `emd` renders without a JavaScript runtime or a DOM; the npm package ships the compiled binary behind a small Node launcher, so the npm command still needs Node.js.
 - **Two engines, one output:** the Go and Rust implementations produce byte-identical output. `just parity` compares them over a corpus of 3,566 diagrams.
 - **33 diagram kinds:** from flowchart and sequence to gantt, sankey, and railroad. The full list is under [Diagram kinds](#diagram-kinds).
 - **Checker and linter:** stable diagnostic codes, safe automatic fixes, and text, JSON, SARIF, or GitHub annotation output.
