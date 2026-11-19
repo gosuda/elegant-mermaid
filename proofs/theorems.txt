@@ -2367,3 +2367,7 @@ Elegant.Layered.PipelineImpl.XC_ancestorGroupFrameX_holds
 Elegant.Layered.PipelineImpl.XC_ancestorMarkerX_holds
 Elegant.Layered.PipelineImpl.XC_ancestorOtherX_holds
 Elegant.Layered.PipelineImpl.XC_foreignSpansX_of_spans
+Elegant.Layered.PipelineImpl.loopRectTitleCopy_closed
+Elegant.Layered.PipelineImpl.XC_sameDeclMarkerX_holds
+Elegant.Layered.PipelineImpl.XC_plainMemberX_holds
+Elegant.Layered.PipelineImpl.XC_memberDescX_holds

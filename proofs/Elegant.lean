@@ -535,3 +535,5 @@ import Elegant.Layered.ExactRouteNonforwardClearProof
 import Elegant.Layered.LoopResTopReservationProof
 import Elegant.Layered.ExactCaptionAncestorsProof
 import Elegant.Layered.ExactLoopRectResidualsProof
+import Elegant.Layered.LoopRectTitleCopySepProof
+import Elegant.Layered.ExactCaptionMembersProof
