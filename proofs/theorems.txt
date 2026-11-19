@@ -1583,3 +1583,8 @@ Elegant.Kinds.IshikawaFinal.ishikawaBoundaryRouteXNonpos'
 Elegant.Kinds.IshikawaFinal.ishikawaBoundaryPieceClearance'''
 Elegant.Kinds.IshikawaFinal.ishikawaRouteXExtentLower
 Elegant.Kinds.IshikawaFinal.ishikawaCrossRibPieceClearance'''
+Elegant.Layered.PipelineImpl.partPositiveContent
+Elegant.Layered.PipelineImpl.selfLoop_edgesOf_empty
+Elegant.Layered.PipelineImpl.properChainEndpointKeys
+Elegant.Layered.PipelineImpl.runRouteEndpointIdsScoped'
+Elegant.Layered.PipelineImpl.routePartShelfPositive'
