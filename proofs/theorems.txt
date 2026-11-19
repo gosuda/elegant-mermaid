@@ -1545,3 +1545,6 @@ Elegant.Layered.PipelineImpl.routeLabelsPlaced
 Elegant.Ishikawa.hardBDeeperGapOnly
 Elegant.Ishikawa.hardBDeeperRouteGap''
 Elegant.Ishikawa.hardBDeeperEnvTransport''
+Elegant.Kinds.IshikawaFinal.ishikawaSameRibEnvelopeClearance
+Elegant.Kinds.IshikawaFinal.ishikawaSameRibPieceClearance'
+Elegant.Ishikawa.hardBDeeperOrdInterval

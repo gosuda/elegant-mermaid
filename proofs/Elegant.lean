@@ -375,3 +375,5 @@ import Elegant.Layered.SideMarkerAnchorCoverProof
 import Elegant.Layered.LaneBandsBoxClauses
 import Elegant.Layered.RouteLabelsPlacedProof
 import Elegant.IshikawaDeeperGapOnlyProof
+import Elegant.Kinds.IshikawaSameRibEnvelope
+import Elegant.IshikawaDeeperOrdIntervalProof
