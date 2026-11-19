@@ -517,3 +517,7 @@ import Elegant.Kinds.UsecaseDrawShapesProof
 import Elegant.Layered.LoopExtentReservationProof
 import Elegant.Layered.LoopHullCoverProof
 import Elegant.Layered.ExactLoopEnvelopeSeparationProof
+import Elegant.Layered.ExactCaptionRunClearProof
+import Elegant.Layered.ExactLoopRectProof
+import Elegant.Layered.ExactBorderChainXAlignedProof
+import Elegant.Layered.DivergeTiedHeadsProof
