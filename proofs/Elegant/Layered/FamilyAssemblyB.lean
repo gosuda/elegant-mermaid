@@ -25,6 +25,7 @@ import Elegant.Layered.FallbackOwnerFrameProof
 import Elegant.Layered.FallbackOwnerStrictStepProof
 import Elegant.Layered.SideMarkerTopInCandidateProof
 import Elegant.Layered.ExpandChildC8aGeometryExecuted
+import Elegant.Layered.LoopHullCoverProof
 
 set_option autoImplicit false
 namespace Elegant.Layered.PipelineImpl
@@ -235,7 +236,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
   flatC8b := fun inp o res hwf hfp hfit hb =>
     layout_c8b hb hwf (fun execution => frameLabels_executed execution hwf hfp hfit
-      (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (S.loopHullRightCover inp o res hwf hfp execution) (S.loopHullRightNeighborCover inp o res hwf hfp execution))
+      (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => loopHullRightCover_holds hwf hfp execution hcomp hrun (S.loopHullGroupRight inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => loopHullRightNeighborCover_holds hwf hfp execution hcomp hrun (S.loopHullNeighborGap inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)))
       (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
         (flatC8a_executed execution hwf hfp
           (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
@@ -263,7 +264,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
       (titleExclusiveSamePart_holds (foreignBorderChainXAligned' S.foreignBorderDivergeStable) inp o res hwf hfp)
       (titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
       (fun execution => frameLabels_executed execution hwf hfp hfit
-        (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (S.loopHullRightCover inp o res hwf hfp execution) (S.loopHullRightNeighborCover inp o res hwf hfp execution))
+        (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => loopHullRightCover_holds hwf hfp execution hcomp hrun (S.loopHullGroupRight inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => loopHullRightNeighborCover_holds hwf hfp execution hcomp hrun (S.loopHullNeighborGap inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)))
         (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
           (flatC8a_executed execution hwf hfp
             (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))

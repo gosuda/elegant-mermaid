@@ -76,15 +76,18 @@ import Elegant.Layered.PipelineFacts
 import Elegant.Layered.ExpandChildStructureFacts
 import Elegant.Layered.LoopRectResidualsProof
 import Elegant.Layered.ExecutedPartFrameCoresClosed
+import Elegant.Layered.ExpandChildParentFrameStrictProof
+import Elegant.Layered.LoopHullCoverProof
+import Elegant.Layered.LoopExtentReservationProof
 set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
  /-- Every fact the layered family validity theorem still takes as a premise.
  Remaining fields: `partFrameWitness`,
 `loopRectTitleCopy`, `loopFootprintTopSeparation`, `loopFootprintBeyondProper`,
-`foreignBorderDivergeStable`, `loopHullRightCover`, `loopHullRightNeighborCover`,
+`foreignBorderDivergeStable`, `loopHullGroupRight`, `loopHullNeighborGap`,
 `parentFixedForeign`, `parentRouteAttachedClear`, `parentFrameStrict`,
-`parentStrictStep`, `fitPerCall`.  Each field is a named
+`fitPerCall`.  Each field is a named
  OPEN statement about the executed pipeline; a field leaves this structure when
 its discharge theorem lands.  The refuted `GroupAttach`, `GroupAnchors`, and
 universal nonempty-id statements were replaced by the four group endpoint
@@ -103,8 +106,8 @@ which the `captions` field now takes narrowed to `titleExclusiveSamePart`
 via `sceneCaptionBoxContainment_of_fit` (`CaptionsSeamProof.lean`,
  `CaptionCrossPartProof.lean`).  The old `flatC6` field is narrowed to its
  eight residuals, closed by `flatC6_closed` (`FlatC6ClosedProof.lean`), and
- the old `frameLabels` field is narrowed to `loopHullRightCover` and
- `loopHullRightNeighborCover`, closed by `executedPartFrameCores_closed`
+ the old `frameLabels` field is narrowed to `loopHullGroupRight` and
+ `loopHullNeighborGap`, closed by `executedPartFrameCores_closed`
  (`ExecutedPartFrameCoresClosed.lean`) via `frameLabels_executed`
  (`FrameLabelsProof.lean`) over
  `fallbackOwnerFrameClear_executed` (`FallbackOwnerFrameProof.lean`), itself over
@@ -129,12 +132,11 @@ structure LayeredSeams : Prop where
   loopFootprintTopSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → LoopFootprintTopSeparation inp o res
   loopFootprintBeyondProper : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → LoopFootprintBeyondProper inp o res
   foreignBorderDivergeStable : ForeignBorderDivergeStable
-  loopHullRightCover : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopHullRightCover execution.params (componentCandidate execution.graph comp candidate) run execution.measured
-  loopHullRightNeighborCover : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopHullRightNeighborCover execution.params (componentCandidate execution.graph comp candidate) run execution.measured
+  loopHullGroupRight : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopResGroupHullRight execution.params (componentCandidate execution.graph comp candidate) run execution.measured
+  loopHullNeighborGap : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → R3ExtentFitGap execution.params (componentCandidate execution.graph comp candidate) run execution.measured
   parentFixedForeign : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult) (g : ModelBox), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → g.id ∉ parent.scene.layoutDump.ancestors group.id
   parentRouteAttachedClear : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentRouteAttachedClear group parent
   parentFrameStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentFrameStrict group parent
-  parentStrictStep : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentStrictStep parent
   fitPerCall : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → InputFixedFit inp o
 
  /-- Local copy of the private lemma in `ExpandChildC6GeometryClosed.lean`:
@@ -1999,7 +2001,7 @@ the fuel-closed strict miss. -/
          (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
    have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
      layout_c8b h hwf (fun execution => frameLabels_executed execution hwf hfp hfit
-       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (S.loopHullRightCover inp o res hwf hfp execution) (S.loopHullRightNeighborCover inp o res hwf hfp execution))
+       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => loopHullRightCover_holds hwf hfp execution hcomp hrun (S.loopHullGroupRight inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => loopHullRightNeighborCover_holds hwf hfp execution hcomp hrun (S.loopHullNeighborGap inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)))
        (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
          (flatC8a_executed execution hwf hfp
            (foreignBorderSpansSeparated foreignClusterRankSpans'
@@ -2011,7 +2013,7 @@ the fuel-closed strict miss. -/
                (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
                (fun execution => titleCopySpanClearStrict_executed hwf hfp execution)))
          (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
-   exact stepC8bGeometry_holds hflat8a hflat8b S.parentFrameStrict S.parentStrictStep S.fitPerCall
+   exact stepC8bGeometry_holds hflat8a hflat8b S.parentFrameStrict parentStrictStep_of_recursion S.fitPerCall
 
  /-- The below-fuel C8b geometry from the seams, for the C7 derivation. -/
  theorem below8b_of_seams (S : LayeredSeams) (fuel : Nat) :
@@ -2071,7 +2073,7 @@ the fuel-closed strict miss. -/
          (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
    have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
      layout_c8b h hwf (fun execution => frameLabels_executed execution hwf hfp hfit
-       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (S.loopHullRightCover inp o res hwf hfp execution) (S.loopHullRightNeighborCover inp o res hwf hfp execution))
+       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => loopHullRightCover_holds hwf hfp execution hcomp hrun (S.loopHullGroupRight inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => loopHullRightNeighborCover_holds hwf hfp execution hcomp hrun (S.loopHullNeighborGap inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)))
        (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
          (flatC8a_executed execution hwf hfp
            (foreignBorderSpansSeparated foreignClusterRankSpans'
@@ -2084,7 +2086,7 @@ the fuel-closed strict miss. -/
                (fun execution => titleCopySpanClearStrict_executed hwf hfp execution)))
          (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
    exact stepC7Geometry_holds hflat8a hflat8b (below8b_of_seams S) S.parentFrameStrict
-     S.parentStrictStep (fitParent_of_seams S) S.fitPerCall
+     parentStrictStep_of_recursion (fitParent_of_seams S) S.fitPerCall
 
  /-- Layered family validity for an input with nonempty box ids, fixed-size room
  for labeled boxes, and disjoint box route ids, modulo exactly the fields of
@@ -2115,7 +2117,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
           FallbackCaptionClear execution :=
      fun inp o res hwf hfp hfit execution =>
        frameLabels_executed execution hwf hfp hfit
-         (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (S.loopHullRightCover inp o res hwf hfp execution) (S.loopHullRightNeighborCover inp o res hwf hfp execution))
+         (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintTopSeparation inp o res hwf hfp) (S.loopFootprintBeyondProper inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => loopHullRightCover_holds hwf hfp execution hcomp hrun (S.loopHullGroupRight inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => loopHullRightNeighborCover_holds hwf hfp execution hcomp hrun (S.loopHullNeighborGap inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)))
          (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
            (flatC8a_executed execution hwf hfp
             (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
