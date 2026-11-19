@@ -453,10 +453,11 @@ fn transport_survives_early_argument_rejection() -> TestResult {
 
 #[test]
 fn transport_reports_truncated_input_on_success() -> TestResult {
-    // `--version` exits zero without reading stdin, so a payload larger
-    // than the pipe buffer must surface the broken pipe: the input was
-    // silently truncated and the success verdict is not trustworthy.
-    let payload = vec![b'x'; 1 << 17];
+    // `--version` exits zero without reading stdin, so the payload must
+    // exceed every host pipe buffer (64 KiB default, 1 MiB Linux maximum):
+    // only then does the write block until the child exits and surface
+    // the broken pipe, proving the truncated input is never trusted.
+    let payload = vec![b'x'; 1 << 23];
     let mut cmd = Command::new(binary());
     cmd.args(["--version"])
         .env_remove("NO_COLOR")
