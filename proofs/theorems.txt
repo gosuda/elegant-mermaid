@@ -1606,3 +1606,8 @@ Elegant.Layered.PipelineImpl.expandChild_c6_anchors
 Elegant.Layered.PipelineImpl.expandChild_c8a_ancestry
 Elegant.Ishikawa.flatInvFlatten
 Elegant.Ishikawa.hardBDeeperOrdInterval'
+Elegant.Layered.PipelineImpl.frame_clear_of_flat
+Elegant.Layered.PipelineImpl.expandChild_frame_step
+Elegant.Layered.PipelineImpl.layoutRecursive_frame_clear
+Elegant.Layered.PipelineImpl.expandChild_frame_scope_outside
+Elegant.Layered.PipelineImpl.expandChild_parentRouteFrameClear
