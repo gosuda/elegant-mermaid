@@ -11,55 +11,6 @@ set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
 
-/-- Caption inputs from the executed group floors and the caption contract. -/
-theorem captionInputs_of_premises {inp : Input} {o : Options} {res : FamilyResult}
-    (hcap : ∃ captions : String → String, CaptionInputs captions inp o)
-    (hfloor : Elegant.Layered.CaptionGroupFrameWidthFloor inp o res)
-    (htitle : Elegant.Layered.CaptionGroupTitleWidthFloor inp o res) :
-    Elegant.Layered.CaptionInputs inp o res :=
-  Elegant.Layered.captionInputs_of_group_facts hcap hfloor htitle
-
-/-- Executed group-owner half of `OwnerScopeSamePartClear`: when the
-non-exclusive caption owner at `ownerIndex` is a group-role box, its run-level
-`frameRect` is disjoint from the run-level `frameRect` of the foreign exclusive
-box at `bi` in the same executed part. This is the missing executed fact for
-unrelated group-versus-plain layouts (the node-owner half follows from
-`componentRun_positions_disjoint` via `WellFormed`); it is pinned by the same
-executed-part membership and successful `componentRun` as the goal and covers
-strictly fewer pairs. -/
-def OwnerScopeGroupOwnerDisjoint (inp : Input) (o : Options)
-    (res : FamilyResult) : Prop :=
-  ∀ (execution : SceneExecution inp o res) (index ownerIndex : Nat)
-    (source : ModelLabel) (lines : List String) (b : Box),
-    inp.labels[index]? = some source →
-    execution.measured.find? (fun item => item.index == index) = none →
-    inp.boxes.findIdx?
-      (fun box => box.id == source.owner && !box.exclusive) = some ownerIndex →
-    b ∈ res.scene.layoutDump.boxes →
-    b.exclusive = true →
-    b.id ∉ res.scene.layoutDump.labelOwnerAnc
-      (Elegant.Layered.captionLabel inp o res execution ownerIndex source lines) →
-    source.owner ∉ res.scene.layoutDump.ancestors b.id →
-    ∀ (ownerBox : ModelBox), inp.boxes[ownerIndex]? = some ownerBox →
-      ownerBox.role = .group →
-      ∀ (bi k posOwner posB : Nat) (part : List Nat × Part),
-        res.scene.boxes[bi]? = some b →
-        execution.componentsAcc.parts[k]? = some part →
-        part.1[posOwner]? = some ownerIndex →
-        part.1[posB]? = some bi →
-        posOwner ≠ posB →
-        ∀ (candidate : Nat) (run : Run),
-          componentRun execution.params
-            (componentCandidate execution.graph part.1 candidate)
-            execution.measured (candidateOrder candidate) = .ok run →
-          Disjoint
-            (frameRect execution.params
-              (componentCandidate execution.graph part.1 candidate) run
-              posOwner)
-            (frameRect execution.params
-              (componentCandidate execution.graph part.1 candidate) run
-              posB)
-
 /-- A `findIdx?` hit exposes the box at that index (local copy of the private
 `CaptionOwnerScopeFacts` helper). -/
 private theorem ownerRes_findIdx_lookup {α : Type} {p : α → Bool}
@@ -92,91 +43,40 @@ private theorem ownerRes_component_node_lookup {graph : Graph} {comp : List Nat}
   simp only [componentGraph, List.getElem?_map, Option.map_some, hkey,
     List.getD_eq_getElem?_getD, hnode, Option.getD_some]
 
-/-- A node-role source box of a successful execution is a border-0 measured
-node, whether or not its size is fixed. -/
-private theorem ownerRes_node_border_zero {inp : Input} {o : Options}
+/-- A node-or-fixed owner box of a successful execution is a border-0 measured
+node: a node-role box is border-0 with or without a fixed entry, and a fixed
+group is laid out as a plain node with border 0. -/
+theorem ownerRes_node_border_zero {inp : Input} {o : Options}
     {res : FamilyResult} (execution : SceneExecution inp o res)
     {key : Nat} {box : ModelBox} (hbox : inp.boxes[key]? = some box)
-    (hrole : box.role = .node) (hlen : key < execution.lines.length) :
+    (hrole : box.role = .node ∨ inp.fixedSizes.any (fun fixed => fixed.1 == box.id) = true)
+    (hlen : key < execution.lines.length) :
     ∃ node, execution.graph.nodes[key]? = some node ∧ node.border = 0 := by
   have hline : execution.lines[key]? = some execution.lines[key] :=
     List.getElem?_eq_some_iff.mpr ⟨hlen, rfl⟩
-  cases hf : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) with
-  | none =>
-    have hfalse : inp.fixedSizes.any (fun fixed => fixed.1 == box.id) = false :=
-      List.any_eq_false.mpr (List.find?_eq_none.mp hf)
-    obtain ⟨node, hnode, _, hborder⟩ :=
-      measuredGraph_node_border_zero execution.checked execution.graph_eq
-        hline hbox hrole hfalse
-    exact ⟨node, hnode, hborder⟩
-  | some entry =>
-    obtain ⟨_, _, node, _, _, hnode, hborder, _⟩ :=
-      measuredGraph_fixed_loop_reservation execution.graph_eq
-        (List.getElem?_eq_some_iff.mp hline).1 hbox hf
-    exact ⟨node, hnode, hborder⟩
-
-/-- `OwnerScopeSamePartClear` from `WellFormed` and the group-owner half: a
-node-role owner and the foreign exclusive box are both border-0 measured
-nodes, so `componentRun_positions_disjoint` applies; a group-role owner uses
-the residual. -/
-theorem ownerScopeSamePartClear_of_group_disjoint {inp : Input} {o : Options}
-    {res : FamilyResult} (hwf : WellFormed (Elegant.Layered.inputModel inp o))
-    (hgroup : OwnerScopeGroupOwnerDisjoint inp o res) :
-    Elegant.Layered.OwnerScopeSamePartClear inp o res := by
-  intro execution index ownerIndex source lines b hsrc hmeas hfindIdx hmem hex
-    hscope hd _hnone bi k posOwner posB part hbi hk hposO hposB hne candidate run hrun
-  obtain ⟨_, obox, hobox, hpobox⟩ := ownerRes_findIdx_lookup hfindIdx
-  have hpred : (obox.id == source.owner && !obox.exclusive) = true := hpobox
-  simp only [Bool.and_eq_true] at hpred
-  by_cases hrole : obox.role = .group
-  · exact hgroup execution index ownerIndex source lines b hsrc hmeas hfindIdx
-      hmem hex hscope hd obox hobox hrole bi k posOwner posB part hbi hk hposO
-      hposB hne candidate run hrun
-  · have hroleNode : obox.role = .node := by
-      cases h : obox.role with
-      | node => rfl
-      | group => exact absurd h hrole
-    have hlinesLen : execution.lines.length = inp.boxes.length := by
-      have hl := execution.lines_eq
-      unfold boxLines at hl
-      calc execution.lines.length = (inp.boxes.zipIdx).length :=
-          (mapM_getElem? _ _ _ hl).1
-        _ = inp.boxes.length := List.length_zipIdx
-    have hOILen : ownerIndex < execution.lines.length := by
-      rw [hlinesLen]
-      exact (List.getElem?_eq_some_iff.mp hobox).1
-    obtain ⟨sb, hsb, _, _, hsbex, _⟩ := sceneBox_source_rect execution hbi
-    have hsbexTrue : sb.exclusive = true := by rw [← hsbex]; exact hex
-    have hBILen : bi < execution.lines.length := by
-      rw [hlinesLen]
-      exact (List.getElem?_eq_some_iff.mp hsb).1
-    obtain ⟨nodeO, hnodeO, hbO⟩ :=
-      ownerRes_node_border_zero execution hobox hroleNode hOILen
-    have hngB : sb.role ≠ .group :=
-      wellFormed_exclusive_not_group hwf (List.mem_of_getElem? hsb) hsbexTrue
-    have hroleB : sb.role = .node := by
-      cases h : sb.role with
-      | node => rfl
-      | group => exact absurd h hngB
-    obtain ⟨nodeB, hnodeB, hbB⟩ :=
-      ownerRes_node_border_zero execution hsb hroleB hBILen
-    have hmap := (actual_components_parts_geometry (P := execution.params)
-      (by rfl : (⟨0, 0, 0, Array.replicate inp.boxes.length default,
-        Array.replicate inp.routes.length [], Array.replicate inp.labels.length default,
-        false, [], []⟩ : Acc).parts = []) execution.components_eq).1
-    have hpartMem : part ∈ execution.componentsAcc.parts :=
-      List.mem_of_getElem? hk
-    have hcomp : part.1 ∈ components execution.graph := by
-      rw [← hmap]
-      exact List.mem_map.mpr ⟨part, hpartMem, rfl⟩
-    have hnodeOlookup :
-        (componentCandidate execution.graph part.1 candidate).nodes[posOwner]? =
-        some nodeO := ownerRes_component_node_lookup hposO hnodeO
-    have hnodeBlookup :
-        (componentCandidate execution.graph part.1 candidate).nodes[posB]? =
-        some nodeB := ownerRes_component_node_lookup hposB hnodeB
-    exact componentRun_positions_disjoint execution.graph_eq hcomp hrun
-      hnodeOlookup hnodeBlookup hbO hbB hne
+  rcases hrole with hnode | hfixedTrue
+  · cases hf : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) with
+    | none =>
+      have hfalse : inp.fixedSizes.any (fun fixed => fixed.1 == box.id) = false :=
+        List.any_eq_false.mpr (List.find?_eq_none.mp hf)
+      obtain ⟨node, hnode, _, hborder⟩ :=
+        measuredGraph_node_border_zero execution.checked execution.graph_eq
+          hline hbox hnode hfalse
+      exact ⟨node, hnode, hborder⟩
+    | some entry =>
+      obtain ⟨_, _, node, _, _, hnode, hborder, _⟩ :=
+        measuredGraph_fixed_loop_reservation execution.graph_eq
+          (List.getElem?_eq_some_iff.mp hline).1 hbox hf
+      exact ⟨node, hnode, hborder⟩
+  · cases hf : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) with
+    | none =>
+      obtain ⟨e, hmem, hid⟩ := List.any_eq_true.mp hfixedTrue
+      exact absurd (List.find?_eq_none.mp hf e hmem) (by rw [hid]; decide)
+    | some entry =>
+      obtain ⟨_, _, node, _, _, hnode, hborder, _⟩ :=
+        measuredGraph_fixed_loop_reservation execution.graph_eq
+          (List.getElem?_eq_some_iff.mp hline).1 hbox hf
+      exact ⟨node, hnode, hborder⟩
 
 /-- Same-part half of `TitleExclusiveFrameDisjoint`: the packed title caption of
 `key` is disjoint from the packed rect of the exclusive box `k` when the title
@@ -432,39 +332,4 @@ theorem captionDescendantSamePartClear_of_fallback {inp : Input} {o : Options}
       exact disjoint_sceneTransport (fun hm => hd (rect_meetsInterior_comm hm))
 
 
-/-- The layered caption seam from the remaining residuals: `WellFormed` and
-`framedParents` are the `LayeredSeams.captions` premises; the caption-input
-existence plus the two group floors give `CaptionInputs`; the group-owner half
-gives `OwnerScopeSamePartClear`; the title same/cross halves give
-`TitleExclusiveFrameDisjoint`; the title clearance plus the fallback half give
-`CaptionDescendantSamePartClear`; the tracked combiner
-(`CaptionsSeamFacts.sceneCaptionBoxContainment_of_residuals`) plus the other
-worker's `frameLabels` bundle (`LabelFramePackedClear` and
-`FallbackCaptionClear`) conclude `SceneCaptionBoxContainment`. Its hypotheses
-are exactly the residuals that remain plus the other worker's frame-label
-bundle. -/
-theorem sceneCaptionBoxContainment_of_residuals {inp : Input} {o : Options}
-    {res : FamilyResult} (hwf : WellFormed (Elegant.Layered.inputModel inp o))
-    (hfp : Elegant.Layered.framedParents inp = true)
-    (hcap_exists : ∃ captions : String → String, CaptionInputs captions inp o)
-    (hfloorW : Elegant.Layered.CaptionGroupFrameWidthFloor inp o res)
-    (hfloorT : Elegant.Layered.CaptionGroupTitleWidthFloor inp o res)
-    (hgroup : OwnerScopeGroupOwnerDisjoint inp o res)
-    (hsameT : TitleExclusiveSamePart inp o res)
-    (hcrossT : TitleExclusiveCrossPart inp o res)
-    (hfallback : DescendantFallbackClear inp o res)
-    (hframes : ∀ (execution : SceneExecution inp o res),
-      LabelFramePackedClear execution.params inp o execution.lines
-        execution.packedAcc ∧ FallbackCaptionClear execution) :
-    Elegant.Layered.SceneCaptionBoxContainment inp o res := by
-  have hinputs := captionInputs_of_premises hcap_exists hfloorW hfloorT
-  have hsameFull := ownerScopeSamePartClear_of_group_disjoint hwf hgroup
-  have htitle : ∀ (execution : SceneExecution inp o res),
-      TitleExclusiveFrameDisjoint execution :=
-    fun execution => titleExclusiveFrameDisjoint_of_parts hwf hsameT hcrossT
-      execution
-  have hdesc :=
-    captionDescendantSamePartClear_of_fallback hwf hfp htitle hfallback
-  exact Elegant.Layered.sceneCaptionBoxContainment_of_residuals hwf hdesc
-    hinputs hsameFull hframes htitle
 end Elegant.Layered.PipelineImpl
