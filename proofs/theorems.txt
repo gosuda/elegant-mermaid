@@ -1476,3 +1476,10 @@ Elegant.Layered.PipelineImpl.bottomSyntheticRankLe
 Elegant.Layered.PipelineImpl.groupTopSubtreeRankCg
 Elegant.Layered.PipelineImpl.dummyNestedRank
 Elegant.Layered.PipelineImpl.dummyInsideProxyRowClear_executed
+Elegant.Layered.PipelineImpl.sideMarkerSamePath
+Elegant.Layered.PipelineImpl.plainNodePathEq
+Elegant.Layered.PipelineImpl.sideMarkerSpanAligned'
+Elegant.Layered.PipelineImpl.plainClearOfSideMarker'
+Elegant.Kinds.IshikawaFinal.ishikawaSameRibPieceClearance
+Elegant.Kinds.IshikawaFinal.ishikawaBoundaryPieceClearance
+Elegant.Kinds.IshikawaFinal.ishikawaCrossRibPieceClearance

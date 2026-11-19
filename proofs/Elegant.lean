@@ -348,3 +348,5 @@ import Elegant.Layered.GroupTopRankResidualsProof
 import Elegant.Layered.DummyRowClearProof
 import Elegant.Kinds.IshikawaBoundaryClearance
 import Elegant.Kinds.IshikawaCrossRibClearance
+import Elegant.Layered.SideMarkerPathsProof
+import Elegant.Kinds.IshikawaSameRibClearance
