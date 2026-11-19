@@ -527,3 +527,4 @@ import Elegant.Layered.ExactBorderSpanRunFactsProof
 import Elegant.Layered.ExactRouteForwardClearProof
 import Elegant.Layered.LaneEndsPinLanesClauses
 import Elegant.Layered.PlaceBoundsBeyondNodesProof
+import Elegant.Layered.NotesFoundation
