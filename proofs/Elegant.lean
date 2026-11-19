@@ -542,3 +542,10 @@ import Elegant.Layered.LoopResGroupHullRightProof
 import Elegant.Layered.ExactC8aSpanResidualsProof
 import Elegant.Layered.RegionActualParts
 import Elegant.Layered.ExactFallbackCaptionClearProof
+import Elegant.Layered.LoopFootprintTopSeparationCondProof
+import Elegant.Layered.LoopResNeighborGapGroupProof
+import Elegant.Layered.ExactCaptionAncestorFactsProof
+import Elegant.Layered.LoopResGroupHullRightWitnessProof
+import Elegant.Layered.NotesFlatRouteClauses
+import Elegant.Layered.PartPositiveContentProof
+import Elegant.Layered.NotesFlatBoxClauses
