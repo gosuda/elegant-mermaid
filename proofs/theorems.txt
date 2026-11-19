@@ -1604,3 +1604,5 @@ Elegant.Layered.PipelineImpl.childBottomRankLe_executed
 Elegant.Layered.PipelineImpl.SceneExecution.component_child_frame_strictInside''
 Elegant.Layered.PipelineImpl.expandChild_c6_anchors
 Elegant.Layered.PipelineImpl.expandChild_c8a_ancestry
+Elegant.Ishikawa.flatInvFlatten
+Elegant.Ishikawa.hardBDeeperOrdInterval'

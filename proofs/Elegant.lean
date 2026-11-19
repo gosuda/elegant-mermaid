@@ -397,3 +397,4 @@ import Elegant.Layered.ForeignBorderSideUpsProof
 import Elegant.Layered.ForeignSideFoldBoundProof
 import Elegant.Layered.ChildFrameStrictRankProof
 import Elegant.Layered.ExpandChildAncestryProof
+import Elegant.IshikawaFlattenClausesProof
