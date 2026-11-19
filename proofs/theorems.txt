@@ -2221,3 +2221,13 @@ Elegant.Layered.PipelineImpl.componentRunX_positions_disjoint
 Elegant.Layered.PipelineImpl.runHooksShift_exact
 Elegant.Layered.PipelineImpl.runHooksShift_plain
 Elegant.Layered.PipelineImpl.X_packedPartTransportBounded_holds
+Elegant.kindLayout_agentflow
+Elegant.kindLayout_c4
+Elegant.kindLayout_class
+Elegant.kindLayout_er
+Elegant.kindLayout_flowchart
+Elegant.kindLayout_requirement
+Elegant.kindLayout_state
+Elegant.kindLayout_swimlane
+Elegant.kindLayout_usecase
+Elegant.layered_valid_of_members
