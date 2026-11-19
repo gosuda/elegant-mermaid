@@ -132,7 +132,7 @@ structure RegionNotesSeamsCore (exactIds : List String)
     (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
     (parent child res : FamilyResult),
     expandChild P inp o group titleHeight parent child = .ok res →
-    framedParents inp = true → BoxRouteIdsDisjoint inp →
+    framedParents inp = true → BoxRouteIdsDisjoint inp → InputFixedFit inp o →
     ExpandChildCallContextB (layoutNotes (rngNotesBase idSets) exactIds outerFuel)
       fuel P inp o group titleLines titleHeight parent child res →
     ExpandChildCallParams P inp o group titleLines titleHeight →
@@ -152,7 +152,7 @@ structure RegionNotesSeamsCore (exactIds : List String)
     (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
     (parent child res : FamilyResult),
     expandChild P inp o group titleHeight parent child = .ok res →
-    framedParents inp = true →
+    framedParents inp = true → InputFixedFit inp o →
     ExpandChildCallContextB (layoutNotes (rngNotesBase idSets) exactIds outerFuel)
       fuel P inp o group titleLines titleHeight parent child res →
     ExpandChildCallParams P inp o group titleLines titleHeight →

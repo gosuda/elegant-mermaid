@@ -1395,12 +1395,13 @@ theorem stepC8b_layoutX (exactIds : List String)
       (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
+      InputFixedFit inp o →
       ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC8bStep P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
-    hctxB hparams
+    _hfix hctxB hparams
   exact XB_c8b_step_of_geometry exactIds hgeoC8bB
     (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed
       hctxB hparams =>
@@ -2701,12 +2702,13 @@ theorem stepC7_layoutX (exactIds : List String)
       (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true → BoxRouteIdsDisjoint inp →
+      InputFixedFit inp o →
       ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC7Step P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
-    hdisjoint hctxB hparams
+    hdisjoint _hfix hctxB hparams
   intro frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨s1, s2, s3, s4, s5, s6, s7, s8⟩ :=
     XB_c7structure exactIds fuel P inp o group titleLines titleHeight parent child res

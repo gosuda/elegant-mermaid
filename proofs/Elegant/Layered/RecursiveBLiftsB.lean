@@ -173,6 +173,7 @@ theorem layoutRecursiveB_c7
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
       BoxRouteIdsDisjoint inp →
+      InputFixedFit inp o →
       ExpandChildCallContextB base fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
@@ -228,7 +229,7 @@ theorem layoutRecursiveB_c7
         ⟨hwf, hg, rfl, hchild, hparent, hexpand⟩
       have hstep := hgeo fuel P inp o group titleLines
         ((max 1 titleLines.length : Int) * P.lineH) parent child res
-        hexpand hframed hdisjoint hctx hparams
+        hexpand hframed hdisjoint hfit hctx hparams
       exact expandChild_c7 hchildC7 hparentC7 hstep hexpand
 
 /-- `layoutRecursiveB` preserves C8a from the flat B fact, the sub-input fact
@@ -332,6 +333,7 @@ theorem layoutRecursiveB_c8b
       (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
+      InputFixedFit inp o →
       ExpandChildCallContextB base fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
@@ -379,5 +381,5 @@ theorem layoutRecursiveB_c8b
         ⟨hwf, hg, rfl, hchild, hparent, hexpand⟩
       have hstep := hgeo fuel P inp o group titleLines
         ((max 1 titleLines.length : Int) * P.lineH) parent child res
-        hexpand hframed hctx hparams
+        hexpand hframed hfit hctx hparams
       exact expandChild_c8b hchildC8b hparentC8b hstep hexpand

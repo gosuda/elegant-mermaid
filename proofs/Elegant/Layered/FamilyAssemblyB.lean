@@ -106,6 +106,7 @@ structure BaseSeams (base : Input → Options → Except LayoutError FamilyResul
       (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true → BoxRouteIdsDisjoint inp →
+      InputFixedFit inp o →
       ExpandChildCallContextB base fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
@@ -126,6 +127,7 @@ structure BaseSeams (base : Input → Options → Except LayoutError FamilyResul
       (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
+      InputFixedFit inp o →
       ExpandChildCallContextB base fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
@@ -367,7 +369,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
       hparams
   stepC7 := by
     intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
-      hdisjoint hctxB hparams
+      hdisjoint hfix hctxB hparams
     have hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
         parent child res :=
       (expandChildCallContext_iff fuel P inp o group titleLines titleHeight
@@ -383,8 +385,8 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
             child res hexpand hframed hctx hparams))
         frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨g1, g2, g3, g4⟩ :=
-       (c7Geometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
-        hexpand hframed hctx hparams frame tl dx dy hframe hdx hdy hwrap
+      (c7Geometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
+        hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
     exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
   stepC8a := fun fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctxB hparams =>
@@ -399,18 +401,21 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
       ((expandChildCallContext_iff fuel P inp o group titleLines titleHeight
         parent child res).mpr hctxB)
       hparams
-  stepC8b := fun fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctxB hparams =>
-     expandChild_c8b_step_of_geometry (c8bGeometry_of_seams S)
-      (fun fuel P inp o group titleLines titleHeight parent child res hexpand
-        hframed hctx hparams =>
-        expandChild_c8b_structure fuel P inp o group titleLines titleHeight
-          parent child res hexpand hframed hctx
-          (expandChild_label_owners fuel P inp o group titleLines titleHeight parent
-            child res hexpand hframed hctx hparams))
-      fuel P inp o group titleLines titleHeight parent child res hexpand hframed
-      ((expandChildCallContext_iff fuel P inp o group titleLines titleHeight
-        parent child res).mpr hctxB)
-      hparams
+  stepC8b := by
+    intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
+      hfix hctxB hparams
+    have hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+        parent child res :=
+      (expandChildCallContext_iff fuel P inp o group titleLines titleHeight
+        parent child res).mpr hctxB
+    intro frame tl dx dy hframe hdx hdy hwrap
+    obtain ⟨g1, g2, g3, g4⟩ :=
+      (c8bGeometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
+        hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
+    exact ⟨expandChild_c8b_structure fuel P inp o group titleLines titleHeight parent child
+        res hexpand hframed hctx
+        (expandChild_label_owners fuel P inp o group titleLines titleHeight parent child
+          res hexpand hframed hctx hparams) frame tl dx dy hframe hdx hdy hwrap,
+      g1, g2, g3, g4⟩
 
 end Elegant.Layered.PipelineImpl

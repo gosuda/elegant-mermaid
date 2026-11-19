@@ -191,6 +191,7 @@ structure RegionNotesSeams (exactIds : List String)
     (parent child res : FamilyResult),
     expandChild P inp o group titleHeight parent child = .ok res →
     framedParents inp = true → BoxRouteIdsDisjoint inp →
+    InputFixedFit inp o →
     ExpandChildCallContextB (layoutNotes (rnNotesBase idSets) exactIds outerFuel)
       fuel P inp o group titleLines titleHeight parent child res →
     ExpandChildCallParams P inp o group titleLines titleHeight →
@@ -213,6 +214,7 @@ structure RegionNotesSeams (exactIds : List String)
     (parent child res : FamilyResult),
     expandChild P inp o group titleHeight parent child = .ok res →
     framedParents inp = true →
+    InputFixedFit inp o →
     ExpandChildCallContextB (layoutNotes (rnNotesBase idSets) exactIds outerFuel)
       fuel P inp o group titleLines titleHeight parent child res →
     ExpandChildCallParams P inp o group titleLines titleHeight →

@@ -87,13 +87,13 @@ import Elegant.Layered.LoopResNeighborGapGroupProof
 import Elegant.Layered.LoopResNeighborGapProof
 import Elegant.Layered.LoopResNeighborDisjointProof
 import Elegant.Layered.ExpandChildParentFixedForeignProof
+import Elegant.Layered.FamilyStepFacts
 set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
  /-- Every fact the layered family validity theorem still takes as a premise.
  Remaining fields: `foreignBorderDivergeStable`,
- `parentRouteAttachedClear`, `parentFrameStrict`,
- `fitPerCall`.  Each field is a named
+ `parentRouteAttachedClear`, `parentFrameStrict`.  Each field is a named
  OPEN statement about the executed pipeline; a field leaves this structure when
 its discharge theorem lands.  The refuted `GroupAttach`, `GroupAnchors`, and
 universal nonempty-id statements were replaced by the four group endpoint
@@ -158,8 +158,6 @@ structure LayeredSeams : Prop where
   foreignBorderDivergeStable : ForeignBorderDivergeStable
   parentRouteAttachedClear : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentRouteAttachedClear group parent
   parentFrameStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentFrameStrict group parent
-  fitPerCall : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → InputFixedFit inp o
-
  /-- Local copy of the private lemma in `ExpandChildC6GeometryClosed.lean`:
  the parent sub-input is well-formed. -/
  private theorem parentInput_wellFormed
@@ -1219,6 +1217,7 @@ private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
        framedParents inp = true →
        ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
        ExpandChildCallParams P inp o group titleLines titleHeight →
+       InputFixedFit inp o →
        ExpandChildC8bGeometry P inp o group titleHeight parent child res)
      {P : Params} {inp : Input} {o : Options} {group : ModelBox}
      {titleLines : List Measure.Line} {titleHeight : Int}
@@ -1226,7 +1225,8 @@ private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
      (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
      (hframed : framedParents inp = true)
      (hctx : ExpandChildCallContext n P inp o group titleLines titleHeight parent child res)
-     (hparams : ExpandChildCallParams P inp o group titleLines titleHeight) :
+     (hparams : ExpandChildCallParams P inp o group titleLines titleHeight)
+     (hfix : InputFixedFit inp o) :
      ExpandChildC8bStep P inp o group titleHeight parent child res := by
    intro frame tl dx dy hframe hdx hdy hwrap
    have howners := expandChild_label_owners n P inp o group titleLines titleHeight parent child res
@@ -1235,7 +1235,7 @@ private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
      parent child res hexpand hframed hctx howners
      frame tl dx dy hframe hdx hdy hwrap
    obtain ⟨g1, g2, g3, g4⟩ := below8b n hlt P inp o group titleLines titleHeight parent child res
-     hexpand hframed hctx hparams frame tl dx dy hframe hdx hdy hwrap
+     hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
    exact ⟨hc, g1, g2, g3, g4⟩
 
  /-- Local copy of the private theorem in `ExpandChildParentFrameDirect.lean`:
@@ -1248,6 +1248,7 @@ private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
        framedParents inp = true →
        ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
        ExpandChildCallParams P inp o group titleLines titleHeight →
+       InputFixedFit inp o →
        ExpandChildC8bGeometry P inp o group titleHeight parent child res) :
      ∀ (n : Nat), n ≤ F → ∀ (inp : Input) (o : Options) (res : FamilyResult),
        WellFormed (inputModel inp o) → framedParents inp = true →
@@ -1288,8 +1289,8 @@ private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
        have hchildC8b := ih (by omega : n ≤ F) _ _ _ hwfChild hframedChild hfitChild hchild
        have hparentC8b := ih (by omega : n ≤ F) _ _ _ hwfParent hframedParent hfitParent hparentAt
        have hstep := c8bStep_of_below (by omega : n < F) below8b hexpandAt hframed
-         ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
-         ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
+        ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
+        ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩ hfit
        exact expandChild_c8b hchildC8b hparentC8b hstep hexpandAt
 
  /-- Local copy of the private theorem in `ExpandChildParentFrameDirect.lean`:
@@ -1302,6 +1303,7 @@ private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
        framedParents inp = true →
        ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
        ExpandChildCallParams P inp o group titleLines titleHeight →
+       InputFixedFit inp o →
        ExpandChildC8bGeometry P inp o group titleHeight parent child res)
      {P : Params} {inp : Input} {o : Options} {group : ModelBox}
      {titleLines : List Measure.Line} {titleHeight : Int}
@@ -1366,6 +1368,7 @@ private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
        framedParents inp = true →
        ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
        ExpandChildCallParams P inp o group titleLines titleHeight →
+       InputFixedFit inp o →
        ExpandChildC8bGeometry P inp o group titleHeight parent child res)
      {P : Params} {inp : Input} {o : Options} {group : ModelBox}
      {titleLines : List Measure.Line} {titleHeight : Int}
@@ -1490,6 +1493,7 @@ private theorem stepC7Geometry_single
       framedParents inp = true →
       ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
+      InputFixedFit inp o →
       ExpandChildC8bGeometry P inp o group titleHeight parent child res)
     {P : Params} {inp : Input} {o : Options} {group : ModelBox}
     {titleLines : List Measure.Line} {titleHeight : Int}
@@ -1501,7 +1505,6 @@ private theorem stepC7Geometry_single
     (hparams : ExpandChildCallParams P inp o group titleLines titleHeight)
     (hframeStrict : ExpandChildParentFrameStrict group parent)
     (hstepStrict : ExpandChildParentStrictStep parent)
-    (hfitParent : InputFixedFit (parentSubInput inp group P titleLines child) o)
     (hfit : InputFixedFit inp o) :
     ExpandChildC7Geometry P inp o group titleHeight parent child res := by
   have hP : checkedParams o.profile inp.kind = .ok P := hparams.1
@@ -1521,7 +1524,19 @@ private theorem stepC7Geometry_single
       framedParents inp = true →
       ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
+      InputFixedFit inp o →
       ExpandChildC8bGeometry P inp o group titleHeight parent child res := hbelow8b
+  have hfitParent : InputFixedFit (parentSubInput inp group P titleLines child) o := by
+    obtain ⟨hwf, _hgroup, _hpb, hchild, _hparent, _hexpand'⟩ := hctx
+    obtain ⟨_metric, hm, hwrap⟩ := hparams.2.2
+    have hcm := layoutRecursive_canvas_margins fuel hchild
+    have hcw : 2 * P.canvasMargin ≤ child.scene.canvas.w := by
+      rw [checkedParams_canvasMargin hP]
+      exact hcm.1
+    have hch : 2 * P.canvasMargin ≤ child.scene.canvas.h := by
+      rw [checkedParams_canvasMargin hP]
+      exact hcm.2
+    exact InputFixedFit.parentSubInput hwf hfit hP hm hwrap hcw hch
   have hpf : ExpandChildParentFrame P inp o group titleHeight parent child :=
     expandChild_parentFrame_direct hflat8a hflat8b below8a below8b
       hexpand hframed hctx hparams hframeStrict hstepStrict hfitParent
@@ -1570,6 +1585,7 @@ private theorem stepC7Geometry_single
        framedParents inp = true →
        ExpandChildCallContext fuel' P inp o group titleLines titleHeight parent child res →
        ExpandChildCallParams P inp o group titleLines titleHeight →
+       InputFixedFit inp o →
        ExpandChildC8bGeometry P inp o group titleHeight parent child res)
      (hframeStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
        (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -1587,35 +1603,19 @@ private theorem stepC7Geometry_single
        ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
        ExpandChildCallParams P inp o group titleLines titleHeight →
        ExpandChildParentStrictStep parent)
-     (hfitParent : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-       (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       InputFixedFit (parentSubInput inp group P titleLines child) o)
-     (hfit : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-       (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       InputFixedFit inp o) :
-     RecursiveStepFacts ExpandChildC7Geometry := by
+     :
+     RecursiveStepFacts (fun P inp o group titleHeight parent child res =>
+       InputFixedFit inp o → ExpandChildC7Geometry P inp o group titleHeight
+         parent child res) := by
   intro fuel P inp o group titleLines titleHeight parent child res
-    hexpand hframed hctx hparams
+    hexpand hframed hctx hparams hfix
   exact stepC7Geometry_single hflat8a hflat8b (hbelow8b fuel)
     hexpand hframed hctx hparams
     (hframeStrict fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctx hparams)
     (hstepStrict fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctx hparams)
-    (hfitParent fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctx hparams)
-    (hfit fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctx hparams)
+    hfix
 
  /-- Local copy of the private theorem in `ExpandChildC8bGeometryExecuted.lean`:
  pure geometry behind the strict caption containment. -/
@@ -1815,6 +1815,7 @@ private theorem stepC7Geometry_single
        framedParents inp = true →
        ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
        ExpandChildCallParams P inp o group titleLines titleHeight →
+       InputFixedFit inp o →
        ExpandChildC8bGeometry P inp o group titleHeight parent child res)
      (hflat8a : FlatC8a) (hflat8b : FlatC8b)
      {P : Params} {inp : Input} {o : Options} {group : ModelBox}
@@ -1920,18 +1921,13 @@ private theorem stepC7Geometry_single
        ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
        ExpandChildCallParams P inp o group titleLines titleHeight →
        ExpandChildParentStrictStep parent)
-     (hfix : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-       (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       InputFixedFit inp o) :
-     RecursiveStepFacts ExpandChildC8bGeometry := by
+     :
+     RecursiveStepFacts (fun P inp o group titleHeight parent child res =>
+       InputFixedFit inp o → ExpandChildC8bGeometry P inp o group titleHeight
+         parent child res) := by
    apply recursiveStepFacts_of_below
    intro fuel below8b P inp o group titleLines titleHeight parent child res
-     hexpand hframed hctx hparams
+     hexpand hframed hctx hparams hfix
    exact stepC8bGeometry_of_below fuel
      (fun f _ P' inp' o' g' tls' th' par' chi' res' hx hf hc hp =>
        stepC8aGeometry_holds f P' inp' o' g' tls' th' par' chi' res' hx hf hc hp)
@@ -1940,8 +1936,7 @@ private theorem stepC7Geometry_single
        hexpand hframed hctx hparams)
      (hstepStrict fuel P inp o group titleLines titleHeight parent child res
        hexpand hframed hctx hparams)
-     (hfix fuel P inp o group titleLines titleHeight parent child res hexpand
-       hframed hctx hparams)
+     hfix
 
 /-- The old `stepC6Geometry` fact derived from the narrow seams: the flat C8a
 clause from the border-span seams, the flat-stage premises from the closed
@@ -2019,8 +2014,10 @@ the fuel-closed strict miss. -/
  /-- The old `stepC8bGeometry` fact derived from the narrow seams: the flat
  clauses from the border-span and label seams, the two parent-side residuals
  and the per-call fit from the fields. -/
- theorem c8bGeometry_of_seams (S : LayeredSeams) :
-     RecursiveStepFacts ExpandChildC8bGeometry := by
+theorem c8bGeometry_of_seams (S : LayeredSeams) :
+    RecursiveStepFacts (fun P inp o group titleHeight parent child res =>
+      InputFixedFit inp o → ExpandChildC8bGeometry P inp o group titleHeight
+        parent child res) := by
    have hflat8a : FlatC8a := flatC8a_of_span_seams
      (foreignBorderSpansSeparated foreignClusterRankSpans'
        foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
@@ -2044,7 +2041,7 @@ the fuel-closed strict miss. -/
                (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
                (fun execution => titleCopySpanClearStrict_executed hwf hfp execution)))
          (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
-   exact stepC8bGeometry_holds hflat8a hflat8b S.parentFrameStrict parentStrictStep_of_recursion S.fitPerCall
+   exact stepC8bGeometry_holds hflat8a hflat8b S.parentFrameStrict parentStrictStep_of_recursion
 
  /-- The below-fuel C8b geometry from the seams, for the C7 derivation. -/
  theorem below8b_of_seams (S : LayeredSeams) (fuel : Nat) :
@@ -2055,44 +2052,18 @@ the fuel-closed strict miss. -/
        framedParents inp = true →
        ExpandChildCallContext fuel' P inp o group titleLines titleHeight parent child res →
        ExpandChildCallParams P inp o group titleLines titleHeight →
+       InputFixedFit inp o →
        ExpandChildC8bGeometry P inp o group titleHeight parent child res :=
-   fun fuel' _ P inp o group tls th par chi res hx hf hc hp =>
-     c8bGeometry_of_seams S fuel' P inp o group tls th par chi res hx hf hc hp
-
- /-- The parent sub-input fit from the per-call fit field and the proved
- canvas margins. -/
- theorem fitParent_of_seams (S : LayeredSeams) :
-     ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-       (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       InputFixedFit (parentSubInput inp group P titleLines child) o := by
-   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams
-   have hctxKeep := hctx
-   obtain ⟨hwf, _hgroup, _hpb, hchild, _hparent, _hexpand'⟩ := hctxKeep
-   have hP := hparams.1
-   have hwrapCtx := hparams.2.2
-   obtain ⟨metric, hm, hwrap⟩ := hwrapCtx
-   have hcm := layoutRecursive_canvas_margins fuel hchild
-   have hcw : 2 * P.canvasMargin ≤ child.scene.canvas.w := by
-     rw [checkedParams_canvasMargin hP]
-     exact hcm.1
-   have hch : 2 * P.canvasMargin ≤ child.scene.canvas.h := by
-     rw [checkedParams_canvasMargin hP]
-     exact hcm.2
-   exact InputFixedFit.parentSubInput hwf
-     (S.fitPerCall fuel P inp o group titleLines titleHeight parent child res
-       hexpand hframed hctx hparams)
-     hP hm hwrap hcw hch
+   fun fuel' _ P inp o group tls th par chi res hx hf hc hp hfix =>
+     c8bGeometry_of_seams S fuel' P inp o group tls th par chi res hx hf hc hp hfix
 
  /-- The old `stepC7Geometry` fact derived from the narrow seams: the flat
  clauses and below-fuel geometry as above, the two parent-side residuals and
  both fits from the fields. -/
- theorem c7Geometry_of_seams (S : LayeredSeams) :
-     RecursiveStepFacts ExpandChildC7Geometry := by
+theorem c7Geometry_of_seams (S : LayeredSeams) :
+    RecursiveStepFacts (fun P inp o group titleHeight parent child res =>
+      InputFixedFit inp o → ExpandChildC7Geometry P inp o group titleHeight
+        parent child res) := by
    have hflat8a : FlatC8a := flatC8a_of_span_seams
      (foreignBorderSpansSeparated foreignClusterRankSpans'
        foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
@@ -2117,7 +2088,7 @@ the fuel-closed strict miss. -/
                (fun execution => titleCopySpanClearStrict_executed hwf hfp execution)))
          (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
    exact stepC7Geometry_holds hflat8a hflat8b (below8b_of_seams S) S.parentFrameStrict
-     parentStrictStep_of_recursion (fitParent_of_seams S) S.fitPerCall
+     parentStrictStep_of_recursion
 
  /-- Layered family validity for an input with nonempty box ids, fixed-size room
  for labeled boxes, and disjoint box route ids, modulo exactly the fields of
@@ -2175,14 +2146,14 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
-      framedParents inp = true → BoxRouteIdsDisjoint inp →
+      framedParents inp = true → BoxRouteIdsDisjoint inp → InputFixedFit inp o →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC7Step P inp o group titleHeight parent child res :=
     by
     intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
-      hdisjoint hctx hparams
+      hdisjoint hfix hctx hparams
     intro frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨s1, s2, s3, s4, s5, s6, s7, s8⟩ :=
       expandChild_c7_structure fuel P inp o group titleLines titleHeight parent child res
@@ -2195,7 +2166,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
         frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨g1, g2, g3, g4⟩ :=
       (c7Geometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
-        hexpand hframed hctx hparams frame tl dx dy hframe hdx hdy hwrap
+        hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
     exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
   have hstepC8a : RecursiveStepFacts ExpandChildC8aStep :=
     expandChild_c8a_step_of_geometry stepC8aGeometry_holds
@@ -2205,14 +2176,26 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
           hexpand hframed hctx
           (stepC8aAncestry_holds fuel P inp o group titleLines titleHeight parent child res
             hexpand hframed hctx hparams))
-  have hstepC8b : RecursiveStepFacts ExpandChildC8bStep :=
-    expandChild_c8b_step_of_geometry (c8bGeometry_of_seams S)
-      (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
-          hparams =>
-        expandChild_c8b_structure fuel P inp o group titleLines titleHeight parent child res
-          hexpand hframed hctx
-          (expandChild_label_owners fuel P inp o group titleLines titleHeight parent child
-            res hexpand hframed hctx hparams))
+  have hstepC8b : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true → InputFixedFit inp o →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight
+        parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildC8bStep P inp o group titleHeight parent child res := by
+    intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
+      hfix hctx hparams
+    intro frame tl dx dy hframe hdx hdy hwrap
+    obtain ⟨g1, g2, g3, g4⟩ :=
+      (c8bGeometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
+        hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
+    exact ⟨expandChild_c8b_structure fuel P inp o group titleLines titleHeight parent child
+        res hexpand hframed hctx
+        (expandChild_label_owners fuel P inp o group titleLines titleHeight parent child
+          res hexpand hframed hctx hparams) frame tl dx dy hframe hdx hdy hwrap,
+      g1, g2, g3, g4⟩
   have hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       FrameClearanceSeam inp o res := fun inp o res hwfInp hframedInp =>
@@ -2233,13 +2216,13 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       subInputWellFormed h,
     layoutRecursive_c6_of_flat hflat6 hclear subInputWellFormed hstepC6
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
-    layoutRecursive_c7_of_flat hflat7 (fun _ _ _ => labelsC7_partsSeparated) hlabelRuns
+    layoutRecursive_c7_of_flat_fit hflat7 (fun _ _ _ => labelsC7_partsSeparated) hlabelRuns
       hcaptions subInputWellFormed hstepC7
       (inp.boxes.length + 1) inp o res hwf hfp hfix hdisj hrec,
     layoutRecursive_c8a_of_flat (flatC8a_of_span_seams (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))) hbracket)
       subInputsWellFormed hstepC8a
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
-    layoutRecursive_c8b_of_flat hflat8b subInputsWellFormed hstepC8b
+    layoutRecursive_c8b_of_flat_fit hflat8b subInputsWellFormed hstepC8b
       (inp.boxes.length + 1) inp o res hwf hfp hfix hrec⟩
 
 end Elegant.Layered.PipelineImpl

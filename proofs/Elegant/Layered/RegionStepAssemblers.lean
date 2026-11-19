@@ -905,12 +905,13 @@ theorem stepC8b_layoutRIds (exactIds : List String) (idSets : List (String × Li
       (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
+      InputFixedFit inp o →
       ExpandChildCallContextB (RSA_rbBase exactIds idSets) fuel P inp o group titleLines
         titleHeight parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC8bStep P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
-    hctxB hparams
+    _hfix hctxB hparams
   have howners : ExpandChildLabelOwners inp parent child :=
     RSA_label_owners exactIds idSets fuel P inp o group titleLines titleHeight parent child
       res hexpand hframed hctxB hparams
@@ -1176,12 +1177,13 @@ theorem stepC7_layoutRIds (exactIds : List String) (idSets : List (String × Lis
       (parent child res : FamilyResult),
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true → BoxRouteIdsDisjoint inp →
+      InputFixedFit inp o →
       ExpandChildCallContextB (RSA_rbBase exactIds idSets) fuel P inp o group titleLines
         titleHeight parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC7Step P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
-    _hdisjoint hctxB hparams
+    _hdisjoint _hfix hctxB hparams
   have hctxB' := hctxB
   have howners : ExpandChildLabelOwners inp parent child :=
     RSA_label_owners exactIds idSets fuel P inp o group titleLines titleHeight parent child
