@@ -1602,3 +1602,5 @@ Elegant.Layered.edgeClosed_of_executedChainFacts
 Elegant.Layered.PipelineImpl.childTopRankLe_executed
 Elegant.Layered.PipelineImpl.childBottomRankLe_executed
 Elegant.Layered.PipelineImpl.SceneExecution.component_child_frame_strictInside''
+Elegant.Layered.PipelineImpl.expandChild_c6_anchors
+Elegant.Layered.PipelineImpl.expandChild_c8a_ancestry

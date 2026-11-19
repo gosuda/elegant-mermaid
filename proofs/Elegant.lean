@@ -396,3 +396,4 @@ import Elegant.Layered.LaneBandsCoverageProof
 import Elegant.Layered.ForeignBorderSideUpsProof
 import Elegant.Layered.ForeignSideFoldBoundProof
 import Elegant.Layered.ChildFrameStrictRankProof
+import Elegant.Layered.ExpandChildAncestryProof
