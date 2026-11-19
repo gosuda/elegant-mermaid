@@ -502,3 +502,8 @@ import Elegant.Layered.ExactPackedTransportProof
 import Elegant.Kinds.StateValid
 import Elegant.Layered.ExactCaptionScopeProof
 import Elegant.Layered.ExactPartFrameCoresProof
+import Elegant.Layered.FamilyStepFacts
+import Elegant.Layered.DivergeHeadsSeparatedProof
+import Elegant.Layered.ExpandChildParentFrameStrictProof
+import Elegant.Layered.ExactForeignNonGroupSpansProof
+import Elegant.Layered.ExactPackedTransportResidualsProof

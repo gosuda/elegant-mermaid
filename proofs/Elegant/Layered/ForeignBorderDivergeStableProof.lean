@@ -4,53 +4,51 @@ set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
 
-/-!
-# Divergent sibling blocks keep their order across layers.
+ /-!
+ # Divergent sibling blocks keep their order across layers.
 
-Target: `foreignBorderDivergeStable_holds` below: in an executed
-`componentRun`, two side-border markers whose cluster paths are divergent
-keep the same relative order on every pair of layers they share. In words:
-sibling cluster blocks keep one left-to-right order on every layer.
+ Target: `foreignBorderDivergeStableSeparated_holds` below: in an executed
+ `componentRun`, two side-border markers whose cluster paths are divergent
+ keep the same relative order on every pair of layers they share, provided
+ their divergent heads are separated (both in `Sibling.clusterIds` with the
+ same `Sibling.parentOf`). In words: separated sibling cluster blocks keep
+ one left-to-right order on every layer.
 
-Proof idea: every `order` output is one `siblingNormalise` application, which
-reorders each layer with a single global sibling-number function
-(`siblingNumber` over `siblingOrders`): keyed blocks are placed in sorted
-number order on every layer (`place`), so two blocks whose divergent heads
-receive distinct numbers keep their relative order on every layer
-(`Sibling.sibLevel_order`, generalized here to arbitrary path tails). The
-numbers separate the heads by `OrderImpl.siblingNumber_ne` once both heads
-sit in `Sibling.clusterIds` with the same `parentOf`; that separation fact is
-the residual `DivergeHeadsSeparated` below.
+ Proof idea: every `order` output is one `siblingNormalise` application, which
+ reorders each layer with a single global sibling-number function
+ (`siblingNumber` over `siblingOrders`): keyed blocks are placed in sorted
+ number order on every layer (`place`), so two blocks whose divergent heads
+ receive distinct numbers keep their relative order on every layer
+ (`Sibling.sibLevel_order`, generalized here to arbitrary path tails). The
+ numbers separate the heads by `OrderImpl.siblingNumber_ne` once both heads
+ sit in `Sibling.clusterIds` with the same `parentOf`.
 
-Probe evidence (`wip/Probe/DivergeStableTProbe.lean`): 14 adversarial samples
-(opposing top/bottom crossing pressure between 3+-rank sibling chains, three
-siblings in a cycle, nested children, three-level nesting, long dummy edges,
-reversed declarations, uncle groups, unequal spans, five-rank chains; TB and
-LR; six candidate/order-option sets each) give 84 executed runs, all
-non-vacuous (86512 divergent quads checked), with zero order violations.
-The residual census on the same runs checks 86512 divergent head pairs for
-`clusterIds` membership with equal `parentOf`; zero violations.
--/
+ Verdict on the unconditional `ForeignBorderDivergeStable` (defined in
+ `ForeignBorderEdgesNoncrossingProof`): it is OPEN, neither proved nor
+ refuted. Its earlier committed proof rested on the over-general residual
+ `DivergeHeadsSeparated` (now deleted): quantifying over arbitrary `Proper`
+ values, that residual is false (`[5, 3]` vs `[7]` witness), and it is false
+ on executed runs too: demoting an intermediate group via `fixedSizes`
+ removes its exact markers, so divergent heads can be absent from
+ `Sibling.clusterIds`. The replayed-number residual `DivergeNumsDistinct`
+ (also deleted) is likewise false on executed runs. What remains proved here
+ is the separated case with no residual; the tie mechanism is proved as
+ `siblingNumber_tie_of_absent` in `DivergeHeadsSeparatedProof`.
 
-/-- Ordering-stage residual: divergent heads occurring in side-border marker
-paths sit in `Sibling.clusterIds` with the same `Sibling.parentOf`. This is
-strictly narrower than the target (cluster-id separation only: no layers,
-no positions, no execution evidence). Probe evidence:
-`wip/Probe/DivergeStableTProbe.lean` residual census is zero on every
-executed sample, non-vacuous on all of them in both TB and LR. -/
-def DivergeHeadsSeparated : Prop :=
-  ∀ {p : Proper} {a b : Nat} {na nb : ProperNode},
-    p.nodes[a]? = some na →
-    p.nodes[b]? = some nb →
-    (na.node.border = -1 ∨ na.node.border = 1) →
-    (nb.node.border = -1 ∨ nb.node.border = 1) →
-    ∀ {P : List Nat} {A B : Nat} {r1 r2 : List Nat},
-      na.node.clusterPath = P ++ A :: r1 →
-      nb.node.clusterPath = P ++ B :: r2 →
-      A ≠ B →
-      A ∈ OrderImpl.Sibling.clusterIds p ∧
-        B ∈ OrderImpl.Sibling.clusterIds p ∧
-        OrderImpl.Sibling.parentOf p A = OrderImpl.Sibling.parentOf p B
+ Probe evidence: `wip/Probe/DivergeStableTProbe.lean` (14 adversarial samples,
+ 84 executed runs, 88512 divergent quads) and the rerun
+ `wip/Probe/DivergeCollisionProbe.lean` (3 samples, 18 runs) report zero
+ order violations. `wip/Probe/FixedTieTProbe.lean` (6 samples, 36 runs,
+ dense criss-cross) and `wip/Probe/DivergeFanProbe.lean` (fanned zigzag end
+ pins, 24 runs) likewise report zero flips with non-vacuous quads (800 and
+ 3968 per run), while block order follows the sweep pre-order and varies
+ across seeds yet stays uniform within every run. The rerun
+ `wip/Probe/DivergeNestProbe.lean` covers nested and one-sided demotions.
+ On every demoted run the divergent heads tie in `siblingNumber`
+ (both absent from `clusterIds`, verified equal numbers on the true replayed
+ order): ties occur, flips do not, and the cross-layer tie-break is unproved.
+ -/
+
 
 /-- Distinct divergent heads force distinct full paths. -/
 theorem diverge_paths_ne {P : List Nat} {A B : Nat} {r1 r2 : List Nat}
@@ -237,13 +235,52 @@ theorem order_siblingForm (p : Proper) (opts : OrderOptions)
         (seedBest_siblingForm p opts.start hne)
     · simp at hr
   · simp at hr
+ /-- Divergent sibling blocks keep their order on every layer pair, when their
+ divergent heads are separated (both in `Sibling.clusterIds` with the same
+ `Sibling.parentOf`). This bakes the narrowest true premise into the statement:
+ a single fact about the ordering phase, strictly narrower than the stability
+ goal (numeric separation only: no layers, no positions). -/
+ def ForeignBorderDivergeStableSeparated : Prop :=
+   ∀ {P : Params} {inp : Input} {o : Options}
+     {lines : List (List Measure.Line)} {graph : Graph},
+     measuredGraph P inp o lines = .ok graph →
+     ∀ {comp : List Nat}, comp ∈ components graph →
+     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
+       {orderOptions : OrderOptions},
+     componentRun P (componentCandidate graph comp candidate) labels
+       orderOptions = .ok run →
+     ∀ {l1 l2 : List Nat}, l1 ∈ run.layers → l2 ∈ run.layers →
+     ∀ {a b a' b' : Nat} {na nb na' nb' : ProperNode},
+       run.coordinateProper.nodes[a]? = some na →
+       run.coordinateProper.nodes[b]? = some nb →
+       (na.node.border = -1 ∨ na.node.border = 1) →
+       (nb.node.border = -1 ∨ nb.node.border = 1) →
+       run.coordinateProper.nodes[a']? = some na' →
+       run.coordinateProper.nodes[b']? = some nb' →
+       (na'.node.border = -1 ∨ na'.node.border = 1) →
+       (nb'.node.border = -1 ∨ nb'.node.border = 1) →
+       na.node.clusterPath = na'.node.clusterPath →
+       nb.node.clusterPath = nb'.node.clusterPath →
+       Divergent na.node.clusterPath nb.node.clusterPath →
+       (∀ {Pa : List Nat} {A B : Nat} {r1 r2 : List Nat},
+         na.node.clusterPath = Pa ++ A :: r1 →
+         nb.node.clusterPath = Pa ++ B :: r2 → A ≠ B →
+         A ∈ OrderImpl.Sibling.clusterIds run.coordinateProper ∧
+         B ∈ OrderImpl.Sibling.clusterIds run.coordinateProper ∧
+         OrderImpl.Sibling.parentOf run.coordinateProper A =
+           OrderImpl.Sibling.parentOf run.coordinateProper B) →
+       ∀ {i j i' j' : Nat}, l1[i]? = some a → l1[j]? = some b →
+         l2[i']? = some a' → l2[j']? = some b' →
+         (i < j ↔ i' < j')
 
-/-- Divergent sibling blocks keep their order on every layer pair. -/
-theorem foreignBorderDivergeStable_holds (hsep : DivergeHeadsSeparated) :
-    ForeignBorderDivergeStable := by
+/-- Separated divergent sibling blocks keep their order on every layer pair:
+no residual hypotheses. -/
+theorem foreignBorderDivergeStableSeparated_holds :
+    ForeignBorderDivergeStableSeparated := by
   intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions hrun
     l1 l2 hmem1 hmem2 a b a' b' na nb na' nb' hna hnb hb1 hb2
-    hna' hnb' hb1' hb2' hpathA hpathB hdiv i j i' j' hi1 hj1 hi2 hj2
+    hna' hnb' hb1' hb2' hpathA hpathB
+  intro hdiv hseps i j i' j' hi1 hj1 hi2 hj2
   obtain ⟨Pa, A, B, r1, r2, hA, hB, hAB⟩ := hdiv
   have hpa' : na'.node.clusterPath = Pa ++ A :: r1 := by
     rw [← hpathA]; exact hA
@@ -265,10 +302,11 @@ theorem foreignBorderDivergeStable_holds (hsep : DivergeHeadsSeparated) :
     rw [horder]
     dsimp only
     rw [hlayers]
+  obtain ⟨hmA, hmB, hpar⟩ := hseps hA hB hAB
   have hL := (OrderImpl.order_valid_layering _ _ _ horder').2
   have hnd1 : l1.Nodup := OrderImpl.layering_mem_nodup hL hmem1
   have hnd2 : l2.Nodup := OrderImpl.layering_mem_nodup hL hmem2
-  obtain ⟨hmA, hmB, hpar⟩ := hsep hna hnb hb1 hb2 hA hB hAB
+
   have hne : (OrderImpl.Sibling.clusterIds run.coordinateProper).isEmpty = false := by
     cases hl : OrderImpl.Sibling.clusterIds run.coordinateProper with
     | nil => simp [hl] at hmA
