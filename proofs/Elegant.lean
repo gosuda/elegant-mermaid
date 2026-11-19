@@ -438,3 +438,4 @@ import Elegant.Layered.BorderInnerFoldProof
 import Elegant.Layered.FlatC8aExecutedProof
 import Elegant.Layered.LoopRectSamePartExecuted
 import Elegant.Layered.ExpandChildC8aGeometryExecuted
+import Elegant.Layered.CaptionAncestorFrameProof
