@@ -229,7 +229,7 @@ private theorem shiftRoutes_maps (l : List Route) (axis : Axis) (delta : Int) :
     trivial
 
 
-private theorem shiftBox_ok {b b' : Box} {axis : Axis} {delta : Int}
+theorem shiftBox_ok {b b' : Box} {axis : Axis} {delta : Int}
     (h : (do pure { b with rect := ← (Move.constant delta).rect axis b.rect } : Except LayoutError Box) = .ok b') :
     b'.id = b.id ∧ b'.parent = b.parent ∧ b'.role = b.role ∧ b'.exclusive = b.exclusive ∧
     ∃ w, Measure.checkedI32 (axis.start b.rect + delta) = .ok w ∧
@@ -240,7 +240,7 @@ private theorem shiftBox_ok {b b' : Box} {axis : Axis} {delta : Int}
   obtain ⟨w, hw, hrectEq, hval⟩ := moveConstant_rect_value hrect
   exact ⟨rfl, rfl, rfl, rfl, w, hw, hrectEq, hval⟩
 
-private theorem shiftBoxes_maps (l : List Box) (axis : Axis) (delta : Int) :
+theorem shiftBoxes_maps (l : List Box) (axis : Axis) (delta : Int) :
     ∀ (l' : List Box),
     l.mapM (fun b : Box => (do pure { b with rect := ← (Move.constant delta).rect axis b.rect } : Except LayoutError Box)) = .ok l' →
     l'.length = l.length ∧ l'.map (·.id) = l.map (·.id) ∧
@@ -519,7 +519,7 @@ theorem replaceFrame_boxes_maps {axis : Axis} {band : Band} {s s' : Scene}
             (placeRect axis band.start band.thickness)
         · exact mapIdx_boxes_excl_aux s.boxes 0 idx
             (placeRect axis band.start band.thickness)
-private theorem foldReplaceFrame_all (bands : List Band) (axis : Axis) (s : Scene) :
+theorem foldReplaceFrame_all (bands : List Band) (axis : Axis) (s : Scene) :
     ∀ (s' : Scene),
     bands.foldlM (fun scene band => replaceFrame axis band scene) s = .ok s' →
     s'.boxes.length = s.boxes.length ∧
@@ -552,7 +552,7 @@ private theorem foldReplaceFrame_all (bands : List Band) (axis : Axis) (s : Scen
     · rw [hlabR, hlabM]
     · rw [hrouteR, hrouteM]
     · rw [hcanvasR, hcanvasM]
-private theorem pinShiftBox_ok {b b' : Box} {pin : Pin} {axis : Axis}
+theorem pinShiftBox_ok {b b' : Box} {pin : Pin} {axis : Axis}
     (h : (do pure { b with rect := ← (Move.constant (pin.boxDelta b.id)).rect axis b.rect } : Except LayoutError Box) = .ok b') :
     b'.id = b.id ∧ b'.parent = b.parent ∧ b'.role = b.role ∧ b'.exclusive = b.exclusive ∧
     ∃ w, Measure.checkedI32 (axis.start b.rect + pin.boxDelta b.id) = .ok w ∧
@@ -562,7 +562,7 @@ private theorem pinShiftBox_ok {b b' : Box} {pin : Pin} {axis : Axis}
   subst hrfl
   obtain ⟨w, hw, hrectEq, hval⟩ := moveConstant_rect_value hrect
   exact ⟨rfl, rfl, rfl, rfl, w, hw, hrectEq, hval⟩
-private theorem pinShiftBoxes_mem (l : List Box) (pin : Pin) (axis : Axis) :
+theorem pinShiftBoxes_mem (l : List Box) (pin : Pin) (axis : Axis) :
     ∀ (l' : List Box),
     l.mapM (fun b : Box => (do pure { b with rect := ← (Move.constant (pin.boxDelta b.id)).rect axis b.rect } : Except LayoutError Box)) = .ok l' →
     ∀ b' ∈ l', ∃ b ∈ l, b'.id = b.id ∧ b'.parent = b.parent ∧
@@ -593,7 +593,7 @@ private theorem pinShiftBoxes_mem (l : List Box) (pin : Pin) (axis : Axis) :
 
 
 
-private theorem pinShiftBoxes_maps (l : List Box) (pin : Pin) (axis : Axis) :
+theorem pinShiftBoxes_maps (l : List Box) (pin : Pin) (axis : Axis) :
     ∀ (l' : List Box),
     l.mapM (fun b : Box => (do pure { b with rect := ← (Move.constant (pin.boxDelta b.id)).rect axis b.rect } : Except LayoutError Box)) = .ok l' →
     l'.length = l.length ∧ l'.map (·.id) = l.map (·.id) ∧
