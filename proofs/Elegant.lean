@@ -668,3 +668,7 @@ import Elegant.Layered.ExactForeignRankPairAnchorsProof
 import Elegant.Layered.ExactForwardScopeFreeProof
 import Elegant.Layered.ExactRunPathGroupsProof
 import Elegant.Layered.ExpandChildParentFrameCaptionCtxProof
+import Elegant.Layered.ExactNonfwdExtMissProof
+import Elegant.Layered.ExactPlainAncestorImpossibleProof
+import Elegant.Layered.ExactPlainNodePathProof
+import Elegant.Layered.ExactLoopEnvelopeGroupOverlapProof

@@ -2819,3 +2819,7 @@ Elegant.Layered.PipelineImpl.X6_runPathGroupsW_holds
 Elegant.Layered.PipelineImpl.pgccT_caption_parentFit
 Elegant.Layered.PipelineImpl.pfpCaptionLabelCase_of_sepRemainder
 Elegant.Layered.PipelineImpl.pfpCrossSideClear_of_sepRemainder
+Elegant.Layered.PipelineImpl.XNonfwd_extMissRem_of_parts
+Elegant.Layered.PipelineImpl.exactPlainAncestorImpossible_holds
+Elegant.Layered.PipelineImpl.XN_plainNodePathResidual_holds
+Elegant.Layered.PipelineImpl.XLEM_groupOverlapMiss_holds
