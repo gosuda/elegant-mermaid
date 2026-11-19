@@ -420,3 +420,7 @@ import Elegant.Layered.CaptionLocalClearProof
 import Elegant.Layered.RouteLabelForeignClearProof
 import Elegant.Layered.CaptionSelfSidesProof
 import Elegant.Layered.FallbackOwnerFrameProof
+import Elegant.Layered.CaptionSameDeclMarkerProof
+import Elegant.Layered.ForeignMemberRankBoundsProof
+import Elegant.Layered.LoopRectRealQProof
+import Elegant.Layered.ForeignSideChainShapeProof
