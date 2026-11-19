@@ -390,3 +390,6 @@ import Elegant.Layered.CaptionsSeamProof
 import Elegant.Layered.FallbackCaptionClearProof
 import Elegant.Kinds.IshikawaBoundaryRouteXProof
 import Elegant.Layered.RunStageChainKeys
+import Elegant.Layered.LoopFootprintResidualProof
+import Elegant.Layered.LaneBandsCoverage
+import Elegant.Layered.LaneBandsCoverageProof
