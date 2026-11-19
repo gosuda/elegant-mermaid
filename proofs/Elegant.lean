@@ -388,3 +388,4 @@ import Elegant.Layered.ExactSubInputStepC2
 import Elegant.Layered.ExclusiveKeyOutsideCgPathsProof
 import Elegant.Layered.CaptionsSeamProof
 import Elegant.Layered.FallbackCaptionClearProof
+import Elegant.Kinds.IshikawaBoundaryRouteXProof

@@ -1579,3 +1579,7 @@ Elegant.Layered.PipelineImpl.sceneCaptionBoxContainment_of_fit
 Elegant.Layered.PipelineImpl.flat_layout_labels_inset
 Elegant.Layered.titleRect_strictInside_of_fit
 Elegant.Layered.fallbackCaptionClear_of_fit
+Elegant.Kinds.IshikawaFinal.ishikawaBoundaryRouteXNonpos'
+Elegant.Kinds.IshikawaFinal.ishikawaBoundaryPieceClearance'''
+Elegant.Kinds.IshikawaFinal.ishikawaRouteXExtentLower
+Elegant.Kinds.IshikawaFinal.ishikawaCrossRibPieceClearance'''
