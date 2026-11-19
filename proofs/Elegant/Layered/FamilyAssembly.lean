@@ -58,6 +58,7 @@ import Elegant.Layered.ExpandChildParentFrameProof
 import Elegant.Layered.ExpandChildFrameLiftResiduals
 import Elegant.Layered.ExpandChildFrameLiftProof
 import Elegant.Layered.ExpandChildParentRouteClearProof
+import Elegant.Layered.ExpandChildParentFixedMissProof
 import Elegant.Layered.ExpandChildCanvasFitProof
 import Elegant.Layered.ExpandChildChildSceneProof
 import Elegant.Layered.ExpandChildC7GeometryProof
@@ -80,10 +81,10 @@ set_option autoImplicit false
 namespace Elegant.Layered.PipelineImpl
  /-- Every fact the layered family validity theorem still takes as a premise.
  Remaining fields: `partFrameWitness`,
- `loopRectTitleCopy`, `loopFootprintTopSeparation`, `loopFootprintBeyondProper`,
- `foreignBorderDivergeStable`, `loopHullRightCover`, `loopHullRightNeighborCover`,
- `parentFixedDisjointGroup`, `parentStrictMissGroup`, `parentFrameStrict`,
- `parentStrictStep`, `fitPerCall`.  Each field is a named
+`loopRectTitleCopy`, `loopFootprintTopSeparation`, `loopFootprintBeyondProper`,
+`foreignBorderDivergeStable`, `loopHullRightCover`, `loopHullRightNeighborCover`,
+`parentFixedForeign`, `parentRouteAttachedClear`, `parentFrameStrict`,
+`parentStrictStep`, `fitPerCall`.  Each field is a named
  OPEN statement about the executed pipeline; a field leaves this structure when
 its discharge theorem lands.  The refuted `GroupAttach`, `GroupAnchors`, and
 universal nonempty-id statements were replaced by the four group endpoint
@@ -119,7 +120,7 @@ via `sceneCaptionBoxContainment_of_fit` (`CaptionsSeamProof.lean`,
  (`ExpandChildAncestryProof.lean`), sharing `RecursiveStepFacts`
 (`RecursiveStepFacts.lean`).  The `runLocalLoopFootprint` field is derived
 by `runLocalLoopFootprint_executed` (`RunLocalLoopFootprintProof.lean`) from
-the `loopFootprintTopSeparation` and `loopFootprintBeyondProper` fields.  The `loopRectTopForeign` field is discharged by `loopRectTopReal_closed` (`LoopRectResidualsProof.lean`). -/
+the `loopFootprintTopSeparation` and `loopFootprintBeyondProper` fields.  The `loopRectTopForeign` field is discharged by `loopRectTopReal_closed` (`LoopRectResidualsProof.lean`).  The old `parentFixedDisjointGroup` field is narrowed to `parentFixedForeign`, closed by `parentFixedDisjointGroup_of_parentC8a` (`ExpandChildParentFixedMissProof.lean`) over the flat C8a clause and `stepC6_frame_pos`.  The old `parentStrictMissGroup` field is narrowed to `parentRouteAttachedClear`, closed with the frame half from the fuel-sliced frame lift (`sliced_frame_lift`, fed by strict miss below the call fuel) and the attached half verbatim, via `parentStrictMissGroup_of_frame_attached` closed by fuel induction (`strictMiss_restricted_closed`). -/
 structure LayeredSeams : Prop where
   partFrameWitness : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
@@ -130,8 +131,8 @@ structure LayeredSeams : Prop where
   foreignBorderDivergeStable : ForeignBorderDivergeStable
   loopHullRightCover : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopHullRightCover execution.params (componentCandidate execution.graph comp candidate) run execution.measured
   loopHullRightNeighborCover : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopHullRightNeighborCover execution.params (componentCandidate execution.graph comp candidate) run execution.measured
-  parentFixedDisjointGroup : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult) (g : ModelBox) (gFrame frame : Box), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → (∃ entry : String × Size, inp.fixedSizes.find? (fun fixed => fixed.1 == g.id) = some entry) → parent.scene.boxes.find? (fun box => box.id == g.id) = some gFrame → parent.scene.boxes.find? (fun box => box.id == group.id) = some frame → ExpandChildParentFixedDisjointGroup frame gFrame
-  parentStrictMissGroup : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentStrictMissGroup group parent
+  parentFixedForeign : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult) (g : ModelBox), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → g.id ∉ parent.scene.layoutDump.ancestors group.id
+  parentRouteAttachedClear : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentRouteAttachedClear group parent
   parentFrameStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentFrameStrict group parent
   parentStrictStep : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentStrictStep parent
   fitPerCall : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → InputFixedFit inp o
@@ -252,165 +253,8 @@ structure LayeredSeams : Prop where
      (parentSubInput inp group P titleLines child) o parent
      (parentInput_wellFormed hctx) (parentInput_framed hframed hctx) hparent
 
- /-- Local copy of the private theorem in `ExpandChildC6GeometryClosed.lean`:
- the out-of-scope conjunct of route clearance from the restated frame lift. -/
- private theorem routeFrame_of_lift
-     (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       FrameClearanceSeam inp o res)
-     (hnodeDecl : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       ExclusiveRunNodeDecl inp o res)
-     (hscoped : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       RunRouteEndpointIdsScoped inp o res)
-     (hpos : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       RoutePartShelfPositive inp o res)
-     (hloopRes : ∀ (inp : Input) (o : Options) (res : FamilyResult)
-       (execution : SceneExecution inp o res),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v : Nat),
-       comp ∈ components execution.graph →
-       componentRun execution.params
-         (componentCandidate execution.graph comp candidate) execution.measured
-         (candidateOrder candidate) = .ok run →
-       LoopReservation (componentCandidate execution.graph comp candidate) run
-         execution.measured v)
-     (hloopSep : ∀ (inp : Input) (o : Options) (res : FamilyResult)
-       (execution : SceneExecution inp o res),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v b : Nat),
-       comp ∈ components execution.graph →
-       ((componentCandidate execution.graph comp candidate).nodes.getD b default).border = 0 →
-       componentRun execution.params
-         (componentCandidate execution.graph comp candidate) execution.measured
-         (candidateOrder candidate) = .ok run →
-       LoopFootprintSeparation (componentCandidate execution.graph comp candidate) run
-         execution.measured v b)
-     (hfixedDisj : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
-       (g : ModelBox) (gFrame frame : Box),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       (∃ entry : String × Size,
-         inp.fixedSizes.find? (fun fixed => fixed.1 == g.id) = some entry) →
-       parent.scene.boxes.find? (fun box => box.id == g.id) = some gFrame →
-       parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
-       ExpandChildParentFixedDisjointGroup frame gFrame)
-     (hstrictMiss : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       ExpandChildParentStrictMissGroup group parent) :
-     ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-     (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
-     expandChild P inp o group titleHeight parent child = .ok res →
-     framedParents inp = true →
-     ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-     ExpandChildCallParams P inp o group titleLines titleHeight →
-     ExpandChildParentRouteFrameClear group parent := by
-   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams
-   exact expandChild_parentRouteFrameClear' hclear hnodeDecl hscoped hpos hloopRes hloopSep
-     subInputWellFormed hfixedDisj hstrictMiss hframed hctx hparams
-
- /-- Local copy of the private theorem in `ExpandChildC6GeometryClosed.lean`:
- the attached conjunct of route clearance from the strict-miss wrapper. -/
- private theorem routeAttached_of_strictMiss
-     (hstrictMiss : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       ExpandChildParentStrictMissGroup group parent) :
-     ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-     (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
-     expandChild P inp o group titleHeight parent child = .ok res →
-     framedParents inp = true →
-     ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-     ExpandChildCallParams P inp o group titleLines titleHeight →
-     ExpandChildParentRouteAttachedClear group parent := by
-   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams
-   intro frame hfind pr hpr _hatt r hSI
-   exact hstrictMiss fuel P inp o group titleLines titleHeight parent child res
-     hexpand hframed hctx hparams frame hfind pr hpr r hSI
-
- /-- Local copy of the private theorem in `ExpandChildC6GeometryClosed.lean`:
- route clearance from the two parts. -/
- private theorem routeClear_closed
-     (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       FrameClearanceSeam inp o res)
-     (hnodeDecl : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       ExclusiveRunNodeDecl inp o res)
-     (hscoped : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       RunRouteEndpointIdsScoped inp o res)
-     (hpos : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       RoutePartShelfPositive inp o res)
-     (hloopRes : ∀ (inp : Input) (o : Options) (res : FamilyResult)
-       (execution : SceneExecution inp o res),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v : Nat),
-       comp ∈ components execution.graph →
-       componentRun execution.params
-         (componentCandidate execution.graph comp candidate) execution.measured
-         (candidateOrder candidate) = .ok run →
-       LoopReservation (componentCandidate execution.graph comp candidate) run
-         execution.measured v)
-     (hloopSep : ∀ (inp : Input) (o : Options) (res : FamilyResult)
-       (execution : SceneExecution inp o res),
-       WellFormed (inputModel inp o) → framedParents inp = true →
-       ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v b : Nat),
-       comp ∈ components execution.graph →
-       ((componentCandidate execution.graph comp candidate).nodes.getD b default).border = 0 →
-       componentRun execution.params
-         (componentCandidate execution.graph comp candidate) execution.measured
-         (candidateOrder candidate) = .ok run →
-       LoopFootprintSeparation (componentCandidate execution.graph comp candidate) run
-         execution.measured v b)
-     (hfixedDisj : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
-       (g : ModelBox) (gFrame frame : Box),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       (∃ entry : String × Size,
-         inp.fixedSizes.find? (fun fixed => fixed.1 == g.id) = some entry) →
-       parent.scene.boxes.find? (fun box => box.id == g.id) = some gFrame →
-       parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
-       ExpandChildParentFixedDisjointGroup frame gFrame)
-     (hstrictMiss : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       ExpandChildParentStrictMissGroup group parent) :
-     ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-     (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
-     expandChild P inp o group titleHeight parent child = .ok res →
-     framedParents inp = true →
-     ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-     ExpandChildCallParams P inp o group titleLines titleHeight →
-     ExpandChildParentRouteClear group parent := by
-   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams
-   exact expandChild_parentRouteClear_of_parts
-     (routeFrame_of_lift hclear hnodeDecl hscoped hpos hloopRes hloopSep hfixedDisj hstrictMiss
-       fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams)
-     (routeAttached_of_strictMiss hstrictMiss
-       fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams)
-
- /-- Local copy of the private theorem in `ExpandChildC6GeometryExecuted.lean`:
- frame positivity for an executed call. -/
+/-- Local copy of the private theorem in `ExpandChildC6GeometryExecuted.lean`:
+frame positivity for an executed call. -/
  private theorem stepC6_frame_pos
      (fuel : Nat) (P : Params) (inp : Input) (o : Options)
      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -466,6 +310,543 @@ structure LayeredSeams : Prop where
      titleHeight parent child res hexpand hframed hctx hparams frame titleLines
      hframe hwrapCtx
    omega
+
+/-- The wide fixed-disjoint wrapper from the narrow foreign-chain residual:
+the parent C8a clause comes from the flat clause, positivity from the executed
+call, via `parentFixedDisjointGroup_of_parentC8a`. -/
+private theorem fixedDisjoint_of_foreign
+    (hflat8a : FlatC8a)
+    (hforeign : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
+      (g : ModelBox),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      g.id ∉ parent.scene.layoutDump.ancestors group.id) :
+    ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+    (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
+    (g : ModelBox) (gFrame frame : Box),
+    expandChild P inp o group titleHeight parent child = .ok res →
+    framedParents inp = true →
+    ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+    ExpandChildCallParams P inp o group titleLines titleHeight →
+    (∃ entry : String × Size,
+      inp.fixedSizes.find? (fun fixed => fixed.1 == g.id) = some entry) →
+    parent.scene.boxes.find? (fun box => box.id == g.id) = some gFrame →
+    parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
+    ExpandChildParentFixedDisjointGroup frame gFrame := by
+  intro fuel P inp o group titleLines titleHeight parent child res g gFrame frame
+    hexpand hframed hctx hparams hg hgFrame hframe
+  exact parentFixedDisjointGroup_of_parentC8a fuel P inp o group titleLines titleHeight
+    parent child res g gFrame frame hexpand hframed hctx hparams hg hgFrame hframe
+    (c8aParent_of_flat hflat8a fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams)
+    (stepC6_frame_pos fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams frame hframe)
+    (hforeign fuel P inp o group titleLines titleHeight parent child res g
+      hexpand hframed hctx hparams)
+
+/-- Fuel-sliced copy of `layoutRecursive_frame_clear`
+(`ExpandChildFrameLiftProof.lean`): the cross facts are only ever consumed
+below the application fuel (the `hstep` sits at the predecessor), so the copy
+takes them sliced to `m < F_top` and concludes below-or-at `F_top`. The
+zero case is the flat clause; no cross facts are needed there. -/
+private theorem sliced_frame_lift
+    (F_top : Nat)
+    (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      FrameClearanceSeam inp o res)
+    (hnodeDecl : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ExclusiveRunNodeDecl inp o res)
+    (hscoped : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      RunRouteEndpointIdsScoped inp o res)
+    (hpos : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      RoutePartShelfPositive inp o res)
+    (hloopRes : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecution inp o res),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v : Nat),
+      comp ∈ components execution.graph →
+      componentRun execution.params
+        (componentCandidate execution.graph comp candidate) execution.measured
+        (candidateOrder candidate) = .ok run →
+      LoopReservation (componentCandidate execution.graph comp candidate) run
+        execution.measured v)
+    (hloopSep : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecution inp o res),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v b : Nat),
+      comp ∈ components execution.graph →
+      ((componentCandidate execution.graph comp candidate).nodes.getD b default).border = 0 →
+      componentRun execution.params
+        (componentCandidate execution.graph comp candidate) execution.measured
+        (candidateOrder candidate) = .ok run →
+      LoopFootprintSeparation (componentCandidate execution.graph comp candidate) run
+        execution.measured v b)
+    (hsub : SubInputWellFormed)
+    (hchildCross : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildChildRouteParentFrame fuel P inp o group titleLines titleHeight
+        parent child res)
+    (hparentCross : ∀ (m : Nat), m < F_top → ∀ (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentRouteChildFrame m P inp o group titleLines titleHeight parent child res) :
+    ∀ (fuel : Nat), fuel ≤ F_top → ∀ (inp : Input) (o : Options) (g : ModelBox)
+      (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      (∃ entry : String × Size,
+        inp.fixedSizes.find? (fun fixed => fixed.1 == g.id) = some entry) →
+      layoutRecursive fuel inp o = .ok res →
+      ∀ (frame : Box),
+      res.scene.boxes.find? (fun box => box.id == g.id) = some frame →
+      ∀ r ∈ res.scene.routes, r.fromId ≠ g.id → r.toId ≠ g.id →
+        g.id ∉ LayoutDump.routeScope res.scene.layoutDump r →
+        ¬ Polyline.hitsRect r.points frame.rect := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro hle inp o g res hwf hframed hfixed h
+      intro frame hfind r hr hfrom hto hscope
+      exact frame_clear_of_flat hclear hnodeDecl hscoped hpos hloopRes hloopSep
+        hwf hframed hfixed h hfind hr hfrom hto hscope
+  | succ n ih =>
+      intro hle inp o g res hwf hframed hfixed h
+      have hboxIds : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
+      have hcovered : RoutesCovered inp := routesCovered_of_wellFormed hwf
+      rcases layoutRecursive_succ_sources h with ⟨_, hlayout⟩ |
+        ⟨group, P, metric, child, titleLines, parent, hg, hP, hm,
+          hchild, hwrap, hparentAt, hexpandAt⟩
+      · intro frame hfind r hr hfrom hto hscope
+        exact frame_clear_of_flat hclear hnodeDecl hscoped hpos hloopRes hloopSep
+          hwf hframed hfixed hlayout hfind hr hfrom hto hscope
+      · obtain ⟨hwfChild, hframedChild, hwfParent, hframedParent⟩ :=
+          hsub n inp o group P metric titleLines child parent
+            hwf hframed hP hm hwrap hchild hparentAt
+        have hctx : ExpandChildCallContext n P inp o group titleLines _
+            parent child res :=
+          ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
+        have hparams : ExpandChildCallParams P inp o group titleLines _ :=
+          ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
+        obtain ⟨entry, hentry⟩ := hfixed
+        have hfixedChild : ∃ entry : String × Size,
+            (childSubInput inp group).fixedSizes.find?
+              (fun fixed => fixed.1 == g.id) = some entry :=
+          ⟨entry, hentry⟩
+        have hfixedParent : ∃ entry : String × Size,
+            (parentSubInput inp group P titleLines child).fixedSizes.find?
+              (fun fixed => fixed.1 == g.id) = some entry := by
+          refine ⟨entry, ?_⟩
+          have hfix : (parentSubInput inp group P titleLines child).fixedSizes =
+              inp.fixedSizes ++
+                [(group.id, childFrameSize group.direction P.clusterPad
+                  (titleLines.foldl (fun width line => max width line.width) 0)
+                  ((max 1 titleLines.length : Int) * P.lineH)
+                  ⟨child.scene.canvas.w - 2 * P.canvasMargin,
+                    child.scene.canvas.h - 2 * P.canvasMargin⟩)] := rfl
+          rw [hfix, List.find?_append, hentry]
+          rfl
+        have hChildIH := ih (by omega : n ≤ F_top) (childSubInput inp group)
+          (childSubOptions o group) g child
+          hwfChild hframedChild hfixedChild hchild
+        have hParentIH := ih (by omega : n ≤ F_top)
+          (parentSubInput inp group P titleLines child) o g parent
+          hwfParent hframedParent hfixedParent hparentAt
+        have hstep : ExpandChildFrameStep inp parent child res :=
+          expandChild_frame_step hexpandAt hframed hctx hparams
+            (hchildCross n P inp o group titleLines _
+              parent child res hexpandAt hframed hctx hparams)
+            (hparentCross n (by omega : n < F_top) P inp o group titleLines _
+              parent child res hexpandAt hframed hctx hparams)
+        intro frame hfind r hr hfrom hto hscope
+        exact hstep g ⟨entry, hentry⟩
+          frame hfind hChildIH hParentIH r hr hfrom hto hscope
+
+/-- Fuel-sliced single-call frame clearance: mirrors
+`expandChild_parentRouteFrameClear` (`ExpandChildFrameLiftProof.lean`) but
+feeds the sliced lift, so the strict-miss premise is only needed below the
+call fuel. The child-cross side comes from the narrow foreign field (no fuel
+constraint). The current-call merge step of the original is dead code there
+(the lift conclusion already covers the routes) and is omitted. -/
+private theorem sliced_routeFrame_of_lift
+    (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      FrameClearanceSeam inp o res)
+    (hnodeDecl : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ExclusiveRunNodeDecl inp o res)
+    (hscoped : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      RunRouteEndpointIdsScoped inp o res)
+    (hpos : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      RoutePartShelfPositive inp o res)
+    (hloopRes : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecution inp o res),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v : Nat),
+      comp ∈ components execution.graph →
+      componentRun execution.params
+        (componentCandidate execution.graph comp candidate) execution.measured
+        (candidateOrder candidate) = .ok run →
+      LoopReservation (componentCandidate execution.graph comp candidate) run
+        execution.measured v)
+    (hloopSep : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecution inp o res),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v b : Nat),
+      comp ∈ components execution.graph →
+      ((componentCandidate execution.graph comp candidate).nodes.getD b default).border = 0 →
+      componentRun execution.params
+        (componentCandidate execution.graph comp candidate) execution.measured
+        (candidateOrder candidate) = .ok run →
+      LoopFootprintSeparation (componentCandidate execution.graph comp candidate) run
+        execution.measured v b)
+    (hflat8a : FlatC8a)
+    (hforeign : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
+      (g : ModelBox),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      g.id ∉ parent.scene.layoutDump.ancestors group.id)
+    {F_top : Nat}
+    (hstrictBelow : ∀ (m : Nat), m < F_top → ∀ (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentStrictMissGroup group parent)
+    {P : Params} {inp : Input} {o : Options} {group : ModelBox}
+    {titleLines : List Measure.Line} {titleHeight : Int}
+    {parent child res : FamilyResult}
+    (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext F_top P inp o group titleLines titleHeight
+      parent child res)
+    (hparams : ExpandChildCallParams P inp o group titleLines titleHeight) :
+    ExpandChildParentRouteFrameClear group parent := by
+  have hcC : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildChildRouteParentFrame fuel P inp o group titleLines titleHeight
+        parent child res := by
+    intro fuel P inp o group titleLines titleHeight parent child res _hexpand _hframed
+      _hctx _hparams
+    intro hexpand hframed hctx hparams g hgEx gFrame hfindG frame _metric
+      _titleLines₀ _dx _dy hframe _hmetric _htitle hdx hdy hwrap cr hcr hfrom hto
+      hscope
+    exact expandChildChildRouteParentFrame_of_disjoint hexpand hframed hctx hparams
+      hgEx hfindG hframe hdx hdy hwrap
+      (fixedDisjoint_of_foreign hflat8a hforeign fuel P inp o group titleLines
+        titleHeight parent child res g gFrame frame hexpand hframed hctx hparams
+        hgEx hfindG hframe)
+      hcr hfrom hto hscope
+  have hpC : ∀ (m : Nat), m < F_top → ∀ (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentRouteChildFrame m P inp o group titleLines titleHeight
+        parent child res := by
+    intro m hm P inp o group titleLines titleHeight parent child res _hexpand _hframed
+      _hctx _hparams
+    intro hexpand hframed hctx hparams _g hgEx _gFrame hfindR _cb hcb _frame _metric
+      _titleLines₀ _dx _dy hframe _hmetric _htitle hdx hdy hwrap hgEmb pr hpr hfrom
+      hto hscope
+    exact expandChildParentRouteChildFrame_of_strictMiss hexpand hframed hctx hparams
+      hgEx hfindR hcb hframe hdx hdy hwrap
+      (hstrictBelow m hm P inp o group titleLines titleHeight parent child res
+        hexpand hframed hctx hparams)
+      hgEmb hpr hfrom hto hscope
+  have hrec : ExpandChildFrameRecursion F_top P inp o group titleLines titleHeight
+      parent child res := by
+    intro frame hfind pr hpr hfrom hto hscopeP
+    obtain ⟨hwfC, hgC, _hpboxesC, hchildC, hparentC, _hexpandC⟩ := hctx
+    obtain ⟨hP, hheight, hwrap⟩ := hparams
+    have _hheight := hheight
+    obtain ⟨metric, hm, hwrapEq⟩ := hwrap
+    obtain ⟨_, _, hwfParent, hframedParent⟩ :=
+      subInputWellFormed F_top inp o group P metric titleLines child parent
+        hwfC hframed hP hm hwrapEq hchildC hparentC
+    have hfixedParent : ∃ entry : String × Size,
+        (parentSubInput inp group P titleLines child).fixedSizes.find?
+          (fun fixed => fixed.1 == group.id) = some entry := by
+      have hpred := List.find?_some hgC
+      simp only [Bool.and_eq_true] at hpred
+      obtain ⟨_, hnotfixed⟩ := hpred
+      have hany : inp.fixedSizes.any (fun fixed => fixed.1 == group.id) = false := by
+        simpa using hnotfixed
+      have hnone : inp.fixedSizes.find? (fun fixed => fixed.1 == group.id) = none :=
+        List.find?_eq_none.mpr (List.any_eq_false.mp hany)
+      have hfix : (parentSubInput inp group P titleLines child).fixedSizes =
+          inp.fixedSizes ++
+            [(group.id, childFrameSize group.direction P.clusterPad
+              (titleLines.foldl (fun width line => max width line.width) 0)
+              ((max 1 titleLines.length : Int) * P.lineH)
+              ⟨child.scene.canvas.w - 2 * P.canvasMargin,
+                child.scene.canvas.h - 2 * P.canvasMargin⟩)] := rfl
+      refine ⟨(group.id, childFrameSize group.direction P.clusterPad
+        (titleLines.foldl (fun width line => max width line.width) 0)
+        ((max 1 titleLines.length : Int) * P.lineH)
+        ⟨child.scene.canvas.w - 2 * P.canvasMargin,
+          child.scene.canvas.h - 2 * P.canvasMargin⟩), ?_⟩
+      rw [hfix, List.find?_append, hnone]
+      simp
+    exact sliced_frame_lift F_top hclear hnodeDecl hscoped hpos hloopRes hloopSep
+      subInputWellFormed hcC hpC F_top (by omega : F_top ≤ F_top)
+      (parentSubInput inp group P titleLines child) o group parent
+      hwfParent hframedParent hfixedParent hparentC frame hfind pr hpr hfrom hto
+      hscopeP
+  have hscope : ExpandChildFrameScopeOutside F_top P inp o group titleLines titleHeight
+      parent child res :=
+    expandChild_frame_scope_outside
+      (expandChildParentIsolated hexpand hframed hctx hparams)
+      hexpand hframed hctx hparams
+  exact expandChild_parentRouteFrame_of_recursion hrec hscope
+
+/-- Strict miss at one fuel from strict miss below it: the out-of-scope half
+comes from the sliced frame lift, the attached half from the field. -/
+private theorem strictMiss_of_below
+    (hatt : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentRouteAttachedClear group parent)
+    (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      FrameClearanceSeam inp o res)
+    (hnodeDecl : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ExclusiveRunNodeDecl inp o res)
+    (hscoped : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      RunRouteEndpointIdsScoped inp o res)
+    (hpos : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      RoutePartShelfPositive inp o res)
+    (hloopRes : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecution inp o res),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v : Nat),
+      comp ∈ components execution.graph →
+      componentRun execution.params
+        (componentCandidate execution.graph comp candidate) execution.measured
+        (candidateOrder candidate) = .ok run →
+      LoopReservation (componentCandidate execution.graph comp candidate) run
+        execution.measured v)
+    (hloopSep : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecution inp o res),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v b : Nat),
+      comp ∈ components execution.graph →
+      ((componentCandidate execution.graph comp candidate).nodes.getD b default).border = 0 →
+      componentRun execution.params
+        (componentCandidate execution.graph comp candidate) execution.measured
+        (candidateOrder candidate) = .ok run →
+      LoopFootprintSeparation (componentCandidate execution.graph comp candidate) run
+        execution.measured v b)
+    (hflat8a : FlatC8a)
+    (hforeign : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
+      (g : ModelBox),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      g.id ∉ parent.scene.layoutDump.ancestors group.id)
+    {F_top : Nat}
+    (hbelow : ∀ (m : Nat), m < F_top → ∀ (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentStrictMissGroup group parent) :
+    ∀ (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+    (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+    expandChild P inp o group titleHeight parent child = .ok res →
+    framedParents inp = true →
+    ExpandChildCallContext F_top P inp o group titleLines titleHeight parent child res →
+    ExpandChildCallParams P inp o group titleLines titleHeight →
+    ExpandChildParentStrictMissGroup group parent := by
+  intro P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams
+  exact parentStrictMissGroup_of_frame_attached F_top P inp o group titleLines
+    titleHeight parent child res hexpand hframed hctx hparams
+    (sliced_routeFrame_of_lift hclear hnodeDecl hscoped hpos hloopRes hloopSep
+      hflat8a hforeign hbelow hexpand hframed hctx hparams)
+    (hatt F_top P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams)
+
+/-- All-fuels strict miss from the attached field, closing the fuel induction:
+each level's frame half comes from the sliced lift fed by the levels below. -/
+private theorem strictMiss_restricted_closed
+    (hatt : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentRouteAttachedClear group parent)
+    (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      FrameClearanceSeam inp o res)
+    (hnodeDecl : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ExclusiveRunNodeDecl inp o res)
+    (hscoped : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      RunRouteEndpointIdsScoped inp o res)
+    (hpos : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      RoutePartShelfPositive inp o res)
+    (hloopRes : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecution inp o res),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v : Nat),
+      comp ∈ components execution.graph →
+      componentRun execution.params
+        (componentCandidate execution.graph comp candidate) execution.measured
+        (candidateOrder candidate) = .ok run →
+      LoopReservation (componentCandidate execution.graph comp candidate) run
+        execution.measured v)
+    (hloopSep : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecution inp o res),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v b : Nat),
+      comp ∈ components execution.graph →
+      ((componentCandidate execution.graph comp candidate).nodes.getD b default).border = 0 →
+      componentRun execution.params
+        (componentCandidate execution.graph comp candidate) execution.measured
+        (candidateOrder candidate) = .ok run →
+      LoopFootprintSeparation (componentCandidate execution.graph comp candidate) run
+        execution.measured v b)
+    (hflat8a : FlatC8a)
+    (hforeign : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
+      (g : ModelBox),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      g.id ∉ parent.scene.layoutDump.ancestors group.id) :
+    ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+    (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+    expandChild P inp o group titleHeight parent child = .ok res →
+    framedParents inp = true →
+    ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+    ExpandChildCallParams P inp o group titleLines titleHeight →
+    ExpandChildParentStrictMissGroup group parent := by
+  intro fuel
+  induction fuel using Nat.strongRecOn with
+  | _ F ih =>
+    intro P inp o group titleLines titleHeight parent child res hexpand hframed hctx
+      hparams
+    exact strictMiss_of_below hatt hclear hnodeDecl hscoped hpos hloopRes hloopSep
+      hflat8a hforeign
+      (fun m hm P' inp' o' g' tls' th' par' chi' res' hx hf hc hp =>
+        ih m hm P' inp' o' g' tls' th' par' chi' res' hx hf hc hp)
+      P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams
+
+ /-- Local copy of the private theorem in `ExpandChildC6GeometryClosed.lean`:
+ route clearance from the two parts. -/
+ private theorem routeClear_closed
+     (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+       WellFormed (inputModel inp o) → framedParents inp = true →
+       FrameClearanceSeam inp o res)
+     (hnodeDecl : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+       WellFormed (inputModel inp o) → framedParents inp = true →
+       ExclusiveRunNodeDecl inp o res)
+     (hscoped : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+       WellFormed (inputModel inp o) → framedParents inp = true →
+       RunRouteEndpointIdsScoped inp o res)
+     (hpos : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+       WellFormed (inputModel inp o) → framedParents inp = true →
+       RoutePartShelfPositive inp o res)
+     (hloopRes : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+       (execution : SceneExecution inp o res),
+       WellFormed (inputModel inp o) → framedParents inp = true →
+       ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v : Nat),
+       comp ∈ components execution.graph →
+       componentRun execution.params
+         (componentCandidate execution.graph comp candidate) execution.measured
+         (candidateOrder candidate) = .ok run →
+       LoopReservation (componentCandidate execution.graph comp candidate) run
+         execution.measured v)
+     (hloopSep : ∀ (inp : Input) (o : Options) (res : FamilyResult)
+       (execution : SceneExecution inp o res),
+       WellFormed (inputModel inp o) → framedParents inp = true →
+       ∀ (comp : List Nat) (candidate : Nat) (run : Run) (v b : Nat),
+       comp ∈ components execution.graph →
+       ((componentCandidate execution.graph comp candidate).nodes.getD b default).border = 0 →
+       componentRun execution.params
+         (componentCandidate execution.graph comp candidate) execution.measured
+         (candidateOrder candidate) = .ok run →
+       LoopFootprintSeparation (componentCandidate execution.graph comp candidate) run
+         execution.measured v b)
+    (hflat8a : FlatC8a)
+    (hforeign : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
+      (g : ModelBox),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      g.id ∉ parent.scene.layoutDump.ancestors group.id)
+    (hatt : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentRouteAttachedClear group parent)
+    (hstrictAll : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentStrictMissGroup group parent) :
+    ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+    (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+    expandChild P inp o group titleHeight parent child = .ok res →
+    framedParents inp = true →
+    ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+    ExpandChildCallParams P inp o group titleLines titleHeight →
+    ExpandChildParentRouteClear group parent := by
+  intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams
+  exact expandChild_parentRouteClear_of_parts
+    (sliced_routeFrame_of_lift hclear hnodeDecl hscoped hpos hloopRes hloopSep
+      hflat8a hforeign
+      (fun m hm P' inp' o' g' tls' th' par' chi' res' hx hf hc hp =>
+        hstrictAll m P' inp' o' g' tls' th' par' chi' res' hx hf hc hp)
+      hexpand hframed hctx hparams)
+    (hatt fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams)
 
  /-- Local copy of the theorem in `ExpandChildC6GeometryExecuted.lean`: pure
  rectangle glue over the six premises. -/
@@ -635,9 +1016,9 @@ structure LayeredSeams : Prop where
    exact expandChild_c6_geometry_inset fuel P inp o group titleLines titleHeight parent child res
      hFit hBox hRt hDisj hMiss hPos
 
- /-- Local copy of the theorem in `ExpandChildC6GeometryClosed.lean`: closed
- C6 geometry from the flat clause, the flat-stage seams, and the two narrowed
- single-scene wrappers. -/
+/-- Local copy of the theorem in `ExpandChildC6GeometryClosed.lean`: closed
+C6 geometry from the flat clause, the flat-stage seams, the narrow foreign
+residual, the attached field, and the fuel-closed strict miss. -/
  private theorem stepC6Geometry_closed
      (hflat8a : FlatC8a)
      (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
@@ -673,32 +1054,36 @@ structure LayeredSeams : Prop where
          (candidateOrder candidate) = .ok run →
        LoopFootprintSeparation (componentCandidate execution.graph comp candidate) run
          execution.measured v b)
-     (hfixedDisj : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
-       (g : ModelBox) (gFrame frame : Box),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       (∃ entry : String × Size,
-         inp.fixedSizes.find? (fun fixed => fixed.1 == g.id) = some entry) →
-       parent.scene.boxes.find? (fun box => box.id == g.id) = some gFrame →
-       parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
-       ExpandChildParentFixedDisjointGroup frame gFrame)
-     (hstrictMiss : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       ExpandChildParentStrictMissGroup group parent) :
-     RecursiveStepFacts ExpandChildC6Geometry := by
-   exact stepC6Geometry_holds (c8aParent_of_flat hflat8a)
-     (routeClear_closed hclear hnodeDecl hscoped hpos hloopRes hloopSep hfixedDisj hstrictMiss)
+    (hforeign : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult)
+      (g : ModelBox),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      g.id ∉ parent.scene.layoutDump.ancestors group.id)
+    (hatt : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentRouteAttachedClear group parent)
+    (hstrictAll : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentStrictMissGroup group parent) :
+    RecursiveStepFacts ExpandChildC6Geometry := by
+  exact stepC6Geometry_holds (c8aParent_of_flat hflat8a)
+    (routeClear_closed hclear hnodeDecl hscoped hpos hloopRes hloopSep hflat8a hforeign
+      hatt hstrictAll)
 
- /-- Local copy of the private theorem in `ExpandChildParentFrameDirect.lean`:
- the C8a step of one expansion from the below-fuel geometry. -/
- private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
+/-- Local copy of the private theorem in `ExpandChildParentFrameDirect.lean`:
+the C8a step of one expansion from the below-fuel geometry. -/
+private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
      (below8a : ∀ (m : Nat), m < F → ∀ (P : Params) (inp : Input) (o : Options)
        (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
        (parent child res : FamilyResult),
@@ -764,7 +1149,6 @@ structure LayeredSeams : Prop where
          ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
          ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
        exact expandChild_c8a hchildC8a hparentC8a hstep hexpandAt
-
 
  /-- Local copy of the private theorem in `ExpandChildParentFrameDirect.lean`:
  the parent scene satisfies C8a from the flat clause and the below-fuel geometry. -/
@@ -1056,6 +1440,88 @@ structure LayeredSeams : Prop where
        ih f hlt P' inp' o' g' tls' th' par' chi' res' hx hf hc hp)
        P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams
 
+/-- Single-call C7 geometry: the body of `stepC7Geometry_holds` with the
+per-call fit, parent fit, and parent-side residuals as single-call hypotheses.
+The family theorem feeds the threaded fit here through the fit-threaded lift
+copy; the all-inputs wrapper below feeds the seam field. -/
+private theorem stepC7Geometry_single
+    {fuel : Nat}
+    (hflat8a : FlatC8a)
+    (hflat8b : FlatC8b)
+    (hbelow8b : ∀ (m : Nat), m < fuel → ∀ (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildC8bGeometry P inp o group titleHeight parent child res)
+    {P : Params} {inp : Input} {o : Options} {group : ModelBox}
+    {titleLines : List Measure.Line} {titleHeight : Int}
+    {parent child res : FamilyResult}
+    (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+      parent child res)
+    (hparams : ExpandChildCallParams P inp o group titleLines titleHeight)
+    (hframeStrict : ExpandChildParentFrameStrict group parent)
+    (hstepStrict : ExpandChildParentStrictStep parent)
+    (hfitParent : InputFixedFit (parentSubInput inp group P titleLines child) o)
+    (hfit : InputFixedFit inp o) :
+    ExpandChildC7Geometry P inp o group titleHeight parent child res := by
+  have hP : checkedParams o.profile inp.kind = .ok P := hparams.1
+  have below8a : ∀ (f : Nat), f < fuel → ∀ (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext f P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildC8aGeometry P inp o group titleHeight parent child res :=
+    fun f _ => stepC8aGeometry_holds f
+  have below8b : ∀ (m : Nat), m < fuel → ∀ (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildC8bGeometry P inp o group titleHeight parent child res := hbelow8b
+  have hpf : ExpandChildParentFrame P inp o group titleHeight parent child :=
+    expandChild_parentFrame_direct hflat8a hflat8b below8a below8b
+      hexpand hframed hctx hparams hframeStrict hstepStrict hfitParent
+  have hchildBoxes : ∀ cb ∈ child.scene.boxes,
+      (insetRect child.scene.canvas P.canvasMargin).Contained cb.rect := by
+    intro cb hcb
+    exact expandChild_child_boxes_inset fuel P inp o group titleLines titleHeight
+      parent child res hexpand hframed hctx hP cb hcb
+  have hchildLabels : ∀ cl ∈ child.scene.labels,
+      (insetRect child.scene.canvas P.canvasMargin).Contained cl.rect := by
+    intro cl hcl
+    exact expandChild_child_labels_inset fuel P inp o group titleLines titleHeight
+      parent child res hexpand hframed hfit hctx hP cl hcl
+  have hparentBoxes : ∀ (frame : Box),
+      parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
+      ∀ pb ∈ parent.scene.boxes, pb.exclusive = true →
+        pb.id ∉ group.id :: parent.scene.layoutDump.ancestors group.id →
+        Disjoint frame.rect pb.rect := by
+    intro frame hframe pb hpb hex hforeign
+    have hq := hpf frame titleLines _ _ hframe rfl rfl hparams.2.2
+    exact hq.1 pb hpb hex hforeign
+  have hparentLabels : ∀ (frame : Box),
+      parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
+      ∀ pl ∈ parent.scene.labels, pl.owner ≠ group.id →
+        Disjoint frame.rect pl.rect := by
+    intro frame hframe pl hpl hown
+    have hq := hpf frame titleLines _ _ hframe rfl rfl hparams.2.2
+    exact hq.2.1 pl hpl hown
+  have howners : ExpandChildLabelOwners inp parent child :=
+    expandChild_label_owners fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams
+  exact expandChild_c7_geometry_executed fuel P inp o group titleLines titleHeight
+    parent child res hexpand hframed hctx hparams
+    hchildBoxes hchildLabels hparentBoxes hparentLabels howners
+
  /-- Local copy of the theorem in `ExpandChildC7GeometryExecuted.lean`: the
  per-expansion C7 geometry holds for every executed call. -/
  private theorem stepC7Geometry_holds
@@ -1103,69 +1569,18 @@ structure LayeredSeams : Prop where
        ExpandChildCallParams P inp o group titleLines titleHeight →
        InputFixedFit inp o) :
      RecursiveStepFacts ExpandChildC7Geometry := by
-   intro fuel P inp o group titleLines titleHeight parent child res
-     hexpand hframed hctx hparams
-   have hP : checkedParams o.profile inp.kind = .ok P := hparams.1
-   have below8a : ∀ (f : Nat), f < fuel → ∀ (P : Params) (inp : Input) (o : Options)
-       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-       (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext f P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       ExpandChildC8aGeometry P inp o group titleHeight parent child res :=
-     fun f _ => stepC8aGeometry_holds f
-   have below8b : ∀ (m : Nat), m < fuel → ∀ (P : Params) (inp : Input) (o : Options)
-       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-       (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext m P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       ExpandChildC8bGeometry P inp o group titleHeight parent child res := hbelow8b fuel
-   have hpf : ExpandChildParentFrame P inp o group titleHeight parent child :=
-     expandChild_parentFrame_direct hflat8a hflat8b below8a below8b
-       hexpand hframed hctx hparams
-       (hframeStrict fuel P inp o group titleLines titleHeight parent child res
-         hexpand hframed hctx hparams)
-       (hstepStrict fuel P inp o group titleLines titleHeight parent child res
-         hexpand hframed hctx hparams)
-       (hfitParent fuel P inp o group titleLines titleHeight parent child res
-         hexpand hframed hctx hparams)
-   have hchildBoxes : ∀ cb ∈ child.scene.boxes,
-       (insetRect child.scene.canvas P.canvasMargin).Contained cb.rect := by
-     intro cb hcb
-     exact expandChild_child_boxes_inset fuel P inp o group titleLines titleHeight
-       parent child res hexpand hframed hctx hP cb hcb
-   have hchildLabels : ∀ cl ∈ child.scene.labels,
-       (insetRect child.scene.canvas P.canvasMargin).Contained cl.rect := by
-     intro cl hcl
-     exact expandChild_child_labels_inset fuel P inp o group titleLines titleHeight
-       parent child res hexpand hframed
-       (hfit fuel P inp o group titleLines titleHeight parent child res
-         hexpand hframed hctx hparams)
-       hctx hP cl hcl
-   have hparentBoxes : ∀ (frame : Box),
-       parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
-       ∀ pb ∈ parent.scene.boxes, pb.exclusive = true →
-         pb.id ∉ group.id :: parent.scene.layoutDump.ancestors group.id →
-         Disjoint frame.rect pb.rect := by
-     intro frame hframe pb hpb hex hforeign
-     have hq := hpf frame titleLines _ _ hframe rfl rfl hparams.2.2
-     exact hq.1 pb hpb hex hforeign
-   have hparentLabels : ∀ (frame : Box),
-       parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
-       ∀ pl ∈ parent.scene.labels, pl.owner ≠ group.id →
-         Disjoint frame.rect pl.rect := by
-     intro frame hframe pl hpl hown
-     have hq := hpf frame titleLines _ _ hframe rfl rfl hparams.2.2
-     exact hq.2.1 pl hpl hown
-   have howners : ExpandChildLabelOwners inp parent child :=
-     expandChild_label_owners fuel P inp o group titleLines titleHeight parent child res
-       hexpand hframed hctx hparams
-   exact expandChild_c7_geometry_executed fuel P inp o group titleLines titleHeight
-     parent child res hexpand hframed hctx hparams
-     hchildBoxes hchildLabels hparentBoxes hparentLabels howners
+  intro fuel P inp o group titleLines titleHeight parent child res
+    hexpand hframed hctx hparams
+  exact stepC7Geometry_single hflat8a hflat8b (hbelow8b fuel)
+    hexpand hframed hctx hparams
+    (hframeStrict fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams)
+    (hstepStrict fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams)
+    (hfitParent fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams)
+    (hfit fuel P inp o group titleLines titleHeight parent child res
+      hexpand hframed hctx hparams)
 
  /-- Local copy of the private theorem in `ExpandChildC8bGeometryExecuted.lean`:
  pure geometry behind the strict caption containment. -/
@@ -1493,9 +1908,10 @@ structure LayeredSeams : Prop where
      (hfix fuel P inp o group titleLines titleHeight parent child res hexpand
        hframed hctx hparams)
 
- /-- The old `stepC6Geometry` fact derived from the narrow seams: the flat C8a
- clause from the border-span seams, the flat-stage premises from the closed
- scope/loop reductions, and the two single-scene wrappers from the fields. -/
+/-- The old `stepC6Geometry` fact derived from the narrow seams: the flat C8a
+clause from the border-span seams, the flat-stage premises from the closed
+scope/loop reductions, the narrow foreign residual, the attached field, and
+the fuel-closed strict miss. -/
  theorem c6Geometry_of_seams (S : LayeredSeams) :
      RecursiveStepFacts ExpandChildC6Geometry := by
    have hflat8a : FlatC8a := flatC8a_of_span_seams
@@ -1553,9 +1969,19 @@ structure LayeredSeams : Prop where
      fun inp o res execution hwf hfp comp candidate run v b hcomp hbord hrun =>
        loopFootprintSeparation_executed execution comp candidate run v b hcomp hbord hrun
          (loopFootprintSeparationResidual (S.loopFootprintTopSeparation inp o res hwf hfp)
-           (S.loopFootprintBeyondProper inp o res hwf hfp))
+          (S.loopFootprintBeyondProper inp o res hwf hfp))
+   have hstrictAll : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox)
+      (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildParentStrictMissGroup group parent :=
+    strictMiss_restricted_closed S.parentRouteAttachedClear hclear hnodeDecl hscoped
+      hpos hloopRes hloopSep hflat8a S.parentFixedForeign
    exact stepC6Geometry_closed hflat8a hclear hnodeDecl hscoped hpos hloopRes hloopSep
-     S.parentFixedDisjointGroup S.parentStrictMissGroup
+     S.parentFixedForeign S.parentRouteAttachedClear hstrictAll
 
  /-- The old `stepC8bGeometry` fact derived from the narrow seams: the flat
  clauses from the border-span and label seams, the two parent-side residuals
@@ -1659,7 +2085,6 @@ structure LayeredSeams : Prop where
          (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
    exact stepC7Geometry_holds hflat8a hflat8b (below8b_of_seams S) S.parentFrameStrict
      S.parentStrictStep (fitParent_of_seams S) S.fitPerCall
-
 
  /-- Layered family validity for an input with nonempty box ids, fixed-size room
  for labeled boxes, and disjoint box route ids, modulo exactly the fields of
