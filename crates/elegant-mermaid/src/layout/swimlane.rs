@@ -4,6 +4,8 @@
 //! bands are consecutive in declaration order with no gap. Lane thickness is the
 //! content thickness plus the title band plus twice the sum of padding and the
 //! routing gutter, along the cross axis (x for TB and BT, y for LR and RL).
+//! After the canvas grows, route ends resting on a lane frame's old cross side
+//! are re-attached to the new side.
 
 use super::input::Input;
 use super::layered::pipeline;
@@ -11,6 +13,7 @@ use crate::geom::{GeomError as LayoutError, Point, Rect, Size};
 use crate::model::swimlane::Model;
 use crate::scene::{self, BoxRole, DumpOptions, GroupRole, Item, PathCommand, Profile, Scene};
 
+mod ends;
 mod routing;
 
 /// Builds the layered-family input for a swimlane model.
@@ -355,6 +358,7 @@ fn pin_bands(input: &Input, scene: Scene) -> Result<Scene, LayoutError> {
         }
         bands.push(band);
     }
+    let frames = ends::lane_frames(axis, &bands, scene.boxes());
     let pin = build_pin(axis, &bands, &scene);
     let original: Vec<Vec<Point>> = scene.routes().iter().map(|r| r.points.clone()).collect();
     let mut dump = scene.dump_part().clone();
@@ -383,6 +387,7 @@ fn pin_bands(input: &Input, scene: Scene) -> Result<Scene, LayoutError> {
             h: canvas.h.max(narrow(extent)?),
         },
     };
+    ends::attach_lane_ends(&mut dump, &mut items, axis, &frames)?;
     Ok(Scene::new(canvas, dump, items))
 }
 

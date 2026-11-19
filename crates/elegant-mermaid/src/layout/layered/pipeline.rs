@@ -13,6 +13,7 @@ use crate::{
 #[path = "pipeline/scene_items.rs"]
 mod scene_items;
 use scene_items::assemble;
+pub(crate) use scene_items::marker_axis;
 #[path = "pipeline/attachment_geometry.rs"]
 mod attachment_geometry;
 #[path = "pipeline/attachment_metadata.rs"]
