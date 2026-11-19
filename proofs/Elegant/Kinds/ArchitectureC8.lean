@@ -6,6 +6,7 @@ import Elegant.Kinds.ArchitectureStructural
 import Elegant.Kinds.ArchitectureC2
 import Elegant.Kinds.ArchitectureC3
 import Elegant.Kinds.ArchitectureC6
+import Elegant.Kinds.ArchitectureC8a
 import Elegant.Kinds.ArchitectureValid
 
 set_option linter.unusedSimpArgs false
@@ -372,5 +373,14 @@ theorem architecture_valid (m : Model) (result : Layered.FamilyResult)
     (architecture_c6 m result hwf hlimits h)
     hC8a
     (architecture_c8b m result hwf hlimits h)
+
+/-- Architecture validity: C2, C3, C6, C8a, and C8b are all proved from a
+successful layout of a well-formed, within-limits model. -/
+theorem architecture_valid' (m : Model) (result : Layered.FamilyResult)
+    (hwf : WellFormed m) (hlimits : WithinLimits m)
+    (h : layout m = .ok result) :
+    _root_.HardConstraints result.scene.layoutDump :=
+  architecture_valid m result hwf hlimits h
+    (architecture_c8a m result hwf hlimits h)
 
 end Elegant.Kinds.Architecture
