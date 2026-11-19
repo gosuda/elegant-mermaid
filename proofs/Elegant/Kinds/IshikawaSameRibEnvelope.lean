@@ -39,7 +39,10 @@ assembly shift. -/
 
 /-- (A) entry-level: the cause route of a successfully placed generated rib
 misses every entry box, in the born-bone form of
-`place_entry_route_misses_entry_box_odd_later`. -/
+`place_entry_route_misses_entry_box_odd_later`.
+
+False as stated for overdrawn genealogies; the frames replacement is
+`ishikawaSameRibEnvelopeClearance_frames` in `IshikawaSameRibFramesProof`. -/
 def IshikawaCauseRouteEntryBoxClearance (ns : List Tree.Node) (p : Params)
     (raw : Tree.Layout) (_hrun : layout ns p = .ok raw)
     (ribs : List Rib) (_hg : ribs = (children ns 0).zipIdx.map (generatedRib ns))
@@ -63,7 +66,10 @@ def IshikawaCauseRouteEntryBoxClearance (ns : List Tree.Node) (p : Params)
 
 /-- (B) entry-level: an odd-depth entry's born route misses the box of an
 entry whose index is later but whose order position is earlier (the strict
-descendant configuration), over one rib's `place` run. -/
+descendant configuration), over one rib's `place` run.
+
+False as stated for overdrawn genealogies; the frames replacement is
+`ishikawaSameRibEnvelopeClearance_frames` in `IshikawaSameRibFramesProof`. -/
 def IshikawaDescendantRouteBoxClearance (ns : List Tree.Node) (p : Params)
     (raw : Tree.Layout) (_hrun : layout ns p = .ok raw)
     (ribs : List Rib) (_hg : ribs = (children ns 0).zipIdx.map (generatedRib ns))
@@ -190,34 +196,6 @@ private theorem generated_entry_node_gt_cause {ns : List Tree.Node} (p : Params)
         (mem_children_parentOf hmem)
       omega
 
-/-- The executed-model form of the two residuals, quantified over every rib of
-the decoded input. -/
-def IshikawaEnvelopeResiduals (m : Model) : Prop :=
-  (∀ (e : IshikawaRawExecution m) (cause k : Nat)
-    (hsource : generatedRib e.input.nodes (cause, k) ∈ e.ribs)
-    (hcause : cause ∈ children e.input.nodes 0) (ribPlaced : Rib)
-    (hplace : place e.input.nodes (Elegant.Kinds.Ishikawa.params m.profile)
-      e.spine
-      (effectivePlacedInput e.input.nodes
-        (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-        (generatedRib e.input.nodes (cause, k))) = .ok ribPlaced),
-    IshikawaCauseRouteEntryBoxClearance e.input.nodes
-      (Elegant.Kinds.Ishikawa.params m.profile) e.raw e.hlayout e.ribs e.hribs
-      cause k hsource hcause e.spine ribPlaced hplace) ∧
-  (∀ (e : IshikawaRawExecution m) (cause k : Nat)
-    (hsource : generatedRib e.input.nodes (cause, k) ∈ e.ribs)
-    (hcause : cause ∈ children e.input.nodes 0) (ribPlaced : Rib)
-    (hplace : place e.input.nodes (Elegant.Kinds.Ishikawa.params m.profile)
-      e.spine
-      (effectivePlacedInput e.input.nodes
-        (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-        (generatedRib e.input.nodes (cause, k))) = .ok ribPlaced),
-    IshikawaDescendantRouteBoxClearance e.input.nodes
-      (Elegant.Kinds.Ishikawa.params m.profile) e.raw e.hlayout e.ribs e.hribs
-      cause k hsource
-      (Elegant.Kinds.IshikawaValid.successful_link e.input.nodes _ e.raw e.hlayout)
-      hcause e.spine ribPlaced hplace)
-
 
 private theorem env_bind_ok {α β : Type} {x : Except LayoutError α}
     {f : α → Except LayoutError β} {b : β}
@@ -266,194 +244,5 @@ private theorem env_entry_idx_eq_of_node_eq (es : List Entry)
   obtain ⟨hi, _⟩ := List.getElem?_eq_some_iff.mp mI
   exact (hnd.getElem?_inj hi).mp (mI.trans mJ.symm)
 
-/-- Same-rib envelope clearance from the two entry-level residuals: the
-piece-level disjunction is transported through `place`'s field preservation
-and `generated_piece_strict_temporal_geometry`; every piece shape is either
-the cause shape or an entry shape, and the entry shapes are re-identified
-with the residual's entries through node nodup and index/order lookup
-uniqueness. -/
-theorem ishikawaSameRibEnvelopeClearance (m : Model)
-    (hres : IshikawaEnvelopeResiduals m) :
-    IshikawaSameRibEnvelopeClearance m := by
-  intro e rA _dx _hshift pieceR pieceB hmemR hmemB hne hdisj
-  have hmemA : rA ∈ e.placed := assemblyPairShift_mem _hshift
-  obtain ⟨source, cause, k, hsource0, hcauseIdx, heq, hplace0⟩ :=
-    placed_rib_source e.input.nodes (Elegant.Kinds.Ishikawa.params m.profile)
-      e.ribs e.placed e.length e.spine e.hribs e.hplaced rA hmemA
-  have hplace : place e.input.nodes (Elegant.Kinds.Ishikawa.params m.profile)
-      e.spine
-      (effectivePlacedInput e.input.nodes
-        (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-        (generatedRib e.input.nodes (cause, k))) = .ok rA := by
-    have h := hplace0
-    rw [e.hlength, heq] at h
-    exact h
-  have hsource : generatedRib e.input.nodes (cause, k) ∈ e.ribs := by
-    rw [← heq]
-    exact hsource0
-  have hcauseMem : cause ∈ children e.input.nodes 0 :=
-    List.fst_mem_of_mem_zipIdx hcauseIdx
-  have hlink :=
-    Elegant.Kinds.IshikawaValid.successful_link e.input.nodes _
-      e.raw e.hlayout
-  have hfields := env_place_rib_fields_eq _ _ _ _ _ hplace
-  have hrcause : (effectivePlacedInput e.input.nodes
-      (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-      (generatedRib e.input.nodes (cause, k))).cause = cause :=
-    (generated_rib_fields e.input.nodes cause k).1
-  have hrAcause : rA.cause = cause := by
-    rw [hfields.1]
-    exact hrcause
-  have hndNodes :
-      ((effectivePlacedInput e.input.nodes
-        (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-        (generatedRib e.input.nodes (cause, k))).entries.map Entry.node).Nodup := by
-    exact generated_entry_nodes_nodup e.input.nodes cause k hlink
-  obtain ⟨iR, rectR, pointsR⟩ := pieceR
-  obtain ⟨iB, rectB, pointsB⟩ := pieceB
-  have hR := generated_piece_strict_temporal_geometry e.input.nodes
-    (Elegant.Kinds.Ishikawa.params m.profile) e.raw e.hlayout e.ribs e.hribs
-    cause k hsource hcauseMem e.spine rA hplace iR rectR pointsR hmemR
-  have hB := generated_piece_strict_temporal_geometry e.input.nodes
-    (Elegant.Kinds.Ishikawa.params m.profile) e.raw e.hlayout e.ribs e.hribs
-    cause k hsource hcauseMem e.spine rA hplace iB rectB pointsB hmemB
-  have hne' : iR ≠ iB := hne
-  have hgtC (e' : Entry) (idx' : Nat)
-      (he' : (e', idx') ∈ (effectivePlacedInput e.input.nodes
-        (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-        (generatedRib e.input.nodes (cause, k))).entries.zipIdx) :
-      cause < e'.node :=
-    generated_entry_node_gt_cause (Elegant.Kinds.Ishikawa.params m.profile)
-      e.spine e.ribs _ rA cause k hplace hlink hcauseMem rfl e' idx' he'
-  rcases hdisj with ⟨hRcause, hBc⟩ |
-    ⟨eI, eJ, idxI, idxJ, posI, posJ, heIRA, heJRA, hiRI, hiBJ, hoddI,
-      hposIRA, hposJRA, hltIdx, hgtPos⟩
-  · -- (A) cause route against a non-cause box.
-    have hA' := hres.1 e cause k hsource hcauseMem rA hplace
-    rcases hR with ⟨nR, _hnR, hiR, _hrectR, hptsR⟩ |
-      ⟨eI', idxI', _posI', _parI', _nI', heI', _hposI', _hnI', hiI',
-        _hgeneI', _hcountI', _hrectR, hptsR, _hoddI', _hevenI'⟩
-    · rcases hB with ⟨_nB, _hnB, hiB, _hrectB, _hptsB⟩ |
-        ⟨eJ', idxJ', posJ', parJ', nJ', heJ', hposJ', hnJ', _hiJ', hgeneJ',
-          _hcountJ', hrectB, hptsB, _hoddJ', _hevenJ'⟩
-      · -- The box piece is cause-shaped: its index is the cause, excluded.
-        have hiBc : iB = rA.cause := hiB.trans hfields.1.symm
-        exact absurd hiBc hBc
-      · rw [hptsR, hrectB]
-        exact hA' eJ' idxJ' posJ' parJ' nJ' heJ' hposJ' hnJ' hgeneJ'
-    · -- An entry-shaped route with cause index is impossible: entry nodes
-      -- are strict descendants of the cause.
-      have hiRcause : iR = cause := hRcause.trans hrAcause
-      have hnc : eI'.node = cause := hiI'.symm.trans hiRcause
-      have hlt' := hgtC eI' idxI' heI'
-      rw [hnc] at hlt'
-      exact absurd hlt' (by omega)
-  · -- (B) odd entry route against a strict-descendant box.
-    have hB' := hres.2 e cause k hsource hcauseMem rA hplace
-    have heI_r : (eI, idxI) ∈ (effectivePlacedInput e.input.nodes
-        (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-        (generatedRib e.input.nodes (cause, k))).entries.zipIdx := by
-      rw [← hfields.2.1]
-      exact heIRA
-    have heJ_r : (eJ, idxJ) ∈ (effectivePlacedInput e.input.nodes
-        (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-        (generatedRib e.input.nodes (cause, k))).entries.zipIdx := by
-      rw [← hfields.2.1]
-      exact heJRA
-    have hposI_r : (effectivePlacedInput e.input.nodes
-        (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-        (generatedRib e.input.nodes (cause, k))).order.zipIdx.find?
-        (fun v => v.1 == idxI) = some posI := by
-      rw [← hfields.2.2]
-      exact hposIRA
-    have hposJ_r : (effectivePlacedInput e.input.nodes
-        (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-        (generatedRib e.input.nodes (cause, k))).order.zipIdx.find?
-        (fun v => v.1 == idxJ) = some posJ := by
-      rw [← hfields.2.2]
-      exact hposJRA
-    rcases hR with ⟨_nR, _hnR, hiR, _hrectR, _hptsR⟩ |
-      ⟨eI', idxI', posI', parI', nI', heI', hposI', hnI', hiI', hgeneI',
-        _hcountI', hrectR, hptsR, _hoddI', _hevenI'⟩
-    · -- Cause-shaped route with entry index: impossible as above.
-      have hiRcause : iR = cause := hiR.trans hrcause
-      have hnc : eI.node = cause := hiRI.symm.trans hiRcause
-      have hlt' := hgtC eI idxI heI_r
-      rw [hnc] at hlt'
-      exact absurd hlt' (by omega)
-    · rcases hB with ⟨_nB, _hnB, hiB, _hrectB, _hptsB⟩ |
-        ⟨eJ', idxJ', posJ', parJ', nJ', heJ', hposJ', hnJ', hiJ', hgeneJ',
-          _hcountJ', hrectB, hptsB, _hoddJ', _hevenJ'⟩
-      · -- Cause-shaped box with entry index: impossible as above.
-        have hiBcause : iB = cause := hiB.trans hrcause
-        have hnc : eJ.node = cause := hiBJ.symm.trans hiBcause
-        have hlt' := hgtC eJ idxJ heJ_r
-        rw [hnc] at hlt'
-        exact absurd hlt' (by omega)
-      · -- Both pieces are entry-shaped: re-identify them with the residual's
-        -- entries and apply the descendant-route residual.
-        have hnodeEqI : eI'.node = eI.node := hiI'.symm.trans hiRI
-        have hnodeEqJ : eJ'.node = eJ.node := hiJ'.symm.trans hiBJ
-        have hidxEqI : idxI' = idxI :=
-          env_entry_idx_eq_of_node_eq _ hndNodes eI' eI idxI' idxI heI' heI_r
-            hnodeEqI
-        have hidxEqJ : idxJ' = idxJ :=
-          env_entry_idx_eq_of_node_eq _ hndNodes eJ' eJ idxJ' idxJ heJ' heJ_r
-            hnodeEqJ
-        have gI' := List.mem_zipIdx_iff_getElem?.mp heI'
-        have gI := List.mem_zipIdx_iff_getElem?.mp heI_r
-        change _ = some eI' at gI'
-        change _ = some eI at gI
-        rw [hidxEqI] at gI'
-        have heqEI : eI' = eI := Option.some.inj (gI'.symm.trans gI)
-        have gJ' := List.mem_zipIdx_iff_getElem?.mp heJ'
-        have gJ := List.mem_zipIdx_iff_getElem?.mp heJ_r
-        change _ = some eJ' at gJ'
-        change _ = some eJ at gJ
-        rw [hidxEqJ] at gJ'
-        have heqEJ : eJ' = eJ := Option.some.inj (gJ'.symm.trans gJ)
-        have hposI'd : (effectivePlacedInput e.input.nodes
-            (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-            (generatedRib e.input.nodes (cause, k))).order.zipIdx.find?
-            (fun v => v.1 == idxI) = some posI' := by
-          have h := hposI'
-          rw [hidxEqI] at h
-          exact h
-        have hposEqI : posI' = posI :=
-          Option.some.inj (hposI'd.symm.trans hposI_r)
-        have hposJ'd : (effectivePlacedInput e.input.nodes
-            (measuredSideLength (Elegant.Kinds.Ishikawa.params m.profile) e.ribs)
-            (generatedRib e.input.nodes (cause, k))).order.zipIdx.find?
-            (fun v => v.1 == idxJ) = some posJ' := by
-          have h := hposJ'
-          rw [hidxEqJ] at h
-          exact h
-        have hposEqJ : posJ' = posJ :=
-          Option.some.inj (hposJ'd.symm.trans hposJ_r)
-        have hoddI'd : eI'.depth % 2 ≠ 0 := by
-          rw [heqEI]
-          exact hoddI
-        have hnodeNe' : eI'.node ≠ eJ'.node := by
-          rw [heqEI, heqEJ]
-          intro h
-          exact hne (by rw [hiRI, hiBJ]; exact h)
-        have hltIdx' : idxI' < idxJ' := by
-          rw [hidxEqI, hidxEqJ]
-          exact hltIdx
-        have hgtPos' : posJ'.2 < posI'.2 := by
-          rw [hposEqJ, hposEqI]
-          exact hgtPos
-        have hmiss := hB' eI' eJ' idxI' idxJ' posI' posJ' parI' parJ' nI' nJ'
-          heI' heJ' hposI' hposJ' hnI' hnJ' hgeneI' hgeneJ' hoddI'd hnodeNe'
-          hltIdx' hgtPos'
-        rw [hptsR, hrectB]
-        exact hmiss
-
-/-- Same-rib piece clearance with the envelope residuals discharged through
-the entry-level facts. -/
-theorem ishikawaSameRibPieceClearance' (m : Model)
-    (hres : IshikawaEnvelopeResiduals m) :
-    IshikawaSameRibPieceClearance m :=
-  ishikawaSameRibPieceClearance m (ishikawaSameRibEnvelopeClearance m hres)
 
 end Elegant.Kinds.IshikawaFinal
