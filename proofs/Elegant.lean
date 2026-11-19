@@ -521,3 +521,9 @@ import Elegant.Layered.ExactCaptionRunClearProof
 import Elegant.Layered.ExactLoopRectProof
 import Elegant.Layered.ExactBorderChainXAlignedProof
 import Elegant.Layered.DivergeTiedHeadsProof
+import Elegant.Layered.LoopResMarkerCopyProof
+import Elegant.Layered.ExactCaptionSelfProof
+import Elegant.Layered.ExactBorderSpanRunFactsProof
+import Elegant.Layered.ExactRouteForwardClearProof
+import Elegant.Layered.LaneEndsPinLanesClauses
+import Elegant.Layered.PlaceBoundsBeyondNodesProof
