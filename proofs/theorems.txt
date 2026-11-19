@@ -2783,3 +2783,9 @@ Elegant.Layered.PipelineImpl.divergeStepAgree_holds
 Elegant.Layered.PipelineImpl.divergeSeedAgree_holds
 Elegant.Layered.PipelineImpl.XLEM_plainReserve_holds
 Elegant.Layered.PipelineImpl.XLEM_groupOtherRank_holds
+Elegant.Layered.PipelineImpl.XLEM_leftNonPlain_holds
+Elegant.Layered.PipelineImpl.xcsp_sceneCaptionRect_of_titles_none
+Elegant.Layered.PipelineImpl.xcsp_sceneBox_rect_transport
+Elegant.Layered.PipelineImpl.xcapSamePart_ownerScopeW_of_cases
+Elegant.Layered.PipelineImpl.XNonfwd_ancHull_holds
+Elegant.Layered.PipelineImpl.XNonfwd_nonAncHull_holds

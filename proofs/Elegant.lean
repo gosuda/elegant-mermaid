@@ -654,3 +654,6 @@ import Elegant.Layered.LaneBandsLooseVictimProof
 import Elegant.Layered.RegionNotesClauseGlue
 import Elegant.Layered.DivergeSweepSeedStepProof
 import Elegant.Layered.ExactLoopEnvelopeReserveProof
+import Elegant.Layered.ExactLoopEnvelopeLeftNonPlainProof
+import Elegant.Layered.ExactCaptionSamePartProof
+import Elegant.Layered.ExactNonfwdAncHullProof
