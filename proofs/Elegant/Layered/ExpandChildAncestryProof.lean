@@ -1,6 +1,6 @@
 import Elegant.Layered.RecursiveC1C3
 import Elegant.Layered.SubInputWellFormedFacts
-import Elegant.Layered.ExpandChildC2Facts
+import Elegant.Layered.FamilyAssembly
 import Elegant.Layered.ExpandChildC6StepFacts
 import Elegant.Layered.ExpandChildStructureFacts
 import Elegant.Layered.MergedAncestorsProof
@@ -1416,5 +1416,382 @@ private theorem merged_box_of_inside
         · rfl
         · exact absurd (beq_iff_eq.mp h) hppar
       simp [hpf, hne]
+
+/-! ### Discharge of `ExpandChildChildRootChain` -/
+
+private theorem mem_box_of_getLast? (l : List ModelBox) (x : ModelBox)
+    (h : l.getLast? = some x) : x ∈ l := by
+  cases hl : l with
+  | nil => simp [hl] at h
+  | cons a t =>
+    cases ht : t with
+    | nil =>
+      have hax : a = x := by simpa [hl, ht] using h
+      subst hax
+      exact List.mem_cons.mpr (Or.inl rfl)
+    | cons b t2 =>
+      have hT : (a :: b :: t2).getLast? = some x := by
+        rw [← ht, ← hl]
+        exact h
+      have h' : (b :: t2).getLast? = some x := hT
+      exact List.mem_cons.mpr (Or.inr (mem_box_of_getLast? _ _ h'))
+
+ private theorem getLast_append_cons {α : Type} (xs : List α) (x y : α) (ys : List α) :
+     (xs ++ x :: y :: ys).getLast? = (y :: ys).getLast? := by
+   induction xs with
+   | nil =>
+     have hnil : (([] : List α) ++ x :: y :: ys) = (x :: y :: ys) := rfl
+     rw [hnil]
+     exact List.getLast?_cons_cons
+   | cons x₀ xs ih =>
+    have hne : xs ++ x :: y :: ys ≠ [] :=
+      List.ne_nil_of_mem (List.mem_append_right _
+        (List.mem_cons.mpr (Or.inl rfl)))
+    rw [List.cons_append, List.getLast?_cons_of_ne_nil hne, ih]
+
+/-- Every box on a group-anchored parent walk has a nonempty id: the head
+carries the nonempty start id and each later box carries the nonempty parent
+of its inside predecessor. -/
+private theorem chain_all_ids_ne_empty {boxes : List ModelBox} {gid : String}
+    (hnodup : (boxes.map (·.id)).Nodup) :
+    ∀ (pre : List ModelBox) (s : String), s ≠ "" →
+    (∀ b ∈ pre, b ∈ boxes ∧ Compound.inside boxes gid b.id = true) →
+    (∀ x y xs ys, pre = xs ++ x :: y :: ys → y.id = x.parent) →
+    (∀ b₀ rest, pre = b₀ :: rest → b₀.id = s) →
+    ∀ b ∈ pre, b.id ≠ "" := by
+  intro pre
+  induction pre with
+  | nil =>
+    intro s _hsNe _hMem _hLink _hHead b hb
+    cases hb
+  | cons b₀ rest ih =>
+    intro s hsNe hMem hLink hHead b hb
+    have hb0id : b₀.id = s := hHead b₀ rest rfl
+    rcases List.mem_cons.mp hb with rfl | hmemRest
+    · rw [hb0id]
+      exact hsNe
+    · cases rest with
+      | nil => cases hmemRest
+      | cons b₁ rest' =>
+        have hb1eq : b₁.id = b₀.parent := hLink b₀ b₁ [] rest' rfl
+        have hb0mem : b₀ ∈ boxes := (hMem b₀ (List.mem_cons.mpr (Or.inl rfl))).1
+        have hb0in : Compound.inside boxes gid b₀.id = true :=
+          (hMem b₀ (List.mem_cons.mpr (Or.inl rfl))).2
+        have hparNe : b₀.parent ≠ "" :=
+          inside_parent_ne_empty hnodup hb0in hb0mem rfl
+        have hb1ne : b₁.id ≠ "" := by
+          rw [hb1eq]
+          exact hparNe
+        have hMemT : ∀ c ∈ b₁ :: rest',
+            c ∈ boxes ∧ Compound.inside boxes gid c.id = true := by
+          intro c hc
+          exact hMem c (List.mem_cons.mpr (Or.inr hc))
+        have hLinkT : ∀ x y xs ys, (b₁ :: rest') = xs ++ x :: y :: ys →
+            y.id = x.parent := by
+          intro x y xs ys h
+          exact hLink x y (b₀ :: xs) ys (by simpa using congrArg (fun t => b₀ :: t) h)
+        have hHeadT : ∀ c₀ r, (b₁ :: rest') = c₀ :: r → c₀.id = b₁.id := by
+          intro c₀ r h
+          have heq : b₁ = c₀ := cons_head_eq h
+          rw [← heq]
+        exact ih b₁.id hb1ne hMemT hLinkT hHeadT b hmemRest
+
+/-- The executed merge walks every embedded child box to the group frame:
+for the model box behind the child box, either its parent already is the
+group (one merged link) or the model walk from its parent lifts link by
+link to a merged step chain whose length fits in the child scene. -/
+theorem expandChildChildRootChain
+    {fuel : Nat} {P : Params} {inp : Input} {o : Options} {group : ModelBox}
+    {titleLines : List Measure.Line} {titleHeight : Int}
+    {parent child res : FamilyResult}
+    (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (_hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+      parent child res)
+    (_hparams : ExpandChildCallParams P inp o group titleLines titleHeight) :
+    ExpandChildChildRootChain group child res := by
+  by_cases hgNe : group.id = ""
+  · have hempty : child.scene.boxes = [] :=
+      child_empty_of_empty_group hgNe hctx
+    intro cb hcb
+    rw [hempty] at hcb
+    cases hcb
+  · obtain ⟨hwf, _hgroup, _hpboxes, hchild, hparent, _hexpand'⟩ := hctx
+    have hf : InputFacts inp := inputFacts_of_wellFormed hwf
+    have hnodup : (inp.boxes.map (·.id)).Nodup := hf.nodup
+    obtain ⟨hcid, _hpid, hnC, _hnP, _hdisj⟩ :=
+      expandChild_selected_ids hwf hchild hparent
+    have hChildNodup : (child.scene.boxes.map (·.id)).Nodup := by
+      rw [hcid]
+      exact hnC
+    intro cb hcb
+    have hcbId : cb.id ∈ child.scene.boxes.map (·.id) :=
+      List.mem_map.mpr ⟨cb, hcb, rfl⟩
+    rw [hcid] at hcbId
+    obtain ⟨m, hmFilt, hmId⟩ := List.mem_map.mp hcbId
+    obtain ⟨hmMem, hmInside⟩ := List.mem_filter.mp hmFilt
+    have hmParNe : m.parent ≠ "" :=
+      inside_parent_ne_empty hnodup hmInside hmMem rfl
+    by_cases hpar : (m.parent == group.id) = true
+    · have hbeq : m.parent = group.id := beq_iff_eq.mp hpar
+      obtain ⟨bx, hbx, hbxpar⟩ :=
+        merged_box_of_inside hwf hchild hparent hexpand hmMem hmInside
+      have hparEqG : bx.parent = group.id := by
+        simpa [hpar] using hbxpar
+      have hgNe' : group.id ≠ "" := by
+        rw [← hbeq]
+        exact hmParNe
+      refine ⟨[m.id, group.id],
+        StepChain.cons ⟨bx, hbx, hparEqG, hgNe'⟩ (StepChain.single group.id),
+        ?_, ?_, ?_⟩
+      · simp only [List.head?_cons, hmId]
+      · simp
+      · have hlenC : 1 ≤ child.scene.boxes.length := by
+          have hne : child.scene.boxes ≠ [] := List.ne_nil_of_mem hcb
+          have hpos : 0 < child.scene.boxes.length := List.length_pos_iff.mpr hne
+          omega
+        simp only [List.length_cons, List.length_nil]
+        omega
+    · have hparF : (m.parent == group.id) = false := by
+        cases h : (m.parent == group.id) with
+        | false => rfl
+        | true => exact absurd h hpar
+      have hneMP : m.parent ≠ group.id := ne_of_beq_false hparF
+      have hneP : m.parent ≠ "" := hmParNe
+      have hev : ∀ b ∈ inp.boxes, b.id = m.parent →
+          Compound.inside inp.boxes group.id b.id = true := by
+        intro bb hbbmem hbbid
+        rcases inside_parent_step hnodup hf.term hmMem hbbmem hbbid hmInside with
+          hcon | hpg
+        · exact absurd hcon hneMP
+        · exact hpg
+      have hNlen : inp.boxes.length ≤ inp.boxes.length + 1 := by omega
+      have hctMP : chainTerm inp.boxes inp.boxes.length m.parent = true :=
+        hf.term m hmMem inp.boxes.length hNlen
+      obtain ⟨pre, hPre⟩ := rootChain_some hf.term hnodup hctMP hneP hev
+      obtain ⟨hAlign, hMem, hLink, hLastGroup, hLastEx, _hNe⟩ :=
+        rootChain_props hf.term hnodup hPre hneP hev
+      rcases chainWalk_of_chainTerm inp.boxes.length m.parent hctMP with
+        hContra | ⟨w, hwWalk, hwLast⟩
+      · exact absurd hContra hneP
+      · have hwNodup : w.Nodup :=
+          chainWalk_nodup inp.boxes.length m.parent w hwWalk hwLast
+        have hweq : pre ++
+            chainWalk inp.boxes (inp.boxes.length - pre.length) group.id = w :=
+          hAlign.symm.trans hwWalk
+        rw [← hweq] at hwNodup
+        have hPreNodup : pre.Nodup := (List.nodup_append.mp hwNodup).1
+        obtain ⟨b₀, restPre, hPreEq, hB0id⟩ := rootChain_head hPre
+        have hmNotPre : m ∉ pre := by
+          by_cases hmEmpty : m.id = ""
+          · intro hmPre
+            have hHead : ∀ c₀ r, pre = c₀ :: r → c₀.id = m.parent := by
+              intro c₀ r h
+              have h2 : b₀ :: restPre = c₀ :: r := hPreEq.symm.trans h
+              have heq : b₀ = c₀ := cons_head_eq h2
+              rw [← heq]
+              exact hB0id
+            have hall := chain_all_ids_ne_empty hnodup pre m.parent hneP
+              hMem hLink hHead
+            have hcon := hall m hmPre
+            rw [hmEmpty] at hcon
+            exact hcon rfl
+          · have hMne : m.id ≠ "" := hmEmpty
+            obtain ⟨iM, hfinM, hgetM⟩ := findIdx_of_mem_box hnodup hmMem
+            have hctM : chainTerm inp.boxes (inp.boxes.length + 1) m.id = true := by
+              rw [chainTerm.eq_3 inp.boxes m.id inp.boxes.length hMne]
+              simp only [hfinM, hgetM]
+              exact hctMP
+            rcases chainWalk_of_chainTerm (inp.boxes.length + 1) m.id hctM with
+              hC | ⟨w2, hw2, hg2⟩
+            · exact absurd hC hMne
+            · have hw2Nodup :=
+                chainWalk_nodup (inp.boxes.length + 1) m.id w2 hw2 hg2
+              have hsucc : chainWalk inp.boxes (inp.boxes.length + 1) m.id =
+                  m :: w := by
+                rw [chainWalk_succ hMne inp.boxes.length]
+                simp only [hfinM, hgetM, hwWalk]
+              have hweq2 : w2 = m :: w := hw2.symm.trans hsucc
+              rw [hweq2] at hw2Nodup
+              have hmNotW : m ∉ w := (List.nodup_cons.mp hw2Nodup).1
+              intro hmPre
+              have hmemW : m ∈ w := by
+                rw [← hweq]
+                exact List.mem_append_left _ hmPre
+              exact hmNotW hmemW
+        have hConsNodup : (m :: pre).Nodup :=
+          List.nodup_cons.mpr ⟨hmNotPre, hPreNodup⟩
+        have hMemCons : ∀ b ∈ m :: pre, b ∈ inp.boxes := by
+          intro b hb
+          rcases List.mem_cons.mp hb with rfl | h
+          · exact hmMem
+          · exact (hMem b h).1
+        have hMapNodup : ((m :: pre).map (·.id)).Nodup :=
+          nodup_map_id hnodup hMemCons hConsNodup
+        have hSub : ∀ x ∈ (m :: pre).map (·.id),
+            x ∈ child.scene.boxes.map (·.id) := by
+          intro x hx
+          obtain ⟨b, hb, hbid⟩ := List.mem_map.mp hx
+          have hbBoxes : b ∈ inp.boxes := hMemCons b hb
+          have hbIn : Compound.inside inp.boxes group.id b.id = true := by
+            rcases List.mem_cons.mp hb with rfl | hpre
+            · exact hmInside
+            · exact (hMem b hpre).2
+          have hmemF : b.id ∈ (inp.boxes.filter
+              (fun box => Compound.inside inp.boxes group.id box.id)).map
+              (·.id) :=
+            List.mem_map.mpr
+              ⟨b, List.mem_filter.mpr ⟨hbBoxes, hbIn⟩, rfl⟩
+          rw [← hcid] at hmemF
+          rwa [hbid] at hmemF
+        have hLe := nodup_length_le_string ((m :: pre).map (·.id))
+          (child.scene.boxes.map (·.id)) hMapNodup hSub hChildNodup
+        have hlenPre : pre.length + 1 ≤ child.scene.boxes.length := by
+          simpa using hLe
+        have hStepPre : ∀ x y xs ys, pre = xs ++ x :: y :: ys →
+            (∃ b, res.scene.layoutDump.box? x.id = some b ∧
+              b.parent = y.id ∧ y.id ≠ "") := by
+          intro x y xs ys hSplit
+          have hyx : y.id = x.parent := hLink x y xs ys hSplit
+          have hxMem : x ∈ pre := by
+            rw [hSplit]
+            exact List.mem_append_right _
+              (List.mem_cons.mpr (Or.inl rfl))
+          have hxBoxes : x ∈ inp.boxes := (hMem x hxMem).1
+          have hxIn : Compound.inside inp.boxes group.id x.id = true :=
+            (hMem x hxMem).2
+          have hxParNe : x.parent ≠ "" :=
+            inside_parent_ne_empty hnodup hxIn hxBoxes rfl
+          have hNotG : (x.parent == group.id) = false := by
+            cases h : (x.parent == group.id) with
+            | false => rfl
+            | true =>
+              exfalso
+              have hLastX : pre.getLast? = some x := hLastGroup x hxMem h
+              have hEqLast := getLast_append_cons xs x y ys
+              rw [← hSplit] at hEqLast
+              have hTailLast : (y :: ys).getLast? = some x :=
+                hEqLast.symm.trans hLastX
+              have hmemTail : x ∈ y :: ys := mem_box_of_getLast? _ _ hTailLast
+              have hmemHead : x ∈ xs ++ [x] :=
+                List.mem_append_right _ (List.mem_singleton.mpr rfl)
+              have hPreEq2 : pre = (xs ++ [x]) ++ (y :: ys) := by
+                rw [hSplit]
+                simp
+              rw [hPreEq2] at hPreNodup
+              have hDisj := (List.nodup_append.mp hPreNodup).2.2
+              exact (hDisj x hmemHead x hmemTail) rfl
+          obtain ⟨bx, hbx, hbxpar⟩ :=
+            merged_box_of_inside hwf hchild hparent hexpand hxBoxes hxIn
+          have hparEq : bx.parent = y.id := by
+            have h1 : bx.parent = x.parent := by
+              simpa [hNotG] using hbxpar
+            rw [h1, hyx]
+          have hyNe : y.id ≠ "" := by
+            rw [hyx]
+            exact hxParNe
+          exact ⟨bx, hbx, hparEq, hyNe⟩
+        have hLastPre : ∀ l, pre.getLast? = some l →
+            (∃ b, res.scene.layoutDump.box? l.id = some b ∧
+              b.parent = group.id ∧ group.id ≠ "") := by
+          intro l hl
+          obtain ⟨last, hlast, hparLast⟩ := hLastEx
+          have hll : last = l := Option.some.inj (hlast.symm.trans hl)
+          subst hll
+          have hlastMem : last ∈ pre := mem_box_of_getLast? pre last hlast
+          have hlastBoxes : last ∈ inp.boxes := (hMem last hlastMem).1
+          have hlastIn : Compound.inside inp.boxes group.id last.id = true :=
+            (hMem last hlastMem).2
+          have hlastParNe : last.parent ≠ "" :=
+            inside_parent_ne_empty hnodup hlastIn hlastBoxes rfl
+          have hbeq : last.parent = group.id := beq_iff_eq.mp hparLast
+          have hgNe2 : group.id ≠ "" := by
+            rw [← hbeq]
+            exact hlastParNe
+          obtain ⟨bx, hbx, hbxpar⟩ :=
+            merged_box_of_inside hwf hchild hparent hexpand hlastBoxes hlastIn
+          have hparEq : bx.parent = group.id := by
+            simpa [hparLast] using hbxpar
+          exact ⟨bx, hbx, hparEq, hgNe2⟩
+        have hFirst : ∃ b, res.scene.layoutDump.box? m.id = some b ∧
+            b.parent = b₀.id ∧ b₀.id ≠ "" := by
+          obtain ⟨bx, hbx, hbxpar⟩ :=
+            merged_box_of_inside hwf hchild hparent hexpand hmMem hmInside
+          have hparEq : bx.parent = b₀.id := by
+            have h1 : bx.parent = m.parent := by
+              simpa [hparF] using hbxpar
+            rw [h1, hB0id]
+          have hb0Ne : b₀.id ≠ "" := by
+            rw [hB0id]
+            exact hneP
+          exact ⟨bx, hbx, hparEq, hb0Ne⟩
+        have hTail : StepChain
+            (fun s t => ∃ b, res.scene.layoutDump.box? s = some b ∧
+              b.parent = t ∧ t ≠ "")
+            (pre.map (·.id) ++ [group.id]) :=
+          merged_chain_rec
+            (R := fun s t => ∃ b, res.scene.layoutDump.box? s = some b ∧
+              b.parent = t ∧ t ≠ "")
+            pre hStepPre hLastPre
+        subst hPreEq
+        refine ⟨m.id :: ((((b₀ :: restPre).map (·.id))) ++ [group.id]),
+          StepChain.cons hFirst hTail, ?_, ?_, ?_⟩
+        · simp only [List.head?_cons, hmId]
+        · have hneTail : ((((b₀ :: restPre).map (·.id))) ++ [group.id]) ≠ [] :=
+            List.ne_nil_of_mem (List.mem_append_right _
+              (List.mem_singleton.mpr rfl))
+          rw [List.getLast?_cons_of_ne_nil hneTail]
+          exact List.getLast?_eq_some_iff.mpr
+            ⟨((b₀ :: restPre).map (·.id)), rfl⟩
+        · simp only [List.length_cons, List.length_append, List.length_map,
+            List.length_nil] at hlenPre ⊢
+          omega
+
+/-- The C6 scope anchors with only the executed-call premises. -/
+theorem expandChild_c6_anchors'
+    {fuel : Nat} {P : Params} {inp : Input} {o : Options} {group : ModelBox}
+    {titleLines : List Measure.Line} {titleHeight : Int}
+    {parent child res : FamilyResult}
+    (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+      parent child res)
+    (hparams : ExpandChildCallParams P inp o group titleLines titleHeight) :
+    ExpandChildC6Anchors group parent child res :=
+  expandChild_c6_anchors hexpand hframed hctx hparams
+    (expandChildChildRootChain hexpand hframed hctx hparams)
+
+/-- The C8a ancestry conjuncts with only the executed-call premises. -/
+theorem expandChild_c8a_ancestry'
+    {fuel : Nat} {P : Params} {inp : Input} {o : Options} {group : ModelBox}
+    {titleLines : List Measure.Line} {titleHeight : Int}
+    {parent child res : FamilyResult}
+    (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+      parent child res)
+    (hparams : ExpandChildCallParams P inp o group titleLines titleHeight) :
+    ExpandChildC8aAncestry group parent child res :=
+  expandChild_c8a_ancestry hexpand hframed hctx hparams
+    (expandChildChildRootChain hexpand hframed hctx hparams)
+
+/-- The `stepC6Anchors` seam field holds for every executed call. -/
+theorem stepC6Anchors_holds :
+    RecursiveStepFacts
+      (fun _ _ _ group _ parent child res =>
+        ExpandChildC6Anchors group parent child res) := by
+  intro fuel P inp o group titleLines titleHeight parent child res
+    hexpand hframed hctx hparams
+  exact expandChild_c6_anchors' hexpand hframed hctx hparams
+
+/-- The `stepC8aAncestry` seam field holds for every executed call. -/
+theorem stepC8aAncestry_holds :
+    RecursiveStepFacts
+      (fun _ _ _ group _ parent child res =>
+        ExpandChildC8aAncestry group parent child res) := by
+  intro fuel P inp o group titleLines titleHeight parent child res
+    hexpand hframed hctx hparams
+  exact expandChild_c8a_ancestry' hexpand hframed hctx hparams
+
 
 end Elegant.Layered.PipelineImpl
