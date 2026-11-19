@@ -1,4 +1,5 @@
 import Elegant.Layered.FamilyAssembly
+import Elegant.Layered.ForeignMemberRankBoundsProof
 import Elegant.Layered.RecursiveBLiftsA
 import Elegant.Layered.RecursiveBLiftsB
 import Elegant.Layered.FamilyC5B
@@ -218,7 +219,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
   flatC7 := fun inp o res hwf hfp hsep hseam1 hseam2 hb =>
     layout_c7 hwf hfp hsep hseam1 hseam2 hb
   flatC8a := flatC8a_of_span_seams
-    (foreignBorderSpansSeparated S.foreignClusterRankSpans
+    (foreignBorderSpansSeparated foreignClusterRankSpans'
       foreignBorderLayerOrder' S.foreignBorderChainXAligned)
     (foreignNonGroupSpansClear S.bracketMarkersAtRank
       plainClearOfSideMarker' (sideMarkerSpanAligned' S.foreignBorderChainXAligned))

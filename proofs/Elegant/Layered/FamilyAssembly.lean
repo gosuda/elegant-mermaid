@@ -17,6 +17,7 @@ import Elegant.Layered.ExpandChildC6StepFacts
 import Elegant.Layered.BracketInsidePremisesProof
 import Elegant.Layered.FlatGroupEndpointsProof
 import Elegant.Layered.ForeignBorderSpansProof
+import Elegant.Layered.ForeignMemberRankBoundsProof
 import Elegant.Layered.ForeignNonGroupSpansProof
 import Elegant.Layered.RunLocalLabelClearanceProof
 import Elegant.Layered.GroupTailPortProof
@@ -51,8 +52,7 @@ namespace Elegant.Layered.PipelineImpl
 Remaining fields: `partFrameWitness`, `loopRectTopReal`, `loopRectFixedReal`,
 `loopRectTitleReal`, `loopRectBottomReal`, `loopRectRangeDegReal`,
 `loopFootprintTopSeparation`, `loopFootprintBeyondProper`,
-`titleExclusiveSamePart`, `foreignClusterRankSpans`,
-`foreignBorderChainXAligned`, `bracketMarkersAtRank`,
+`titleExclusiveSamePart`, `foreignBorderChainXAligned`, `bracketMarkersAtRank`,
 `executedPartFrameCores`, `fallbackOwnerFrameClear`, `stepC6Geometry`,
 `stepC7Geometry`, `stepC8aGeometry`, `stepC8bGeometry`.  Each field is a named
 OPEN statement about the executed pipeline; a field leaves this structure when
@@ -75,7 +75,10 @@ via `sceneCaptionBoxContainment_of_fit` (`CaptionsSeamProof.lean`,
 eight residuals, closed by `flatC6_closed` (`FlatC6ClosedProof.lean`), and
 the old `frameLabels` field is narrowed to `executedPartFrameCores` and
 `fallbackOwnerFrameClear`, closed by `frameLabels_executed`
-(`FrameLabelsProof.lean`).  The `stepC6Anchors` and `stepC8aAncestry` fields
+(`FrameLabelsProof.lean`).  The `foreignClusterRankSpans` field is proved
+outright by `foreignClusterRankSpans'`, composing `foreignRankPairAnchors'`
+and `foreignMemberRankBounds` (`ForeignMemberRankBoundsProof.lean`).  The
+`stepC6Anchors` and `stepC8aAncestry` fields
 are discharged by `stepC6Anchors_holds` and `stepC8aAncestry_holds`
 (`ExpandChildAncestryProof.lean`), sharing `RecursiveStepFacts`
 (`RecursiveStepFacts.lean`).  The `runLocalLoopFootprint` field is derived
@@ -109,7 +112,6 @@ structure LayeredSeams : Prop where
   titleExclusiveSamePart : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     TitleExclusiveSamePart inp o res
-  foreignClusterRankSpans : ForeignClusterRankSpans
   foreignBorderChainXAligned : ForeignBorderChainXAligned
   bracketMarkersAtRank : BracketMarkersAtRank
   executedPartFrameCores : ∀ (inp : Input) (o : Options) (res : FamilyResult),
@@ -247,7 +249,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       (inp.boxes.length + 1) inp o res hwf hfp hfix hdisj hrec,
     layoutRecursive_c8a_of_flat
       (flatC8a_of_span_seams
-        (foreignBorderSpansSeparated S.foreignClusterRankSpans foreignBorderLayerOrder'
+        (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder'
           S.foreignBorderChainXAligned)
         (foreignNonGroupSpansClear S.bracketMarkersAtRank plainClearOfSideMarker'
           (sideMarkerSpanAligned' S.foreignBorderChainXAligned))
