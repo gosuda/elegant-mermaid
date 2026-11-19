@@ -1762,3 +1762,6 @@ Elegant.Layered.PipelineImpl.loopRectFixed_keyNe_of_groupNode
 Elegant.Layered.PipelineImpl.loopRectBottom_samePart_executed
 Elegant.Layered.PipelineImpl.loopRectRangeDeg_samePart_executed
 Elegant.Layered.PipelineImpl.loopRectFixed_samePart_executed
+Elegant.Layered.PipelineImpl.c8a_frame_contained_shifted
+Elegant.Layered.PipelineImpl.stepC8aGeometry_holds
+Elegant.Layered.PipelineImpl.stepC8aGeometry_holdsB
