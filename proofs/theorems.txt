@@ -1491,3 +1491,12 @@ Elegant.Layered.PipelineImpl.groupTopSubtreeRankProper
 Elegant.Kinds.IshikawaFinal.ishikawaCrossRibPieceClearance'
 Elegant.Kinds.IshikawaFinal.ishikawaCrossRibSameSideClearance
 Elegant.Layered.PipelineImpl.executedPartFrameCores
+Elegant.Layered.PipelineImpl.bottomNestedBottomRankLe
+Elegant.Layered.PipelineImpl.groupBottomBoundaryFacts_of_dummy
+Elegant.Layered.PipelineImpl.expandChild_route_agreement
+Elegant.Layered.PipelineImpl.expandChild_parent_route_endpoints
+Elegant.Layered.PipelineImpl.expandChild_owner_separation
+Elegant.Layered.PipelineImpl.frameRunBridge
+Elegant.Layered.PipelineImpl.flat_frame_clear
+Elegant.Layered.PipelineImpl.parentInput_group_fixedEntry
+Elegant.Layered.PipelineImpl.expandChild_parentFrame_routes'

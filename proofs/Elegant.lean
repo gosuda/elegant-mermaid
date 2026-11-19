@@ -353,3 +353,6 @@ import Elegant.Kinds.IshikawaSameRibClearance
 import Elegant.Layered.FamilyAssemblyB
 import Elegant.Kinds.IshikawaCrossRibSameSide
 import Elegant.Layered.PartFrameCoresProof
+import Elegant.Layered.MergedRouteIdsProof
+import Elegant.Layered.ExpandChildParentRouteRunProof
+import Elegant.Layered.ExpandChildParentRouteClearProof
