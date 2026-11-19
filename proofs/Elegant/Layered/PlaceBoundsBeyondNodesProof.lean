@@ -524,15 +524,28 @@ private theorem pbcpPlaceHeight (P : Params) (cg : Graph) (run : Run)
         (placeBounds P cg run labels loops).minY := rfl
 
 /-- Closed title-copy seam: `LoopRectTitleCopyReal` from well-formedness and
-framed parents, with the plain-frame disjointness residual. The placement
-fit is `pbcp_placeBounds_fit`, proved above. -/
+framed parents, with the executed plain-frame disjointness residual. The
+placement fit is `pbcp_placeBounds_fit`, proved above. The residual is
+restricted to executed component runs (the use site below supplies the
+execution, component, candidate, and run equation), since the run-free
+universal over arbitrary `cg`/`run` pairs is false. -/
 theorem loopRectTitleCopy_holds {inp : Input} {o : Options} {res : FamilyResult}
     (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
-    (hsep : ∀ (cg : Graph) (run : Run) (v w : Nat) (nd : ProperNode) (member : Node),
-      cg.nodes.length ≤ v → run.proper.nodes[v]? = some nd → nd.dummy = false →
-      0 < (nodeRect cg run v).w → 0 < (nodeRect cg run v).h →
-      cg.nodes[w]? = some member → member.border = 0 →
-      Disjoint (nodeRect cg run v) (nodeRect cg run w)) :
+    (hsep : ∀ (execution : SceneExecution inp o res) (comp : List Nat)
+      (candidate : Nat) (run : Run) (orderOptions : OrderOptions),
+      comp ∈ components execution.graph →
+      componentRun execution.params
+        (componentCandidate execution.graph comp candidate) execution.measured
+        orderOptions = .ok run →
+      ∀ (v w : Nat) (nd : ProperNode) (member : Node),
+      (componentCandidate execution.graph comp candidate).nodes.length ≤ v →
+      run.proper.nodes[v]? = some nd → nd.dummy = false →
+      0 < (nodeRect (componentCandidate execution.graph comp candidate) run v).w →
+      0 < (nodeRect (componentCandidate execution.graph comp candidate) run v).h →
+      (componentCandidate execution.graph comp candidate).nodes[w]? = some member →
+      member.border = 0 →
+      Disjoint (nodeRect (componentCandidate execution.graph comp candidate) run v)
+        (nodeRect (componentCandidate execution.graph comp candidate) run w)) :
     LoopRectTitleCopyReal inp o res := by
   intro execution candidate run packed hpack c q hselected _area loops hpart hcomp hrun v hreal hn hpne hposW hposH
   have hlen : (componentCandidate execution.graph q.1.1 candidate).nodes.length ≤ v :=
@@ -629,8 +642,8 @@ theorem loopRectTitleCopy_holds {inp : Input} {o : Options} {res : FamilyResult}
     simp only [shiftRect, Rect.Contained]
     omega
   · intro w member hnodeW hbW
-    have hsepInst := hsep (componentCandidate execution.graph q.1.1 candidate) run v w nd
-      member hlen hnd' hndFalse hnposW hnposH hnodeW hbW
+    have hsepInst := hsep execution q.1.1 candidate run (candidateOrder candidate)
+      hcomp hrun v w nd member hlen hnd' hndFalse hnposW hnposH hnodeW hbW
     have hgetW : (componentCandidate execution.graph q.1.1 candidate).nodes.getD w default =
         member := by
       rw [List.getD_eq_getElem?_getD, hnodeW, Option.getD_some]
