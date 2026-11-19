@@ -1726,3 +1726,7 @@ Elegant.Layered.LaneBands.pinBands_c3'
 Elegant.Layered.LaneBands.pinBands_c2'
 Elegant.Layered.PipelineImpl.normalize_edges_bound
 Elegant.Layered.PipelineImpl.borderInnerTitledBound_executed
+Elegant.Layered.PipelineImpl.sideMarkerTopInCandidate
+Elegant.Layered.PipelineImpl.sideMarkerAnchorCover'
+Elegant.Layered.PipelineImpl.bracketMarkersAtRank'
+Elegant.Layered.PipelineImpl.captionMemberDescDisjoint_executed
