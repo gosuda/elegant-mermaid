@@ -1,5 +1,6 @@
+mod common;
+
 use std::ffi::OsString;
-use std::io::Write;
 use std::process::{Command, Output, Stdio};
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
@@ -16,21 +17,15 @@ fn binary() -> OsString {
 }
 
 fn invoke(args: &[&str], source: &str) -> Result<Output, Box<dyn std::error::Error>> {
-    let mut child = Command::new(binary())
-        .args(args)
+    let mut cmd = Command::new(binary());
+    cmd.args(args)
         .env_remove("NO_COLOR")
         .env_remove("FORCE_COLOR")
         .env_remove("CLICOLOR_FORCE")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    child
-        .stdin
-        .take()
-        .ok_or("missing stdin")?
-        .write_all(source.as_bytes())?;
-    Ok(child.wait_with_output()?)
+        .stderr(Stdio::piped());
+    Ok(common::run_with_stdin(cmd, source.as_bytes())?)
 }
 
 fn scratch(name: &str) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {

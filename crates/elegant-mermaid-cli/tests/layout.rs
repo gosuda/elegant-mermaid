@@ -1,4 +1,5 @@
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Stdio};
 
 #[test]
@@ -8,18 +9,12 @@ fn layout_model_cli_streams() -> Result<(), Box<dyn std::error::Error>> {
         ("flowchart\nA --> B\n", "cell", 0),
         ("flowchart\nA[broken\n", "cell", 1),
     ] {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_emd"))
-            .args(["layout", "--stage", "model", "--profile", profile, "-"])
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_emd"));
+        cmd.args(["layout", "--stage", "model", "--profile", profile, "-"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        child
-            .stdin
-            .take()
-            .ok_or("missing stdin")?
-            .write_all(source.as_bytes())?;
-        let output = child.wait_with_output()?;
+            .stderr(Stdio::piped());
+        let output = common::run_with_stdin(cmd, source.as_bytes())?;
         assert_eq!(output.status.code(), Some(code));
         if code == 0 {
             assert!(
@@ -70,18 +65,12 @@ fn layout_public_demo() -> Result<(), Box<dyn std::error::Error>> {
         ("vector", elegant_mermaid::scene::Profile::Vector),
         ("cell", elegant_mermaid::scene::Profile::Cell),
     ] {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_emd"))
-            .args(["layout", "-", "--profile", profile])
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_emd"));
+        cmd.args(["layout", "-", "--profile", profile])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        child
-            .stdin
-            .take()
-            .ok_or("missing stdin")?
-            .write_all(source.as_bytes())?;
-        let output = child.wait_with_output()?;
+            .stderr(Stdio::piped());
+        let output = common::run_with_stdin(cmd, source.as_bytes())?;
         assert_eq!(output.status.code(), Some(0));
         assert!(
             output.stderr.is_empty(),

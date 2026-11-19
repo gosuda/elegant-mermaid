@@ -1,6 +1,8 @@
+mod common;
+
 use std::ffi::OsStr;
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -23,20 +25,16 @@ struct Outcome {
 }
 
 fn invoke<S: AsRef<OsStr>>(dir: &Path, stdin: &str, args: &[S]) -> io::Result<Outcome> {
-    let mut child = Command::new(BIN)
-        .current_dir(dir)
+    let mut cmd = Command::new(BIN);
+    cmd.current_dir(dir)
         .args(args)
         .env_remove("NO_COLOR")
         .env_remove("FORCE_COLOR")
         .env_remove("CLICOLOR_FORCE")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    if let Some(mut pipe) = child.stdin.take() {
-        pipe.write_all(stdin.as_bytes())?;
-    }
-    let output = child.wait_with_output()?;
+        .stderr(Stdio::piped());
+    let output = common::run_with_stdin(cmd, stdin.as_bytes())?;
     Ok(Outcome {
         code: output.status.code(),
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),

@@ -1,4 +1,5 @@
-use std::io::Write;
+mod common;
+
 use std::process::{Command, Stdio};
 
 fn binary() -> std::ffi::OsString {
@@ -15,29 +16,15 @@ fn invoke_bytes(
     args: &[&str],
     source: &[u8],
 ) -> Result<std::process::Output, Box<dyn std::error::Error>> {
-    let mut child = Command::new(binary())
-        .args(args)
+    let mut cmd = Command::new(binary());
+    cmd.args(args)
         .env_remove("NO_COLOR")
         .env_remove("FORCE_COLOR")
         .env_remove("CLICOLOR_FORCE")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    let mut stdin = child.stdin.take().ok_or("missing stdin")?;
-    let write = stdin.write_all(source);
-    drop(stdin);
-    match write {
-        Ok(()) => Ok(child.wait_with_output()?),
-        Err(err) => {
-            let output = child.wait_with_output()?;
-            if err.kind() == std::io::ErrorKind::BrokenPipe && !output.status.success() {
-                Ok(output)
-            } else {
-                Err(err.into())
-            }
-        }
-    }
+        .stderr(Stdio::piped());
+    Ok(common::run_with_stdin(cmd, source)?)
 }
 #[test]
 fn command_contract() -> TestResult {
@@ -368,22 +355,16 @@ fn binary_colour_cli_36() -> TestResult {
         ("dumb", "auto", vec![("TERM", "dumb")], plain),
         ("pipe", "auto", vec![], plain),
     ] {
-        let mut child = Command::new(binary())
-            .args(["render", "-e", "text", "--color", flag])
+        let mut cmd = Command::new(binary());
+        cmd.args(["render", "-e", "text", "--color", flag])
             .env_clear()
             .env("PATH", std::env::var_os("PATH").unwrap_or_default())
             .env("TERM", "xterm")
             .envs(env)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
-        child
-            .stdin
-            .take()
-            .ok_or("missing stdin")?
-            .write_all(b"flowchart LR\n A\n")?;
-        let output = child.wait_with_output()?;
+            .stderr(Stdio::piped());
+        let output = common::run_with_stdin(cmd, b"flowchart LR\n A\n")?;
         assert_eq!(output.status.code(), Some(0), "{name}");
         assert_eq!(output.stdout, want.as_bytes(), "{name}");
         assert_eq!(output.stderr, b"", "{name}");
@@ -466,6 +447,29 @@ fn transport_survives_early_argument_rejection() -> TestResult {
     assert_eq!(
         output.stderr,
         format!("cannot infer the output format from {name}; pass -e\n").as_bytes()
+    );
+    Ok(())
+}
+
+#[test]
+fn transport_reports_truncated_input_on_success() -> TestResult {
+    // `--version` exits zero without reading stdin, so the payload must
+    // exceed every host pipe buffer (64 KiB default, 1 MiB Linux maximum):
+    // only then does the write block until the child exits and surface
+    // the broken pipe, proving the truncated input is never trusted.
+    let payload = vec![b'x'; 1 << 23];
+    let mut cmd = Command::new(binary());
+    cmd.args(["--version"])
+        .env_remove("NO_COLOR")
+        .env_remove("FORCE_COLOR")
+        .env_remove("CLICOLOR_FORCE")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let result = common::run_with_stdin(cmd, &payload);
+    assert!(
+        matches!(&result, Err(err) if err.kind() == std::io::ErrorKind::BrokenPipe),
+        "transport_reports_truncated_input_on_success: required Err(BrokenPipe); observed {result:?}",
     );
     Ok(())
 }
