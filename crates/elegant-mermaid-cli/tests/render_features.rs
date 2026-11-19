@@ -1,4 +1,5 @@
-use std::io::Write;
+mod common;
+
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
@@ -36,22 +37,15 @@ fn run(args: &[&str], source: &str) -> Result<(i32, String, String), Box<dyn std
         !binary.is_empty(),
         "EMD_BIN is not set; run just rust-check"
     );
-    let mut child = Command::new(binary)
-        .args(args)
+    let mut cmd = Command::new(binary);
+    cmd.args(args)
         .env_remove("NO_COLOR")
         .env_remove("FORCE_COLOR")
         .env_remove("CLICOLOR_FORCE")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-    let mut stdin = child.stdin.take().ok_or("missing stdin")?;
-    match stdin.write_all(source.as_bytes()) {
-        Err(error) if error.kind() == std::io::ErrorKind::BrokenPipe => {}
-        other => other?,
-    }
-    drop(stdin);
-    let output = child.wait_with_output()?;
+        .stderr(Stdio::piped());
+    let output = common::run_with_stdin(cmd, source.as_bytes())?;
     Ok((
         output.status.code().unwrap_or(-1),
         String::from_utf8(output.stdout)?,
