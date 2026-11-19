@@ -2134,3 +2134,7 @@ Elegant.Layered.PipelineImpl.SceneExecutionX.source_box_lookup_of_box_ids_nodupX
 Elegant.Layered.PipelineImpl.exactCanvasMargins
 Elegant.Layered.PipelineImpl.exactFitClosed
 Elegant.Layered.PipelineImpl.xExactFixedMin
+Elegant.Layered.PipelineImpl.loopRectTitleCopyReal_holds
+Elegant.Layered.PipelineImpl.loopRectTitleReal_closed
+Elegant.Layered.PipelineImpl.loopRectTopForeignReal_holds
+Elegant.Layered.PipelineImpl.loopRectTopReal_closed
