@@ -161,6 +161,7 @@ func pinBands(in Input, s *scene.Scene) error {
 	if err != nil {
 		return err
 	}
+	frames := laneFrames(axis, bands, s)
 	canvas := s.Canvas
 	pin := buildLanePin(axis, bands, s)
 	original := originalPoints(s)
@@ -177,7 +178,10 @@ func pinBands(in Input, s *scene.Scene) error {
 	if err = relocateLabels(s, axis, spacing.slot); err != nil {
 		return err
 	}
-	return growCanvas(s, canvas, axis)
+	if err = growCanvas(s, canvas, axis); err != nil {
+		return err
+	}
+	return attachLaneEnds(s, axis, frames)
 }
 
 func layBands(in Input, s *scene.Scene, axis laneAxis, spacing laneSpacing, lanes []string) ([]laneBand, error) {
