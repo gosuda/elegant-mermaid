@@ -418,3 +418,5 @@ import Elegant.Layered.ExactFlatC2
 import Elegant.Layered.RouteRunClearCases
 import Elegant.Layered.CaptionLocalClearProof
 import Elegant.Layered.RouteLabelForeignClearProof
+import Elegant.Layered.CaptionSelfSidesProof
+import Elegant.Layered.FallbackOwnerFrameProof

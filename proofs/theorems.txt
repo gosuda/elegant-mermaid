@@ -1666,3 +1666,6 @@ Elegant.Layered.PipelineImpl.captionInTopBand_executed
 Elegant.Layered.PipelineImpl.captionPlainMemberClear_proved
 Elegant.Layered.PipelineImpl.captionSelfBottom_proved
 Elegant.Layered.PipelineImpl.routeLabelForeignClear_of_run
+Elegant.Layered.PipelineImpl.captionSelfSidesStrict_executed
+Elegant.Layered.fallbackOwnerFrameClear_executed
+Elegant.Layered.fallbackCaptionClear_of_executed
