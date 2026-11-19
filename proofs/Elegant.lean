@@ -639,3 +639,7 @@ import Elegant.Layered.LoopResOffRankParentChainProof
 import Elegant.Layered.DivergeTiedSweepProof
 import Elegant.Layered.ExactCaptionAncestorLinkVerticalProof
 import Elegant.Layered.ExactFlatC6ShelfBorderProof
+import Elegant.Layered.ExactFlatC6KeysPathsProof
+import Elegant.Layered.ExpandChildParentFrameFlatCaptionProof
+import Elegant.Layered.RegionNotesFamilyValid
+import Elegant.Kinds.StateValidRegions
