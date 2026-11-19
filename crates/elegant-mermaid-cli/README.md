@@ -4,35 +4,44 @@ Render, check, and lint Mermaid diagrams as SVG, PNG, or terminal text, without 
 
 [![ci](https://github.com/gosuda/elegant-mermaid/actions/workflows/ci.yml/badge.svg)](https://github.com/gosuda/elegant-mermaid/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/emd-cli?style=flat)](https://crates.io/crates/emd-cli) [![license](https://img.shields.io/github/license/gosuda/elegant-mermaid?style=flat)](LICENSE)
 
-elegant-mermaid gives you the `emd` command and libraries for Go, Rust, and Node.js. Use it to draw a diagram in your terminal, render SVG or PNG in a build, or check every diagram in a docs folder in CI. It needs no browser, and it reads no network, host fonts, clock, or randomness, so the same input always gives the same bytes.
+elegant-mermaid gives you the `emd` command and libraries for Go, Rust, and Node.js. Use it to draw a diagram in your terminal, render SVG or PNG in a build, or check every diagram in a docs folder in CI. Unlike the upstream Mermaid stack, no browser or JavaScript runtime is in the render path: `emd` is a single binary. It reads no network, host fonts, clock, or randomness, so the same input always gives the same bytes.
 
-- **Two engines, one output:** Go and Rust implementations produce byte-identical output. `just parity` compares them over a corpus of 3,566 diagrams.
-- **Terminal first:** Unicode or ASCII box drawing, braille charts, and a live `emd view` with kitty, iTerm, or sixel graphics.
+```sh
+printf 'flowchart LR\n  A[Start] --> B[Choice]\n  B --> C[Done]\n' | emd render -e text
+#
+#  ┌───────┐   ┌────────┐   ┌──────┐
+#  │ Start ├───▶ Choice ├───▶ Done │
+#  └───────┘   └────────┘   └──────┘
+#
+```
+
+The three diagram rows are the same bytes the repository ships as the text-render golden at [`internal/cells/testdata/render/demo.txt`](internal/cells/testdata/render/demo.txt); the command adds one blank line on each side and one leading space on each row.
+
+## Why use it
+
+- **One binary, no browser:** `emd` renders without a JavaScript runtime or a DOM; the npm package ships the compiled binary behind a small Node launcher, so the npm command still needs Node.js.
+- **Two engines, one output:** the Go and Rust implementations produce byte-identical output. `just parity` compares them over a corpus of 3,566 diagrams.
 - **33 diagram kinds:** from flowchart and sequence to gantt, sankey, and railroad. The full list is under [Diagram kinds](#diagram-kinds).
 - **Checker and linter:** stable diagnostic codes, safe automatic fixes, and text, JSON, SARIF, or GitHub annotation output.
 - **Integer geometry:** layout uses no floating point. A Lean 4 model in [`proofs/`](proofs) checks layouts against hard geometry constraints.
 
+## Quick start
+
+The fastest way to run `emd` is the npm package (GNU/Linux x64 with glibc, Node.js 26 or later):
+
 ```sh
-printf 'flowchart LR\n  A[Write] --> B[Check]\n  B --> C[Render]\n' | emd render -e text
-#  ┌───────┐   ┌───────┐   ┌────────┐
-#  │ Write ├───▶ Check ├───▶ Render │
-#  └───────┘   └───────┘   └────────┘
+npm install --global emd-cli
+printf 'flowchart LR\n  A[Write] --> B[Check]\n  B --> C[Render]\n' > demo.mmd
+emd check demo.mmd        # no output and exit 0 mean the diagram is valid
+emd render demo.mmd -e text
+emd render demo.mmd -o demo.svg
 ```
 
-- [Install](#install)
-- [Quick start](#quick-start)
-- [Features](#features)
-- [Usage](#usage)
-- [Commands and options](#commands-and-options)
-- [Configuration](#configuration)
-- [Libraries](#libraries)
-- [Diagram kinds](#diagram-kinds)
-- [Development](#development)
-- [License](#license)
+The published package is version 0.1.0, which is older than this repository: it has no `lint` or `explain` command, no PNG output, and no `--svg-text paths`. For those commands install from source, as the next section shows.
 
 ## Install
 
-Build `emd` from a checkout of this repository with Cargo (Rust 1.99 or later):
+From a checkout of this repository (Rust 1.99 or later):
 
 ```sh
 git clone https://github.com/gosuda/elegant-mermaid.git
@@ -42,46 +51,14 @@ cargo install --path crates/elegant-mermaid-cli --locked
 
 This puts `emd` in `~/.cargo/bin`. To build the Go implementation instead, run `go build -o emd ./cmd/emd` in the same folder.
 
-Published packages exist, but their version 0.1.0 is older than this README. It has no `lint` or `explain` command, no PNG output, and no `--svg-text paths`:
+Published packages exist for both registries, each at version 0.1.0 with the limits noted above:
 
 ```sh
 cargo install emd-cli --locked     # any platform with Rust 1.99 or later
 npm install --global emd-cli       # GNU/Linux x64 with glibc, Node.js 26 or later
 ```
 
-## Quick start
-
-1. Write a diagram to a file:
-
-   ```sh
-   printf 'flowchart LR\n  A[Write] --> B[Check]\n  B --> C[Render]\n' > demo.mmd
-   ```
-
-2. Check it. No output and exit status 0 mean the diagram is valid:
-
-   ```sh
-   emd check demo.mmd
-   ```
-
-3. Draw it in the terminal, then render SVG and PNG files:
-
-   ```sh
-   emd render demo.mmd -e text
-   emd render demo.mmd -o demo.svg
-   emd render demo.mmd -o demo.png
-   ```
-
-## Features
-
-- Render SVG, PNG, or terminal text from the same layout.
-- Pick one of 20 themes, including `elegant-light`, `elegant-dark`, `github-dark`, `nord`, and the Mermaid defaults.
-- Embed glyph outlines in SVG (`--svg-text paths`) so the viewer needs no font.
-- Watch a file and redraw it in the terminal on every save.
-- Check `.mmd`, `.mermaid`, `.md`, `.markdown`, and `.mdx` files. Diagnostics in Markdown point at positions in the host file.
-- Lint with safe and unsafe fixes, and select, ignore, or configure rules.
-- Report results as text, JSON, SARIF, or GitHub annotations for CI.
-- Look up any diagnostic code with `emd explain`.
-- Print the canonical layout of a diagram with `emd layout`.
+When both are installed, check that `emd` resolves to the source build (`which emd`): if npm's directory comes first on `PATH`, `emd` is still the published 0.1.0 build, and `emd lint` answers `unknown command lint`.
 
 ## Usage
 
@@ -121,7 +98,7 @@ Watch a diagram while you edit it:
 emd view demo.mmd
 ```
 
-## Commands and options
+`emd` has six subcommands:
 
 |Command|What it does|Example|
 |---|---|---|
@@ -136,7 +113,7 @@ Main `render` options:
 
 - `-o OUTPUT` sets the output file. The format follows its extension (`.svg`, `.png`, `.txt`).
 - `-e svg|png|text` sets the format explicitly.
-- `-t THEME` picks a theme. The default is `elegant-light`, or `elegant-dark` on a dark terminal.
+- `-t THEME` picks a theme. The default is `elegant-light`, or `elegant-dark` on a dark terminal for text output.
 - `-s SCALE` sets PNG pixels per CSS pixel, from 1 to 8. The default is 2.
 - `--charset unicode|ascii` and `--color auto|always|never` control terminal text.
 
@@ -254,7 +231,9 @@ The registry in [`spec/data/kinds.json`](spec/data/kinds.json) defines these kin
 - `info`
 <!-- kinds:end -->
 
-## Development
+## Contributing
+
+Open an issue or a pull request on [GitHub](https://github.com/gosuda/elegant-mermaid). CI runs `just gen-check`, `go-check`, `rust-check`, `build`, and `parity`, so run them before you push.
 
 You need:
 
@@ -273,11 +252,7 @@ just parity       # Go and Rust output must match byte for byte
 just verify       # every gate, including Lean proofs and the oracle
 ```
 
-Generated files come from `tools/specgen`. Edit the sources under [`spec/`](spec), then run `just gen`. `just gen-check` fails when a generated file is stale.
-
-### Contributing
-
-Open an issue or a pull request on [GitHub](https://github.com/gosuda/elegant-mermaid). CI runs `just gen-check`, `go-check`, `rust-check`, `build`, and `parity`, so run them before you push. Maintainer rules and file ownership are in [`AGENTS.md`](AGENTS.md).
+Generated files come from `tools/specgen`. Edit the sources under [`spec/`](spec), then run `just gen`. `just gen-check` fails when a generated file is stale. Maintainer rules and file ownership are in [`AGENTS.md`](AGENTS.md).
 
 ## License
 
