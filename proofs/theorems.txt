@@ -2211,3 +2211,12 @@ Elegant.Layered.LaneBands.placeRect_other
 Elegant.Layered.LaneBands.routeScope_eq_of_frame
 Elegant.Grid.grid_valid
 Elegant.Tree.tree_valid
+Elegant.Layered.PipelineImpl.componentRunGen_node_band
+Elegant.Layered.PipelineImpl.componentRunGen_node_band_plain
+Elegant.Layered.PipelineImpl.componentRunGen_positions_disjoint
+Elegant.Layered.PipelineImpl.componentRunGen_positions_disjoint_plain
+Elegant.Layered.PipelineImpl.componentRunGen_shift_values
+Elegant.Layered.PipelineImpl.componentRunX_node_band
+Elegant.Layered.PipelineImpl.componentRunX_positions_disjoint
+Elegant.Layered.PipelineImpl.runHooksShift_exact
+Elegant.Layered.PipelineImpl.runHooksShift_plain
