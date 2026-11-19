@@ -451,7 +451,7 @@ theorem routeLabelLeftoverPair_of_run {inp : Input} {o : Options} {res : FamilyR
     (hrun : componentRun execution.params
       (componentCandidate execution.graph comp candidate) execution.measured
       orderOptions = .ok run)
-    (hstrict : StrictDummyFrame execution.params
+    (hstrict : StrictDummyFrameLinked execution.params
       (componentCandidate execution.graph comp candidate) run)
     (hbracket : BracketMarkersAtRank) (hrank : ForeignClusterRankSpans)
     (hxalign : ForeignBorderChainXAligned)

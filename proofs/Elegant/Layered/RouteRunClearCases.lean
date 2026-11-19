@@ -29,11 +29,10 @@ clears while the out-of-bounds default rects coincide with placed labels).
 For an in-bounds `pos`, `frameRect` branches on the kind of component node
 there. Let `nd` be that node:
 
-* group frame containing the label dummy (`nd.border = -2`, group decl in the
-  dummy's cluster path): the label is strictly inside, via `StrictDummyFrame`
-  (the strict dummy counterpart of the proved non-strict
-  `frameRect_member_contained`, upgraded with the padding gap; the member form
-  is being proved in `StrictMemberFrame.lean`) and `RouteLabelInDummy`.
+ * group frame containing the label dummy: the label is strictly inside, via `StrictDummyFrameLinked`
+   (the strict dummy counterpart of the proved non-strict
+   `frameRect_member_contained`, upgraded with the padding gap; the member form
+   is being proved in `StrictMemberFrame.lean`) and `RouteLabelInDummy`.
 * group frame not containing it: disjoint, via `SeamsImplyForeign` applied to
   the six named span seams, composed with the inside result for the label's
   own group (`ForeignFramesDisjoint`).
@@ -52,7 +51,7 @@ there. Let `nd` be that node:
 
 Residual evidence (`wip/Probe/PartRouteRunClear.lean`, 8 inputs × 4
 profiles, 5 candidates each, 1020 in-bounds pairs, 0 violations):
-`StrictDummyFrame`: no counterexamples, positive holds on group inputs;
+ `StrictDummyFrameLinked`: no counterexamples (`linkedBad = 0`), positive holds on group inputs;
 `RouteLabelInDummy`: placed labels contained in their dummies on all inputs
 (all edges single-labeled); `ForeignFramesDisjoint`: holds on the sibling-pair
 input; `RouteLabelRealClear`: holds on all scope-ok real pairs;
@@ -195,16 +194,16 @@ private theorem findIdxHitElem {α : Type} {l : List α} (p : α → Bool) (j : 
 
  /-! ## Run-level residuals (named hypotheses) -/
 
- /-- Strict dummy frame: every dummy proper node whose cluster path carries a
- group declaration lies strictly inside that group's frame. This is the dummy
- counterpart of the proved non-strict `frameRect_member_contained`, upgraded
- with the padding gap; the member form is being proved in
- `StrictMemberFrameProof.lean`. Probe: `h1dummyBad = 0` on all inputs
- (`h1dummyOk > 0` wherever groups and label dummies occur). -/
- def StrictDummyFrame (P : Params) (cg : Graph) (run : Run) : Prop :=
+ /-- Linked strict dummy frame: every dummy proper node whose cluster path
+ carries a group declaration lies strictly inside that group's frame, at its
+ own index (the `find?` hit at the use site provides the lookup). The unlinked
+ form is false as stated: an unrelated index refutes it (see
+ `StrictDummyFrameProof`). Probe: `linkedBad = 0` wherever groups and label
+ dummies occur. -/
+ def StrictDummyFrameLinked (P : Params) (cg : Graph) (run : Run) : Prop :=
    ∀ (gpos : Nat) (gn : Node), cg.nodes[gpos]? = some gn → gn.border = -2 →
-     ∀ (d : Nat) (nd : ProperNode), nd.dummy = true →
-       gn.decl ∈ nd.node.clusterPath →
+     ∀ (d : Nat) (nd : ProperNode), run.proper.nodes[d]? = some nd →
+       nd.dummy = true → gn.decl ∈ nd.node.clusterPath →
        (frameRect P cg run gpos).StrictInside (Labels.rectAt run.proper run.xs run.ys d)
 
  /-- Placed label inside its dummy, single-label forward edges. Probe: `sub`
@@ -304,7 +303,8 @@ private theorem findIdxHitElem {α : Type} {l : List α} (p : α → Bool) (j : 
 
  /-! ## Case lemmas (proved from the hypotheses) -/
 
- /-- (a) Group frame containing the label dummy: strictly inside. -/
+ /-- (a) Group frame containing the label dummy: strictly inside. The linked
+ lookup is exactly what the `find?` hit provides. -/
  theorem case_group_inside {P : Params} {cg : Graph} {run : Run}
      {labels : List MeasuredLabel} {k : Nat} {rect : Rect}
      {l₀ : MeasuredLabel} {edge : Nat} {e : Edge}
@@ -317,10 +317,12 @@ private theorem findIdxHitElem {α : Type} {l : List α} (p : α → Bool) (j : 
      {d : Nat} {nd : ProperNode} (hdummy : nd.dummy = true)
      (hfindd : run.proper.nodes.zipIdx.find? (fun q => q.1.edge == some edge && rk run.proper.rank q.2 == rk run.proper.rank e.tail + Int.fdiv (rk run.proper.rank e.head - rk run.proper.rank e.tail) 2) = some (nd, d))
      (hpath : gn.decl ∈ nd.node.clusterPath)
-     (h1 : StrictDummyFrame P cg run)
+     (h1 : StrictDummyFrameLinked P cg run)
      (h2 : RouteLabelInDummy P cg run labels) :
      (frameRect P cg run gpos).StrictInside rect := by
-   have hS := h1 gpos gn hg hgrp d nd hdummy hpath
+   have hmemq : run.proper.nodes[d]? = some nd :=
+     List.mem_zipIdx_iff_getElem?.mp (List.mem_of_find?_eq_some hfindd)
+   have hS := h1 gpos gn hg hgrp d nd hmemq hdummy hpath
    have hC := h2 k rect l₀ edge e hmem hmem0 hidx hedge hdecl hne hrev d nd hdummy hfindd
    exact inner_strict_of_sub hS hC
 
@@ -342,7 +344,7 @@ private theorem findIdxHitElem {α : Type} {l : List α} (p : α → Bool) (j : 
      (hunrel1 : g1n.clusterPath.contains gn.decl = false)
      (hunrel2 : gn.clusterPath.contains g1n.decl = false)
      (hne : g1n.decl ≠ gn.decl)
-     (h1 : StrictDummyFrame P cg run)
+     (h1 : StrictDummyFrameLinked P cg run)
      (h2 : RouteLabelInDummy P cg run labels)
      (hbracket : BracketMarkersAtRank) (hrank : ForeignClusterRankSpans)
      (hxalign : ForeignBorderChainXAligned)
@@ -413,7 +415,7 @@ private theorem findIdxHitElem {α : Type} {l : List α} (p : α → Bool) (j : 
        e.tail ≠ e.head → e.reversed = false →
        (∃ l, l ∈ labels ∧ l.edge = e.decl) →
        ∃ ndd d, ndd.dummy = true ∧ run.proper.nodes.zipIdx.find? (fun q => q.1.edge == some edge && rk run.proper.rank q.2 == rk run.proper.rank e.tail + Int.fdiv (rk run.proper.rank e.head - rk run.proper.rank e.tail) 2) = some (ndd, d))
-     (h1 : StrictDummyFrame P cg run)
+     (h1 : StrictDummyFrameLinked P cg run)
      (h2 : RouteLabelInDummy P cg run labels)
      (hbracket : BracketMarkersAtRank) (hrank : ForeignClusterRankSpans)
      (hxalign : ForeignBorderChainXAligned)
@@ -815,7 +817,7 @@ private theorem findIdxHitElem {α : Type} {l : List α} (p : α → Bool) (j : 
 
  /-- Executed run clearance from the inlined dispatch and the discharged
  `of_run` lemmas. Dummy existence is proved (`dummy_ex_labeled_of_run`); every
- still-open residual is an explicit hypothesis: `StrictDummyFrame`, the three open
+ still-open residual is an explicit hypothesis: `StrictDummyFrameLinked`, the three open
  span seams, `RouteLabelForeignClear`, `RouteNonforwardLabelClear`,
  `RouteLabelLeftoverPair`, and `RunLocalLoopFootprint` (for the real-node
  case). -/
@@ -826,7 +828,7 @@ private theorem findIdxHitElem {α : Type} {l : List α} (p : α → Bool) (j : 
    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
    (hrun : componentRun execution.params (componentCandidate execution.graph comp candidate)
      execution.measured orderOptions = .ok run)
-   (hstrict : StrictDummyFrame execution.params
+   (hstrict : StrictDummyFrameLinked execution.params
      (componentCandidate execution.graph comp candidate) run)
    (hbracket : BracketMarkersAtRank) (hrank : ForeignClusterRankSpans)
    (hxalign : ForeignBorderChainXAligned)
