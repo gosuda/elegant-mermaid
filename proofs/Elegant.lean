@@ -463,3 +463,6 @@ import Elegant.Kinds.IshikawaValidClosed
 import Elegant.Layered.ForeignBorderEdgesNoncrossingProof
 import Elegant.Layered.ForeignBorderChainXAlignedClosed
 import Elegant.Layered.ExpandChildC8bGeometryExecuted
+import Elegant.Kinds.ArchitectureC8a
+import Elegant.Layered.ExactFlatC7CaptionScope
+import Elegant.Layered.ExactFlatC7Forward
