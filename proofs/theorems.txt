@@ -2182,3 +2182,5 @@ Elegant.Layered.PipelineImpl.layoutRIds_sceneExecution
 Elegant.Layered.PipelineImpl.layoutRIds_success_phases
 Elegant.Layered.PipelineImpl.fitParent_of_top
 Elegant.Layered.PipelineImpl.fitPerCall_of_top
+Elegant.Layered.PipelineImpl.loopFootprintBeyondProper_holds
+Elegant.Layered.PipelineImpl.plainSliverResidual_holds

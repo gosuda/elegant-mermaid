@@ -491,3 +491,5 @@ import Elegant.Layered.LoopFootprintGroupHullProof
 import Elegant.Layered.ExecutedPartFrameCoresClosed
 import Elegant.Layered.RegionFoundation
 import Elegant.Layered.ExpandChildFitPerCallProof
+import Elegant.Layered.LoopFootprintBeyondProperProof
+import Elegant.Layered.LoopFootprintBeyondPlainProof
