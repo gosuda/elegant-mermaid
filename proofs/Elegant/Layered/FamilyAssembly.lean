@@ -83,15 +83,17 @@ import Elegant.Layered.LoopFootprintTopSeparationCondProof
 import Elegant.Layered.LoopResGroupHullRightProof
 import Elegant.Layered.LoopResNeighborGapGroupProof
 import Elegant.Layered.LoopResNeighborGapProof
+import Elegant.Layered.LoopResNeighborGapOffRankProof
+import Elegant.Layered.LoopResNeighborDisjointProof
 set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
  /-- Every fact the layered family validity theorem still takes as a premise.
- Remaining fields: `loopFootprintBeyondProper`,
- `foreignBorderDivergeStable`, `loopHullGroupRightWitness`,
- `loopNeighborGapOffRank` (false for a top-level owner; pending restatement as
- rect disjointness, see `LoopResNeighborGapOffRankWitness.lean` `wit3r`),
- `loopNeighborGapGroupTopWitness`,
+ Remaining fields: `foreignBorderDivergeStable`,
+ `loopHullGroupRightWitness`, `loopNeighborOffRankChain` (the frames-only
+ parent-chain residual `LoopResOffRankParentChain`, replacing the false
+ `loopNeighborGapOffRank` `x`-gap), and `loopNeighborGapGroupTopDisj` (the
+ `x`-gap-or-`y`-gap residual, replacing `loopNeighborGapGroupTopWitness`),
 `parentFixedForeign`, `parentRouteAttachedClear`, `parentFrameStrict`,
 `fitPerCall`.  Each field is a named
  OPEN statement about the executed pipeline; a field leaves this structure when
@@ -116,21 +118,26 @@ which the `captions` field now takes narrowed to `titleExclusiveSamePart`
  shelf bridge.  The old `loopFootprintTopSeparation` field is deleted:
  `loopFootprintTopSeparation_closed`
  (`LoopFootprintTopSeparationCondProof.lean`) derives it from
- `foreignBorderChainXAligned'` of `foreignBorderDivergeStable` and the kept
- `loopFootprintBeyondProper` field.  The old `flatC6` field is narrowed to its
+ `foreignBorderChainXAligned'` of `foreignBorderDivergeStable` and the closed
+ `beyondProper_closed` (`SeamClosureGlue.lean`, from
+ `loopFootprintBeyondProper_closed` over `topSliverMarkerReady_of_span` of the
+ proved `topSliverSpanCovered_holds`).  The old `loopFootprintBeyondProper`
+ field is deleted with it.  The old `flatC6` field is narrowed to its
  eight residuals, closed by `flatC6_closed_nowit`, and
  the old `frameLabels` field is narrowed to `loopHullGroupRightWitness`,
- `loopNeighborGapOffRank`, and `loopNeighborGapGroupTopWitness`, closed by
+ `loopNeighborOffRankChain`, and `loopNeighborGapGroupTopDisj`, closed by
  `executedPartFrameCores_closed` (`ExecutedPartFrameCoresClosed.lean`) via
  `frameLabels_executed` (`FrameLabelsProof.lean`) over the closed loop covers:
  `loopHullRightCover_closed` (`LoopResGroupHullRightProof.lean`) from
  the `loopHullGroupRightWitness` field via `loopResGroupHullRight_holds`, and
- `loopHullRightNeighborCover_holds`
- (`LoopHullCoverProof.lean`) over `loopResNeighborGap_holds`
- (`LoopResNeighborGapProof.lean`) from the `loopNeighborGapOffRank` field, the
- witness field via `loopResNeighborGapGroupTop_holds`
- (`LoopResNeighborGapGroupProof.lean`), and the proved
- `loopResNeighborGapBottomOwner_holds`.  The loop covers feed
+ `loopHullRightNeighborCover_Disj_holds`
+ (`LoopResNeighborDisjointProof.lean`) over `loopResNeighborGapDisj_holds`
+ from the `loopNeighborOffRankChain` parent-chain residual
+ (`LoopResNeighborGapOffRankProof.lean`), the `loopNeighborGapGroupTopDisj`
+ residual (shared-rank instances discharged by
+ `loopResNeighborGapGroupTopShared_holds` over the closed
+ `groupTopSharedWitness_holds`), and the proved
+ `neighborGapBottomOwnerDisj_holds` (`SeamClosureGlue.lean`).  The loop covers feed
  `fallbackOwnerFrameClear_executed` (`FallbackOwnerFrameProof.lean`), itself over
  `flatC8a_executed` (`FlatC8aExecutedProof.lean`) and
  `fallbackOwnerStrictStep_executed` (`FallbackOwnerStrictStepProof.lean`).  The
@@ -143,15 +150,22 @@ which the `captions` field now takes narrowed to `titleExclusiveSamePart`
  are discharged by `stepC6Anchors_holds` and `stepC8aAncestry_holds`
 (`RecursiveStepFacts.lean`).  The `runLocalLoopFootprint` fact is derived
 by `runLocalLoopFootprint_executed` (`RunLocalLoopFootprintProof.lean`) from
-the closed `loopFootprintTopSeparation_closed` and the kept
-`loopFootprintBeyondProper` field.  The `loopRectTopForeign` field is discharged by `loopRectTopReal_closed` (`LoopRectResidualsProof.lean`).  The old title-copy field is closed by `loopRectTitleCopy_closed` (`LoopRectTitleCopySepProof.lean`).  The old `parentFixedDisjointGroup` field is narrowed to `parentFixedForeign`, closed by `parentFixedDisjointGroup_of_parentC8a` (`ExpandChildParentFixedMissProof.lean`) over the flat C8a clause and `stepC6_frame_pos`.  The old `parentStrictMissGroup` field is narrowed to `parentRouteAttachedClear`, closed with the frame half from the fuel-sliced frame lift (`sliced_frame_lift`, fed by strict miss below the call fuel) and the attached half verbatim, via `parentStrictMissGroup_of_frame_attached` closed by fuel induction (`strictMiss_restricted_closed`). -/
+the closed `loopFootprintTopSeparation_closed` and the closed
+`beyondProper_closed`.  The `loopRectTopForeign` field is discharged by `loopRectTopReal_closed` (`LoopRectResidualsProof.lean`).  The old title-copy field is closed by `loopRectTitleCopy_closed` (`LoopRectTitleCopySepProof.lean`).  The old `parentFixedDisjointGroup` field is narrowed to `parentFixedForeign`, closed by `parentFixedDisjointGroup_of_parentC8a` (`ExpandChildParentFixedMissProof.lean`) over the flat C8a clause and `stepC6_frame_pos`.  The old `parentStrictMissGroup` field is narrowed to `parentRouteAttachedClear`, closed with the frame half from the fuel-sliced frame lift (`sliced_frame_lift`, fed by strict miss below the call fuel) and the attached half verbatim, via `parentStrictMissGroup_of_frame_attached` closed by fuel induction (`strictMiss_restricted_closed`). -/
 structure LayeredSeams : Prop where
-  loopFootprintBeyondProper : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → LoopFootprintBeyondProper inp o res
   foreignBorderDivergeStable : ForeignBorderDivergeStable
   loopHullGroupRightWitness : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopResGroupHullRightWitness (componentCandidate execution.graph comp candidate) run
-  /-- False for a top-level owner (`LoopResNeighborGapOffRankWitness.lean` `wit3r`: footprint right 13530 > foreign hull left 3003); pending restatement as rect disjointness (`LoopResNeighborDisjointProof`). -/
-  loopNeighborGapOffRank : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopResNeighborGapOffRank execution.params (componentCandidate execution.graph comp candidate) run execution.measured
-  loopNeighborGapGroupTopWitness : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopResNeighborGapGroupTopWitness execution.params (componentCandidate execution.graph comp candidate) run
+  /-- Frames-only parent chain for grouped off-rank plain owners
+  (`LoopResNeighborGapOffRankProof.lean`): the `x`-gap half of the disjoint
+  gap follows from this plus the shared extent core. Replaces the false
+  `loopNeighborGapOffRank` `x`-gap (top-level owners have no ancestor hull;
+  see `LoopResNeighborGapOffRankWitness.lean` `wit3r`). -/
+  loopNeighborOffRankChain : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopResOffRankParentChain
+  /-- Group-top owner case of the `x`-gap-or-`y`-gap residual
+  (`LoopResNeighborDisjointProof.lean`). Shared-rank instances are discharged
+  by `groupTopDisj_of_shared` (`SeamClosureGlue.lean`). Replaces
+  `loopNeighborGapGroupTopWitness`. -/
+  loopNeighborGapGroupTopDisj : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → ∀ (execution : SceneExecution inp o res) (comp : List Nat), comp ∈ components execution.graph → ∀ (candidate : Nat) (run : Run) (orderOptions : OrderOptions), componentRun execution.params (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run → LoopResNeighborGapGroupTopDisj execution.params (componentCandidate execution.graph comp candidate) run execution.measured
   parentFixedForeign : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult) (g : ModelBox), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → g.id ∉ parent.scene.layoutDump.ancestors group.id
   parentRouteAttachedClear : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentRouteAttachedClear group parent
   parentFrameStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentFrameStrict group parent
@@ -1987,7 +2001,7 @@ the fuel-closed strict miss. -/
          execution.measured v b :=
     fun inp o res execution hwf hfp comp candidate run v b hcomp hbord hrun =>
       loopFootprintSeparation_executed execution comp candidate run v b hcomp hbord hrun
-        (loopFootprintSeparationResidual (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintBeyondProper inp o res hwf hfp)) (S.loopFootprintBeyondProper inp o res hwf hfp))
+        (loopFootprintSeparationResidual (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp))
    have hstrictAll : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox)
       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
@@ -2017,7 +2031,7 @@ the fuel-closed strict miss. -/
          (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
    have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
      layout_c8b h hwf (fun execution => frameLabels_executed execution hwf hfp hfit
-       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintBeyondProper inp o res hwf hfp)) (S.loopFootprintBeyondProper inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopHullGroupRightWitness inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => loopHullRightNeighborCover_holds hwf hfp execution hcomp hrun (r3_of_narrow hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopNeighborGapOffRank inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun) (S.loopNeighborGapGroupTopWitness inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun))))
+       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopHullGroupRightWitness inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopNeighborOffRankChain inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun) (S.loopNeighborGapGroupTopDisj inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
        (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
          (flatC8a_executed execution hwf hfp
            (foreignBorderSpansSeparated foreignClusterRankSpans'
@@ -2089,7 +2103,7 @@ the fuel-closed strict miss. -/
          (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
    have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
      layout_c8b h hwf (fun execution => frameLabels_executed execution hwf hfp hfit
-       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintBeyondProper inp o res hwf hfp)) (S.loopFootprintBeyondProper inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopHullGroupRightWitness inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => loopHullRightNeighborCover_holds hwf hfp execution hcomp hrun (r3_of_narrow hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopNeighborGapOffRank inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun) (S.loopNeighborGapGroupTopWitness inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun))))
+       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopHullGroupRightWitness inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopNeighborOffRankChain inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun) (S.loopNeighborGapGroupTopDisj inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
        (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
          (flatC8a_executed execution hwf hfp
            (foreignBorderSpansSeparated foreignClusterRankSpans'
@@ -2133,14 +2147,14 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
           FallbackCaptionClear execution :=
      fun inp o res hwf hfp hfit execution =>
        frameLabels_executed execution hwf hfp hfit
-         (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintBeyondProper inp o res hwf hfp)) (S.loopFootprintBeyondProper inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopHullGroupRightWitness inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => loopHullRightNeighborCover_holds hwf hfp execution hcomp hrun (r3_of_narrow hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopNeighborGapOffRank inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun) (S.loopNeighborGapGroupTopWitness inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun))))
+         (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopHullGroupRightWitness inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (S.loopNeighborOffRankChain inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun) (S.loopNeighborGapGroupTopDisj inp o res hwf hfp execution comp hcomp candidate run orderOptions hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
          (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
            (flatC8a_executed execution hwf hfp
             (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
             (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
              hbracket)
            (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp))
-  have hflat6 : FlatC6 := flatC6_closed_nowit (fun inp o res hwf hfp => loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (loopRectTitleCopy_closed inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) (fun inp o res hwf hfp => loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintBeyondProper inp o res hwf hfp)) S.loopFootprintBeyondProper
+  have hflat6 : FlatC6 := flatC6_closed_nowit (fun inp o res hwf hfp => loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (loopRectTitleCopy_closed inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) (fun inp o res hwf hfp => loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable)
   have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
     layout_c8b h hwf (hframeLabels inp o res hwf hfp hfit)
   have hlabelRuns : ∀ (inp : Input) (o : Options) (res : FamilyResult),
@@ -2148,8 +2162,8 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       LabelRunsClearExclusiveBoxes inp o res := fun inp o res hwf hfp =>
     ⟨runLocalLabelClearance_holds hwf hfp
         (runLocalLoopSeparation inp o res (runLocalLoopFootprint_executed hwf hfp
-          (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (S.loopFootprintBeyondProper inp o res hwf hfp))
-          (S.loopFootprintBeyondProper inp o res hwf hfp)))
+          (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp))
+          (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)))
         (runLocalForwardSeparation inp o res) (runLocalReversedSeparation inp o res),
       routeLabelDumpBridges hwf (labelBelongsToRun hwf routeLabelsPlaced)
         (exclusiveBoxInLabelRun' hwf hfp)⟩
