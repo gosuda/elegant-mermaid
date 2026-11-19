@@ -649,3 +649,8 @@ import Elegant.Layered.ExactFlatC6LoopSepNonSelfProof
 import Elegant.Layered.RegionPartSizing
 import Elegant.Layered.RegionPositionsDisjoint
 import Elegant.Layered.RegionFallbackCaption
+import Elegant.Layered.ExactLoopRectTopSamePartProof
+import Elegant.Layered.LaneBandsLooseVictimProof
+import Elegant.Layered.RegionNotesClauseGlue
+import Elegant.Layered.DivergeSweepSeedStepProof
+import Elegant.Layered.ExactLoopEnvelopeReserveProof
