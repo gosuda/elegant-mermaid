@@ -2119,3 +2119,5 @@ Elegant.Layered.PipelineImpl.X_bottomDummyRankLe
 Elegant.Layered.PipelineImpl.Xb_NestedExact_holds
 Elegant.Layered.PipelineImpl.x_bottomBoundary_holds
 Elegant.Layered.PipelineImpl.flatC8bB_layoutX
+Elegant.Layered.LaneBands.findRouteEndsPin_holds
+Elegant.Layered.LaneBands.findRouteOrthoPin_holds
