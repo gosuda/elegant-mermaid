@@ -1945,3 +1945,14 @@ Elegant.Layered.PipelineImpl.X_topRank_of_seams
 Elegant.Layered.PipelineImpl.stepC6Geometry_closed
 Elegant.Layered.PipelineImpl.x_topRank_holds
 Elegant.Kinds.IshikawaFinal.descendantFrameGap
+Elegant.Kinds.IshikawaFinal.ishikawa_valid_closed
+Elegant.Layered.PipelineImpl.borderChain_side_endpoints
+Elegant.Layered.PipelineImpl.dummy_false_of_border
+Elegant.Layered.PipelineImpl.foreignBorderEdgesNoncrossing_executed
+Elegant.Layered.PipelineImpl.list_prefix_trichotomy
+Elegant.Layered.PipelineImpl.foreignBorderChainXAligned'
+Elegant.Layered.PipelineImpl.foreignBorderSideUps_closed
+Elegant.Layered.PipelineImpl.expandChild_c8b_geometry_inset
+Elegant.Layered.PipelineImpl.frame_strictInside_caption
+Elegant.Layered.PipelineImpl.stepC8bGeometry_holds
+Elegant.Layered.PipelineImpl.stepC8bGeometry_of_below

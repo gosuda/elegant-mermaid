@@ -459,3 +459,7 @@ import Elegant.Layered.ExpandChildC7GeometryExecuted
 import Elegant.Layered.ExpandChildC6GeometryClosed
 import Elegant.Layered.ExactFlatC5Rank
 import Elegant.Kinds.IshikawaDescFrameGapProof
+import Elegant.Kinds.IshikawaValidClosed
+import Elegant.Layered.ForeignBorderEdgesNoncrossingProof
+import Elegant.Layered.ForeignBorderChainXAlignedClosed
+import Elegant.Layered.ExpandChildC8bGeometryExecuted
