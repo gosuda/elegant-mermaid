@@ -436,3 +436,4 @@ import Elegant.Layered.SideMarkerTopInCandidateProof
 import Elegant.Layered.CaptionDescDisjointProof
 import Elegant.Layered.BorderInnerFoldProof
 import Elegant.Layered.FlatC8aExecutedProof
+import Elegant.Layered.LoopRectSamePartExecuted
