@@ -1650,3 +1650,12 @@ Elegant.Ishikawa.hardBDeeperEnvTransport'''
 Elegant.Layered.PipelineImpl.layoutX_c2
 Elegant.Layered.PipelineImpl.flatC2B_layoutX
 Elegant.Layered.PipelineImpl.X_ReserveBands_holds
+Elegant.Layered.PipelineImpl.route_run_clear_executed
+Elegant.Layered.PipelineImpl.dummy_ex_labeled_of_run
+Elegant.Layered.PipelineImpl.routeLabelInDummy_of_run
+Elegant.Layered.PipelineImpl.routeLabelRealClear_of_run
+Elegant.Layered.PipelineImpl.foreignFramesDisjoint_of_run
+Elegant.Layered.PipelineImpl.topMemberRankLe
+Elegant.Layered.PipelineImpl.bottomMemberRankCover
+Elegant.Layered.PipelineImpl.titledBottomPin
+Elegant.Layered.PipelineImpl.titledTopPin
