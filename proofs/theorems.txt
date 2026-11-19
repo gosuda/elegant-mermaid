@@ -2537,7 +2537,6 @@ Elegant.Layered.PipelineImpl.hullCover_of_witness
 Elegant.Layered.PipelineImpl.c6Geometry_of_seams
 Elegant.Layered.PipelineImpl.c8bGeometry_of_seams
 Elegant.Layered.PipelineImpl.below8b_of_seams
-Elegant.Layered.PipelineImpl.fitParent_of_seams
 Elegant.Layered.PipelineImpl.c7Geometry_of_seams
 Elegant.Layered.PipelineImpl.layoutFamily_valid_of_seams
 Elegant.Layered.PipelineImpl.componentRunR_stages
@@ -2960,3 +2959,4 @@ Elegant.Layered.PipelineImpl.notesC3Geom_holds
 Elegant.Layered.PipelineImpl.X6_borderHardW_of_topSameW
 Elegant.Layered.PipelineImpl.X6_topSamePartW_of_chain
 Elegant.Layered.PipelineImpl.X6_borderHardW_holds
+Elegant.Layered.PipelineImpl.recursiveStepFactsB_layout_iff
