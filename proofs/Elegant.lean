@@ -494,3 +494,5 @@ import Elegant.Layered.ExpandChildFitPerCallProof
 import Elegant.Layered.LoopFootprintBeyondProperProof
 import Elegant.Layered.LoopFootprintBeyondPlainProof
 import Elegant.Layered.ExpandChildParentFixedMissProof
+import Elegant.Layered.LoopFootprintTopSeparationProof
+import Elegant.Layered.LoopFootprintBeyondTopProof
