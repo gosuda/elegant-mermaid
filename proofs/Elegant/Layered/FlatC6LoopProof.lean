@@ -350,6 +350,47 @@ def LoopForeignBoxBorderZero (inp : Input) (o : Options) (res : FamilyResult) : 
               (frameRect execution.params
                 (componentCandidate execution.graph comp candidate) run v)))) →
       ((componentCandidate execution.graph comp candidate).nodes.getD v default).border = 0
+/-- Real-part exclusive-box provenance: the `LoopForeignBoxBorderZeroRealQ`
+/conclusion shape, with `q` pinned to the selected packed part. The old
+/`LoopForeignBoxBorderZero` quantifies `q` universally and is false as stated
+/(a fixed group aligns with a same-size exclusive node); the consumer only
+/ever applies it at the real packed part, so the loop case takes this form.
+/Discharged in `FlatC6ClosedProof` via `loopForeignBoxBorderZeroRealQ` from
+/the five `LoopRect*Real` residuals. -/
+def LoopForeignBoxBorderZeroReal (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
+  ∀ (execution : SceneExecution inp o res) (candidate : Nat) (run : Run)
+    (packed : Pack.State)
+    (_hpack : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      execution.params.nodeGap 0
+      (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (execution.componentsAcc.parts.map fun part =>
+        ⟨part.2.width, part.2.height, part.2.area⟩) = .ok packed)
+    (c : Nat) (q : (List Nat × Part) × Rect)
+    (_hselected : (execution.componentsAcc.parts.zip packed.boxes)[c]? = some q)
+    {area : Int} {loops : List (Nat × LoopPlacement)}
+    (_hpart : q.1.2 = { placeComponent execution.params
+      (componentCandidate execution.graph q.1.1 candidate) run 0 execution.measured
+      loops with area := area })
+    (_hcomp : q.1.1 ∈ components execution.graph)
+    (_hrun : componentRun execution.params
+      (componentCandidate execution.graph q.1.1 candidate) execution.measured
+      (candidateOrder candidate) = .ok run)
+    (v : Nat) (b : Box),
+      RouteImpl.IsReal run.proper v →
+      b ∈ res.scene.boxes → b.exclusive = true →
+      b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
+        (orientRect o.direction execution.packedAcc.canvasH
+          (shiftRect q.2.x q.2.y
+            (shiftRect (0 - (placeBounds execution.params
+                (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+                loops).minX)
+              (0 - (placeBounds execution.params
+                (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+                loops).minY)
+              (frameRect execution.params
+                (componentCandidate execution.graph q.1.1 candidate) run v)))) →
+      ((componentCandidate execution.graph q.1.1 candidate).nodes.getD v default).border = 0
 
 /-- The loop case of the flat clause C6 seam.  The reservation
 (`LoopReservation`) and footprint-separation (`LoopFootprintSeparation`)
@@ -358,7 +399,7 @@ demands them; the route scope bridge supplies the scene box, and the
 registration above transports the run-level loop miss to the scene. -/
 theorem flatC6LoopCase {inp : Input} {o : Options} {res : FamilyResult}
     (hpos : RoutePartShelfPositive inp o res)
-    (hbord : LoopForeignBoxBorderZero inp o res) :
+    (hbord : LoopForeignBoxBorderZeroReal inp o res) :
     FlatC6LoopCase inp o res := by
   intro execution hclear hbridge hloopRes hloopSep r b hr hb hex hscope key hkget hkeylen
     packed c q candidate run loops i edge area hpacked hselected hrun hloops hpart
@@ -426,7 +467,8 @@ theorem flatC6LoopCase {inp : Input} {o : Options} {res : FamilyResult}
     -- restricted separation premise
     have hborder0 : ((componentCandidate execution.graph q.1.1 candidate).nodes.getD v
         default).border = 0 :=
-      hbord execution q.1.1 candidate run hq1comp hrun v b hreal hb hex hbrect
+      hbord execution candidate run packed hpacked c q hselected hpart hq1comp hrun
+        v b hreal hb hex hbrect
     -- same part: the run-level loop miss, transported to the scene
     have hframeEq : frameRect execution.params
         (componentCandidate execution.graph q.1.1 candidate) run v =

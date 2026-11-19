@@ -81,6 +81,10 @@ member and side-border hulls, strictly wider than any single member via the
 cluster-border span, so it cannot coincide either. The coincident real node
 is hence plain, and its source box is not a group.
 
+FALSE AS STATED: the arbitrary-shift `q` form is refuted (a fixed group aligns
+with a same-size exclusive node; see `LoopRectPlainSourceProof`); the true
+real-`q` replacement is the `LoopRect*Real` family assembled by
+`loopRectPlainSourceRealQ` / `loopForeignBoxBorderZeroRealQ`.
 The conclusion speaks only of component membership and model-box roles (the
 measured-graph index phase), with no geometry; it is pinned by the
 `SceneExecution` equations (`graph_eq` for boxes to nodes, `componentRun`
@@ -108,20 +112,6 @@ def LoopRectPlainSource (inp : Input) (o : Options) (res : FamilyResult) : Prop 
                 (componentCandidate execution.graph comp candidate) run v)))) →
       ∃ (key : Nat) (src : ModelBox),
         comp[v]? = some key ∧ inp.boxes[key]? = some src ∧ src.role ≠ .group
-
-/-- The loop-case exclusive-box fact: an exclusive scene box transported from
-a real run node forces `border = 0` at that candidate position. The
-`WellFormed`, `framedParents`, and `layout` premises are retained for
-plug-compatibility with `flatC6_of_residuals`; only the residual is used. -/
-theorem loopForeignBoxBorderZero {inp : Input} {o : Options} {res : FamilyResult}
-    (_hwf : WellFormed (inputModel inp o)) (_hframed : framedParents inp = true)
-    (_hlay : layout inp o = .ok res)
-    (hlink : LoopRectPlainSource inp o res) :
-    LoopForeignBoxBorderZero inp o res := by
-  intro execution comp candidate run hcomp hrun q loops v b hreal hbmem hexcl hrect
-  obtain ⟨key, src, hkey, hsrc, hng⟩ :=
-    hlink execution comp candidate run hcomp hrun v b hreal hbmem hexcl hrect
-  exact candidateBorderZeroOfNonGroup execution hkey hsrc hng
 
 end PipelineImpl
 end Layered

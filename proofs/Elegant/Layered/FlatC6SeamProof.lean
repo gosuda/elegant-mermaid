@@ -12,12 +12,14 @@ namespace PipelineImpl
 /-!
 # Flat clause 6 assembled from its residuals
 
-`flatC6_of_residuals` closes `FlatC6` from the six executed residuals the two
+`flatC6_of_residuals` closes `FlatC6` from the seven executed residuals the two
 transport cases consume: the four id/shelf residuals discharged in
 `FlatC6ScopeBridgeProof` (`ExclusiveRunNodeDecl`, `RunRouteEndpointIdsScoped`,
-`ExclusiveDeclOutsideEndpointPaths`, `RoutePartShelfPositive`) and the two
+`ExclusiveDeclOutsideEndpointPaths`, `RoutePartShelfPositive`), the two
 loop-side facts (`LoopReservation`, `LoopFootprintSeparation`) stated per
-executed run of a reported component. Each hypothesis is guarded by the
+executed run of a reported component, and the real-part loop-box border
+fact (`LoopForeignBoxBorderZeroReal`) the loop case consumes. Each hypothesis
+is guarded by the
 `WellFormed`, `framedParents`, and `layout = .ok` facts available at its use
 site, so every hypothesis is as weak as this proof allows. No new residual is
 introduced: the component-membership side condition rides on the existing
@@ -63,7 +65,7 @@ theorem flatC6_of_residuals
           e.measured v b)
     (hbord : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
-      layout inp o = .ok res → LoopForeignBoxBorderZero inp o res) :
+      layout inp o = .ok res → LoopForeignBoxBorderZeroReal inp o res) :
     FlatC6 := by
   intro inp o res hwf hframed hclear hlay
   have hnd := hnodeDecl inp o res hwf hframed hlay
