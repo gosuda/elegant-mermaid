@@ -48,6 +48,9 @@ def ForeignClusterRankSpans : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -960,11 +963,11 @@ theorem foreignBorderSpansSeparated
     (horder : ForeignBorderLayerOrder)
     (halign : ForeignBorderChainXAligned) :
     ForeignBorderSpansSeparated := by
-  intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions hrun
+  intro P inp o lines graph hgraph hlines hwf hfp comp hcomp candidate run labels orderOptions hrun
     u w uNode wNode hu hw hgroupU hgroupW hne hpathW hpathU
   obtain ⟨-, -, -, -, -, -, -, -, -, -, -, -, -, hry, -, -⟩ := componentRun_spec hrun
   obtain ⟨tU, bU, tW, bW, hUle, hWle, hUspan, hWspan, hUmark, hWmark⟩ :=
-    hspans hgraph hcomp hrun hu hw hgroupU hgroupW hne
+    hspans hgraph hlines hwf hfp hcomp hrun hu hw hgroupU hgroupW hne
   obtain ⟨-, -, -, hmemU⟩ := fbs_group_node_member hgraph hcomp hrun hu hgroupU
   obtain ⟨-, -, -, hmemW⟩ := fbs_group_node_member hgraph hcomp hrun hw hgroupW
   have hneU : groupMemberRects (componentCandidate graph comp candidate) run

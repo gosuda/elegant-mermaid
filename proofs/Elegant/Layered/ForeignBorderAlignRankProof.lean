@@ -182,6 +182,9 @@ def ForeignMemberRankBounds : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -235,7 +238,7 @@ are built outright from the rank-phase residual; the member intervals come
 from `ForeignMemberRankBounds`. -/
 theorem foreignClusterRankSpans (hanch : ForeignRankPairAnchors)
     (hmem : ForeignMemberRankBounds) : ForeignClusterRankSpans := by
-  intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions hrun
+  intro P inp o lines graph hgraph hlines hwf hfp comp hcomp candidate run labels orderOptions hrun
     u w uNode wNode hu hw hbU hbW hne
   obtain ⟨labeled, hcoord, haligned, hU⟩ :=
     hanch hgraph hcomp hrun hu hw hbU hbW hne
@@ -280,7 +283,7 @@ theorem foreignClusterRankSpans (hanch : ForeignRankPairAnchors)
       simp only [rk, List.getD_eq_getElem?_getD, hrrW, Option.getD_some]
     exact ⟨lW, rW, _, _, hLW, rfl, hlastW, hrkLW, hRW, rfl, hlastW, hrkRW⟩
   obtain ⟨hordU, hordW, hmemU, hmemW⟩ :=
-    hmem hgraph hcomp hrun hu hw hbU hbW hne hcoord
+    hmem hgraph hlines hwf hfp hcomp hrun hu hw hbU hbW hne hcoord
       htopU hbUtop hlastU hbotU htopW hbWtop hlastW hbotW
   refine ⟨_, _, _, _, hordU, hordW, hmemU, hmemW, ?_, ?_⟩
   · intro r hrU hrW

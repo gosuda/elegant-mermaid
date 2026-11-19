@@ -127,6 +127,9 @@ def SideMarkerAnchorCover : Prop :=
    ∀ {P : Params} {inp : Input} {o : Options}
      {lines : List (List Measure.Line)} {graph : Graph},
      measuredGraph P inp o lines = .ok graph →
+     lines.length = inp.boxes.length →
+     WellFormed (inputModel inp o) →
+     framedParents inp = true →
      ∀ {comp : List Nat}, comp ∈ components graph →
      ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
        {orderOptions : OrderOptions},
@@ -269,12 +272,12 @@ def PlainNodePathEq : Prop :=
  emits the pair at every covered rank (`coordinateGraph_rank_pair`), and the
  coordinate equation transports it to the executed run. -/
 theorem bracketMarkersAtRank (hgrp : SideMarkerAnchorCover) : BracketMarkersAtRank := by
-   intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions
+   intro P inp o lines graph hgraph hlines hwf hfp comp hcomp candidate run labels orderOptions
      hrun decl r low high lowNd highNd hlow hcontainLow hlerk hhigh hcontainHigh
      hhrer
    obtain ⟨labeled, hc, haligned, top, bottom, htop, hbordTop, hlastTop, hfindBot,
        hloBnd, hhiBnd⟩ :=
-     hgrp hgraph hcomp hrun hlow hcontainLow hhigh hcontainHigh
+     hgrp hgraph hlines hwf hfp hcomp hrun hlow hcontainLow hhigh hcontainHigh
    obtain ⟨left, right, hleft, hright, hleftRank, hrightRank⟩ :=
      coordinateGraph_rank_pair P labeled haligned htop hbordTop hfindBot (rank := r)
        (by omega) (by omega)

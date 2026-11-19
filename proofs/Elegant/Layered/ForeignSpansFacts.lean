@@ -38,7 +38,8 @@ bracket closure (via `frameClearanceSeam_holds`) and the executed span premise:
 `layout_c8a` consumes `FrameClearance` per run through the seam and
 `ForeignSpansClear` through `ForeignSpansAll`. -/
 theorem flatC8a_of_spans (hspans : ∀ (inp : Input) (o : Options)
-      (res : FamilyResult), ForeignSpansAll inp o res)
+      (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true →
+      ForeignSpansAll inp o res)
     (hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       BracketInsidePremises inp o res) : FlatC8a := by
@@ -57,7 +58,7 @@ theorem flatC8a_of_spans (hspans : ∀ (inp : Input) (o : Options)
   refine fun candidate run orderOptions hrun =>
     ⟨frameClearanceSeam_holds (hbracket inp o res hwf hfp)
       execution part.1 candidate run orderOptions hcomp hrun,
-     hspans inp o res execution part hpart candidate run orderOptions hrun⟩
+     hspans inp o res hwf hfp execution part hpart candidate run orderOptions hrun⟩
 
 /-! ### Executed foreign spans of one component run -/
 
@@ -258,6 +259,9 @@ def ForeignBorderSpansSeparated : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -308,6 +312,9 @@ def ForeignNonGroupSpansClear : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -330,6 +337,9 @@ theorem foreignSpansClear_of_run
     {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
     {orderOptions : OrderOptions}
@@ -339,23 +349,29 @@ theorem foreignSpansClear_of_run
   intro u w uNode wNode hu hw hgroupU hne hpathW hpathU
   by_cases hgroupW : wNode.border = -2
   · exact frameRect_disjoint_of_hulls hu hgroupU hw hgroupW
-      (hgroups hgraph hcomp hrun hu hw hgroupU
+      (hgroups hgraph hlines hwf hfp hcomp hrun hu hw hgroupU
         hgroupW hne hpathW hpathU)
-  · exact hothers hgraph hcomp hrun hu hw hgroupU
+  · exact hothers hgraph hlines hwf hfp hcomp hrun hu hw hgroupU
       hgroupW hne hpathW hpathU
 
 /-- The named per-layout span premise from the per-run theorem. -/
 theorem foreignSpansAll_of_run
     (hclear : ∀ (P : Params) (inp : Input) (o : Options)
         (lines : List (List Measure.Line)) (graph : Graph) (comp : List Nat),
-        measuredGraph P inp o lines = .ok graph → comp ∈ components graph →
+        measuredGraph P inp o lines = .ok graph →
+        lines.length = inp.boxes.length →
+        WellFormed (inputModel inp o) →
+        framedParents inp = true →
+        comp ∈ components graph →
         ∀ (candidate : Nat) (run : Run) (labels : List MeasuredLabel)
           (orderOptions : OrderOptions),
           componentRun P (componentCandidate graph comp candidate) labels
             orderOptions = .ok run →
-          ForeignSpansClear P (componentCandidate graph comp candidate) run) :
-    ∀ (inp : Input) (o : Options) (res : FamilyResult), ForeignSpansAll inp o res := by
-  intro inp o res execution part hpart candidate run orderOptions hrun
+          ForeignSpansClear P (componentCandidate graph comp candidate) run)
+    {inp : Input} {o : Options} {res : FamilyResult}
+    (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true) :
+    ForeignSpansAll inp o res := by
+  intro execution part hpart candidate run orderOptions hrun
   have hmap : execution.componentsAcc.parts.map (·.1) = components execution.graph := by
     have hempty : (⟨0, 0, 0, Array.replicate inp.boxes.length default,
         Array.replicate inp.routes.length [], Array.replicate inp.labels.length default,
@@ -364,8 +380,14 @@ theorem foreignSpansAll_of_run
       (o := o) (g := execution.graph) (labels := execution.measured) hempty
       execution.components_eq).1
   have hcomp := part_component_mem hmap hpart
+  have hlinesLen : execution.lines.length = inp.boxes.length := by
+    have hl := execution.lines_eq
+    unfold boxLines at hl
+    calc execution.lines.length = (inp.boxes.zipIdx).length :=
+        (mapM_getElem? _ _ _ hl).1
+      _ = inp.boxes.length := List.length_zipIdx
   have hper := hclear execution.params inp o execution.lines execution.graph part.1
-    execution.graph_eq hcomp
+    execution.graph_eq hlinesLen hwf hfp hcomp
   exact hper candidate run execution.measured orderOptions hrun
 
 /-- `FlatC8a` composes from the bracket seam and the two open foreign-span
@@ -378,8 +400,9 @@ theorem flatC8a_of_span_seams
       WellFormed (inputModel inp o) → framedParents inp = true →
       BracketInsidePremises inp o res) : FlatC8a :=
   flatC8a_of_spans
-    (foreignSpansAll_of_run (fun _ _ _ _ _ _ hgraph hcomp _ _ _ _ hrun =>
-      foreignSpansClear_of_run hgroups hothers hgraph hcomp hrun))
+    (fun _ _ _ hwf hfp =>
+      foreignSpansAll_of_run (fun _ _ _ _ _ _ hgraph hlinesLen hwfIn hfpIn hcomp _ _ _ _ hrun =>
+        foreignSpansClear_of_run hgroups hothers hgraph hlinesLen hwfIn hfpIn hcomp hrun) hwf hfp)
     hbracket
 
 end PipelineImpl

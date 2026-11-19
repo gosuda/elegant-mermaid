@@ -300,6 +300,9 @@ def BracketMarkersAtRank : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -444,6 +447,9 @@ span whenever inside; the marker facts are the three residuals. -/
 theorem plain_frame_disjoint {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run}
     {labels : List MeasuredLabel} {orderOptions : OrderOptions}
@@ -522,7 +528,7 @@ theorem plain_frame_disjoint {P : Params} {inp : Input} {o : Options}
       rw [← hranks] at hlowLe hhighGe
       obtain ⟨mL, mR, nL, nR, hcpmL, hborderL, hlastL, hrankL,
         hcpmR, hborderR, hlastR, hrankR⟩ :=
-        hbracket hgraph hcomp hrun (rk run.proper.rank w).toNat
+        hbracket hgraph hlines hwf hfp hcomp hrun (rk run.proper.rank w).toNat
           hlowRec hlowCon hlowLe hhighRec hhighCon hhighGe
       have hnotProxyL : ¬(nL.node.border = -2 ∨ nL.node.border = 2) := by
         rw [hborderL]; omega
@@ -690,11 +696,11 @@ theorem foreignNonGroupSpansClear
     (horder : PlainClearOfSideMarker)
     (halign : SideMarkerSpanAligned) :
     ForeignNonGroupSpansClear := by
-  intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions
+  intro P inp o lines graph hgraph hlines hwf hfp comp hcomp candidate run labels orderOptions
     hrun u w uNode wNode hu hw hgroupU hwNgroup hne hpathW hpathU
   obtain ⟨hborders, _path⟩ := componentCandidate_marker_shape hgraph hw
   rcases hborders with hwPlain | hgroupW | hwBottom
-  · exact plain_frame_disjoint hgraph hcomp hrun hbracket horder halign hu hw hgroupU hwPlain hpathW
+  · exact plain_frame_disjoint hgraph hlines hwf hfp hcomp hrun hbracket horder halign hu hw hgroupU hwPlain hpathW
   · exact absurd hgroupW hwNgroup
   · exact bottomMarker_frame_disjoint hrun hw hwBottom u
 

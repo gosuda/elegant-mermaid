@@ -54,6 +54,9 @@ def SideMarkerTopInCandidate : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -66,17 +69,19 @@ def SideMarkerTopInCandidate : Prop :=
         (componentCandidate graph comp candidate).nodes[u]? = some uNode ∧
         uNode.border = -2 ∧ uNode.decl = decl
 
-/-- Residual (top rank bound, `WellFormed`-free): a candidate `-2` group top
-ranks at or below every executed proper node whose cluster path carries its
-declaration. This is the `WellFormed`-free form of `GroupTopSubtreeRankProper`
-(`GroupTopRank.lean`): that seam needs `WellFormed`, `framedParents`, and a
-line-count premise that this goal does not provide, so the bound is factored
-here without them. Only the `Int` inequality is assumed; title ranks,
-`find?`, and the bottom bound are proved below. -/
+/-- Residual (top rank bound): a candidate `-2` group top ranks at or below
+every executed proper node whose cluster path carries its declaration. This is
+the executed form of `GroupTopSubtreeRankProper` (`GroupTopRank.lean`), with
+its line-count, `WellFormed`, and `framedParents` premises threaded through.
+Only the `Int` inequality is assumed; title ranks, `find?`, and the bottom
+bound are proved below. -/
 def TopMemberRankLe : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -89,18 +94,19 @@ def TopMemberRankLe : Prop :=
     q.1.node.clusterPath.contains uNode.decl = true →
     rk run.proper.rank u ≤ rk run.proper.rank q.2
 
-/-- Residual (bottom rank bound, `WellFormed`-free): every executed proper
-node whose cluster path carries a group declaration ranks at or below the
-group's candidate `border = 2` bottom marker. This is the `WellFormed`-free
-form of `bottomMemberRankLe` (`GroupBottomBoundaryProof.lean`): that theorem
-and its ingredients (`bottomOrigRankLe`, `BottomSyntheticRankLe`,
-`BottomNestedBottomRankLe`) thread line-count, `WellFormed`, and
-`framedParents` premises that this goal does not provide, so the bound is
-factored here without them. Only the `Int` inequality is assumed. -/
+/-- Residual (bottom rank bound): every executed proper node whose cluster
+path carries a group declaration ranks at or below the group's candidate
+`border = 2` bottom marker. This is the executed form of `bottomMemberRankLe`
+(`GroupBottomBoundaryProof.lean`), with its line-count, `WellFormed`, and
+`framedParents` premises threaded through. Only the `Int` inequality is
+assumed. -/
 def BottomMemberRankCover : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -258,10 +264,10 @@ theorem sideMarkerAnchorCover
     (htopmem : TopMemberRankLe)
     (hbotmem : BottomMemberRankCover) :
     SideMarkerAnchorCover := by
-  intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions
+  intro P inp o lines graph hgraph hlines hwf hfp comp hcomp candidate run labels orderOptions
     hrun decl low high lowNd highNd hlow hcontainLow hhigh hcontainHigh
   -- Candidate top from the lookup residual.
-  obtain ⟨u, uNode, hu, hbU, hdeclU⟩ := hlookup hgraph hcomp hrun hlow hcontainLow
+  obtain ⟨u, uNode, hu, hbU, hdeclU⟩ := hlookup hgraph hlines hwf hfp hcomp hrun hlow hcontainLow
   -- Candidate bottom from the colocation hypothesis.
   obtain ⟨iB, bNode, hBUlook, hBUbord, hBUdecl, hBUpath⟩ :=
     hbot hgraph hcomp hrun hu hbU
@@ -473,7 +479,7 @@ theorem sideMarkerAnchorCover
     rw [hdeclU]
     exact hcontainLow
   have hrkT : rk run.proper.rank u ≤ rk run.proper.rank low :=
-    htopmem hgraph hcomp hrun hu hbU (lowNd, low)
+    htopmem hgraph hlines hwf hfp hcomp hrun hu hbU (lowNd, low)
       (List.mem_zipIdx_iff_getElem?.mpr hlow) hcontainLow'
   have huProperLt : u < run.proper.nodes.length :=
     componentRun_original_nodes_covered hrun u
@@ -499,7 +505,7 @@ theorem sideMarkerAnchorCover
     exact hcontainHigh
   have hrkB : rk run.coordinateProper.rank high ≤
       rk run.coordinateProper.rank iB :=
-    hbotmem hgraph hcomp hrun hBUlook hu hBUbord hbU hBUdecl (highNd, high)
+    hbotmem hgraph hlines hwf hfp hcomp hrun hBUlook hu hBUbord hbU hBUdecl (highNd, high)
       (List.mem_zipIdx_iff_getElem?.mpr hhigh) hcontainHigh'
   have hhighLt : high < run.proper.nodes.length :=
     (List.getElem?_eq_some_iff.mp hhigh).1
