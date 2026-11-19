@@ -2374,3 +2374,5 @@ Elegant.Layered.PipelineImpl.XC_memberDescX_holds
 Elegant.Layered.PipelineImpl.XFR_dummyExLabeledX_holds
 Elegant.Layered.PipelineImpl.XFR_routeLabelInDummyX_holds
 Elegant.Layered.PipelineImpl.XFR_strictDummyLinkedX_holds
+Elegant.Layered.PipelineImpl.loopResGroupHullRight_holds
+Elegant.Layered.PipelineImpl.loopHullRightCover_closed
