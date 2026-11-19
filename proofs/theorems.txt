@@ -2231,3 +2231,10 @@ Elegant.kindLayout_state
 Elegant.kindLayout_swimlane
 Elegant.kindLayout_usecase
 Elegant.layered_valid_of_members
+Elegant.Kinds.State.decorate_layoutDump
+Elegant.Kinds.State.layout_spec
+Elegant.Kinds.State.paintRegionSet_layoutDump
+Elegant.Kinds.State.paintRegions_fold_layoutDump
+Elegant.Kinds.State.paintRegions_layoutDump
+Elegant.Kinds.State.state_valid_of_exactSeams
+Elegant.Kinds.State.state_valid_of_family

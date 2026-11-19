@@ -499,3 +499,4 @@ import Elegant.Layered.LoopFootprintBeyondTopProof
 import Elegant.Layered.LaneEndsClauses
 import Elegant.Layered.ComponentRunGenGeometry
 import Elegant.Layered.ExactPackedTransportProof
+import Elegant.Kinds.StateValid
