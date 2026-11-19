@@ -1569,3 +1569,6 @@ Elegant.Layered.PipelineImpl.rankAxis_band_top_strict
 Elegant.Layered.PipelineImpl.memberFrameStrictVertical_of_executed
 Elegant.Layered.PipelineImpl.parentFrameRightEdgePos_of_executed
 Elegant.Layered.PipelineImpl.SceneExecution.component_member_strictInside'
+Elegant.Layered.PipelineImpl.subInputWellFormedB_of
+Elegant.Layered.PipelineImpl.subInputWellFormedB_layoutX
+Elegant.Layered.PipelineImpl.stepC2_layoutX
