@@ -25,11 +25,16 @@ inset fact consumes `InputFixedFit`, which the seam field hypotheses do not
 provide. The top-level fit reaches each call through `FitReached`
 (`ExpandChildFitPerCall.fitPerCall_of_top`).
 
-Probe evidence (`proofs/wip/Probe/ParentFramePlacementTProbe.lean`) refuted the
-naive universal shapes: a flat layout of a nested input puts a descendant
-group title strictly inside the outer frame, and a merged result scene keeps
-that containment. The residuals below are narrowed accordingly:
+Probe evidence refuted the naive universal shapes: a flat layout of a
+nested input puts a descendant group title strictly inside the outer frame,
+and a non-exclusive member caption is strictly inside its outer frame on
+executed runs (`proofs/wip/Probe/PfpFlatFactsTProbe2.lean`: witness `pfpNE`,
+label `lx` strictly inside frame `G` with `isDesc` true, across all
+profile/direction configs; empty-text labels behave the same). The residuals
+below are narrowed accordingly:
 
+* the box fragment only covers labels whose owner is not a strict
+  descendant of the frame (member captions stay inside their own frame);
 * the title fragment only covers labels whose owner is not a strict
   descendant of the frame (ancestor and unrelated titles);
 * the route fragment only covers labels on routes with an endpoint outside
@@ -45,13 +50,18 @@ scene-level fuel induction over the parent input's descent and the per-call
 conclusion are proved from them.
 -/
 
-/-- Box-owned fragment: a label owned by a non-group scene box never strictly
-contains the frame of `G`. -/
+/-- Box-owned fragment: a label owned by a non-group scene box outside the
+strict descendants of `G` never strictly contains the frame of `G`. The
+unrestricted form is false: a member caption is strictly inside its outer
+frame on executed runs (see the module docstring); the non-descendant
+premise matches the title fragment and is discharged from
+`PfpReachedNoDescLabels` at each use site. -/
 private def pfp_boxFrag (S : FamilyResult) (G : ModelBox) : Prop :=
   ∀ (frame : Box),
     S.scene.boxes.find? (fun box => box.id == G.id) = some frame →
     ∀ pl ∈ S.scene.labels, pl.owner ≠ G.id →
       (∃ b ∈ S.scene.boxes, b.id = pl.owner ∧ b.role ≠ "group") →
+      (G.id ∉ S.scene.layoutDump.ancestors pl.owner) →
       ¬ frame.rect.StrictInside pl.rect
 
 /-- Route-owned fragment: a label on a route with an endpoint outside the
@@ -77,7 +87,8 @@ private def pfp_titleFrag (S : FamilyResult) (G : ModelBox) : Prop :=
       ¬ frame.rect.StrictInside pl.rect
 
 /-- Box-class flat placement residual: for a flat executed layout with fit, no
-box-owned foreign label strictly contains any group frame. -/
+box-owned foreign label outside the strict descendants of a group frame
+strictly contains that frame. -/
 def PfpFlatBoxClear : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (_execution : SceneExecution inp o res),
@@ -323,7 +334,7 @@ theorem parentFrameStrict_of_recursion
     hparent
   intro frame hframe pl hpl hown
   by_cases hbox : ∃ b ∈ parent.scene.boxes, b.id = pl.owner ∧ b.role ≠ "group"
-  · exact hfrags.1 frame hframe pl hpl hown hbox
+  · exact hfrags.1 frame hframe pl hpl hown hbox (hndLabels pl hpl hown)
   · by_cases hgroup : ∃ b ∈ parent.scene.boxes,
       b.id = pl.owner ∧ b.role = "group"
     · exact hfrags.2.2 frame hframe pl hpl hown hgroup
