@@ -1565,3 +1565,7 @@ Elegant.Kinds.IshikawaFinal.accounted_odd_born_x0_nonpos_of_prefix
 Elegant.Kinds.IshikawaFinal.ishikawaRouteXEnvelope_of_lower_upper
 Elegant.Kinds.IshikawaFinal.ishikawaCrossRibPieceClearance''
 Elegant.Layered.ownerCaptionContainFallback_of_fit
+Elegant.Layered.PipelineImpl.rankAxis_band_top_strict
+Elegant.Layered.PipelineImpl.memberFrameStrictVertical_of_executed
+Elegant.Layered.PipelineImpl.parentFrameRightEdgePos_of_executed
+Elegant.Layered.PipelineImpl.SceneExecution.component_member_strictInside'
