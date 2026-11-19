@@ -1771,3 +1771,7 @@ Elegant.Layered.PipelineImpl.captionAncestorMarkerClear_executed
 Elegant.Layered.PipelineImpl.captionMemberDescClear_executed
 Elegant.Layered.PipelineImpl.captionSameDeclClear_executed
 Elegant.Layered.PipelineImpl.captionStrictInside_trans
+Elegant.Layered.PipelineImpl.layoutFamily_scene_parents
+Elegant.Layered.PipelineImpl.plain_frame_pos
+Elegant.Layered.PipelineImpl.swimlane_pinSceneParents
+Elegant.Layered.PipelineImpl.top_frame_pos
