@@ -18,8 +18,9 @@ well-formedness and five named residuals:
   caption lies inside the owner box, from `WellFormed` and `InputFixedFit`.
 * `OwnerScopeSamePartClear` (`CaptionOwnerScopeFacts.lean`): the owner box
   misses the foreign exclusive boxes of its own packed part.
-* the frame-label pair `LabelFramePackedClear` and `FallbackCaptionClear`
-  (`LabelsC8b.lean`), which is the `LayeredSeams.frameLabels` field.
+ * the frame-label pair `LabelFramePackedClear` and `FallbackCaptionClear`
+   (`LabelsC8b.lean`), which is the `frameLabels_executed` conclusion over the
+   `LayeredSeams.executedPartFrameCores` field.
 * `TitleExclusiveFrameDisjoint` (`CaptionTitleBranchFacts.lean`): an installed
   title rect misses foreign exclusive frames.
 -/
