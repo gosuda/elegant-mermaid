@@ -1541,3 +1541,7 @@ Elegant.Layered.LaneBands.pinC1Cover_of_pin
 Elegant.Layered.LaneBands.pinBands_c1
 Elegant.Layered.LaneBands.pinBands_c3
 Elegant.Layered.LaneBands.pinBands_c2
+Elegant.Layered.PipelineImpl.routeLabelsPlaced
+Elegant.Ishikawa.hardBDeeperGapOnly
+Elegant.Ishikawa.hardBDeeperRouteGap''
+Elegant.Ishikawa.hardBDeeperEnvTransport''

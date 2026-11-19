@@ -373,3 +373,5 @@ import Elegant.Layered.FixedOwnerFit
 import Elegant.Layered.FlatC6ClosedProof
 import Elegant.Layered.SideMarkerAnchorCoverProof
 import Elegant.Layered.LaneBandsBoxClauses
+import Elegant.Layered.RouteLabelsPlacedProof
+import Elegant.IshikawaDeeperGapOnlyProof
