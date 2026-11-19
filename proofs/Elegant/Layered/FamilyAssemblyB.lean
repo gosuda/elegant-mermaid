@@ -20,6 +20,11 @@ import Elegant.Layered.BottomSyntheticRankProof
 import Elegant.Layered.DummyChainRankProof
 import Elegant.Layered.SceneBounds
 import ElegantGeometry.Validator
+import Elegant.Layered.FlatC8aExecutedProof
+import Elegant.Layered.FallbackOwnerFrameProof
+import Elegant.Layered.FallbackOwnerStrictStepProof
+import Elegant.Layered.SideMarkerTopInCandidateProof
+import Elegant.Layered.ExpandChildC8aGeometryExecuted
 
 set_option autoImplicit false
 namespace Elegant.Layered.PipelineImpl
@@ -221,7 +226,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
   flatC8a := flatC8a_of_span_seams
     (foreignBorderSpansSeparated foreignClusterRankSpans'
       foreignBorderLayerOrder' S.foreignBorderChainXAligned)
-    (foreignNonGroupSpansClear S.bracketMarkersAtRank
+    (foreignNonGroupSpansClear bracketMarkersAtRank'
       plainClearOfSideMarker' (sideMarkerSpanAligned' S.foreignBorderChainXAligned))
     (fun inp o res hwf hfp =>
       bracketInsidePremises
@@ -235,7 +240,17 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
   flatC8b := fun inp o res hwf hfp hfit hb =>
     layout_c8b hb hwf (fun execution => frameLabels_executed execution hwf hfp hfit
       (S.executedPartFrameCores inp o res hwf hfp execution)
-      (S.fallbackOwnerFrameClear inp o res hwf hfp execution))
+      (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
+        (flatC8a_executed execution hwf hfp
+          (foreignBorderSpansSeparated foreignClusterRankSpans'
+            foreignBorderLayerOrder' S.foreignBorderChainXAligned)
+          (foreignNonGroupSpansClear bracketMarkersAtRank'
+            plainClearOfSideMarker' (sideMarkerSpanAligned' S.foreignBorderChainXAligned))
+          (fun inp o res hwf hfp =>
+            bracketInsidePremises
+              (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
+              (fun execution => titleCopySpanClearStrict_executed hwf hfp execution)))
+        (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
   canvasMargins := fun fuel inp o res h P hP => by
     have hm := layoutRecursive_canvas_margins fuel (by rw [layoutRecursive_eq_B]; exact h)
     rw [checkedParams_canvasMargin hP]
@@ -255,7 +270,17 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
       (titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
       (fun execution => frameLabels_executed execution hwf hfp hfit
         (S.executedPartFrameCores inp o res hwf hfp execution)
-        (S.fallbackOwnerFrameClear inp o res hwf hfp execution))
+        (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
+          (flatC8a_executed execution hwf hfp
+            (foreignBorderSpansSeparated foreignClusterRankSpans'
+              foreignBorderLayerOrder' S.foreignBorderChainXAligned)
+            (foreignNonGroupSpansClear bracketMarkersAtRank'
+              plainClearOfSideMarker' (sideMarkerSpanAligned' S.foreignBorderChainXAligned))
+            (fun inp o res hwf hfp =>
+              bracketInsidePremises
+                (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
+                (fun execution => titleCopySpanClearStrict_executed hwf hfp execution)))
+          (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
   subInputC2 := subInputWellFormedC2
   subInputB := by
     intro fuel inp o group P metric titleLines child parent hwf hfp hP hm hwrap
@@ -369,7 +394,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
     exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
   stepC8a := fun fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctxB hparams =>
-    expandChild_c8a_step_of_geometry S.stepC8aGeometry
+    expandChild_c8a_step_of_geometry stepC8aGeometry_holds
       (fun fuel P inp o group titleLines titleHeight parent child res hexpand
         hframed hctx hparams =>
         expandChild_c8a_structure fuel P inp o group titleLines titleHeight

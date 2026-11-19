@@ -26,6 +26,10 @@ import Elegant.Layered.LoopFootprintResidualProof
 import Elegant.Layered.CaptionResidualsProof
 import Elegant.Layered.LabelsC8bFacts
 import Elegant.Layered.FallbackCaptionClearProof
+import Elegant.Layered.FlatC8aExecutedProof
+import Elegant.Layered.FallbackOwnerFrameProof
+import Elegant.Layered.FallbackOwnerStrictStepProof
+import Elegant.Layered.SideMarkerTopInCandidateProof
 import Elegant.Kinds.Usecase
 import ElegantGeometry.Validator
 
@@ -56,14 +60,21 @@ def actorIds (m : Model) : List String :=
 //   premises, the same term `baseSeams_of_layered` uses
 //   (`BracketInsidePremisesProof.lean`, `DummyNestedMarkerProof.lean`,
 //   `TitleCopySpanProof.lean`).
+// - `fallbackOwnerFrameClear`: `fallbackOwnerFrameClear_executed`
+//   (`FallbackOwnerFrameProof.lean`) over `flatC8a_executed`
+//   (`FlatC8aExecutedProof.lean`), with the span premises built from the
+//   `foreignBorderChainXAligned` field below, the closed `bracketMarkersAtRank'`
+//   (`SideMarkerTopInCandidateProof.lean`) and the other closed span theorems,
+//   plus `fallbackOwnerStrictStep_executed` (`FallbackOwnerStrictStepProof.lean`).
 //
 // Replaced `labelRuns`/`captions` (both base-independent): derived in
 // `exactBaseSeams` by the same `baseSeams_of_layered` terms over narrower open
 // `LayeredSeams` fields below (`loopFootprintTopSeparation`,
 // `loopFootprintBeyondProper` for `labelRuns`; `titleExclusiveSamePart`,
-// `executedPartFrameCores`, `fallbackOwnerFrameClear` for `captions`). There is
+// `executedPartFrameCores`, `foreignBorderChainXAligned` for `captions`). There is
 // no `routeLabelsPlaced` field: it is a closed proved theorem used inside the
-// `labelRuns` term.
+// `labelRuns` term. There is no `bracketMarkersAtRank` field either: the proved
+// `bracketMarkersAtRank'` is used directly.
 //
 // Replaced step fields: `stepC6`, `stepC7`, `stepC8a`, `stepC8b` are derived in
 // `exactBaseSeams` from the geometry/ancestry hypothesis fields below via
@@ -106,11 +117,9 @@ structure ExactSeams (exactIds : List String) : Prop where
     WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
     ∀ (execution : Layered.PipelineImpl.SceneExecution inp o res),
       Layered.PipelineImpl.ExecutedPartFrameCores execution
-  /-- Narrower open fact consumed by `captions`: fallback owner-frame clearance. -/
-  fallbackOwnerFrameClear : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
-    WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
-    ∀ (execution : Layered.PipelineImpl.SceneExecution inp o res),
-      Elegant.Layered.FallbackOwnerFrameClear execution
+  /-- Narrower open fact consumed by `captions` via `flatC8a_executed`:
+  cross-coordinate-placement residual for the border-chain span separation. -/
+  foreignBorderChainXAligned : Layered.PipelineImpl.ForeignBorderChainXAligned
   /-- Plain counterpart: `layoutRecursive_childInset_fits_frame` plus parent closure. -/
   fitClosed :
     Layered.PipelineImpl.ExpandChildFitClosedB (Layered.PipelineImpl.layoutX exactIds)
@@ -200,7 +209,22 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
       (Layered.PipelineImpl.titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
       (fun execution => Layered.PipelineImpl.frameLabels_executed execution hwf hfp hfit
         (R.executedPartFrameCores inp o res hwf hfp execution)
-        (R.fallbackOwnerFrameClear inp o res hwf hfp execution))
+        (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
+          (Layered.PipelineImpl.flatC8a_executed execution hwf hfp
+            (Layered.PipelineImpl.foreignBorderSpansSeparated
+              Layered.PipelineImpl.foreignClusterRankSpans'
+              Layered.PipelineImpl.foreignBorderLayerOrder' R.foreignBorderChainXAligned)
+            (Layered.PipelineImpl.foreignNonGroupSpansClear
+              Layered.PipelineImpl.bracketMarkersAtRank'
+              Layered.PipelineImpl.plainClearOfSideMarker'
+              (Layered.PipelineImpl.sideMarkerSpanAligned' R.foreignBorderChainXAligned))
+            (fun inp o res hwf hfp =>
+              Layered.PipelineImpl.bracketInsidePremises
+                (fun execution =>
+                  Layered.PipelineImpl.dummyInsideProxyRowClear_executed' execution hwf hfp)
+                (fun execution =>
+                  Layered.PipelineImpl.titleCopySpanClearStrict_executed hwf hfp execution)))
+          (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
   subInputC2 := Layered.PipelineImpl.subInputWellFormedC2
   subInputB := Layered.PipelineImpl.subInputWellFormedB_layoutX exactIds
   fitClosed := R.fitClosed
