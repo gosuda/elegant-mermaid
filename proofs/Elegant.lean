@@ -377,3 +377,5 @@ import Elegant.Layered.RouteLabelsPlacedProof
 import Elegant.IshikawaDeeperGapOnlyProof
 import Elegant.Kinds.IshikawaSameRibEnvelope
 import Elegant.IshikawaDeeperOrdIntervalProof
+import Elegant.Layered.ExactMemberInFrame
+import Elegant.Layered.ExactRunFrameNestingProof

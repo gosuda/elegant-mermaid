@@ -1548,3 +1548,6 @@ Elegant.Ishikawa.hardBDeeperEnvTransport''
 Elegant.Kinds.IshikawaFinal.ishikawaSameRibEnvelopeClearance
 Elegant.Kinds.IshikawaFinal.ishikawaSameRibPieceClearance'
 Elegant.Ishikawa.hardBDeeperOrdInterval
+Elegant.Layered.PipelineImpl.exactMemberInFrame
+Elegant.Layered.PipelineImpl.exactRunFrameNesting
+Elegant.Layered.PipelineImpl.exactMemberInFrame'
