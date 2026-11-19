@@ -313,32 +313,6 @@ theorem labelFramePackedClear {inp : Input} {o : Options} {res : FamilyResult}
       rw [hreq, hstored, caption_shift_comm]
       exact Or.inl (disjoint_of_contained_disjoint hboxk hboxCap hd)
 
-/-! ### `FallbackCaptionClear` -/
-
-/-- Scene-level caption core: every `ownedTextRect` caption of an assembled
-scene box either misses every group scene box or lies strictly inside it.  It
-is stronger than `FallbackCaptionClear`, whose quantifier carries the label
-emission side conditions (label presence, owner lookup, absent installed
-title) that the core does not need. -/
-def SceneOwnedTextFrameCore {inp : Input} {o : Options} {res : FamilyResult}
-    (execution : SceneExecution inp o res) : Prop :=
-  ∀ (ownerIndex : Nat) (g : Box), g ∈ res.scene.boxes → g.role = "group" →
-    let l := ownedTextRect execution.params
-      ((sceneBoxesExpr execution.params inp o execution.packedAcc).getD
-        ownerIndex ⟨"", "", default, "", false⟩)
-      (execution.lines.getD ownerIndex [])
-    Disjoint g.rect l ∨ g.rect.StrictInside l
-
-/-- The fallback-caption branch of the scene C8b clause, from the scene-level
-caption core. -/
-theorem fallbackCaptionClear {inp : Input} {o : Options} {res : FamilyResult}
-    (execution : SceneExecution inp o res)
-    (_hwf : WellFormed (inputModel inp o))
-    (hcore : SceneOwnedTextFrameCore execution) :
-    FallbackCaptionClear execution := by
-  intro source index ownerIndex g _ _ _ hgMem hgRole
-  exact hcore ownerIndex g hgMem hgRole
-
 end PipelineImpl
 
 end Elegant.Layered

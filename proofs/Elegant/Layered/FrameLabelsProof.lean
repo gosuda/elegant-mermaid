@@ -1,3 +1,4 @@
+import Elegant.Layered.FallbackCaptionClearProof
 import Elegant.Layered.LabelRunBridgeFacts
 import Elegant.Layered.LabelsC8bFacts
 import Elegant.Layered.PipelineFacts
@@ -10,9 +11,10 @@ set_option autoImplicit false
 
  `PipelineImpl.LabelFramePackedClear` and `PipelineImpl.FallbackCaptionClear`
  (`Layered/LabelsC8b.lean`) are the two executed facts that lift `Validator.C8b`
- to the flat layered pipeline. `Layered/LabelsC8bFacts.lean` derives them from
- the named cores `ExecutedPartFrameCores`, `PackedPartTransport`, and
- `SceneOwnedTextFrameCore`.
+ to the flat layered pipeline. `Layered/LabelsC8bFacts.lean` derives the packed
+ core from the named cores `ExecutedPartFrameCores` and `PackedPartTransport`;
+ the fallback-caption branch follows from the fixed-size fit premise
+ (`FallbackCaptionClearProof.fallbackCaptionClear_of_fit`).
 
  This file discharges the structural part of that bundle and repairs a defect
  in it:
@@ -40,9 +42,10 @@ set_option autoImplicit false
  `ownedTextRect` before `orientRect`, so it is FALSE on executed vector LR/RL
  layouts, and `layout_c8b` never uses it (fallback captions are covered at
  scene level by `FallbackCaptionClear`). The component-local geometric cores
- (`ExecutedPartFrameCores`, `SceneOwnedTextFrameCore`) stay as the named
- hypotheses of `LabelsC8bFacts.lean`; neither `WellFormed` nor `framedParents`
- is needed by anything proved here.
+ (`ExecutedPartFrameCores`) stay as the named hypotheses of
+ `LabelsC8bFacts.lean`; the packed transport needs neither `WellFormed` nor
+ `framedParents`, while the executed seam theorem carries them for the
+ fallback-caption branch.
  -/
 
 namespace Elegant.Layered
@@ -543,21 +546,6 @@ def PackedLabelsTransport {inp : Input} {o : Options} {res : FamilyResult}
        rw [hreq, hstored, caption_shift_comm]
        exact Or.inl (disjoint_of_contained_disjoint hboxk hboxCap hd)
 
- /-- The seam-shaped frame-label clearance: the packed C8b core and the
- fallback-caption branch for one executed flat layout, from the repaired
- transport and the two geometric residuals. This is the `frameLabels` field of
- `LayeredSeams` with the false transport replaced by its bounded repair. -/
- theorem frameLabels_of_bounded {inp : Input} {o : Options} {res : FamilyResult}
-     (execution : SceneExecution inp o res)
-     (hcores : ExecutedPartFrameCores execution)
-     (htransport : PackedPartTransportBounded execution)
-     (hscene : SceneOwnedTextFrameCore execution) :
-     LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
-       FallbackCaptionClear execution :=
-   ⟨labelFramePackedClear_of_bounded execution hcores htransport,
-     by
-       intro source index ownerIndex g _ _ _ hgMem hgRole
-       exact hscene ownerIndex g hgMem hgRole⟩
  /-- The packing fold preserves the label array size across shelves. -/
  private theorem packFold_labels_size_hold
      (qs : List ((List Nat × Part) × Rect)) (arr : Array Rect) :
@@ -653,20 +641,21 @@ def PackedLabelsTransport {inp : Input} {o : Options} {res : FamilyResult}
  transport is discharged outright (`packedShelfExistence_of_execution`,
  `packed_titles_mem_source`, `packed_rect_value_source`, and the R1 bridge
  `packedLabelsTransport_of_bridge`), leaving the component-local geometric
- cores (`ExecutedPartFrameCores`) and the scene-level caption core
- (`SceneOwnedTextFrameCore`) as the only hypotheses. -/
+ cores (`ExecutedPartFrameCores`) and the owner-frame residual
+ (`Elegant.Layered.FallbackOwnerFrameClear`) as the only hypotheses. The
+ fallback-caption branch follows from the fixed-size fit premise. -/
  theorem frameLabels_executed {inp : Input} {o : Options} {res : FamilyResult}
-    (execution : SceneExecution inp o res)
-    (hcores : ExecutedPartFrameCores execution)
-    (hscene : SceneOwnedTextFrameCore execution) :
-    LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
-      FallbackCaptionClear execution := by
-  have htransport := packedTransportBounded_of_residuals execution
-    (packedLabelsTransport_of_bridge execution)
-  exact ⟨labelFramePackedClear_of_bounded execution hcores htransport,
-    by
-      intro source index ownerIndex g _ _ _ hgMem hgRole
-      exact hscene ownerIndex g hgMem hgRole⟩
+     (execution : SceneExecution inp o res)
+     (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
+     (hfit : InputFixedFit inp o)
+     (hcores : ExecutedPartFrameCores execution)
+     (hframe : Elegant.Layered.FallbackOwnerFrameClear execution) :
+     LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
+       FallbackCaptionClear execution := by
+   have htransport := packedTransportBounded_of_residuals execution
+     (packedLabelsTransport_of_bridge execution)
+   exact ⟨labelFramePackedClear_of_bounded execution hcores htransport,
+     Elegant.Layered.fallbackCaptionClear_of_fit execution hwf hfp hfit hframe⟩
 
  end PipelineImpl
 
