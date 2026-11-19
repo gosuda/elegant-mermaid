@@ -6,8 +6,12 @@ import Elegant.Layered.RecursiveBEq
 import Elegant.Layered.RecursiveCallParams
 import Elegant.Layered.InsetFit
 import Elegant.Layered.ExecutedPortsFacts
+import Elegant.Layered.TitleCopySpanProof
+import Elegant.Layered.DummyNestedMarkerProof
+import Elegant.Layered.ForeignBorderAnchorsProof
+import Elegant.Layered.SideMarkerPathsProof
+import Elegant.Layered.ExpandChildLabelFactsProof
 import ElegantGeometry.Validator
-
 set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
@@ -189,16 +193,18 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
     layout_c7 hwf hfp hsep hseam1 hseam2 hb
   flatC8a := flatC8a_of_span_seams
     (foreignBorderSpansSeparated S.foreignClusterRankSpans
-      S.foreignBorderLayerOrder S.foreignBorderChainXAligned)
+      foreignBorderLayerOrder' S.foreignBorderChainXAligned)
     (foreignNonGroupSpansClear S.bracketMarkersAtRank
-      S.plainClearOfSideMarker S.sideMarkerSpanAligned)
+      plainClearOfSideMarker' (sideMarkerSpanAligned' S.foreignBorderChainXAligned))
     (fun inp o res hwf hfp =>
-      bracketInsidePremises (S.dummyRowClear inp o res hwf hfp)
-        (S.titleCopySpan inp o res hwf hfp))
+      bracketInsidePremises
+        (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
+        (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
   frameClear := fun inp o res hwf hfp =>
     frameClearanceSeam_holds
-      (bracketInsidePremises (S.dummyRowClear inp o res hwf hfp)
-        (S.titleCopySpan inp o res hwf hfp))
+      (bracketInsidePremises
+        (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
+        (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
   flatC8b := fun inp o res hwf _hfp hb =>
     layout_c8b hb hwf (S.frameLabels inp o res)
   labelRuns := fun inp o res hwf hfp =>
@@ -306,7 +312,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         hframed hctx hparams =>
         expandChild_c7_structure fuel P inp o group titleLines titleHeight
           parent child res hexpand hframed hctx
-          (S.stepLabelOwners fuel P inp o group titleLines titleHeight parent
+          (expandChild_label_owners fuel P inp o group titleLines titleHeight parent
             child res hexpand hframed hctx hparams)
           (S.stepC7LabelScopes fuel P inp o group titleLines titleHeight parent
             child res hexpand hframed hctx hparams))
@@ -334,7 +340,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         hframed hctx hparams =>
         expandChild_c8b_structure fuel P inp o group titleLines titleHeight
           parent child res hexpand hframed hctx
-          (S.stepLabelOwners fuel P inp o group titleLines titleHeight parent
+          (expandChild_label_owners fuel P inp o group titleLines titleHeight parent
             child res hexpand hframed hctx hparams))
       fuel P inp o group titleLines titleHeight parent child res hexpand hframed
       ((expandChildCallContext_iff fuel P inp o group titleLines titleHeight

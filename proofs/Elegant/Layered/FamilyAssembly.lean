@@ -22,6 +22,11 @@ import Elegant.Layered.RunLocalLabelClearanceProof
 import Elegant.Layered.GroupTailPortProof
 import Elegant.Layered.RecursiveCallParams
 import Elegant.Layered.GroupAnchorFactsProof
+import Elegant.Layered.TitleCopySpanProof
+import Elegant.Layered.DummyNestedMarkerProof
+import Elegant.Layered.ForeignBorderAnchorsProof
+import Elegant.Layered.SideMarkerPathsProof
+import Elegant.Layered.ExpandChildLabelFactsProof
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
@@ -52,14 +57,6 @@ structure LayeredSeams : Prop where
   groupTopRank : GroupTopSubtreeRankProper
   groupBottomBoundary : GroupBottomBoundaryFacts
   flatC6 : FlatC6
-  dummyRowClear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    WellFormed (inputModel inp o) → framedParents inp = true →
-    ∀ (execution : SceneExecution inp o res),
-    dummyInsideProxyRowClear execution.params execution.graph
-  titleCopySpan : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    WellFormed (inputModel inp o) → framedParents inp = true →
-    ∀ (execution : SceneExecution inp o res),
-    titleCopySpanClearStrict execution.params execution.graph
   runLocalLoopSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     RunLocalLoopSeparation inp o res
   runLocalForwardSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
@@ -73,11 +70,8 @@ structure LayeredSeams : Prop where
     WellFormed (inputModel inp o) → framedParents inp = true →
     SceneCaptionBoxContainment inp o res
   foreignClusterRankSpans : ForeignClusterRankSpans
-  foreignBorderLayerOrder : ForeignBorderLayerOrder
   foreignBorderChainXAligned : ForeignBorderChainXAligned
   bracketMarkersAtRank : BracketMarkersAtRank
-  plainClearOfSideMarker : PlainClearOfSideMarker
-  sideMarkerSpanAligned : SideMarkerSpanAligned
   frameLabels : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     ∀ (execution : SceneExecution inp o res),
       LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
@@ -90,8 +84,6 @@ structure LayeredSeams : Prop where
   stepC8bGeometry : RecursiveStepFacts ExpandChildC8bGeometry
   stepC8aAncestry : RecursiveStepFacts
     (fun _ _ _ group _ parent child res => ExpandChildC8aAncestry group parent child res)
-  stepLabelOwners : RecursiveStepFacts
-    (fun _ inp _ _ _ parent child _ => ExpandChildLabelOwners inp parent child)
   stepC7LabelScopes : RecursiveStepFacts
     (fun P _ _ group _ parent child res => ExpandChildC7LabelScopes P group parent child res)
 
@@ -121,8 +113,9 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
   have hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       BracketInsidePremises inp o res := fun inp o res hwfInp hframedInp =>
-    bracketInsidePremises (S.dummyRowClear inp o res hwfInp hframedInp)
-      (S.titleCopySpan inp o res hwfInp hframedInp)
+    bracketInsidePremises
+      (fun execution => dummyInsideProxyRowClear_executed' execution hwfInp hframedInp)
+      (fun execution => titleCopySpanClearStrict_executed hwfInp hframedInp execution)
   have hstepC6 : RecursiveStepFacts ExpandChildC6Step :=
     expandChild_c6_step_of_geometry S.stepC6Geometry S.stepC6Anchors
   have hstepC7 : RecursiveStepFacts ExpandChildC7Step :=
@@ -131,8 +124,8 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
           hparams =>
         expandChild_c7_structure fuel P inp o group titleLines titleHeight parent child res
           hexpand hframed hctx
-          (S.stepLabelOwners fuel P inp o group titleLines titleHeight parent child res
-            hexpand hframed hctx hparams)
+          (expandChild_label_owners fuel P inp o group titleLines titleHeight parent child
+            res hexpand hframed hctx hparams)
           (S.stepC7LabelScopes fuel P inp o group titleLines titleHeight parent child res
             hexpand hframed hctx hparams))
   have hstepC8a : RecursiveStepFacts ExpandChildC8aStep :=
@@ -149,8 +142,8 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
           hparams =>
         expandChild_c8b_structure fuel P inp o group titleLines titleHeight parent child res
           hexpand hframed hctx
-          (S.stepLabelOwners fuel P inp o group titleLines titleHeight parent child res
-            hexpand hframed hctx hparams))
+          (expandChild_label_owners fuel P inp o group titleLines titleHeight parent child
+            res hexpand hframed hctx hparams))
   have hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       FrameClearanceSeam inp o res := fun inp o res hwfInp hframedInp =>
@@ -175,10 +168,10 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c8a_of_flat
       (flatC8a_of_span_seams
-        (foreignBorderSpansSeparated S.foreignClusterRankSpans S.foreignBorderLayerOrder
+        (foreignBorderSpansSeparated S.foreignClusterRankSpans foreignBorderLayerOrder'
           S.foreignBorderChainXAligned)
-        (foreignNonGroupSpansClear S.bracketMarkersAtRank S.plainClearOfSideMarker
-          S.sideMarkerSpanAligned)
+        (foreignNonGroupSpansClear S.bracketMarkersAtRank plainClearOfSideMarker'
+          (sideMarkerSpanAligned' S.foreignBorderChainXAligned))
         hbracket)
       subInputsWellFormed hstepC8a
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
