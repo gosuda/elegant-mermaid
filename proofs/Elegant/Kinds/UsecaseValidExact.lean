@@ -4,6 +4,28 @@ import Elegant.Layered.BoxRouteIdsDisjoint
 import Elegant.Layered.ExactFlatFacts
 import Elegant.Layered.ExactBorder2UnchangedProof
 import Elegant.Layered.SubInputWellFormedFacts
+import Elegant.Layered.ExactFlatC3Closure
+import Elegant.Layered.ExactFlatC2
+import Elegant.Layered.ExactSubInputStepC2
+import Elegant.Layered.ExactStepFacts
+import Elegant.Layered.FrameClearanceSeam
+import Elegant.Layered.BracketInsidePremisesProof
+import Elegant.Layered.DummyNestedMarkerProof
+import Elegant.Layered.TitleCopySpanProof
+import Elegant.Layered.RunLocalLabelClearanceProof
+import Elegant.Layered.RunLocalSeparationsProof
+import Elegant.Layered.RunLocalLoopFootprintProof
+import Elegant.Layered.LabelsC7Bridges
+import Elegant.Layered.LabelRunBridgeFacts
+import Elegant.Layered.RouteLabelsPlacedProof
+import Elegant.Layered.ExclusiveKeyOutsideCgPathsProof
+import Elegant.Layered.CaptionsSeamProof
+import Elegant.Layered.CaptionCrossPartProof
+import Elegant.Layered.FrameLabelsProof
+import Elegant.Layered.LoopFootprintResidualProof
+import Elegant.Layered.CaptionResidualsProof
+import Elegant.Layered.LabelsC8bFacts
+import Elegant.Layered.FallbackCaptionClearProof
 import Elegant.Kinds.Usecase
 import ElegantGeometry.Validator
 
@@ -21,17 +43,39 @@ def actorIds (m : Model) : List String :=
 // (the inset body consumes only placement conjunct 1); `flatC4` from
 // `SceneExecutionX.routes_orthogonal`; `subInputC2` from
 // `subInputWellFormedC2`; `partsSep` from `labelsC7_partsSeparated` (all
-// base-independent). `flatC3` stays open: `layoutX_c3` needs the full
-// `ExactComponentPlacement`, whose second conjunct is the draft
-// `exactMemberInFrame` modulo the open `ExactRunFrameNesting` residual (the
-// unguarded form is false; see the witness in `ExactMemberInFrame.lean`).
-Each field below names in one line the plain-pipeline theorem proving its
-counterpart, for the porting slices. -/
+// base-independent).
+//
+// Removed fields and the theorems proving them:
+// - `flatC3`: `flatC3B_layoutX` (`ExactFlatC3Closure.lean`), no hypotheses.
+// - `flatC2`: `flatC2B_layoutX` (`ExactFlatC2.lean`), no hypotheses.
+// - `subInputB`: `subInputWellFormedB_layoutX` (`ExactSubInputStepC2.lean`),
+//   no hypotheses.
+// - `stepC2`: `stepC2_layoutX` (`ExactSubInputStepC2.lean`), no hypotheses.
+// - `frameClear` (base-independent: its type mentions only the plain
+//   `SceneExecution`): `frameClearanceSeam_holds` over the executed bracket
+//   premises, the same term `baseSeams_of_layered` uses
+//   (`BracketInsidePremisesProof.lean`, `DummyNestedMarkerProof.lean`,
+//   `TitleCopySpanProof.lean`).
+//
+// Replaced `labelRuns`/`captions` (both base-independent): derived in
+// `exactBaseSeams` by the same `baseSeams_of_layered` terms over narrower open
+// `LayeredSeams` fields below (`loopFootprintTopSeparation`,
+// `loopFootprintBeyondProper` for `labelRuns`; `titleExclusiveSamePart`,
+// `executedPartFrameCores`, `fallbackOwnerFrameClear` for `captions`). There is
+// no `routeLabelsPlaced` field: it is a closed proved theorem used inside the
+// `labelRuns` term.
+//
+// Replaced step fields: `stepC6`, `stepC7`, `stepC8a`, `stepC8b` are derived in
+// `exactBaseSeams` from the geometry/ancestry hypothesis fields below via
+// `stepC6_layoutX`, `stepC7_layoutX`, `stepC8a_layoutX`, `stepC8b_layoutX`
+// (`ExactStepFacts.lean`). The anchor/ancestry hypotheses stay open: the proved
+// `stepC6Anchors_holds`/`stepC8aAncestry_holds` (`ExpandChildAncestryProof.lean`)
+// are stated over the plain `ExpandChildCallContext` (`RecursiveStepFacts`), not
+// the base-parametric `ExpandChildCallContextB` (`RecursiveStepFactsB`), so
+// their types do not fit the required hypotheses.
+// Each remaining field below names in one line the plain-pipeline theorem
+// proving its counterpart, for the porting slices. -/
 structure ExactSeams (exactIds : List String) : Prop where
-  /-- Plain counterpart: `layout_c3` via `flatC3B_of_flat`. -/
-  flatC3 : Layered.PipelineImpl.FlatC3B (Layered.PipelineImpl.layoutX exactIds)
-  /-- Plain counterpart: `layout_c2` via `flatC2B_of_flat`. -/
-  flatC2 : Layered.PipelineImpl.FlatC2B (Layered.PipelineImpl.layoutX exactIds)
   /-- Plain counterpart: `FlatGroupEndpoints` via `flatC5B_of_endpoints`. -/
   flatC5 : Layered.PipelineImpl.FlatC5B (Layered.PipelineImpl.layoutX exactIds)
   /-- Plain counterpart: the eight narrow `LayeredSeams` residuals via `flatC6_closed`. -/
@@ -45,99 +89,71 @@ structure ExactSeams (exactIds : List String) : Prop where
   /-- Residual: the canvas-margin bound the C7/C8b lifts need. -/
   canvasMargins :
     Layered.PipelineImpl.CanvasMarginsB (Layered.PipelineImpl.layoutX exactIds)
-  /-- Plain counterpart: `frameClearanceSeam_holds` over `S.dummyRowClear`/`S.titleCopySpan`. -/
-  frameClear :
-    ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
-      WellFormed (Layered.inputModel inp o) →
-        Layered.framedParents inp = true →
-          Layered.PipelineImpl.FrameClearanceSeam inp o res
-  /-- Plain counterpart: `runLocalLabelClearance_holds` plus `routeLabelDumpBridges`. -/
-  labelRuns :
-    ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
-      WellFormed (Layered.inputModel inp o) →
-        Layered.framedParents inp = true →
-          Layered.LabelRunsClearExclusiveBoxes inp o res
-  /-- Plain counterpart: `LayeredSeams.titleExclusiveSamePart` via `sceneCaptionBoxContainment_of_fit`. -/
-  captions :
-    ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
-      WellFormed (Layered.inputModel inp o) →
-        Layered.framedParents inp = true →
-          Layered.PipelineImpl.InputFixedFit inp o →
-          Layered.SceneCaptionBoxContainment inp o res
-  /-- Plain counterpart: `subInputWellFormed` transported through `layoutRecursive_eq_B`. -/
-  subInputB :
-    Layered.PipelineImpl.SubInputWellFormedB (Layered.PipelineImpl.layoutX exactIds)
+  /-- Narrower open fact consumed by `labelRuns`: top separation of the loop footprint. -/
+  loopFootprintTopSeparation : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
+    WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
+    Layered.PipelineImpl.LoopFootprintTopSeparation inp o res
+  /-- Narrower open fact consumed by `labelRuns`: beyond-proper footprint separation. -/
+  loopFootprintBeyondProper : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
+    WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
+    Layered.PipelineImpl.LoopFootprintBeyondProper inp o res
+  /-- Narrower open fact consumed by `captions`: same-part title exclusivity. -/
+  titleExclusiveSamePart : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
+    WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
+    Layered.PipelineImpl.TitleExclusiveSamePart inp o res
+  /-- Narrower open fact consumed by `captions`: executed part-frame cores. -/
+  executedPartFrameCores : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
+    WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
+    ∀ (execution : Layered.PipelineImpl.SceneExecution inp o res),
+      Layered.PipelineImpl.ExecutedPartFrameCores execution
+  /-- Narrower open fact consumed by `captions`: fallback owner-frame clearance. -/
+  fallbackOwnerFrameClear : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
+    WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
+    ∀ (execution : Layered.PipelineImpl.SceneExecution inp o res),
+      Elegant.Layered.FallbackOwnerFrameClear execution
   /-- Plain counterpart: `layoutRecursive_childInset_fits_frame` plus parent closure. -/
   fitClosed :
     Layered.PipelineImpl.ExpandChildFitClosedB (Layered.PipelineImpl.layoutX exactIds)
-  /-- Plain counterpart: `hgeo_of_recursion`. -/
-  stepC2 :
-    ∀ (fuel : Nat) (P : Layered.PipelineImpl.Params) (inp : Layered.Input) (o : Options)
-      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-      (parent child res : Layered.FamilyResult),
-      Layered.PipelineImpl.expandChild P inp o group titleHeight parent child = .ok res →
-      (∀ m ∈ inp.boxes, m.id ≠ "") →
-      Layered.PipelineImpl.ExpandChildCallContextB
-        (Layered.PipelineImpl.layoutX exactIds) fuel P inp o group titleLines titleHeight
-        parent child res →
-      Layered.PipelineImpl.ExpandChildCallParams P inp o group titleLines titleHeight →
-      Layered.PipelineImpl.ExpandChildC2Step P inp o group titleHeight parent child res
-  /-- Plain counterpart: `expandChild_c6_step_of_geometry`. -/
-  stepC6 :
-    ∀ (fuel : Nat) (P : Layered.PipelineImpl.Params) (inp : Layered.Input) (o : Options)
-      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-      (parent child res : Layered.FamilyResult),
-      Layered.PipelineImpl.expandChild P inp o group titleHeight parent child = .ok res →
-      Layered.framedParents inp = true →
-      Layered.PipelineImpl.ExpandChildCallContextB
-        (Layered.PipelineImpl.layoutX exactIds) fuel P inp o group titleLines titleHeight
-        parent child res →
-      Layered.PipelineImpl.ExpandChildCallParams P inp o group titleLines titleHeight →
-      Layered.PipelineImpl.ExpandChildC6Step P inp o group titleHeight parent child res
-  /-- Plain counterpart: `expandChild_c7_step_of_geometry` plus `expandChild_c7_structure`. -/
-  stepC7 :
-    ∀ (fuel : Nat) (P : Layered.PipelineImpl.Params) (inp : Layered.Input) (o : Options)
-      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-      (parent child res : Layered.FamilyResult),
-      Layered.PipelineImpl.expandChild P inp o group titleHeight parent child = .ok res →
-      Layered.framedParents inp = true →
-        Layered.PipelineImpl.BoxRouteIdsDisjoint inp →
-      Layered.PipelineImpl.ExpandChildCallContextB
-        (Layered.PipelineImpl.layoutX exactIds) fuel P inp o group titleLines titleHeight
-        parent child res →
-      Layered.PipelineImpl.ExpandChildCallParams P inp o group titleLines titleHeight →
-      Layered.PipelineImpl.ExpandChildC7Step P inp o group titleHeight parent child res
-  /-- Plain counterpart: `expandChild_c8a_step_of_geometry` plus `expandChild_c8a_structure`. -/
-  stepC8a :
-    ∀ (fuel : Nat) (P : Layered.PipelineImpl.Params) (inp : Layered.Input) (o : Options)
-      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-      (parent child res : Layered.FamilyResult),
-      Layered.PipelineImpl.expandChild P inp o group titleHeight parent child = .ok res →
-      Layered.framedParents inp = true →
-      Layered.PipelineImpl.ExpandChildCallContextB
-        (Layered.PipelineImpl.layoutX exactIds) fuel P inp o group titleLines titleHeight
-        parent child res →
-      Layered.PipelineImpl.ExpandChildCallParams P inp o group titleLines titleHeight →
-      Layered.PipelineImpl.ExpandChildC8aStep P inp o group titleHeight parent child res
-  /-- Plain counterpart: `expandChild_c8b_step_of_geometry` plus `expandChild_c8b_structure`. -/
-  stepC8b :
-    ∀ (fuel : Nat) (P : Layered.PipelineImpl.Params) (inp : Layered.Input) (o : Options)
-      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-      (parent child res : Layered.FamilyResult),
-      Layered.PipelineImpl.expandChild P inp o group titleHeight parent child = .ok res →
-      Layered.framedParents inp = true →
-      Layered.PipelineImpl.ExpandChildCallContextB
-        (Layered.PipelineImpl.layoutX exactIds) fuel P inp o group titleLines titleHeight
-        parent child res →
-      Layered.PipelineImpl.ExpandChildCallParams P inp o group titleLines titleHeight →
-      Layered.PipelineImpl.ExpandChildC8bStep P inp o group titleHeight parent child res
+  /-- Base-parametric C6 geometry hypothesis consumed by `stepC6_layoutX`. -/
+  stepC6Geometry :
+    Layered.PipelineImpl.RecursiveStepFactsB (Layered.PipelineImpl.layoutX exactIds)
+      Layered.PipelineImpl.ExpandChildC6Geometry
+  /-- Base-parametric C6 anchor hypothesis consumed by `stepC6_layoutX`. -/
+  stepC6Anchors :
+    Layered.PipelineImpl.RecursiveStepFactsB (Layered.PipelineImpl.layoutX exactIds)
+      (fun _ _ _ group _ parent child res =>
+        Layered.PipelineImpl.ExpandChildC6Anchors group parent child res)
+  /-- Base-parametric C7 geometry hypothesis consumed by `stepC7_layoutX`. -/
+  stepC7Geometry :
+    Layered.PipelineImpl.RecursiveStepFactsB (Layered.PipelineImpl.layoutX exactIds)
+      Layered.PipelineImpl.ExpandChildC7Geometry
+  /-- Base-parametric C8a geometry hypothesis consumed by `stepC8a_layoutX`. -/
+  stepC8aGeometry :
+    Layered.PipelineImpl.RecursiveStepFactsB (Layered.PipelineImpl.layoutX exactIds)
+      Layered.PipelineImpl.ExpandChildC8aGeometry
+  /-- Base-parametric C8a ancestry hypothesis consumed by both `stepC7_layoutX`
+  and `stepC8a_layoutX` (both take the same C8a-ancestry hypothesis type). -/
+  stepC8aAncestry :
+    Layered.PipelineImpl.RecursiveStepFactsB (Layered.PipelineImpl.layoutX exactIds)
+      (fun _ _ _ group _ parent child res =>
+        Layered.PipelineImpl.ExpandChildC8aAncestry group parent child res)
+  /-- Base-parametric C8b geometry hypothesis consumed by `stepC8b_layoutX`. -/
+  stepC8bGeometry :
+    Layered.PipelineImpl.RecursiveStepFactsB (Layered.PipelineImpl.layoutX exactIds)
+      Layered.PipelineImpl.ExpandChildC8bGeometry
 
 /-- Seams for the exact base: `flatInset` replays `layoutX_inset` on
 `exactPartsBounded'` (the inset body consumes only placement conjunct 1, which
 holds with no hypothesis); `flatC4` from `SceneExecutionX.routes_orthogonal`;
 `subInputC2` from `subInputWellFormedC2`; `partsSep` from
-`labelsC7_partsSeparated` (all base-independent). Every other field is the
-matching `ExactSeams` projection. Stated as a `theorem` because the target is
+`labelsC7_partsSeparated` (all base-independent). `flatC3`, `flatC2`, `subInputB`,
+and `stepC2` are discharged by their no-hypothesis theorems; `frameClear` by
+`frameClearanceSeam_holds` over the executed bracket premises, and `labelRuns` /
+`captions` by the `baseSeams_of_layered` terms over the narrower `ExactSeams`
+fields; the step seams by the
+`stepC*_layoutX` assemblers over the `ExactSeams` geometry/ancestry hypotheses.
+Every other field is the matching `ExactSeams` projection. Stated as a `theorem`
+because the target is
 a `Prop` (a `def` would warn). -/
 theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
     Layered.PipelineImpl.BaseSeams (Layered.PipelineImpl.layoutX exactIds) where
@@ -150,8 +166,8 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
     rw [execution.scene_eq]
     exact Layered.PipelineImpl.sceneOf_boxes_inset execution.params inp o execution.lines
       execution.packedAcc execution.measured hacc (by omega)
-  flatC3 := R.flatC3
-  flatC2 := R.flatC2
+  flatC3 := Layered.PipelineImpl.flatC3B_layoutX exactIds
+  flatC2 := Layered.PipelineImpl.flatC2B_layoutX exactIds
   flatC4 := fun inp o res h route hroute => by
     obtain ⟨execution⟩ := Layered.PipelineImpl.layoutX_sceneExecution h
     exact Layered.PipelineImpl.SceneExecutionX.routes_orthogonal execution route hroute
@@ -161,18 +177,38 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
   flatC8a := R.flatC8a
   flatC8b := R.flatC8b
   canvasMargins := R.canvasMargins
-  frameClear := R.frameClear
+  frameClear := fun inp o res hwf hfp =>
+    Layered.PipelineImpl.frameClearanceSeam_holds
+      (Layered.PipelineImpl.bracketInsidePremises
+        (fun execution => Layered.PipelineImpl.dummyInsideProxyRowClear_executed' execution hwf hfp)
+        (fun execution => Layered.PipelineImpl.titleCopySpanClearStrict_executed hwf hfp execution))
   partsSep := fun _ _ _ => Layered.PipelineImpl.labelsC7_partsSeparated
-  labelRuns := R.labelRuns
-  captions := R.captions
+  labelRuns := fun inp o res hwf hfp =>
+    ⟨Layered.PipelineImpl.runLocalLabelClearance_holds hwf hfp
+        (Layered.PipelineImpl.runLocalLoopSeparation inp o res
+          (Layered.PipelineImpl.runLocalLoopFootprint_executed hwf hfp
+            (R.loopFootprintTopSeparation inp o res hwf hfp)
+            (R.loopFootprintBeyondProper inp o res hwf hfp)))
+        (Layered.PipelineImpl.runLocalForwardSeparation inp o res)
+        (Layered.PipelineImpl.runLocalReversedSeparation inp o res),
+      Layered.routeLabelDumpBridges hwf
+        (Layered.PipelineImpl.labelBelongsToRun hwf Layered.PipelineImpl.routeLabelsPlaced)
+        (Layered.PipelineImpl.exclusiveBoxInLabelRun' hwf hfp)⟩
+  captions := fun inp o res hwf hfp hfit =>
+    Layered.PipelineImpl.sceneCaptionBoxContainment_of_fit hwf hfp hfit
+      (R.titleExclusiveSamePart inp o res hwf hfp)
+      (Layered.PipelineImpl.titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
+      (fun execution => Layered.PipelineImpl.frameLabels_executed execution hwf hfp hfit
+        (R.executedPartFrameCores inp o res hwf hfp execution)
+        (R.fallbackOwnerFrameClear inp o res hwf hfp execution))
   subInputC2 := Layered.PipelineImpl.subInputWellFormedC2
-  subInputB := R.subInputB
+  subInputB := Layered.PipelineImpl.subInputWellFormedB_layoutX exactIds
   fitClosed := R.fitClosed
-  stepC2 := R.stepC2
-  stepC6 := R.stepC6
-  stepC7 := R.stepC7
-  stepC8a := R.stepC8a
-  stepC8b := R.stepC8b
+  stepC2 := Layered.PipelineImpl.stepC2_layoutX exactIds
+  stepC6 := Layered.PipelineImpl.stepC6_layoutX exactIds R.stepC6Geometry R.stepC6Anchors
+  stepC7 := Layered.PipelineImpl.stepC7_layoutX exactIds R.stepC7Geometry R.stepC8aAncestry
+  stepC8a := Layered.PipelineImpl.stepC8a_layoutX exactIds R.stepC8aGeometry R.stepC8aAncestry
+  stepC8b := Layered.PipelineImpl.stepC8b_layoutX exactIds R.stepC8bGeometry
 
 /-- Usecase family validity from the exact seams: the executed nested family run
 `layoutFamilyB (layoutRecursiveX actorIds (m.boxes.length + 1))` underlying
