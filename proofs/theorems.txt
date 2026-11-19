@@ -1551,3 +1551,5 @@ Elegant.Ishikawa.hardBDeeperOrdInterval
 Elegant.Layered.PipelineImpl.exactMemberInFrame
 Elegant.Layered.PipelineImpl.exactRunFrameNesting
 Elegant.Layered.PipelineImpl.exactMemberInFrame'
+Elegant.Layered.LaneBands.pinBands_c6
+Elegant.Kinds.Swimlane.swimlane_pinBands_c6

@@ -379,3 +379,4 @@ import Elegant.Kinds.IshikawaSameRibEnvelope
 import Elegant.IshikawaDeeperOrdIntervalProof
 import Elegant.Layered.ExactMemberInFrame
 import Elegant.Layered.ExactRunFrameNestingProof
+import Elegant.Layered.LaneBandsClearance
