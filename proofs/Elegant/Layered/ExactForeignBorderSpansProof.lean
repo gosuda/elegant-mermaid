@@ -3,7 +3,13 @@ import Elegant.Layered.ExactFlatFacts
 import Elegant.Layered.ExactFlatC2
 import Elegant.Layered.ComponentRunGenGeometry
 import Elegant.Layered.ExactPipeline
-
+import Elegant.Layered.ExactFlatC5Rank
+import Elegant.Layered.ForeignClusterFactsProof
+import Elegant.Layered.GroupWidthFacts
+import Elegant.Layered.CoordGraph
+import Elegant.Layered.Order
+import Elegant.Layered.Pipeline
+import Elegant.Layered.ExactC8aSpanResidualsProof
 set_option autoImplicit false
 
 /-!
@@ -16,11 +22,22 @@ group declarations separate either on `x` through the border-marker hulls or on
 `y` through the member hulls.
 
 The replay mirrors `ForeignBorderSpansProof.lean` field by field over the exact
-run. Four seam premises stay premises in exact form (copied with the `XB_`
-prefix, never proved here):
+run. Two of the four seam premises are proved outright here by replaying the
+plain proofs over `componentRunX_spec` with the exact bundle
+(`X_cg_run_bundle`):
 
-* `XB_ForeignClusterRankSpans` from `ForeignClusterRankSpans` (rank assignment).
-* `XB_ForeignBorderLayerOrder` from `ForeignBorderLayerOrder` (layer order).
+* `XB_foreignBorderLayerOrder_holds` proves `XB_ForeignBorderLayerOrder` from
+  the exact anchor paths (`xbf_anchorPaths`, replay of
+  `foreignBorderAnchorPaths`), with no residual.
+* `XB_foreignClusterRankSpans_holds` proves `XB_ForeignClusterRankSpans` from
+  the single narrower residual `XB_ForeignRankPairAnchors` (titled top/bottom
+  anchors only) plus the closed exact member bounds
+  (`XSc8a_memberBounds_holds`), via the per-rank marker pairs
+  (`xbf_rank_pair`, replay of `coordinateGraph_rank_pair`).
+
+The remaining two stay premises in exact form (copied with the `XB_` prefix,
+never proved here):
+
 * `XB_ForeignBorderChainXAligned` from `ForeignBorderChainXAligned`
   (cross-coordinate placement).
 * `XB_OrderedIntervals` from `componentRun_nonproxy_ordered_intervals`
@@ -991,4 +1008,493 @@ theorem XB_foreignBorderSpansSeparated_holds (exactIds : List String)
         · exact Or.inl h
         · exact Or.inr (Or.inl h)
 
+
+/-! ## Exact anchor paths and layer order (replay of `ForeignClusterFactsProof`) -/
+
+/-- A side border of the exact coordinate graph is non-dummy (copy of the
+private `XSc8a_anchor_side_dummy` in `ExactC8aSpansProof`). -/
+private theorem xbf_anchor_side_dummy {p : Proper} {bw : Int}
+    (hready : OrderImpl.BorderConstructionReady p) {nd : ProperNode}
+    (hmem : nd ∈ (OrderImpl.addClusterBorders p bw).nodes)
+    (hs : nd.node.border = -1 ∨ nd.node.border = 1) : nd.dummy = false := by
+  obtain ⟨extra, hx, hall⟩ := addClusterBorders_extra p bw
+  rw [hx] at hmem
+  rcases List.mem_append.mp hmem with hp | he
+  · rcases hs with hs1 | hs2
+    · exact absurd hs1 (hready.1 nd hp).1
+    · exact absurd hs2 (hready.1 nd hp).2
+  · exact (hall nd he).1
+
+/-- A side border of the exact coordinate graph carries a `-2` anchor path
+(copy of the private `XSc8a_anchor_side_path` in `ExactC8aSpansProof`). -/
+private theorem xbf_anchor_side_path {P : Params} {exact : List Nat} {p t : Proper}
+    (ht : t = titleReservations (sizeProperPortsX P exact p))
+    (hready : OrderImpl.BorderConstructionReady t)
+    {v : Nat} {nd : ProperNode}
+    (h : (coordinateGraphX P exact p).nodes[v]? = some nd)
+    (hs : nd.node.border = -1 ∨ nd.node.border = 1) :
+    nd.dummy = false ∧
+    ∃ m : ProperNode, m ∈ t.nodes ∧ m.node.border = -2 ∧
+      nd.node.clusterPath = m.node.clusterPath := by
+  unfold coordinateGraphX at h
+  rw [← ht] at h
+  obtain ⟨m1, hm1, _, hb1, heq1⟩ := materialize_lookup _ h
+  have hm1d : m1.dummy = false := by
+    by_cases hc : m1.dummy = true
+    · exfalso
+      rw [clearProxyExtents_nodes, List.getElem?_map, Option.map_eq_some_iff] at hm1
+      obtain ⟨m2, hm2get, heq2⟩ := hm1
+      have cm2 := clearF_keys m2
+      have hm2b : m2.node.border = -1 ∨ m2.node.border = 1 := by
+        rw [← cm2.2.1, heq2, ← hb1]; exact hs
+      have hm2mem : m2 ∈ (OrderImpl.addClusterBorders t P.clusterBorderW).nodes :=
+        List.mem_of_getElem? hm2get
+      have hdummy : m2.dummy = false :=
+        xbf_anchor_side_dummy hready hm2mem hm2b
+      have hnd2 : m1.dummy = false := by
+        rw [← heq2, cm2.1]; exact hdummy
+      rw [hnd2] at hc
+      exact absurd hc (by decide)
+    · exact by simpa using hc
+  rw [← heq1.2 hm1d] at hm1
+  rw [clearProxyExtents_nodes, List.getElem?_map, Option.map_eq_some_iff] at hm1
+  obtain ⟨m2, hm2, heq2⟩ := hm1
+  have cm2 := clearF_keys m2
+  rw [heq2] at cm2
+  have hm2b : m2.node.border = -1 ∨ m2.node.border = 1 := by
+    rw [← cm2.2.1]; exact hs
+  have hm2mem : m2 ∈ (OrderImpl.addClusterBorders t P.clusterBorderW).nodes :=
+    List.mem_of_getElem? hm2
+  have hndF : nd.dummy = false := by
+    rw [cm2.1]; exact xbf_anchor_side_dummy hready hm2mem hm2b
+  obtain ⟨top, htop, _, _, hpath⟩ :=
+    addClusterBorders_side_source t P.clusterBorderW hready hm2mem hm2b
+  obtain ⟨tmem, hcond⟩ := List.mem_filter.mp htop
+  have hget : t.nodes[top.2]? = some top.1 :=
+    List.mem_zipIdx_iff_getElem?.mp tmem
+  refine ⟨hndF, top.1, List.mem_of_getElem? hget, ?_, cm2.2.2.1.trans hpath⟩
+  simpa using hcond
+
+/-- Exact coordinate borders are well formed (copy of the private
+`XSc8a_bordersWellFormed` in `ExactC8aSpansProof`). -/
+private theorem xbf_bordersWellFormed {P : Params} {inp : Input} {o : Options}
+    {exactIds : List String}
+    {lines : List (List Measure.Line)} {measured : List MeasuredLabel}
+    {graph0 graph : Graph}
+    (h0 : measuredGraph P inp o lines = .ok graph0)
+    (h : exactGraph P exactIds inp o measured graph0 = .ok graph)
+    {comp : List Nat} (hcomp : comp ∈ components graph)
+    {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
+    {orderOptions : OrderOptions}
+    (hrun : componentRunX P (exactDecls exactIds inp)
+      (componentCandidate graph comp candidate) labels orderOptions = .ok run) :
+    OrderImpl.BordersWellFormed run.coordinateProper := by
+  obtain ⟨_, labeled, _, hc, _, hready, _, _, _⟩ := X_cg_run_bundle h0 h hcomp hrun
+  rw [← hc]
+  unfold coordinateGraphX
+  apply materializeDummyPaths_bordersWellFormed
+  apply clearProxyExtents_bordersWellFormed
+  exact OrderImpl.addClusterBorders_bordersWellFormed _ _ hready
+
+/-- Exact anchor paths: every side marker carries its title path; every title
+path ends in its own declaration (replay of `foreignBorderAnchorPaths` via
+the exact bundle). -/
+private theorem xbf_anchorPaths {exactIds : List String}
+    {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {measured : List MeasuredLabel}
+    {graph0 graph : Graph}
+    (h0 : measuredGraph P inp o lines = .ok graph0)
+    (h : exactGraph P exactIds inp o measured graph0 = .ok graph)
+    {comp : List Nat} (hcomp : comp ∈ components graph)
+    {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
+    {orderOptions : OrderOptions}
+    (hrun : componentRunX P (exactDecls exactIds inp)
+      (componentCandidate graph comp candidate) labels orderOptions = .ok run)
+    {u w : Nat} {uNode wNode : Node}
+    (hu : (componentCandidate graph comp candidate).nodes[u]? = some uNode)
+    (hw : (componentCandidate graph comp candidate).nodes[w]? = some wNode)
+    (hbU : uNode.border = -2) (hbW : wNode.border = -2)
+    (_hne : uNode.decl ≠ wNode.decl) :
+    (uNode.clusterPath.getLast? = some uNode.decl) ∧
+    (wNode.clusterPath.getLast? = some wNode.decl) ∧
+    ∀ {a : Nat} {na : ProperNode},
+    run.coordinateProper.nodes[a]? = some na →
+    (na.node.border = -1 ∨ na.node.border = 1) →
+    (na.node.clusterPath.getLast? = some uNode.decl →
+      na.node.clusterPath = uNode.clusterPath) ∧
+    (na.node.clusterPath.getLast? = some wNode.decl →
+      na.node.clusterPath = wNode.clusterPath) := by
+  obtain ⟨boxU, hboxU, hpathU⟩ := X_cg_group_box h0 h hu hbU
+  obtain ⟨boxW, hboxW, hpathW⟩ := X_cg_group_box h0 h hw hbW
+  have hlastU : uNode.clusterPath.getLast? = some uNode.decl := by
+    rw [hpathU, List.getLast?_append]; simp
+  have hlastW : wNode.clusterPath.getLast? = some wNode.decl := by
+    rw [hpathW, List.getLast?_append]; simp
+  refine ⟨hlastU, hlastW, fun {a na} hna hside => ?_⟩
+  obtain ⟨_, labeled, _, hcoord, hk, hready, _, _, _⟩ :=
+    X_cg_run_bundle h0 h hcomp hrun
+  rw [← hcoord] at hna
+  obtain ⟨_, m, hmem, hmB, hpath⟩ :=
+    xbf_anchor_side_path rfl hready hna hside
+  obtain ⟨mindex, hmindex⟩ := List.mem_iff_getElem?.mp hmem
+  rcases X_titled_node_origin hk hmindex with
+    ⟨orig, horig, _, hbb, hpp⟩ | ⟨_, hb3⟩
+  · have horigB : orig.node.border = -2 := by rw [← hbb]; exact hmB
+    rcases hk mindex orig horig with
+      ⟨bn, hbn, _, hbnb, hnp⟩ | ⟨_, hb0, _⟩
+    · have hbnB : bn.border = -2 := by rw [← hbnb]; exact horigB
+      obtain ⟨boxG, hboxG, hpathG⟩ := X_cg_group_box h0 h hbn hbnB
+      have hlastG : bn.clusterPath.getLast? = some bn.decl := by
+        rw [hpathG, List.getLast?_append]; simp
+      have hnaLast : na.node.clusterPath.getLast? = some bn.decl := by
+        rw [hpath, hpp, hnp]; exact hlastG
+      constructor
+      · intro ho
+        have hdeclEq : bn.decl = uNode.decl :=
+          Option.some.inj (hnaLast.symm.trans ho)
+        rw [hdeclEq] at hboxG
+        have hboxEq : boxG = boxU := Option.some.inj (hboxG.symm.trans hboxU)
+        rw [hpath, hpp, hnp, hpathG, hdeclEq, hboxEq, hpathU]
+      · intro ho
+        have hdeclEq : bn.decl = wNode.decl :=
+          Option.some.inj (hnaLast.symm.trans ho)
+        rw [hdeclEq] at hboxG
+        have hboxEq : boxG = boxW := Option.some.inj (hboxG.symm.trans hboxW)
+        rw [hpath, hpp, hnp, hpathG, hdeclEq, hboxEq, hpathW]
+    · rw [hb0] at horigB; omega
+  · rw [hb3] at hmB; omega
+
+/-- Layer membership and disjointness behind the exact order fact: markers of
+each declaration lie in their title-prefix filter, and the two filters are
+disjoint by prefix comparability against the unrelatedness hypotheses
+(replay of the middle block of `foreignBorderLayerOrder`). -/
+private theorem xbf_layer_mem_disjoint {run : Run} {uNode wNode : Node}
+    {layer : List Nat}
+    (hwf : OrderImpl.BordersWellFormed run.coordinateProper)
+    (hUlast : uNode.clusterPath.getLast? = some uNode.decl)
+    (hWlast : wNode.clusterPath.getLast? = some wNode.decl)
+    (hpeq : ∀ {a : Nat} {na : ProperNode},
+      run.coordinateProper.nodes[a]? = some na →
+      (na.node.border = -1 ∨ na.node.border = 1) →
+      (na.node.clusterPath.getLast? = some uNode.decl →
+        na.node.clusterPath = uNode.clusterPath) ∧
+      (na.node.clusterPath.getLast? = some wNode.decl →
+        na.node.clusterPath = wNode.clusterPath))
+    (hpathW : wNode.clusterPath.contains uNode.decl = false)
+    (hpathU : uNode.clusterPath.contains wNode.decl = false) :
+    (∀ (x : Nat), x ∈ layer →
+      (∃ na, run.coordinateProper.nodes[x]? = some na ∧
+        (na.node.border = -1 ∨ na.node.border = 1) ∧
+        na.node.clusterPath.getLast? = some uNode.decl) →
+      x ∈ layer.filter
+        (fun v => uNode.clusterPath.isPrefixOf (OrderImpl.nodePath run.coordinateProper v))) ∧
+    (∀ (x : Nat), x ∈ layer →
+      (∃ na, run.coordinateProper.nodes[x]? = some na ∧
+        (na.node.border = -1 ∨ na.node.border = 1) ∧
+        na.node.clusterPath.getLast? = some wNode.decl) →
+      x ∈ layer.filter
+        (fun v => wNode.clusterPath.isPrefixOf (OrderImpl.nodePath run.coordinateProper v))) ∧
+    (∀ x, x ∈ layer.filter
+        (fun v => uNode.clusterPath.isPrefixOf (OrderImpl.nodePath run.coordinateProper v)) →
+      x ∈ layer.filter
+        (fun v => wNode.clusterPath.isPrefixOf (OrderImpl.nodePath run.coordinateProper v)) →
+      False) := by
+  have hnp : ∀ (x : Nat) (nx : ProperNode), run.coordinateProper.nodes[x]? = some nx →
+      (nx.node.border = -1 ∨ nx.node.border = 1) →
+      OrderImpl.nodePath run.coordinateProper x = nx.node.clusterPath := by
+    intro x nx hx hxb
+    obtain ⟨na, hna, hda, _⟩ := OrderImpl.border_node hwf (by
+      have hxb' : (run.coordinateProper.nodes.getD x default).node.border = -1 ∨
+          (run.coordinateProper.nodes.getD x default).node.border = 1 := by
+        rw [show run.coordinateProper.nodes.getD x default = nx from by
+          simp [List.getD_eq_getElem?_getD, hx]]
+        exact hxb
+      exact hxb')
+    rw [OrderImpl.nodePath_of_nondummy hna hda]
+    have h1 : nx = na := Option.some.inj (hx.symm.trans hna)
+    rw [h1]
+  have hmemU : ∀ (x : Nat), x ∈ layer →
+      (∃ na, run.coordinateProper.nodes[x]? = some na ∧
+        (na.node.border = -1 ∨ na.node.border = 1) ∧
+        na.node.clusterPath.getLast? = some uNode.decl) →
+      x ∈ layer.filter
+        (fun v => uNode.clusterPath.isPrefixOf (OrderImpl.nodePath run.coordinateProper v)) := by
+    intro x hx h
+    obtain ⟨na, hna, hb, ho⟩ := h
+    rw [List.mem_filter]
+    refine ⟨hx, ?_⟩
+    have hnpU := hnp x na hna hb
+    have heqU := (hpeq hna hb).1 ho
+    rw [hnpU, heqU]
+    exact List.isPrefixOf_iff_prefix.mpr List.prefix_rfl
+  have hmemW : ∀ (x : Nat), x ∈ layer →
+      (∃ na, run.coordinateProper.nodes[x]? = some na ∧
+        (na.node.border = -1 ∨ na.node.border = 1) ∧
+        na.node.clusterPath.getLast? = some wNode.decl) →
+      x ∈ layer.filter
+        (fun v => wNode.clusterPath.isPrefixOf (OrderImpl.nodePath run.coordinateProper v)) := by
+    intro x hx h
+    obtain ⟨na, hna, hb, ho⟩ := h
+    rw [List.mem_filter]
+    refine ⟨hx, ?_⟩
+    have hnpW := hnp x na hna hb
+    have heqW := (hpeq hna hb).2 ho
+    rw [hnpW, heqW]
+    exact List.isPrefixOf_iff_prefix.mpr List.prefix_rfl
+  have hdisj : ∀ x, x ∈ layer.filter
+        (fun v => uNode.clusterPath.isPrefixOf (OrderImpl.nodePath run.coordinateProper v)) →
+      x ∈ layer.filter
+        (fun v => wNode.clusterPath.isPrefixOf (OrderImpl.nodePath run.coordinateProper v)) →
+      False := by
+    intro x hxU hxW
+    rw [List.mem_filter] at hxU hxW
+    obtain ⟨-, hpreU⟩ := hxU
+    obtain ⟨-, hpreW⟩ := hxW
+    rcases prefix_total (List.isPrefixOf_iff_prefix.mp hpreU)
+      (List.isPrefixOf_iff_prefix.mp hpreW) with hUW | hWU
+    · have hcon : wNode.clusterPath.contains uNode.decl = true :=
+        prefix_last_mem_contains (List.isPrefixOf_iff_prefix.mpr hUW) hUlast
+      rw [hpathW] at hcon
+      exact absurd hcon (by decide)
+    · have hcon : uNode.clusterPath.contains wNode.decl = true :=
+        prefix_last_mem_contains (List.isPrefixOf_iff_prefix.mpr hWU) hWlast
+      rw [hpathU] at hcon
+      exact absurd hcon (by decide)
+  exact ⟨hmemU, hmemW, hdisj⟩
+
+/-- The exact cluster-separation-input fact: on every layer, the border
+markers of two unrelated group declarations form disjoint blocks (replay of
+`foreignBorderLayerOrder` over `componentRunX_spec` with `xbf_anchorPaths`). -/
+theorem XB_foreignBorderLayerOrder_holds (exactIds : List String) :
+    XB_ForeignBorderLayerOrder exactIds := by
+  intro P inp o lines measured graph0 graph hg0 hgX comp hcomp candidate run labels
+    orderOptions hrun u w uNode wNode hu hw hbU hbW hne hpathW hpathU layer hlayer
+  obtain ⟨_, _, _, _, _, _, _, ⟨ord, horder, hlayers⟩, _, _, _, _, _, _⟩ :=
+    componentRunX_spec hrun
+  have hwf := xbf_bordersWellFormed hg0 hgX hcomp hrun
+  have horder' : OrderImpl.order run.coordinateProper orderOptions = .ok run.layers := by
+    unfold OrderImpl.order
+    rw [horder]
+    dsimp only
+    rw [hlayers]
+  obtain ⟨hUlast, hWlast, hpeq⟩ := xbf_anchorPaths hg0 hgX hcomp hrun hu hw hbU hbW hne
+  obtain ⟨hmemU, hmemW, hdisj⟩ :=
+    xbf_layer_mem_disjoint hwf hUlast hWlast hpeq hpathW hpathU
+  obtain ⟨k, hk, hkl⟩ := List.mem_iff_getElem.mp hlayer
+  have hk2 : k < ord.layers.length := by rw [hlayers]; exact hk
+  have hndlayer : layer.Nodup := by
+    have h := OrderImpl.layer_nodup
+      (OrderImpl.orderWithBudget_spec run.coordinateProper orderOptions ord horder).1 hk2
+    rw [hlayers, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hk, hkl,
+      Option.getD_some] at h
+    exact h
+  have hBUinfix := OrderImpl.order_clusters_contiguous run.coordinateProper
+    orderOptions run.layers horder' layer hlayer uNode.clusterPath
+  have hBWinfix := OrderImpl.order_clusters_contiguous run.coordinateProper
+    orderOptions run.layers horder' layer hlayer wNode.clusterPath
+  rcases infix_disjoint_ordered hndlayer hBUinfix hBWinfix hdisj with hUfirst | hWfirst
+  · exact Or.inl (fun i j a b na nb hi hj hna hnb hbA hoA hbB hoB =>
+      hUfirst a (hmemU a (List.mem_of_getElem? hi) ⟨na, hna, hbA, hoA⟩)
+        b (hmemW b (List.mem_of_getElem? hj) ⟨nb, hnb, hbB, hoB⟩) i j hi hj)
+  · exact Or.inr (fun i j a b na nb hi hj hna hnb hbA hoA hbB hoB =>
+      hWfirst a (hmemU a (List.mem_of_getElem? hi) ⟨na, hna, hbA, hoA⟩)
+        b (hmemW b (List.mem_of_getElem? hj) ⟨nb, hnb, hbB, hoB⟩) i j hi hj)
+
+/-- Exact side record: a side marker of the exact bordered graph is already a
+coordinate node (copy of the private `XSc8a_side_record` in
+`ExactC8aSpansProof`). -/
+private theorem xbf_side_record {P : Params} {exact : List Nat} {source : Proper}
+    {index : Nat} {node : ProperNode}
+    (hnode : (OrderImpl.addClusterBorders
+      (titleReservations (sizeProperPortsX P exact source)) P.clusterBorderW).nodes[index]? =
+        some node)
+    (hdummy : node.dummy = false)
+    (hborder : node.node.border = -1 ∨ node.node.border = 1) :
+    (coordinateGraphX P exact source).nodes[index]? = some node := by
+  have hnotProxy :
+      (node.node.border == -2 || node.node.border == 2) = false := by
+    rcases hborder with h | h <;> rw [h] <;> decide
+  have hclear : (clearProxyExtents (OrderImpl.addClusterBorders
+      (titleReservations (sizeProperPortsX P exact source)) P.clusterBorderW)).nodes[index]? =
+        some node := by
+    simp only [clearProxyExtents, List.getElem?_map, hnode, Option.map_some]
+    simp only [hnotProxy, Bool.false_eq_true, ↓reduceIte]
+  unfold coordinateGraphX materializeDummyPaths
+  simp only [List.getElem?_map, List.getElem?_zipIdx, hclear, Option.map_some,
+    Nat.zero_add, hdummy, Bool.false_eq_true, ↓reduceIte]
+
+/-- Exact rank pair: a bracketed rank carries the declaration's marker pair
+(copy of the private `XSc8a_rank_pair` in `ExactC8aSpansProof`). -/
+private theorem xbf_rank_pair (P : Params) (exact : List Nat) (source : Proper)
+    (haligned : (titleReservations (sizeProperPortsX P exact source)).nodes.length =
+      (titleReservations (sizeProperPortsX P exact source)).rank.length)
+    {top bottom : ProperNode × Nat}
+    (htop : top ∈ (titleReservations (sizeProperPortsX P exact source)).nodes.zipIdx)
+    (hborder : top.1.node.border = -2)
+    (hbottom : ((titleReservations (sizeProperPortsX P exact source)).nodes.zipIdx.find?
+      fun entry => entry.1.node.border == 2 &&
+        entry.1.node.clusterPath == top.1.node.clusterPath) = some bottom)
+    {rank : Nat}
+    (hlo : (rk (titleReservations (sizeProperPortsX P exact source)).rank top.2).toNat ≤ rank)
+    (hhi : rank ≤ (rk (titleReservations (sizeProperPortsX P exact source)).rank bottom.2).toNat) :
+    ∃ left right : Nat,
+      (coordinateGraphX P exact source).nodes[left]? =
+        some ⟨{ decl := top.1.node.decl
+                w := P.clusterBorderW
+                h := 0
+                clusterPath := top.1.node.clusterPath
+                border := -1 }, false, none, false⟩ ∧
+      (coordinateGraphX P exact source).nodes[right]? =
+        some ⟨{ decl := top.1.node.decl
+                w := P.clusterBorderW
+                h := 0
+                clusterPath := top.1.node.clusterPath
+                border := 1
+                loopExtent := top.1.node.loopExtent }, false, none, false⟩ ∧
+      (coordinateGraphX P exact source).rank[left]? = some (rank : Int) ∧
+      (coordinateGraphX P exact source).rank[right]? = some (rank : Int) := by
+  obtain ⟨left, right, hl, hr, hrl, hrr⟩ :=
+    addClusterBorders_rank_pair (titleReservations (sizeProperPortsX P exact source))
+      P.clusterBorderW haligned htop hborder hbottom hlo hhi
+  refine ⟨left, right, xbf_side_record hl rfl (Or.inl rfl),
+    xbf_side_record hr rfl (Or.inr rfl), ?_, ?_⟩
+  · exact hrl
+  · exact hrr
+
+/-- Exact rank-pair-anchor residual: for two executed group declarations, the
+titled exact graph carries a top anchor and a path-matched bottom anchor per
+declaration (mirror of `ForeignRankPairAnchors` over the exact pipeline and
+`componentRunX`; the single residual behind `XB_ForeignClusterRankSpans`).
+Strictly narrower than the rank-span target: anchors only, no member
+intervals and no per-rank marker pairs. Probe `ExactC8aSpansTProbe` evaluates
+anchor existence plus the run equation on executed runs (`G`: 81 checks,
+0 violations over siblings, nested, self-loop, empty-group, zero-size, and
+nested-only inputs; the ill-formed input is rejected at prep). -/
+def XB_ForeignRankPairAnchors (exactIds : List String) : Prop :=
+  ∀ {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {measured : List MeasuredLabel}
+    {graph0 graph : Graph},
+    measuredGraph P inp o lines = .ok graph0 →
+    exactGraph P exactIds inp o measured graph0 = .ok graph →
+    ∀ {comp : List Nat}, comp ∈ components graph →
+    ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
+      {orderOptions : OrderOptions},
+    componentRunX P (exactDecls exactIds inp) (componentCandidate graph comp candidate) labels
+      orderOptions = .ok run →
+    ∀ {u w : Nat} {uNode wNode : Node},
+    (componentCandidate graph comp candidate).nodes[u]? = some uNode →
+    (componentCandidate graph comp candidate).nodes[w]? = some wNode →
+    uNode.border = -2 → wNode.border = -2 → uNode.decl ≠ wNode.decl →
+    ∃ (labeled : Proper) (rr : RankImpl.RankResult),
+      coordinateGraphX P (exactDecls exactIds inp) labeled = run.coordinateProper ∧
+      labeled.nodes.length = labeled.rank.length ∧
+      NodeKeys (componentCandidate graph comp candidate) labeled ∧
+      rankWithBudget (Compound.rankingGraph (componentCandidate graph comp candidate)) =
+        .ok rr ∧
+      (∀ (index : Nat) (rank : Int), rr.ranks[index]? = some rank →
+        labeled.rank[index]? = some rank) ∧
+      (∀ (index : Nat) (node : Node),
+        (componentCandidate graph comp candidate).nodes[index]? = some node →
+          labeled.nodes[index]? = some ⟨node, false, none, false⟩) ∧
+      (titleReservations (sizeProperPortsX P (exactDecls exactIds inp) labeled)).nodes.length =
+        (titleReservations (sizeProperPortsX P (exactDecls exactIds inp) labeled)).rank.length ∧
+      ∃ (topU botU : ProperNode × Nat),
+        topU ∈ (titleReservations (sizeProperPortsX P (exactDecls exactIds inp) labeled)).nodes.zipIdx ∧
+        topU.1.node.border = -2 ∧
+        topU.1.node.clusterPath.getLast? = some uNode.decl ∧
+        ((titleReservations (sizeProperPortsX P (exactDecls exactIds inp) labeled)).nodes.zipIdx.find? (fun entry =>
+          entry.1.node.border == 2 &&
+            entry.1.node.clusterPath == topU.1.node.clusterPath) = some botU) ∧
+      ∃ (topW botW : ProperNode × Nat),
+        topW ∈ (titleReservations (sizeProperPortsX P (exactDecls exactIds inp) labeled)).nodes.zipIdx ∧
+        topW.1.node.border = -2 ∧
+        topW.1.node.clusterPath.getLast? = some wNode.decl ∧
+        ((titleReservations (sizeProperPortsX P (exactDecls exactIds inp) labeled)).nodes.zipIdx.find? (fun entry =>
+          entry.1.node.border == 2 &&
+            entry.1.node.clusterPath == topW.1.node.clusterPath) = some botW)
+
+/-- Per-rank marker cover for one declaration from its titled anchors
+(replay of the `hpairU`/`hpairW` blocks of `foreignClusterRankSpans`). -/
+private theorem xbf_pair_cover {P : Params} {exact : List Nat} {labeled : Proper}
+    {run : Run} {decl : Nat} {top bot : ProperNode × Nat}
+    (hcoord : coordinateGraphX P exact labeled = run.coordinateProper)
+    (hlenEq : (titleReservations (sizeProperPortsX P exact labeled)).nodes.length =
+      (titleReservations (sizeProperPortsX P exact labeled)).rank.length)
+    (htop : top ∈ (titleReservations (sizeProperPortsX P exact labeled)).nodes.zipIdx)
+    (hbtop : top.1.node.border = -2)
+    (hlast : top.1.node.clusterPath.getLast? = some decl)
+    (hbot : ((titleReservations (sizeProperPortsX P exact labeled)).nodes.zipIdx.find?
+      fun entry => entry.1.node.border == 2 &&
+        entry.1.node.clusterPath == top.1.node.clusterPath) = some bot) :
+    ∀ (rank : Nat),
+      (rk (titleReservations (sizeProperPortsX P exact labeled)).rank top.2).toNat ≤ rank →
+      rank ≤ (rk (titleReservations (sizeProperPortsX P exact labeled)).rank bot.2).toNat →
+      ∃ (mL mR : Nat) (nL nR : ProperNode),
+        run.coordinateProper.nodes[mL]? = some nL ∧
+        nL.node.border = -1 ∧ nL.node.clusterPath.getLast? = some decl ∧
+        rk run.coordinateProper.rank mL = (rank : Int) ∧
+        run.coordinateProper.nodes[mR]? = some nR ∧
+        nR.node.border = 1 ∧ nR.node.clusterPath.getLast? = some decl ∧
+        rk run.coordinateProper.rank mR = (rank : Int) := by
+  intro rank hlo hhi
+  obtain ⟨lU, rU, hLU, hRU, hrlU, hrrU⟩ :=
+    xbf_rank_pair P exact labeled hlenEq htop hbtop hbot hlo hhi
+  rw [hcoord] at hLU hRU hrlU hrrU
+  have hrkLU : rk run.coordinateProper.rank lU = (rank : Int) := by
+    simp only [rk, List.getD_eq_getElem?_getD, hrlU, Option.getD_some]
+  have hrkRU : rk run.coordinateProper.rank rU = (rank : Int) := by
+    simp only [rk, List.getD_eq_getElem?_getD, hrrU, Option.getD_some]
+  exact ⟨lU, rU, _, _, hLU, rfl, hlast, hrkLU, hRU, rfl, hlast, hrkRU⟩
+
+/-- The exact rank-assignment fact from its anchor residual: the titled
+top/bottom anchors feed the per-rank marker pairs (`xbf_pair_cover`), while
+the member-rank intervals come from the closed exact member bounds
+(`XSc8a_memberBounds_holds`), mirroring `foreignClusterRankSpans`. -/
+theorem XB_foreignClusterRankSpans_holds (exactIds : List String)
+    (hanch : XB_ForeignRankPairAnchors exactIds) :
+    XB_ForeignClusterRankSpans exactIds := by
+  intro P inp o lines measured graph0 graph hg0 hgX hlines hwf hfp comp hcomp
+    candidate run labels orderOptions hrun u w uNode wNode hu hw hbU hbW hne
+  obtain ⟨labeled, rr, hcoord, halignedL, hkeys, hrr, hranks, hrecords, hlenEq,
+    topU, botU, htopU, hbUtop, hlastU, hbotU, topW, botW, htopW, hbWtop, hlastW,
+    hbotW⟩ := hanch hg0 hgX hcomp hrun hu hw hbU hbW hne
+  obtain ⟨hordU, hordW, hmemU, hmemW⟩ :=
+    XSc8a_memberBounds_holds exactIds hg0 hgX hlines hwf hfp hcomp hrun hu hw
+      hbU hbW hne hcoord halignedL hkeys hrr hranks hrecords htopU hbUtop
+      hlastU hbotU htopW hbWtop hlastW hbotW
+  have hpairU := xbf_pair_cover (decl := uNode.decl) hcoord hlenEq htopU hbUtop
+    hlastU hbotU
+  have hpairW := xbf_pair_cover (decl := wNode.decl) hcoord hlenEq htopW hbWtop
+    hlastW hbotW
+  refine ⟨_, _, _, _, hordU, hordW, hmemU, hmemW, ?_, ?_⟩
+  · intro r hrU hrW
+    have h0r : 0 ≤ r := by omega
+    have hrcast : ((r.toNat : Nat) : Int) = r := Int.toNat_of_nonneg h0r
+    have hlo : (rk (titleReservations
+        (sizeProperPortsX P (exactDecls exactIds inp) labeled)).rank topU.2).toNat ≤
+        r.toNat := by omega
+    have hhi : r.toNat ≤
+        (rk (titleReservations
+          (sizeProperPortsX P (exactDecls exactIds inp) labeled)).rank botU.2).toNat := by
+      omega
+    obtain ⟨mL, mR, nL, nR, hL, hbL, hoL, hrL, hR, hbR, hoR, hrR⟩ :=
+      hpairU r.toNat hlo hhi
+    refine ⟨mL, mR, nL, nR, hL, hbL, hoL, ?_, hR, hbR, hoR, ?_⟩
+    · rw [← hrcast]; exact hrL
+    · rw [← hrcast]; exact hrR
+  · intro r hrU hrW
+    have h0r : 0 ≤ r := by omega
+    have hrcast : ((r.toNat : Nat) : Int) = r := Int.toNat_of_nonneg h0r
+    have hlo : (rk (titleReservations
+        (sizeProperPortsX P (exactDecls exactIds inp) labeled)).rank topW.2).toNat ≤
+        r.toNat := by omega
+    have hhi : r.toNat ≤
+        (rk (titleReservations
+          (sizeProperPortsX P (exactDecls exactIds inp) labeled)).rank botW.2).toNat := by
+      omega
+    obtain ⟨mL, mR, nL, nR, hL, hbL, hoL, hrL, hR, hbR, hoR, hrR⟩ :=
+      hpairW r.toNat hlo hhi
+    refine ⟨mL, mR, nL, nR, hL, hbL, hoL, ?_, hR, hbR, hoR, ?_⟩
+    · rw [← hrcast]; exact hrL
+    · rw [← hrcast]; exact hrR
 end Elegant.Layered.PipelineImpl
