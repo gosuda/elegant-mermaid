@@ -1611,3 +1611,5 @@ Elegant.Layered.PipelineImpl.expandChild_frame_step
 Elegant.Layered.PipelineImpl.layoutRecursive_frame_clear
 Elegant.Layered.PipelineImpl.expandChild_frame_scope_outside
 Elegant.Layered.PipelineImpl.expandChild_parentRouteFrameClear
+Elegant.Layered.LaneBands.buildPin_boxDelta
+Elegant.Layered.LaneBands.buildPin_route_find
