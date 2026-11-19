@@ -661,3 +661,10 @@ import Elegant.Layered.DivergeSweepStepProof
 import Elegant.Layered.NotesRouterInvariantProof
 import Elegant.Layered.ExpandChildParentRouteAttachedCtxProof
 import Elegant.Layered.ExactStepLeafFactsProof
+import Elegant.Layered.ExactSideMarkerFactsProof
+import Elegant.Layered.ExactCaptionTitleBranchProof
+import Elegant.Kinds.SwimlaneValidSeams
+import Elegant.Layered.ExactForeignRankPairAnchorsProof
+import Elegant.Layered.ExactForwardScopeFreeProof
+import Elegant.Layered.ExactRunPathGroupsProof
+import Elegant.Layered.ExpandChildParentFrameCaptionCtxProof
