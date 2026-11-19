@@ -507,3 +507,13 @@ import Elegant.Layered.DivergeHeadsSeparatedProof
 import Elegant.Layered.ExpandChildParentFrameStrictProof
 import Elegant.Layered.ExactForeignNonGroupSpansProof
 import Elegant.Layered.ExactPackedTransportResidualsProof
+import Elegant.Layered.ExactStepShortFacts
+import Elegant.Layered.ExactForeignBorderSpansProof
+import Elegant.Layered.LaneEndsRouteClauses
+import Elegant.Layered.ExactCaptionFallbackProof
+import Elegant.Layered.ExactRouteRunClearProof
+import Elegant.Layered.ExactC8aSpansProof
+import Elegant.Kinds.UsecaseDrawShapesProof
+import Elegant.Layered.LoopExtentReservationProof
+import Elegant.Layered.LoopHullCoverProof
+import Elegant.Layered.ExactLoopEnvelopeSeparationProof
