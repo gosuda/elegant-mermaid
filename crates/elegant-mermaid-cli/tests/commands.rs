@@ -452,6 +452,28 @@ fn transport_survives_early_argument_rejection() -> TestResult {
 }
 
 #[test]
+fn transport_reports_truncated_input_on_success() -> TestResult {
+    // `--version` exits zero without reading stdin, so a payload larger
+    // than the pipe buffer must surface the broken pipe: the input was
+    // silently truncated and the success verdict is not trustworthy.
+    let payload = vec![b'x'; 1 << 17];
+    let mut cmd = Command::new(binary());
+    cmd.args(["--version"])
+        .env_remove("NO_COLOR")
+        .env_remove("FORCE_COLOR")
+        .env_remove("CLICOLOR_FORCE")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let result = common::run_with_stdin(cmd, &payload);
+    assert!(
+        matches!(&result, Err(err) if err.kind() == std::io::ErrorKind::BrokenPipe),
+        "transport_reports_truncated_input_on_success: required Err(BrokenPipe); observed {result:?}",
+    );
+    Ok(())
+}
+
+#[test]
 fn binary_colour_terminal_cli_36() -> TestResult {
     let path = std::env::temp_dir().join(format!("emd-terminal-{}.mmd", std::process::id()));
     std::fs::write(&path, "flowchart LR\n A\n")?;
