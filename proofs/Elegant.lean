@@ -488,3 +488,4 @@ import Elegant.Layered.LoopRectResidualsProof
 import Elegant.Layered.ExactFlatC5Closed
 import Elegant.Layered.LaneEnds
 import Elegant.Layered.LoopFootprintGroupHullProof
+import Elegant.Layered.ExecutedPartFrameCoresClosed

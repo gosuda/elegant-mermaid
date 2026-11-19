@@ -2173,3 +2173,4 @@ Elegant.Layered.PipelineImpl.walkIdx_ne
 Elegant.Layered.PipelineImpl.walkParentNe
 Elegant.Layered.PipelineImpl.walkStrictFrom
 Elegant.Layered.PipelineImpl.walkStrictFromAux
+Elegant.Layered.PipelineImpl.executedPartFrameCores_closed
