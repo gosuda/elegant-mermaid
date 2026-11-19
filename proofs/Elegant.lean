@@ -364,3 +364,6 @@ import Elegant.Layered.RunStagePathFacts
 import Elegant.Layered.RunStageNodeFacts
 import Elegant.Layered.PartCaptionRunClearProof
 import Elegant.Kinds.UsecaseValidExact
+import Elegant.Layered.InputFixedFit
+import Elegant.Layered.LoopFootprintFactsProof
+import Elegant.Layered.BoxRouteIdsDisjoint

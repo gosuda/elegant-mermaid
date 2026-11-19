@@ -1514,3 +1514,15 @@ Elegant.Layered.PipelineImpl.captionRunClear
 Elegant.Layered.PipelineImpl.captionSelfTop
 Elegant.Kinds.Usecase.exactBaseSeams
 Elegant.Kinds.Usecase.usecase_family_valid_of_exactSeams
+Elegant.Layered.PipelineImpl.loopReservation_executed
+Elegant.Layered.PipelineImpl.loopFootprintSeparation_executed
+Elegant.Layered.PipelineImpl.BoxRouteIdsDisjoint.childSubInput
+Elegant.Layered.PipelineImpl.BoxRouteIdsDisjoint.parentSubInput
+Elegant.Layered.PipelineImpl.expandChild_c7_label_scopes_of_disjoint
+Elegant.Layered.PipelineImpl.FixedSizeFit.mono
+Elegant.Layered.PipelineImpl.inputFixedFit_of_nil
+Elegant.Layered.PipelineImpl.inputFixedFit_of_fixedExclusive
+Elegant.Layered.PipelineImpl.InputFixedFit.selectInput
+Elegant.Layered.PipelineImpl.InputFixedFit.childSubInput
+Elegant.Layered.PipelineImpl.childFrameSize_fixedSizeFit
+Elegant.Layered.PipelineImpl.InputFixedFit.parentSubInput
