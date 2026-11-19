@@ -2115,3 +2115,6 @@ Elegant.Layered.LaneBands.rerouteBands_c5
 Elegant.Layered.LaneBands.restoreOrigin_c4
 Elegant.Layered.LaneBands.restoreOrigin_c5
 Elegant.Layered.PipelineImpl.x_runAttach_holds
+Elegant.Layered.PipelineImpl.X_bottomDummyRankLe
+Elegant.Layered.PipelineImpl.Xb_NestedExact_holds
+Elegant.Layered.PipelineImpl.x_bottomBoundary_holds
