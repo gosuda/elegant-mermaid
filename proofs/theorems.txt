@@ -2184,3 +2184,5 @@ Elegant.Layered.PipelineImpl.fitParent_of_top
 Elegant.Layered.PipelineImpl.fitPerCall_of_top
 Elegant.Layered.PipelineImpl.loopFootprintBeyondProper_holds
 Elegant.Layered.PipelineImpl.plainSliverResidual_holds
+Elegant.Layered.PipelineImpl.parentFixedDisjointGroup_of_parentC8a
+Elegant.Layered.PipelineImpl.parentStrictMissGroup_of_frame_attached
