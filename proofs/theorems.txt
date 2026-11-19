@@ -1659,3 +1659,10 @@ Elegant.Layered.PipelineImpl.topMemberRankLe
 Elegant.Layered.PipelineImpl.bottomMemberRankCover
 Elegant.Layered.PipelineImpl.titledBottomPin
 Elegant.Layered.PipelineImpl.titledTopPin
+Elegant.Layered.PipelineImpl.captionRunClear_executed
+Elegant.Layered.PipelineImpl.captionLocalClear_executed
+Elegant.Layered.PipelineImpl.captionSelfClear_executed
+Elegant.Layered.PipelineImpl.captionInTopBand_executed
+Elegant.Layered.PipelineImpl.captionPlainMemberClear_proved
+Elegant.Layered.PipelineImpl.captionSelfBottom_proved
+Elegant.Layered.PipelineImpl.routeLabelForeignClear_of_run

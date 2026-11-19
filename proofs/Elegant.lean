@@ -416,3 +416,5 @@ import Elegant.Layered.RunLocalLoopFootprintProof
 import Elegant.IshikawaDeeperDescEnvelopeProof
 import Elegant.Layered.ExactFlatC2
 import Elegant.Layered.RouteRunClearCases
+import Elegant.Layered.CaptionLocalClearProof
+import Elegant.Layered.RouteLabelForeignClearProof
