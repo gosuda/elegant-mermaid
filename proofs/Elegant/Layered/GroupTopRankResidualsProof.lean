@@ -536,3 +536,233 @@ private theorem cg_top_unique {P : Params} {inp : Input} {o : Options}
      rw [← hdrop, OrderImpl.dropSynthetic_rank]
      exact hrankEq
    rw [h]
+
+ /-- From `toNat` order to `Int` order under nonnegativity. -/
+ private theorem toNat_le_of_nonneg {a b : Int} (ha : 0 ≤ a) (hb : 0 ≤ b)
+     (h : a.toNat ≤ b.toNat) : a ≤ b := by
+   have h1 : (a.toNat : Int) = a := Int.toNat_of_nonneg ha
+   have h2 : (b.toNat : Int) = b := Int.toNat_of_nonneg hb
+   have h3 : (a.toNat : Int) ≤ (b.toNat : Int) := by exact_mod_cast h
+   omega
+
+ /-- Side markers sit at or above their group top: the side rank interval
+ (`coordinateGraph_side_rank_bounds`) puts the titled top rank below the side
+ rank, and the titled top is an original top bounded by `groupTopSubtreeRankCg`. -/
+ private theorem side_marker_rank_ge (hcg : GroupTopSubtreeRankCg)
+     {P : Params} {inp : Input} {o : Options} {lines : List (List Measure.Line)}
+     {graph : Graph}
+     (hgraph : measuredGraph P inp o lines = .ok graph)
+     (hlines : lines.length = inp.boxes.length)
+     (hwf : WellFormed (inputModel inp o))
+     (hfp : framedParents inp = true)
+     {comp : List Nat} (hcomp : comp ∈ components graph)
+     {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+     (hrun : componentRun P (componentCandidate graph comp candidate) labels
+       orderOptions = .ok run)
+     {v : Nat} {nd : Node}
+     (hvGet : (componentCandidate graph comp candidate).nodes[v]? = some nd)
+     (hbordV : nd.border = -2)
+     (hvcg : v < (componentCandidate graph comp candidate).nodes.length)
+     {i : Nat} (hi : i < run.proper.nodes.length)
+     (hcontains : (run.proper.nodes.getD i default).node.clusterPath.contains nd.decl = true)
+     (hside : (run.proper.nodes.getD i default).node.border = -1 ∨
+       (run.proper.nodes.getD i default).node.border = 1) :
+     rk run.proper.rank v ≤ rk run.proper.rank i := by
+   have erv : rk run.proper.rank v = rk run.coordinateProper.rank v := proper_rank_eq hrun v
+   have eri : rk run.proper.rank i = rk run.coordinateProper.rank i := proper_rank_eq hrun i
+   rw [erv, eri]
+   obtain ⟨rr, labeled, hrr, hc, hk, hready, hrecords, hranks⟩ :=
+     componentRun_prepared_titled_source hgraph hcomp hrun
+   have hpi : run.proper.nodes[i]? = some (run.proper.nodes.getD i default) := by
+     simp [List.getD_eq_getElem?_getD, hi]
+   obtain ⟨cn, hcn, _, hcbord, hcpath⟩ := proper_coord_record hrun hpi
+   have hsideC : cn.node.border = -1 ∨ cn.node.border = 1 := by
+     rw [hcbord]; exact hside
+   have hncL : (coordinateGraph P labeled).nodes[i]? = some cn := by
+     rwa [← hc] at hcn
+   obtain ⟨top, htopMem, _, hfindB, hpathEq, hnn, hlo, _⟩ :=
+     coordinateGraph_side_rank_bounds hready hncL hsideC
+   have htopGet : (titleReservations (sizeProperPorts P labeled)).nodes[top.2]? =
+       some top.1 :=
+     List.mem_zipIdx_iff_getElem?.mp (List.mem_filter.mp htopMem).1
+   have htopBorder : top.1.node.border = -2 := by
+     simpa using (List.mem_filter.mp htopMem).2
+   obtain ⟨topOrig, htopCg, htopBorderEq, htopRecord⟩ :=
+     titled_marker_source_record hk hrecords htopGet (Or.inl htopBorder)
+   have htopPath : top.1.node.clusterPath = topOrig.clusterPath := by
+     rw [htopRecord]; exact (titleF_keys _).2.2.1
+   have hcnContains : cn.node.clusterPath.contains nd.decl = true := by
+     rw [hcpath]; exact hcontains
+   have htopContains : top.1.node.clusterPath.contains nd.decl = true := by
+     rw [← hpathEq]; exact hcnContains
+   have htopOrigContains : topOrig.clusterPath.contains nd.decl = true := by
+     rw [← htopPath]; exact htopContains
+   have hlt : top.2 < (componentCandidate graph comp candidate).nodes.length :=
+     (List.getElem?_eq_some_iff.mp htopCg).1
+   have hgetDTop : (componentCandidate graph comp candidate).nodes.getD top.2 default =
+       topOrig := by
+     rw [List.getD_eq_getElem?_getD, htopCg, Option.getD_some]
+   have hgetDContains : ((componentCandidate graph comp candidate).nodes.getD top.2
+       default).clusterPath.contains nd.decl = true := by
+     rw [hgetDTop]; exact htopOrigContains
+   obtain ⟨rr2, hrr2, hclose⟩ := hcg hgraph hlines hwf hfp hcomp hrun hvGet hbordV
+   have hrrEq : rr = rr2 := Except.ok.inj (hrr.symm.trans hrr2)
+   subst hrrEq
+   have hle : rk rr.ranks v ≤ rk rr.ranks top.2 := hclose top.2 hlt hgetDContains
+   have hVcoord : rk run.coordinateProper.rank v = rk rr.ranks v := by
+     have h1 := prepared_coordinate_original_rk (P := P) hrr hranks hvcg
+     rw [← hc]; exact h1
+   have hTtitle : rk (titleReservations (sizeProperPorts P labeled)).rank top.2 =
+       rk rr.ranks top.2 :=
+     (prepared_titled_original_rk (P := P) hrr hranks hlt).1
+   have hBcoord : rk (coordinateGraph P labeled).rank i = rk run.coordinateProper.rank i := by
+     rw [hc]
+   have hTnn : 0 ≤ rk (titleReservations (sizeProperPorts P labeled)).rank top.2 := by
+     rw [hTtitle]; exact rankWithBudget_rk_nonneg hrr top.2
+   have hTopLe : rk (titleReservations (sizeProperPorts P labeled)).rank top.2 ≤
+       rk (coordinateGraph P labeled).rank i :=
+     toNat_le_of_nonneg hTnn hnn hlo
+   have hTopCoord : rk rr.ranks top.2 ≤ rk run.coordinateProper.rank i := by
+     rw [← hTtitle, ← hBcoord]; exact hTopLe
+   rw [hVcoord]
+   exact Int.le_trans hle hTopCoord
+
+ /-- Title copies share their anchor top rank
+ (`coordinateGraph_title_rank_source`), and the anchor is an original top
+ bounded by `groupTopSubtreeRankCg`. -/
+ private theorem title_copy_rank_ge (hcg : GroupTopSubtreeRankCg)
+     {P : Params} {inp : Input} {o : Options} {lines : List (List Measure.Line)}
+     {graph : Graph}
+     (hgraph : measuredGraph P inp o lines = .ok graph)
+     (hlines : lines.length = inp.boxes.length)
+     (hwf : WellFormed (inputModel inp o))
+     (hfp : framedParents inp = true)
+     {comp : List Nat} (hcomp : comp ∈ components graph)
+     {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+     (hrun : componentRun P (componentCandidate graph comp candidate) labels
+       orderOptions = .ok run)
+     {v : Nat} {nd : Node}
+     (hvGet : (componentCandidate graph comp candidate).nodes[v]? = some nd)
+     (hbordV : nd.border = -2)
+     (hvcg : v < (componentCandidate graph comp candidate).nodes.length)
+     {i : Nat} (hi : i < run.proper.nodes.length)
+     (hcontains : (run.proper.nodes.getD i default).node.clusterPath.contains nd.decl = true)
+     (hb3 : (run.proper.nodes.getD i default).node.border = 3) :
+     rk run.proper.rank v ≤ rk run.proper.rank i := by
+   have erv : rk run.proper.rank v = rk run.coordinateProper.rank v := proper_rank_eq hrun v
+   have eri : rk run.proper.rank i = rk run.coordinateProper.rank i := proper_rank_eq hrun i
+   rw [erv, eri]
+   obtain ⟨rr, labeled, hrr, hc, hk, hready, hrecords, hranks⟩ :=
+     componentRun_prepared_titled_source hgraph hcomp hrun
+   have hshape := componentCandidate_shape (components_nodup graph comp hcomp)
+     (measuredGraph_shape hgraph) candidate
+   have haligned : labeled.nodes.length = labeled.rank.length :=
+     source_alignment_of_titled hready.2.2.2.1
+   have hpi : run.proper.nodes[i]? = some (run.proper.nodes.getD i default) := by
+     simp [List.getD_eq_getElem?_getD, hi]
+   obtain ⟨cn, hcn, _, hcbord, hcpath⟩ := proper_coord_record hrun hpi
+   have hncL : (coordinateGraph P labeled).nodes[i]? = some cn := by
+     rwa [← hc] at hcn
+   have hb3C : cn.node.border = 3 := by
+     rw [hcbord]; exact hb3
+   obtain ⟨originalIndex, original, horiginal, hOrigBorder, hOrigReal, _, htitlePath,
+       htitleRank⟩ :=
+     coordinateGraph_title_rank_source hk hshape haligned hncL hb3C
+   have hcnContains : cn.node.clusterPath.contains nd.decl = true := by
+     rw [hcpath]; exact hcontains
+   have horigContains : original.node.clusterPath.contains nd.decl = true := by
+     rw [← htitlePath]; exact hcnContains
+   rcases hk originalIndex original horiginal with
+     ⟨n, hn, _, hborderN, hpathN⟩ | ⟨hdT, _, _⟩
+   · have hnBorder : n.border = -2 := hborderN.symm.trans hOrigBorder
+     have hncN : n.clusterPath.contains nd.decl = true := by
+       rw [← hpathN]; exact horigContains
+     have hlt : originalIndex < (componentCandidate graph comp candidate).nodes.length :=
+       (List.getElem?_eq_some_iff.mp hn).1
+     have hgetDOrig : (componentCandidate graph comp candidate).nodes.getD originalIndex
+         default = n := by
+       rw [List.getD_eq_getElem?_getD, hn, Option.getD_some]
+     have hgetDContains : ((componentCandidate graph comp candidate).nodes.getD
+         originalIndex default).clusterPath.contains nd.decl = true := by
+       rw [hgetDOrig]; exact hncN
+     obtain ⟨rr2, hrr2, hclose⟩ := hcg hgraph hlines hwf hfp hcomp hrun hvGet hbordV
+     have hrrEq : rr = rr2 := Except.ok.inj (hrr.symm.trans hrr2)
+     subst hrrEq
+     have hle : rk rr.ranks v ≤ rk rr.ranks originalIndex :=
+       hclose originalIndex hlt hgetDContains
+     have hVcoord : rk run.coordinateProper.rank v = rk rr.ranks v := by
+       have h1 := prepared_coordinate_original_rk (P := P) hrr hranks hvcg
+       rw [← hc]; exact h1
+     have hOcoord : rk run.coordinateProper.rank originalIndex = rk rr.ranks originalIndex := by
+       have h1 := prepared_coordinate_original_rk (P := P) hrr hranks hlt
+       rw [← hc]; exact h1
+     have hrankEq : rk run.coordinateProper.rank i = rk labeled.rank originalIndex := by
+       rw [← hc]; exact htitleRank
+     have hlabEq : rk labeled.rank originalIndex =
+         rk run.coordinateProper.rank originalIndex := by
+       rw [← hc]
+       have hlabLen : originalIndex < labeled.rank.length := by
+         have h1 : originalIndex < labeled.nodes.length :=
+           (List.getElem?_eq_some_iff.mp horiginal).1
+         omega
+       have hlabLook : labeled.rank[originalIndex]? = some labeled.rank[originalIndex] :=
+         List.getElem?_eq_getElem hlabLen
+       have htitLook := titled_rank_record (P := P) hlabLook
+       have hcoordLook := coordinateGraph_titled_rank_record htitLook
+       simp only [rk, List.getD_eq_getElem?_getD, hlabLook, hcoordLook,
+         Option.getD_some]
+     rw [hVcoord, hrankEq, hlabEq, hOcoord]
+     exact hle
+   · rw [hdT] at hOrigReal
+     simp at hOrigReal
+
+ /-- Dummy-only residual of `ProperDerivedRank`: an executed edge-dummy whose
+ cluster path carries the group top declaration ranks at or below the top.
+ Strictly simpler than the full derived goal: same executed-run premises,
+ conclusion restricted to the dummy disjunct. -/
+ def GroupTopDummyRankLe : Prop :=
+   ∀ {P : Params} {inp : Input} {o : Options}
+     {lines : List (List Measure.Line)} {graph : Graph},
+     measuredGraph P inp o lines = .ok graph →
+     lines.length = inp.boxes.length →
+     WellFormed (inputModel inp o) →
+     framedParents inp = true →
+     ∀ {comp : List Nat}, comp ∈ components graph →
+     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
+       {orderOptions : OrderOptions},
+     componentRun P (componentCandidate graph comp candidate) labels
+       orderOptions = .ok run →
+     ∀ {v : Nat} {nd : Node},
+     (componentCandidate graph comp candidate).nodes[v]? = some nd →
+     nd.border = -2 →
+     v < (componentCandidate graph comp candidate).nodes.length →
+     ∀ {i : Nat}, i < run.proper.nodes.length →
+     (run.proper.nodes.getD i default).node.clusterPath.contains nd.decl = true →
+     (run.proper.nodes.getD i default).dummy = true →
+     rk run.proper.rank v ≤ rk run.proper.rank i
+
+ /-- Derived closure from its seams: side markers and title copies by the two
+ lemmas above; edge dummies by the `GroupTopDummyRankLe` residual. -/
+ theorem properDerivedRank_of_seams (hcg : GroupTopSubtreeRankCg)
+     (hdummy : GroupTopDummyRankLe) : ProperDerivedRank := by
+   intro P inp o lines graph hgraph hlines hwf hfp comp hcomp candidate run labels
+     orderOptions hrun v nd hnode hborder hvcg i hi hpath hkind
+   rcases hkind with hd | hb1 | hb2 | hb3
+   · exact hdummy hgraph hlines hwf hfp hcomp hrun hnode hborder hvcg hi hpath hd
+   · exact side_marker_rank_ge hcg hgraph hlines hwf hfp hcomp hrun hnode hborder hvcg
+       hi hpath (Or.inl hb1)
+   · exact side_marker_rank_ge hcg hgraph hlines hwf hfp hcomp hrun hnode hborder hvcg
+       hi hpath (Or.inr hb2)
+   · exact title_copy_rank_ge hcg hgraph hlines hwf hfp hcomp hrun hnode hborder hvcg
+       hi hpath hb3
+
+ /-- Derived closure with the dummy residual as hypothesis: side markers and
+ title copies are proved, dummies stay in `GroupTopDummyRankLe`. -/
+ theorem properDerivedRank (hdummy : GroupTopDummyRankLe) : ProperDerivedRank :=
+   properDerivedRank_of_seams groupTopSubtreeRankCg hdummy
+
+ /-- Executed top closure with the dummy residual as hypothesis. -/
+ theorem groupTopSubtreeRankProper (hdummy : GroupTopDummyRankLe) :
+     GroupTopSubtreeRankProper :=
+   groupTopSubtreeRankProper_of_seams groupTopSubtreeRankCg
+     (properDerivedRank hdummy)
