@@ -6,6 +6,7 @@ import Elegant.Layered.LaneBandsBoxClausesProof
 import Elegant.Layered.LaneBandsFrameClause
 import Elegant.Layered.LaneBandsRouteClauses
 import Elegant.Layered.LaneBandsFindRouteClearProof
+import Elegant.Layered.LaneBandsLooseVictimProof
 import Elegant.Kinds.Swimlane
 import ElegantGeometry.Validator
 
@@ -1857,6 +1858,64 @@ theorem pinBands_c6_executed {m : Model} {base : FamilyResult}
     have hbP : pinned.layoutDump.boxes = s4.layoutDump.boxes := hgrowF.1
     have hrP : pinned.layoutDump.routes = s4.layoutDump.routes := hgrowF.2.1
     exact C6_of_boxes_routes_eq hbP hrP hC6s4
+
+/-- The narrowed lower bound implies the original loose-pair residual:
+`pinLooseVictimMissOfLower` applied after unfolding the private shift
+helpers to the public copies. -/
+theorem pinLooseRouteLaneVictimClear_of_lower {axis : Axis} {bands : List Band}
+    {s : Scene} {pinned : Scene} {boxes : List ModelBox} {sp : Spacing}
+    (hex : PinKeptClearExecuted axis bands s pinned boxes sp)
+    (hlower : PinLooseRouteLower axis bands s sp) :
+    PinLooseRouteLaneVictimClear axis bands s := by
+  obtain ⟨hbands, _, _, _, _, _, _, _, hnodupS, hnodupM, hneM, hnn⟩ := hex
+  intro r old b b_old j1 j hold hbmem hj1 hfiL hfi hti hj hjL hjcov hrshift hbrect _ _ _
+  have hlow : ∀ p ∈ old.points, (bands[j1]'hj1).start + sp.clear ≤
+      axis.point p + (bands[j1]'hj1).shift :=
+    hlower old hold j1 hj1 hfiL hfi hti
+  have hrPts' : r.points =
+      old.points.map (lvShiftPoint axis (bands[j1]'hj1).shift) := by
+    rw [hrshift]
+    rfl
+  have hbRect' : b.rect =
+      lvShiftRect axis (bands[j]'hj).shift b_old.rect := by
+    rw [hbrect]
+    rfl
+  exact pinLooseVictimMissOfLower hbands hnn hnodupS hnodupM hneM hbmem
+    hj1 hfiL hj hjL hjcov hrPts' hbRect' hlow
+
+/-- Closed C6 after the swimlane pin: the executed bundle plus the narrowed
+loose-route lower bound. The original residual is discharged by
+`pinLooseRouteLaneVictimClear_of_lower`. -/
+theorem pinBands_c6_executed_closed {m : Model} {base : FamilyResult}
+    {pinned : Scene}
+    (hfam : layoutFamily (Kinds.Swimlane.input m) m.options = .ok base)
+    (hpin : pinBands m.boxes m.options base.scene = .ok pinned)
+    (hbase : HardConstraints base.scene.layoutDump)
+    (hkept : ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
+      ∀ (s1 : Scene),
+        applyPin (buildPin (Axis.ofDirection m.options.direction)
+          (layBands m.boxes base.scene (Axis.ofDirection m.options.direction)
+            sp (lanesOf m.boxes)) base.scene)
+          (layBands m.boxes base.scene (Axis.ofDirection m.options.direction)
+            sp (lanesOf m.boxes)) base.scene = .ok s1 →
+        PinKeptClearExecuted (Axis.ofDirection m.options.direction)
+          (layBands m.boxes base.scene (Axis.ofDirection m.options.direction)
+            sp (lanesOf m.boxes)) base.scene s1 m.boxes sp)
+    (hlower : ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
+      ∀ (s1 : Scene),
+        applyPin (buildPin (Axis.ofDirection m.options.direction)
+          (layBands m.boxes base.scene (Axis.ofDirection m.options.direction)
+            sp (lanesOf m.boxes)) base.scene)
+          (layBands m.boxes base.scene (Axis.ofDirection m.options.direction)
+            sp (lanesOf m.boxes)) base.scene = .ok s1 →
+        PinLooseRouteLower (Axis.ofDirection m.options.direction)
+          (layBands m.boxes base.scene (Axis.ofDirection m.options.direction)
+            sp (lanesOf m.boxes)) base.scene sp) :
+    Validator.C6 pinned.layoutDump := by
+  exact pinBands_c6_executed hfam hpin hbase (fun sp hsp s1 happ =>
+    ⟨hkept sp hsp s1 happ,
+     pinLooseRouteLaneVictimClear_of_lower (hkept sp hsp s1 happ)
+      (hlower sp hsp s1 happ)⟩)
 
 end LaneBands
 end Layered
