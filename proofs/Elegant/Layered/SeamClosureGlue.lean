@@ -6,7 +6,7 @@ import Elegant.Layered.LoopResGroupHullRightProof
 import Elegant.Layered.LoopResNeighborGapGroupProof
 import Elegant.Layered.LoopTopSliverGapProof
 import Elegant.Layered.LoopResNeighborDisjointProof
-import Elegant.Layered.LoopResNeighborGapOffRankProof
+import Elegant.Layered.LoopResOffRankParentChainProof
 import Elegant.Layered.ForeignBorderChainXAlignedClosed
 
 set_option autoImplicit false
@@ -143,15 +143,176 @@ theorem neighborGapBottomOwnerDisj_holds {inp : Input} {o : Options}
   exact Or.inl (loopResNeighborGapBottomOwner_holds execution hcomp hrun
     t nt hnt htB het pos np hnp hgrpB hne hne2 hni1 hni2 hFL)
 
-/-- Executed foreign-hull right-neighbor cover from the disjoint residuals:
-`loopResNeighborGapDisj_holds` (`LoopResNeighborDisjointProof.lean`) over the
-parent-chain seam residual, the closed group-top disjoint gap
-(`loopResNeighborGapGroupTopDisj_holds` in
-`LoopResNeighborGapDisjCasesProof.lean`), and the
-proved bottom-owner disjoint gap, fed to
-`loopHullRightNeighborCover_Disj_holds`. Replaces `r3_of_narrow` (which
-needed the false `LoopResNeighborGapOffRank` `x`-gap). -/
-theorem neighborCover_of_disjoint {inp : Input} {o : Options}
+/-- Grouped off-rank disjoint gap with no chain premise: replay of
+`loopResNeighborGapDisj_groupedOffRank_holds` through the closed
+`loopResNeighborGapDisj_groupedOffRank_closed`
+(`LoopResOffRankParentChainProof.lean`). -/
+theorem loopResNeighborGapDisj_groupedOffRank_seamClosed {inp : Input} {o : Options}
+    {res : FamilyResult}
+    (execution : SceneExecution inp o res)
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRun execution.params
+      (componentCandidate execution.graph comp candidate) execution.measured
+      orderOptions = .ok run)
+    {t : Nat} {nt : Node}
+    (hnt : (componentCandidate execution.graph comp candidate).nodes[t]? = some nt)
+    (htB : nt.border = 0)
+    (_hgrouped : nt.clusterPath ≠ [])
+    (het : ∃ e ∈ (componentCandidate execution.graph comp candidate).edges,
+      e.tail = t ∧ e.head = t)
+    {pos : Nat} {np : Node}
+    (hnp : (componentCandidate execution.graph comp candidate).nodes[pos]? = some np)
+    (hgrpB : np.border = -2)
+    (hne : pos ≠ t) (hne2 : nt.decl ≠ np.decl)
+    (hni1 : np.decl ∉ nt.clusterPath) (hni2 : nt.decl ∉ np.clusterPath)
+    (hoff : ¬ LoopResNeighborSpanning run t np.decl)
+    (hFL : (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run t).x +
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run t).w ≤
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).x) :
+    (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).x +
+      (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).w ≤
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).x ∨
+    (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).y +
+      (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).h ≤
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).y ∨
+    (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).y +
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).h ≤
+      (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).y :=
+  loopResNeighborGapDisj_groupedOffRank_closed execution hcomp hrun hnt htB
+    _hgrouped het hnp hgrpB hne hne2 hni1 hni2 hoff hFL
+
+/-- Plain owners satisfy the disjoint gap with no chain premise: spanning
+through the `x`-gap, top-level off-rank through the `y`-gap, grouped off-rank
+through the closed grouped case above. Chain-free replay of
+`loopResNeighborGapDisj_plain_holds`. -/
+theorem loopResNeighborGapDisj_plain_closed {inp : Input} {o : Options}
+    {res : FamilyResult}
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
+    (hx : ForeignBorderChainXAligned)
+    (execution : SceneExecution inp o res)
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRun execution.params
+      (componentCandidate execution.graph comp candidate) execution.measured
+      orderOptions = .ok run)
+    {t : Nat} {nt : Node}
+    (hnt : (componentCandidate execution.graph comp candidate).nodes[t]? = some nt)
+    (htB : nt.border = 0)
+    (_het : ∃ e ∈ (componentCandidate execution.graph comp candidate).edges,
+      e.tail = t ∧ e.head = t)
+    {pos : Nat} {np : Node}
+    (hnp : (componentCandidate execution.graph comp candidate).nodes[pos]? = some np)
+    (hgrpB : np.border = -2)
+    (_hne : pos ≠ t) (_hne2 : nt.decl ≠ np.decl)
+    (_hni1 : np.decl ∉ nt.clusterPath) (_hni2 : nt.decl ∉ np.clusterPath)
+    (hFL : (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run t).x +
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run t).w ≤
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).x) :
+    (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).x +
+      (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).w ≤
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).x ∨
+    (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).y +
+      (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).h ≤
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).y ∨
+    (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).y +
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).h ≤
+      (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).y := by
+  by_cases hspan : LoopResNeighborSpanning run t np.decl
+  · exact loopResNeighborGapDisj_span_holds hwf hframed hx execution hcomp hrun
+      hnt htB _het hnp hgrpB _hne _hne2 _hni1 _hni2 hspan hFL
+  · by_cases hgrouped : nt.clusterPath = []
+    · exact loopResNeighborGapDisj_offRankYGap_holds execution hcomp hrun hnt
+        htB _het hnp hgrpB _hne _hne2 _hni1 _hni2 hspan hFL
+    · exact loopResNeighborGapDisj_groupedOffRank_seamClosed execution hcomp
+        hrun hnt htB hgrouped _het hnp hgrpB _hne _hne2 _hni1 _hni2 hspan hFL
+
+/-- Full disjoint gap with no chain premise: chain-free replay of
+`loopResNeighborGapDisj_holds`. -/
+theorem loopResNeighborGapDisj_closed {inp : Input} {o : Options}
+    {res : FamilyResult}
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
+    (hx : ForeignBorderChainXAligned)
+    (execution : SceneExecution inp o res)
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRun execution.params
+      (componentCandidate execution.graph comp candidate) execution.measured
+      orderOptions = .ok run)
+    (hgrp : LoopResNeighborGapGroupTopDisj execution.params
+      (componentCandidate execution.graph comp candidate) run execution.measured)
+    (hbot : LoopResNeighborGapBottomOwnerDisj execution.params
+      (componentCandidate execution.graph comp candidate) run execution.measured)
+    {t : Nat} {nt : Node}
+    (hnt : (componentCandidate execution.graph comp candidate).nodes[t]? = some nt)
+    (het : ∃ e ∈ (componentCandidate execution.graph comp candidate).edges,
+      e.tail = t ∧ e.head = t)
+    {pos : Nat} {np : Node}
+    (hnp : (componentCandidate execution.graph comp candidate).nodes[pos]? = some np)
+    (hgrpB : np.border = -2)
+    (hne : pos ≠ t) (hne2 : nt.decl ≠ np.decl)
+    (hni1 : np.decl ∉ nt.clusterPath) (hni2 : nt.decl ∉ np.clusterPath)
+    (hFL : (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run t).x +
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run t).w ≤
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).x) :
+    (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).x +
+      (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).w ≤
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).x ∨
+    (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).y +
+      (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).h ≤
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).y ∨
+    (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).y +
+      (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run pos).h ≤
+      (loopFootprint (componentCandidate execution.graph comp candidate) run
+        execution.measured t).y := by
+  have hshape := (componentCandidate_marker_shape execution.graph_eq hnt).1
+  rcases hshape with ht0 | htG | htBot
+  · exact loopResNeighborGapDisj_plain_closed hwf hframed hx execution hcomp hrun
+      hnt ht0 het hnp hgrpB hne hne2 hni1 hni2 hFL
+  · exact hgrp t nt hnt htG het pos np hnp hgrpB hne hne2 hni1 hni2 hFL
+  · exact hbot t nt hnt htBot het pos np hnp hgrpB hne hne2 hni1 hni2 hFL
+
+/-- Executed foreign-hull right-neighbor cover with no chain premise:
+chain-free replay of `neighborCover_of_disjoint` through
+`loopHullRightNeighborCover_Disj_holds`. -/
+theorem neighborCover_of_disjoint_closed {inp : Input} {o : Options}
     {res : FamilyResult}
     (hwf : WellFormed (inputModel inp o))
     (hfp : framedParents inp = true)
@@ -162,7 +323,6 @@ theorem neighborCover_of_disjoint {inp : Input} {o : Options}
     (hrun : componentRun execution.params
       (componentCandidate execution.graph comp candidate) execution.measured
       orderOptions = .ok run)
-    (hchain : LoopResOffRankParentChain)
     (hgrp : LoopResNeighborGapGroupTopDisj execution.params
       (componentCandidate execution.graph comp candidate) run execution.measured)
     (hbot : LoopResNeighborGapBottomOwnerDisj execution.params
@@ -171,7 +331,7 @@ theorem neighborCover_of_disjoint {inp : Input} {o : Options}
       (componentCandidate execution.graph comp candidate) run execution.measured :=
   loopHullRightNeighborCover_Disj_holds hwf hfp execution hcomp hrun
     (fun _t _nt hnt het _pos _np hnp hgrpB hne hne2 hni1 hni2 hFL =>
-      loopResNeighborGapDisj_holds hwf hfp hx execution hcomp hrun hchain hgrp hbot
+      loopResNeighborGapDisj_closed hwf hfp hx execution hcomp hrun hgrp hbot
         hnt het hnp hgrpB hne hne2 hni1 hni2 hFL)
 end PipelineImpl
 end Layered
