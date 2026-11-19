@@ -1718,3 +1718,9 @@ Elegant.Layered.PipelineImpl.expandChildChildRouteParentFrame_of_disjoint
 Elegant.Layered.PipelineImpl.expandChildParentRouteChildFrame_of_strictMiss
 Elegant.Layered.PipelineImpl.layoutRecursive_frame_clear'
 Elegant.Layered.PipelineImpl.expandChild_parentRouteFrameClear'
+Elegant.Layered.PipelineImpl.loopLabelGroupClear_of_run
+Elegant.Layered.PipelineImpl.routeNonforwardLabelClear_of_run
+Elegant.Layered.LaneBands.pinC2Sep_of_pin
+Elegant.Layered.LaneBands.pinC3Cross_of_pin
+Elegant.Layered.LaneBands.pinBands_c3'
+Elegant.Layered.LaneBands.pinBands_c2'
