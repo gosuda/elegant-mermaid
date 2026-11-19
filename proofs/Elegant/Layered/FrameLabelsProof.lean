@@ -475,7 +475,7 @@ def PackedLabelsTransport {inp : Input} {o : Options} {res : FamilyResult}
        · subst hpk
          obtain rfl : partk = partl := Option.some.inj (hpartk.symm.trans hpartl)
          obtain rfl : bk = bl := Option.some.inj (hbk.symm.trans hbl)
-         obtain ⟨hcore, -, -⟩ := hcores partk (List.mem_of_getElem? hpartk)
+         obtain ⟨hcore, -⟩ := hcores partk (List.mem_of_getElem? hpartk)
          have hclr := hcore index r0l posk k gBox r0 hmeml hkeyk hbox hrole hr0
          rw [hreq, hreql]
          rcases hclr with h | h
@@ -516,7 +516,7 @@ def PackedLabelsTransport {inp : Input} {o : Options} {res : FamilyResult}
      · subst hpk
        obtain rfl : partk = partl := Option.some.inj (hpartk.symm.trans hpartl)
        obtain rfl : bk = bl := Option.some.inj (hbk.symm.trans hbl)
-       obtain ⟨-, hcore, -⟩ := hcores partk (List.mem_of_getElem? hpartk)
+       obtain ⟨-, hcore⟩ := hcores partk (List.mem_of_getElem? hpartk)
        have hgetD : partk.1.getD i 0 = key := by
          simp only [List.getD, hkeyi, Option.getD_some]
        have hclr := hcore i stored0 posk k gBox r0 hmeml hkeyk hbox hrole hr0

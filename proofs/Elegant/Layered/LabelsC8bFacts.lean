@@ -160,32 +160,14 @@ def PartCaptionFrameClear (P : Params) (inp : Input) (o : Options)
     Disjoint g { stored with w := size.w, h := size.h } ∨
       g.StrictInside { stored with w := size.w, h := size.h }
 
-/-- Fallback-caption core: inside one executed component `Part`, the
-`ownedTextRect` caption of every model box position either misses the frame of
-every group box of the same component or lies strictly inside it. -/
-def PartOwnedTextFrameClear (P : Params) (inp : Input)
-    (lines : List (List Measure.Line)) (part : List Nat × Part) : Prop :=
-  ∀ (pos oi : Nat) (r0 : Rect) (oiSrc src : ModelBox) (j gKey : Nat) (g : Rect),
-    part.1[pos]? = some oi →
-    part.2.rects[pos]? = some r0 →
-    inp.boxes[oi]? = some oiSrc →
-    part.1[j]? = some gKey →
-    inp.boxes[gKey]? = some src →
-    src.role = BoxRole.group →
-    part.2.rects[j]? = some g →
-    let boxOwner : Box := ⟨"", oiSrc.role.id, r0, "", false⟩
-    Disjoint g (ownedTextRect P boxOwner (lines.getD oi [])) ∨
-      g.StrictInside (ownedTextRect P boxOwner (lines.getD oi []))
-
-/-- The three component-local cores hold for every executed part.  `placePart`
-stores exactly these `Part` values in `componentsAcc.parts`, so this is a fact
-about the executed layout, not about the packed arrays. -/
-def ExecutedPartFrameCores {inp : Input} {o : Options} {res : FamilyResult}
-    (execution : SceneExecution inp o res) : Prop :=
-  ∀ part ∈ execution.componentsAcc.parts,
-    PartRouteLabelFrameClear inp part ∧
-    PartCaptionFrameClear execution.params inp o execution.lines part ∧
-    PartOwnedTextFrameClear execution.params inp execution.lines part
+ /-- The two component-local cores hold for every executed part.  `placePart`
+ stores exactly these `Part` values in `componentsAcc.parts`, so this is a fact
+ about the executed layout, not about the packed arrays. -/
+ def ExecutedPartFrameCores {inp : Input} {o : Options} {res : FamilyResult}
+     (execution : SceneExecution inp o res) : Prop :=
+   ∀ part ∈ execution.componentsAcc.parts,
+     PartRouteLabelFrameClear inp part ∧
+     PartCaptionFrameClear execution.params inp o execution.lines part
 
 /-! ### Packed-accumulator transport -/
 
@@ -266,7 +248,7 @@ theorem labelFramePackedClear {inp : Input} {o : Options} {res : FamilyResult}
       · subst hpk
         obtain rfl : partk = partl := Option.some.inj (hpartk.symm.trans hpartl)
         obtain rfl : bk = bl := Option.some.inj (hbk.symm.trans hbl)
-        obtain ⟨hcore, -, -⟩ := hcores partk (List.mem_of_getElem? hpartk)
+        obtain ⟨hcore, -⟩ := hcores partk (List.mem_of_getElem? hpartk)
         have hclr := hcore index r0l posk k gBox r0 hmeml hkeyk hbox hrole hr0
         rw [hreq, hreql]
         rcases hclr with h | h
@@ -304,7 +286,7 @@ theorem labelFramePackedClear {inp : Input} {o : Options} {res : FamilyResult}
     · subst hpk
       obtain rfl : partk = partl := Option.some.inj (hpartk.symm.trans hpartl)
       obtain rfl : bk = bl := Option.some.inj (hbk.symm.trans hbl)
-      obtain ⟨-, hcore, -⟩ := hcores partk (List.mem_of_getElem? hpartk)
+      obtain ⟨-, hcore⟩ := hcores partk (List.mem_of_getElem? hpartk)
       have hgetD : partk.1.getD i 0 = key := by
         simp only [List.getD, hkeyi, Option.getD_some]
       have hclr := hcore i stored0 posk k gBox r0 hmeml hkeyk hbox hrole hr0
