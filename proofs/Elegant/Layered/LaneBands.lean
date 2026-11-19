@@ -5,16 +5,18 @@ import Elegant.Layered.Pipeline
 set_option autoImplicit false
 
 /-! Lane-band pinning for the swimlane kind. The layered family lays the whole diagram out; this
-pass then pins every top-level lane (a root group) to one band on the cross axis: x for `TB` and
-`BT`, y for `LR` and `RL`. Bands are consecutive in lane order with no gap. A band is as thick as
-the title band, two clearances (cluster padding plus routing gutter) and the content extent of its
-boxes and of the routes with both ends in the lane, all read from the unpinned layout. Root nodes
-share one band after the last lane, without title band or outer clearance. Every box, label,
-route point and display-list primitive moves by its band's shift; a route between two lanes
-moves each endpoint with its own lane (`Move.ends`), and a primitive coordinate equal to the
-route's first or last point follows it. The frames are then stretched to their bands, the origin
-is restored, labels that now meet a foreign frame or an unrelated node move to a strip past the
-geometry, and the canvas grows along the cross axis. Mirrors `pinBands` of the Go swimlane layout. -/
+pass pins every top-level lane (a root group) to one band on the cross axis: x for `TB` and
+`BT`, y for `LR` and `RL`. The final attachment step (in `Elegant.Layered.LaneEnds`) slides
+lane-frame route ends to their new frame sides: `pinBands` mirrors the engines up to canvas
+growth, and `pinLanes` adds the final attachment. A band is as thick as the title band, two
+clearances (cluster padding plus routing gutter) and the content extent of its boxes and of the
+routes with both ends in the lane, all read from the unpinned layout. Root nodes share one band
+after the last lane, without title band or outer clearance. Every box, label, route point and
+display-list primitive moves by its band's shift; a route between two lanes moves each endpoint
+with its own lane (`Move.ends`), and a primitive coordinate equal to the route's first or last
+point follows it. The frames are then stretched to their bands, the origin is restored, labels
+that now meet a foreign frame or an unrelated node move to a strip past the geometry, and the
+canvas grows along the cross axis. Mirrors `pinBands` of the Go swimlane layout. -/
 
 namespace Elegant
 namespace Layered
