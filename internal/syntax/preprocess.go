@@ -109,9 +109,11 @@ func frontmatterFence(src []byte) (frontmatterBounds, bool) {
 	if openEnd == len(src) || !isFenceLine(src, 0, openEnd) {
 		return frontmatterBounds{}, false
 	}
+	indent := src[:skipLineSpaces(src, 0, openEnd)]
 	for p := openNext; p < len(src); {
 		closeStart, closeEnd := splitLine(src, p, len(src))
-		if closeEnd == len(src) || !isFenceLine(src, p, closeStart) {
+		if closeStart == len(src) || !isFenceLine(src, p, closeStart) ||
+			!slices.Equal(indent, src[p:skipLineSpaces(src, p, closeStart)]) {
 			p = closeEnd
 			continue
 		}
@@ -193,7 +195,7 @@ func indexClose(src []byte, from int) int {
 
 func skipDirectiveSpace(src []byte, from int) int {
 	i := from
-	for i < len(src) && (src[i] == ' ' || src[i] == '\t') {
+	for i < len(src) && (src[i] == ' ' || src[i] == '\t' || src[i] == '\r' || src[i] == '\n') {
 		i++
 	}
 	return i
@@ -307,13 +309,48 @@ func mergeEntry(out *ConfigValue, entry ConfigEntry) {
 }
 
 func (p *Preprocessed) readComments(src []byte) {
+	blanked := &spanCursor{spans: mergeRemoved(slices.Clone(p.Removed))}
+	blankFrom := -1
 	for pos := p.BodyStart; pos < len(src); {
 		lineEnd, next := splitLine(src, pos, len(src))
-		if p.isCommentLine(src, pos, lineEnd) {
-			p.Removed = append(p.Removed, source.Span{Start: pos, End: next})
+		switch {
+		case p.isCommentLine(src, pos, lineEnd):
+			start := pos
+			if blankFrom >= 0 {
+				start = blankFrom
+			}
+			p.Removed = append(p.Removed, source.Span{Start: start, End: next})
+			blankFrom = -1
+		case isBlankLine(src, pos, lineEnd, blanked):
+			if blankFrom < 0 {
+				blankFrom = pos
+			}
+		default:
+			blankFrom = -1
 		}
 		pos = next
 	}
+}
+
+type spanCursor struct {
+	spans []source.Span
+	next  int
+}
+
+func (c *spanCursor) covers(offset int) bool {
+	for c.next < len(c.spans) && c.spans[c.next].End <= offset {
+		c.next++
+	}
+	return c.next < len(c.spans) && c.spans[c.next].Start <= offset
+}
+
+func isBlankLine(src []byte, start, end int, removed *spanCursor) bool {
+	for i := start; i < end; i++ {
+		if src[i] != ' ' && src[i] != '\t' && !removed.covers(i) {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *Preprocessed) isCommentLine(src []byte, start, lineEnd int) bool {

@@ -1,0 +1,9 @@
+[
+  {"code":"radar/unexpected-token","severity":"error","summary":"unexpected TOKEN, expected one of: LIST","help":"","rationale":"The token does not fit the current production.","fix_safety":"none","aliases":[]},
+  {"code":"radar/unknown-statement","severity":"error","summary":"unknown statement TOKEN","help":"","rationale":"An unrecognized statement cannot declare radar data.","fix_safety":"none","aliases":[]},
+  {"code":"radar/unterminated","severity":"error","summary":"unterminated TOKEN","help":"","rationale":"An opening delimiter needs a closing delimiter.","fix_safety":"none","aliases":[]},
+  {"code":"radar/axes-required","severity":"error","summary":"keyed curve requires declared axes","help":"","rationale":"Keyed values need an axis list to establish their order.","fix_safety":"none","aliases":[]},
+  {"code":"radar/missing-axis-entry","severity":"error","summary":"missing entry for axis LABEL","help":"","rationale":"A keyed curve needs a value for every declared axis.","fix_safety":"none","aliases":[]},
+  {"code":"radar/ticks-clamped","severity":"warning","summary":"ticks VALUE exceeds 32; using 32","help":"","rationale":"The upstream database warns and caps the graticule tick count.","fix_safety":"none","aliases":[]},
+  {"code":"radar/empty-range","severity":"error","summary":"radar maximum must be greater than minimum","help":"","rationale":"The radius scale needs a positive numeric range.","fix_safety":"none","aliases":[]}
+]

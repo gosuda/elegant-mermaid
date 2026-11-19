@@ -10,7 +10,7 @@ This file fixes the styled Markdown runs inside labels and the TeX subset that a
 - math-04: `*text*` and `_text_` MUST be italic runs with the weight 400 advances. [just parity]
 - math-05: `<br>`, `<br/>`, and `<br />`, compared case-insensitively, MUST force a line break. [just parity]
 - math-06: A backslash before an ASCII punctuation character MUST stand for that character, as in `\*`, `\_`, `\\`, and `\$`. [just parity]
-- math-07: Emphasis MUST NOT nest; an opener MUST close at the next identical delimiter on the same line; an unclosed opener MUST stay literal; and a `_` between two letters or digits MUST stay literal. [just parity]
+- math-07: Emphasis MUST NOT nest; an opener MUST close at the next identical delimiter on the same line; an unclosed opener MUST stay literal; and a `_` between two alphanumeric scalars MUST stay literal. Alphanumeric MUST be the union of `Alphabetic` and general categories `Nd`, `Nl`, and `No` from the pinned Unicode files in `spec/data/unicode/`; runtime Unicode tables MUST NOT determine this classification. [just parity]
 - math-08: Code spans, links, images, headings, list markers, other HTML tags, and entities MUST stay literal text, and entities MUST NOT be decoded. [just parity]
 
 ## Math spans
@@ -74,8 +74,8 @@ This file fixes the styled Markdown runs inside labels and the TeX subset that a
     |`\Psi`|U+03A8|
     |`\Omega`|U+03A9|
 
-- math-17: `tools/specgen` MUST check each Greek code point against the `cmap` of `Inter-Regular.ttf`; when Inter lacks U+03F5, U+03D1, or U+03D5, the name MUST map to U+03B5, U+03B8, or U+03C6 instead, and the generated table MUST record the code point in use. [just gen-check]
-- math-18: `tools/specgen` MUST fail when Inter lacks a glyph that the math subset needs. [just gen-check]
+- math-17: `tools/specgen` MUST check each Greek code point against the `cmap` of `Inter-Regular.ttf`; when Inter lacks U+03F5, U+03D1, or U+03D5, the name MUST map to U+03B5, U+03B8, or U+03C6 instead, and the generated table MUST record the code point in use. For `\cdot`, the vector output MUST draw the logical code point U+22C5 when Inter maps U+22C5; when Inter lacks U+22C5, the vector output MUST select U+00B7 from the font. `tools/specgen` MUST validate the selected code point against the same `cmap` and MUST record the logical-to-font substitution in the generated glyph mapping table. [just gen-check]
+- math-18: `tools/specgen` MUST fail when Inter lacks a glyph that the math subset needs; for `\cdot` it MUST fail when Inter maps neither U+22C5 nor U+00B7. The Greek fallbacks and the `\cdot` mapping MUST be the only substitutions, and the `\cdot` mapping MUST apply to the vector output only: the Unicode cell form of `\cdot` MUST stay U+22C5, and the ASCII form MUST stay `.`. [just gen-check]
 
 ## Script characters
 
@@ -119,7 +119,7 @@ This file fixes the styled Markdown runs inside labels and the TeX subset that a
 ## Box model and constants
 
 - math-20: Each box MUST have integer `w` (width), `a` (ascent above the baseline), and `d` (descent below it), and a list of leaves: glyphs (codepoint, weight, size, shear flag), rules (rectangles), and paths (flattened point lists); a label's formula box MUST be the box of the whole formula. [just parity]
-- math-21: Each constant MUST be `round_half_up(v * em, 1000)` units, where `em = size_px * 64` for the formula's base size, 14 px for body and label and 16 px for title, and `v` is the per-1000 value of this table; scripts MUST use `script_scale` percent of the parent size; and every constant MUST live in this file and in the generated Go and Rust constants. [just gen-check]
+- math-21: Every constant of this table except `script_scale` and `bigop_scale` MUST be a length in units, `round_half_up(v * em, 1000)`, where `em = size_px * 64` for the formula's base size, 14 px for body and label and 16 px for title, and `v` is the constant's per-1000-em value. `script_scale` and `bigop_scale` MUST be dimensionless per-1000 factors. A script MUST have size `round_half_up(script_scale * parent_size, 1000)` units, where `script_scale` is stored as 700 and `parent_size` is the parent element's size in units. A big-operator glyph MUST have size `round_half_up(bigop_scale * em, 1000)` units, where `em` is the formula's base em. Every constant MUST live in this file and in the generated Go and Rust constants. [just gen-check]
 
     |Constant|Value (per 1000 em unless stated)|Use|
     |---|---|---|
@@ -129,11 +129,11 @@ This file fixes the styled Markdown runs inside labels and the TeX subset that a
     |`sup_shift`|360|superscript baseline above the base baseline|
     |`sub_shift`|150|subscript baseline below the base baseline|
     |`script_gap`|30|space before a script; also each side of a fraction bar beyond the wider of numerator and denominator|
-    |`script_scale`|700 (percent)|script size as a percent of the parent size|
+    |`script_scale`|700, dimensionless per-1000|script size = `round_half_up(script_scale * parent_size, 1000)`|
     |`rad_gap`|60|gap between the radicand box and the overbar|
     |`rad_sign_w`|600|width of the radical sign box|
     |`delim_w`|250|width of a delimiter box|
-    |`bigop_scale`|1400|size of the `\sum`, `\prod`, and `\int` glyphs relative to the body size|
+    |`bigop_scale`|1400, dimensionless per-1000|size of the `\sum`, `\prod`, and `\int` glyphs relative to the body size|
     |`bigop_gap`|100|gap between a big operator and its limits|
     |`binop_space`|222|space on each side of `\pm \times \div \cdot`|
     |`relop_space`|278|space on each side of `=` and of the relation commands|

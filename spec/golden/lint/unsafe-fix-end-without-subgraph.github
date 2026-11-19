@@ -1,0 +1,1 @@
+::error file=unsafe-fix-end-without-subgraph.mmd,line=3,col=3,endLine=3,endColumn=6,title=flowchart/end-without-subgraph::end appears without a matching subgraph

@@ -1,0 +1,46 @@
+[
+  {
+    "code": "c4/duplicate-id",
+    "severity": "warning",
+    "summary": "a C4 element or boundary id is declared more than once",
+    "help": "Give each element and boundary a distinct id.",
+    "rationale": "Relationships and styles target ids, so a duplicate makes those targets ambiguous.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:c4-duplicate-id",
+    "status": "adopted"
+  },
+  {
+    "code": "c4/undefined-relationship-endpoint",
+    "severity": "warning",
+    "summary": "a C4 relationship names an undeclared source or target",
+    "help": "Declare the element, or fix the spelling.",
+    "rationale": "The relationship silently points at nothing, so the drawn diagram has fewer links than the source declares.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:c4-undefined-relationship-endpoint",
+    "status": "adopted"
+  },
+  {
+    "code": "c4/undefined-element-style",
+    "severity": "warning",
+    "summary": "UpdateElementStyle names an undeclared element or boundary",
+    "help": "Declare the element, or fix the spelling.",
+    "rationale": "The style override silently applies to nothing.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:c4-undefined-element-style",
+    "status": "adopted"
+  },
+  {
+    "code": "c4/undefined-relationship-style-endpoint",
+    "severity": "warning",
+    "summary": "UpdateRelStyle names an undeclared source or target",
+    "help": "Declare the relationship's elements, or fix the spelling.",
+    "rationale": "The style override silently applies to nothing.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:c4-undefined-relationship-style-endpoint",
+    "status": "adopted"
+  }
+]

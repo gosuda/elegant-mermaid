@@ -1,0 +1,46 @@
+[
+  {
+    "code": "kanban/duplicate-column",
+    "severity": "warning",
+    "summary": "a kanban column id is already taken",
+    "help": "Give the column a distinct id.",
+    "rationale": "Mermaid hands the cards of both columns to each, so cards render many times over and in the wrong column.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:kanban-duplicate-column",
+    "status": "adopted"
+  },
+  {
+    "code": "kanban/duplicate-task-id",
+    "severity": "warning",
+    "summary": "a kanban card id is already taken by another card or a column",
+    "help": "Give the card a distinct id.",
+    "rationale": "Both elements render with one document id, which breaks anything that addresses the card.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:kanban-duplicate-task-id",
+    "status": "adopted"
+  },
+  {
+    "code": "kanban/empty-column",
+    "severity": "warning",
+    "summary": "kanban column has no cards",
+    "help": "Add cards to the column, or remove it.",
+    "rationale": "An empty column renders a header over empty space.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:kanban-empty-column",
+    "status": "adopted"
+  },
+  {
+    "code": "kanban/no-columns",
+    "severity": "warning",
+    "summary": "kanban declares no columns",
+    "help": "Add at least one column.",
+    "rationale": "The diagram parses, but it renders empty.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:kanban-no-columns",
+    "status": "adopted"
+  }
+]

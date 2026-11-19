@@ -1,0 +1,6 @@
+error-duplicate-ids.mmd:3:3: info[flowchart/duplicate-ids]: Node id declared twice with different labels
+  |
+3 |   A[Begin] --> C[End]
+  |   ^
+  = help: Give each node one label, or use a new id for the second node.
+  = note: first declared here at error-duplicate-ids.mmd:2:3

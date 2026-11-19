@@ -1,0 +1,5 @@
+[
+  {"code":"info/unexpected-token","severity":"error","summary":"unexpected TOKEN, expected one of: LIST","help":"","rationale":"A token must fit the current production.","fix_safety":"none","aliases":[]},
+  {"code":"info/unknown-statement","severity":"error","summary":"unknown statement TOKEN","help":"","rationale":"The info body accepts only showInfo and the final metadata fragment.","fix_safety":"none","aliases":[]},
+  {"code":"info/unterminated","severity":"error","summary":"unterminated TOKEN","help":"","rationale":"An accessibility block needs its closing brace.","fix_safety":"none","aliases":[]}
+]

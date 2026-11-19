@@ -1,0 +1,773 @@
+[
+  {
+    "id": "anchor",
+    "family": "icon",
+    "handler": "shapes/anchor.ts:anchor",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "bang",
+    "family": "circle",
+    "handler": "shapes/bang.ts:bang",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "block_arrow",
+    "family": "block-arrow",
+    "handler": "shapes/blockArrow.ts:block_arrow",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "bolt",
+    "family": "polygon",
+    "handler": "shapes/lightningBolt.ts:lightningBolt",
+    "corner": "square",
+    "aliases": [
+      "com-link",
+      "lightning-bolt"
+    ]
+  },
+  {
+    "id": "bow-rect",
+    "family": "polygon",
+    "handler": "shapes/bowTieRect.ts:bowTieRect",
+    "corner": "rounded",
+    "aliases": [
+      "bow-tie-rectangle",
+      "stored-data"
+    ]
+  },
+  {
+    "id": "bpmn-activity",
+    "family": "bpmn",
+    "handler": "shapes/bpmnActivity.ts:bpmnActivity",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "bpmn-annotation",
+    "family": "bpmn",
+    "handler": "shapes/bpmnAnnotation.ts:bpmnAnnotation",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "bpmn-boundary",
+    "family": "bpmn",
+    "handler": "shapes/bpmnBoundary.ts:bpmnBoundary",
+    "corner": "double",
+    "aliases": []
+  },
+  {
+    "id": "bpmn-data",
+    "family": "bpmn",
+    "handler": "shapes/bpmnDataObject.ts:bpmnDataObject",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "bpmn-data-store",
+    "family": "bpmn",
+    "handler": "shapes/bpmnDataStore.ts:bpmnDataStore",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "bpmn-end",
+    "family": "bpmn",
+    "handler": "shapes/bpmnEnd.ts:bpmnEnd",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "bpmn-gateway",
+    "family": "bpmn",
+    "handler": "shapes/bpmnGateway.ts:bpmnGateway",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "bpmn-intermediate",
+    "family": "bpmn",
+    "handler": "shapes/bpmnIntermediate.ts:bpmnIntermediate",
+    "corner": "double",
+    "aliases": []
+  },
+  {
+    "id": "bpmn-start",
+    "family": "bpmn",
+    "handler": "shapes/bpmnStart.ts:bpmnStart",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "brace",
+    "family": "polygon",
+    "handler": "shapes/curlyBraceLeft.ts:curlyBraceLeft",
+    "corner": "rounded",
+    "aliases": [
+      "brace-l",
+      "comment"
+    ]
+  },
+  {
+    "id": "brace-r",
+    "family": "polygon",
+    "handler": "shapes/curlyBraceRight.ts:curlyBraceRight",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "braces",
+    "family": "polygon",
+    "handler": "shapes/curlyBraces.ts:curlyBraces",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "browser",
+    "family": "polygon",
+    "handler": "shapes/browser.ts:browser",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "bucket",
+    "family": "circle",
+    "handler": "shapes/bucket.ts:bucket",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "choice",
+    "family": "state",
+    "handler": "shapes/choice.ts:choice",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "circle",
+    "family": "circle",
+    "handler": "shapes/circle.ts:circle",
+    "corner": "rounded",
+    "aliases": [
+      "circ"
+    ]
+  },
+  {
+    "id": "classBox",
+    "family": "class",
+    "handler": "shapes/classBox.ts:classBox",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "cloud",
+    "family": "circle",
+    "handler": "shapes/cloud.ts:cloud",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "collapsedGroup",
+    "family": "polygon",
+    "handler": "shapes/collapsedGroup.ts:collapsedGroup",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "composite",
+    "family": "polygon",
+    "handler": "shapes/composite.ts:composite",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "console",
+    "family": "polygon",
+    "handler": "shapes/console.ts:consoleWindow",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "cross-circ",
+    "family": "circle",
+    "handler": "shapes/crossedCircle.ts:crossedCircle",
+    "corner": "rounded",
+    "aliases": [
+      "crossed-circle",
+      "summary"
+    ]
+  },
+  {
+    "id": "curv-trap",
+    "family": "polygon",
+    "handler": "shapes/curvedTrapezoid.ts:curvedTrapezoid",
+    "corner": "rounded",
+    "aliases": [
+      "curved-trapezoid",
+      "display"
+    ]
+  },
+  {
+    "id": "cyl",
+    "family": "circle",
+    "handler": "shapes/cylinder.ts:cylinder",
+    "corner": "rounded",
+    "aliases": [
+      "cylinder",
+      "database",
+      "db"
+    ]
+  },
+  {
+    "id": "datastore",
+    "family": "polygon",
+    "handler": "shapes/datastore.ts:datastore",
+    "corner": "square",
+    "aliases": [
+      "data-store"
+    ]
+  },
+  {
+    "id": "dbl-circ",
+    "family": "circle",
+    "handler": "shapes/doubleCircle.ts:doublecircle",
+    "corner": "double",
+    "aliases": [
+      "double-circle",
+      "doublecircle"
+    ]
+  },
+  {
+    "id": "defaultMindmapNode",
+    "family": "mindmap",
+    "handler": "shapes/defaultMindmapNode.ts:defaultMindmapNode",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "delay",
+    "family": "polygon",
+    "handler": "shapes/halfRoundedRectangle.ts:halfRoundedRectangle",
+    "corner": "rounded",
+    "aliases": [
+      "half-rounded-rectangle"
+    ]
+  },
+  {
+    "id": "diam",
+    "family": "polygon",
+    "handler": "shapes/question.ts:question",
+    "corner": "square",
+    "aliases": [
+      "decision",
+      "diamond",
+      "question"
+    ]
+  },
+  {
+    "id": "div-rect",
+    "family": "polygon",
+    "handler": "shapes/dividedRect.ts:dividedRectangle",
+    "corner": "square",
+    "aliases": [
+      "div-proc",
+      "divided-process",
+      "divided-rectangle"
+    ]
+  },
+  {
+    "id": "doc",
+    "family": "polygon",
+    "handler": "shapes/waveEdgedRectangle.ts:waveEdgedRectangle",
+    "corner": "square",
+    "aliases": [
+      "document"
+    ]
+  },
+  {
+    "id": "docs",
+    "family": "polygon",
+    "handler": "shapes/multiWaveEdgedRectangle.ts:multiWaveEdgedRectangle",
+    "corner": "square",
+    "aliases": [
+      "documents",
+      "st-doc",
+      "stacked-document"
+    ]
+  },
+  {
+    "id": "ellipse",
+    "family": "circle",
+    "handler": "Ellipse",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "erBox",
+    "family": "er",
+    "handler": "shapes/erBox.ts:erBox",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "f-circ",
+    "family": "circle",
+    "handler": "shapes/filledCircle.ts:filledCircle",
+    "corner": "rounded",
+    "aliases": [
+      "filled-circle",
+      "junction"
+    ]
+  },
+  {
+    "id": "flag",
+    "family": "polygon",
+    "handler": "shapes/waveRectangle.ts:waveRectangle",
+    "corner": "square",
+    "aliases": [
+      "paper-tape"
+    ]
+  },
+  {
+    "id": "flip-tri",
+    "family": "polygon",
+    "handler": "shapes/flippedTriangle.ts:flippedTriangle",
+    "corner": "square",
+    "aliases": [
+      "flipped-triangle",
+      "manual-file"
+    ]
+  },
+  {
+    "id": "folder",
+    "family": "polygon",
+    "handler": "shapes/folder.ts:folder",
+    "corner": "square",
+    "aliases": [
+      "directory"
+    ]
+  },
+  {
+    "id": "fork",
+    "family": "state",
+    "handler": "shapes/forkJoin.ts:forkJoin",
+    "corner": "square",
+    "aliases": [
+      "forkJoin",
+      "join"
+    ]
+  },
+  {
+    "id": "fr-circ",
+    "family": "state",
+    "handler": "shapes/stateEnd.ts:stateEnd",
+    "corner": "double",
+    "aliases": [
+      "framed-circle",
+      "stateEnd",
+      "stop"
+    ]
+  },
+  {
+    "id": "fr-rect",
+    "family": "polygon",
+    "handler": "shapes/subroutine.ts:subroutine",
+    "corner": "square",
+    "aliases": [
+      "framed-rectangle",
+      "subproc",
+      "subprocess",
+      "subroutine"
+    ]
+  },
+  {
+    "id": "h-cyl",
+    "family": "circle",
+    "handler": "shapes/tiltedCylinder.ts:tiltedCylinder",
+    "corner": "rounded",
+    "aliases": [
+      "das",
+      "horizontal-cylinder"
+    ]
+  },
+  {
+    "id": "hex",
+    "family": "polygon",
+    "handler": "shapes/hexagon.ts:hexagon",
+    "corner": "square",
+    "aliases": [
+      "hexagon",
+      "prepare"
+    ]
+  },
+  {
+    "id": "hourglass",
+    "family": "circle",
+    "handler": "shapes/hourglass.ts:hourglass",
+    "corner": "square",
+    "aliases": [
+      "collate"
+    ]
+  },
+  {
+    "id": "icon",
+    "family": "icon",
+    "handler": "shapes/icon.ts:icon",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "iconCircle",
+    "family": "icon",
+    "handler": "shapes/iconCircle.ts:iconCircle",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "iconRounded",
+    "family": "icon",
+    "handler": "shapes/iconRounded.ts:iconRounded",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "iconSquare",
+    "family": "icon",
+    "handler": "shapes/iconSquare.ts:iconSquare",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "imageSquare",
+    "family": "icon",
+    "handler": "shapes/imageSquare.ts:imageSquare",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "kanbanItem",
+    "family": "kanban",
+    "handler": "shapes/kanbanItem.ts:kanbanItem",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "labelRect",
+    "family": "polygon",
+    "handler": "shapes/labelRect.ts:labelRect",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "lean-l",
+    "family": "polygon",
+    "handler": "shapes/leanLeft.ts:lean_left",
+    "corner": "square",
+    "aliases": [
+      "lean-left",
+      "lean_left",
+      "out-in"
+    ]
+  },
+  {
+    "id": "lean-r",
+    "family": "polygon",
+    "handler": "shapes/leanRight.ts:lean_right",
+    "corner": "square",
+    "aliases": [
+      "in-out",
+      "lean-right",
+      "lean_right"
+    ]
+  },
+  {
+    "id": "lin-cyl",
+    "family": "circle",
+    "handler": "shapes/linedCylinder.ts:linedCylinder",
+    "corner": "rounded",
+    "aliases": [
+      "disk",
+      "lined-cylinder"
+    ]
+  },
+  {
+    "id": "lin-doc",
+    "family": "polygon",
+    "handler": "shapes/linedWaveEdgedRect.ts:linedWaveEdgedRect",
+    "corner": "square",
+    "aliases": [
+      "lined-document"
+    ]
+  },
+  {
+    "id": "lin-rect",
+    "family": "polygon",
+    "handler": "shapes/shadedProcess.ts:shadedProcess",
+    "corner": "square",
+    "aliases": [
+      "lin-proc",
+      "lined-process",
+      "lined-rectangle",
+      "shaded-process"
+    ]
+  },
+  {
+    "id": "mindmapCircle",
+    "family": "mindmap",
+    "handler": "shapes/mindmapCircle.ts:mindmapCircle",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "notch-pent",
+    "family": "polygon",
+    "handler": "shapes/trapezoidalPentagon.ts:trapezoidalPentagon",
+    "corner": "square",
+    "aliases": [
+      "loop-limit",
+      "notched-pentagon"
+    ]
+  },
+  {
+    "id": "notch-rect",
+    "family": "polygon",
+    "handler": "shapes/card.ts:card",
+    "corner": "square",
+    "aliases": [
+      "card",
+      "notched-rectangle"
+    ]
+  },
+  {
+    "id": "note",
+    "family": "state",
+    "handler": "shapes/note.ts:note",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "odd",
+    "family": "polygon",
+    "handler": "shapes/rectLeftInvArrow.ts:rect_left_inv_arrow",
+    "corner": "square",
+    "aliases": [
+      "rect_left_inv_arrow"
+    ]
+  },
+  {
+    "id": "person",
+    "family": "circle",
+    "handler": "shapes/person.ts:person",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "rect",
+    "family": "polygon",
+    "handler": "shapes/squareRect.ts:squareRect",
+    "corner": "square",
+    "aliases": [
+      "proc",
+      "process",
+      "rectangle",
+      "squareRect"
+    ]
+  },
+  {
+    "id": "rectWithTitle",
+    "family": "polygon",
+    "handler": "shapes/rectWithTitle.ts:rectWithTitle",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "requirementBox",
+    "family": "requirement",
+    "handler": "shapes/requirementBox.ts:requirementBox",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "rounded",
+    "family": "polygon",
+    "handler": "shapes/roundedRect.ts:roundedRect",
+    "corner": "rounded",
+    "aliases": [
+      "event",
+      "roundedRect"
+    ]
+  },
+  {
+    "id": "sl-rect",
+    "family": "polygon",
+    "handler": "shapes/slopedRect.ts:slopedRect",
+    "corner": "square",
+    "aliases": [
+      "manual-input",
+      "sloped-rectangle"
+    ]
+  },
+  {
+    "id": "sm-circ",
+    "family": "state",
+    "handler": "shapes/stateStart.ts:stateStart",
+    "corner": "rounded",
+    "aliases": [
+      "small-circle",
+      "start",
+      "stateStart"
+    ]
+  },
+  {
+    "id": "st-rect",
+    "family": "polygon",
+    "handler": "shapes/multiRect.ts:multiRect",
+    "corner": "square",
+    "aliases": [
+      "processes",
+      "procs",
+      "stacked-rectangle"
+    ]
+  },
+  {
+    "id": "stadium",
+    "family": "polygon",
+    "handler": "shapes/stadium.ts:stadium",
+    "corner": "rounded",
+    "aliases": [
+      "pill",
+      "terminal"
+    ]
+  },
+  {
+    "id": "state",
+    "family": "state",
+    "handler": "shapes/state.ts:state",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "tag-doc",
+    "family": "polygon",
+    "handler": "shapes/taggedWaveEdgedRectangle.ts:taggedWaveEdgedRectangle",
+    "corner": "square",
+    "aliases": [
+      "tagged-document"
+    ]
+  },
+  {
+    "id": "tag-rect",
+    "family": "polygon",
+    "handler": "shapes/taggedRect.ts:taggedRect",
+    "corner": "square",
+    "aliases": [
+      "tag-proc",
+      "tagged-process",
+      "tagged-rectangle"
+    ]
+  },
+  {
+    "id": "text",
+    "family": "polygon",
+    "handler": "shapes/text.ts:text",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "trap-b",
+    "family": "polygon",
+    "handler": "shapes/trapezoid.ts:trapezoid",
+    "corner": "square",
+    "aliases": [
+      "priority",
+      "trapezoid",
+      "trapezoid-bottom"
+    ]
+  },
+  {
+    "id": "trap-t",
+    "family": "polygon",
+    "handler": "shapes/invertedTrapezoid.ts:inv_trapezoid",
+    "corner": "square",
+    "aliases": [
+      "inv-trapezoid",
+      "inv_trapezoid",
+      "manual",
+      "trapezoid-top"
+    ]
+  },
+  {
+    "id": "tri",
+    "family": "polygon",
+    "handler": "shapes/triangle.ts:triangle",
+    "corner": "square",
+    "aliases": [
+      "extract",
+      "triangle"
+    ]
+  },
+  {
+    "id": "usecaseActor",
+    "family": "usecase",
+    "handler": "shapes/usecaseActor.ts:usecaseActor",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "usecaseActorAwesome",
+    "family": "usecase",
+    "handler": "shapes/usecaseActorAwesome.ts:usecaseActorAwesome",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "usecaseActorHollow",
+    "family": "usecase",
+    "handler": "shapes/usecaseActorHollow.ts:usecaseActorHollow",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "usecaseActorIcon",
+    "family": "usecase",
+    "handler": "shapes/usecaseActorIcon.ts:usecaseActorIcon",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "usecaseBusiness",
+    "family": "usecase",
+    "handler": "shapes/usecaseBusiness.ts:usecaseBusiness",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "usecaseEllipse",
+    "family": "usecase",
+    "handler": "shapes/usecaseEllipse.ts:usecaseEllipse",
+    "corner": "rounded",
+    "aliases": []
+  },
+  {
+    "id": "usecaseJsonTable",
+    "family": "usecase",
+    "handler": "shapes/usecaseJsonTable.ts:usecaseJsonTable",
+    "corner": "square",
+    "aliases": []
+  },
+  {
+    "id": "win-pane",
+    "family": "polygon",
+    "handler": "shapes/windowPane.ts:windowPane",
+    "corner": "square",
+    "aliases": [
+      "internal-storage",
+      "window-pane"
+    ]
+  }
+]

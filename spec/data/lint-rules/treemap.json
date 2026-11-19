@@ -1,0 +1,46 @@
+[
+  {
+    "code": "treemap/zero-value",
+    "severity": "warning",
+    "summary": "treemap leaf has a value of 0",
+    "help": "Give the leaf a positive value, or remove it.",
+    "rationale": "A zero value sizes the rectangle to zero area, so the declared leaf never appears in the drawing.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:treemap-zero-value",
+    "status": "adopted"
+  },
+  {
+    "code": "treemap/no-leaves",
+    "severity": "warning",
+    "summary": "treemap has no row carrying a value",
+    "help": "Give at least one leaf row a value.",
+    "rationale": "Rectangle areas come from leaf values, so a tree with no valued leaf renders empty.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:treemap-no-leaves",
+    "status": "adopted"
+  },
+  {
+    "code": "treemap/duplicate-sibling",
+    "severity": "warning",
+    "summary": "two treemap rows under one parent share a label",
+    "help": "Rename one of the rows, or merge them.",
+    "rationale": "Two identically labeled siblings render as two boxes a reader cannot tell apart.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:treemap-duplicate-sibling",
+    "status": "adopted"
+  },
+  {
+    "code": "treemap/branch-with-value",
+    "severity": "warning",
+    "summary": "treemap row has a value and indented child rows",
+    "help": "Move the value to a leaf row, or remove the indented rows.",
+    "rationale": "Mermaid treats a valued row as a leaf and re-parents the rows under it, so the drawn hierarchy differs from the written one.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:treemap-branch-with-value",
+    "status": "adopted"
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "code": "sankey/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "Each record needs three CSV fields in the required order.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "sankey/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "A body statement must be a CSV record rather than a node declaration.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "sankey/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "A quoted CSV field needs a closing double quote.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

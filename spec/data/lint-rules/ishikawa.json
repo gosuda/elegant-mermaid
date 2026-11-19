@@ -1,0 +1,46 @@
+[
+  {
+    "code": "ishikawa/no-causes",
+    "severity": "warning",
+    "summary": "ishikawa problem has no categories",
+    "help": "Add at least one category under the problem.",
+    "rationale": "The diagram renders the problem head above a zero-length spine.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:ishikawa-no-causes",
+    "status": "adopted"
+  },
+  {
+    "code": "ishikawa/empty-category",
+    "severity": "warning",
+    "summary": "ishikawa category has no causes",
+    "help": "Add causes to the category, or remove it.",
+    "rationale": "The bone draws at a fifth of its full length with nothing attached.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:ishikawa-empty-category",
+    "status": "adopted"
+  },
+  {
+    "code": "ishikawa/deep-nesting",
+    "severity": "off",
+    "summary": "ishikawa node is nested more than five levels deep",
+    "help": "Flatten the branch, or split the diagram.",
+    "rationale": "Deep nesting is a matter of taste, so this rule is off by default.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:ishikawa-deep-nesting",
+    "status": "adopted"
+  },
+  {
+    "code": "ishikawa/duplicate-sibling",
+    "severity": "warning",
+    "summary": "two ishikawa nodes under one parent have identical text",
+    "help": "Rename one of the nodes, or merge them.",
+    "rationale": "The same cause renders twice, so the diagram doubles a reason that appears once.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:ishikawa-duplicate-sibling",
+    "status": "adopted"
+  }
+]

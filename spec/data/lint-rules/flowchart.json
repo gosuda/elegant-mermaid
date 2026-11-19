@@ -391,7 +391,7 @@
     "code": "flowchart/linkstyle-multiline",
     "severity": "error",
     "summary": "The linkStyle style pairs are placed on a line after the indices",
-    "help": "Put the styles on the same line as the indices, for example linkStyle 0,1 stroke:#f00.",
+    "help": "Put the styles on the same line as the indices, for example linkStyle 0,1 stroke:red.",
     "rationale": "Styles on a following line are not attached to the indices and are dropped.",
     "fix_safety": "none",
     "aliases": [],
@@ -418,6 +418,28 @@
     "fix_safety": "none",
     "aliases": [],
     "source": "maid:FL-TYPED-SHAPE-UNSUPPORTED",
+    "status": "adopted"
+  },
+  {
+    "code": "flowchart/label-at-in-unquoted",
+    "severity": "warning",
+    "summary": "An unquoted label contains an at sign",
+    "help": "Wrap the whole label in double quotes, for example B[\"@scope/package v1.0\"].",
+    "rationale": "The at sign starts attribute syntax such as @{ shape: ... } and e1@-->, so an unquoted label that holds one can be misparsed.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "own",
+    "status": "adopted"
+  },
+  {
+    "code": "flowchart/subgraph-id-collision",
+    "severity": "warning",
+    "summary": "A node id inside a subgraph repeats the id of an enclosing subgraph",
+    "help": "Rename the node or the subgraph, or give the subgraph a quoted title with no explicit id.",
+    "rationale": "One id then names a subgraph and one of its own members, which makes the subgraph contain itself.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "own",
     "status": "adopted"
   }
 ]

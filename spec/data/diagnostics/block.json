@@ -1,0 +1,47 @@
+[
+  {
+    "code": "block/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "The current production cannot consume this token.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "block/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "An unrecognized statement must not create a block.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "block/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "An open construct needs its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "block/style-target-unknown",
+    "severity": "error",
+    "summary": "style references unknown block ID",
+    "help": "",
+    "rationale": "Direct styles require an existing database entry.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "block/width-exceeds-columns",
+    "severity": "warning",
+    "summary": "block ID width WIDTH exceeds configured column width COLUMNS",
+    "help": "",
+    "rationale": "The database warns when a block span exceeds the scope's column count.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

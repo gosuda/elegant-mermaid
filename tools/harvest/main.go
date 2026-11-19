@@ -18,26 +18,30 @@ const (
 )
 
 func main() {
-	summary, err := execute(os.Args[1:])
+	summary, err := execute(os.Args[1:], os.Getenv("EMD_BIN"))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "harvest: %v\n", err)
-		os.Exit(1)
+		os.Exit(2)
 	}
 	_, _ = os.Stdout.WriteString(summary)
 }
 
 type options struct {
-	root string
+	root     string
+	flatKind string
 }
 
-func execute(args []string) (string, error) {
-	return executeSources(args, fixtureSources)
+func execute(args []string, binaryOverride string) (string, error) {
+	return executeSources(args, fixtureSources, binaryOverride)
 }
 
-func executeSources(args []string, sources []sourceSpec) (string, error) {
+func executeSources(args []string, sources []sourceSpec, binaryOverride string) (string, error) {
 	opts, err := parseFlags(args)
 	if err != nil {
 		return "", err
+	}
+	if opts.flatKind != "" {
+		return flatList(opts.root, opts.flatKind, binaryOverride)
 	}
 	reg, err := loadRegistry(filepath.Join(opts.root, filepath.FromSlash(kindRegistryPath)))
 	if err != nil {
@@ -67,6 +71,12 @@ func parseFlags(args []string) (options, error) {
 		arg := args[i]
 		value, hasValue := strings.CutPrefix(arg, "-root=")
 		switch {
+		case arg == "-flat-list":
+			if i+1 >= len(args) {
+				return options{}, errors.New("flag -flat-list needs a kind")
+			}
+			i++
+			opts.flatKind = args[i]
 		case arg == "-root":
 			if i+1 >= len(args) {
 				return options{}, errors.New("flag -root needs a directory")

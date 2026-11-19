@@ -1,0 +1,74 @@
+[
+  {
+    "code": "venn/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "A token must fit the active grammar production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "venn/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "Unknown statements must not create phantom sets.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "venn/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "An opened string or label needs a closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "venn/union-requires-multiple-identifiers",
+    "severity": "error",
+    "summary": "union requires multiple identifiers",
+    "help": "",
+    "rationale": "A union record needs at least two identifiers.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "venn/unknown-set-identifier",
+    "severity": "error",
+    "summary": "unknown set identifier: IDS",
+    "help": "",
+    "rationale": "Union members must refer to earlier set declarations.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "venn/text-requires-set",
+    "severity": "error",
+    "summary": "text requires set",
+    "help": "",
+    "rationale": "Indented text needs a current subset.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "venn/no-sets",
+    "severity": "error",
+    "summary": "venn diagram has no sets",
+    "help": "",
+    "rationale": "The specified Venn layout requires at least one set.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "venn/too-many-sets",
+    "severity": "error",
+    "summary": "venn diagram has more than three sets",
+    "help": "",
+    "rationale": "The specified Venn layout supports at most three sets.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

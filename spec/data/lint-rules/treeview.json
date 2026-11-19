@@ -1,0 +1,24 @@
+[
+  {
+    "code": "treeview/no-nodes",
+    "severity": "warning",
+    "summary": "treeView declares no nodes",
+    "help": "Add at least one node line below the header.",
+    "rationale": "An empty body parses clean but renders an empty tree.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:treeview-no-nodes",
+    "status": "adopted"
+  },
+  {
+    "code": "treeview/duplicate-sibling",
+    "severity": "warning",
+    "summary": "two treeView siblings have the same label",
+    "help": "Rename one of the nodes, or merge them.",
+    "rationale": "The comparison ignores a trailing slash and annotations, so a and a/ collide, and the tree draws a distinction it does not have.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:treeview-duplicate-sibling",
+    "status": "adopted"
+  }
+]

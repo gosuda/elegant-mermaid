@@ -67,7 +67,7 @@ This file fixes the diagnostic model, the severity and fix safety values, the re
 
 ## Text output
 
-- diagnostics-22: The text format MUST be fixed to the byte: UTF-8 with LF only, the path printed as given, and `<stdin>` as the path for stdin in every format. [just parity]
+- diagnostics-22: The text format MUST be fixed to the byte: UTF-8 with LF only, the path printed as given except for terminal control replacement under diagnostics-28, and `<stdin>` as the path for stdin in every format. [just parity]
 - diagnostics-23: One diagnostic MUST print in the form below. [just parity]
 
     ```
@@ -83,7 +83,7 @@ This file fixes the diagnostic model, the severity and fix safety values, the re
 - diagnostics-25: The gutter MUST be as wide as the line number, and a tab MUST expand to 8-column stops. [just parity]
 - diagnostics-26: The underline MUST cover the span in terminal cells, at least one cell (`^` then `~`), and a multi-line span MUST underline to the end of its first line. [just parity]
 - diagnostics-27: Each related span MUST append `  = note: MESSAGE at path:line:column`. [just parity]
-- diagnostics-28: A control character other than tab MUST print as U+FFFD. [just parity]
+- diagnostics-28: Every untrusted text field in terminal diagnostics MUST replace U+0000 to U+001F, U+007F, and U+0080 to U+009F with U+FFFD. This rule MUST cover paths, codes, messages, related messages, help, and fix titles. Source-line tabs MUST instead expand under diagnostics-25. Formatter-owned line breaks and colour sequences MUST remain unchanged. Machine-readable formats MUST retain their own escaping rules and original field values. [just parity]
 - diagnostics-29: A blank line MUST separate diagnostics. [just parity]
 - diagnostics-30: Colour, when on, MUST wrap only the severity word and the underline. [just go-check]
 
@@ -93,7 +93,7 @@ This file fixes the diagnostic model, the severity and fix safety values, the re
 - diagnostics-32: Each diagnostic MUST be one result with `ruleId` set to the code, `level` set by the table under diagnostics-36, `message.text` set to the message, and `locations[0].physicalLocation` holding `artifactLocation.uri` (the path as given, or `<stdin>`) and `region` with `startLine`, `startColumn`, `endLine`, and `endColumn`. [just go-check: TestLintGolden]
 - diagnostics-33: SARIF columns MUST be 1-based UTF-16 code units, and `endColumn` MUST be exclusive. [just go-check: TestLintGolden]
 - diagnostics-34: Related spans MUST go to `relatedLocations`, and `help` and fixes MUST NOT be emitted. [just go-check: TestLintGolden]
-- diagnostics-35: `tool.driver.rules` MUST list the distinct codes of the output in the registry order of spec/lint.md, with `shortDescription.text` set to the summary and `help.text` set to the help. [just go-check: TestLintGolden]
+- diagnostics-35: `tool.driver.rules` MUST list the distinct codes of the output in this order: the lint rule rows in the registry order of spec/lint.md, then the diagnostic rows in registry order, then codes with no registry row in ascending byte order; `shortDescription.text` MUST be the summary and `help.text` MUST be the help. [just go-check: TestLintGolden]
 - diagnostics-36: The severity mapping of the machine formats MUST be the table below, and severity `off` MUST NOT be emitted. [just go-check: TestLintGolden]
 
     |severity|`json`|`sarif` `level`|`github` command|

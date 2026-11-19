@@ -1,0 +1,19 @@
+erDiagram
+    direction LR
+    accTitle: Shop
+    accDescr {
+    Shows the shop
+    }
+    subgraph Sales
+        CUSTOMER ||--o{ ORDER : places
+        subgraph Inner
+            ITEM
+        end
+    end
+    p[Person] {
+        string firstName
+    }
+    classDef hot fill:#f96,stroke:#333
+    class CUSTOMER,ORDER hot
+    style ITEM fill:#bbf
+    ORDER:::hot ||--|| ITEM : has

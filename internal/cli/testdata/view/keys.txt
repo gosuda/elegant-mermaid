@@ -1,0 +1,24 @@
++- Keys -----------------------------------------------------------------------+
+| arrows, hjkl    pan                                                          |
+| + -             zoom (pixel modes)                                           |
+| 0               fit / origin                                                 |
+| n, p            next, previous block                                         |
+| t               cycle theme                                                  |
+| c               toggle charset                                               |
+| g               cycle graphics mode                                          |
+| d               diagnostics panel                                            |
+| r               reload INPUT                                                 |
+| ?               this key reference                                           |
+| Esc             close panel                                                  |
+| q, Ctrl-C       quit                                                         |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
+keys.mmd | flowchart | cells | - | E 0 errors W 0 warnings | REV 1              
+? help  q quit  d diagnostics  arrows/hjkl pan  0 fit                           

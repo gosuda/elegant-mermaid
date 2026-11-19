@@ -192,3 +192,20 @@ This file fixes the terminal viewer: its keys, its states, its pixel geometry, i
 - viewer-70: The check MUST write `q` to the process stdin, and the process MUST exit with status 0 within 10 s. [just go-check: TestViewPTY]
 - viewer-71: The check MUST NOT run the probe, because `--graphics cells` is set. [just go-check: TestViewPTY]
 - viewer-72: The Rust test `view_pty` MUST run the same steps with the same conditions. [just rust-check: view_pty]
+
+## Replay failures
+
+- viewer-73: When the script FILE cannot be read, `emd view` MUST print `cannot read FILE: TEXT` as cli-46 states, without a line number, and MUST exit 2. [just go-check: TestErrorPaths]
+- viewer-74: The MESSAGE of viewer-62 MUST be `unknown verb VERB` for a verb that is not in the grammar. [just go-check: TestViewScriptErrors]
+- viewer-75: The MESSAGE of viewer-62 MUST be `settle takes no arguments` for `settle` with an argument, and `file-delete takes no arguments` for `file-delete` with an argument. [just go-check: TestViewScriptErrors]
+- viewer-76: The MESSAGE of viewer-62 MUST be `missing source path` for `file-change` or `file-create` without SRC. [just go-check: TestViewScriptErrors]
+- viewer-77: The MESSAGE of viewer-62 MUST be `cannot read SRC: TEXT` when SRC cannot be read, where SRC is the path after the join with the directory of FILE and TEXT follows cli-48. [just go-check: TestViewScriptErrors]
+- viewer-78: The MESSAGE of viewer-62 MUST be `expected resize W H` for `resize` without exactly two arguments. [just go-check: TestViewScriptErrors]
+- viewer-79: The MESSAGE of viewer-62 MUST be `size requires W >= 20 and H >= 5` for a `resize` number that is not decimal digits, that does not fit in 63 bits, or that is below its minimum. [just go-check: TestViewScriptErrors]
+- viewer-80: The MESSAGE of viewer-62 MUST be `invalid key` for a `key` argument that is not in the grammar. [just go-check: TestViewScriptErrors]
+- viewer-81: Replay MUST strip white space from both ends of each line and of each argument, MUST split the arguments of `resize` at white space of any width, and MUST count lines from 1, including blank lines and comment lines. [just go-check: TestViewScriptWhitespace]
+- viewer-82: In replay, `key r` MUST read INPUT again from disk and MUST set `watch_lost` exactly when that read fails. [just go-check: TestViewScriptReload]
+- viewer-83: The cases of viewer-63 MUST be the files `empty`, `unknown`, `first-error`, `stale`, `oversize`, `resize`, `recreate`, and `keys` in `internal/cli/testdata/view/`, each as `<case>.mmd`, `<case>.script`, and `<case>.txt`, and both tests MUST run the command with that directory as the working directory and the bare file names, so that the path in the status row is `<case>.mmd`. [just go-check: TestViewScripts]
+- viewer-84: Replay MUST split the script FILE into lines at LF before it reads any line, and MUST check each line for valid UTF-8 when it reaches that line and before it strips white space, so that a comment line is checked too; a line with a byte sequence that is not valid UTF-8 MUST end the replay with the MESSAGE `invalid UTF-8` of viewer-62, with that line number, and exit 2. [just go-check: TestViewScriptErrors]
+- viewer-85: Replay MUST NOT read a line after `key q` or `key ctrl-c`, so such a line MUST NOT give an error, and an error of an earlier line MUST win over invalid UTF-8 in a later line. [just go-check: TestViewScriptQuitSkipsInvalidUTF8]
+- viewer-86: The Rust tests `view_script_errors` and `view_script_quit_skips_invalid_utf8` MUST check the same cases, with the same messages, as `TestViewScriptErrors` and `TestViewScriptQuitSkipsInvalidUTF8`. [just rust-check: view_script_errors]

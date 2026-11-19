@@ -11,6 +11,17 @@
     "status": "adopted"
   },
   {
+    "code": "common/frontmatter-must-be-first",
+    "severity": "error",
+    "summary": "a comment or blank line precedes the frontmatter",
+    "help": "Move the frontmatter to the first line of the block.",
+    "rationale": "Frontmatter is only honoured at the start of the source, so a leading comment or blank line turns the configuration into diagram text and the render fails.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:frontmatter-must-be-first",
+    "status": "adopted"
+  },
+  {
     "code": "common/acc-title-missing",
     "severity": "off",
     "summary": "diagram has no accTitle line",
@@ -64,5 +75,17 @@
     "aliases": [],
     "source": "mermaid-lint:suppression-malformed",
     "status": "adopted"
+  },
+  {
+    "code": "common/header-invalid",
+    "severity": "error",
+    "summary": "The file does not start with a known Mermaid diagram header",
+    "help": "Start your diagram with e.g. flowchart TD | pie | sequenceDiagram | classDiagram | stateDiagram-v2.",
+    "rationale": "Detection resolves the kind from the header, so this condition is already reported as common/unknown-diagram-kind.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:GEN-HEADER-INVALID",
+    "status": "rejected",
+    "reason": "the kind comes from the header in the kinds table, so a missing or unknown header is common/unknown-diagram-kind"
   }
 ]

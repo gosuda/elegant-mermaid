@@ -65,17 +65,23 @@ This file fixes the bytes, key order, and content of the canonical layout dump, 
 - layout-dump-31: Each `parent` MUST be `""` or a box id, and the parent chain MUST have no cycle. [just validate]
 - layout-dump-32: Every Rect MUST be valid, every width and height MUST be at least 0, every coordinate and point MUST be within `+/-COORD_LIMIT`, and every rect edge `x + w` and `y + h` MUST be within `+/-COORD_LIMIT`. [just validate]
 - layout-dump-33: Under `WellFormed`, `intersects`, `contains`, `Polyline.hitsRect`, and `Polyline.isOrthogonal` MUST never return an error. [just validate]
+- layout-dump-55: `emd layout --metrics --dump FILE` MUST read FILE as one UTF-8 JSON document, MUST print `FILE: malformed layout dump: REASON` to stderr and MUST exit 2 when the document fails any rule of layout-dump-56 to layout-dump-58, and the Go and Rust binaries MUST print the same REASON; the REASON of `geomcheck validate` in layout-dump-29 is not bound by this rule. [just go-check: TestErrorPaths]
+- layout-dump-56: The decoder MUST give the first fault in document order, and REASON MUST be one of these texts: `invalid UTF-8` for bytes that are not UTF-8; `invalid JSON` for text that is not one JSON document (a trailing byte, a byte order mark, an empty file, and a single quote outside a string are all `invalid JSON`); `missing KEY` for an absent member, with KEY as spelled in the dump; `expected object`, `expected string`, `expected integer`, `expected boolean`, `expected array`, or `expected point` for a value of the wrong type (a point holds exactly two integers); `invalid integer` for an integer outside int32; `expected version 1 layout dump` when `version` is not 1 or `stage` is not `layout`; `--metrics needs --profile vector` when `profile` is not `vector`; `invalid direction` when `options.direction` is not `TB`, `BT`, `LR`, or `RL`; `invalid box role` when a box `role` is not `node` or `group`. [just go-check: TestReadMetricDumpReasons]
+- layout-dump-57: After decoding, the reader MUST check `WellFormed` in this order and MUST give the first fault: the canvas rectangle; duplicate ids in the order boxes, routes, labels; route ends in route order (`from`, then `to`); label owners in label order; box parents in box order (an unknown parent, then a parent chain that returns to its own box); each box rectangle in box order; each label rectangle in label order; the points of each route in route order. [just go-check: TestReadMetricDumpReasons]
+- layout-dump-58: The `WellFormed` REASON MUST be one of these texts, with the id or name as the dump spells it: `box id X appears twice`, `route id X appears twice`, `label id X appears twice`, `route R names unknown box B`, `label L has unknown owner O`, `box B has unknown parent P`, `box B is its own ancestor`, `NAME has an invalid rectangle` for a negative width or height or an edge outside int32, and `NAME has a coordinate beyond the limit` for a value beyond `+/-COORD_LIMIT`; NAME is `canvas`, `box ID`, `label ID`, or, for a route point, `route ID` with the `has a coordinate beyond the limit` text only. [just go-check: TestReadMetricDumpReasons]
+- layout-dump-59: The Rust tests in `crates/elegant-mermaid/src/scene/metrics_dump_tests.rs` MUST check the same dumps and the same REASON texts as `TestReadMetricDumpReasons`. [just rust-check: dump_reasons_are_fixed]
 
 ## Ancestors and scope
 
 - layout-dump-34: `anc(id)` MUST be the list of proper ancestors of a box, found by following `parent`. [just validate]
 - layout-dump-35: For a route `r`, `Scope(r)` MUST be `{r.fromId, r.toId}` union `anc(r.fromId)` union `anc(r.toId)`. [just validate]
-- layout-dump-36: For a label `l`, `OwnerAnc(l)` MUST be `anc(r.fromId)` union `anc(r.toId)` when `owner` names a route `r`, and `anc(owner)` when `owner` names a box. [just validate]
+- layout-dump-36: For a label `l`, `OwnerAnc(l)` MUST be `anc(r.fromId)` union `anc(r.toId)` when `owner` names a route `r`, and `{owner}` union `anc(owner)` when `owner` names a box. The route rule MUST take precedence when a route and a box have the same id. [just validate]
 - layout-dump-37: Every exclusive box MUST be a box with `exclusive` `true`. [just validate]
 
 ## Clauses
 
-- layout-dump-38: The seven clauses MUST run in this fixed order, and each MUST have its fixed message. [just validate]
+- layout-dump-38: The eight clauses MUST run in this fixed order, and each MUST have its fixed message. [just validate]
+    The order is `canvas`, `exclusive-siblings`, `parent`, `orthogonal`, `ports`, `route-clearance`, `label-clearance`, `frame-clearance`.
 - layout-dump-39: Clause `canvas` MUST hold when every box rect is contained in `(0, 0, canvas.w, canvas.h)`, and its message MUST be `box outside canvas`. [just validate]
 - layout-dump-40: Clause `exclusive-siblings` MUST hold when distinct boxes `b` and `c` with `exclusive` `true` and equal `parent` satisfy `Disjoint(b.rect, c.rect)`, and its message MUST be `exclusive sibling boxes overlap`. [just validate]
 - layout-dump-41: Clause `parent` MUST hold when every box with `parent != ""` has its rect contained in the rect of that parent, and its message MUST be `box outside its parent`. [just validate]
@@ -83,14 +89,20 @@ This file fixes the bytes, key order, and content of the canonical layout dump, 
 - layout-dump-43: Clause `ports` MUST hold when every route has at least one point, its first point satisfies `on_boundary` of the `from` rect, and its last point satisfies `on_boundary` of the `to` rect, and its message MUST be `route end is off its box boundary`. [just validate]
 - layout-dump-44: Clause `route-clearance` MUST hold when, for every route `r` and every exclusive box `b` with `b.id` not in `Scope(r)`, `Polyline.hitsRect(r.points, b.rect)` is false, and its message MUST be `route crosses an exclusive box`. [just validate]
 - layout-dump-45: Clause `label-clearance` MUST hold when, for every label `l` and every exclusive box `b` with `b.id` not in `OwnerAnc(l)`, `intersects(l.rect, b.rect)` is false, and its message MUST be `label overlaps an exclusive box`. [just validate]
+- layout-dump-54: Clause `frame-clearance` MUST hold when both conditions below hold, and its message MUST be `group frame overlaps a foreign box or label`. [just validate]
+    Let `G` be the boxes with `role` `group`.
+    1. For every `g` in `G` and every box `b` other than `g` with `g.id` not in `anc(b)` and `b.id` not in `anc(g)`, `Disjoint(g.rect, b.rect)` MUST be true. This covers node boxes that are not members of `g`, at any depth, sibling frames, and cousin frames. A nested frame has one id in the `anc` of the other, so this condition skips it, because clause `parent` already makes it contained.
+    2. For every `g` in `G` and every label `l`, `Disjoint(g.rect, l.rect)` or `StrictInside(g.rect, l.rect)` MUST be true.
+    `StrictInside(o, i)` is true when `o.x < i.x`, `i.x + i.w < o.x + o.w`, `o.y < i.y`, and `i.y + i.h < o.y + o.h`.
+    No label straddles a frame boundary, and no label touches a frame boundary from inside. The strict form is required by the cell profile: the border cells of a frame are the columns `x` and `x + w - 1` and the rows `y` and `y + h - 1`, so a label that is only contained could print on them. Nested frames need containment only. A group title is not a dump object. It lies strictly inside its own frame, so condition 1 protects it from foreign frames and nodes.
 
 ## Outcomes
 
 - layout-dump-46: `Validator.validate d` MUST return the first clause in this order that fails, or none. [just proofs]
 - layout-dump-47: `Validator.check d` MUST be true exactly when no clause fails. [just proofs]
 - layout-dump-48: `geomcheck validate` MUST print `valid` and exit 0 when `check` is true, and otherwise MUST print `invalid <clause-id>: <message>` and exit 1, for example `invalid canvas: box outside canvas`. [just validate]
-- layout-dump-49: `HardConstraints d` MUST be the conjunction `C1 d and C2 d and C3 d and C4 d and C5 d and C6 d and C7 d`, where `Ci` is the predicate of clause `i`. [just proofs]
-- layout-dump-50: `Validator.check` MUST compute each `Ci` as a Boolean test and MUST combine the seven tests with `&&`. [just proofs]
+- layout-dump-49: `HardConstraints d` MUST be the conjunction `C1 d and C2 d and C3 d and C4 d and C5 d and C6 d and C7 d and C8 d`, where `Ci` is the predicate of clause `i`. [just proofs]
+- layout-dump-50: `Validator.check` MUST compute each `Ci` as a Boolean test and MUST combine the eight tests with `&&`. [just proofs]
 - layout-dump-51: The soundness theorem `Validator.sound` MUST hold, and its statement MUST be the row of the kernel theorem table of `spec/lean-reference.md`. [just proofs]
 - layout-dump-52: The cell-profile rules of `spec/quality-metrics.md` MUST be outside `HardConstraints`. [just quality]
 - layout-dump-53: `just validate` MUST pipe every corpus dump from both implementations through `geomcheck validate`. [just validate]

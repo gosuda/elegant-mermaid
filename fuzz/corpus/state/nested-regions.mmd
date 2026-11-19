@@ -1,0 +1,28 @@
+stateDiagram
+ direction TB
+state "Outer region" as Outer {
+ direction LR
+ --
+ [*] --> A
+ A: worker
+ state Inner {
+  direction BT
+  --
+  [*]
+  Inner_start: local identity collision
+  [*] --> Task
+  Task --> [*]
+  --
+  --
+ }
+ --
+ --
+ state "Scoped alias" as scoped:detail {
+  direction RL
+  [*] --> Leaf
+  Leaf --> [*]
+ }
+ --
+ direction TB
+}
+Outer --> [*]

@@ -1,0 +1,5 @@
+{"version":1,"stage":"layout","kind":"flowchart","profile":"vector","options":{"profile":"vector","thoroughness":3,"max_width":0,"direction":"TB","limits":{"max_nodes":2000,"max_edges":5000,"max_text_bytes":1048576}},"canvas":{"w":4236,"h":12544},
+"boxes":[{"id":"A","role":"node","x":1024,"y":1024,"w":2188,"h":2304,"parent":"","exclusive":true},
+{"id":"B","role":"node","x":1055,"y":9216,"w":2127,"h":2304,"parent":"","exclusive":true}],
+"routes":[{"id":"e0","from":"A","to":"B","orthogonal":true,"points":[[2118,3328],[2118,4480],[1343,4480],[1343,5632],[1343,6912],[1343,8064],[2118,8064],[2118,9216]]}],
+"labels":[{"id":"e0.label","owner":"e0","text":"yes","x":1343,"y":5632,"w":1550,"h":1280,"lines":["yes"]}]}

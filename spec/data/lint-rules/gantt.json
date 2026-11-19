@@ -1,0 +1,35 @@
+[
+  {
+    "code": "gantt/duplicate-task-id",
+    "severity": "warning",
+    "summary": "two tasks are declared with the same explicit id",
+    "help": "Give each task a distinct id.",
+    "rationale": "Dependencies written as after or until refer to the id, so a duplicate makes the reference target ambiguous.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:gantt-duplicate-task-id",
+    "status": "adopted"
+  },
+  {
+    "code": "gantt/undefined-dependency",
+    "severity": "warning",
+    "summary": "a task references an id that no task defines",
+    "help": "Define the referenced task id, or fix the spelling.",
+    "rationale": "Mermaid places a task whose dependency is undefined at the chart start, so the schedule is silently wrong.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:gantt-undefined-dependency",
+    "status": "adopted"
+  },
+  {
+    "code": "gantt/empty-section",
+    "severity": "warning",
+    "summary": "gantt section contains no tasks",
+    "help": "Add tasks to the section, or remove it.",
+    "rationale": "An empty section renders a header over nothing.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:gantt-empty-section",
+    "status": "adopted"
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "kind": "ishikawa",
+    "key": "diagramPadding",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "ishikawa",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "ishikawa",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "ishikawa",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "ishikawa",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "ishikawa",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  }
+]

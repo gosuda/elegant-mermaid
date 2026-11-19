@@ -1,0 +1,10 @@
+[
+  {"kind":"kanban","key":"layout","class":"accepted-ignored"},
+  {"kind":"kanban","key":"look","class":"honoured"},
+  {"kind":"kanban","key":"padding","class":"honoured"},
+  {"kind":"kanban","key":"sectionWidth","class":"honoured"},
+  {"kind":"kanban","key":"theme","class":"honoured"},
+  {"kind":"kanban","key":"ticketBaseUrl","class":"honoured"},
+  {"kind":"kanban","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"kanban","key":"useWidth","class":"accepted-ignored"}
+]

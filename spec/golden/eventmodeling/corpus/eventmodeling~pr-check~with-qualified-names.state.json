@@ -1,0 +1,1 @@
+{"boxes":[["01",0],["02",101],["03",201]],"lanes":[[0,"UI/Automation"],[101,"C/RM: Inventory"],[201,"Stream: Inventory"]],"relations":[["01","02"],["02","03"]]}

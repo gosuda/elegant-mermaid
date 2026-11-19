@@ -1,0 +1,29 @@
+[
+  {
+    "code": "xychart/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "A token must fit the current grammar production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "xychart/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "An unknown statement cannot create an axis or plot.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "xychart/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "An open text value or list needs its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

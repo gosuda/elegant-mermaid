@@ -1,0 +1,13 @@
+[
+  {"kind":"agentflow","key":"diagramPadding","class":"honoured"},
+  {"kind":"agentflow","key":"layout","class":"accepted-ignored"},
+  {"kind":"agentflow","key":"look","class":"honoured"},
+  {"kind":"agentflow","key":"minNodeWidth","class":"honoured"},
+  {"kind":"agentflow","key":"nodeSpacing","class":"honoured"},
+  {"kind":"agentflow","key":"rankSpacing","class":"honoured"},
+  {"kind":"agentflow","key":"theme","class":"honoured"},
+  {"kind":"agentflow","key":"titleTopMargin","class":"accepted-ignored"},
+  {"kind":"agentflow","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"agentflow","key":"useWidth","class":"accepted-ignored"},
+  {"kind":"agentflow","key":"wrappingWidth","class":"honoured"}
+]

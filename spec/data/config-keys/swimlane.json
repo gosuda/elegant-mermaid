@@ -1,0 +1,39 @@
+[
+  {
+    "kind": "swimlane",
+    "key": "automaticLaneOrdering",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "swimlane",
+    "key": "ignoreCrossLaneEdges",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "swimlane",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "swimlane",
+    "key": "lineHops",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "swimlane",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "swimlane",
+    "key": "optimizeRanksByCrossings",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "swimlane",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {"kind":"swimlane","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"swimlane","key":"useWidth","class":"accepted-ignored"}
+]

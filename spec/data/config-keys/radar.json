@@ -1,0 +1,16 @@
+[
+  {"kind":"radar","key":"axisLabelFactor","class":"accepted-ignored"},
+  {"kind":"radar","key":"axisScaleFactor","class":"accepted-ignored"},
+  {"kind":"radar","key":"curveTension","class":"honoured"},
+  {"kind":"radar","key":"height","class":"honoured"},
+  {"kind":"radar","key":"layout","class":"accepted-ignored"},
+  {"kind":"radar","key":"look","class":"honoured"},
+  {"kind":"radar","key":"marginBottom","class":"accepted-ignored"},
+  {"kind":"radar","key":"marginLeft","class":"accepted-ignored"},
+  {"kind":"radar","key":"marginRight","class":"honoured"},
+  {"kind":"radar","key":"marginTop","class":"honoured"},
+  {"kind":"radar","key":"theme","class":"honoured"},
+  {"kind":"radar","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"radar","key":"useWidth","class":"accepted-ignored"},
+  {"kind":"radar","key":"width","class":"honoured"}
+]

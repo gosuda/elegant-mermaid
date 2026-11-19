@@ -1,0 +1,69 @@
+[
+  {
+    "code": "venn/duplicate-set",
+    "severity": "warning",
+    "summary": "a venn set is declared twice",
+    "help": "Declare each set once.",
+    "rationale": "Mermaid draws a second circle coincident with the first, both take the last label, so an earlier label never renders.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:venn-duplicate-set",
+    "status": "adopted"
+  },
+  {
+    "code": "venn/non-positive-size",
+    "severity": "warning",
+    "summary": "a venn set or union size is zero or negative",
+    "help": "Give the set a positive size.",
+    "rationale": "A zero size erases the set and every intersection over it, and a negative size distorts the layout or throws out of it.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:venn-non-positive-size",
+    "status": "adopted"
+  },
+  {
+    "code": "venn/single-set",
+    "severity": "warning",
+    "summary": "venn diagram declares only one distinct set",
+    "help": "Declare more sets, or use a different diagram kind.",
+    "rationale": "A single circle has nothing to intersect, so the diagram carries no comparison.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:venn-single-set",
+    "status": "adopted"
+  },
+  {
+    "code": "venn/self-union",
+    "severity": "warning",
+    "summary": "a venn union names the same set twice",
+    "help": "Remove the duplicate set from the union list.",
+    "rationale": "The list is never deduplicated, so the set is intersected with itself and draws a spurious region.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:venn-self-union",
+    "status": "adopted"
+  },
+  {
+    "code": "venn/no-sets",
+    "severity": "error",
+    "summary": "venn diagram declares no sets",
+    "help": "Add at least one set line.",
+    "rationale": "Unlike the other no-data cases the renderer throws instead of drawing an empty frame, so the diagram fails outright.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:venn-no-sets",
+    "status": "rejected",
+    "reason": "duplicate of venn/no-sets"
+  },
+  {
+    "code": "venn/duplicate-union",
+    "severity": "warning",
+    "summary": "the same venn intersection is declared twice",
+    "help": "Declare each intersection once.",
+    "rationale": "The member lists are sorted but never deduplicated, so a reordered duplicate draws a second region over the first.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:venn-duplicate-union",
+    "status": "adopted"
+  }
+]

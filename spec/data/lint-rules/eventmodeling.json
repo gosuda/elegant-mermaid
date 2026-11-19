@@ -1,0 +1,36 @@
+[
+  {
+    "code": "eventmodeling/undefined-frame",
+    "severity": "error",
+    "summary": "a relation names a frame id that no frame declares",
+    "help": "Declare the frame id, or fix the spelling.",
+    "rationale": "Mermaid drops the relation silently, so the arrow never renders.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:eventmodeling-undefined-frame",
+    "status": "adopted"
+  },
+  {
+    "code": "eventmodeling/duplicate-frame-id",
+    "severity": "warning",
+    "summary": "two frames share one id",
+    "help": "Give each frame a distinct id.",
+    "rationale": "Both frames render, and the relation draws a duplicate arrow for each matching frame.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:eventmodeling-duplicate-frame-id",
+    "status": "rejected",
+    "reason": "duplicate of eventmodeling/duplicate-frame-id"
+  },
+  {
+    "code": "eventmodeling/invalid-flow",
+    "severity": "warning",
+    "summary": "a frame is sourced from a type the flow forbids",
+    "help": "Source the frame from an allowed box type.",
+    "rationale": "The upstream validator forbids this source type but never runs, so nothing else reports the broken flow.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:eventmodeling-invalid-flow",
+    "status": "adopted"
+  }
+]

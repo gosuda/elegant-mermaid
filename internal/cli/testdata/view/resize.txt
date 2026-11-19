@@ -1,0 +1,12 @@
+                                        
+ ┌───────┐   ┌───┐                      
+ │ alpha ├───▶ B │                      
+ └───────┘   └───┘                      
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+... | flowchart | cells | - | E 0 errors
+? help  q quit  d diagnostics  arrows/hj

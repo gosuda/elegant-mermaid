@@ -65,6 +65,7 @@ pub fn preprocess(src: &str) -> Preprocessed {
 
 struct Fence {
     start: usize,
+    indent_end: usize,
     end: usize,
 }
 
@@ -87,7 +88,7 @@ impl<'a> Prep<'a> {
         let Some(f) = fence_at(self.b, 0) else {
             return;
         };
-        let Some(c) = closing_fence(self.b, f.end) else {
+        let Some(c) = closing_fence(self.b, f.end, &self.b[..f.indent_end]) else {
             return;
         };
         let body = Span {
@@ -146,13 +147,17 @@ impl<'a> Prep<'a> {
 
     fn directive(&mut self, p: usize) -> usize {
         let Some(cj) = self.dir_close(p) else {
-            self.push_malformed(
-                "malformed directive",
-                Span {
-                    start: p,
-                    end: p + 3,
-                },
-            );
+            let after = self.dir_ws(p + 3, self.b.len());
+            let (name, _) = self.dir_word(after, self.b.len());
+            if matches!(name.as_str(), "init" | "initialize" | "wrap") {
+                self.push_malformed(
+                    "malformed directive",
+                    Span {
+                        start: p,
+                        end: p + 3,
+                    },
+                );
+            }
             return self.b.len();
         };
         let after = self.dir_ws(p + 3, cj);
@@ -278,21 +283,31 @@ impl<'a> Prep<'a> {
 
     fn comment_scan(&mut self) {
         let len = self.b.len();
+        let mut blanked = SpanCursor::new(merge_spans(self.spans.clone()));
+        let mut blank_from: Option<usize> = None;
         let mut p = self.region;
         while p < len {
             let e = line_content_end(self.b, p, len);
+            let nl = e + eol_len(self.b, e);
             if self.comment_line(p, e) {
                 self.spans.push(Span {
-                    start: p,
-                    end: e + eol_len(self.b, e),
+                    start: blank_from.take().unwrap_or(p),
+                    end: nl,
                 });
+            } else if self.blank_line(p, e, &mut blanked) {
+                blank_from.get_or_insert(p);
+            } else {
+                blank_from = None;
             }
-            let nl = e + eol_len(self.b, e);
             if nl <= p {
                 break;
             }
             p = nl;
         }
+    }
+
+    fn blank_line(&self, start: usize, end: usize, removed: &mut SpanCursor) -> bool {
+        (start..end).all(|i| matches!(self.b.get(i), Some(b' ') | Some(b'\t')) || removed.covers(i))
     }
 
     fn comment_line(&self, ls: usize, e: usize) -> bool {
@@ -363,13 +378,16 @@ fn fence_at(b: &[u8], from: usize) -> Option<Fence> {
     }
     Some(Fence {
         start: from,
+        indent_end: i,
         end: e + el,
     })
 }
 
-fn closing_fence(b: &[u8], mut from: usize) -> Option<Fence> {
+fn closing_fence(b: &[u8], mut from: usize, indent: &[u8]) -> Option<Fence> {
     while from < b.len() {
-        if let Some(f) = fence_at(b, from) {
+        if let Some(f) = fence_at(b, from)
+            && &b[from..f.indent_end] == indent
+        {
             return Some(f);
         }
         let e = line_content_end(b, from, b.len());
@@ -393,7 +411,7 @@ fn merge_spans(mut spans: Vec<Span>) -> Vec<Span> {
     let mut out: Vec<Span> = Vec::new();
     for s in spans {
         match out.last_mut() {
-            Some(l) if s.start < l.end => {
+            Some(l) if s.start <= l.end => {
                 if s.end > l.end {
                     l.end = s.end;
                 }
@@ -402,6 +420,24 @@ fn merge_spans(mut spans: Vec<Span>) -> Vec<Span> {
         }
     }
     out
+}
+
+struct SpanCursor {
+    spans: Vec<Span>,
+    next: usize,
+}
+
+impl SpanCursor {
+    fn new(spans: Vec<Span>) -> Self {
+        Self { spans, next: 0 }
+    }
+
+    fn covers(&mut self, offset: usize) -> bool {
+        while self.spans.get(self.next).is_some_and(|s| s.end <= offset) {
+            self.next += 1;
+        }
+        self.spans.get(self.next).is_some_and(|s| s.start <= offset)
+    }
 }
 
 fn merge_top(base: &[Entry], add: &[Entry]) -> Vec<Entry> {
@@ -434,418 +470,9 @@ fn merge_one(base: &[Entry], add: &[Entry]) -> Vec<Entry> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
+#[path = "preprocess_tests.rs"]
+mod tests;
 
-    fn check(ds: &[Diagnostic], code: &str, msg: &str, span: Span) {
-        let [d] = ds else { unreachable!() };
-        assert_eq!(d.code, code);
-        assert_eq!(d.message, msg);
-        assert_eq!(d.span, span);
-        assert_eq!(d.severity, Severity::Error);
-        assert!(d.help.is_empty());
-    }
-
-    fn sequence(v: ConfigValue) -> Vec<ConfigValue> {
-        let ConfigValue::Sequence(s) = v else {
-            unreachable!()
-        };
-        s
-    }
-
-    fn same_shape(a: &ConfigValue, b: &ConfigValue) -> bool {
-        match (a, b) {
-            (ConfigValue::Mapping(ma), ConfigValue::Mapping(mb)) => {
-                ma.len() == mb.len()
-                    && ma
-                        .iter()
-                        .zip(mb)
-                        .all(|(x, y)| x.key == y.key && same_shape(&x.value, &y.value))
-            }
-            (ConfigValue::Sequence(sa), ConfigValue::Sequence(sb)) => {
-                sa.len() == sb.len() && sa.iter().zip(sb).all(|(x, y)| same_shape(x, y))
-            }
-            _ => a == b,
-        }
-    }
-
-    fn cfg_of(p: &Preprocessed) -> ConfigValue {
-        let Some(f) = &p.frontmatter else {
-            unreachable!()
-        };
-        let Some(c) = &f.config else { unreachable!() };
-        c.clone()
-    }
-
-    fn str_map(pairs: &[(&str, &str)]) -> Vec<Entry> {
-        pairs
-            .iter()
-            .map(|(k, v)| Entry {
-                key: String::from(*k),
-                key_span: Span { start: 0, end: 0 },
-                value: ConfigValue::String(String::from(*v)),
-            })
-            .collect()
-    }
-
-    const ALPHABET: [char; 25] = [
-        ' ', '\t', '\n', ':', '-', '#', '[', ']', '{', '}', ',', '\'', '"', '|', '>', '&', '*',
-        '!', 'a', 'b', 'c', '0', '1', '2', '\\',
-    ];
-
-    struct Xs(u32);
-
-    impl Xs {
-        fn next(&mut self) -> u32 {
-            let mut x = self.0;
-            x ^= x << 13;
-            x ^= x >> 17;
-            x ^= x << 5;
-            self.0 = x;
-            x
-        }
-
-        fn below(&mut self, n: u32) -> u32 {
-            self.next() % n
-        }
-    }
-
-    fn random_case(i: u32) -> String {
-        let mut g = Xs(i.wrapping_add(1));
-        let len = 1 + g.below(40);
-        let mut s = String::new();
-        for _ in 0..len {
-            let idx = g.below(25) as usize;
-            let Some(c) = ALPHABET.get(idx) else {
-                unreachable!()
-            };
-            s.push(*c);
-        }
-        s
-    }
-
-    fn in_bounds(s: &str, sp: Span) -> bool {
-        sp.start <= sp.end
-            && sp.end <= s.len()
-            && s.is_char_boundary(sp.start)
-            && s.is_char_boundary(sp.end)
-    }
-
-    #[test]
-    fn no_fence_and_unterminated_fence() {
-        let p = preprocess("flowchart TD\n");
-        assert!(p.frontmatter.is_none());
-        assert!(p.removed.is_empty());
-        assert!(p.diagnostics.is_empty());
-        let p = preprocess("---\na: 1\n");
-        assert!(p.frontmatter.is_none());
-        assert!(p.removed.is_empty());
-        let p = preprocess("--- x\na: 1\n");
-        assert!(p.frontmatter.is_none());
-        let p = preprocess("----\na: 1\n");
-        assert!(p.frontmatter.is_none());
-    }
-
-    #[test]
-    fn fence_shapes_and_line_endings() {
-        let p = preprocess("---\nconfig:\n  theme: dark\n---\nA");
-        let Some(f) = &p.frontmatter else {
-            unreachable!()
-        };
-        assert_eq!(f.body, Span { start: 4, end: 26 });
-        assert!(same_shape(
-            &cfg_of(&p),
-            &ConfigValue::Mapping(str_map(&[("theme", "dark")]))
-        ));
-        assert_eq!(p.removed, vec![Span { start: 0, end: 30 }]);
-        assert!(p.diagnostics.is_empty());
-
-        let p = preprocess("  --- \na: 1\n  ---\nB");
-        let Some(f) = &p.frontmatter else {
-            unreachable!()
-        };
-        assert_eq!(f.body, Span { start: 7, end: 12 });
-        assert_eq!(p.removed, vec![Span { start: 0, end: 18 }]);
-
-        let p = preprocess("---\r\nconfig: {a: 1}\r\n---\r\nA");
-        let want = ConfigValue::Mapping(vec![Entry {
-            key: String::from("a"),
-            key_span: Span { start: 0, end: 0 },
-            value: ConfigValue::Integer(String::from("1")),
-        }]);
-        assert!(same_shape(&cfg_of(&p), &want));
-        assert_eq!(p.removed, vec![Span { start: 0, end: 26 }]);
-
-        let p = preprocess("---\ra: 1\r---\rB");
-        let Some(f) = &p.frontmatter else {
-            unreachable!()
-        };
-        assert_eq!(f.body, Span { start: 4, end: 9 });
-        assert_eq!(p.removed, vec![Span { start: 0, end: 13 }]);
-        assert!(p.diagnostics.is_empty());
-    }
-
-    #[test]
-    fn frontmatter_roots_without_config() {
-        let p = preprocess("---\nhello\n---\nA");
-        let Some(f) = &p.frontmatter else {
-            unreachable!()
-        };
-        assert_eq!(f.value, ConfigValue::String(String::from("hello")));
-        assert!(f.config.is_none());
-        assert!(p.diagnostics.is_empty());
-
-        let p = preprocess("---\n[1, 2]\n---\nA");
-        let Some(f) = &p.frontmatter else {
-            unreachable!()
-        };
-        assert_eq!(sequence(f.value.clone()).len(), 2);
-        assert!(f.config.is_none());
-        assert!(p.diagnostics.is_empty());
-
-        let p = preprocess("---\n---\nA");
-        let Some(f) = &p.frontmatter else {
-            unreachable!()
-        };
-        assert_eq!(f.body, Span { start: 4, end: 4 });
-        assert_eq!(f.value, ConfigValue::Null);
-        assert!(f.config.is_none());
-        assert_eq!(p.removed, vec![Span { start: 0, end: 8 }]);
-    }
-
-    #[test]
-    fn frontmatter_config_must_be_mapping_span() {
-        let p = preprocess("---\nconfig: 42\n---\nA\n");
-        check(
-            &p.diagnostics,
-            C_MALFORMED,
-            "frontmatter config must be a mapping",
-            Span { start: 12, end: 14 },
-        );
-        assert!(p.frontmatter.as_ref().is_none_or(|f| f.config.is_none()));
-    }
-
-    #[test]
-    fn unknown_directives_removed_silently() {
-        let p = preprocess("%%{foo bar}%%\nA\n");
-        assert!(p.diagnostics.is_empty());
-        assert!(p.directives.is_empty());
-        assert_eq!(p.removed, vec![Span { start: 0, end: 13 }]);
-
-        let p = preprocess("%%{}%%\nA");
-        assert!(p.diagnostics.is_empty());
-        assert!(p.directives.is_empty());
-
-        let p = preprocess("%%{initx: 1}%%\nA");
-        assert!(p.diagnostics.is_empty());
-        assert!(p.directives.is_empty());
-    }
-
-    #[test]
-    fn malformed_directive_forms() {
-        let p = preprocess("%%{init x}%%\n");
-        check(
-            &p.diagnostics,
-            C_MALFORMED,
-            "malformed directive",
-            Span { start: 0, end: 3 },
-        );
-        assert!(p.directives.is_empty());
-        assert_eq!(p.removed, vec![Span { start: 0, end: 12 }]);
-
-        let p = preprocess("%%{init: {\n");
-        check(
-            &p.diagnostics,
-            C_MALFORMED,
-            "malformed directive",
-            Span { start: 0, end: 3 },
-        );
-        assert_eq!(p.removed, vec![Span { start: 0, end: 11 }]);
-
-        let p = preprocess("%%{wrap: x}%%\n");
-        check(
-            &p.diagnostics,
-            C_MALFORMED,
-            "wrap takes no body",
-            Span { start: 0, end: 3 },
-        );
-        assert!(p.directives.is_empty());
-        assert!(!p.wrap);
-        assert_eq!(p.removed, vec![Span { start: 0, end: 13 }]);
-
-        let p = preprocess("%%{init: 1}%%\n");
-        check(
-            &p.diagnostics,
-            C_MALFORMED,
-            "directive body must be a JSON object",
-            Span { start: 9, end: 10 },
-        );
-        assert_eq!(p.removed, vec![Span { start: 0, end: 13 }]);
-    }
-
-    #[test]
-    fn known_directives_without_effect() {
-        let p = preprocess("%%{init}%%\n");
-        assert!(p.diagnostics.is_empty());
-        let [d] = p.directives.as_slice() else {
-            unreachable!()
-        };
-        assert_eq!(d.name, "init");
-        assert!(d.init.is_none());
-        assert!(!d.wrap);
-        assert_eq!(p.removed, vec![Span { start: 0, end: 10 }]);
-
-        let p = preprocess("%%{init: }%%\n");
-        assert!(p.diagnostics.is_empty());
-        let [d] = p.directives.as_slice() else {
-            unreachable!()
-        };
-        assert!(d.init.is_none());
-        assert_eq!(d.body, Span { start: 8, end: 9 });
-
-        let p = preprocess("%%{initialize}%%\nA");
-        assert!(p.diagnostics.is_empty());
-        let [d] = p.directives.as_slice() else {
-            unreachable!()
-        };
-        assert_eq!(d.name, "initialize");
-    }
-
-    #[test]
-    fn wrap_directive_sets_flag() {
-        let p = preprocess("%%{wrap}%%\nB");
-        assert!(p.diagnostics.is_empty());
-        assert!(p.wrap);
-        let [d] = p.directives.as_slice() else {
-            unreachable!()
-        };
-        assert_eq!(d.name, "wrap");
-        assert!(d.wrap);
-        assert_eq!(d.body, Span { start: 7, end: 7 });
-        assert_eq!(p.removed, vec![Span { start: 0, end: 10 }]);
-    }
-
-    #[test]
-    fn init_bodies_merge_to_depth_two() {
-        let src = "%%{init: {'a': {'x': 1, 'y': 2}}}%%%%{init: {'a': {'y': 3}, 'b': 4}}%%\nZ";
-        let p = preprocess(src);
-        assert!(p.diagnostics.is_empty());
-        assert_eq!(p.directives.len(), 2);
-        let Some(merged) = &p.init_config else {
-            unreachable!()
-        };
-        let want = ConfigValue::Mapping(vec![
-            Entry {
-                key: String::from("a"),
-                key_span: Span { start: 0, end: 0 },
-                value: ConfigValue::Mapping(vec![
-                    Entry {
-                        key: String::from("x"),
-                        key_span: Span { start: 0, end: 0 },
-                        value: ConfigValue::Integer(String::from("1")),
-                    },
-                    Entry {
-                        key: String::from("y"),
-                        key_span: Span { start: 0, end: 0 },
-                        value: ConfigValue::Integer(String::from("3")),
-                    },
-                ]),
-            },
-            Entry {
-                key: String::from("b"),
-                key_span: Span { start: 0, end: 0 },
-                value: ConfigValue::Integer(String::from("4")),
-            },
-        ]);
-        assert!(same_shape(merged, &want));
-    }
-
-    #[test]
-    fn init_config_key_stays_ordinary() {
-        let src = "%%{init: {'config': {'x': 1}}}%%\n";
-        let p = preprocess(src);
-        assert!(p.diagnostics.is_empty());
-        let Some(merged) = &p.init_config else {
-            unreachable!()
-        };
-        let ConfigValue::Mapping(m) = merged else {
-            unreachable!()
-        };
-        assert_eq!(m.len(), 1);
-        assert_eq!(m[0].key, "config");
-    }
-
-    #[test]
-    fn comment_lines_removed_and_directives_inside_them_apply() {
-        let p = preprocess("%% hi\nA\n");
-        assert!(p.diagnostics.is_empty());
-        assert_eq!(p.removed, vec![Span { start: 0, end: 6 }]);
-
-        let src = "%% x %%{init: {'t': 1}}%%\nA\n";
-        let p = preprocess(src);
-        assert!(p.diagnostics.is_empty());
-        assert_eq!(p.directives.len(), 1);
-        assert_eq!(p.removed, vec![Span { start: 0, end: 26 }]);
-    }
-
-    #[test]
-    fn frontmatter_removed_before_directive_scan() {
-        let src = "---\n%%{init: 1}%%\n---\n%%{wrap}%%\nA\n";
-        let p = preprocess(src);
-        assert!(p.wrap);
-        assert_eq!(p.directives.len(), 1);
-        assert!(p.diagnostics.is_empty());
-        assert!(!p.removed.iter().any(|s| s.start == 4));
-    }
-
-    #[test]
-    fn removed_spans_stay_sorted_and_disjoint() {
-        let src = "---\n%% x\n---\n%% y\n%%{wrap}%%\nA\n";
-        let p = preprocess(src);
-        assert!(p.wrap);
-        let starts: Vec<usize> = p.removed.iter().map(|s| s.start).collect();
-        let mut sorted = starts.clone();
-        sorted.sort();
-        assert_eq!(starts, sorted);
-        for w in p.removed.windows(2) {
-            assert!(w[1].start >= w[0].end, "overlap {w:?}");
-        }
-    }
-
-    #[test]
-    fn diagnostics_propagate_from_frontmatter_body() {
-        let src = "---\n\ta: 1\n---\nA\n";
-        let p = preprocess(src);
-        check(
-            &p.diagnostics,
-            C_MALFORMED,
-            "tab in indentation",
-            Span { start: 4, end: 5 },
-        );
-    }
-
-    #[test]
-    fn random_spans_stay_in_range() {
-        for i in 0u32..2000 {
-            let s = random_case(i);
-            let p = preprocess(&s);
-            for d in &p.diagnostics {
-                assert!(
-                    in_bounds(&s, d.span),
-                    "case {i} diag {:?} src {s:?}",
-                    d.span
-                );
-            }
-            for sp in &p.removed {
-                assert!(in_bounds(&s, *sp), "case {i} removed {:?} src {s:?}", sp);
-            }
-            for d in &p.directives {
-                assert!(
-                    in_bounds(&s, d.body),
-                    "case {i} body {:?} src {s:?}",
-                    d.body
-                );
-            }
-        }
-    }
-}
+#[cfg(test)]
+#[path = "preprocess/comment_tests.rs"]
+mod comment_tests;

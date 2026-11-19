@@ -1,0 +1,47 @@
+[
+  {
+    "code": "treeview/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "Each token must fit the current production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "treeview/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "Rejected text must not create a tree node.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "treeview/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "Quoted names and accessibility blocks need closing delimiters.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "treeview/empty-box-node",
+    "severity": "error",
+    "summary": "expected a filename or directory name after the box-drawing prefix",
+    "help": "",
+    "rationale": "The upstream box converter rejects a branch without node content.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "treeview/mixed-indentation",
+    "severity": "error",
+    "summary": "unexpected indentation without box-drawing characters",
+    "help": "",
+    "rationale": "The upstream box converter rejects indentation-only child lines in box mode.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

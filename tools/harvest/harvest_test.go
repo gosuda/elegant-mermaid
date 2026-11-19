@@ -214,6 +214,7 @@ func TestInputHalfSplitsAtSeparator(t *testing.T) {
 		})
 	}
 }
+
 func TestHarvestRefusesMermaidLinterBeforeWriting(t *testing.T) {
 	root := fixtureTree(t)
 	planted := filepath.Join(root, filepath.FromSlash(".references/mermaid-linter/docs/semantic-rules.md"))
@@ -222,7 +223,7 @@ func TestHarvestRefusesMermaidLinterBeforeWriting(t *testing.T) {
 
 	spec := sourceSpec{repository: "mermaid-linter", paths: []string{"docs"}, suffix: ".md"}
 	sources := append(slices.Clone(fixtureSources), spec)
-	_, err := executeSources([]string{"-root", root}, sources)
+	_, err := executeSources([]string{"-root", root}, sources, "")
 	require.ErrorContains(t, err, "mermaid-linter")
 	require.NoDirExists(t, filepath.Join(root, "corpus"))
 }
@@ -300,12 +301,12 @@ func TestSPDXOfLicenceText(t *testing.T) {
 
 func TestHarvestFixtureTreeIsIdempotent(t *testing.T) {
 	root := fixtureTree(t)
-	first, err := execute([]string{"-root", root})
+	first, err := execute([]string{"-root", root}, "")
 	require.NoError(t, err)
 	require.Contains(t, first, "copied 3 fixtures")
 
 	before := snapshotTree(t, root)
-	second, err := execute([]string{"-root", root})
+	second, err := execute([]string{"-root", root}, "")
 	require.NoError(t, err)
 	require.Equal(t, first, second)
 	require.Equal(t, before, snapshotTree(t, root))
@@ -313,19 +314,19 @@ func TestHarvestFixtureTreeIsIdempotent(t *testing.T) {
 
 func TestHarvestRemovesStaleFixture(t *testing.T) {
 	root := fixtureTree(t)
-	_, err := execute([]string{"-root", root})
+	_, err := execute([]string{"-root", root}, "")
 	require.NoError(t, err)
 
 	stale := filepath.Join(root, "corpus", "flowchart", "maid", "valid", "stale.mmd")
 	require.NoError(t, os.WriteFile(stale, []byte("flowchart LR\n"), 0o644))
-	_, err = execute([]string{"-root", root})
+	_, err = execute([]string{"-root", root}, "")
 	require.NoError(t, err)
 	require.NoFileExists(t, stale)
 }
 
 func TestHarvestFilesByHeaderAndSeparator(t *testing.T) {
 	root := fixtureTree(t)
-	_, err := execute([]string{"-root", root})
+	_, err := execute([]string{"-root", root}, "")
 	require.NoError(t, err)
 
 	asciiPath := filepath.Join(root, "corpus", unknownKind, "mermaid-ascii", "cmd~testdata~padded.mmd")
@@ -336,8 +337,16 @@ func TestHarvestFilesByHeaderAndSeparator(t *testing.T) {
 	manifest, err := os.ReadFile(filepath.Join(root, "corpus", manifestName))
 	require.NoError(t, err)
 	require.Equal(t, 3, bytes.Count(manifest, []byte(`"path"`)))
-	require.True(t, bytes.HasSuffix(manifest, []byte("]\n")))
-	require.True(t, advertisedOrder(t, manifest))
+	tail := manifest
+	if len(tail) > 40 {
+		tail = tail[len(tail)-40:]
+	}
+	require.True(t, bytes.HasSuffix(manifest, []byte("]\n")), "manifest must be a JSON array closed by ] plus newline; got tail %q", tail)
+	head := manifest
+	if len(head) > 40 {
+		head = head[:40]
+	}
+	require.True(t, advertisedOrder(t, manifest), "manifest path entries must appear in advertised byte-wise order; got head %q", head)
 
 	divergences, err := os.ReadFile(filepath.Join(root, "corpus", divergenceName))
 	require.NoError(t, err)

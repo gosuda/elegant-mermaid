@@ -133,9 +133,9 @@ This file fixes the `emd` command line: the subcommands, invocation, help, defau
     - `1`: at least one error-severity diagnostic, or any warning under `--deny-warnings`.
     - `2`: usage error or I/O failure.
 
-- cli-34: A `render` or `layout` whose document has error-severity diagnostics MUST write them to stderr as text and exit 1, and `TooLarge`, `Overflow`, and raster pixel-size or encode errors MUST print the error text to stderr and exit 1. [just go-check]
+- cli-34: A `render` or `layout` whose document has error-severity diagnostics MUST write them to stderr as text and exit 1, and `TooLarge`, `Overflow`, and raster pixel-size or encode errors MUST print the error text to stderr and exit 1; the texts are `model exceeds the limit of LIMIT; actual ACTUAL`, `arithmetic overflow`, `image is too large: WxH pixels`, and `PNG encoding failed: MESSAGE`, and the Go and Rust binaries MUST print the same bytes. [just go-check: TestErrorPaths]
 - cli-35: Invalid option values MUST print the error text to stderr and exit 2: an unknown theme name (`-t`), an invalid `-b` colour, `-c` text that does not parse, and a malformed `--icon-pack` file. [just go-check]
-- cli-36: Colour MUST be resolved as follows. [just go-check]
+- cli-36: Colour MUST be resolved as follows. If a caller supplies terminal environment values, the CLI MUST use those values for colour and theme decisions. The CLI MUST NOT replace them with process environment values. [just go-check]
 
     - `--color always` wins.
     - Under `auto`, in order: non-empty `NO_COLOR` turns colour off; `CLICOLOR_FORCE=1` or non-empty, non-zero `FORCE_COLOR` turns it on; `CLICOLOR=0` or `TERM=dumb` turns it off; else colour is on only when stdout is a terminal.
@@ -170,3 +170,27 @@ This file fixes the `emd` command line: the subcommands, invocation, help, defau
 
 - cli-44: Outputs MUST overwrite existing files, and each output MUST be written to a temporary file in the same directory and then renamed over the target. [just go-check]
 - cli-45: Directory walks MUST visit paths in byte-wise path order and MUST NOT follow symbolic links. [just go-check]
+
+## Failures
+
+- cli-46: When the CLI cannot read a file, it MUST print `cannot read FILE: TEXT` to stderr and MUST exit 2. [just go-check: TestErrorPaths]
+- cli-47: In cli-46, FILE MUST be the path as given, or `<stdin>` for standard input. [just go-check: TestErrorPaths]
+- cli-48: In cli-46, TEXT MUST be the message of the operating system for the failure, in lower case, without the operation, the path, or the error number, for example `no such file or directory`, `permission denied`, or `is a directory`. [just go-check: TestErrorPaths]
+- cli-49: When the CLI cannot write a file, it MUST print `cannot write FILE: TEXT` to stderr and MUST exit 2. [just go-check: TestErrorPaths]
+- cli-50: In cli-49, FILE MUST be the target path as given, MUST NOT be the temporary file, and TEXT MUST follow cli-48; a target that is a directory MUST give `is a directory`. [just go-check: TestErrorPaths]
+- cli-51: When `render`, `layout`, `view`, or `kernel-eval` receives more than one INPUT, it MUST print `COMMAND accepts one INPUT` to stderr, with the name of the command in place of `COMMAND`, and MUST exit 2. [just go-check: TestErrorPaths]
+- cli-52: `emd kernel-eval -h` and `emd kernel-eval --help` MUST print `Usage: emd kernel-eval FILE` and one LF to stdout and MUST exit 0. [just go-check: TestErrorPaths]
+- cli-53: `emd kernel-eval` with a flag it does not know MUST print `unknown flag FLAG; run emd kernel-eval --help` and MUST exit 2. [just go-check: TestErrorPaths]
+- cli-54: `emd kernel-eval` MUST read stdin when it has no FILE or when FILE is `-`. [just go-check: TestKernelEvalInputs]
+- cli-55: When `emd layout --metrics --dump FILE` cannot decode FILE as a canonical layout dump, it MUST print `FILE: malformed layout dump: REASON` to stderr and MUST exit 2, with REASON as spec/layout-dump.md fixes it. [just go-check: TestErrorPaths]
+- cli-56: When `render -c FILE` finds config text that fails, it MUST print `FILE: invalid config: MESSAGE` to stderr and MUST exit 2. [just go-check: TestErrorPaths]
+- cli-57: In cli-56, MESSAGE MUST be `invalid UTF-8 at byte OFFSET` when the text is not valid UTF-8, else the message of the first diagnostic of the config reader, else `config must be a mapping` when the root is not a mapping, else the message of the first diagnostic of the look reader; blank text MUST be valid. [just go-check: TestErrorPaths]
+- cli-58: When `render --icon-pack FILE` finds a pack that is not valid, it MUST print `FILE: malformed icon pack: REASON` to stderr and MUST exit 2, with REASON as spec/library-surface.md fixes it. [just go-check: TestErrorPaths]
+- cli-59: `emd view` MUST check its arguments in this order: the number of paths, the stdin rule of cli-08, the value of `--graphics`, the value of `--color`, the theme, and then it MUST read FILE. [just go-check: TestErrorPaths]
+- cli-60: The Rust tests `error_paths` and `view_script_errors` MUST check the same cases, with the same messages, as `TestErrorPaths` and `TestViewScriptErrors`. [just rust-check: error_paths]
+- cli-61: Every command except `kernel-eval` MUST read an argument as a flag when it starts with `-` and is neither `-` nor `--`; one leading dash and two leading dashes MUST name the same flag, so `-t`, `--t`, `-color` and `--color` are all flags, and an argument with three or more leading dashes MUST print `unknown flag ARG; run emd COMMAND --help` and exit 2. [just go-check: TestFlagSpellings]
+- cli-62: A flag that takes a value MUST take it from the text after the first `=` of its argument, even when that text is empty, and else from the next argument whatever that argument looks like; when no next argument exists, it MUST print `missing value for ARG`, with ARG as written, and exit 2. A flag that is not in the command MUST be rejected with the message of cli-61 before any value is read. [just go-check: TestFlagSpellings]
+- cli-63: A switch (`lint --fix`, `--unsafe-fixes`, `--deny-warnings`, `--no-config`, and `layout --metrics`) MUST take no next argument, MUST mean true without `=`, and MUST accept after `=` exactly `1`, `t`, `T`, `true`, `TRUE`, `True`, `0`, `f`, `F`, `false`, `FALSE`, and `False`; any other text MUST print `invalid value TEXT for --NAME; expected one of: true, false`, with the long spelling of the name, and exit 2. [just go-check: TestFlagSpellings]
+- cli-64: `view --script` and `view --script=` with an empty value MUST name a script with an empty path, and so MUST print `cannot read : no such file or directory` and exit 2, and an empty value of any other flag MUST follow the rule of that flag. [just go-check: TestFlagSpellings]
+- cli-65: The Rust test `flag_spellings` MUST check the same spellings and failures, with the same messages, as `TestFlagSpellings`. [just rust-check: flag_spellings]
+- cli-66: A `layout`, `render`, or `view` failure that comes from the model, a limit, arithmetic, or the raster back end MUST exit 1 in both binaries, and a failure that comes from an option value or from a file the command reads MUST exit 2 in both binaries. [just go-check: TestErrorPaths]

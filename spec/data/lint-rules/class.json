@@ -1,0 +1,91 @@
+[
+  {
+    "code": "class/duplicate-class",
+    "severity": "warning",
+    "summary": "the same class is declared more than once",
+    "help": "Merge the declarations into one class block.",
+    "rationale": "Mermaid merges repeated declarations, so the second block is usually copy-paste noise that hides a real difference.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:class-duplicate-class",
+    "status": "adopted"
+  },
+  {
+    "code": "class/no-duplicate-methods",
+    "severity": "warning",
+    "summary": "the same method signature is declared twice on one class",
+    "help": "Remove the repeated member line.",
+    "rationale": "Both copies render, so the class shows a member list the code does not have.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:no-duplicate-methods",
+    "status": "adopted"
+  },
+  {
+    "code": "class/header-missing",
+    "severity": "error",
+    "summary": "The file does not start with classDiagram",
+    "help": "Start with: classDiagram",
+    "rationale": "Detection resolves the kind from the header, so this condition is already reported as common/unknown-diagram-kind.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:CL-HEADER-MISSING",
+    "status": "rejected",
+    "reason": "the kind comes from the header in the kinds table, so a missing or unknown header is common/unknown-diagram-kind"
+  },
+  {
+    "code": "class/rel-invalid",
+    "severity": "error",
+    "summary": "The relationship operator is invalid, for example ->",
+    "help": "Example: Foo <|-- Bar",
+    "rationale": "The class grammar knows a fixed set of operators, and an unknown one cannot express a relationship.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:CL-REL-INVALID",
+    "status": "adopted"
+  },
+  {
+    "code": "class/rel-malformed",
+    "severity": "error",
+    "summary": "The relationship line is incomplete, with a missing target or invalid label syntax",
+    "help": "Example: Foo <|-- Bar : extends",
+    "rationale": "A relationship with no target or a broken label renders nothing or misparses.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:CL-REL-MALFORMED",
+    "status": "adopted"
+  },
+  {
+    "code": "class/block-missing-rbrace",
+    "severity": "error",
+    "summary": "A class X { block is not closed with }",
+    "help": "Close the block: class Foo { ... }",
+    "rationale": "Every line after the open brace is read as a member, so the rest of the diagram misparses.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:CL-BLOCK-MISSING-RBRACE",
+    "status": "adopted"
+  },
+  {
+    "code": "class/member-malformed",
+    "severity": "error",
+    "summary": "A member line is malformed, with a missing name or tokens in the wrong order",
+    "help": "Examples: +foo() : void  |  -bar: int",
+    "rationale": "Members are parsed positionally, so a malformed line silently drops the member.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:CL-MEMBER-MALFORMED",
+    "status": "adopted"
+  },
+  {
+    "code": "class/label-double-in-double",
+    "severity": "error",
+    "summary": "A double-quoted class name or label contains an inner \"",
+    "help": "Example: class \"Logger &quot;core&quot;\" as L",
+    "rationale": "The inner quote ends the name early and corrupts the rest of the line.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:CL-LABEL-DOUBLE-IN-DOUBLE",
+    "status": "adopted"
+  }
+]

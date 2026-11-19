@@ -190,9 +190,21 @@ mod tests {
         };
         let mut out = String::new();
         push_diagnostic_json(&mut out, &index(""), &d);
-        assert!(out.contains("\"related\":[]"));
-        assert!(out.ends_with("\"help\":\"\",\"fixes\":[]}"));
-        assert!(!out.contains(' '));
+        assert!(
+            out.contains("\"related\":[]"),
+            "empty lists and help are compact: contract out.contains(\"\\\"related\\\":[]\") failed; observed out={:?}",
+            out
+        );
+        assert!(
+            out.ends_with("\"help\":\"\",\"fixes\":[]}"),
+            "empty lists and help are compact: contract out.ends_with(\"\\\"help\\\":\\\"\\\",\\\"fixes\\\":[]}}\") failed; observed out={:?}",
+            out
+        );
+        assert!(
+            !out.contains(' '),
+            "empty lists and help are compact: contract !out.contains(' ') failed; observed out={:?}",
+            out
+        );
     }
 
     #[test]
@@ -225,6 +237,10 @@ mod tests {
         };
         let mut out = String::new();
         push_diagnostic_json(&mut out, &index("é\nx"), &d);
-        assert!(out.contains("\"line\":1,\"column\":1,\"end_line\":2,\"end_column\":1"));
+        assert!(
+            out.contains("\"line\":1,\"column\":1,\"end_line\":2,\"end_column\":1"),
+            "span end maps as an offset: contract out.contains(\"\\\"line\\\":1,\\\"column\\\":1,\\\"end_line\\\":2,\\\"end_column\\\":1\") failed; observed out={:?}",
+            out
+        );
     }
 }

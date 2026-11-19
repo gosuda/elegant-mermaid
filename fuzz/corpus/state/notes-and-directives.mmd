@@ -1,0 +1,33 @@
+stateDiagram-v2
+%%{wrap}%%
+%% state comment
+# hash comment
+accTitle: Initial title
+accTitle: Notes and links
+accDescr: Short description
+accDescr {First line
+第二行 é}
+scale 2 width
+hide empty description
+state "First line
+second line" as A
+B
+note left of A: replaced note
+note right of A
+replacement block
+with café and 終
+end note
+note left of B: inline memo
+note "floating memo" as Float
+classDef marked fill:#abc,color:red;
+classDef marked stroke:#123456;
+class B,A marked
+style B,A fill:#35;,color:#name;
+style A stroke:#456;
+A:::marked --> B: go
+A%% split comment
+click A href "https://example.invalid/path"
+click B href "javascript:alert(1)"
+click A "mailto:reader@example.invalid" "提示 tooltip"
+click Missing href "https://example.invalid/absent"
+state BareIgnored

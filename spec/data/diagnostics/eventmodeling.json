@@ -1,0 +1,38 @@
+[
+  {
+    "code": "eventmodeling/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "Each token must fit the current grammar production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "eventmodeling/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "An unknown statement must not create a frame.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "eventmodeling/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "An open payload or comment needs its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "eventmodeling/duplicate-frame-id",
+    "severity": "error",
+    "summary": "duplicate event modeling frame ID ID",
+    "help": "",
+    "rationale": "Time frames and reset frames share one frame identifier space.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "code": "state/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "Each token must fit the current production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "state/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "An unknown statement cannot create a state.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "state/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "Each open string or block needs its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "state/multiword-state-name",
+    "severity": "error",
+    "summary": "state name must be a single word: NAME",
+    "help": "",
+    "rationale": "The state lexer rejects an unquoted multiword composite name.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "state/group-description",
+    "severity": "error",
+    "summary": "composite state ID cannot have additional descriptions",
+    "help": "",
+    "rationale": "A composite supports a label but not additional description rows.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]
