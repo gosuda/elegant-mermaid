@@ -43,6 +43,7 @@ import Elegant.Layered.ExactFlatC8b
 import Elegant.Layered.ExactLoopEnvelopeSeparationProof
 import Elegant.Layered.ExactPackedTransportResidualsProof
 import Elegant.Layered.ExactStepShortFacts
+import Elegant.Layered.LoopFootprintTopSeparationCondProof
 import Elegant.Layered.ExecutedPartFrameCoresClosed
 import Elegant.Kinds.Usecase
 import ElegantGeometry.Validator
@@ -90,11 +91,12 @@ def actorIds (m : Model) : List String :=
 //   no hypotheses.
 // - `stepC8aAncestry`: `stepC8aAncestry_layoutX` (`ExactStepShortFacts.lean`),
 //   no hypotheses.
-//
 // Replaced `labelRuns`/`captions` (both base-independent): derived in
-// `exactBaseSeams` by the same `baseSeams_of_layered` terms over narrower open
-// `LayeredSeams` fields below (`loopFootprintTopSeparation`,
-// `loopFootprintBeyondProper` for `labelRuns`; `foreignBorderDivergeStable`,
+// `exactBaseSeams` by the same `baseSeams_of_layered` terms over the kept
+// `loopFootprintBeyondProper` field below (the top separation is the closed
+// `loopFootprintTopSeparation_closed` over `foreignBorderChainXAligned'` of
+// `foreignBorderDivergeStable` and the kept beyond-proper field) for
+// `labelRuns`; `foreignBorderDivergeStable`,
 // `loopHullRightCover`, `loopHullRightNeighborCover` for `captions`, with the
 // old `titleExclusiveSamePart` closed by `titleExclusiveSamePart_holds` and the
 // old `executedPartFrameCores` closed by `executedPartFrameCores_closed`). There
@@ -141,10 +143,6 @@ structure ExactSeams (exactIds : List String) : Prop where
   partFrameCores : Layered.PipelineImpl.X_ExecutedPartFrameCoresB8 exactIds
   /-- Narrower open fact consumed by `flatC8bB_layoutX` as `hfall`. -/
   fallbackCaption : Layered.PipelineImpl.X_FallbackCaptionClearB8 exactIds
-  /-- Narrower open fact consumed by `labelRuns`: top separation of the loop footprint. Best partial: `loopFootprintTopSeparation_holds` (needs `ForeignBorderChainXAligned` plus sliver/good premises). -/
-  loopFootprintTopSeparation : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
-    WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
-    Layered.PipelineImpl.LoopFootprintTopSeparation inp o res
   /-- Narrower open fact consumed by `labelRuns`: beyond-proper footprint separation. Best partial: `loopFootprintBeyondProper_holds` (needs `ForeignBorderChainXAligned` plus sliver residuals). -/
   loopFootprintBeyondProper : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
     WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
@@ -226,10 +224,9 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
     ⟨Layered.PipelineImpl.runLocalLabelClearance_holds hwf hfp
         (Layered.PipelineImpl.runLocalLoopSeparation inp o res
           (Layered.PipelineImpl.runLocalLoopFootprint_executed hwf hfp
-            (R.loopFootprintTopSeparation inp o res hwf hfp)
+            (Layered.PipelineImpl.loopFootprintTopSeparation_closed inp o res hwf hfp (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable) (R.loopFootprintBeyondProper inp o res hwf hfp))
             (R.loopFootprintBeyondProper inp o res hwf hfp)))
-        (Layered.PipelineImpl.runLocalForwardSeparation inp o res)
-        (Layered.PipelineImpl.runLocalReversedSeparation inp o res),
+        (Layered.PipelineImpl.runLocalForwardSeparation inp o res) (Layered.PipelineImpl.runLocalReversedSeparation inp o res),
       Layered.routeLabelDumpBridges hwf
         (Layered.PipelineImpl.labelBelongsToRun hwf Layered.PipelineImpl.routeLabelsPlaced)
         (Layered.PipelineImpl.exclusiveBoxInLabelRun' hwf hfp)⟩
@@ -238,7 +235,7 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
       (Layered.PipelineImpl.titleExclusiveSamePart_holds (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable) inp o res hwf hfp)
       (Layered.PipelineImpl.titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
       (fun execution => Layered.PipelineImpl.frameLabels_executed execution hwf hfp hfit
-        (Layered.PipelineImpl.executedPartFrameCores_closed execution hwf hfp (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable) (R.loopFootprintTopSeparation inp o res hwf hfp) (R.loopFootprintBeyondProper inp o res hwf hfp) (R.loopHullRightCover inp o res hwf hfp execution) (R.loopHullRightNeighborCover inp o res hwf hfp execution))
+        (Layered.PipelineImpl.executedPartFrameCores_closed execution hwf hfp (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable) (Layered.PipelineImpl.loopFootprintTopSeparation_closed inp o res hwf hfp (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable) (R.loopFootprintBeyondProper inp o res hwf hfp)) (R.loopFootprintBeyondProper inp o res hwf hfp) (R.loopHullRightCover inp o res hwf hfp execution) (R.loopHullRightNeighborCover inp o res hwf hfp execution))
         (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
           (Layered.PipelineImpl.flatC8a_executed execution hwf hfp
             (Layered.PipelineImpl.foreignBorderSpansSeparated
