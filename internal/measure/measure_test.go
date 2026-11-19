@@ -107,26 +107,6 @@ func TestRandomWrapProperties(t *testing.T) {
 	}
 }
 
-func TestParityValues(t *testing.T) {
-	for _, s := range []string{"Start", "Choice", "yes"} {
-		w, err := RoleLabel.Width(s)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Logf("label %s=%d", s, w)
-	}
-	s := "alpha beta-gamma 日本語テキスト"
-	w, err := CellWidth(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	lines, err := Wrap(s, 8, CellMetric())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("cell width=%d wrap=%+v", w, lines)
-}
-
 func naiveAdvanceSum(s string) int64 {
 	var sum int64
 	for _, cp := range s {
