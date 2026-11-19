@@ -474,3 +474,5 @@ import Elegant.Layered.ExactFlatC5ChosenPart
 import Elegant.Layered.LoopRectCrossPartProof
 import Elegant.Layered.LoopRectRealClosed
 import Elegant.Layered.LaneBandsSetupResidualProof
+import Elegant.Layered.ComponentRunGen
+import Elegant.Kinds.StateValidExact

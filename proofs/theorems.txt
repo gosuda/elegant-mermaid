@@ -2082,3 +2082,13 @@ Elegant.Layered.LaneBands.exec_sibShift
 Elegant.Layered.LaneBands.swimlane_pinBands_c2_closed
 Elegant.Layered.LaneBands.swimlane_pinBands_c3_closed
 Elegant.Layered.LaneBands.swimlane_pinSetup_closed
+Elegant.Layered.PipelineImpl.componentRunGen_spec
+Elegant.Layered.PipelineImpl.componentRunGen_ys_length
+Elegant.Layered.PipelineImpl.componentRunX_eq_gen
+Elegant.Layered.PipelineImpl.componentRun_eq_gen
+Elegant.Layered.PipelineImpl.coordinateGen_chains
+Elegant.Layered.PipelineImpl.runHooksSpec_exact
+Elegant.Layered.PipelineImpl.runHooksSpec_plain
+Elegant.Layered.PipelineImpl.titleReservations_length_eq
+Elegant.Kinds.State.layoutFamilyX_valid_of_exactSeams
+Elegant.Kinds.State.state_family_valid_of_exactSeams
