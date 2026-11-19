@@ -539,3 +539,6 @@ import Elegant.Layered.LoopRectTitleCopySepProof
 import Elegant.Layered.ExactCaptionMembersProof
 import Elegant.Layered.ExactForwardDummyFactsProof
 import Elegant.Layered.LoopResGroupHullRightProof
+import Elegant.Layered.ExactC8aSpanResidualsProof
+import Elegant.Layered.RegionActualParts
+import Elegant.Layered.ExactFallbackCaptionClearProof
