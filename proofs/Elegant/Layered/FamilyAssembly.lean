@@ -79,12 +79,13 @@ import Elegant.Layered.ExecutedPartFrameCoresClosed
 import Elegant.Layered.ExpandChildParentFrameStrictProof
 import Elegant.Layered.LoopHullCoverProof
 import Elegant.Layered.LoopExtentReservationProof
+import Elegant.Layered.LoopRectTitleCopySepProof
 set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
  /-- Every fact the layered family validity theorem still takes as a premise.
  Remaining fields: `partFrameWitness`,
-`loopRectTitleCopy`, `loopFootprintTopSeparation`, `loopFootprintBeyondProper`,
+`loopFootprintTopSeparation`, `loopFootprintBeyondProper`,
 `foreignBorderDivergeStable`, `loopHullGroupRight`, `loopHullNeighborGap`,
 `parentFixedForeign`, `parentRouteAttachedClear`, `parentFrameStrict`,
 `fitPerCall`.  Each field is a named
@@ -123,12 +124,11 @@ via `sceneCaptionBoxContainment_of_fit` (`CaptionsSeamProof.lean`,
  (`ExpandChildAncestryProof.lean`), sharing `RecursiveStepFacts`
 (`RecursiveStepFacts.lean`).  The `runLocalLoopFootprint` field is derived
 by `runLocalLoopFootprint_executed` (`RunLocalLoopFootprintProof.lean`) from
-the `loopFootprintTopSeparation` and `loopFootprintBeyondProper` fields.  The `loopRectTopForeign` field is discharged by `loopRectTopReal_closed` (`LoopRectResidualsProof.lean`).  The old `parentFixedDisjointGroup` field is narrowed to `parentFixedForeign`, closed by `parentFixedDisjointGroup_of_parentC8a` (`ExpandChildParentFixedMissProof.lean`) over the flat C8a clause and `stepC6_frame_pos`.  The old `parentStrictMissGroup` field is narrowed to `parentRouteAttachedClear`, closed with the frame half from the fuel-sliced frame lift (`sliced_frame_lift`, fed by strict miss below the call fuel) and the attached half verbatim, via `parentStrictMissGroup_of_frame_attached` closed by fuel induction (`strictMiss_restricted_closed`). -/
+the `loopFootprintTopSeparation` and `loopFootprintBeyondProper` fields.  The `loopRectTopForeign` field is discharged by `loopRectTopReal_closed` (`LoopRectResidualsProof.lean`).  The old title-copy field is closed by `loopRectTitleCopy_closed` (`LoopRectTitleCopySepProof.lean`).  The old `parentFixedDisjointGroup` field is narrowed to `parentFixedForeign`, closed by `parentFixedDisjointGroup_of_parentC8a` (`ExpandChildParentFixedMissProof.lean`) over the flat C8a clause and `stepC6_frame_pos`.  The old `parentStrictMissGroup` field is narrowed to `parentRouteAttachedClear`, closed with the frame half from the fuel-sliced frame lift (`sliced_frame_lift`, fed by strict miss below the call fuel) and the attached half verbatim, via `parentStrictMissGroup_of_frame_attached` closed by fuel induction (`strictMiss_restricted_closed`). -/
 structure LayeredSeams : Prop where
   partFrameWitness : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     PartFrameWitness inp o res
-  loopRectTitleCopy : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → LoopRectTitleCopyReal inp o res
   loopFootprintTopSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → LoopFootprintTopSeparation inp o res
   loopFootprintBeyondProper : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → LoopFootprintBeyondProper inp o res
   foreignBorderDivergeStable : ForeignBorderDivergeStable
@@ -2124,7 +2124,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
             (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
              hbracket)
            (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp))
-  have hflat6 : FlatC6 := flatC6_closed S.partFrameWitness (fun inp o res hwf hfp => loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (S.loopRectTitleCopy inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) S.loopFootprintTopSeparation S.loopFootprintBeyondProper
+  have hflat6 : FlatC6 := flatC6_closed S.partFrameWitness (fun inp o res hwf hfp => loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (loopRectTitleCopy_closed inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) S.loopFootprintTopSeparation S.loopFootprintBeyondProper
   have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
     layout_c8b h hwf (hframeLabels inp o res hwf hfp hfit)
   have hlabelRuns : ∀ (inp : Input) (o : Options) (res : FamilyResult),
