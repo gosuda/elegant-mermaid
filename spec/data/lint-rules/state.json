@@ -1,0 +1,102 @@
+[
+  {
+    "code": "state/duplicate-state",
+    "severity": "warning",
+    "summary": "the same state id is declared more than once",
+    "help": "Declare each state once, and give a composite body a single home.",
+    "rationale": "A repeated declaration makes the labels and composite bodies ambiguous.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:state-duplicate-state",
+    "status": "adopted"
+  },
+  {
+    "code": "state/duplicate-transition",
+    "severity": "warning",
+    "summary": "the same transition is declared more than once",
+    "help": "Remove the repeated transition line.",
+    "rationale": "Repeated transitions render stacked arrows, which is usually copy-paste noise.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:state-duplicate-transition",
+    "status": "adopted"
+  },
+  {
+    "code": "state/empty-composite",
+    "severity": "warning",
+    "summary": "composite state has an empty body",
+    "help": "Add the child states, or declare it as a simple state.",
+    "rationale": "An empty composite renders as a bare box that carries no information.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:state-empty-composite",
+    "status": "adopted"
+  },
+  {
+    "code": "state/self-transition",
+    "severity": "off",
+    "summary": "a state has a transition to itself",
+    "help": "Confirm the self-transition is intended, or point it at another state.",
+    "rationale": "Self-transitions are valid and common in state machines, so this rule is off by default to avoid noise.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:state-self-transition",
+    "status": "adopted"
+  },
+  {
+    "code": "state/header-missing",
+    "severity": "error",
+    "summary": "The diagram header is not stateDiagram or stateDiagram-v2",
+    "help": "Start with: stateDiagram-v2",
+    "rationale": "Detection resolves the kind from the header, so this condition is already reported as common/unknown-diagram-kind.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:ST-HEADER-MISSING",
+    "status": "rejected",
+    "reason": "the kind comes from the header in the kinds table, so a missing or unknown header is common/unknown-diagram-kind"
+  },
+  {
+    "code": "state/arrow-invalid",
+    "severity": "error",
+    "summary": "A single arrow -> is used instead of -->",
+    "help": "Example: A --> B : event",
+    "rationale": "The state grammar only accepts the double arrow, so a single arrow does not connect the states.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:ST-ARROW-INVALID",
+    "status": "adopted"
+  },
+  {
+    "code": "state/concurrency-unsupported",
+    "severity": "error",
+    "summary": "A concurrency separator --- is used inside a composite state",
+    "help": "Use separate states or regions without '---'.",
+    "rationale": "Mermaid state diagrams do not support the --- separator, so the line misparses or disappears.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:ST-CONCURRENCY-UNSUPPORTED",
+    "status": "adopted"
+  },
+  {
+    "code": "state/block-missing-rbrace",
+    "severity": "error",
+    "summary": "A state block state X { is not closed",
+    "help": "Close the block: state Foo { ... }",
+    "rationale": "Everything after the open brace is read as the block body, so the rest of the diagram misparses.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:ST-BLOCK-MISSING-RBRACE",
+    "status": "adopted"
+  },
+  {
+    "code": "state/note-malformed",
+    "severity": "error",
+    "summary": "Note statements are malformed or missing a colon.",
+    "help": "Example: Note right of A: message",
+    "rationale": "Without the colon the note text has no place to start.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:ST-NOTE-MALFORMED",
+    "status": "adopted"
+  }
+]

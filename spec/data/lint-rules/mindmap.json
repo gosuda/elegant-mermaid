@@ -1,0 +1,35 @@
+[
+  {
+    "code": "mindmap/duplicate-sibling",
+    "severity": "warning",
+    "summary": "two sibling nodes have identical text",
+    "help": "Rename one of the nodes, or merge them.",
+    "rationale": "Two identical branches render as indistinguishable children, which is usually a copy-paste mistake.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:mindmap-duplicate-sibling",
+    "status": "adopted"
+  },
+  {
+    "code": "mindmap/no-nodes",
+    "severity": "warning",
+    "summary": "mindmap declares no nodes",
+    "help": "Add at least one node line below the header.",
+    "rationale": "The diagram parses, but it renders empty.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:mindmap-no-nodes",
+    "status": "adopted"
+  },
+  {
+    "code": "mindmap/deep-nesting",
+    "severity": "off",
+    "summary": "mindmap node is nested more than five levels deep",
+    "help": "Flatten the branch, or split it into a separate diagram.",
+    "rationale": "Deep nesting is a matter of taste, so this rule is off by default.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:mindmap-deep-nesting",
+    "status": "adopted"
+  }
+]

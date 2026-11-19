@@ -1,0 +1,57 @@
+[
+  {
+    "code": "wardley/undefined-component",
+    "severity": "warning",
+    "summary": "a wardley link or evolve names an undeclared component",
+    "help": "Declare the component, or fix the spelling.",
+    "rationale": "Mermaid drops the statement silently, so the map shows fewer links than the source declares.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:wardley-undefined-component",
+    "status": "adopted"
+  },
+  {
+    "code": "wardley/orphan-component",
+    "severity": "off",
+    "summary": "wardley component is not referenced by any link, evolve, or pipeline",
+    "help": "Connect the component, or remove it.",
+    "rationale": "An unreferenced component renders as an isolated dot, which is sometimes intended, so this rule is off by default.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:wardley-orphan-component",
+    "status": "adopted"
+  },
+  {
+    "code": "wardley/no-components",
+    "severity": "warning",
+    "summary": "wardley map declares no components or anchors",
+    "help": "Add at least one component or anchor line.",
+    "rationale": "The map parses, but it renders empty.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:wardley-no-components",
+    "status": "adopted"
+  },
+  {
+    "code": "wardley/mixed-coordinate-scale",
+    "severity": "warning",
+    "summary": "wardley map mixes 0-1 and 0-100 coordinates",
+    "help": "Write every coordinate on one scale.",
+    "rationale": "Mermaid reads each value independently, so a coordinate on the wrong scale places the component far from where the author meant.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:wardley-mixed-coordinate-scale",
+    "status": "adopted"
+  },
+  {
+    "code": "wardley/duplicate-component",
+    "severity": "warning",
+    "summary": "the same component or anchor name is declared more than once",
+    "help": "Declare each component once.",
+    "rationale": "Mermaid merges the declarations and the last coordinates win, so the earlier ones are silently lost.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:wardley-duplicate-component",
+    "status": "adopted"
+  }
+]

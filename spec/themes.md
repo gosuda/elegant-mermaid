@@ -133,6 +133,7 @@ This file fixes the token model, the built-in themes, the contrast gate, the ups
   |`noteBkgColor`|`warning`|
   |`tertiaryColor`|`success`|
   |`pie1` to `pie12`|`series[0]` to `series[11]`|
+  |`cScale12`, for the upstream theme `dark` only, which defines no `pie12`|`series[11]`|
 
 - themes-36: The contrast gate MUST cover the nine built-in themes only and MUST NOT run on the eleven upstream themes. [just theme-check]
 

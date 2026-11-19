@@ -1,0 +1,35 @@
+[
+  {
+    "code": "timeline/empty-section",
+    "severity": "warning",
+    "summary": "timeline section contains no time periods",
+    "help": "Add periods to the section, or remove it.",
+    "rationale": "An empty section renders a header over nothing.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:timeline-empty-section",
+    "status": "adopted"
+  },
+  {
+    "code": "timeline/empty-event",
+    "severity": "warning",
+    "summary": "timeline period has a blank event",
+    "help": "Give the period an event, or remove the line.",
+    "rationale": "A blank event renders an empty bubble in the period column.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:timeline-empty-event",
+    "status": "adopted"
+  },
+  {
+    "code": "timeline/no-entries",
+    "severity": "warning",
+    "summary": "timeline declares no sections and no periods",
+    "help": "Add at least one section or period line.",
+    "rationale": "The diagram parses, but it renders empty.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:timeline-no-entries",
+    "status": "adopted"
+  }
+]

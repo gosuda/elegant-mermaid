@@ -20,6 +20,8 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 - preprocessing-011: The reader MUST scan the original bytes. [just go-check]
 - preprocessing-012: A TAB MUST NOT end a line. [just go-check]
 - preprocessing-013: A line whose text after optional spaces or tabs starts with `%%`, and that does not start a directive, MUST be an ordinary comment. [just go-check]
+- preprocessing-177: A comment line MUST take with it the blank lines directly before it, back to the previous line that holds text, so its removed span MUST start at the first of those blank lines. A blank line holds only SP, HT, or bytes of a removed directive or frontmatter. Blank lines with no comment line after them MUST stay in the text. [just go-check: TestCommentLineAbsorbsBlankLinesBeforeIt]
+- preprocessing-178: Rust MUST return the same removed spans as Go for a comment line and the blank lines before it. [just rust-check: comment_line_absorbs_blank_lines_before_it]
 
 ## Nesting depth
 
@@ -38,7 +40,7 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 ## Frontmatter
 
 - preprocessing-022: Line 1 MUST be `---` with optional SP (U+0020) or HT (U+0009) bytes before and after it, the line MUST start at byte 0, and it MUST end with a line end. [just go-check]
-- preprocessing-023: The closing line MUST be the first later line that is `---` with optional SP or HT bytes before and after it, and it MUST end with a line end. [just go-check]
+- preprocessing-023: The closing line MUST be the first later line with the identical SP/HT byte prefix as the opening line, then `---`, optional trailing SP or HT bytes, and a line end; equal indentation columns with different bytes MUST NOT match. This prefix rule matches the capture and backreference in upstream `frontMatterRegex` (`packages/mermaid/src/diagram-api/regexes.ts`). [just go-check]
 - preprocessing-024: Without a closing line there MUST be no frontmatter, and line 1 MUST be ordinary text. [just go-check]
 - preprocessing-025: The body MUST be the lines between the two fence lines. [just go-check]
 - preprocessing-026: Text after the closing line MUST stay diagram text, and blank lines there MUST stay in it. [just go-check]
@@ -51,10 +53,13 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 - preprocessing-030: The frontmatter body and the `Config` text MUST parse by this grammar. [just go-check]
 
   ```
-  document     = { blank | comment-line } , [ block-map ] , { blank | comment-line } ;
-  block-map    = entry , { entry } ;                 all entries of one map start at column n
-  entry        = key , ':' , [ SP , value ] , [ SP , comment ] , EOL , [ block-body | block-map ] ;
-                 a nested block-map starts at a column greater than n; block-body follows only a block header
+  document     = { blank | comment-line } , [ block-node ] , { blank | comment-line } ;
+  block-node   = block-map | block-seq | flow | scalar ;
+  block-map    = entry , { entry } ;                 entries of one map start at column n
+  entry        = key , ':' , [ SP , value ] , [ SP , comment ] , EOL , [ nested-node ] ;
+  block-seq    = sequence-item , { sequence-item } ; items of one sequence share a dash column
+  sequence-item = '-' , ( SP | EOL ) , [ value | compact-map | compact-seq ] ;
+  nested-node  = block-node | block-body ;           starts deeper than its owning map or dash
   key          = plain-key | dquoted | squoted ;
   value        = flow | block-header | scalar ;
   flow         = flow-seq | flow-map ;
@@ -76,9 +81,9 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 - preprocessing-035: The first entry of a block map MUST set its column `n`. [just go-check]
 - preprocessing-036: A line at a column smaller than `n` MUST end the map. [just go-check]
 - preprocessing-037: The root column MAY be greater than 0. [just go-check]
-- preprocessing-038: With no value on the key line, the value MUST be a nested block map whose column is greater than `n`. [just go-check]
-- preprocessing-039: When no such nested line follows, the value MUST be `Null`. [just go-check]
-- preprocessing-040: A `-` followed by SP, HT, or a line end where a node starts MUST raise `config/malformed`. [just go-check]
+- preprocessing-038: With no value on the key line, a deeper node MUST supply the value. It MAY be a mapping, sequence, flow value, or scalar. [just go-check]
+- preprocessing-039: When no such nested node follows, the value MUST be `Null`. [just go-check]
+- preprocessing-040: A `-` followed by separation or a line end MUST open a block-sequence item. Items MUST preserve declaration order and MAY be null, scalars, flow values, nested sequences, or compact mappings. Collection openings MUST count toward the existing depth limit. [just go-check]
 - preprocessing-041: A `?` followed by SP, HT, or a line end MUST raise `config/malformed`. [just go-check]
 - preprocessing-042: A line that starts at column 0 with `---` or `...`, followed by SP, HT, a line end, or the end of the reader's range, MUST raise `config/malformed`. [just go-check]
 
@@ -86,23 +91,23 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 
 - preprocessing-043: In block context the first byte of a plain scalar MUST NOT be one of `[ ] { } , # & * ! | > '`, a double quote, `%`, `@`, or a backtick. [just go-check]
 - preprocessing-044: A `-`, `?`, or `:` first byte MUST be allowed only when the next byte is not SP, HT, or a line end. [just go-check]
-- preprocessing-045: A plain block scalar MUST run to the line end. [just go-check]
+- preprocessing-045: A plain YAML value MAY continue on deeper lines until a comment or a mapping or sequence boundary ends it. Implicit keys MUST remain on one line. [just go-check]
 - preprocessing-046: It MUST stop before SP or HT followed by `#`. [just go-check]
 - preprocessing-047: Trailing SP and HT MUST be removed. [just go-check]
 - preprocessing-048: In a key a plain scalar MUST stop before `:` followed by SP, HT, or a line end. [just go-check]
-- preprocessing-049: Any other continuation MUST be malformed. [just go-check]
+- preprocessing-049: Scalar continuation MUST follow YAML 1.2.2 line folding: one ordinary break becomes one space; each empty line between nonempty lines contributes one LF. Continuation indentation and trailing separation MUST NOT enter the value. Scalar resolution MUST run once on the complete folded text. [just go-check]
 - preprocessing-050: In flow context the first-byte rule MUST be the same. [just go-check]
 - preprocessing-051: In flow context a plain scalar MUST stop before `,`, `[`, `]`, `{`, `}`, and `:`. [just go-check]
-- preprocessing-052: A flow-context plain scalar MUST NOT contain a line end. [just go-check]
+- preprocessing-052: A YAML flow-context value MAY contain folded line breaks under preprocessing-049. Flow keys MUST remain on one line. JSON strings and numbers MUST retain their separate strict grammar. [just go-check]
 - preprocessing-053: A TAB inside a plain scalar MUST be text. [just go-check]
 
 ## Quoted scalars
 
 - preprocessing-054: In a single-quoted scalar `''` MUST stand for one `'`, and no other escape MUST exist. [just go-check]
-- preprocessing-055: A single-quoted scalar MUST be one line. [just go-check]
+- preprocessing-055: A single-quoted YAML value MAY span lines and MUST fold them under preprocessing-049. A single-quoted implicit key MUST remain on one line. [just go-check]
 - preprocessing-056: A double-quoted scalar MUST use the escape table under Escapes. [just go-check]
-- preprocessing-057: A double-quoted scalar MUST be one line. [just go-check]
-- preprocessing-058: Raw bytes U+0000 to U+001F MUST be malformed inside a quoted scalar, TAB included. [just go-check]
+- preprocessing-057: A double-quoted YAML value MAY span lines and MUST fold ordinary breaks under preprocessing-049. A backslash immediately before a line ending MUST suppress that break and continuation indentation. A double-quoted implicit key MUST remain on one line. [just go-check]
+- preprocessing-058: Raw bytes U+0000 to U+001F MUST be malformed inside a quoted scalar, TAB included, except physical YAML value line endings handled by preprocessing-055 and preprocessing-057. JSON MUST NOT gain this exception. [just go-check]
 - preprocessing-059: `&` or `*` at the start of a node MUST raise `config/unsupported-anchor`. [just go-check]
 - preprocessing-060: `!` at the start of a node MUST raise `config/unsupported-tag`. [just go-check]
 - preprocessing-061: Inside plain text, `&`, `*`, and `!` MUST be ordinary characters. [just go-check]
@@ -145,7 +150,7 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 
 - preprocessing-070: The block scalar header MUST be `|` or `>`, then `-` (strip), `+` (keep), or nothing (clip), then optional SP and a comment, then a line end. [just go-check]
 - preprocessing-071: A digit after the header MUST raise `config/malformed`. [just go-check]
-- preprocessing-072: The header MUST be the value of a key on that key's line. [just go-check]
+- preprocessing-072: A block-scalar header MUST be a mapping value or sequence item, including a deeper value after an omitted key-line value. A standalone root block-scalar header MUST remain malformed. [just go-check]
 - preprocessing-073: With `n` the key's column, the first non-blank line after the header MUST set the content indentation `m` to its count of leading SP bytes. [just go-check]
 - preprocessing-074: If that line's column is `n` or less, the scalar MUST be empty, and the line MUST belong to the parent. [just go-check]
 - preprocessing-075: The scalar MUST continue over blank lines and over lines with at least `m` leading SP bytes. [just go-check]
@@ -244,7 +249,6 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
   |Construct|Code|Message|Span|
   |---|---|---|---|
   |Tab before the first non-SP byte of a line|`config/malformed`|`tab in indentation`|the TAB|
-  |Block sequence `-`|`config/malformed`|`block sequences are not supported`|the `-`|
   |Complex key `?`|`config/malformed`|`complex keys are not supported`|the `?`|
   |Multi-document marker|`config/malformed`|`multi-document streams are not supported`|the three bytes|
   |Digit in a block scalar header|`config/malformed`|`block scalar indentation indicator is not supported`|the digit|
@@ -310,3 +314,21 @@ The requirements below fix the cases that the grammar above leaves open. Where o
 - preprocessing-157: A `|` or `>` that starts a line at the column of a block map MUST raise `config/malformed` at that byte, and MUST NOT be read as an empty block scalar. [just parity]
 - preprocessing-158: A `config/malformed` diagnostic at a byte that is not SP, HT, CR, or LF MUST have the token rule span, which runs from that byte to the next SP, HT, CR, LF, or the end of the reader's range; it MUST NOT be a zero-width span at the end of the range. [just parity]
 - preprocessing-159: When the next line of an open flow collection is not blank and does not start at a column greater than the continuation column, the reader MUST raise `config/malformed` at the first byte of that line that is not SP. [just parity]
+- preprocessing-160: Inside a single- or double-quoted YAML value, continuation lines MUST allow any indentation column, including a column at or left of the owning key. Leading SP and HT on continuation lines and trailing SP and HT before an ordinary physical break MUST NOT enter the value. This rule overrides preprocessing-034, preprocessing-058, and preprocessing-148 for continuation indentation only. These cases match Mermaid 12.3.0's bundled js-yaml `load` with `JSON_SCHEMA`. [just go-check: TestConfigQuotedClosingLine]
+- preprocessing-161: Inside a quoted YAML value, `#`, `{`, `}`, `[`, `]`, `,`, `:`, and `;` MUST be ordinary text. Between nonempty physical lines, one ordinary break MUST fold to one SP; with `e` empty intervening lines, the breaks MUST give `e` LF. A double-quoted backslash immediately before a physical break MUST suppress that break and continuation indentation; further empty lines MUST each give one LF. Escapes MUST otherwise follow preprocessing-065, and single quotes MUST use only the doubled-quote escape. Implicit keys and JSON strings MUST retain their one-line rule. [just go-check: TestYAMLMultilineValueFolding]
+- preprocessing-162: Inside a quoted YAML value a column-zero `---` or `...` followed by SP, HT, a physical line end, or the reader's end MUST raise `config/malformed` with message `malformed config value` at that marker under the token-span rule. An unterminated quoted value without such a marker MUST fail at the reader's end with a zero-width span. [just go-check: TestConfigQuotedDocumentMarker]
+- preprocessing-163: Continuation lines of a root plain scalar MUST start at or right of the root scalar's column. A line that is not blank, not a comment line, and starts left of that column MUST end the scalar, and the reader MUST then raise `config/malformed` at the first byte of that line that is not SP. [just go-check: TestConfigRootPlainScalarContinuesAtColumnZero]
+    The column of the root scalar is its count of leading SP bytes on its line (preprocessing-142). Examples: the lines `a`, `b`, an empty line, and `c` give the string `a b` LF `c`; the lines `   a` and `b` raise `config/malformed` at `b`.
+- preprocessing-164: A JSON number MUST fail at the first byte that the number grammar rejects: the byte after a leading `-`, the byte after the `.` of a fraction, and the byte after `e` or `E` and its optional sign, when that byte is not a digit. The `config/malformed` span MUST follow the token rule at that byte. [just go-check: TestConfigJSONNumberFailsAtTheFirstRejectedByte]
+- preprocessing-165: Inside a directive, the WS before the name, between the name and `:`, and before the first body byte MUST be SP, HT, CR, or LF, as the WS of the JSON grammar is and as the upstream directive pattern reads `\s*`. [just go-check: TestDirectiveWhitespaceIncludesLineEnds]
+- preprocessing-166: A block line that starts with `'` or `"` MUST be a map entry exactly when its quoted token closes on that line and only SP or HT, then a `:`, follow the closing quote. A `:` inside the quoted token MUST NOT make the line an entry. Any other line that starts with a quote MUST be read as a quoted value. [just go-check: TestConfigQuotedColonLineIsAScalar]
+- preprocessing-167: After a quoted key, the first byte that is not SP, HT, or the map colon MUST raise `config/malformed` at that byte under the token rule. [just go-check: TestConfigQuotedKeyFollowedByNonColon]
+- preprocessing-168: Truncating a quoted YAML value at any byte MUST give one of three results. When the kept text holds the closing quote under preprocessing-161, the scalar MUST be closed and the reader MUST raise no diagnostic. When the kept text ends inside an escape, the reader MUST raise `config/malformed` (`invalid escape`) over the backslash and the next byte, clamped to the reader's end. Otherwise the reader MUST raise the zero-width diagnostic of preprocessing-162 at the reader's end. [just go-check: TestConfigQuotedValueTruncation]
+- preprocessing-169: A plain value that starts on the line after its owning key MUST continue on lines that start at a column greater than the column of that key. A non-blank line at or left of that column MUST end the scalar. Preprocessing-150 and preprocessing-163 MUST apply only to a value with no owning key. [just go-check: TestConfigNextLinePlainValueColumn]
+- preprocessing-170: A flow collection that starts on the line after its owning key MUST use the column of that key as its continuation column under preprocessing-159. [just go-check: TestConfigNextLineFlowValueColumn]
+- preprocessing-171: A line at the column of a block map that is not blank, is not a comment line, and holds no map colon MUST raise `config/malformed` at the end of its line content, which is the CR or LF that ends the line or the end of the reader's range. A comment on that line MUST NOT move the failure. [just go-check: TestConfigKeylessLineFailsAtLineEnd]
+- preprocessing-172: While the reader probes the lines after a plain YAML value for continuation lines, an HT in the leading whitespace of a probed line MUST raise `config/malformed` (`tab in indentation`) at that HT, and the entry that owns the value MUST NOT be committed, so it raises no duplicate-key diagnostic. [just go-check: TestConfigTabDuringContinuationProbe]
+- preprocessing-173: A column-zero `---` or `...` that follows a complete root value, with only blank lines and comment lines between, and that is followed by SP, HT, a line end, or the reader's end MUST raise `config/malformed` with message `multi-document streams are not supported` over its three bytes. Without that boundary the byte run MUST fail under the token rule with message `malformed config value`. [just go-check: TestConfigMarkerAfterRootValue]
+- preprocessing-174: A `[` or `{` that starts a block sequence item MUST open a flow collection even when the item's line holds a map colon. [just go-check: TestConfigFlowValueInSequenceItem]
+- preprocessing-175: An anchor or a tag inside a flow collection that is a block sequence item MUST raise `config/unsupported-anchor` or `config/unsupported-tag` under preprocessing-059 and preprocessing-060, over the span of the table under Config diagnostics. [just go-check: TestConfigNodePrefixInsideFlowSequenceItem]
+- preprocessing-176: A line that starts with `|` or `>` and holds a map colon MUST raise `config/malformed` at that first byte under the token rule, both as a line at the column of a block map and as the first line of a value that follows its key. Preprocessing-072 MUST apply only to a header line that holds no map colon. [just go-check: TestConfigNextLinePipeLineWithMapColon]

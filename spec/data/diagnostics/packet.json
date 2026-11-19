@@ -1,0 +1,92 @@
+[
+  {
+    "code": "packet/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "A token must fit the current production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "packet/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "Only declared statement forms can create fields.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "packet/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "A quoted label or description needs its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "packet/range-reversed",
+    "severity": "error",
+    "summary": "Packet block START - END is invalid. End must be greater than start.",
+    "help": "",
+    "rationale": "An inclusive range cannot end before its start.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "packet/non-contiguous",
+    "severity": "error",
+    "summary": "Packet block START - END is not contiguous. It should start from EXPECTED.",
+    "help": "",
+    "rationale": "Fields must cover consecutive bits from zero.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "packet/zero-bit-field",
+    "severity": "error",
+    "summary": "Packet block START is invalid. Cannot have a zero bit field.",
+    "help": "",
+    "rationale": "A relative field must contain at least one bit.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "packet/start-unresolved",
+    "severity": "error",
+    "summary": "start should have been set during first phase",
+    "help": "",
+    "rationale": "The splitting helper requires a resolved start.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "packet/end-unresolved",
+    "severity": "error",
+    "summary": "end should have been set during first phase",
+    "help": "",
+    "rationale": "The splitting helper requires a resolved end.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "packet/block-start-after-end",
+    "severity": "error",
+    "summary": "Block start START is greater than block end END.",
+    "help": "",
+    "rationale": "The splitting helper requires an ordered interval.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "packet/database-unavailable",
+    "severity": "error",
+    "summary": "packet parser database is unavailable",
+    "help": "",
+    "rationale": "The parser adapter requires a packet database.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

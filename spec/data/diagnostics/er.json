@@ -1,0 +1,29 @@
+[
+  {
+    "code": "er/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "Each token must fit the current ER production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "er/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "A rejected statement must not create an entity.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "er/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "An open string, attribute block, or subgraph needs its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

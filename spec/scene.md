@@ -135,7 +135,7 @@ This file fixes the parts of a scene, the closed primitive set, the shape and te
     |er|non-identifying relationship (`erDb.ts` line 452)|`normal`, `dashed`|
     |requirement|every relationship except `contains` (`requirementDb.ts` lines 327 to 331)|`normal`, `dashed`|
     |usecase|relationship with a `«type»` label (`usecaseDb.ts` line 266)|`normal`, `dotted`|
-    |sequence|the dotted message kinds named in the sequence line kind table (rule 7 of `spec/layout/sequence.md`)|`normal`, `dotted`|
+    |sequence|the dotted message kinds in the Line kinds section of `spec/layout/sequence.md` (sequence-33)|`normal`, `dotted`|
     |gitgraph|cherry-pick link|`normal`, `dotted`|
     |every kind|every other route|`normal`, `solid`|
 

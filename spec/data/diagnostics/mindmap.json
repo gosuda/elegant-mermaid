@@ -1,0 +1,47 @@
+[
+  {
+    "code": "mindmap/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "A token must fit the current production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "mindmap/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "A rejected statement must not create a tree node.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "mindmap/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "A shape, string, or icon needs its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "mindmap/second-root",
+    "severity": "error",
+    "summary": "node DESCRIPTION has no parent; only one root is allowed",
+    "help": "",
+    "rationale": "Each node after the root needs an earlier node at a lower indentation level.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "mindmap/decoration-target-missing",
+    "severity": "error",
+    "summary": "decoration has no preceding node",
+    "help": "",
+    "rationale": "An icon or class needs a node to decorate.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

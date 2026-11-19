@@ -1,0 +1,22 @@
+[
+  {"kind":"gantt","key":"axisFormat","class":"honoured"},
+  {"kind":"gantt","key":"barGap","class":"honoured"},
+  {"kind":"gantt","key":"barHeight","class":"honoured"},
+  {"kind":"gantt","key":"displayMode","class":"accepted-ignored"},
+  {"kind":"gantt","key":"fontSize","class":"accepted-ignored"},
+  {"kind":"gantt","key":"gridLineStartPadding","class":"accepted-ignored"},
+  {"kind":"gantt","key":"layout","class":"accepted-ignored"},
+  {"kind":"gantt","key":"leftPadding","class":"honoured"},
+  {"kind":"gantt","key":"look","class":"honoured"},
+  {"kind":"gantt","key":"numberSectionStyles","class":"accepted-ignored"},
+  {"kind":"gantt","key":"rightPadding","class":"honoured"},
+  {"kind":"gantt","key":"sectionFontSize","class":"accepted-ignored"},
+  {"kind":"gantt","key":"theme","class":"honoured"},
+  {"kind":"gantt","key":"tickInterval","class":"honoured"},
+  {"kind":"gantt","key":"titleTopMargin","class":"accepted-ignored"},
+  {"kind":"gantt","key":"topAxis","class":"honoured"},
+  {"kind":"gantt","key":"topPadding","class":"honoured"},
+  {"kind":"gantt","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"gantt","key":"useWidth","class":"accepted-ignored"},
+  {"kind":"gantt","key":"weekday","class":"honoured"}
+]

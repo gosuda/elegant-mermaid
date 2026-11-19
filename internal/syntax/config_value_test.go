@@ -31,6 +31,20 @@ func span(start, end int) source.Span {
 	return source.Span{Start: start, End: end}
 }
 
+func TestConfigBlockScalarIndentationTabReportedOnce(t *testing.T) {
+	src := []byte("a: |\n  x\n\t")
+	_, diagnostics := ParseConfigYAML(src, 0, len(src))
+	requireDiags(t, diagnostics, []diagWant{{codeMalformed, msgTabIndent, span(9, 10)}})
+}
+
+func TestConfigRootFlowTrailingTab(t *testing.T) {
+	src := []byte("{}\t")
+	value, diagnostics := ParseConfigYAML(src, 0, len(src))
+	require.Empty(t, diagnostics)
+	require.Equal(t, ValueMapping, value.Kind)
+	require.Empty(t, value.Entries)
+}
+
 func TestConfigTabInIndentation(t *testing.T) {
 	src := []byte("a: 1\n\tb: 2\n")
 	_, ds := ParseConfigYAML(src, 0, len(src))
@@ -116,7 +130,43 @@ func TestConfigFrontmatterConfigNotMapping(t *testing.T) {
 	src := []byte("---\nconfig: 5\n---\nflowchart\n")
 	p := Preprocess(src)
 	requireDiags(t, p.Diags, []diagWant{{codeMalformed, msgFrontmatterMap, span(12, 13)}})
+	require.False(t, p.HasConfig, "scalar frontmatter config must produce no config, got HasConfig=true")
+}
+
+func TestConfigFrontmatterConfigNestedScalarSpansItsToken(t *testing.T) {
+	src := []byte("---\nconfig:\n  Same\n  more\nx: 1\n---\nflowchart\n")
+	p := Preprocess(src)
+	requireDiags(t, p.Diags, []diagWant{{codeMalformed, msgFrontmatterMap, span(14, 18)}})
 	require.False(t, p.HasConfig)
+}
+
+func TestConfigJSONLiteralFailsAtFirstRejectedByte(t *testing.T) {
+	for _, c := range []struct {
+		src      string
+		from, to int
+	}{
+		{"{\"a\": truBe}", 9, 12},
+		{"{\"a\": tru}", 9, 10},
+		{"{\"a\": nulx}", 9, 11},
+		{"{\"a\": fals}", 10, 11},
+		{"{\"a\": True}", 6, 11},
+		{"{\"a\": x}", 6, 8},
+	} {
+		src := []byte(c.src)
+		_, ds := ParseConfigJSON(src, 0, len(src))
+		requireDiags(t, ds, []diagWant{{codeMalformed, msgMalformed, span(c.from, c.to)}})
+	}
+}
+
+func TestConfigRootPlainScalarContinuesAtColumnZero(t *testing.T) {
+	src := []byte("a\nb\n\nc\n")
+	value, ds := ParseConfigYAML(src, 0, len(src))
+	require.Empty(t, ds)
+	require.Equal(t, ValueString, value.Kind)
+	require.Equal(t, "a b\nc", value.Text)
+	src = []byte("   a\nb\n")
+	_, ds = ParseConfigYAML(src, 0, len(src))
+	requireDiags(t, ds, []diagWant{{codeMalformed, msgMalformed, span(5, 6)}})
 }
 
 func TestConfigDirectiveMalformedForm(t *testing.T) {
@@ -137,7 +187,7 @@ func TestConfigWrapWithBody(t *testing.T) {
 	src := []byte("%%{wrap: 1}%%\nflowchart\n")
 	p := Preprocess(src)
 	requireDiags(t, p.Diags, []diagWant{{codeMalformed, msgWrapBody, span(0, 3)}})
-	require.False(t, p.Wrap)
+	require.False(t, p.Wrap, "wrap directive with a body must not set the wrap flag, got Wrap=true")
 }
 
 func TestConfigDirectiveBodyNotObject(t *testing.T) {
@@ -237,6 +287,26 @@ func TestConfigJSONRejectsArrayRoot(t *testing.T) {
 	requireDiags(t, ds, []diagWant{{codeMalformed, msgMalformed, span(0, 5)}})
 }
 
+func TestConfigJSONNumberFailsAtTheFirstRejectedByte(t *testing.T) {
+	for _, c := range []struct {
+		src  string
+		want source.Span
+	}{
+		{`{"a": -}`, span(7, 8)},
+		{`{"a": -x}`, span(7, 9)},
+		{`{"a": 1.}`, span(8, 9)},
+		{`{"a": 1.x}`, span(8, 10)},
+		{`{"a": 1e}`, span(8, 9)},
+		{`{"a": 1e+}`, span(9, 10)},
+		{`{"a": 1.5e-x}`, span(11, 13)},
+		{"{\"a\": 1.\n}", span(8, 9)},
+	} {
+		src := []byte(c.src)
+		_, ds := ParseConfigJSON(src, 0, len(src))
+		requireDiags(t, ds, []diagWant{{codeMalformed, msgMalformed, c.want}})
+	}
+}
+
 func TestSettledReadingsRootBlockHeader(t *testing.T) {
 	src := []byte("|\n")
 	_, ds := ParseConfigYAML(src, 0, len(src))
@@ -308,13 +378,17 @@ func TestSettledReadingsQuotedKeyNeedsMapColon(t *testing.T) {
 	requireDiags(t, ds, []diagWant{{codeMalformed, msgMalformed, span(3, 5)}})
 }
 
-func TestSettledReadingsTrailingDashIsPlainScalar(t *testing.T) {
-	for _, src := range []string{"-", "?"} {
-		value, ds := ParseConfigYAML([]byte(src), 0, len(src))
-		require.Empty(t, ds, "source %q", src)
-		require.Equal(t, ValueString, value.Kind, "source %q", src)
-		require.Equal(t, src, value.Text, "source %q", src)
-	}
+func TestSettledReadingsTrailingDashIsNullSequence(t *testing.T) {
+	value, ds := ParseConfigYAML([]byte("-"), 0, 1)
+	require.Empty(t, ds)
+	require.Equal(t, ValueSequence, value.Kind)
+	require.Len(t, value.Items, 1)
+	require.Equal(t, ValueNull, value.Items[0].Kind)
+
+	value, ds = ParseConfigYAML([]byte("?"), 0, 1)
+	require.Empty(t, ds)
+	require.Equal(t, ValueString, value.Kind)
+	require.Equal(t, "?", value.Text)
 }
 
 func TestSettledReadingsFlowFirstFailurePosition(t *testing.T) {

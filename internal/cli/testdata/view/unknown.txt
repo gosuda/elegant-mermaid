@@ -1,0 +1,24 @@
++- Diagnostics ----------------------------------------------------------------+
+| error common/unknown-diagram-kind 1:1 unknown diagram kind not-a-kind        |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
+|                                                                              |
++------------------------------------------------------------------------------+
+... | No valid revision yet; fix the source or press r | unknown | cells | - | E
+? help  q quit  d diagnostics  arrows/hjkl pan  0 fit                           

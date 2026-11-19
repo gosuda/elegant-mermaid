@@ -1,0 +1,16 @@
+[
+  {"kind":"treemap","key":"borderWidth","class":"accepted-ignored"},
+  {"kind":"treemap","key":"diagramPadding","class":"accepted-ignored"},
+  {"kind":"treemap","key":"labelFontSize","class":"accepted-ignored"},
+  {"kind":"treemap","key":"layout","class":"accepted-ignored"},
+  {"kind":"treemap","key":"look","class":"honoured"},
+  {"kind":"treemap","key":"nodeHeight","class":"honoured"},
+  {"kind":"treemap","key":"nodeWidth","class":"honoured"},
+  {"kind":"treemap","key":"padding","class":"honoured"},
+  {"kind":"treemap","key":"showValues","class":"accepted-ignored"},
+  {"kind":"treemap","key":"theme","class":"honoured"},
+  {"kind":"treemap","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"treemap","key":"useWidth","class":"accepted-ignored"},
+  {"kind":"treemap","key":"valueFontSize","class":"accepted-ignored"},
+  {"kind":"treemap","key":"valueFormat","class":"accepted-ignored"}
+]

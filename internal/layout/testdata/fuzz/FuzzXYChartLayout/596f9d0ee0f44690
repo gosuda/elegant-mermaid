@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("---\nconfig: \n  xyChart:\n    height: 1\n---\nxychart line[0]")

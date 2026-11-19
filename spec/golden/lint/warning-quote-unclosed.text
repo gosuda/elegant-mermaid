@@ -1,0 +1,6 @@
+warning-quote-unclosed.mmd:2:15: warning[sequence/quote-unclosed]: A participant or actor name or alias starts a quote but does not close it
+  |
+2 |   participant "Bob
+  |               ^~~~
+  = help: Close the quote: participant "Bob" or participant Alice as "Alias"
+  = fix: Insert the closing quote

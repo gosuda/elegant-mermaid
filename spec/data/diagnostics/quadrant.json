@@ -1,0 +1,10 @@
+[
+  {"code":"quadrant/unexpected-token","severity":"error","summary":"unexpected TOKEN, expected one of: LIST","help":"","rationale":"The token does not fit the current grammar production.","fix_safety":"none","aliases":[]},
+  {"code":"quadrant/unknown-statement","severity":"error","summary":"unknown statement TOKEN","help":"","rationale":"Unrecognized statements cannot create point records.","fix_safety":"none","aliases":[]},
+  {"code":"quadrant/unterminated","severity":"error","summary":"unterminated CONSTRUCT","help":"","rationale":"An open delimiter requires a closing delimiter.","fix_safety":"none","aliases":[]},
+  {"code":"quadrant/invalid-radius","severity":"error","summary":"value for radius VALUE is invalid, please use a valid number","help":"","rationale":"The database rejects a radius that contains anything other than digits.","fix_safety":"none","aliases":[]},
+  {"code":"quadrant/invalid-color","severity":"error","summary":"value for color VALUE is invalid, please use a valid hex code","help":"","rationale":"Point fill must use a supported hexadecimal color.","fix_safety":"none","aliases":[]},
+  {"code":"quadrant/invalid-stroke-color","severity":"error","summary":"value for stroke-color VALUE is invalid, please use a valid hex code","help":"","rationale":"Point stroke must use a supported hexadecimal color.","fix_safety":"none","aliases":[]},
+  {"code":"quadrant/invalid-stroke-width","severity":"error","summary":"value for stroke-width VALUE is invalid, please use a valid number of pixels (eg. 10px)","help":"","rationale":"The database requires a digit sequence with a px suffix.","fix_safety":"none","aliases":[]},
+  {"code":"quadrant/unsupported-style","severity":"error","summary":"style named KEY is not supported.","help":"","rationale":"The database throws for every unrecognized style key.","fix_safety":"none","aliases":[]}
+]

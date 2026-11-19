@@ -1,0 +1,35 @@
+[
+  {
+    "code": "requirement/duplicate-name",
+    "severity": "warning",
+    "summary": "the same requirement or element name is defined more than once",
+    "help": "Give each requirement and element a distinct name.",
+    "rationale": "Relationships and styling target the name, so a duplicate makes those targets ambiguous.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:requirement-duplicate-name",
+    "status": "adopted"
+  },
+  {
+    "code": "requirement/duplicate-id",
+    "severity": "warning",
+    "summary": "the same requirement id value is used more than once",
+    "help": "Give each requirement a unique id value.",
+    "rationale": "A requirement id should identify exactly one requirement, and a duplicate defeats that purpose.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:requirement-duplicate-id",
+    "status": "adopted"
+  },
+  {
+    "code": "requirement/undefined-reference",
+    "severity": "warning",
+    "summary": "a relationship endpoint names an undefined requirement or element",
+    "help": "Define the named requirement or element, or fix the spelling.",
+    "rationale": "Mermaid drops the relationship silently, so the diagram shows fewer links than the source declares.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:requirement-undefined-reference",
+    "status": "adopted"
+  }
+]

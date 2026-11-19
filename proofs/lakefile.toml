@@ -1,0 +1,13 @@
+name = "elegant"
+version = "0.1.0"
+defaultTargets = ["ElegantGeometry", "Elegant", "geomcheck"]
+
+[[lean_lib]]
+name = "ElegantGeometry"
+
+[[lean_lib]]
+name = "Elegant"
+
+[[lean_exe]]
+name = "geomcheck"
+root = "Main"

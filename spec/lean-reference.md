@@ -19,6 +19,7 @@ This file fixes the scope, project layout, gates, proof hygiene, fuel scheme, wo
 - lean-reference-10: Arithmetic MUST be on `Int`, and `floor_div` and `floor_mod` MUST be `Int.fdiv` and `Int.fmod`, so the code uses no `/` or `%` on `Int`. [just proofs]
 - lean-reference-11: Every operation that Go and Rust check for overflow MUST return `Except LayoutError` with the same int32 result range and the same int64 intermediate range, so an overflow is `LayoutError.overflow` in Lean, `geom.ErrOverflow` in Go, and `GeomError::Overflow` in Rust. [just kernel-diff]
 - lean-reference-12: The domain error MUST be `LayoutError.domain` in Lean, `geom.ErrDomain` in Go, and `GeomError::Domain` in Rust, and `LayoutError` MUST be defined in `ElegantGeometry/Basic.lean` with the constructors `overflow` and `domain`. [just kernel-diff]
+    Family layout boundaries MUST return `Except Elegant.LayoutFailure`, with `geometry (error : LayoutError)` for internal checked failures and `tooLarge (limit actual : Nat)` for a model limit. Kernel operations and text-rendering primitives MUST keep their two-constructor `LayoutError`. The command layer MUST report either family case with exit 1.
 
 ## Project layout
 
@@ -33,7 +34,7 @@ This file fixes the scope, project layout, gates, proof hygiene, fuel scheme, wo
     proofs/ElegantGeometry/Crossings.lean   Segment, segments_cross, count_inversions, inversions_eq_crossings
     proofs/ElegantGeometry/Route.lean       Polyline, is_orthogonal, polyline_hits_rect
     proofs/ElegantGeometry/Trig.lean        sin_q15, cos_q15 over the generated table `proofs/Elegant/Gen/Sine.lean`, imported as `Elegant.Gen.Sine`
-    proofs/ElegantGeometry/Validator.lean   LayoutDump, WellFormed of a layout dump, the seven clauses, validate, check, Validator.sound
+    proofs/ElegantGeometry/Validator.lean   LayoutDump, WellFormed of a layout dump, the eight clauses, validate, check, Validator.sound
     proofs/ElegantGeometry/DumpReader.lean  parses the canonical layout dump (`Lean.Json`) into `LayoutDump`; used by `geomcheck validate`
     proofs/Elegant/Gen/*.lean        generated tables: advances, Unicode widths, grapheme classes, glyph join, layout constants, sine (Sine.lean), themes needed by cells
     proofs/Elegant/Model.lean        model-stage dump types, `WellFormed` and `WithinLimits` of a model
@@ -225,7 +226,7 @@ This file fixes the scope, project layout, gates, proof hygiene, fuel scheme, wo
     |`compact_respects_gaps`|`ElegantGeometry/Compaction.lean`|`compact axis gap items = .ok out -> forall i, p_i(items) <= p_i(out)` and `p_{i+1}(out) >= p_i(out) + len_i(out) + gap`|
     |`Segment.cross_comm`|`ElegantGeometry/Crossings.lean`|`Segment.cross s t = Segment.cross t s`|
     |`Segment.cross_iff_common_interior_point`|`ElegantGeometry/Crossings.lean`|`Segment.cross s t = true <-> exists p with rational coordinates, p in interior s and p in interior t`|
-    |`inversions_eq_crossings`|`ElegantGeometry/Crossings.lean`|for edges `e_k = (top_k, bot_k)` between two layers with position maps `P` and `Q`: `countInversions` of the bottom positions, taken in the order sorted by `(P top, Q bot)`, is `.ok n` where `n` is the number of unordered edge pairs `{e, f}` with `(P e.top - P f.top) * (Q e.bot - Q f.bot) < 0`|
+    |`inversions_eq_crossings`|`ElegantGeometry/Crossings.lean`|for edges `e_k = (top_k, bot_k)` between two layers with position maps `P` and `Q`: let `n` be the number of unordered edge pairs `{e, f}` with `(P e.top - P f.top) * (Q e.bot - Q f.bot) < 0`; `countInversions` of the bottom positions, taken in the order sorted by `(P top, Q bot)`, is `.ok n` when `n <= I32_MAX` and `.error LayoutError.overflow` otherwise; the statement has no side hypothesis|
     |`Validator.sound`|`ElegantGeometry/Validator.lean`|`WellFormed d -> Validator.check d = true -> HardConstraints d`|
 
 - lean-reference-82: `Validator.sound` MUST be proved by unfolding `check`, rewriting each Boolean test to its predicate, and closing the conjunction with `simp` over `Int`, using only the Lean core library. [just proofs]

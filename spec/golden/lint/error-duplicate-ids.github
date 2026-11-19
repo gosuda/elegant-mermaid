@@ -1,0 +1,1 @@
+::error file=error-duplicate-ids.mmd,line=3,col=3,endLine=3,endColumn=4,title=flowchart/duplicate-ids::Node id declared twice with different labels

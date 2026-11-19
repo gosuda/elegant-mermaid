@@ -1,0 +1,13 @@
+%% comment
+accTitle: Deployment
+accDescr {
+Describes nodes
+}
+C4Deployment
+Deployment_Node(dc, "Datacenter", "Linux") {
+  Node(web, "Web", "nginx")
+  Container(api, "API", "Go")
+}
+Unknown thing here
+Rel_Left(web, api, "Calls"
+Rel(web, api, "ok")

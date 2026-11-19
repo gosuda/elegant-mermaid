@@ -1,0 +1,102 @@
+[
+  {
+    "code": "pie/duplicate-label",
+    "severity": "warning",
+    "summary": "the same pie slice label is defined more than once",
+    "help": "Rename one of the slices, or merge their values.",
+    "rationale": "Two slices with one label are usually a copy-paste mistake, and the legend cannot tell them apart.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:pie-duplicate-label",
+    "status": "adopted"
+  },
+  {
+    "code": "pie/zero-value",
+    "severity": "warning",
+    "summary": "pie slice has a value of 0",
+    "help": "Give the slice a positive value, or remove it.",
+    "rationale": "A zero value renders an invisible slice that still takes a legend entry.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:pie-zero-value",
+    "status": "adopted"
+  },
+  {
+    "code": "pie/no-data",
+    "severity": "warning",
+    "summary": "pie chart has no data slices",
+    "help": "Add at least one label-value line.",
+    "rationale": "The chart parses, but it renders empty, so the missing data is easy to miss.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:pie-no-data",
+    "status": "adopted"
+  },
+  {
+    "code": "pie/label-requires-quotes",
+    "severity": "error",
+    "summary": "A slice label is missing quotes (single or double).",
+    "help": "Example: \"Dogs\" : 10",
+    "rationale": "The pie grammar reads the label and the value as separate tokens, so an unquoted label breaks the slice.",
+    "fix_safety": "safe",
+    "aliases": [],
+    "source": "maid:PI-LABEL-REQUIRES-QUOTES",
+    "status": "adopted"
+  },
+  {
+    "code": "pie/missing-colon",
+    "severity": "error",
+    "summary": "Missing colon between slice label and number.",
+    "help": "Use: \"Label\" : 10",
+    "rationale": "Without the colon the grammar cannot tell the label from the value.",
+    "fix_safety": "safe",
+    "aliases": [],
+    "source": "maid:PI-MISSING-COLON",
+    "status": "adopted"
+  },
+  {
+    "code": "pie/missing-number",
+    "severity": "error",
+    "summary": "No numeric value after the colon.",
+    "help": "Use a number like 10 or 42.5",
+    "rationale": "A slice without a value has no size to draw, so the grammar rejects or empties it.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:PI-MISSING-NUMBER",
+    "status": "adopted"
+  },
+  {
+    "code": "pie/quote-unclosed",
+    "severity": "error",
+    "summary": "A slice label starts with a quote but is not closed.",
+    "help": "Close the quote: \"Dogs\" : 10",
+    "rationale": "The rest of the line is read as label text until the parser gives up.",
+    "fix_safety": "unsafe",
+    "aliases": [],
+    "source": "maid:PI-QUOTE-UNCLOSED",
+    "status": "adopted"
+  },
+  {
+    "code": "pie/label-escaped-quote",
+    "severity": "error",
+    "summary": "A slice label contains backslash-escaped double quotes, which Mermaid does not support",
+    "help": "Example: \"He said &quot;Hi&quot;\" : 1",
+    "rationale": "Mermaid has no backslash escape inside labels, so the backslash reaches the output.",
+    "fix_safety": "safe",
+    "aliases": [],
+    "source": "maid:PI-LABEL-ESCAPED-QUOTE",
+    "status": "rejected",
+    "reason": "Mermaid accepts backslash-escaped quotes in pie labels (pie-08)"
+  },
+  {
+    "code": "pie/label-double-in-double",
+    "severity": "error",
+    "summary": "A double-quoted slice label contains another double quote.",
+    "help": "Example: \"He said &quot;Hi&quot;\" : 1",
+    "rationale": "The second quote ends the label early and corrupts the rest of the line.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "maid:PI-LABEL-DOUBLE-IN-DOUBLE",
+    "status": "adopted"
+  }
+]

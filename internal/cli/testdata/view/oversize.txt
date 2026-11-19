@@ -1,0 +1,24 @@
+                                                                                
+ ┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐   ┌───────┐   ┌──────
+ │ node0 ├───▶ node1 ├───▶ node2 ├───▶ node3 ├───▶ node4 ├───▶ node5 ├───▶ node6
+ └───────┘   └───────┘   └───────┘   └───────┘   └───────┘   └───────┘   └──────
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+... | 144x5 cells; pan available | flowchart | cells | - | E 0 errors W 0 warnin
+? help  q quit  d diagnostics  arrows/hjkl pan  0 fit                           

@@ -1,0 +1,15 @@
+[
+  {"kind":"treeview","key":"defaultIconPack","class":"accepted-ignored"},
+  {"kind":"treeview","key":"extensionIcons","class":"accepted-ignored"},
+  {"kind":"treeview","key":"filenameIcons","class":"accepted-ignored"},
+  {"kind":"treeview","key":"layout","class":"accepted-ignored"},
+  {"kind":"treeview","key":"lineThickness","class":"honoured"},
+  {"kind":"treeview","key":"look","class":"honoured"},
+  {"kind":"treeview","key":"paddingX","class":"honoured"},
+  {"kind":"treeview","key":"paddingY","class":"honoured"},
+  {"kind":"treeview","key":"rowIndent","class":"honoured"},
+  {"kind":"treeview","key":"showIcons","class":"accepted-ignored"},
+  {"kind":"treeview","key":"theme","class":"honoured"},
+  {"kind":"treeview","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"treeview","key":"useWidth","class":"accepted-ignored"}
+]

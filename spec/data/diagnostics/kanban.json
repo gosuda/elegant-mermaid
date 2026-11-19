@@ -1,0 +1,9 @@
+[
+  {"code":"kanban/unexpected-token","severity":"error","summary":"unexpected TOKEN, expected one of: LIST","help":"","rationale":"The token must fit the current grammar production.","fix_safety":"none","aliases":[]},
+  {"code":"kanban/unknown-statement","severity":"error","summary":"unknown statement TOKEN","help":"","rationale":"An unrecognised statement cannot create a card or column.","fix_safety":"none","aliases":[]},
+  {"code":"kanban/unterminated","severity":"error","summary":"unterminated TOKEN","help":"","rationale":"An open label, icon, or metadata construct needs its closing delimiter.","fix_safety":"none","aliases":[]},
+  {"code":"kanban/items-without-section","severity":"error","summary":"items without section detected at LABEL","help":"","rationale":"The database rejects an existing node below the first declaration's indentation during the next insertion.","fix_safety":"none","aliases":[]},
+  {"code":"kanban/malformed-metadata","severity":"error","summary":"invalid node metadata","help":"","rationale":"Metadata must parse and support the database's field reads and conversions.","fix_safety":"none","aliases":[]},
+  {"code":"kanban/invalid-shape","severity":"error","summary":"invalid shape SHAPE; shape names must be lowercase without underscores","help":"","rationale":"The database throws for a truthy shape that fails its lowercase name check.","fix_safety":"none","aliases":[]},
+  {"code":"kanban/decoration-without-node","severity":"error","summary":"decoration requires a preceding node","help":"","rationale":"The database applies each decoration to the last inserted node.","fix_safety":"none","aliases":[]}
+]

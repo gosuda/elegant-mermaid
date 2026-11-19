@@ -1,0 +1,202 @@
+[
+  {
+    "kind": "sequence",
+    "key": "activationWidth",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "actorFont",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "actorFontFamily",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "actorFontSize",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "actorFontWeight",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "actorMargin",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "arrowMarkerAbsolute",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "bottomMarginAdj",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "boxMargin",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "boxTextMargin",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "diagramMarginX",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "diagramMarginY",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "forceMenus",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "height",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "hideUnusedParticipants",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "labelBoxHeight",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "labelBoxWidth",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "messageAlign",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "messageFont",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "messageFontFamily",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "messageFontSize",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "messageFontWeight",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "messageMargin",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "mirrorActors",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "noteAlign",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "noteFont",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "noteFontFamily",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "noteFontSize",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "noteFontWeight",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "noteMargin",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "rightAngles",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "showSequenceNumbers",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "sequence",
+    "key": "width",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "wrap",
+    "class": "honoured"
+  },
+  {
+    "kind": "sequence",
+    "key": "wrapPadding",
+    "class": "honoured"
+  }
+]

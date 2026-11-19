@@ -1,0 +1,47 @@
+[
+  {
+    "code": "journey/empty-section",
+    "severity": "warning",
+    "summary": "journey section contains no tasks",
+    "help": "Add tasks to the section, or remove it.",
+    "rationale": "An empty section renders a header over nothing.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:journey-empty-section",
+    "status": "adopted"
+  },
+  {
+    "code": "journey/score-out-of-range",
+    "severity": "warning",
+    "summary": "journey task score is outside the 1 to 5 scale",
+    "help": "Give the task a score from 1 to 5.",
+    "rationale": "Scores outside the documented scale render at an unintended position on the satisfaction axis.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:journey-score-out-of-range",
+    "status": "rejected",
+    "reason": "duplicate of journey/score-out-of-range"
+  },
+  {
+    "code": "journey/task-without-actor",
+    "severity": "warning",
+    "summary": "journey task declares no actor",
+    "help": "Add the actor before the task's colon.",
+    "rationale": "A task with no actor renders without its owner lane, so the diagram is usually incomplete.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:journey-task-without-actor",
+    "status": "adopted"
+  },
+  {
+    "code": "journey/no-tasks",
+    "severity": "warning",
+    "summary": "journey diagram declares no tasks",
+    "help": "Add at least one task line.",
+    "rationale": "The diagram parses, but it renders empty.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:journey-no-tasks",
+    "status": "adopted"
+  }
+]

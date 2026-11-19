@@ -1,0 +1,25 @@
+[package]
+name = "elegant-mermaid-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "WebAssembly bindings for the elegant-mermaid playground."
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+elegant-mermaid = { version = "=0.1.0", path = "../elegant-mermaid" }
+wasm-bindgen.workspace = true
+thiserror.workspace = true
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+cognitive_complexity = "deny"
+iter_over_hash_type = "deny"

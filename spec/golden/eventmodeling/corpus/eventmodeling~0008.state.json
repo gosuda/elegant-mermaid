@@ -1,0 +1,1 @@
+{"boxes":[["01",200],["02",0],["03",100]],"lanes":[[0,"UI/Automation"],[100,"Command/Read Model"],[200,"Events"]],"relations":[["01","02"],["01","03"]]}

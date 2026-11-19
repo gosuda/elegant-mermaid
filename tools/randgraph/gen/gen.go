@@ -8,8 +8,10 @@ import (
 
 const caseCount = 2000
 
-var ErrFamily = errors.New("unknown family")
-var ErrCase = errors.New("case index out of range")
+var (
+	ErrFamily = errors.New("unknown family")
+	ErrCase   = errors.New("case index out of range")
+)
 
 var words = [16]string{
 	"amber", "birch", "cedar", "delta", "ember", "fjord", "garnet", "harbor",

@@ -1,0 +1,38 @@
+[
+  {
+    "code": "pie/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "Each token must fit the current pie production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "pie/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "An unknown statement cannot create a slice.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "pie/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "A quoted label or brace description needs its closing delimiter.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "pie/negative-value",
+    "severity": "error",
+    "summary": "slice LABEL has negative value VALUE",
+    "help": "",
+    "rationale": "A pie slice value cannot be less than zero, even when its label repeats.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

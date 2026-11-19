@@ -1,0 +1,38 @@
+[
+  {
+    "code": "journey/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "A token must fit the current journey production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "journey/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "Rejected statements must not create tasks.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "journey/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "An accessibility description block needs a closing brace.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "journey/score-out-of-range",
+    "severity": "error",
+    "summary": "score SCORE is outside the range MIN to MAX",
+    "help": "",
+    "rationale": "The planned journey score bounds restrict integer scores to the inclusive range 1 to 5.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

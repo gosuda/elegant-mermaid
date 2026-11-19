@@ -66,15 +66,23 @@ type ConfigValue struct {
 	Span    source.Span
 }
 
-var simpleEscapes = map[byte]byte{
-	'"':  '"',
-	'\\': '\\',
-	'/':  '/',
-	'b':  '\b',
-	'f':  '\f',
-	'n':  '\n',
-	'r':  '\r',
-	't':  '\t',
+func simpleEscape(value byte) (byte, bool) {
+	switch value {
+	case '"', '\\', '/':
+		return value, true
+	case 'b':
+		return '\b', true
+	case 'f':
+		return '\f', true
+	case 'n':
+		return '\n', true
+	case 'r':
+		return '\r', true
+	case 't':
+		return '\t', true
+	default:
+		return 0, false
+	}
 }
 
 type configReader struct {
@@ -149,7 +157,7 @@ func configTokenSpan(src []byte, p, end, origin int) source.Span {
 	}
 	switch src[p] {
 	case '\r':
-		return source.Span{Start: origin + p, End: origin + crlfLength(src[p:end])}
+		return source.Span{Start: origin + p, End: origin + p + crlfLength(src[p:end])}
 	case ' ', '\t', '\n':
 		return source.Span{Start: origin + p, End: origin + p + 1}
 	}
@@ -446,7 +454,7 @@ func (r *configReader) readEscape(b *strings.Builder) bool {
 	if r.src[p+1] == 'u' {
 		return r.readUnicodeEscape(b, p)
 	}
-	decoded, ok := simpleEscapes[r.src[p+1]]
+	decoded, ok := simpleEscape(r.src[p+1])
 	if !ok {
 		r.fail(codeMalformed, msgInvalidEscape, r.span(p, p+2))
 		return false

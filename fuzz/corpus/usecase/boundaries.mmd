@@ -1,0 +1,16 @@
+usecase-beta
+direction LR
+accTitle: Ordering system
+systemBoundary Shop[Shop services]:::domain
+  actor Agent("Sales agent")@{ business: true } <<Employee>>
+  Quote("Prepare quote"):::primary
+  Archive[Archive quote]
+end
+Agent --> Quote
+Quote --> Archive
+classDef primary fill:#f9f,stroke:#333
+classDef domain stroke:#555
+class Archive primary
+style Agent stroke:#333
+note for Quote "Keep a copy"
+json Details @{"customer":"界","items":[{"name":"café","active":true}],"nested":{"brace":"}"}}:::primary

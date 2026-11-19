@@ -1,0 +1,38 @@
+[
+  {
+    "code": "timeline/unexpected-token",
+    "severity": "error",
+    "summary": "unexpected TOKEN, expected one of: LIST",
+    "help": "",
+    "rationale": "The token must fit the current production.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "timeline/unknown-statement",
+    "severity": "error",
+    "summary": "unknown statement TOKEN",
+    "help": "",
+    "rationale": "An unknown statement must not create a period.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "timeline/unterminated",
+    "severity": "error",
+    "summary": "unterminated TOKEN",
+    "help": "",
+    "rationale": "An accessibility description block needs its closing brace.",
+    "fix_safety": "none",
+    "aliases": []
+  },
+  {
+    "code": "timeline/event-without-period",
+    "severity": "error",
+    "summary": "event has no preceding period",
+    "help": "",
+    "rationale": "The upstream database cannot append an event without a current task.",
+    "fix_safety": "none",
+    "aliases": []
+  }
+]

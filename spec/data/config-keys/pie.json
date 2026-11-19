@@ -1,0 +1,47 @@
+[
+  {
+    "kind": "pie",
+    "key": "donutHole",
+    "class": "honoured"
+  },
+  {
+    "kind": "pie",
+    "key": "highlightSlice",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "pie",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "pie",
+    "key": "legendPosition",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "pie",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "pie",
+    "key": "textPosition",
+    "class": "honoured"
+  },
+  {
+    "kind": "pie",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "pie",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "pie",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  }
+]

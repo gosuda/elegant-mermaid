@@ -1,0 +1,28 @@
+[
+  {"kind":"block","key":"layout","class":"accepted-ignored"},
+  {
+    "kind": "block",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "block",
+    "key": "padding",
+    "class": "honoured"
+  },
+  {
+    "kind": "block",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "block",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "block",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  }
+]

@@ -1,0 +1,35 @@
+[
+  {
+    "code": "er/duplicate-attribute",
+    "severity": "warning",
+    "summary": "the same attribute name is declared twice inside one entity",
+    "help": "Remove the repeated attribute line.",
+    "rationale": "A repeated attribute renders twice in the entity box, so the entity shows a field list the data does not have.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:er-duplicate-attribute",
+    "status": "adopted"
+  },
+  {
+    "code": "er/duplicate-entity",
+    "severity": "warning",
+    "summary": "an entity attribute block is defined more than once",
+    "help": "Merge the blocks into one entity declaration.",
+    "rationale": "Mermaid merges the blocks, so the second block is usually copy-paste noise that hides a real difference.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:er-duplicate-entity",
+    "status": "adopted"
+  },
+  {
+    "code": "er/standalone-entity",
+    "severity": "off",
+    "summary": "an entity has a defined block but no relationship",
+    "help": "Connect the entity to another entity, or remove it.",
+    "rationale": "An entity with no relationship renders as an isolated box, which is sometimes intended, so this rule is off by default.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:er-standalone-entity",
+    "status": "adopted"
+  }
+]

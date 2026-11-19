@@ -11,6 +11,10 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
     `L` is the left border and `w` the width of the node.
 - routing-04: The port count `k` MUST be known after the ordering phase, so the size phase can size the node, and port positions MUST be set after the cross-axis coordinate phase. [just lean-parity]
 - routing-05: Port order on a side MUST be the neighbour's `x`, then the neighbour's `decl`. [just lean-parity]
+    Group proxy ports MUST use the horizontal span of the proxy's own cluster's ordering borders at the proxy's own rank and the same distinct-neighbour spacing rule. Let `lo_k` be the left edge of the left border at that rank and `hi_k` the right edge of the right border at that rank. The route-input proxy MUST have `w = hi_k - lo_k` and `x = lo_k + floor_div(w, 2)`. If that rank has no left border or no right border for the cluster, the phase MUST fail with a graph error and MUST NOT use the global frame bounds. The bounds over all ranks of the cluster MUST stay the source of the frame rectangle. The phase MUST set these boundary ports before slot assignment, and MUST NOT clip completed routes to a frame afterward. Equal proxy keys MUST sort by cluster declaration index, top before bottom, route declaration index, then source before target. A group self-loop MUST use the loop-band rule on the final frame. Proxy routing MUST NOT change authored endpoint IDs, ancestry, or clearance exemptions.
+    When a top proxy's adjacent route segment enters the frame interior, the route MUST first follow the top frame boundary from its unchanged port to the leading frame boundary, then follow that boundary to the ordinary channel. A source uses `(port_x, frame_top)`, `(frame_left, frame_top)`, `(frame_left, channel_y)` before the channel continuation; a target MUST use the reverse sequence. Consecutive duplicates MUST be omitted. A top port approached from outside the frame MUST keep its ordinary stub. Title text MUST stay inside the horizontal padding, clear of this boundary gutter.
+- routing-37: The target-end run of a reversed edge whose original target is a group top proxy MUST be one routing segment with `x_src = frame_left` and `x_tgt` at its lane. [just lean-parity]
+    `frame_left` is the minimum, over every left-border node of the cluster at every rank of the cluster, of `x - floor_div(w, 2)`. It is the leading frame boundary of routing-05, and it is the `x` where the drawn run meets the gutter. The `key` of routing-15 MUST use this `x_src`. The run then ties on `c` and `k` with every segment that leaves the same top proxy through the `frame_left` gutter, and the lower `decl` takes the lower slot line. The phase MUST NOT use the centre of a border node, and MUST NOT use the borders of one rank only.
 - routing-06: A label node MUST have one top port and one bottom port, both at its left border `x - floor_div(w, 2)`. [just lean-parity]
 - routing-07: Edges that share a triple MUST share a trunk: they use one segment in the routing phase. [just lean-parity]
 - routing-08: A layered kind MUST use top and bottom ports only. [just lean-parity]
@@ -24,14 +28,19 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
 
 - routing-10: In a layered kind, between rank `r` and rank `r + 1`, each chain edge MUST be one route: a stub from its source bottom port down to the slot line of its segment, one horizontal run on that line, and a stub from the line down to its target top port. [just lean-parity]
 - routing-11: The slot line of slot index `s` in `0 .. S_r - 1` MUST be `ys(s) = rank_top[r] + H_r + slot * (s + 1) + floor_div(slot, 2)`. [just lean-parity]
-    Every slot line lies above `rank_top[r + 1]`, because `floor_div(slot, 2) < rank_gap` in both profiles.
+    Every slot line lies above `rank_top[r + 1]`. The distance `rank_top[r + 1] - (rank_top[r] + H_r)` is `g_r + slot * S_r` with `g_r >= ceil_div(rank_gap, 2)` (layered-51), and `floor_div(slot, 2) < ceil_div(rank_gap, 2)` in both profiles.
 - routing-12: The stub length MUST be the distance from the port to its slot line, and it MUST be at least `slot`. [just lean-parity]
     `ys(0) - (rank_top[r] + H_r)` is at least `slot`.
 - routing-13: A segment MUST be a horizontal run from `x_src` (source port) to `x_tgt` (target port), with the interval `[min(x_src, x_tgt), max(x_src, x_tgt)]`. [just lean-parity]
     A segment with `x_src = x_tgt` is straight. A straight segment takes no slot and conflicts with nothing.
 - routing-14: Two non-straight segments in one channel MUST count as conflicting exactly when their closed intervals intersect and they do not share a trunk (same source triple and same target triple). [just lean-parity]
-- routing-15: A conflict arc MUST point from `a` to `b` when `(x_src(a), decl(a))` is lexicographically lower than `(x_src(b), decl(b))`, and the arc means `slot(a) < slot(b)`. [just lean-parity]
-    No cycle guard runs. A segment's `decl` is the lowest `decl` of its edges. Arcs run in the total order `(x_src, decl)` on segments, so they form no cycle.
+- routing-15: A conflict arc MUST point from `a` to `b` when `key(a)` is lexicographically lower than `key(b)`, and the arc means `slot(a) < slot(b)`. [just lean-parity]
+    The key of a segment `s` is `key(s) = (c, k, decl, run)`. `c` is 1 for a right-going segment (`x_tgt > x_src`) and 0 for any other segment. `k` is `-x_src` when `c` is 1 and `x_src` when `c` is 0. `decl` is the lowest `decl` of the edges of `s`. `run` is 0 for a chain segment and for the source-end run of a reversed edge, and 1 for the target-end run.
+    A left-going segment takes a lower slot than every right-going segment that conflicts with it. Left-going segments take slots in ascending `x_src`. Right-going segments take slots in descending `x_src`.
+    The key MUST apply to every segment of a channel, including the two runs of a reversed edge. Both runs reach a lane on the trailing side, so both are right-going.
+    A straight segment has no arc, because it conflicts with nothing (routing-13). It takes `c = 0`, and its key has no effect.
+    Two different segments of one channel never have equal keys. Different edges have different `decl`. The two runs of one reversed edge differ in `run`. No cycle guard runs, because the arcs follow the total order `key`, so they form no cycle.
+    The source-end run MUST precede the target-end run when both reversed-edge runs have the same `c`, `k`, and `decl` in one channel. This final tie MUST also apply to the ready queue.
 - routing-16: Slot numbering MUST use Kahn's algorithm, taking the ready segment with the lowest `decl` first. [just lean-parity]
     A segment with no predecessor gets slot 0. Any other segment gets `1 + max slot(predecessor)`.
 - routing-17: `S_r` MUST be `max slot + 1` over the non-straight segments of the channel, or 0 when there are none. [just lean-parity]
@@ -63,7 +72,7 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
 
 - routing-31: For node `v` with `K` loops, loop `k` (0-based, in declaration order at `v`) MUST use `loop_band = max(2 * slot, tallest label height among the loops of v)`. [just lean-parity]
 - routing-32: Loop `k` MUST have `b_k = y_v + k * loop_band`, ports `ya_k = b_k + floor_div(loop_band, 2) - slot` and `yb_k = b_k + floor_div(loop_band, 2) + slot`, and the four points `(xr_v, ya_k)`, `(xr_v + slot * (k + 1), ya_k)`, `(xr_v + slot * (k + 1), yb_k)`, and `(xr_v, yb_k)`. [just lean-parity]
-- routing-33: If the loop has a label, its left border MUST be at `xr_v + slot * (k + 2)` and its vertical centre MUST be at `b_k + floor_div(loop_band, 2)`. [just lean-parity]
+- routing-33: If the loop has a label, its left border MUST be at `xr_v + slot * (K + 1)` and its vertical centre MUST be at `b_k + floor_div(loop_band, 2)`. All loop labels of one node or frame MUST use this common column beyond its outermost loop lane. [just lean-parity]
 - routing-34: The loop extent MUST be `E_v = sum over k of (slot * (k + 2) + lw_k)`, where `lw_k` is the label width of loop `k` (0 without a label). [just lean-parity]
     The size phase uses `E_v` in `wsep` (spec/layout/layered.md).
 - routing-35: A node with `K` self-loops MUST satisfy `h = max(h, 2 * K * loop_band)`. [just lean-parity]
@@ -76,6 +85,6 @@ This file defines the ports, the orthogonal routing with slot assignment, the re
     |---|---|
     |Port order|neighbour `x`, then neighbour declaration index|
     |Slot assignment|number slots in topological order of the conflict arcs, lowest declaration index first; the arcs form no cycle, so no cycle removal runs|
-    |Slot arc|a conflict arc points from `a` to `b` when `(x_src(a), decl(a))` is lower than `(x_src(b), decl(b))`; the arc means `slot(a) < slot(b)`|
+    |Slot arc|a conflict arc points from `a` to `b` when `(c, k, decl, run)` of `a` is lower than that of `b`, with `c = 1` for a right-going segment and 0 otherwise, `k = x_src` for a left-going segment and `-x_src` for a right-going one, and `run` 0 for a source-end run and every chain segment, 1 for a target-end run; the arc means `slot(a) < slot(b)`|
     |Reversed lanes|lane index follows declaration order of the reversed edges|
     |Self-loops|loop index follows declaration order at the node|

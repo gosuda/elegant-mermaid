@@ -1,0 +1,18 @@
+[
+  { "kind": "er", "key": "diagramPadding", "class": "accepted-ignored" },
+  { "kind": "er", "key": "entityPadding", "class": "accepted-ignored" },
+  { "kind": "er", "key": "fill", "class": "accepted-ignored" },
+  { "kind": "er", "key": "fontSize", "class": "accepted-ignored" },
+  { "kind": "er", "key": "layout", "class": "accepted-ignored" },
+  { "kind": "er", "key": "layoutDirection", "class": "accepted-ignored" },
+  { "kind": "er", "key": "look", "class": "honoured" },
+  { "kind": "er", "key": "minEntityHeight", "class": "accepted-ignored" },
+  { "kind": "er", "key": "minEntityWidth", "class": "accepted-ignored" },
+  { "kind": "er", "key": "nodeSpacing", "class": "accepted-ignored" },
+  { "kind": "er", "key": "rankSpacing", "class": "accepted-ignored" },
+  { "kind": "er", "key": "stroke", "class": "accepted-ignored" },
+  { "kind": "er", "key": "theme", "class": "honoured" },
+  { "kind": "er", "key": "titleTopMargin", "class": "accepted-ignored" },
+  { "kind": "er", "key": "useMaxWidth", "class": "accepted-ignored" },
+  { "kind": "er", "key": "useWidth", "class": "accepted-ignored" }
+]

@@ -1,0 +1,35 @@
+[
+  {
+    "code": "architecture/no-elements",
+    "severity": "warning",
+    "summary": "architecture diagram declares no services, groups, or junctions",
+    "help": "Declare at least one service, group, or junction.",
+    "rationale": "The body parses, but the rendered diagram is empty.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:architecture-no-elements",
+    "status": "adopted"
+  },
+  {
+    "code": "architecture/no-edges",
+    "severity": "warning",
+    "summary": "architecture diagram declares elements but no edges",
+    "help": "Add the connections between the declared elements.",
+    "rationale": "Elements with no connections usually mean the diagram is an unfinished draft.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:architecture-no-edges",
+    "status": "adopted"
+  },
+  {
+    "code": "architecture/duplicate-edge",
+    "severity": "warning",
+    "summary": "the same architecture connection is declared more than once",
+    "help": "Remove the repeated connection statement.",
+    "rationale": "A repeated connection draws the same edge twice, which is usually a copy-paste mistake.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:architecture-duplicate-edge",
+    "status": "adopted"
+  }
+]

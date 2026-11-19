@@ -101,7 +101,7 @@ The geometry kernel is the integer geometry library that the Go implementation, 
 
 - geometry-kernel-47: `tools/specgen` MUST compute the sine table once; for `i` in `0..1024`, `S[i] = round_half_up(32768 * sin(pi * i / 2048))` with `round_half_up(x) = floor(x + 1/2)`, so `S[0] = 0`, `S[1024] = 32768`, and the table has 1025 entries. [just gen-check]
 - geometry-kernel-48: `tools/specgen` MUST write `pi` to 60 decimal digits as a constant string, MUST evaluate `sin` by its Taylor series in fixed-point decimal with a `math/big.Int` scaled by `10^60` and truncated after each term, MUST round half up in integer arithmetic, and MUST fail when any scaled value lies within `10^-30` of a half-integer. [just gen-check]
-- geometry-kernel-49: The same table MUST be written to `internal/gen/sine.go` (`var sineTable [1025]int32`), `crates/elegant-mermaid/src/gen/sine.rs` (`pub(crate) const SINE_TABLE: [i32; 1025]`), and `proofs/Elegant/Gen/Sine.lean` (`def sineTable : Array Int`); no file MUST edit the table by hand. [just gen-check]
+- geometry-kernel-49: The same table MUST be written to `internal/gen/sine.go` (`var SineTable [1025]int32`, exported because `internal/geom` is another package), `crates/elegant-mermaid/src/gen/sine.rs` (`pub(crate) const SINE_TABLE: [i32; 1025]`, in the module declared as `r#gen` because `gen` is a reserved word in edition 2024), and `proofs/Elegant/Gen/Sine.lean` (`def sineTable : Array Int`); no file MUST edit the table by hand. [just gen-check]
 - geometry-kernel-50: `sin_q15(a)` MUST accept any int32 `a`, MUST use the angle unit 1/65536 turn, where 16384 is a quarter turn, and MUST compute: [just kernel-diff]
 
     1. `r = floor_mod(a, 65536)`, so `r` is in `[0, 65535]`.
@@ -114,11 +114,11 @@ The geometry kernel is the integer geometry library that the Go implementation, 
 
 ## Kernel evaluation format
 
-- geometry-kernel-52: `geomcheck eval FILE` and `emd kernel-eval FILE` MUST read the case file `FILE` and write one result line per case to stdout; a case line MUST match this grammar: [just kernel-diff]
+- geometry-kernel-52: `geomcheck eval FILE` and `emd kernel-eval FILE` MUST read the case file `FILE`, `emd kernel-eval` with no operand or with the operand `-` MUST read the cases from standard input, and each MUST write one result line per case to stdout; a case line MUST match this grammar: [just kernel-diff]
 
     ```
     case-line = op *( SP operand ) SP "->" SP result LF
-    op        = 1*( %x61-7A / "_" )          ; one of the 14 names in the operations table
+    op        = 1*( %x61-7A / "_" / DIGIT )  ; one of the 14 names in the operations table, for example sin_q15
     operand   = int / axis / tuple / list
     axis      = "X" / "Y"
     tuple     = "(" int *( "," int ) ")"     ; arity fixed by the operation: 2 or 4

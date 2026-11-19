@@ -1,0 +1,16 @@
+[
+  {"code":"architecture/unexpected-token","severity":"error","summary":"unexpected TOKEN, expected one of: LIST","help":"","rationale":"A token must fit the current production.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/unknown-statement","severity":"error","summary":"unknown statement TOKEN","help":"","rationale":"Unknown statements cannot create model elements.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/unterminated","severity":"error","summary":"unterminated TOKEN","help":"","rationale":"An open delimiter needs a closing delimiter.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/duplicate-id","severity":"error","summary":"id ID is already in use","help":"","rationale":"Nodes and groups share an identifier namespace.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/self-parent","severity":"error","summary":"element ID cannot contain itself","help":"","rationale":"A parent relation cannot point to its child.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/parent-not-found","severity":"error","summary":"parent ID does not exist","help":"","rationale":"A parent must exist when its child is inserted.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/parent-not-group","severity":"error","summary":"parent ID is not a group","help":"","rationale":"Only groups can contain elements.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/invalid-direction","severity":"error","summary":"invalid edge direction TOKEN; expected L, R, T, B","help":"","rationale":"Each endpoint requires one of four port sides.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/endpoint-not-found","severity":"error","summary":"edge endpoint ID does not exist","help":"","rationale":"Edges do not create implicit nodes.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/endpoint-not-node","severity":"error","summary":"edge endpoint ID is not a service or junction","help":"","rationale":"The database requires node records at both endpoints.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/group-boundary-not-crossed","severity":"error","summary":"endpoint ID has a group modifier but the edge stays in one group","help":"","rationale":"A boundary modifier cannot connect members of the same defined group.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/align-too-few-members","severity":"error","summary":"alignment requires at least two members","help":"","rationale":"An alignment relates at least two nodes.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/align-member-not-node","severity":"error","summary":"alignment member ID is not a service or junction","help":"","rationale":"Alignment members must resolve to nodes.","fix_safety":"none","aliases":[]},
+  {"code":"architecture/align-duplicate-member","severity":"error","summary":"alignment lists ID more than once","help":"","rationale":"One alignment cannot repeat a node.","fix_safety":"none","aliases":[]}
+]

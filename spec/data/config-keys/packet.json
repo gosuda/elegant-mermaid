@@ -1,0 +1,62 @@
+[
+  {
+    "kind": "packet",
+    "key": "bitOrder",
+    "class": "honoured"
+  },
+  {
+    "kind": "packet",
+    "key": "bitWidth",
+    "class": "honoured"
+  },
+  {
+    "kind": "packet",
+    "key": "bitsPerRow",
+    "class": "honoured"
+  },
+  {
+    "kind": "packet",
+    "key": "layout",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "packet",
+    "key": "look",
+    "class": "honoured"
+  },
+  {
+    "kind": "packet",
+    "key": "paddingX",
+    "class": "honoured"
+  },
+  {
+    "kind": "packet",
+    "key": "paddingY",
+    "class": "honoured"
+  },
+  {
+    "kind": "packet",
+    "key": "rowHeight",
+    "class": "honoured"
+  },
+  {
+    "kind": "packet",
+    "key": "showBits",
+    "class": "honoured"
+  },
+  {
+    "kind": "packet",
+    "key": "theme",
+    "class": "honoured"
+  },
+  {
+    "kind": "packet",
+    "key": "useMaxWidth",
+    "class": "accepted-ignored"
+  },
+  {
+    "kind": "packet",
+    "key": "useWidth",
+    "class": "accepted-ignored"
+  }
+]

@@ -1,0 +1,6 @@
+unsafe-fix-end-without-subgraph.mmd:3:3: error[flowchart/end-without-subgraph]: end appears without a matching subgraph
+  |
+3 |   end
+  |   ^~~
+  = help: Remove this end line, or add a subgraph above it.
+  = fix: Remove the stray end line

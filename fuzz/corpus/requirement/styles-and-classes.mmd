@@ -1,0 +1,19 @@
+requirementDiagram
+direction LR
+accTitle: Styled
+accDescr {
+Shows styles
+}
+designConstraint d1 {
+  id: 9
+  text: limit
+  risk: medium
+  verifymethod: analysis
+}
+element e1 {
+  type: doc
+}
+classDef important fill:#f96,stroke:#333,color:red
+class d1,e1 important
+style d1 fill:#bbf,stroke-width:2px
+e1:::important - refines -> d1

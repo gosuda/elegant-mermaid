@@ -1,0 +1,46 @@
+[
+  {
+    "code": "xychart/missing-x-axis",
+    "severity": "warning",
+    "summary": "xychart declares series but no x-axis line",
+    "help": "Add an x-axis line that names the categories or range.",
+    "rationale": "With the x-axis undeclared the horizontal scale and its labels are implicit, so the chart can mean something other than what the author intended.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:xychart-missing-x-axis",
+    "status": "adopted"
+  },
+  {
+    "code": "xychart/missing-y-axis",
+    "severity": "warning",
+    "summary": "xychart declares series but no y-axis line",
+    "help": "Add a y-axis line that names the value range.",
+    "rationale": "With the y-axis undeclared the vertical scale or its units stay implicit, so a reader cannot tell what the plotted numbers mean.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:xychart-missing-y-axis",
+    "status": "adopted"
+  },
+  {
+    "code": "xychart/no-series",
+    "severity": "warning",
+    "summary": "xychart declares no bar or line series",
+    "help": "Add at least one bar [...] or line [...] series.",
+    "rationale": "The grammar accepts axes alone, but the chart then has nothing to draw, and the empty output hides the mistake.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:xychart-no-series",
+    "status": "adopted"
+  },
+  {
+    "code": "xychart/series-length-mismatch",
+    "severity": "warning",
+    "summary": "xychart series have different lengths",
+    "help": "Give every series one value per x-axis category.",
+    "rationale": "Series of unequal length line up against the wrong categories, so the drawn chart misrepresents the data.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:xychart-series-length-mismatch",
+    "status": "adopted"
+  }
+]

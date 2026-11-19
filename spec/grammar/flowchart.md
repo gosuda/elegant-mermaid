@@ -52,7 +52,7 @@ The authority declares one start condition per row of the table below. The lexer
 | `dir` | a header keyword that is the first one | a `dir` rule below |
 | `text` | a shape opener of the `INITIAL` table | its matching closer |
 | `ellipseText` | `(-` | `-)` |
-| `trapText` | `[/` or `[\` | `\]`, `]`, or `/]` |
+| `trapText` | `[/` or `[\` | `\]` or `/]`; a bare `]` does not close the label |
 | `edgeText` | the start half of a normal link | the end half of that link |
 | `thickEdgeText` | the start half of a thick link | the end half of that link |
 | `dottedEdgeText` | the start half of a dotted link | the end half of that link |
@@ -63,7 +63,7 @@ The authority declares one start condition per row of the table below. The lexer
 | `shapeDataStr` | `"` inside `shapeData` | `"` inside the mode |
 
 - flowchart-016: The modes `vertex`, `href`, and `shapeDataEndBracket` MUST NOT exist, because no authority rule enters them. [just go-check]
-- flowchart-017: Within a mode, the lexer MUST take the first rule that matches at the current byte, in the order of the tables below, and MUST NOT prefer the longer match of a later rule. [just parity]
+- flowchart-017: Within a mode, the lexer MUST take the first rule that matches at the current byte, in the order of the tables below, and MUST NOT prefer the longer match of a later rule; a word literal MUST end at a word boundary, as Jison adds to quoted word patterns, so a keyword MUST NOT match the prefix of a longer identifier. [just parity]
 - flowchart-018: The lexer MUST NOT panic on any input, and a byte that no rule of the mode matches MUST raise `flowchart/unexpected-token`. [just go-check]
 - flowchart-019: The lexer MUST read the repaired UTF-8 text of `spec/source-and-positions.md`, and a token MUST carry the span of every byte that its rule consumed, whitespace included. [just go-check]
 
@@ -333,7 +333,7 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 - flowchart-037: A `click` action MUST accept the four callback forms `CLICK CALLBACKNAME`, `CLICK CALLBACKNAME SP STR`, `CLICK CALLBACKNAME CALLBACKARGS`, and `CLICK CALLBACKNAME CALLBACKARGS SP STR`. [just parity]
 - flowchart-038: A `click` action MUST accept the four link forms of `CLICK STR`, `CLICK STR SP STR`, `CLICK STR SP LINK_TARGET`, and `CLICK STR SP STR SP LINK_TARGET`, and the same four forms with `HREF` before the first `STR`. [just parity]
 - flowchart-039: A `click` action MUST accept the two plain callback forms `CLICK alpha-num` and `CLICK alpha-num SP STR`. [just parity]
-- flowchart-040: A `click` statement that holds a tooltip or a link target after a callback MUST raise `flowchart/click-call-extra-text` (error) at the first extra token. [just oracle]
+- flowchart-040: A callback MUST accept an optional quoted tooltip, also after an argument list, and a `click` statement that holds a link target after a callback, with or without a tooltip, MUST raise `flowchart/click-call-extra-text` (error) at the target token. [just oracle]
 - flowchart-041: The parser MUST accept the spaces around `&` as optional, and MUST accept a shape-data block between a node and a following `&` or link. [just parity]
 - flowchart-042: The parser MUST accept a vertex statement that is one node with no label, and that node MUST take its id as its label text. [just parity]
 - flowchart-043: The parser MUST accept a chain of links of any length, and a `&` group on either side of a link MUST produce one edge for each pair of a last start node and a first end node. [just oracle]
@@ -447,9 +447,9 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 - flowchart-074: A start half whose stroke differs from the end half, or whose marker type differs from the end type while it is not open, MUST give an edge with no start marker and no end marker, and the stroke and the length MUST come from the end half. [just parity]
 - flowchart-075: The dump id of a route MUST be `e` and its decimal declaration index, and the dump id of its label MUST be that id followed by `.label`, which the golden dump fixes. [just validate]
 - flowchart-076: A link id of the source MUST be kept in the model beside the dump id, and of a `&` group only the pair of the last start node and the first end node MUST keep it. [just parity]
-- flowchart-077: A subgraph MUST become a group box, its members MUST be the distinct node ids of its body, and a member that an earlier subgraph holds MUST be dropped from the later one. [just oracle]
+- flowchart-077: A subgraph MUST become a group box and MUST keep the distinct node ids of its body in body order; a member that a subgraph completed earlier already holds MUST be dropped from the subgraph that completes later, so a nested subgraph claims its members before its enclosing subgraph; upstream `addSubGraph` and `makeUniq` decide this by completion order. [just oracle]
 - flowchart-078: A repeated subgraph id MUST merge its members into the first declaration, which keeps the title and the direction of that first one. [just parity]
-- flowchart-079: A subgraph id MUST be the `text-no-tags` of its header when that text holds no space, and otherwise `subGraph` and the 0-based index of the declaration among all subgraph declarations. [just parity]
+- flowchart-079: A subgraph id MUST be the `text-no-tags` of its header when that text holds no space, and otherwise `subGraph` and the 0-based index of the declaration among all subgraph declarations, repeated ids counted; quotes delimit the text and MUST NOT stay in the id or the title. [just parity]
 - flowchart-080: A subgraph title MUST be the bracketed text when the header holds brackets, otherwise the `text-no-tags` of the header, and it MUST be empty for the form with no text. [just parity]
 - flowchart-081: The direction of a subgraph MUST be the last `direction` statement of its body, and it MUST be absent when the body holds none. [just parity]
 - flowchart-082: `style` MUST append its declarations to the styles of every named node, and a name that no node declares MUST still create the node. [just parity]
@@ -531,6 +531,9 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 - flowchart-103: The Go parser MUST be `internal/syntax/flowchart`, with the fuzz target `FuzzFlowchart` beside the package. [just go-check]
 - flowchart-104: The Go and Rust models MUST hold the same node list, edge list, and group list, in the same order, for the same source. [just parity]
 - flowchart-105: The lexer MUST take the first matching rule of the current mode at the current byte, in the order of the rule tables of this file; jison without `%options flex` does the same. [just parity]
+- flowchart-106: A rule that opens a quoted run MUST NOT apply inside the modes `string`, `md_string`, and `shapeDataStr`; each of those modes MUST apply its own closing rule first, and shape-data content MUST NOT change the state that joins string tokens. [just go-check]
+- flowchart-107: Every flowchart diagnostic whose registry row has a `fix_safety` other than `none` MUST carry one fix with the title, safety, edit span, and replacement text that `TestDiagnosticFixContracts` and `flowchart_diagnostic_fix_contracts` state, equal in Go and Rust; a row with `fix_safety` `none` MUST carry no fix. [just parity]
+- flowchart-108: A `click` link MUST wrap only the scene group of role `node` whose owner is its target id, as upstream sets `link` on vertices only: a target that is a subgraph MUST draw no anchor, and an empty tooltip MUST emit no `<title>`. Go and Rust MUST emit the same anchors. [just go-check: TestFlowchartClickOnASubgraphDrawsNoAnchor]
 
 ## Upstream readings
 
@@ -540,7 +543,7 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 | `"` outside a shape | Line 87 returns `QUOTE`; no production consumes it, and the `string` mode supplies `STR` | no token, dead token `QUOTE`, `flowchart-023` |
 | Start condition `vertex`, `href`, `shapeDataEndBracket` | declared at lines 15, 23, and 28, entered by no rule | no mode, `flowchart-016` |
 | `link: linkStatement TESTSTR SPACE` | `TESTSTR` is returned by no rule | alternative dropped, `flowchart-031` |
-| Plain text before a string in a label | `text: textToken | text textToken | STR | MD_STR`, and `textToken` holds no `STR` | `A["a"b]` parses, `A[foo"bar"]` fails, `flowchart-101` |
+| Plain text before a string in a label | `text: textToken | text textToken | STR | MD_STR`, and `textToken` holds no `STR`; a double quote inside the attributes of an HTML tag in a plain label stays label text | `A["a"b]` parses, `A[foo"bar"]` fails, `A[<img src="x">]` parses, `flowchart-101` |
 | A header keyword with no direction | `<dir>(\r?\n)*\s*\n` needs a line end, and the corpus holds `flowchart ` headers | `NODIR` also covers the end of the input, `flowchart-010` |
 | `BR` as the direction | `<dir>\s*BR` returns `DIR` and `setDirection` leaves the word unresolved | accepted, resolved to `TB`, `flowchart-009` |
 | A trap closer | Line 191 is the class `[\\(?=\])]` followed by `\]`, so one byte of that class then `]` closes | `\]` or `]`, `flowchart-025` |

@@ -1,1 +1,74 @@
-[]
+[
+  {
+    "path": "corpus/_unknown/maid/invalid/invalid-header.mmd",
+    "upstream_verdict": {
+      "accept": false,
+      "kind": "pie"
+    },
+    "our_verdict": {
+      "accept": false,
+      "kind": null
+    },
+    "reason": "keyword-boundary"
+  },
+  {
+    "path": "corpus/gantt/mermaid/gantt~nightly-check~should-fail-rendering-a-gantt-chart-for-issue-1060-with-invalid-date.mmd",
+    "upstream_verdict": {
+      "accept": true,
+      "kind": "gantt"
+    },
+    "our_verdict": {
+      "accept": false,
+      "kind": "gantt"
+    },
+    "reason": "strict-date-and-number"
+  },
+  {
+    "path": "corpus/gantt/mermaid/gantt~nightly-check~should-handle-dates-with-year-typo-like-202-instead-of-2024-issue-5496.mmd",
+    "upstream_verdict": {
+      "accept": true,
+      "kind": "gantt"
+    },
+    "our_verdict": {
+      "accept": false,
+      "kind": "gantt"
+    },
+    "reason": "strict-date-and-number"
+  },
+  {
+    "path": "corpus/gantt/mermaid/gantt~nightly-check~should-handle-seconds-only-format-with-tickinterval-issue-5496.mmd",
+    "upstream_verdict": {
+      "accept": true,
+      "kind": "gantt"
+    },
+    "our_verdict": {
+      "accept": false,
+      "kind": "gantt"
+    },
+    "reason": "strict-date-and-number"
+  },
+  {
+    "path": "corpus/gitgraph/mermaid/git~nightly-check~57-should-render-a-simple-gitgraph-with-more-than-8-branches-overriding-variables-vertical-branch-bottom-to-top.mmd",
+    "upstream_verdict": {
+      "accept": true,
+      "kind": "gitgraph"
+    },
+    "our_verdict": {
+      "accept": false,
+      "kind": "gitgraph"
+    },
+    "reason": "init-json-error"
+  },
+  {
+    "path": "corpus/journey/mermaid/journey~nightly-check~title-styling.mmd",
+    "upstream_verdict": {
+      "accept": true,
+      "kind": "journey"
+    },
+    "our_verdict": {
+      "accept": false,
+      "kind": "journey"
+    },
+    "reason": "strict-date-and-number"
+  }
+]

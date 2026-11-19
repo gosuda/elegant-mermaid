@@ -31,6 +31,18 @@ This file defines the grid layout family: its four entry points and inputs, the 
     A row's height is the maximum child height in that row, and every child in the row takes it. Upstream: `block/layout.ts` lines 61 to 117.
 - grid-11: The block origin MUST start `x` at `padding`, add each child's width plus `padding` per child, start rows at `padding`, and add each row's height plus `padding` per row. [just lean-parity]
     The block size is the content plus `padding` on each side.
+- grid-61: A block diagram with at least one edge MUST use `2 * padding` for every gap and margin in place of `padding`, and a label MUST widen each horizontal gap by the widest label width and each vertical gap by the tallest label height. [just lean-parity]
+    The edge corridor is the gap. Its midline lies `padding` after the gap start, so a diagram without edges keeps requirement grid-11.
+- grid-62: A block box MUST have four side points at the midpoints of its sides, and the junction of a side MUST lie on the gap midline `padding` beyond that side. [just lean-parity]
+    A route is the stub from a side point to its junction, a lattice path between two junctions, and the stub into the target side point. Edges with a composite end use the frame of that composite. With `padding` 0 a route can collapse to one point; such an edge has no polyline and no marker item.
+- grid-63: Routes MUST follow the minimum-cost path over the lattice of all gap midlines and the centre lines of the two end boxes, in declaration order of the edges. [just lean-parity]
+    A lattice segment is free when it does not enter the interior of a leaf block. The cost is the length, plus `block.bend_cost` for each bend, plus `4 * block.bend_cost` for each segment already used by an earlier edge that shares no end box with this one. Ties break by cost, then by state `vertex * 4 + direction`, with directions east, west, south, north. The sources are seeded in the side order top, bottom, left, right. Collinear points are removed. A route that collapses to one point is kept as that point.
+- grid-64: A self-loop MUST leave and enter the right side at `y + floor_div(h, 3)` and `y + floor_div(2 * h, 3)` and reach `padding` beyond the right side. [just lean-parity]
+- grid-65: An edge label MUST take the first candidate that lies strictly inside the canvas, is disjoint from every leaf block, every placed label and every route segment widened by `block.line_thickness`, and is either disjoint from or strictly inside every composite frame. [just lean-parity]
+    Candidates run over the segments of the route from the longest to the shortest, ties by order. A horizontal segment gives a candidate above and one below its midpoint, and a vertical segment gives one right and one left, each at `floor_div(padding, 2)` plus `block.line_thickness` from the segment. A label with no candidate is placed at `x = canvas width + margin`, stacked downward from `y = margin`, and the canvas grows to hold it plus `margin`, where `margin` is `max(padding, 1)`. The frame rule keeps the label clear of the composite frames that the layout dump validator checks (layout-dump-54).
+- grid-66: `block.bend_cost` MUST be 64 px (4096 units) and 4 cells, and `block.line_thickness` MUST be 0 units and 1 cell. [just gen-check]
+- grid-67: The block model dump MUST list the root frame first and then every block in pre-order, and the box `shape` MUST be `TYPE`, then `;columns=N` for a composite with a fixed column count, then `;span=N` for a span other than 1, then `;directions=a,b` for a block arrow. [just lean-parity]
+    `TYPE` is `composite` for the root and for a nested block, `space` for a space slot, and otherwise the flowchart shape id (`rect` for a plain block, `roundedRect`, `circle`, `doublecircle`, `diamond`, `hexagon`, `stadium`, `subroutine`, `cylinder`, `odd`, `lean_right`, `lean_left`, `trapezoid`, `inv_trapezoid`, `block_arrow`). Only leaf blocks are exclusive. Route ids skip box ids, an edge label is the record `<route>.label`, and the marker names are `point`, `cross`, `circle`, and none. The config key `padding` (0 to 1024 px) is the one honoured block key.
 
 ## Architecture
 
@@ -122,6 +134,16 @@ This file defines the grid layout family: its four entry points and inputs, the 
     The piece's x is `column * bit_width + 1` in vector. In cells it is `2 * column`, with no offset. Its width is `bits * bit_width - padding_x`, so adjacent fields are `padding_x` apart. Cell: `2 * bits - 1` columns, with one border column between fields. Upstream: `packet/renderer.ts` lines 56 to 58.
 - grid-38: Bit numbers MUST sit above each row, at a vector baseline 2 px above the row top and at one row above in cell. [just lean-parity]
     A single-bit field's number is centred; a wider field shows its leading bit at the left and its trailing bit at the right.
+- grid-68: The packet constants MUST also include `packet.margin_x` (64 units, 0 cells) and `packet.show_bits_pad` (1024 units, 0 cells). When bit numbers show, the effective `padding_y` of grid-35 MUST be `padding_y + show_bits_pad`; otherwise it MUST be `padding_y`. [just gen-check]
+    `margin_x` is the left and right margin of the drawing: a piece's x is `column * bit_width + margin_x`, and the drawing width is `bit_width * bits_per_row + 2 * margin_x`, which is the `+ 1` and `+ 2` of grid-35 and grid-37 in px. Upstream adds 10 px to `paddingY` when `showBits` is true (`packet/db.ts` lines 21 to 29). This plan adds 16 px, so that the 21 px band holds one 20 px bit-number line and no number overlaps the row above. In cell the band is the one `padding_y` row.
+- grid-69: A bit-number label MUST be a rectangle of height `min(line_h, effective padding_y)` whose bottom edge is the row top. The leading number of a single-bit piece MUST be centred on the piece, with `x = max(piece_x + floor_div(piece_w, 2) - floor_div(label_w, 2), 0)`. The leading number of a wider piece MUST start at the piece's x. The trailing number MUST end at the piece's right edge, with `x = max(piece_x + piece_w - label_w, 0)`. With `bit_order` `descending`, the leading number MUST be the end bit and the trailing number the start bit. [just lean-parity]
+    This rectangle replaces the baseline wording of grid-38: the text baseline follows the generic text rule of `spec/render-svg.md`.
+- grid-70: A piece's width MUST be `max(bits * bit_width - padding_x, 0)`, and a piece of width 0 MUST draw no rectangle. A piece that crosses a row boundary, has `end < start`, or has a negative start MUST be a domain error of the engine. [just lean-parity]
+- grid-71: A title MUST be a band of height `row_height` below the last row, at `x = margin_x` and `y = rows * pitch + padding_y` with the effective `padding_y`, of width `bit_width * bits_per_row`. The canvas height MUST be `rows * pitch + padding_y`, plus `row_height` when a title exists. [just lean-parity]
+- grid-72: The packet model dump MUST list the box `title` first when the title is not empty, with shape `title`, and then one box `f<N>` for each piece, with shape `field;start=S;end=E`, role `node`, and `exclusive` true. [just lean-parity]
+    A box whose text differs from its id has the label `<id>.label`. When `showBits` is true, a single-bit piece has the label `<id>.bit`, and every other piece has the labels `<id>.lead` and `<id>.trail`, in that order, with the piece as owner and the number as text. The layout-stage dump lists the bit-number labels only. A box with no shape continues the bits of the previous piece with one bit.
+- grid-73: The `options.config` of the packet dump MUST list only the keys that the source sets validly, in byte order, among `bitOrder`, `bitWidth`, `bitsPerRow`, `paddingX`, `paddingY`, `rowHeight`, and `showBits`. [just lean-parity]
+    Valid values: `bitsPerRow`, `bitWidth`, and `rowHeight` are integers from 1 to 1024; `paddingX` and `paddingY` are integers from 0 to 1024; `showBits` is a boolean; `bitOrder` is `ascending` or `descending`. Any other value is ignored without a diagnostic. The keys `bitWidth`, `paddingX`, `paddingY`, and `rowHeight` are in px and apply to the vector profile only. `bitsPerRow`, `showBits`, and `bitOrder` apply to both profiles. The `init` directive overrides the frontmatter `config`.
 
 ## Integer rules for the proofs
 
@@ -150,8 +172,8 @@ This file defines the grid layout family: its four entry points and inputs, the 
     Statement: the cells of placed architecture nodes form a `List.Nodup`.
     Proof approach: invariant of the breadth-first loop: each placement takes a free cell.
 - grid-48: The proof `arch_pops_bounded` MUST hold in `proofs/Elegant/Grid.lean`. [just proofs]
-    Statement: the number of queue pops is `<= nodes.length`.
-    Proof approach: each node is enqueued at most once; invariant on the visited set.
+    Statement: total queue pops are `<= virtualParents(input).length + input.groups.length` (services, groups, and empty-leaf-group placeholders), and are also `<= initialBudget`.
+    Proof approach: each placement unit is enqueued at most once; the visited-set invariant bounds pops by the full placement-unit population, and each pop consumes one unit of the initial budget.
 - grid-49: The proof `arch_all_placed` MUST hold in `proofs/Elegant/Grid.lean`. [just proofs]
     Statement: `WithinLimits m -> nodes.length <= architecture.bfs_cap -> every node of m is placed`.
     Proof approach: fuel-bounded loop; invariant: remaining fuel >= unplaced node count.
@@ -179,10 +201,10 @@ This file defines the grid layout family: its four entry points and inputs, the 
 - grid-57: The proof `packet_piece_widths_sum` MUST hold in `proofs/Elegant/Grid.lean`. [just proofs]
     Statement: the piece widths of one field sum to the field width.
     Proof approach: induction on the piece list.
-- grid-58: The proof `grid_valid` MUST hold in `proofs/Elegant/Grid.lean`. [just proofs]
-    Statement: `WellFormed m -> WithinLimits m -> Grid.layout m = .ok s -> HardConstraints s` for the four kinds.
-    Proof approach: combines the rows above; the routes come from the architecture router theorems.
+- grid-58: The proof `Elegant.Grid.grid_valid` MUST hold in `proofs/Elegant/FamilyValidity.lean`. [just proofs]
+    Statement: `WellFormed m -> WithinLimits m -> m.kind ∈ ["block", "architecture", "kanban", "packet"] -> Elegant.kindLayout m = some (.ok result) -> HardConstraints result.scene.layoutDump`.
+    Proof approach: dispatch on the family membership and apply the public kind validity proofs, which combine the geometry rows above and the architecture router theorems.
 - grid-59: The architecture breadth-first loop MUST recurse on the fuel `architecture.bfs_cap` (`spec/data/layout-constants.json`, value 2000, equal to the node limit). [just proofs]
     Block nesting recurses on the tree depth, which the `limit/nesting-depth` cap of `spec/preprocessing.md` bounds. Kanban and packet have no loop.
-- grid-60: The Lean reference module MUST be `proofs/Elegant/Grid.lean`, serving the kinds `block` (headers `block`, `block-beta`), `architecture` (`architecture`, `architecture-beta`), `kanban`, and `packet` (`packet`, `packet-beta`), with the functions `Grid.block`, `Grid.architecture`, `Grid.kanban`, `Grid.packet`, and `Grid.layout`. [just proofs]
+- grid-60: The per-kind geometry reference module MUST remain `proofs/Elegant/Grid.lean`, serving the kinds `block` (headers `block`, `block-beta`), `architecture` (`architecture`, `architecture-beta`), `kanban`, and `packet` (`packet`, `packet-beta`). Unified model-stage dispatch MUST use `Elegant.kindLayout` in `proofs/Elegant/KindLayout.lean`; family validity MUST use `Elegant.Grid.grid_valid` in `proofs/Elegant/FamilyValidity.lean` over the explicit family domain in grid-58. [just proofs]
     The `block` packet MUST build this family module, because `block` is the family's first kind. The other grid kinds wait for it. Every packet gates on `just proofs` and `just lean-parity KIND=<kind>`.

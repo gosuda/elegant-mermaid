@@ -1,0 +1,35 @@
+[
+  {
+    "code": "sankey/non-positive-value",
+    "severity": "warning",
+    "summary": "sankey link value is 0 or negative",
+    "help": "Give the link a positive value.",
+    "rationale": "A link with no positive weight carries no flow, so the diagram drops or distorts it.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:sankey-non-positive-value",
+    "status": "adopted"
+  },
+  {
+    "code": "sankey/duplicate-link",
+    "severity": "warning",
+    "summary": "the same sankey source and target pair is declared twice",
+    "help": "Merge the two links into one, or point them at different nodes.",
+    "rationale": "Repeated links stack their ribbons, so the total flow reads larger than the data says.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:sankey-duplicate-link",
+    "status": "adopted"
+  },
+  {
+    "code": "sankey/self-loop",
+    "severity": "warning",
+    "summary": "sankey link source and target are the same node",
+    "help": "Point the link at a different node.",
+    "rationale": "A link from a node to itself is usually a copy-paste mistake and renders as a flow that returns where it started.",
+    "fix_safety": "none",
+    "aliases": [],
+    "source": "mermaid-lint:sankey-self-loop",
+    "status": "adopted"
+  }
+]

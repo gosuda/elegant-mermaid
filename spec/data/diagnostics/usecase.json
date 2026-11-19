@@ -1,0 +1,13 @@
+[
+  {"code":"usecase/unexpected-token","severity":"error","summary":"unexpected TOKEN, expected one of: LIST","help":"","rationale":"Each token must fit the current production.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/unknown-statement","severity":"error","summary":"unknown statement TOKEN","help":"","rationale":"Unsupported statements must not create model nodes.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/unterminated","severity":"error","summary":"unterminated TOKEN","help":"","rationale":"An open construct needs its closing delimiter.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/declaration-conflict","severity":"error","summary":"conflicting declaration of ID: REASON","help":"","rationale":"One symbol must have one consistent declaration.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/invalid-metadata","severity":"error","summary":"invalid metadata KEY for KIND ID","help":"","rationale":"Metadata properties must apply to the target kind.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/unresolved-target","severity":"error","summary":"unresolved KIND target ID","help":"","rationale":"Assignments and notes require a target of the correct kind.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/invalid-actor","severity":"error","summary":"invalid actor ID: REASON","help":"","rationale":"Actor geometry options must be compatible.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/invalid-business-usecase","severity":"error","summary":"rectangular use case ID cannot be business","help":"","rationale":"Business use cases require ellipse geometry.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/invalid-relationship","severity":"error","summary":"invalid TYPE relationship: REASON","help":"","rationale":"Relationship kinds constrain endpoint and marker kinds.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/reference-class-suffix","severity":"error","summary":"endpoint ID uses classes without a declaration","help":"","rationale":"An endpoint class suffix requires a node declaration.","fix_safety":"none","aliases":[]},
+  {"code":"usecase/invalid-json","severity":"error","summary":"invalid JSON object: REASON","help":"","rationale":"A JSON node must contain a strict JSON object.","fix_safety":"none","aliases":[]}
+]

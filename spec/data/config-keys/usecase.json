@@ -1,0 +1,19 @@
+[
+  {"kind":"usecase","key":"actorFontFamily","class":"accepted-ignored"},
+  {"kind":"usecase","key":"actorFontSize","class":"accepted-ignored"},
+  {"kind":"usecase","key":"actorFontWeight","class":"accepted-ignored"},
+  {"kind":"usecase","key":"colorScheme","class":"accepted-ignored"},
+  {"kind":"usecase","key":"diagramPadding","class":"honoured"},
+  {"kind":"usecase","key":"layout","class":"accepted-ignored"},
+  {"kind":"usecase","key":"look","class":"honoured"},
+  {"kind":"usecase","key":"minNodeWidth","class":"honoured"},
+  {"kind":"usecase","key":"nodeSpacing","class":"honoured"},
+  {"kind":"usecase","key":"rankSpacing","class":"honoured"},
+  {"kind":"usecase","key":"theme","class":"honoured"},
+  {"kind":"usecase","key":"useMaxWidth","class":"accepted-ignored"},
+  {"kind":"usecase","key":"useWidth","class":"accepted-ignored"},
+  {"kind":"usecase","key":"usecaseFontFamily","class":"accepted-ignored"},
+  {"kind":"usecase","key":"usecaseFontSize","class":"accepted-ignored"},
+  {"kind":"usecase","key":"usecaseFontWeight","class":"accepted-ignored"},
+  {"kind":"usecase","key":"wrappingWidth","class":"honoured"}
+]
