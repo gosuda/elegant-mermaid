@@ -481,3 +481,6 @@ import Elegant.Layered.ExactFlatC5RunAttach
 import Elegant.Layered.ExactFlatC5Bottom
 import Elegant.Layered.ExactFlatC8b
 import Elegant.Layered.LaneBandsFindRouteFactsProof
+import Elegant.Layered.ExactFlatC5SelfRoutes
+import Elegant.Layered.ExactFitClosure
+import Elegant.Layered.ForeignBorderDivergeStableProof

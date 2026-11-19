@@ -2121,3 +2121,16 @@ Elegant.Layered.PipelineImpl.x_bottomBoundary_holds
 Elegant.Layered.PipelineImpl.flatC8bB_layoutX
 Elegant.Layered.LaneBands.findRouteEndsPin_holds
 Elegant.Layered.LaneBands.findRouteOrthoPin_holds
+Elegant.Layered.PipelineImpl.x_selfRoutes_holds
+Elegant.Layered.PipelineImpl.diverge_paths_ne
+Elegant.Layered.PipelineImpl.foreignBorderDivergeStable_holds
+Elegant.Layered.PipelineImpl.normalise_pair_stable
+Elegant.Layered.PipelineImpl.order_siblingForm
+Elegant.Layered.PipelineImpl.runKey_siblingForm
+Elegant.Layered.PipelineImpl.seedBest_siblingForm
+Elegant.Layered.PipelineImpl.siblingLayer_pair_general
+Elegant.Layered.PipelineImpl.siblingNormalise_map_form
+Elegant.Layered.PipelineImpl.SceneExecutionX.source_box_lookup_of_box_ids_nodupX
+Elegant.Layered.PipelineImpl.exactCanvasMargins
+Elegant.Layered.PipelineImpl.exactFitClosed
+Elegant.Layered.PipelineImpl.xExactFixedMin
