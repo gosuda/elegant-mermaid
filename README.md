@@ -8,12 +8,14 @@ elegant-mermaid gives you the `emd` command and libraries for Go, Rust, and Node
 
 ```sh
 printf 'flowchart LR\n  A[Start] --> B[Choice]\n  B --> C[Done]\n' | emd render -e text
-# ┌───────┐   ┌────────┐   ┌──────┐
-# │ Start ├───▶ Choice ├───▶ Done │
-# └───────┘   └────────┘   └──────┘
+#
+#  ┌───────┐   ┌────────┐   ┌──────┐
+#  │ Start ├───▶ Choice ├───▶ Done │
+#  └───────┘   └────────┘   └──────┘
+#
 ```
 
-The three output lines are the same bytes the repository ships as the text-render golden at [`internal/cells/testdata/render/demo.txt`](internal/cells/testdata/render/demo.txt).
+The three diagram rows are the same bytes the repository ships as the text-render golden at [`internal/cells/testdata/render/demo.txt`](internal/cells/testdata/render/demo.txt); the command adds one blank line on each side and one leading space on each row.
 
 ## Why use it
 
