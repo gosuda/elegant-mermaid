@@ -2941,3 +2941,7 @@ Elegant.Layered.PipelineImpl.glue_stepC8bCapDisjB
 Elegant.Layered.PipelineImpl.glue_stepC8bCapStrictB
 Elegant.Layered.PipelineImpl.glue_stepC8bCoreB
 Elegant.Layered.PipelineImpl.glue_loopEnvOtherOwner
+Elegant.Layered.PipelineImpl.XCA_markerBandBelowX_of_W
+Elegant.Layered.PipelineImpl.XCA_markerBelowX_closed_admission
+Elegant.Layered.PipelineImpl.xcb_markerBelowXW_closed
+Elegant.Layered.PipelineImpl.xcb_descendantFallbackBandXW_closed

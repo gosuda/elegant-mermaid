@@ -705,3 +705,4 @@ import Elegant.Layered.ExpandChildFitPerCallGuardProof
 import Elegant.Layered.ExpandChildStepStrictnessProof
 import Elegant.Layered.ExactFlatC6LoopScopeProof
 import Elegant.Layered.ExactCaptionBandsProof
+import Elegant.Layered.ExactCaptionBandFactsProof
