@@ -4,7 +4,7 @@ import Elegant.Layered.InsetFit
 import Elegant.Layered.SubInputWellFormedFacts
 import Elegant.Layered.PolylineBoxMiss
 import Elegant.Layered.ExpandChildTitleBandProof
-import Elegant.Layered.CaptionScopeGeometry
+import Elegant.Layered.CaptionFallbackContainProof
 
 set_option autoImplicit false
 
@@ -27,31 +27,22 @@ inp.kind = .ok P`, which every executed call satisfies by that bind;
 
 Boxes reuse `layoutRecursive_inset` (`InsetFit.lean`), which already lifts
 the flat `layout_inset` box bound through the recursion.  Routes are proved
-by a parallel induction: the flat case transports the packed route bounds
+by a parallel induction: the flat branch transports the packed route bounds
 through `orient`/`shift` into the inset, and the merge step transports
 shifted child points through the executed frame fit
 (`layoutRecursive_childInset_fits_frame`) into the parent inset.  Labels
 need the same induction.  The group caption rect inside its frame is the
 proved `expandChild_title_band` (`ExpandChildTitleBandProof.lean`),
-instantiated at each nested expansion the induction encounters; the only
-named seam left is `FlatSceneCaptionSizing`, the caption-sizing fact the
-flat label fallback needs.
+instantiated at each nested expansion the induction encounters; the flat
+fallback caption sits inside its owner box by
+`ownerCaptionContainFallback_of_fit` (`CaptionFallbackContainProof.lean`)
+from `WellFormed` and the `InputFixedFit` premise, threaded to both
+sub-inputs at each expansion.
 -/
 
 namespace Elegant.Layered.PipelineImpl
 
 open Validator
-
-/-- Residual: the flat `layout` caption-sizing seam.  `expandChild`'s
-fallback label rects are `ownedTextRect` captions whose containment in
-their owner box is exactly `ownerCaptionContain`
-(`CaptionScopeGeometry.lean`), which needs `SceneCaptionSizing`
-(`CaptionSizingFacts.lean`) — the one clause of the caption-size fit left
-open there.  One phase, one flat scene; instantiated at the flat branch
-of `layoutRecursive_labels_inset`. -/
-def FlatSceneCaptionSizing : Prop :=
-  ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    layout inp o = .ok res → SceneCaptionSizing inp o res
 
 /-- A successful `layoutRecursive` ran `checkedParams` on its own
 profile/kind: the flat branch exposes it through `layout_sceneExecution`,
@@ -143,14 +134,18 @@ canvas.  The three `sceneOf` label families transport separately: measured
 labels and installed title captions are margin-shifted packed rectangles
 bounded by `AccBounded.labels_bounded`/`titles_bounded` plus the caption
 size fit, and the `ownedTextRect` fallback caption sits inside its owner
-box (`ownerCaptionContain`, from the `FlatSceneCaptionSizing` seam), which
-the box inset already covers. -/
+box (`ownerCaptionContainFallback_of_fit` from `WellFormed` and the
+`InputFixedFit` premise), which the box inset already covers. -/
 theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult}
-    (h : layout inp o = .ok res) (hcap : FlatSceneCaptionSizing) (Q : Params)
+    (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
+    (hfit : InputFixedFit inp o)
+    (h : layout inp o = .ok res) (Q : Params)
     (hQ : checkedParams o.profile inp.kind = .ok Q) :
     ∀ cl ∈ res.scene.labels,
       (insetRect res.scene.canvas Q.canvasMargin).Contained cl.rect := by
   obtain ⟨execution⟩ := layout_sceneExecution h
+  have _ := hfp
+  have hfall := Elegant.Layered.ownerCaptionContainFallback_of_fit (res := res) hwf hfit
   have hQeq : Q = execution.params :=
     Except.ok.inj (hQ.symm.trans execution.checked)
   subst hQeq
@@ -165,7 +160,7 @@ theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult
     omega
   intro cl hcl
   rw [execution.scene_eq] at hcl ⊢
-  obtain ⟨q, _, hemitted⟩ := List.mem_filterMap.mp hcl
+  obtain ⟨q, hqmem, hemitted⟩ := List.mem_filterMap.mp hcl
   cases hexclusive : inp.boxes.any
       (fun box => box.id == q.1.owner && box.exclusive) with
   | true => simp only [hexclusive, ↓reduceIte] at hemitted; cases hemitted
@@ -211,36 +206,66 @@ theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult
             execution.packedAcc).find? (fun title => title.1 == q.1.owner) with
         | none =>
           simp only [Option.map_none, Option.getD_none]
-          have hcontain :
-              ((sceneBoxesExpr execution.params inp o
-                execution.packedAcc).getD ownerIndex
-                ⟨"", "", default, "", false⟩).rect.Contained
-                (ownedTextRect execution.params
+          obtain ⟨hltB, hmatch, _⟩ :=
+            List.findIdx?_eq_some_iff_getElem.mp ho
+          have hobox : inp.boxes[ownerIndex]? =
+              some (inp.boxes[ownerIndex]'hltB) :=
+            List.getElem?_eq_getElem hltB
+          have hpred : (((inp.boxes[ownerIndex]'hltB).id == q.1.owner &&
+              !(inp.boxes[ownerIndex]'hltB).exclusive) = true) := by
+            simpa using hmatch
+          cases hid : ((inp.boxes[ownerIndex]'hltB).id == q.1.owner) with
+          | false =>
+            simp [hid] at hpred
+          | true =>
+            have hoboxId : (inp.boxes[ownerIndex]'hltB).id = q.1.owner :=
+              beq_iff_eq.mp hid
+            cases hexb : (inp.boxes[ownerIndex]'hltB).exclusive with
+            | true =>
+              simp [hid, hexb] at hpred
+            | false =>
+              have hex : (inp.boxes[ownerIndex]'hltB).exclusive = false := hexb
+              have hqget : inp.labels[q.2]? = some q.1 :=
+                List.mem_zipIdx_iff_getElem?.mp hqmem
+              have hqlabel : q.1 ∈ inp.labels := List.mem_of_getElem? hqget
+              have hnone : (sceneTitlesExpr execution.params inp o execution.lines
+                  execution.packedAcc).find? (fun title => title.1 ==
+                    (inp.boxes[ownerIndex]'hltB).id) = none := by
+                rw [hoboxId]
+                exact hT
+              have hown : ∃ l ∈ inp.labels,
+                  l.owner = (inp.boxes[ownerIndex]'hltB).id :=
+                ⟨q.1, hqlabel, hoboxId.symm⟩
+              have hcontain :
                   ((sceneBoxesExpr execution.params inp o
                     execution.packedAcc).getD ownerIndex
-                    ⟨"", "", default, "", false⟩)
-                  (execution.lines.getD ownerIndex [])) :=
-            ownerCaptionContain (hcap inp o res h) execution ownerIndex
-          have hlt : ownerIndex <
-              (sceneBoxesExpr execution.params inp o
-                execution.packedAcc).length := by
-            have hlt' := (List.findIdx?_eq_some_iff_getElem.mp ho).1
-            simp only [sceneBoxesExpr, List.length_map, List.length_zipIdx]
-            omega
-          have hgetD : (sceneBoxesExpr execution.params inp o
-                execution.packedAcc).getD ownerIndex ⟨"", "", default, "", false⟩ =
-              (sceneBoxesExpr execution.params inp o
-                execution.packedAcc)[ownerIndex]'hlt := by
-            rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
-            rfl
-          have hmem : (sceneBoxesExpr execution.params inp o
-                execution.packedAcc).getD ownerIndex ⟨"", "", default, "", false⟩ ∈
-              (sceneOf execution.params inp o execution.lines
-                execution.packedAcc execution.measured).boxes := by
-            rw [hgetD]
-            exact List.getElem_mem _
-          have hboxIn := hinset _ hmem
-          exact Rect.Contained.trans hboxIn hcontain
+                    ⟨"", "", default, "", false⟩).rect.Contained
+                    (ownedTextRect execution.params
+                      ((sceneBoxesExpr execution.params inp o
+                        execution.packedAcc).getD ownerIndex
+                        ⟨"", "", default, "", false⟩)
+                      (execution.lines.getD ownerIndex [])) :=
+                hfall execution ownerIndex _ hobox hnone hex hown
+              have hlt : ownerIndex <
+                  (sceneBoxesExpr execution.params inp o
+                    execution.packedAcc).length := by
+                have hlt' := (List.findIdx?_eq_some_iff_getElem.mp ho).1
+                simp only [sceneBoxesExpr, List.length_map, List.length_zipIdx]
+                omega
+              have hgetD : (sceneBoxesExpr execution.params inp o
+                    execution.packedAcc).getD ownerIndex ⟨"", "", default, "", false⟩ =
+                  (sceneBoxesExpr execution.params inp o
+                    execution.packedAcc)[ownerIndex]'hlt := by
+                rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
+                rfl
+              have hmem : (sceneBoxesExpr execution.params inp o
+                    execution.packedAcc).getD ownerIndex ⟨"", "", default, "", false⟩ ∈
+                  (sceneOf execution.params inp o execution.lines
+                    execution.packedAcc execution.measured).boxes := by
+                rw [hgetD]
+                exact List.getElem_mem _
+              have hboxIn := hinset _ hmem
+              exact Rect.Contained.trans hboxIn hcontain
         | some title =>
           simp only [Option.map_some, Option.getD_some]
           obtain ⟨stored, hstored, hproduced⟩ :=
@@ -270,29 +295,30 @@ theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult
             hrect hmargin
 /-- Labels of a successful `layoutRecursive` lie in the margin inset of the
 canvas, by induction on the fuel.  The flat branch is `flat_layout_labels_inset`
-at the `FlatSceneCaptionSizing` seam; the merge transports shifted child
+from `WellFormed` and the `InputFixedFit` premise; the merge transports shifted child
 labels through the executed frame fit into the parent inset, parent labels
 verbatim, and group captions through the proved `expandChild_title_band`
 plus the parent box inset. -/
 theorem layoutRecursive_labels_inset
-    (hcap : FlatSceneCaptionSizing) (fuel : Nat) :
+    (fuel : Nat) :
     ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) →
       framedParents inp = true →
+      InputFixedFit inp o →
       layoutRecursive fuel inp o = .ok res →
       ∀ Q : Params, checkedParams o.profile inp.kind = .ok Q →
         ∀ cl ∈ res.scene.labels,
           (insetRect res.scene.canvas Q.canvasMargin).Contained cl.rect := by
   induction fuel with
   | zero =>
-    intro inp o res _hwf _hframed h Q hQ cl hcl
-    exact flat_layout_labels_inset h hcap Q hQ cl hcl
+    intro inp o res hwf hframed hfit h Q hQ cl hcl
+    exact flat_layout_labels_inset hwf hframed hfit h Q hQ cl hcl
   | succ fuel ih =>
-    intro inp o res hwf hframed h Q hQ cl hcl
+    intro inp o res hwf hframed hfit h Q hQ cl hcl
     rcases layoutRecursive_succ_sources h with ⟨_, hlayout⟩ |
       ⟨group, Pm, metric, child, titleLines, parent, hg, hPm, hm, hc, ht, hp,
         hexpand⟩
-    · exact flat_layout_labels_inset hlayout hcap Q hQ cl hcl
+    · exact flat_layout_labels_inset hwf hframed hfit hlayout Q hQ cl hcl
     · have hQm : Pm = Q := Except.ok.inj (hPm.symm.trans hQ)
       subst hQm
       obtain ⟨hwfChild, hparentWF⟩ := subInputWellFormedC2 inp o group hwf
@@ -305,13 +331,25 @@ theorem layoutRecursive_labels_inset
           (childSubInput inp group).kind = .ok Pm := hQ
       have hQparent : checkedParams o.profile
           (parentSubInput inp group Pm titleLines child).kind = .ok Pm := hQ
+      have hfitChild : InputFixedFit (childSubInput inp group)
+          (childSubOptions o group) := hfit.childSubInput group
+      have hcm := layoutRecursive_canvas_margins fuel hc
+      have hcw : 2 * Pm.canvasMargin ≤ child.scene.canvas.w := by
+        rw [checkedParams_canvasMargin hPm]
+        exact hcm.1
+      have hch : 2 * Pm.canvasMargin ≤ child.scene.canvas.h := by
+        rw [checkedParams_canvasMargin hPm]
+        exact hcm.2
+      have hfitParent : InputFixedFit
+          (parentSubInput inp group Pm titleLines child) o :=
+        InputFixedFit.parentSubInput hwf hfit hPm hm ht hcw hch
       have hcIH := ih (childSubInput inp group) (childSubOptions o group) child
-        hwfChild hframedChild hc Pm hQchild
+        hwfChild hframedChild hfitChild hc Pm hQchild
       have hwfParent : WellFormed
           (inputModel (parentSubInput inp group Pm titleLines child) o) :=
         hparentWF _ _ _
       have hpIH := ih (parentSubInput inp group Pm titleLines child) o parent
-        hwfParent hframedParent hp Pm hQparent
+        hwfParent hframedParent hfitParent hp Pm hQparent
       obtain ⟨frame, metricS, ftl, _linesS, fdx, fdy, hframe, hmS, htlS, _hlS,
         hdxS, hdyS, hcanvasS, _hboxesS⟩ := expandChild_sources hexpand
       have hmetricSeq : metric = metricS :=
@@ -517,14 +555,14 @@ theorem expandChild_child_boxes_inset
   exact hinset.2
 
 /-- Child labels of an executed `expandChild` lie in the margin inset of the
-child canvas, modulo the flat caption-sizing residual. -/
+child canvas, from the `InputFixedFit` premise threaded to the child sub-input. -/
 theorem expandChild_child_labels_inset
-    (hcap : FlatSceneCaptionSizing)
     (fuel : Nat) (P : Params) (inp : Input) (o : Options)
     (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
     (parent child res : FamilyResult)
     (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
     (hframed : framedParents inp = true)
+    (hfit : InputFixedFit inp o)
     (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
       parent child res)
     (hP : checkedParams o.profile inp.kind = .ok P) :
@@ -540,9 +578,11 @@ theorem expandChild_child_labels_inset
     (framedParentsSub inp o group hwf hframed).1
   have hQchild : checkedParams (childSubOptions o group).profile
       (childSubInput inp group).kind = .ok P := hP
-  exact layoutRecursive_labels_inset hcap fuel
+  have hfitChild : InputFixedFit (childSubInput inp group)
+      (childSubOptions o group) := hfit.childSubInput group
+  exact layoutRecursive_labels_inset fuel
     (childSubInput inp group) (childSubOptions o group) child hwfChild
-    hframedChild hchild P hQchild
+    hframedChild hfitChild hchild P hQchild
 
 /-- Child route points of an executed `expandChild` lie in the margin inset
 of the child canvas. -/
