@@ -531,3 +531,7 @@ import Elegant.Layered.NotesFoundation
 import Elegant.Layered.ExactFlatC7Fit
 import Elegant.Layered.ExpandChildParentFramePlacementProof
 import Elegant.Layered.LoopResNeighborGapProof
+import Elegant.Layered.ExactRouteNonforwardClearProof
+import Elegant.Layered.LoopResTopReservationProof
+import Elegant.Layered.ExactCaptionAncestorsProof
+import Elegant.Layered.ExactLoopRectResidualsProof
