@@ -1,4 +1,5 @@
 import Elegant.Kinds.Common
+import Elegant.Layered.LayeredAdmission
 import ElegantGeometry.Trig
 
 set_option autoImplicit false
@@ -154,11 +155,14 @@ theorem shapeScene_layoutDump {m : Model} {s s' : Scene} (h : shapeScene m s = .
     subst h
     rfl
 
+/-- Adapter entrypoint: the family runs only on an admissible input (nonempty box
+ids, no box id naming a route id, exclusive fixed-size boxes, positive fixed sizes);
+otherwise `.error (.geometry .domain)`. -/
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
   match sizes m with
   | .error e => .error (.geometry e)
   | .ok fixed =>
-    match Layered.layoutFamily (input m fixed) m.options with
+    match Layered.admit (input m fixed) (Layered.layoutFamily (input m fixed) m.options) with
     | .error e => .error e
     | .ok result =>
       match shapeScene m (result.scene.projectCellAttachments (routeMarkers m)) with
@@ -166,7 +170,8 @@ def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
       | .ok scene => .ok { result with scene := scene }
 
 /-- Agentflow validity reduces to the family's: the adapter fixes sizes, projects cell
-attachments, and redraws node outlines, which keeps the layout dump. -/
+attachments, and redraws node outlines, which keeps the layout dump. A successful run also
+records that the built input passed the admission guard. -/
 theorem layout_valid_of_family
     (hfam : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
       Layered.layoutFamily inp o = .ok res → Validator.check res.scene.layoutDump = true)
@@ -176,17 +181,18 @@ theorem layout_valid_of_family
   cases hs : sizes m with
   | error e => simp [hs] at h
   | ok fixed =>
-    cases hf : Layered.layoutFamily (input m fixed) m.options with
-    | error e => simp [hs, hf] at h
+    cases ha : Layered.admit (input m fixed)
+        (Layered.layoutFamily (input m fixed) m.options) with
+    | error e => simp [hs, ha] at h
     | ok res =>
       cases hd : shapeScene m (res.scene.projectCellAttachments (routeMarkers m)) with
-      | error e => simp [hs, hf, hd] at h
+      | error e => simp [hs, ha, hd] at h
       | ok scene =>
-        simp only [hs, hf, hd, Except.ok.injEq] at h
+        simp only [hs, ha, hd, Except.ok.injEq] at h
         subst h
         show Validator.check scene.layoutDump = true
         rw [shapeScene_layoutDump hd, Scene.projectCellAttachments_layoutDump]
-        exact hfam _ _ _ hf
+        exact hfam _ _ _ (Layered.admit_ok ha).2
 
 end Agentflow
 end Kinds

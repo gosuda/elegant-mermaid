@@ -1,4 +1,5 @@
 import Elegant.Kinds.Common
+import Elegant.Layered.LayeredAdmission
 import Elegant.Layered.VisibilityRoute
 
 set_option autoImplicit false
@@ -292,8 +293,11 @@ theorem shapeScene_layoutDump {m : Model} {s s' : Scene} (h : shapeScene m s = .
     subst h
     rfl
 
+/-- Adapter entrypoint: the family runs only on an admissible input (nonempty box
+ids, no box id naming a route id, exclusive fixed-size boxes, positive fixed sizes);
+otherwise `.error (.geometry .domain)`. -/
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
-  match Layered.layoutFamily (input m) m.options with
+  match Layered.admit (input m) (Layered.layoutFamily (input m) m.options) with
   | .error e => .error e
   | .ok result =>
     match rerouteEndpoints m result.scene with
@@ -305,27 +309,28 @@ def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
 
 /-- C4 validity reduces to the family's: the adapter re-routes the pinned relations only when
 the validator accepts the result, redraws node outlines, and projects cell attachments, and
-neither of the last two touches the layout dump. -/
+neither of the last two touches the layout dump. A successful run also records that the built
+input passed the admission guard. -/
 theorem layout_valid_of_family
     (hfam : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
       Layered.layoutFamily inp o = .ok res → Validator.check res.scene.layoutDump = true)
     {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r) :
     Validator.check r.scene.layoutDump = true := by
   unfold layout at h
-  cases hf : Layered.layoutFamily (input m) m.options with
-  | error e => simp [hf] at h
+  cases ha : Layered.admit (input m) (Layered.layoutFamily (input m) m.options) with
+  | error e => simp [ha] at h
   | ok res =>
     cases hr : rerouteEndpoints m res.scene with
-    | error e => simp [hf, hr] at h
+    | error e => simp [ha, hr] at h
     | ok routed =>
       cases hs : shapeScene m routed with
-      | error e => simp [hf, hr, hs] at h
+      | error e => simp [ha, hr, hs] at h
       | ok shaped =>
-        simp only [hf, hr, hs, Except.ok.injEq] at h
+        simp only [ha, hr, hs, Except.ok.injEq] at h
         subst h
         show Validator.check (shaped.projectCellAttachments (routeMarkers m)).layoutDump = true
         rw [Scene.projectCellAttachments_layoutDump, shapeScene_layoutDump hs]
-        exact rerouteEndpoints_valid hr (hfam _ _ _ hf)
+        exact rerouteEndpoints_valid hr (hfam _ _ _ (Layered.admit_ok ha).2)
 
 end C4
 end Kinds
