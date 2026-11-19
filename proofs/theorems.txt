@@ -1634,3 +1634,5 @@ Elegant.Layered.PipelineImpl.expandChild_c6_anchors'
 Elegant.Layered.PipelineImpl.expandChild_c8a_ancestry'
 Elegant.Layered.PipelineImpl.stepC6Anchors_holds
 Elegant.Layered.PipelineImpl.stepC8aAncestry_holds
+Elegant.Kinds.IshikawaFinal.descendantOrdInterval
+Elegant.Ishikawa.flatJointFlatten
