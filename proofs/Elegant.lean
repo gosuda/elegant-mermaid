@@ -356,3 +356,7 @@ import Elegant.Layered.PartFrameCoresProof
 import Elegant.Layered.MergedRouteIdsProof
 import Elegant.Layered.ExpandChildParentRouteRunProof
 import Elegant.Layered.ExpandChildParentRouteClearProof
+import Elegant.Layered.TitleCopySpanProof
+import Elegant.Layered.StrictMemberFrameProof
+import Elegant.Layered.ExclusiveBoxBridgeProof
+import Elegant.Layered.DummyNestedMarkerProof
