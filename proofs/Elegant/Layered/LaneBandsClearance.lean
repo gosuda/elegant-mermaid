@@ -28,9 +28,10 @@ by real stages:
   the hypothesis it already is.
 * (b) `rerouteBands`: a cross-lane route gets new points from `findRoute`
   on the grid (`routeGrid`, `searchGrid`, `clearPolyline`, `obstacleOf`).
-  Search soundness, when `findRoute` returns `.ok points` the polyline
-  misses every obstacle rect in the obstacle list, is the named residual
-  `pinBandsFindRouteClear`, about `findRoute` alone (`clearPolyline` is
+  Search soundness for the calls `rerouteBands` makes (`ends` from
+  `routeEnds`, `inflates = [sp.slot, 0]`), when `findRoute` returns
+  `.ok points` the polyline misses every obstacle rect in the obstacle
+  list, is the named residual `pinBandsFindRouteClear` (`clearPolyline` is
   the Bool test the search applies). The obstacle list contains every
   exclusive box outside the route's scope (proved as `obstacle_cover`
   below). Scope note: `obstacleOf` selection in `rerouteBands` keeps every
@@ -792,20 +793,24 @@ theorem mapM_zip_mem {α β γ : Type} (f : α × β → Except LayoutError γ)
         simp only [List.zip_cons_cons]
         exact List.mem_cons_of_mem _ hpair
 
-/-- Stage-(b) residual, about `findRoute` alone: a successful search
-returns a polyline that misses every obstacle rect in the obstacle list.
-`clearPolyline` is the Bool test the search applies; this bridges it to
-`¬ Polyline.hitsRect`. Tested on the executed swimlane layouts of
-`PinBandsProbe` (its `c6Bad` uses `hitsRectB` on every pinned layout),
-including blocked-middle-lane cases where `findRoute` exhausts
-`[sp.slot, 0]` and returns `.error`, failing the layout rather than
-emitting a crossing path. -/
+/-- Stage-(b) residual, about the `findRoute` calls `rerouteBands` makes:
+`ends` come from `routeEnds` and `inflates = [sp.slot, 0]`
+(`LaneBands.lean:588-591`). The unpinned form (arbitrary `ends` and
+`inflates`) is false: misaligned ends make the search return a polyline
+whose diagonal first segment crosses an obstacle hugging grid lines
+(`FindRouteClearProbe`: `wEnds`/`wObs` give `.ok` with `hitsRectB` true),
+because the Bool `hits` test never fires on diagonal steps. Pinning `ends`
+to `routeEnds` output (rank-only shift, `routeEndsAligned_holds` in the
+sibling proof module) rules out that witness. -/
 def pinBandsFindRouteClear : Prop :=
-  ∀ (axis : Axis) (ends : RouteEnds) (obs : List Obstacle) (bend : Int)
-    (inflates : List Int) (points : List Point),
-    findRoute axis ends obs bend inflates = .ok points →
+  ∀ (axis : Axis) (sp : Spacing) (pin : Pin) (fromBox toBox : Box)
+    (original : List Point) (ends : RouteEnds),
+    routeEnds axis sp pin fromBox toBox original = .ok ends →
+    ∀ (obs : List Obstacle) (bend : Int) (points : List Point),
+    findRoute axis ends obs bend [sp.slot, 0] = .ok points →
     ∀ (o : Obstacle), o ∈ obs → ∀ (r : Rect), obstacleOf axis r = o →
       ¬ Polyline.hitsRect points r
+
 
 /-- Stage-(a) residual, about `applyPin` alone: pinning keeps clear every
 route the router keeps. A kept route either shares one band at both ends
@@ -920,78 +925,6 @@ theorem rerouteBands_mem (axis : Axis) (sp : Spacing) (bend : Int)
             exact ⟨r, hrmem, old, holdmem, hpair, rfl, rfl, rfl,
               Or.inr ⟨fi, ti, fb, tb, ends, _, pts, hfi, hti, hfb, htb, hends, rfl, hfind, rfl⟩⟩
 
-/-- Pinning keeps clause C6 (route clearance) of the validator, by real
-stages: rigid same-band pairs via translation, cross-band bands via the
-`applyPin` residual, re-routed paths via the `findRoute` residual, and
-the tail phases by frame equalities plus uniform-shift transport. -/
-theorem pinBands_c6 {m : Model} {base : FamilyResult} {pinned : Scene}
-    (hfam : layoutFamily (Kinds.Swimlane.input m) m.options = .ok base)
-    (hpin : pinBands m.boxes m.options base.scene = .ok pinned)
-    (hbase : HardConstraints base.scene.layoutDump)
-    (hfind : pinBandsFindRouteClear)
-    (happly : pinBandsApplyPinKeptClear) :
-    Validator.C6 pinned.layoutDump := by
-  have _ := hfam
-  cases hlanes : lanesOf m.boxes with
-  | nil =>
-    rw [pinBands_no_lanes hlanes] at hpin
-    have heq : base.scene = pinned := Except.ok.inj hpin
-    subst heq
-    exact hbase.2.2.2.2.2.1
-  | cons _ _ =>
-    have hlanes' : lanesOf m.boxes ≠ [] := by
-      rw [hlanes]
-      intro h
-      cases h
-    obtain ⟨sp, axis, bands, s1, s2, s3, strip, s4, hsp, haxis, hbands, happ, hroute, horig, hstrip, hstripEq, hgrow⟩ :=
-      pinBands_spec (boxes := m.boxes) (o := m.options)
-        (s := base.scene) (r := pinned) hlanes' hpin
-    have hbaseC6 : Validator.C6 base.scene.layoutDump := hbase.2.2.2.2.2.1
-    have hfr := rerouteBands_frame hroute
-    have hfr1 : s2.layoutDump.boxes = s1.layoutDump.boxes := hfr.1
-    have hC6s2 : Validator.C6 s2.layoutDump := by
-      intro r' hr' b' hb' hex hscope
-      have hb's1 : b' ∈ s1.boxes := by
-        have hbeq : s2.layoutDump.boxes = s1.layoutDump.boxes := hfr.1
-        rw [hbeq] at hb'
-        exact hb'
-      obtain ⟨r, hrmem, old, holdmem, hpair, _hidr, hfromr, htor, hcase⟩ :=
-        rerouteBands_mem axis sp (LayoutConst.rank_gap.get m.options.profile)
-        bands (buildPin axis bands base.scene) base.scene.routes s1 s2 hroute r' hr'
-      have hscope1 : b'.id ∉ s1.layoutDump.routeScope r := by
-        have heq : s2.layoutDump.routeScope r' = s1.layoutDump.routeScope r := by
-          simp only [LayoutDump.routeScope, hfromr, htor]
-          rw [ancestors_boxes_eq hfr1, ancestors_boxes_eq hfr1]
-        rw [heq] at hscope
-        exact hscope
-      rcases hcase with ⟨hpts, hreason⟩ | ⟨fi, ti, fb, tb, ends, obs, pts, hfi, hti, hfb, htb, hends, hobs, hfind_pt, hpts⟩
-      · -- Kept route: the `applyPin` residual.
-        have hclear := happly axis bands base.scene s1 m.boxes sp hbands happ hbaseC6
-          r b' old hrmem holdmem hpair hb's1 hex hscope1 hreason
-        rw [hpts]
-        exact hclear
-      · -- Fresh route: `findRoute` soundness plus obstacle coverage.
-        have hmem : obstacleOf axis b'.rect ∈ obs := by
-          rw [hobs]
-          exact obstacle_cover s1 axis r b' hb's1 hex hscope1
-        have hclear := hfind axis ends obs (LayoutConst.rank_gap.get m.options.profile)
-          [sp.slot, 0] pts hfind_pt (obstacleOf axis b'.rect) hmem b'.rect rfl
-        rw [hpts]
-        exact hclear
-    have hC6s3 : Validator.C6 s3.layoutDump :=
-      restoreOrigin_C6 axis s2 s3 horig hC6s2
-    have hb43 : s4.layoutDump.boxes = s3.layoutDump.boxes := by
-      rw [hstripEq]
-      exact relocateLabels_boxes axis strip s3
-    have hr43 : s4.layoutDump.routes = s3.layoutDump.routes := by
-      rw [hstripEq]
-      exact relocateLabels_routes axis strip s3
-    have hC6s4 : Validator.C6 s4.layoutDump :=
-      C6_of_boxes_routes_eq hb43 hr43 hC6s3
-    have hgrowF := growCanvas_frame hgrow
-    have hbP : pinned.layoutDump.boxes = s4.layoutDump.boxes := hgrowF.1
-    have hrP : pinned.layoutDump.routes = s4.layoutDump.routes := hgrowF.2.1
-    exact C6_of_boxes_routes_eq hbP hrP hC6s4
 
 end LaneBands
 end Layered
@@ -1000,18 +933,6 @@ end Elegant
 namespace Elegant
 namespace Kinds
 namespace Swimlane
-
-/-- The swimlane adapter keeps clause C6 after lane-band pinning, given the
-stage residuals for `applyPin` and `findRoute`. -/
-theorem swimlane_pinBands_c6 {m : Model} {base : Layered.FamilyResult}
-    {pinned : Scene}
-    (hfam : Layered.layoutFamily (input m) m.options = .ok base)
-    (hpin : Layered.LaneBands.pinBands m.boxes m.options base.scene = .ok pinned)
-    (hbase : HardConstraints base.scene.layoutDump)
-    (hfind : Layered.LaneBands.pinBandsFindRouteClear)
-    (happly : Layered.LaneBands.pinBandsApplyPinKeptClear) :
-    Validator.C6 pinned.layoutDump :=
-  Layered.LaneBands.pinBands_c6 hfam hpin hbase hfind happly
 
 end Swimlane
 end Kinds
