@@ -441,3 +441,9 @@ import Elegant.Layered.ExpandChildC8aGeometryExecuted
 import Elegant.Layered.CaptionAncestorFrameProof
 import Elegant.Layered.SceneParentsProof
 import Elegant.Layered.PartFrameWitnessProof
+import Elegant.Layered.StrictDummyFrameProof
+import Elegant.Layered.RouteRunClearClosed
+import Elegant.Layered.ExpandChildC6GeometryProof
+import Elegant.Layered.ExpandChildC6GeometryExecuted
+import Elegant.Layered.ExpandChildParentFrameDirect
+import Elegant.Layered.ExactFlatC7
