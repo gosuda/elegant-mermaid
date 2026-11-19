@@ -350,3 +350,5 @@ import Elegant.Kinds.IshikawaBoundaryClearance
 import Elegant.Kinds.IshikawaCrossRibClearance
 import Elegant.Layered.SideMarkerPathsProof
 import Elegant.Kinds.IshikawaSameRibClearance
+import Elegant.Layered.FamilyAssemblyB
+import Elegant.Kinds.IshikawaCrossRibSameSide

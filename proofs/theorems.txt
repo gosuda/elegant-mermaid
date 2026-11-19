@@ -1483,3 +1483,10 @@ Elegant.Layered.PipelineImpl.plainClearOfSideMarker'
 Elegant.Kinds.IshikawaFinal.ishikawaSameRibPieceClearance
 Elegant.Kinds.IshikawaFinal.ishikawaBoundaryPieceClearance
 Elegant.Kinds.IshikawaFinal.ishikawaCrossRibPieceClearance
+Elegant.Layered.PipelineImpl.layoutRecursiveB_valid_of_seams
+Elegant.Layered.PipelineImpl.layoutFamilyB_valid_of_seams
+Elegant.Layered.PipelineImpl.baseSeams_of_layered
+Elegant.Layered.PipelineImpl.properDerivedRank
+Elegant.Layered.PipelineImpl.groupTopSubtreeRankProper
+Elegant.Kinds.IshikawaFinal.ishikawaCrossRibPieceClearance'
+Elegant.Kinds.IshikawaFinal.ishikawaCrossRibSameSideClearance
