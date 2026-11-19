@@ -672,3 +672,10 @@ import Elegant.Layered.ExactNonfwdExtMissProof
 import Elegant.Layered.ExactPlainAncestorImpossibleProof
 import Elegant.Layered.ExactPlainNodePathProof
 import Elegant.Layered.ExactLoopEnvelopeGroupOverlapProof
+import Elegant.Layered.ExactFallbackStructuralProof
+import Elegant.Layered.ExactNonfwdRemainderProof
+import Elegant.Layered.ExactLoopEnvelopeRightProof
+import Elegant.Layered.ExactStepChildLabelsProof
+import Elegant.Layered.DivergeSweepSortProof
+import Elegant.Layered.ExactTopOutsideDisjointProof
+import Elegant.Layered.LaneBandsLooseLowerProof
