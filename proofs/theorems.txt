@@ -2957,3 +2957,6 @@ Elegant.Layered.PipelineImpl.xfwd_strictRightXW
 Elegant.Layered.PipelineImpl.xfwd_strictDummyLinkedXW_holds
 Elegant.Layered.PipelineImpl.notesC2Geom_holds
 Elegant.Layered.PipelineImpl.notesC3Geom_holds
+Elegant.Layered.PipelineImpl.X6_borderHardW_of_topSameW
+Elegant.Layered.PipelineImpl.X6_topSamePartW_of_chain
+Elegant.Layered.PipelineImpl.X6_borderHardW_holds

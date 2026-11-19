@@ -709,3 +709,4 @@ import Elegant.Layered.ExactCaptionBandFactsProof
 import Elegant.Kinds.SwimlaneEndsAboveProof
 import Elegant.Layered.ExactFwdStrictProof
 import Elegant.Layered.NotesBoxGeomAssemblyProof
+import Elegant.Layered.ExactBorderHardProof
