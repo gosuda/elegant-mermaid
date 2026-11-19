@@ -434,3 +434,4 @@ import Elegant.Layered.LaneBandsBoxClausesProof
 import Elegant.Layered.ShapeIncidentInheritedProof
 import Elegant.Layered.SideMarkerTopInCandidateProof
 import Elegant.Layered.CaptionDescDisjointProof
+import Elegant.Layered.BorderInnerFoldProof
