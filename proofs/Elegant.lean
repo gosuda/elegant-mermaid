@@ -500,3 +500,5 @@ import Elegant.Layered.LaneEndsClauses
 import Elegant.Layered.ComponentRunGenGeometry
 import Elegant.Layered.ExactPackedTransportProof
 import Elegant.Kinds.StateValid
+import Elegant.Layered.ExactCaptionScopeProof
+import Elegant.Layered.ExactPartFrameCoresProof

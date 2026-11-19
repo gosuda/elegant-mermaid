@@ -2238,3 +2238,8 @@ Elegant.Kinds.State.paintRegions_fold_layoutDump
 Elegant.Kinds.State.paintRegions_layoutDump
 Elegant.Kinds.State.state_valid_of_exactSeams
 Elegant.Kinds.State.state_valid_of_family
+Elegant.Layered.PipelineImpl.XCapScope_captionDescendantClear_of_same_part
+Elegant.Layered.PipelineImpl.XCapScope_ownerScopeExclusiveClear_cross_part
+Elegant.Layered.PipelineImpl.XCapScope_ownerScopeExclusiveClear_of_same_part
+Elegant.Layered.PipelineImpl.X_captionScopeClearance_holds
+Elegant.Layered.PipelineImpl.X_executedPartFrameCores_holds
