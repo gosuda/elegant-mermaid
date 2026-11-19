@@ -1,7 +1,22 @@
-import Elegant.Layered.ExactStepGeometryProof
-import Elegant.Layered.ExpandChildC7GeometryProof
-import Elegant.Layered.RecursiveBEq
-import Elegant.Layered.ExpandChildStructureFacts
+import Elegant.Layered.ExactCaptionScopeFitWProof
+import Elegant.Layered.ExactFlatC6ShelfBorderProof
+import Elegant.Layered.ExactCaptionFitFactsProof
+import Elegant.Layered.ExactFlatC8aCore
+import Elegant.Layered.ExactCaptionRunClearWProof
+import Elegant.Layered.ExactCaptionSelfNarrowProof
+import Elegant.Layered.ExactCaptionSelfBottomProof
+import Elegant.Layered.ExactCaptionCapBandProof
+import Elegant.Layered.ExactBorderSpanRunFactsProof
+import Elegant.Layered.ExactPartFrameCoresWProof
+import Elegant.Layered.ExactForwardClearWProof
+import Elegant.Layered.ExactForwardClearFactsProof
+import Elegant.Layered.ExactForwardDummyFactsProof
+import Elegant.Layered.ExactRouteNonforwardClearProof
+import Elegant.Layered.ExactLoopEnvelopeMissProof
+import Elegant.Layered.ExactLoopEnvelopeFootBelowProof
+import Elegant.Layered.ExactLoopEnvelopeSidesProof
+import Elegant.Layered.ExactLoopEnvelopeGroupMissProof
+ import Elegant.Layered.ExactStepGeometryProof
 
 set_option autoImplicit false
 
@@ -204,6 +219,236 @@ theorem XG_fitStrictB_of_content (exactIds : List String) :
   exact XG_content_fit_strict exactIds fuel P inp o group titleLines titleHeight
     parent child res hexpand hframed hctxB hparams frame titleLines' dx dy
     hframe hdx hdy hwrap _ hr
+
+/-- Part-size positivity of executed exact parts (per input, local
+well-formedness). FALSE as stated: a flowchart with two node boxes fixed at
+size 0x0 and named in `exactIds` gives a part of width 0, so
+`0 < q.1.2.width` fails, though `WellFormed`, `framedParents`, and `layoutX`
+success all hold (witness `twoZero` in `ExactFlatC6ShelfBorderProof`).
+Depends on a pending user decision about fixed sizes; kept as an explicit
+residual, not a proved theorem. -/
+def X6_PartPosW (exactIds : List String) : Prop :=
+  ∀ {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
+    (packed : Pack.State)
+    (_hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      execution.params.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (execution.componentsAcc.parts.map fun part =>
+        ⟨part.2.width, part.2.height, part.2.area⟩) = .ok packed)
+    {c : Nat} {q : (List Nat × Part) × Rect}
+    (_hselected : (execution.componentsAcc.parts.zip packed.boxes)[c]? = some q)
+    {candidate : Nat} {i : Nat} {edge : Edge}
+    (_hedge : (componentCandidate execution.graph q.1.1 candidate).edges[i]? =
+      some edge),
+    0 < q.1.2.width ∧ 0 < q.1.2.height
+
+/-- Shelf positivity from part-size positivity: replay of
+`X6_shelfPositiveW_of_partPos_holds` over the part-size residual. -/
+theorem X6_shelfPositiveW_of_partPosW (exactIds : List String)
+    (hpart : X6_PartPosW exactIds) :
+    X6_ShelfPositiveW exactIds := by
+  intro inp o res execution hwf hfp packed hpacked c q hsel candidate i edge hedge
+  obtain ⟨hW, hH⟩ := hpart execution hwf hfp packed hpacked hsel hedge
+  exact X6_shelfPositiveW_of_partPos_holds exactIds execution hwf hfp packed hpacked hsel hedge hW hH
+
+/-- Assembled W caption scope clearance: replay of
+`X_captionScopeClearanceFit_holds` over the four open leaves; the
+node-border premise is the closed `x_ownerResNodeBorderZeroX_holds`. -/
+theorem glue_captionScopeFitW (exactIds : List String)
+    (hdesc : X_CaptionDescendantSamePartClear exactIds)
+    (hcontainW : X_OwnerCaptionContainFallbackFitW exactIds)
+    (hownersW : X_OwnerScopeSamePartClearW exactIds)
+    (htitle : X_CaptionTitleBranchClear exactIds) :
+    X_CaptionScopeClearanceFitW exactIds :=
+  X_captionScopeClearanceFitW_holds exactIds hdesc hcontainW hownersW htitle
+    (x_ownerResNodeBorderZeroX_holds exactIds)
+
+/-- Assembled W caption run clearance: replay of
+`XF_captionRunClearXW_of_linkW` over the nine open leaves; the seven proved
+premises are discharged by the closed narrow holds. The group-link premise
+is the W form `XCA_GroupLinkXW`, closed premise-free by
+`XCA_groupLinkXW_closed`. -/
+theorem glue_captionRunClearXW (exactIds : List String)
+    (hlinkW : XCA_GroupLinkXW exactIds)
+    (hbelow : XCA_MarkerBelowX exactIds)
+    (himpossible : XCA_PlainAncestorImpossibleX exactIds)
+    (hspans : XB_ForeignClusterRankSpans exactIds)
+    (horder : XB_ForeignBorderLayerOrder exactIds)
+    (halignB : XB_ForeignBorderChainXAligned exactIds)
+    (hbracket : XN_BracketMarkersAtRank exactIds)
+    (hplainXN : XN_PlainClearOfSideMarker exactIds)
+    (halignN : XN_SideMarkerSpanAligned exactIds) :
+    XF_CaptionRunClearXW exactIds :=
+  XF_captionRunClearXW_of_linkW exactIds
+    (XC_selfSidesLeftNarrowX_holds exactIds)
+    (XC_selfSidesRightNarrowX_holds exactIds)
+    (XC_selfBottomHeightNarrowX_holds exactIds)
+    (XC_capBandX_holds exactIds)
+    hlinkW hbelow himpossible hspans horder halignB
+    (XB_orderedIntervals_holds exactIds)
+    (XB_topNonneg_holds exactIds)
+    (XB_memberNonempty_holds exactIds)
+    hbracket hplainXN halignN
+
+/-- Assembled W seams-imply-foreign: replay of
+`XFR_seamsImplyForeignXW_holds` over the six open span leaves. -/
+theorem glue_seamsImplyForeignXW (exactIds : List String)
+    (hspans : XB_ForeignClusterRankSpans exactIds)
+    (horder : XB_ForeignBorderLayerOrder exactIds)
+    (halignB : XB_ForeignBorderChainXAligned exactIds)
+    (hbracket : XN_BracketMarkersAtRank exactIds)
+    (hplain : XN_PlainClearOfSideMarker exactIds)
+    (halignN : XN_SideMarkerSpanAligned exactIds) :
+    XFR_SeamsImplyForeignXW exactIds :=
+  XFR_seamsImplyForeignXW_holds exactIds hspans horder halignB hbracket hplain
+    halignN
+
+/-- Assembled W route-label foreign clearance: replay of
+`XFR_routeLabelForeignClearXW_holds` over the four open leaves. -/
+theorem glue_routeLabelForeignClearXW (exactIds : List String)
+    (hbracket : XN_BracketMarkersAtRank exactIds)
+    (hplain : XN_PlainClearOfSideMarker exactIds)
+    (halignN : XN_SideMarkerSpanAligned exactIds)
+    (hchain : X_ForeignBorderChainXAligned exactIds) :
+    XFR_RouteLabelForeignClearXW exactIds :=
+  XFR_routeLabelForeignClearXW_holds exactIds hbracket hplain halignN hchain
+
+/-- Assembled nonforward route-label clearance: replay of
+`XF_routeNonforwardClearX_holds` over the two open leaves. -/
+theorem glue_nonforward (exactIds : List String)
+    (hmiss : XNonfwd_ExtMiss exactIds)
+    (hhull : XNonfwd_GroupHullExt exactIds) :
+    ∀ {inp : Input} {o : Options} {res : FamilyResult}
+      (execution : SceneExecutionX exactIds inp o res)
+      {comp : List Nat} (_ : comp ∈ components execution.graph)
+      {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
+      componentRunX execution.params (exactDecls exactIds inp)
+        (componentCandidate execution.graph comp candidate)
+        execution.measured orderOptions = .ok run →
+      RouteNonforwardLabelClear execution.params
+        (componentCandidate execution.graph comp candidate) run
+        execution.measured :=
+  XF_routeNonforwardClearX_holds exactIds hmiss hhull
+
+/-- Assembled W leftover-pair clearance: replay of
+`XFR_routeLabelLeftoverPairXW_holds` over the open leaves; the dummy-label
+premise is the closed `XFR_dummyExLabeledX_holds`. -/
+theorem glue_routeLeftoverPairXW (exactIds : List String)
+    (hstrict : XFR_StrictDummyLinkedX exactIds)
+    (hforeign : XFR_RouteLabelForeignClearXW exactIds)
+    (hnonfwd : ∀ {inp : Input} {o : Options} {res : FamilyResult}
+      (execution : SceneExecutionX exactIds inp o res)
+      {comp : List Nat} (_ : comp ∈ components execution.graph)
+      {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
+      componentRunX execution.params (exactDecls exactIds inp)
+        (componentCandidate execution.graph comp candidate)
+        execution.measured orderOptions = .ok run →
+      RouteNonforwardLabelClear execution.params
+        (componentCandidate execution.graph comp candidate) run
+        execution.measured)
+    (himp : XFR_SeamsImplyForeignXW exactIds)
+    (hxalign : ForeignBorderChainXAligned)
+    (hscopeFree : XFR_ForwardScopeFreeX exactIds) :
+    XFR_RouteLabelLeftoverPairXW exactIds :=
+  XFR_routeLabelLeftoverPairXW_holds exactIds hstrict hforeign hnonfwd
+    (XFR_dummyExLabeledX_holds exactIds) himp hxalign hscopeFree
+
+/-- Assembled W forward route clearance: replay of
+`XF_routeForwardClearX_holds` over the open leaves; the dummy/in-dummy
+premises are the closed `XFR_dummyExLabeledX_holds` and
+`XFR_routeLabelInDummyX_holds`. -/
+theorem glue_routeForwardClearXW (exactIds : List String)
+    (hstrict : XFR_StrictDummyLinkedX exactIds)
+    (hreal : XFR_RouteLabelRealClearX exactIds)
+    (hforeign : XFR_RouteLabelForeignClearXW exactIds)
+    (hleftover : XFR_RouteLabelLeftoverPairXW exactIds)
+    (himp : XFR_SeamsImplyForeignXW exactIds)
+    (hxalign : ForeignBorderChainXAligned) :
+    XF_RouteForwardClearXW exactIds :=
+  XF_routeForwardClearXW_holds exactIds hstrict
+    (XFR_routeLabelInDummyX_holds exactIds) hreal hforeign hleftover
+    (XFR_dummyExLabeledX_holds exactIds) hxalign himp
+
+/-- Assembled W route run clearance: replay of `XF_routeRunClearX_holds`
+over the assembled forward clearance and the nonforward case. -/
+theorem glue_routeRunClearXW (exactIds : List String)
+    (hfwd : XF_RouteForwardClearXW exactIds)
+    (hnonfwd : ∀ {inp : Input} {o : Options} {res : FamilyResult}
+      (execution : SceneExecutionX exactIds inp o res)
+      {comp : List Nat} (_ : comp ∈ components execution.graph)
+      {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
+      componentRunX execution.params (exactDecls exactIds inp)
+        (componentCandidate execution.graph comp candidate)
+        execution.measured orderOptions = .ok run →
+      RouteNonforwardLabelClear execution.params
+        (componentCandidate execution.graph comp candidate) run
+        execution.measured) :
+    XF_RouteRunClearXW exactIds :=
+  XF_routeRunClearXW_holds exactIds hfwd hnonfwd
+
+/-- Assembled loop-envelope miss: replay of `X_loopEnvelopeMiss_closed`
+over the six open leaves; the other-rank miss is closed by
+`XLEM_otherRankMiss_closed`, the left miss by `XLEM_leftMiss_holds`, and
+the group-owner miss by `XLEM_groupOwnerMiss_holds`. -/
+theorem glue_loopEnvelopeMiss (exactIds : List String)
+    (hres : XLEM_PlainReserve exactIds)
+    (hgrp : XLEM_GroupOwnerOtherRank exactIds)
+    (hleftNP : XLEM_LeftNonPlain exactIds)
+    (hright : XLEM_PlainRightMiss exactIds)
+    (hgrpOrd : XLEG_GroupMarkerOrderX exactIds)
+    (howner : X_loopEnvOtherOwner exactIds) :
+    X_LoopEnvelopeMiss exactIds :=
+  X_loopEnvelopeMiss_closed exactIds
+    (XLEM_otherRankMiss_closed exactIds hres hgrp)
+    hright
+    (XLEM_leftMiss_holds exactIds hleftNP)
+    (XLEM_groupOwnerMiss_holds exactIds hgrpOrd)
+    howner
+
+/-- Assembled W executed part-frame cores: replay of
+`X_executedPartFrameCores_holds` over the assembled caption and route run
+residuals. The plain alignment is fed by the caller from the kept
+`foreignBorderDivergeStable` field; the loop miss is the assembled
+`glue_loopEnvelopeMiss`. The group-link premise is the W form. -/
+theorem glue_partFrameCoresW (exactIds : List String)
+    (hlinkW : XCA_GroupLinkXW exactIds)
+    (hbelow : XCA_MarkerBelowX exactIds)
+    (himpossible : XCA_PlainAncestorImpossibleX exactIds)
+    (hspans : XB_ForeignClusterRankSpans exactIds)
+    (horder : XB_ForeignBorderLayerOrder exactIds)
+    (halignB : XB_ForeignBorderChainXAligned exactIds)
+    (hbracket : XN_BracketMarkersAtRank exactIds)
+    (hplainXN : XN_PlainClearOfSideMarker exactIds)
+    (halignN : XN_SideMarkerSpanAligned exactIds)
+    (hchainX : X_ForeignBorderChainXAligned exactIds)
+    (hstrict : XFR_StrictDummyLinkedX exactIds)
+    (hscopeFree : XFR_ForwardScopeFreeX exactIds)
+    (hmissN : XNonfwd_ExtMiss exactIds)
+    (hhullN : XNonfwd_GroupHullExt exactIds)
+    (hxalign : ForeignBorderChainXAligned)
+    (hmiss : X_LoopEnvelopeMiss exactIds) :
+    X_ExecutedPartFrameCoresB8W exactIds :=
+  X_executedPartFrameCoresW_holds exactIds
+    (glue_captionRunClearXW exactIds hlinkW hbelow himpossible hspans horder
+      halignB hbracket hplainXN halignN)
+    (glue_routeRunClearXW exactIds
+      (glue_routeForwardClearXW exactIds hstrict
+        (XFR_routeLabelRealClearX_holds exactIds hmiss)
+        (glue_routeLabelForeignClearXW exactIds hbracket hplainXN halignN
+          hchainX)
+        (glue_routeLeftoverPairXW exactIds hstrict
+          (glue_routeLabelForeignClearXW exactIds hbracket hplainXN halignN
+            hchainX)
+          (glue_nonforward exactIds hmissN hhullN)
+          (glue_seamsImplyForeignXW exactIds hspans horder halignB hbracket
+            hplainXN halignN)
+          hxalign hscopeFree)
+        (glue_seamsImplyForeignXW exactIds hspans horder halignB hbracket
+          hplainXN halignN)
+        hxalign)
+      (glue_nonforward exactIds hmissN hhullN))
 
 end PipelineImpl
 end Layered

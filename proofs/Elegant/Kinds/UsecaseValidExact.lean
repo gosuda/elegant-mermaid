@@ -45,9 +45,13 @@ import Elegant.Layered.ExactPackedTransportResidualsProof
 import Elegant.Layered.ExactStepShortFacts
 import Elegant.Layered.LoopFootprintTopSeparationCondProof
 import Elegant.Layered.ExecutedPartFrameCoresClosed
-import Elegant.Layered.ExactSeamClosureGlue
+import Elegant.Layered.ExactCaptionScopeFitWProof
+import Elegant.Layered.ExactFlatC8aCore
+ import Elegant.Layered.ExactSeamClosureGlue
 import Elegant.Layered.ExactStepGeometryProof
 import Elegant.Layered.ExactFlatC6WProof
+import Elegant.Layered.ExactFlatC6ShelfBorderProof
+import Elegant.Layered.ExactCaptionAncestorLinkVerticalProof
 import Elegant.Layered.ExactFlatC7ExclusiveKey
 import Elegant.Layered.ExactFlatC8bWProof
 import Elegant.Layered.ExactFallbackCaptionFactsProof
@@ -113,22 +117,27 @@ def actorIds (m : Model) : List String :=
 // the `labelRuns` term. There is no `bracketMarkersAtRank` field either: the
 // proved `bracketMarkersAtRank'` is used directly.
 //
-// Replaced `flatC7`: derived in `exactBaseSeams` by `flatC7B_layoutX_fit`
-// (`ExactFlatC7Fit.lean`) over the narrower open fields below (the kept
-// `loopEnvelopeMiss` via `X_runLocalLoopSeparation_of_envelopeMiss`, and
-// `captionScopeFit`), with the other five premises closed inside by
-// `x_runLocalForwardSeparation_holds` (`ExactFlatC7Forward.lean`),
-// `x_runLocalReversedSeparation_holds` (`ExactFlatC7Reversed.lean`),
-// `x_routeLabelsPlaced_holds` (`ExactFlatC7Placed.lean`),
-// `x_exclusiveRunNodeDecl_holds` and `x_exclusiveKeyOutsideCgPaths_holds`
-// (`ExactFlatC7ExclusiveKey.lean`). `X_loopEnvelopeMiss_holds`
-// (`ExactLoopEnvelopeMissProof.lean`) would split the miss into three named
-// directions, but that module does not compile at HEAD and none of the
-// directions is proved, so the split is blocked.
-// Replaced `flatC8b`: derived in `exactBaseSeams` by `flatC8bB_layoutX_W`
-// (`ExactFlatC8bWProof.lean`) over the kept `partFrameCores` field (fed as the
-// W cores by ignoring the local premises), the closed
-// `X_packedPartTransportBounded_closed`
+// Replaced `flatC7`: derived in `exactBaseSeams` by `flatC7B_layoutX_fitW`
+// (`ExactCaptionScopeFitWProof.lean`) over the assembled loop separation
+// (`glue_loopEnvelopeMiss` via `X_runLocalLoopSeparation_of_envelopeMiss`)
+// and the assembled W scope clearance (`glue_captionScopeFitW` over the four
+// open leaves `capDesc`, `capContainW`, `capOwnersW`, `capTitle`, with the
+// node-border premise closed by `x_ownerResNodeBorderZeroX_holds`).
+// Replaced `flatC8a`: derived in `exactBaseSeams` by `flatC8aB_layoutX`
+// (`ExactFlatC8aCore.lean`) over the six open leaves (`c8aSpans`,
+// `c8aOrder`, `c8aChain`, `c8aBracket`, `c8aPlain`, `c8aSide`), shared
+// with the caption run, forward clearance, and seams-imply-foreign
+// assemblers below.
+// Replaced `partFrameCores` and `loopEnvelopeMiss`: derived in
+// `exactBaseSeams` by `glue_partFrameCoresW` and `glue_loopEnvelopeMiss`
+// (`ExactSeamClosureGlue.lean`) over the open leaves (`capLink`,
+// `capBelow`, `capImpossible`, `capAlignB`, the five shared span leaves,
+// `c8aChain`, `fwdStrict`, `fwdScopeFree`, `nonfwdMiss`, `nonfwdHull`,
+// the plain alignment from the kept `foreignBorderDivergeStable`, and the
+// six loop leaves). The seven caption-run premises, the dummy/in-dummy
+// premises, and the plain alignment are closed inside. `flatC8b` itself is
+// still derived by `flatC8bB_layoutX_W` (`ExactFlatC8bWProof.lean`) over
+// these W cores, the closed `X_packedPartTransportBounded_closed`
 // (`ExactPackedTransportResidualsProof.lean`), and the W fallback clearance
 // `X_fallbackCaptionClearBW_closed` (`ExactFallbackCaptionFactsProof.lean`)
 // over the six narrower open fields below (`fbContain`, `fbFix`, `fbTitle`,
@@ -161,26 +170,94 @@ structure ExactSeams (exactIds : List String) : Prop where
   x6keys : Layered.PipelineImpl.X6_ChainEndpointKeysW exactIds
   /-- Narrower open fact consumed by `flatC6B_layoutXW` as `hpathsW`. -/
   x6paths : Layered.PipelineImpl.X6_DeclOutsidePathsW exactIds
-  /-- Narrower open fact consumed by `flatC6B_layoutXW` as `hposW`. -/
-  x6pos : Layered.PipelineImpl.X6_ShelfPositiveW exactIds
+  /-- Part-size positivity of executed exact parts, feeding `flatC6B_layoutXW`
+  as `hposW` via `X6_shelfPositiveW_of_partPosW`. FALSE as stated: a flowchart
+  with two node boxes fixed at size 0x0 and named in `exactIds` gives a part
+  of width 0 (witness `twoZero` in `ExactFlatC6ShelfBorderProof`). Depends on
+  a pending user decision about fixed sizes. -/
+  x6partPos : Layered.PipelineImpl.X6_PartPosW exactIds
   /-- Narrower open fact consumed by `flatC6B_layoutXW` as `hsepW`. -/
   x6sep : Layered.PipelineImpl.X6_LoopFootprintSeparationW exactIds
-  /-- Narrower open fact consumed by `flatC6B_layoutXW` as `hbordW`. -/
-  x6bord : Layered.PipelineImpl.X6_BorderZeroRealW exactIds
+  /-- Hard residual for `flatC6B_layoutXW` as `hbordW`, via
+  `X6_borderZeroRealW_holds`: top `-2` impossibility behind a positive
+  foreign exclusive scene box. Proved `BorderZeroRealW` from this field at
+  the use site; the `BorderZeroRealW` leaf itself is discharged. -/
+  x6bordHard : Layered.PipelineImpl.X6_BorderHardW exactIds
   /-- Narrower open fact consumed by `flatC6B_layoutXW` as `hbridgeW`. -/
   x6bridge : Layered.PipelineImpl.X6_RouteScopeBridgeW exactIds
   /-- Narrower open fact consumed by `flatC6B_layoutXW` as `hchainW` (the run-id antecedent is the closed `x_exclusiveRunNodeDecl_holds`). -/
   x6chain : Layered.PipelineImpl.X_ExclusiveRunNodeDecl exactIds → Layered.PipelineImpl.X6_ChainEndpointKeysW exactIds → Layered.PipelineImpl.X6_DeclOutsidePathsW exactIds → Layered.PipelineImpl.X6_ShelfPositiveW exactIds → Layered.PipelineImpl.X6_ChainCaseW exactIds
   /-- Narrower open fact consumed by `flatC6B_layoutXW` as `hloopW`. -/
   x6loop : Layered.PipelineImpl.X6_ShelfPositiveW exactIds → Layered.PipelineImpl.X6_BorderZeroRealW exactIds → Layered.PipelineImpl.X6_LoopCaseW exactIds
-  /-- Narrower open fact consumed by `flatC7B_layoutX_fit` via `X_runLocalLoopSeparation_of_envelopeMiss`. Best partial: `X_loopEnvelopeMiss_holds` (`ExactLoopEnvelopeMissProof.lean`) over the three miss directions, but that module does not compile at HEAD and none of the directions is proved, so the whole miss stays open. -/
-  loopEnvelopeMiss : Layered.PipelineImpl.X_LoopEnvelopeMiss exactIds
-  /-- Narrower open fact consumed by `flatC7B_layoutX_fit` as `hcapFit`: the fit-conditioned caption clearance. -/
-  captionScopeFit : Layered.PipelineImpl.X_CaptionScopeClearanceFit exactIds
-  /-- `flatC8aB_layoutX` still needs the exact C8a span facts and `X_ForeignBorderChainXAligned`. -/
-  flatC8a : Layered.PipelineImpl.FlatC8aB (Layered.PipelineImpl.layoutX exactIds)
-  /-- Narrower open fact consumed by `flatC8bB_layoutX_W` as the W cores. -/
-  partFrameCores : Layered.PipelineImpl.X_ExecutedPartFrameCoresB8 exactIds
+  /-- Open leaf feeding `glue_loopEnvelopeMiss` as `hres`: the loop band
+  stack fits in the owner frame. -/
+  loopReserve : Layered.PipelineImpl.XLEM_PlainReserve exactIds
+  /-- Open leaf feeding `glue_loopEnvelopeMiss` as `hgrp`: the group-frame
+  loop owner misses every other-rank real box. -/
+  loopGroupRank : Layered.PipelineImpl.XLEM_GroupOwnerOtherRank exactIds
+  /-- Open leaf feeding `glue_loopEnvelopeMiss` as `hleftNP`: the
+  non-plain left case of the same-rank miss. -/
+  loopLeftNP : Layered.PipelineImpl.XLEM_LeftNonPlain exactIds
+  /-- Open leaf feeding `glue_loopEnvelopeMiss` as `hright`: the
+  plain-right case of the same-rank miss. -/
+  loopRight : Layered.PipelineImpl.XLEM_PlainRightMiss exactIds
+  /-- Open leaf feeding `glue_loopEnvelopeMiss` as `hgrpOrd`: the group
+  marker order behind the group-owner miss. -/
+  loopGrpOrd : Layered.PipelineImpl.XLEG_GroupMarkerOrderX exactIds
+  /-- Open leaf feeding `glue_loopEnvelopeMiss` as `howner`: the
+  nonstandard-owner case of the envelope miss. -/
+  loopOwner : Layered.PipelineImpl.X_loopEnvOtherOwner exactIds
+  /-- Open leaf feeding `glue_captionScopeFitW` as `hdesc`: the
+  descendant same-part clearance. -/
+  capDesc : Layered.PipelineImpl.X_CaptionDescendantSamePartClear exactIds
+  /-- Open leaf feeding `glue_captionScopeFitW` as `hcontainW`: the
+  well-formed-local fallback containment. -/
+  capContainW : Layered.PipelineImpl.X_OwnerCaptionContainFallbackFitW exactIds
+  /-- Open leaf feeding `glue_captionScopeFitW` as `hownersW`: the
+  well-formed-local owner-scope same-part clearance. -/
+  capOwnersW : Layered.PipelineImpl.X_OwnerScopeSamePartClearW exactIds
+  /-- Open leaf feeding `glue_captionScopeFitW` as `htitle`: the
+  installed-title branch clearance. -/
+  capTitle : Layered.PipelineImpl.X_CaptionTitleBranchClear exactIds
+  /-- Open leaf feeding `flatC8aB_layoutX` as `hcluster` (shared with the
+  caption run and seams-imply-foreign assemblers). -/
+  c8aSpans : Layered.PipelineImpl.XB_ForeignClusterRankSpans exactIds
+  /-- Open leaf feeding `flatC8aB_layoutX` as `hlayer` (shared with the
+  caption run and seams-imply-foreign assemblers). -/
+  c8aOrder : Layered.PipelineImpl.XB_ForeignBorderLayerOrder exactIds
+  /-- Open leaf feeding `flatC8aB_layoutX` as `hchain` (shared with the
+  route-label foreign clearance). -/
+  c8aChain : Layered.PipelineImpl.X_ForeignBorderChainXAligned exactIds
+  /-- Open leaf feeding `flatC8aB_layoutX` as `hbracket` (shared with the
+  caption run, foreign clearance, and seams-imply-foreign assemblers). -/
+  c8aBracket : Layered.PipelineImpl.XN_BracketMarkersAtRank exactIds
+  /-- Open leaf feeding `flatC8aB_layoutX` as `hplain` (shared with the
+  caption run, foreign clearance, and seams-imply-foreign assemblers). -/
+  c8aPlain : Layered.PipelineImpl.XN_PlainClearOfSideMarker exactIds
+  /-- Open leaf feeding `flatC8aB_layoutX` as `halignSide` (shared with the
+  caption run, foreign clearance, and seams-imply-foreign assemblers). -/
+  c8aSide : Layered.PipelineImpl.XN_SideMarkerSpanAligned exactIds
+  /-- Open leaf feeding `glue_captionRunClearXW` as `hbelow`: the marker
+  below residual. -/
+  capBelow : Layered.PipelineImpl.XCA_MarkerBelowX exactIds
+  /-- Open leaf feeding `glue_captionRunClearXW` as `himpossible`: the
+  plain-ancestor-impossible residual. -/
+  capImpossible : Layered.PipelineImpl.XCA_PlainAncestorImpossibleX exactIds
+  /-- Open leaf feeding `glue_captionRunClearXW` as `halignB` (shared with
+  the seams-imply-foreign assembler). -/
+  capAlignB : Layered.PipelineImpl.XB_ForeignBorderChainXAligned exactIds
+  /-- Open leaf feeding the forward/leftover assemblers as `hstrict`:
+  strict dummy linkage. -/
+  fwdStrict : Layered.PipelineImpl.XFR_StrictDummyLinkedX exactIds
+  /-- Open leaf feeding the leftover assembler as `hscopeFree`: forward
+  scope freedom. -/
+  fwdScopeFree : Layered.PipelineImpl.XFR_ForwardScopeFreeX exactIds
+  /-- Open leaf feeding `glue_nonforward` as `hmiss`: nonforward
+  exterior miss. -/
+  nonfwdMiss : Layered.PipelineImpl.XNonfwd_ExtMiss exactIds
+  /-- Open leaf feeding `glue_nonforward` as `hhull`: nonforward group
+  hull extension. -/
+  nonfwdHull : Layered.PipelineImpl.XNonfwd_GroupHullExt exactIds
   /-- Narrower open fact consumed by `X_fallbackCaptionClearBW_closed` as `hcontain`: the fit-conditioned fallback containment. -/
   fbContain : Layered.PipelineImpl.X_OwnerCaptionContainFallbackFit exactIds
   /-- Narrower open fact consumed by `X_fallbackCaptionClearBW_closed` as `hfix`: the fixed-owner output fit. -/
@@ -263,10 +340,10 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
     obtain ⟨execution⟩ := Layered.PipelineImpl.layoutX_sceneExecution h
     exact Layered.PipelineImpl.SceneExecutionX.routes_orthogonal execution route hroute
   flatC5 := Layered.PipelineImpl.flatC5B_layoutX_closed exactIds
-  flatC6 := Layered.PipelineImpl.flatC6B_layoutXW exactIds (Layered.PipelineImpl.x_exclusiveRunNodeDecl_holds exactIds) R.x6keys R.x6paths R.x6pos R.x6sep R.x6bord R.x6bridge R.x6chain R.x6loop
-  flatC7 := Layered.PipelineImpl.flatC7B_layoutX_fit exactIds (Layered.PipelineImpl.X_runLocalLoopSeparation_of_envelopeMiss exactIds R.loopEnvelopeMiss) R.captionScopeFit
-  flatC8a := R.flatC8a
-  flatC8b := Layered.PipelineImpl.flatC8bB_layoutX_W exactIds (fun {inp o res} execution _hwf _hfp => R.partFrameCores execution) (Layered.PipelineImpl.X_packedPartTransportBounded_closed exactIds) (fun {inp o res} execution hwf hfp => Layered.PipelineImpl.X_fallbackCaptionClearBW_closed exactIds R.fbContain R.fbFix R.fbTitle R.fbDisj R.fbStrict R.fbCases execution hwf hfp)
+  flatC6 := Layered.PipelineImpl.flatC6B_layoutXW exactIds (Layered.PipelineImpl.x_exclusiveRunNodeDecl_holds exactIds) R.x6keys R.x6paths (Layered.PipelineImpl.X6_shelfPositiveW_of_partPosW exactIds R.x6partPos) R.x6sep (Layered.PipelineImpl.X6_borderZeroRealW_holds exactIds R.x6bordHard) R.x6bridge R.x6chain R.x6loop
+  flatC7 := Layered.PipelineImpl.flatC7B_layoutX_fitW exactIds (Layered.PipelineImpl.X_runLocalLoopSeparation_of_envelopeMiss exactIds (Layered.PipelineImpl.glue_loopEnvelopeMiss exactIds R.loopReserve R.loopGroupRank R.loopLeftNP R.loopRight R.loopGrpOrd R.loopOwner)) (Layered.PipelineImpl.glue_captionScopeFitW exactIds R.capDesc R.capContainW R.capOwnersW R.capTitle)
+  flatC8a := Layered.PipelineImpl.flatC8aB_layoutX exactIds R.c8aSpans R.c8aOrder R.c8aChain R.c8aBracket R.c8aPlain R.c8aSide
+  flatC8b := Layered.PipelineImpl.flatC8bB_layoutX_W exactIds (fun {inp o res} execution hwf hfp => Layered.PipelineImpl.glue_partFrameCoresW exactIds (Layered.PipelineImpl.XCA_groupLinkXW_closed exactIds) R.capBelow R.capImpossible R.c8aSpans R.c8aOrder R.capAlignB R.c8aBracket R.c8aPlain R.c8aSide R.c8aChain R.fwdStrict R.fwdScopeFree R.nonfwdMiss R.nonfwdHull (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable) (Layered.PipelineImpl.glue_loopEnvelopeMiss exactIds R.loopReserve R.loopGroupRank R.loopLeftNP R.loopRight R.loopGrpOrd R.loopOwner) execution hwf hfp) (Layered.PipelineImpl.X_packedPartTransportBounded_closed exactIds) (fun {inp o res} execution hwf hfp => Layered.PipelineImpl.X_fallbackCaptionClearBW_closed exactIds R.fbContain R.fbFix R.fbTitle R.fbDisj R.fbStrict R.fbCases execution hwf hfp)
   canvasMargins := Layered.PipelineImpl.exactCanvasMargins exactIds
   frameClear := fun inp o res hwf hfp =>
     Layered.PipelineImpl.frameClearanceSeam_holds
