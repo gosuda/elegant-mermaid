@@ -376,7 +376,7 @@ theorem architecture_valid (m : Model) (result : Layered.FamilyResult)
 
 /-- Architecture validity: C2, C3, C6, C8a, and C8b are all proved from a
 successful layout of a well-formed, within-limits model. -/
-theorem architecture_valid' (m : Model) (result : Layered.FamilyResult)
+theorem architecture_valid_closed (m : Model) (result : Layered.FamilyResult)
     (hwf : WellFormed m) (hlimits : WithinLimits m)
     (h : layout m = .ok result) :
     _root_.HardConstraints result.scene.layoutDump :=

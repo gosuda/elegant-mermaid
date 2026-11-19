@@ -2009,7 +2009,7 @@ Elegant.Kinds.Architecture.c8a_tiles_disjoint_of_residual
 Elegant.Kinds.Architecture.c8a_unit_group_inj
 Elegant.Kinds.Architecture.c8a_walk_head
 Elegant.Kinds.Architecture.c8a_walk_step
-Elegant.Kinds.Architecture.architecture_valid'
+Elegant.Kinds.Architecture.architecture_valid_closed
 Elegant.Layered.PipelineImpl.x_captionScopeClearance_holds
 Elegant.Layered.PipelineImpl.x_runLocalForwardSeparation_holds
 Elegant.Layered.PipelineImpl.x_runLocalLoopSeparation_holds
