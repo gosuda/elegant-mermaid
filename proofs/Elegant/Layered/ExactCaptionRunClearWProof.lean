@@ -1,4 +1,5 @@
 import Elegant.Layered.ExactCaptionAncestorsLocalProof
+import Elegant.Layered.ExactCaptionAncestorLinksProof
 import Elegant.Layered.ExactCaptionMemberFactsProof
 import Elegant.Layered.ExactCaptionMembersProof
 import Elegant.Layered.ExactCaptionSelfProof
@@ -172,6 +173,86 @@ theorem XF_captionRunClearXW_holds (exactIds : List String)
     XC_plainMemberX_holds exactIds hcap
   have hnestW : XC_AncestorGroupFrameXW exactIds :=
     XC_ancestorGroupFrameXW_holds exactIds hlink
+  have hmarkAncW : XC_AncestorMarkerXW exactIds :=
+    XC_ancestorMarkerXW_holds exactIds hbelow
+  have hotherAncW : XC_AncestorOtherXW exactIds :=
+    XC_ancestorOtherXW_holds exactIds himpossible
+  have hclearW : XC_ForeignSpansXW exactIds :=
+    XC_foreignSpansXW_holds exactIds hspans horder halignB hord
+      htopNN hmemNE hbracket hplainXN halignN
+  have hsideR := hside execution hcomp hrun
+  have hbotR := hbot execution hcomp hrun
+  have htopR := htopT execution hcomp hrun
+  have hmarkR := hmark execution hcomp hrun
+  have hmemdescR := hmemdescW execution hwf hfp hcomp hrun
+  have hplainR := hplainM execution hcomp hrun
+  have hnestR := hnestW execution hwf hfp hcomp hrun
+  have hmarkAncR := hmarkAncW execution hwf hfp hcomp hrun
+  have hotherAncR := hotherAncW execution hwf hfp hcomp hrun
+  have hclearR := hclearW execution hwf hfp hcomp hrun
+  have hpair := xrw_localPairX hsideR hbotR htopR hmarkR hmemdescR hplainR
+    hnestR hmarkAncR hotherAncR
+  unfold CaptionRunClear
+  intro i stored0 tNode hmem hnode hborder pos g0 hpos hframe
+  cases hfn : (componentCandidate execution.graph comp candidate).nodes[pos]? with
+  | none =>
+    rw [List.getElem?_eq_none_iff] at hfn
+    omega
+  | some fNode =>
+    by_cases hrel : tNode.decl = fNode.decl ∨
+        fNode.clusterPath.contains tNode.decl = true ∨
+        tNode.clusterPath.contains fNode.decl = true
+    · exact hpair.2 i stored0 tNode hmem hnode hborder pos fNode g0 hfn hrel hframe
+    · have hne : tNode.decl ≠ fNode.decl := fun h => hrel (Or.inl h)
+      have hpathW : fNode.clusterPath.contains tNode.decl = false := by
+        cases hc : fNode.clusterPath.contains tNode.decl with
+        | true => exact absurd (Or.inr (Or.inl hc)) hrel
+        | false => rfl
+      have hpathU : tNode.clusterPath.contains fNode.decl = false := by
+        cases hc : tNode.clusterPath.contains fNode.decl with
+        | true => exact absurd (Or.inr (Or.inr hc)) hrel
+        | false => rfl
+      have hdisj := hclearR i pos tNode fNode hnode hfn hborder hne hpathW hpathU
+      have hself := hpair.1 i stored0 tNode hmem hnode hborder
+      have hcont := xrw_strictInside_contained hself
+      rw [hframe] at hdisj
+      exact Or.inl ((Disjoint.comm _ _).mp (disjoint_of_sub_disjoint hcont hdisj))
+
+/-- Per-execution run-level caption clearance from the W-link residual:
+W-link variant of `XF_captionRunClearXW_holds`, replaying the same
+composition with `XC_ancestorGroupFrameXW_of_linkW`. -/
+theorem XF_captionRunClearXW_of_linkW (exactIds : List String)
+    (hsideLeft : XC_SelfSidesLeftNarrowX exactIds)
+    (hsideRight : XC_SelfSidesRightNarrowX exactIds)
+    (hbotHeight : XC_SelfBottomHeightNarrowX exactIds)
+    (hcap : XC_CapBandX exactIds)
+    (hlinkW : XCA_GroupLinkXW exactIds)
+    (hbelow : XCA_MarkerBelowX exactIds)
+    (himpossible : XCA_PlainAncestorImpossibleX exactIds)
+    (hspans : XB_ForeignClusterRankSpans exactIds)
+    (horder : XB_ForeignBorderLayerOrder exactIds)
+    (halignB : XB_ForeignBorderChainXAligned exactIds)
+    (hord : XB_OrderedIntervals exactIds)
+    (htopNN : XB_TopNonneg exactIds)
+    (hmemNE : XB_MemberNonempty exactIds)
+    (hbracket : XN_BracketMarkersAtRank exactIds)
+    (hplainXN : XN_PlainClearOfSideMarker exactIds)
+    (halignN : XN_SideMarkerSpanAligned exactIds) :
+    XF_CaptionRunClearXW exactIds := by
+  intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
+  have hside : XC_SelfSidesX exactIds :=
+    XC_selfSidesX_holds exactIds hsideLeft hsideRight
+  have hbot : XC_SelfBottomX exactIds :=
+    XC_selfBottomX_holds exactIds hbotHeight
+  have htopT : XC_SelfTopX exactIds := XC_selfTopX_holds exactIds
+  have hmark : XC_SameDeclMarkerX exactIds :=
+    XC_sameDeclMarkerX_holds exactIds hcap
+  have hmemdescW : XC_MemberDescXW exactIds :=
+    XC_memberDescXW_holds exactIds hcap
+  have hplainM : XC_PlainMemberX exactIds :=
+    XC_plainMemberX_holds exactIds hcap
+  have hnestW : XC_AncestorGroupFrameXW exactIds :=
+    XC_ancestorGroupFrameXW_of_linkW exactIds hlinkW
   have hmarkAncW : XC_AncestorMarkerXW exactIds :=
     XC_ancestorMarkerXW_holds exactIds hbelow
   have hotherAncW : XC_AncestorOtherXW exactIds :=
