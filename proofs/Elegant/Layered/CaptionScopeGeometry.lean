@@ -82,22 +82,25 @@ def OwnerCaptionContain (inp : Input) (o : Options)
       (PipelineImpl.ownedTextRect execution.params ownerBox
         (execution.lines.getD ownerIndex []))
 
-/-- The `ownedTextRect` fallback caption of the owner box lies inside the
-owner scene box rect, pinned to the executed fallback run: the owner input box
-at `ownerIndex` carries no installed title. -/
-def OwnerCaptionContainFallback (inp : Input) (o : Options)
-    (res : FamilyResult) : Prop :=
-  ∀ (execution : PipelineImpl.SceneExecution inp o res) (ownerIndex : Nat)
-    (obox : ModelBox),
-    inp.boxes[ownerIndex]? = some obox →
-    (PipelineImpl.sceneTitlesExpr execution.params inp o execution.lines
-        execution.packedAcc).find? (fun title => title.1 == obox.id) = none →
-    let ownerBox : Box :=
-      (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).getD
-        ownerIndex ⟨"", "", default, "", false⟩
-    ownerBox.rect.Contained
-      (PipelineImpl.ownedTextRect execution.params ownerBox
-        (execution.lines.getD ownerIndex []))
+ /-- The `ownedTextRect` fallback caption of the owner box lies inside the
+ owner scene box rect, pinned to the executed fallback run: the owner input box
+ at `ownerIndex` carries no installed title. The owner is non-exclusive and owns
+ a label, matching the `sceneOf` fallback emission. -/
+ def OwnerCaptionContainFallback (inp : Input) (o : Options)
+     (res : FamilyResult) : Prop :=
+   ∀ (execution : PipelineImpl.SceneExecution inp o res) (ownerIndex : Nat)
+     (obox : ModelBox),
+     inp.boxes[ownerIndex]? = some obox →
+     (PipelineImpl.sceneTitlesExpr execution.params inp o execution.lines
+         execution.packedAcc).find? (fun title => title.1 == obox.id) = none →
+     obox.exclusive = false →
+     (∃ l ∈ inp.labels, l.owner = obox.id) →
+     let ownerBox : Box :=
+       (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).getD
+         ownerIndex ⟨"", "", default, "", false⟩
+     ownerBox.rect.Contained
+       (PipelineImpl.ownedTextRect execution.params ownerBox
+         (execution.lines.getD ownerIndex []))
 
 /-- Scene sizing facts behind the caption fallback containment: every executed
 scene carries nonnegative `clusterPad`, aligns the measured label lines with
@@ -227,14 +230,13 @@ theorem ownerCaptionContain {inp : Input} {o : Options} {res : FamilyResult}
     dsimp only
     simp only [List.length_nil, Int.ofNat_zero, Int.zero_mul]
     decide
-/-- The fallback containment follows from the unpremised containment by
-dropping the executed fallback pins. -/
-theorem ownerCaptionContainFallback_of_contain {inp : Input} {o : Options}
-    {res : FamilyResult} (h : OwnerCaptionContain inp o res) :
-    OwnerCaptionContainFallback inp o res := by
-  intro execution ownerIndex obox _hobox _hnone
-  exact h execution ownerIndex
-
+ /-- The fallback containment follows from the unpremised containment by
+ dropping the executed fallback pins. -/
+ theorem ownerCaptionContainFallback_of_contain {inp : Input} {o : Options}
+     {res : FamilyResult} (h : OwnerCaptionContain inp o res) :
+     OwnerCaptionContainFallback inp o res := by
+   intro execution ownerIndex obox _hobox _hnone _hex _hown
+   exact h execution ownerIndex
 
 /-- The descendant case of the caption clearance: an exclusive box that is a
 proper descendant of the caption owner lies under the owner rect (Clause 3
@@ -357,7 +359,12 @@ theorem captionScopeClearance {inp : Input} {o : Options} {res : FamilyResult}
           execution.packedAcc).find? (fun title => title.1 == obox.id) = none := by
         rw [heq]
         exact hopt
-      have hc := hcontain execution ownerIndex obox hobox hnone
+      have hexcl : obox.exclusive = false := by
+        simp only [Bool.and_eq_true, beq_iff_eq] at hpobox
+        simpa using hpobox.2
+      have hown : ∃ l ∈ inp.labels, l.owner = obox.id :=
+        ⟨source, List.mem_of_getElem? hsrc, heq.symm⟩
+      have hc := hcontain execution ownerIndex obox hobox hnone hexcl hown
       exact fun hmeet =>
         hclr (rect_meetsInterior_comm (contained_meetsInterior_mono hc hmeet))
     | some t =>
