@@ -1090,6 +1090,119 @@ theorem winPostSlotOdd (childE : List Entry) (childO : List Nat) (fresh : Nat)
       · exact Or.inl h
       · exact Or.inr hanc
 
+/-! ### Odd-window clause: mirror of `win` for post-order entries -/
+
+def FlatWinOdd (E : List Entry) (O : List Nat) : Prop :=
+  ∀ (a x : Nat) (ae xe : Entry) (pa px : Nat),
+    E[a]? = some ae → E[x]? = some xe →
+    ae.depth % 2 ≠ 0 → a < x →
+    O[pa]? = some a → O[px]? = some x →
+    px ≤ pa → IndexedAncestor E a x
+
+theorem flatWinOddNil : FlatWinOdd [] [] := by
+  intro a x ae xe pa px hae _ _ _ _ _ _
+  simp at hae
+
+theorem winOddEntry (E0 : List Entry) (O0 : List Nat) (node : Nat) (par : Int)
+    (depth : Nat)
+    (hodd : FlatWinOdd E0 O0)
+    (hb : ∀ w ∈ O0, w < E0.length) :
+    FlatWinOdd (E0 ++ [(⟨node, par, depth⟩ : Entry)]) O0 := by
+  intro a x ae xe pa px hae hex hoddne hlt hpa hpx hle
+  have hpre : E0 <+: E0 ++ [(⟨node, par, depth⟩ : Entry)] := ⟨_, rfl⟩
+  have hfr : E0.length ∉ O0 := by
+    intro hm
+    have h := hb _ hm
+    omega
+  have hlen1 : (E0 ++ [(⟨node, par, depth⟩ : Entry)]).length
+      = E0.length + 1 := by simp
+  have hxb : x < E0.length := by
+    by_cases hx : x = E0.length
+    · subst hx
+      exfalso
+      exact hfr (List.mem_of_getElem? hpx)
+    · have hbnd := (List.getElem?_eq_some_iff.mp hex).1
+      omega
+  have hab : a < E0.length := by omega
+  have hae0 : E0[a]? = some ae := by
+    have hback := flatPrefixGetBack E0 _ hpre a hab
+    rw [hback] at hae
+    exact hae
+  have hex0 : E0[x]? = some xe := by
+    have hback := flatPrefixGetBack E0 _ hpre x hxb
+    rw [hback] at hex
+    exact hex
+  exact flatAncFwd hpre (hodd a x ae xe pa px hae0 hex0 hoddne hlt hpa hpx hle)
+
+theorem winOddPreSlotEven (E0 : List Entry) (O0 : List Nat) (node : Nat)
+    (par : Int) (depth : Nat)
+    (hodd : FlatWinOdd (E0 ++ [(⟨node, par, depth⟩ : Entry)]) O0)
+    (hev : depth % 2 = 0)
+    (hfr : E0.length ∉ O0) :
+    FlatWinOdd (E0 ++ [(⟨node, par, depth⟩ : Entry)]) (O0 ++ [E0.length]) := by
+  intro a x ae xe pa px hae hex hoddne hlt hpa hpx hle
+  have h1 : (E0 ++ [(⟨node, par, depth⟩ : Entry)])[E0.length]?
+      = some (⟨node, par, depth⟩ : Entry) := freshLookup E0 node par depth
+  have hlen : (O0 ++ [E0.length]).length = O0.length + 1 := by simp
+  by_cases ha : a = E0.length
+  · subst ha
+    have heq : ae = (⟨node, par, depth⟩ : Entry) :=
+      Option.some.inj (hae.symm.trans h1)
+    have hodd' : (⟨node, par, depth⟩ : Entry).depth % 2 ≠ 0 := heq ▸ hoddne
+    exact absurd hev hodd'
+  · by_cases hx : x = E0.length
+    · subst hx
+      have hpxEq : px = O0.length := freshPosLast _ _ _ hfr hpx
+      have hbnd := (List.getElem?_eq_some_iff.mp hpa).1
+      have hpaEq : pa = O0.length := by omega
+      subst hpxEq
+      subst hpaEq
+      have hfresh : (O0 ++ [E0.length])[O0.length]? = some E0.length := by
+        rw [List.getElem?_append_right (by omega)]
+        have hz : O0.length - O0.length = 0 := by omega
+        rw [hz]
+        rfl
+      rw [hfresh] at hpa
+      exact absurd (Option.some.inj hpa).symm ha
+    · have hpa0 : O0[pa]? = some a := oldPosOfNe _ _ _ _ ha hpa
+      have hpx0 : O0[px]? = some x := oldPosOfNe _ _ _ _ hx hpx
+      exact hodd a x ae xe pa px hae hex hoddne hlt hpa0 hpx0 hle
+
+theorem winOddPostSlotOdd (childE : List Entry) (childO : List Nat)
+    (fresh E1len : Nat)
+    (hodd : FlatWinOdd childE childO)
+    (hchild : FlatInv childE childO ((fresh : Nat) : Int) E1len)
+    (hfr : fresh ∉ childO)
+    (hE1 : E1len = fresh + 1) :
+    FlatWinOdd childE (childO ++ [fresh]) := by
+  intro a x ae xe pa px hae hex hoddne hlt hpa hpx hle
+  have hlen : (childO ++ [fresh]).length = childO.length + 1 := by simp
+  by_cases ha : a = fresh
+  · have hxs : E1len ≤ x := by omega
+    rcases hchild.coverP fresh rfl x xe hxs hex with hpe | hanc
+    · rw [ha]
+      exact flatAncEdge _ hex hpe
+    · rw [ha]
+      exact hanc
+  · by_cases hx : x = fresh
+    · have hpx' : (childO ++ [fresh])[px]? = some fresh := by
+        rwa [hx] at hpx
+      have hpxEq : px = childO.length := freshPosLast _ _ _ hfr hpx'
+      have hbnd := (List.getElem?_eq_some_iff.mp hpa).1
+      have hpaEq : pa = childO.length := by omega
+      subst hpxEq
+      subst hpaEq
+      have hfresh : (childO ++ [fresh])[childO.length]? = some fresh := by
+        rw [List.getElem?_append_right (by omega)]
+        have hz : childO.length - childO.length = 0 := by omega
+        rw [hz]
+        rfl
+      rw [hfresh] at hpa
+      exact absurd (Option.some.inj hpa).symm ha
+    · have hpa0 : childO[pa]? = some a := oldPosOfNe _ _ _ _ ha hpa
+      have hpx0 : childO[px]? = some x := oldPosOfNe _ _ _ _ hx hpx
+      exact hodd a x ae xe pa px hae hex hoddne hlt hpa0 hpx0 hle
+
 theorem fstepEq (ns : List Tree.Node) (up : Bool) (fuel : Nat)
     (E0 : List Entry) (O0 : List Nat) (node : Nat) (par : Int) (depth : Nat)
     (ce : List Entry) (co : List Nat)
@@ -1304,6 +1417,153 @@ theorem flatStep (ns : List Tree.Node) (up : Bool) (fuel : Nat)
           rfl hlen0
       · exact winPostSlotOdd _ _ _ _ _ hchInv.win hppEven hfr hfe rfl hev
       · exact postParPostSlot _ _ _ _ _ hppEven hfr hfe rfl hnn
+
+theorem flatJointStep (ns : List Tree.Node) (up : Bool) (fuel : Nat)
+    (E0 : List Entry) (O0 : List Nat) (node : Nat) (par : Int)
+    (depth startE : Nat)
+    (hinv : FlatInv E0 O0 par startE)
+    (hlen0 : startE ≤ E0.length)
+    (hnn : par = -1 ∨ 0 ≤ par)
+    (hparc : par = -1 ∨ par.toNat < startE)
+    (segE : List Entry) (segO : List Nat)
+    (hchPair : flatten ns up fuel (children ns node) ((E0.length : Nat) : Int)
+      (depth + 1) (E0 ++ [(⟨node, par, depth⟩ : Entry)])
+      (if depth % 2 == 0 then O0 ++ [E0.length] else O0) =
+      ((E0 ++ [(⟨node, par, depth⟩ : Entry)]) ++ segE,
+       (if depth % 2 == 0 then O0 ++ [E0.length] else O0) ++ segO))
+    (hchLow : ∀ w ∈ segO, (E0 ++ [(⟨node, par, depth⟩ : Entry)]).length ≤ w)
+    (hchInv : FlatInv ((E0 ++ [(⟨node, par, depth⟩ : Entry)]) ++ segE)
+      ((if depth % 2 == 0 then O0 ++ [E0.length] else O0) ++ segO)
+      ((E0.length : Nat) : Int)
+      ((E0 ++ [(⟨node, par, depth⟩ : Entry)]).length))
+    (hchOdd : FlatWinOdd ((E0 ++ [(⟨node, par, depth⟩ : Entry)]) ++ segE)
+      ((if depth % 2 == 0 then O0 ++ [E0.length] else O0) ++ segO)) :
+    ∃ segE' segO',
+      fstep ns up fuel par depth (E0, O0) node = (E0 ++ segE', O0 ++ segO') ∧
+      (∀ w ∈ segO', startE ≤ w) ∧
+      FlatInv (E0 ++ segE') (O0 ++ segO') par startE ∧
+      FlatWinOdd (E0 ++ segE') (O0 ++ segO') := by
+  have hE1 : (E0 ++ [(⟨node, par, depth⟩ : Entry)]).length
+      = E0.length + 1 := by simp
+  have hfun := fstepEq ns up fuel E0 O0 node par depth _ _ hchPair
+  by_cases hev : depth % 2 = 0
+  · have hpre : (if depth % 2 == 0 then O0 ++ [E0.length] else O0)
+        = O0 ++ [E0.length] := by simp [hev]
+    rw [hpre] at hchPair hchInv hchOdd
+    simp [hev] at hfun
+    refine ⟨[(⟨node, par, depth⟩ : Entry)] ++ segE, [E0.length] ++ segO,
+      ?_, ?_, ?_, ?_⟩
+    · simp [hfun]
+    · intro w hw
+      rcases List.mem_append.mp hw with hw | hw
+      · rw [List.mem_singleton] at hw
+        subst hw
+        exact hlen0
+      · have hle := hchLow _ hw
+        omega
+    · have hE2 : E0 ++ ([(⟨node, par, depth⟩ : Entry)] ++ segE)
+          = (E0 ++ [(⟨node, par, depth⟩ : Entry)]) ++ segE := by
+        simp only [List.append_assoc]
+      have hO2 : O0 ++ ([E0.length] ++ segO) = (O0 ++ [E0.length]) ++ segO := by
+        simp only [List.append_assoc]
+      rw [hE2, hO2]
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · exact hchInv.bounds
+      · exact hchInv.noDup
+      · exact covChildEven E0 O0 node par depth startE hinv _ _ _ _ hchInv
+          rfl rfl hchLow
+      · exact hchInv.before
+      · by_cases hpar : par = -1
+        · intro _
+          exact coverNChild E0 O0 node par depth startE hinv _ _ _ hchInv
+            hpar rfl hlen0
+        · intro hcon
+          exact absurd hcon hpar
+      · intro p hpp
+        exact coverPChild E0 O0 node par depth startE p hinv _ _ _ hchInv
+          hpp rfl
+      · exact pboundChild E0 O0 node par depth startE hinv _ _ _ hchInv
+          rfl hlen0
+      · exact hchInv.win
+      · exact postParChildEven E0 O0 node par depth startE hinv.postPar _ _ _ _
+          hchInv rfl rfl hchLow hnn hparc hlen0
+    · have hE2w : E0 ++ ([(⟨node, par, depth⟩ : Entry)] ++ segE)
+          = (E0 ++ [(⟨node, par, depth⟩ : Entry)]) ++ segE := by
+        simp only [List.append_assoc]
+      have hO2w : O0 ++ ([E0.length] ++ segO) = (O0 ++ [E0.length]) ++ segO := by
+        simp only [List.append_assoc]
+      rw [hE2w, hO2w]
+      exact hchOdd
+  · have hpre : (if depth % 2 == 0 then O0 ++ [E0.length] else O0) = O0 := by
+      simp [hev]
+    rw [hpre] at hchPair hchInv hchOdd
+    simp [hev] at hfun
+    refine ⟨[(⟨node, par, depth⟩ : Entry)] ++ segE, segO ++ [E0.length],
+      ?_, ?_, ?_, ?_⟩
+    · simp [hfun]
+    · intro w hw
+      rcases List.mem_append.mp hw with hw | hw
+      · have hle := hchLow _ hw
+        omega
+      · rw [List.mem_singleton] at hw
+        subst hw
+        exact hlen0
+    · have hE2 : E0 ++ ([(⟨node, par, depth⟩ : Entry)] ++ segE)
+          = (E0 ++ [(⟨node, par, depth⟩ : Entry)]) ++ segE := by
+        simp only [List.append_assoc]
+      have hO2 : O0 ++ (segO ++ [E0.length]) = (O0 ++ segO) ++ [E0.length] := by
+        simp only [List.append_assoc]
+      rw [hE2, hO2]
+      have hfr : E0.length ∉ (O0 ++ segO) := by
+        intro hm
+        rcases List.mem_append.mp hm with hm | hm
+        · have h := hinv.bounds _ hm
+          omega
+        · have hle := hchLow _ hm
+          omega
+      have hfe : ((E0 ++ [(⟨node, par, depth⟩ : Entry)]) ++ segE)[E0.length]? =
+          some (⟨node, par, depth⟩ : Entry) :=
+        flatPrefixGet _ _ ⟨segE, rfl⟩ _ _ (freshLookup E0 node par depth)
+      have hppEven := postParChildOdd E0 O0 node par depth startE hinv.postPar
+        _ _ _ _ hchInv rfl rfl hchLow hnn hparc hlen0
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · exact boundsSlot _ _ _ hchInv.bounds (by
+          rw [List.length_append, hE1]
+          omega)
+      · exact noDupPostSlot E0 O0 hinv.bounds _ _ hchInv.noDup rfl (by
+          intro w hw
+          have hle := hchLow _ hw
+          omega)
+      · exact covChildOdd E0 O0 node par depth startE hinv _ _ _ _ hchInv
+          rfl rfl hchLow
+      · exact hchInv.before
+      · by_cases hpar : par = -1
+        · intro _
+          exact coverNChild E0 O0 node par depth startE hinv _ _ _ hchInv
+            hpar rfl hlen0
+        · intro hcon
+          exact absurd hcon hpar
+      · intro p hpp
+        exact coverPChild E0 O0 node par depth startE p hinv _ _ _ hchInv
+          hpp rfl
+      · exact pboundChild E0 O0 node par depth startE hinv _ _ _ hchInv
+          rfl hlen0
+      · exact winPostSlotOdd _ _ _ _ _ hchInv.win hppEven hfr hfe rfl hev
+      · exact postParPostSlot _ _ _ _ _ hppEven hfr hfe rfl hnn
+    · have hfrw : E0.length ∉ (O0 ++ segO) := by
+        intro hm
+        rcases List.mem_append.mp hm with hm | hm
+        · have h := hinv.bounds _ hm
+          omega
+        · have hle := hchLow _ hm
+          omega
+      have hE2w : E0 ++ ([(⟨node, par, depth⟩ : Entry)] ++ segE)
+          = (E0 ++ [(⟨node, par, depth⟩ : Entry)]) ++ segE := by
+        simp only [List.append_assoc]
+      have hO2w : O0 ++ (segO ++ [E0.length]) = (O0 ++ segO) ++ [E0.length] := by
+        simp only [List.append_assoc]
+      rw [hE2w, hO2w]
+      exact winOddPostSlotOdd _ _ _ _ hchOdd hchInv hfrw (by simp)
 
 theorem flatFold (ns : List Tree.Node) (up : Bool) (fuel : Nat)
     (par : Int) (depth startE : Nat)
@@ -1544,6 +1804,278 @@ theorem flatInvFlatten (ns : List Tree.Node) (up : Bool) (fuel : Nat) :
     rw [flatSuccFold]
     exact flatFold ns up fuel par depth startE hnn hparc ih _
       (es, os) hinv hlen hfr
+
+theorem flatJointFold (ns : List Tree.Node) (up : Bool) (fuel : Nat)
+    (par : Int) (depth startE : Nat)
+    (hnn : par = -1 ∨ 0 ≤ par)
+    (hparc : par = -1 ∨ par.toNat < startE)
+    (ih : ∀ (ids : List Nat) (par : Int) (depth startE : Nat) (es : List Entry)
+      (os : List Nat),
+      startE ≤ es.length →
+      (par = -1 ∨ ∃ pe, es[par.toNat]? = some pe) →
+      (par = -1 ∨ par.toNat < startE) →
+      (par = -1 ∨ 0 ≤ par) →
+      FlatInv es os par startE →
+      FlatWinOdd es os →
+      ∃ segE segO, flatten ns up fuel ids par depth es os
+        = (es ++ segE, os ++ segO) ∧
+        (∀ w ∈ segO, startE ≤ w) ∧ FlatInv (es ++ segE) (os ++ segO) par startE ∧
+        FlatWinOdd (es ++ segE) (os ++ segO)) :
+    ∀ (walk : List Nat) (st : List Entry × List Nat),
+      FlatInv st.1 st.2 par startE → FlatWinOdd st.1 st.2 →
+      startE ≤ st.1.length →
+      (par = -1 ∨ ∃ pe, st.1[par.toNat]? = some pe) →
+      ∃ segE segO, walk.foldl (fstep ns up fuel par depth) st
+        = (st.1 ++ segE, st.2 ++ segO) ∧
+        (∀ w ∈ segO, startE ≤ w) ∧ FlatInv (st.1 ++ segE) (st.2 ++ segO) par startE ∧
+        FlatWinOdd (st.1 ++ segE) (st.2 ++ segO) := by
+  intro walk
+  induction walk with
+  | nil =>
+    intro st hinv hodd hlen hfr
+    exact ⟨[], [], by simp, by intro w hw; simp at hw, by simpa using hinv,
+      by simpa using hodd⟩
+  | cons node rest ihrest =>
+    intro st hinv hodd hlen hfr
+    have hE1 : (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length
+        = st.1.length + 1 := by simp
+    have htn : ((((st.1.length : Nat) : Int)).toNat) = st.1.length := rfl
+    have hfrFresh : st.1.length ∉ st.2 := by
+      intro hm
+      have h := hinv.bounds _ hm
+      omega
+    by_cases hev : depth % 2 = 0
+    · have hpre : (if depth % 2 == 0 then st.2 ++ [st.1.length] else st.2)
+          = st.2 ++ [st.1.length] := by simp [hev]
+      have hinI : FlatInv (st.1 ++ [(⟨node, par, depth⟩ : Entry)])
+          (st.2 ++ [st.1.length]) ((st.1.length : Nat) : Int)
+          ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length) := by
+        refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        · exact boundsSlot _ _ _ (boundsEntry _ _ _ _ _ hinv.bounds) (by omega)
+        · exact noDupPreSlot _ _ hinv.noDup hinv.bounds
+        · exact covEntryEven _ _ _ _ _ hinv.cov
+        · exact beforeEntry _ _ _ _ hinv.before hnn hfr
+        · intro hcon
+          omega
+        · intro p hp x xe hxs hlook
+          have hlt := (List.getElem?_eq_some_iff.mp hlook).1
+          omega
+        · intro x xe hxs hlook
+          have hlt := (List.getElem?_eq_some_iff.mp hlook).1
+          omega
+        · exact winPreSlotEven _ _ _ _ _ (winEntry _ _ _ _ _ hinv.win hinv.bounds)
+            (postParEntry _ _ _ _ _ hinv.postPar)
+            (noParentFresh _ _ _ _ _ hinv.before hparc hlen) hfrFresh
+        · refine Or.inr (by
+            intro pa px v hpa hpx hle
+            have hpaEq : pa = st.2.length :=
+              freshPosLast _ _ _ hfrFresh (by rwa [htn] at hpa)
+            subst hpaEq
+            have hprelen : (st.2 ++ [st.1.length]).length
+                = st.2.length + 1 := by simp
+            have hbnd := (List.getElem?_eq_some_iff.mp hpx).1
+            have hpxEq : px = st.2.length := by omega
+            subst hpxEq
+            have hfresh : (st.2 ++ [st.1.length])[st.2.length]?
+                = some st.1.length := by
+              rw [List.getElem?_append_right (by omega)]
+              have hz : st.2.length - st.2.length = 0 := by omega
+              rw [hz]
+              rfl
+            rw [hfresh] at hpx
+            have hv : v = st.1.length := (Option.some.inj hpx).symm
+            subst hv
+            exact Or.inl rfl)
+      have hinIOdd : FlatWinOdd (st.1 ++ [(⟨node, par, depth⟩ : Entry)])
+          (if depth % 2 == 0 then st.2 ++ [st.1.length] else st.2) := by
+        rw [hpre]
+        exact winOddPreSlotEven _ _ _ _ _
+          (winOddEntry _ _ _ _ _ hodd hinv.bounds) hev hfrFresh
+      have hlen' : (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length ≤ (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length := by omega
+      have hfr' : ((st.1.length : Nat) : Int) = -1 ∨ ∃ pe, (st.1 ++ [(⟨node, par, depth⟩ : Entry)])[(((st.1.length : Nat) : Int)).toNat]? = some pe := Or.inr ⟨_, by rw [htn]; exact freshLookup st.1 node par depth⟩
+      have hparc' : ((st.1.length : Nat) : Int) = -1 ∨
+          ((((st.1.length : Nat) : Int)).toNat)
+            < (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length := by
+        refine Or.inr (by rw [htn]; omega)
+      have hnn' : ((st.1.length : Nat) : Int) = -1 ∨
+          0 ≤ ((st.1.length : Nat) : Int) := Or.inr (by omega)
+      have hlastC : ∀ pe, (st.1 ++ [(⟨node, par, depth⟩ : Entry)])[(((st.1.length : Nat) : Int)).toNat]? = some pe → pe.depth % 2 = 0 → (st.2 ++ [st.1.length]).getLast? = some (((st.1.length : Nat) : Int)).toNat := by
+        intro _ _ _
+        rw [htn]
+        exact flatGetLastAppendSingle st.2 st.1.length
+      have hlastI : ∀ pe, (st.1 ++ [(⟨node, par, depth⟩ : Entry)])[(((st.1.length : Nat) : Int)).toNat]? = some pe → pe.depth % 2 = 0 → (if depth % 2 == 0 then st.2 ++ [st.1.length] else st.2).getLast? = some (((st.1.length : Nat) : Int)).toNat := by
+        rw [hpre]
+        exact hlastC
+      rw [← hpre] at hinI
+      obtain ⟨segE, segO, hchPair, hchLow, hchInv, hchOdd⟩ :=
+        ih (children ns node) ((st.1.length : Nat) : Int) (depth + 1)
+          ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length)
+          (st.1 ++ [(⟨node, par, depth⟩ : Entry)])
+          (if depth % 2 == 0 then st.2 ++ [st.1.length] else st.2)
+          hlen' hfr' hparc' hnn' hinI hinIOdd
+      obtain ⟨segE', segO', hstepPair, hstepLow, hstepInv, hstepOdd⟩ :=
+        flatJointStep ns up fuel st.1 st.2 node par depth startE
+          hinv hlen hnn hparc segE segO hchPair hchLow hchInv hchOdd
+      have hst'eq : fstep ns up fuel par depth st node
+          = (st.1 ++ segE', st.2 ++ segO') := hstepPair
+      have hlenStep : startE ≤ (st.1 ++ segE').length := by
+        simp only [List.length_append]
+        omega
+      have hfrStep : par = -1 ∨ ∃ pe, (st.1 ++ segE')[par.toNat]? = some pe := by
+        rcases hfr with h | ⟨pe, hpe⟩
+        · exact Or.inl h
+        · exact Or.inr ⟨pe, flatPrefixGet st.1 _ ⟨segE', rfl⟩ _ _ hpe⟩
+      obtain ⟨segE2, segO2, hrestPair, hrestLow, hrestInv, hrestOdd⟩ :=
+        ihrest (st.1 ++ segE', st.2 ++ segO') hstepInv hstepOdd hlenStep hfrStep
+      refine ⟨segE' ++ segE2, segO' ++ segO2, ?_, ?_, ?_, ?_⟩
+      · show rest.foldl (fstep ns up fuel par depth)
+            (fstep ns up fuel par depth st node) = _
+        rw [hst'eq, hrestPair]
+        show ((st.1 ++ segE') ++ segE2, (st.2 ++ segO') ++ segO2) = _
+        simp only [List.append_assoc]
+      · intro w hw
+        rcases List.mem_append.mp hw with hw | hw
+        · exact hstepLow _ hw
+        · exact hrestLow _ hw
+      · have hE : (st.1 ++ segE') ++ segE2 = st.1 ++ (segE' ++ segE2) :=
+          List.append_assoc _ _ _
+        have hO : (st.2 ++ segO') ++ segO2 = st.2 ++ (segO' ++ segO2) :=
+          List.append_assoc _ _ _
+        have hrestInv' : FlatInv ((st.1 ++ segE') ++ segE2)
+            ((st.2 ++ segO') ++ segO2) par startE := hrestInv
+        rw [hE, hO] at hrestInv'
+        exact hrestInv'
+      · have hE : (st.1 ++ segE') ++ segE2 = st.1 ++ (segE' ++ segE2) :=
+          List.append_assoc _ _ _
+        have hO : (st.2 ++ segO') ++ segO2 = st.2 ++ (segO' ++ segO2) :=
+          List.append_assoc _ _ _
+        have hrestOdd' : FlatWinOdd ((st.1 ++ segE') ++ segE2)
+            ((st.2 ++ segO') ++ segO2) := hrestOdd
+        rw [hE, hO] at hrestOdd'
+        exact hrestOdd'
+    · have hpre : (if depth % 2 == 0 then st.2 ++ [st.1.length] else st.2)
+          = st.2 := by simp [hev]
+      have hinI : FlatInv (st.1 ++ [(⟨node, par, depth⟩ : Entry)]) st.2
+          ((st.1.length : Nat) : Int)
+          ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length) := by
+        refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+        · exact boundsEntry _ _ _ _ _ hinv.bounds
+        · exact hinv.noDup
+        · exact covEntryOdd _ _ _ _ _ hinv.cov hinv.bounds hev
+        · exact beforeEntry _ _ _ _ hinv.before hnn hfr
+        · intro hcon
+          omega
+        · intro p hp x xe hxs hlook
+          have hlt := (List.getElem?_eq_some_iff.mp hlook).1
+          omega
+        · intro x xe hxs hlook
+          have hlt := (List.getElem?_eq_some_iff.mp hlook).1
+          omega
+        · exact winEntry _ _ _ _ _ hinv.win hinv.bounds
+        · refine Or.inr (by
+            intro pa px v hpa hpx hle
+            have hfrF : st.1.length ∉ st.2 := by
+              intro hm
+              have h := hinv.bounds _ hm
+              omega
+            exfalso
+            have hmem : ((((st.1.length : Nat) : Int)).toNat) ∈ st.2 :=
+              List.mem_of_getElem? hpa
+            rw [htn] at hmem
+            exact hfrF hmem)
+      have hinIOdd : FlatWinOdd (st.1 ++ [(⟨node, par, depth⟩ : Entry)])
+          (if depth % 2 == 0 then st.2 ++ [st.1.length] else st.2) := by
+        rw [hpre]
+        exact winOddEntry _ _ _ _ _ hodd hinv.bounds
+      have hlen' : (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length ≤ (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length := by omega
+      have hfr' : ((st.1.length : Nat) : Int) = -1 ∨ ∃ pe, (st.1 ++ [(⟨node, par, depth⟩ : Entry)])[(((st.1.length : Nat) : Int)).toNat]? = some pe := Or.inr ⟨_, by rw [htn]; exact freshLookup st.1 node par depth⟩
+      have hparc' : ((st.1.length : Nat) : Int) = -1 ∨
+          ((((st.1.length : Nat) : Int)).toNat)
+            < (st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length := by
+        refine Or.inr (by rw [htn]; omega)
+      have hnn' : ((st.1.length : Nat) : Int) = -1 ∨
+          0 ≤ ((st.1.length : Nat) : Int) := Or.inr (by omega)
+      have hlastC : ∀ pe, (st.1 ++ [(⟨node, par, depth⟩ : Entry)])[(((st.1.length : Nat) : Int)).toNat]? = some pe → pe.depth % 2 = 0 → st.2.getLast? = some (((st.1.length : Nat) : Int)).toNat := by
+        intro pe hpe hpeven
+        rw [htn] at hpe
+        have heq : pe = (⟨node, par, depth⟩ : Entry) :=
+          Option.some.inj (hpe.symm.trans (freshLookup st.1 node par depth))
+        have hodd' : (⟨node, par, depth⟩ : Entry).depth % 2 ≠ 0 := hev
+        exact absurd (heq ▸ hpeven) hodd'
+      have hlastI : ∀ pe, (st.1 ++ [(⟨node, par, depth⟩ : Entry)])[(((st.1.length : Nat) : Int)).toNat]? = some pe → pe.depth % 2 = 0 → (if depth % 2 == 0 then st.2 ++ [st.1.length] else st.2).getLast? = some (((st.1.length : Nat) : Int)).toNat := by
+        rw [hpre]
+        exact hlastC
+      rw [← hpre] at hinI
+      obtain ⟨segE, segO, hchPair, hchLow, hchInv, hchOdd⟩ :=
+        ih (children ns node) ((st.1.length : Nat) : Int) (depth + 1)
+          ((st.1 ++ [(⟨node, par, depth⟩ : Entry)]).length)
+          (st.1 ++ [(⟨node, par, depth⟩ : Entry)])
+          (if depth % 2 == 0 then st.2 ++ [st.1.length] else st.2)
+          hlen' hfr' hparc' hnn' hinI hinIOdd
+      obtain ⟨segE', segO', hstepPair, hstepLow, hstepInv, hstepOdd⟩ :=
+        flatJointStep ns up fuel st.1 st.2 node par depth startE
+          hinv hlen hnn hparc segE segO hchPair hchLow hchInv hchOdd
+      have hst'eq : fstep ns up fuel par depth st node
+          = (st.1 ++ segE', st.2 ++ segO') := hstepPair
+      have hlenStep : startE ≤ (st.1 ++ segE').length := by
+        simp only [List.length_append]
+        omega
+      have hfrStep : par = -1 ∨ ∃ pe, (st.1 ++ segE')[par.toNat]? = some pe := by
+        rcases hfr with h | ⟨pe, hpe⟩
+        · exact Or.inl h
+        · exact Or.inr ⟨pe, flatPrefixGet st.1 _ ⟨segE', rfl⟩ _ _ hpe⟩
+      obtain ⟨segE2, segO2, hrestPair, hrestLow, hrestInv, hrestOdd⟩ :=
+        ihrest (st.1 ++ segE', st.2 ++ segO') hstepInv hstepOdd hlenStep hfrStep
+      refine ⟨segE' ++ segE2, segO' ++ segO2, ?_, ?_, ?_, ?_⟩
+      · show rest.foldl (fstep ns up fuel par depth)
+            (fstep ns up fuel par depth st node) = _
+        rw [hst'eq, hrestPair]
+        show ((st.1 ++ segE') ++ segE2, (st.2 ++ segO') ++ segO2) = _
+        simp only [List.append_assoc]
+      · intro w hw
+        rcases List.mem_append.mp hw with hw | hw
+        · exact hstepLow _ hw
+        · exact hrestLow _ hw
+      · have hE : (st.1 ++ segE') ++ segE2 = st.1 ++ (segE' ++ segE2) :=
+          List.append_assoc _ _ _
+        have hO : (st.2 ++ segO') ++ segO2 = st.2 ++ (segO' ++ segO2) :=
+          List.append_assoc _ _ _
+        have hrestInv' : FlatInv ((st.1 ++ segE') ++ segE2)
+            ((st.2 ++ segO') ++ segO2) par startE := hrestInv
+        rw [hE, hO] at hrestInv'
+        exact hrestInv'
+      · have hE : (st.1 ++ segE') ++ segE2 = st.1 ++ (segE' ++ segE2) :=
+          List.append_assoc _ _ _
+        have hO : (st.2 ++ segO') ++ segO2 = st.2 ++ (segO' ++ segO2) :=
+          List.append_assoc _ _ _
+        have hrestOdd' : FlatWinOdd ((st.1 ++ segE') ++ segE2)
+            ((st.2 ++ segO') ++ segO2) := hrestOdd
+        rw [hE, hO] at hrestOdd'
+        exact hrestOdd'
+
+theorem flatJointFlatten (ns : List Tree.Node) (up : Bool) (fuel : Nat) :
+    ∀ (ids : List Nat) (par : Int) (depth startE : Nat) (es : List Entry)
+      (os : List Nat),
+      startE ≤ es.length →
+      (par = -1 ∨ ∃ pe, es[par.toNat]? = some pe) →
+      (par = -1 ∨ par.toNat < startE) →
+      (par = -1 ∨ 0 ≤ par) →
+      FlatInv es os par startE →
+      FlatWinOdd es os →
+      ∃ segE segO, flatten ns up fuel ids par depth es os
+        = (es ++ segE, os ++ segO) ∧
+        (∀ w ∈ segO, startE ≤ w) ∧ FlatInv (es ++ segE) (os ++ segO) par startE ∧
+        FlatWinOdd (es ++ segE) (os ++ segO) := by
+  induction fuel with
+  | zero =>
+    intro ids par depth startE es os hlen hfr hparc hnn hinv hodd
+    exact ⟨[], [], by simp [flatten], by intro w hw; simp at hw,
+      by simpa using hinv, by simpa using hodd⟩
+  | succ fuel ih =>
+    intro ids par depth startE es os hlen hfr hparc hnn hinv hodd
+    rw [flatSuccFold]
+    exact flatJointFold ns up fuel par depth startE hnn hparc ih _
+      (es, os) hinv hodd hlen hfr
 
 theorem hardBDeeperOrdInterval' (ns : List Tree.Node) (cause k : Nat) :
     HardBDeeperOrdInterval ns cause k := by
