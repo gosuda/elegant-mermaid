@@ -658,3 +658,6 @@ import Elegant.Layered.ExactLoopEnvelopeLeftNonPlainProof
 import Elegant.Layered.ExactCaptionSamePartProof
 import Elegant.Layered.ExactNonfwdAncHullProof
 import Elegant.Layered.DivergeSweepStepProof
+import Elegant.Layered.NotesRouterInvariantProof
+import Elegant.Layered.ExpandChildParentRouteAttachedCtxProof
+import Elegant.Layered.ExactStepLeafFactsProof
