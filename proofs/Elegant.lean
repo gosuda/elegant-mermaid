@@ -698,3 +698,8 @@ import Elegant.Layered.ExactMarkerBracketProof
 import Elegant.Layered.ExactStepRecursionPremisesProof
 import Elegant.Layered.ExpandChildParentFrameFlatRecursionProof
 import Elegant.Layered.ExpandChildLabelOwnersProof
+import Elegant.Layered.LayeredAdmission
+import Elegant.Layered.RegionNestFactsProof
+import Elegant.Layered.ExactFallbackFrameFactsProof
+import Elegant.Layered.ExpandChildFitPerCallGuardProof
+import Elegant.Layered.ExpandChildStepStrictnessProof
