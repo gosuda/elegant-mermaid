@@ -1944,3 +1944,4 @@ Elegant.Layered.PipelineImpl.X_titled_node_origin
 Elegant.Layered.PipelineImpl.X_topRank_of_seams
 Elegant.Layered.PipelineImpl.stepC6Geometry_closed
 Elegant.Layered.PipelineImpl.x_topRank_holds
+Elegant.Kinds.IshikawaFinal.descendantFrameGap
