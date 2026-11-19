@@ -7,6 +7,8 @@ import Elegant.Layered.SubInputWellFormedFacts
 import Elegant.Layered.ExactFlatC3Closure
 import Elegant.Layered.ExactFlatC2
 import Elegant.Layered.ExactSubInputStepC2
+import Elegant.Layered.ExactFlatC5Closed
+import Elegant.Layered.ExactFitClosure
 import Elegant.Layered.ExactStepFacts
 import Elegant.Layered.FrameClearanceSeam
 import Elegant.Layered.BracketInsidePremisesProof
@@ -48,10 +50,12 @@ def actorIds (m : Model) : List String :=
 // `SceneExecutionX.routes_orthogonal`; `subInputC2` from
 // `subInputWellFormedC2`; `partsSep` from `labelsC7_partsSeparated` (all
 // base-independent).
-//
 // Removed fields and the theorems proving them:
 // - `flatC3`: `flatC3B_layoutX` (`ExactFlatC3Closure.lean`), no hypotheses.
 // - `flatC2`: `flatC2B_layoutX` (`ExactFlatC2.lean`), no hypotheses.
+// - `flatC5`: `flatC5B_layoutX_closed` (`ExactFlatC5Closed.lean`), no hypotheses.
+// - `canvasMargins`: `exactCanvasMargins` (`ExactFitClosure.lean`), no hypotheses.
+// - `fitClosed`: `exactFitClosed` (`ExactFitClosure.lean`), no hypotheses.
 // - `subInputB`: `subInputWellFormedB_layoutX` (`ExactSubInputStepC2.lean`),
 //   no hypotheses.
 // - `stepC2`: `stepC2_layoutX` (`ExactSubInputStepC2.lean`), no hypotheses.
@@ -87,42 +91,33 @@ def actorIds (m : Model) : List String :=
 // Each remaining field below names in one line the plain-pipeline theorem
 // proving its counterpart, for the porting slices. -/
 structure ExactSeams (exactIds : List String) : Prop where
-  /-- Plain counterpart: `FlatGroupEndpoints` via `flatC5B_of_endpoints`. -/
-  flatC5 : Layered.PipelineImpl.FlatC5B (Layered.PipelineImpl.layoutX exactIds)
   /-- Plain counterpart: the eight narrow `LayeredSeams` residuals via `flatC6_closed`. -/
   flatC6 : Layered.PipelineImpl.FlatC6B (Layered.PipelineImpl.layoutX exactIds)
-  /-- Plain counterpart: `layout_c7`. -/
+  /-- `flatC7B_layoutX` still needs the seven exact facts (loop/forward/reversed separation, `X_RouteLabelsPlaced`, exclusive-decl, exclusive-key, caption-scope). -/
   flatC7 : Layered.PipelineImpl.FlatC7B (Layered.PipelineImpl.layoutX exactIds)
-  /-- Plain counterpart: `flatC8a_of_span_seams` plus foreign-span premises. -/
+  /-- `flatC8aB_layoutX` still needs the exact C8a span facts and `X_ForeignBorderChainXAligned`. -/
   flatC8a : Layered.PipelineImpl.FlatC8aB (Layered.PipelineImpl.layoutX exactIds)
-  /-- Plain counterpart: `layout_c8b` plus the narrow label residuals via `frameLabels_executed`. -/
+  /-- `flatC8bB_layoutX` still needs three exact facts (part-frame cores, packed-part transport, fallback caption clear). -/
   flatC8b : Layered.PipelineImpl.FlatC8bB (Layered.PipelineImpl.layoutX exactIds)
-  /-- Residual: the canvas-margin bound the C7/C8b lifts need. -/
-  canvasMargins :
-    Layered.PipelineImpl.CanvasMarginsB (Layered.PipelineImpl.layoutX exactIds)
-  /-- Narrower open fact consumed by `labelRuns`: top separation of the loop footprint. -/
+  /-- Narrower open fact consumed by `labelRuns`: top separation of the loop footprint. Best partial: `loopFootprintTopSeparation_holds` (needs `ForeignBorderChainXAligned` plus sliver/good premises). -/
   loopFootprintTopSeparation : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
     WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
     Layered.PipelineImpl.LoopFootprintTopSeparation inp o res
-  /-- Narrower open fact consumed by `labelRuns`: beyond-proper footprint separation. -/
+  /-- Narrower open fact consumed by `labelRuns`: beyond-proper footprint separation. Best partial: `loopFootprintBeyondProper_holds` (needs `ForeignBorderChainXAligned` plus sliver residuals). -/
   loopFootprintBeyondProper : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
     WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
     Layered.PipelineImpl.LoopFootprintBeyondProper inp o res
-  /-- Narrower open fact consumed by `captions`: same-part title exclusivity. -/
+  /-- Narrower open fact consumed by `captions`: same-part title exclusivity. Best partial: `titleExclusiveSamePart_holds` (needs `ForeignBorderChainXAligned`). -/
   titleExclusiveSamePart : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
     WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
     Layered.PipelineImpl.TitleExclusiveSamePart inp o res
-  /-- Narrower open fact consumed by `captions`: executed part-frame cores. -/
+  /-- Narrower open fact consumed by `captions`: executed part-frame cores. Best partial: `executedPartFrameCores` (`PartFrameCoresProof.lean`, needs route-run-clear and caption premises). -/
   executedPartFrameCores : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
     WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
     ∀ (execution : Layered.PipelineImpl.SceneExecution inp o res),
       Layered.PipelineImpl.ExecutedPartFrameCores execution
-  /-- Narrower open fact consumed by `captions` via `flatC8a_executed`:
-  cross-coordinate-placement residual for the border-chain span separation. -/
+  /-- Narrower open fact consumed by `captions` via `flatC8a_executed`: cross-coordinate-placement residual for the border-chain span separation. Best partial: `foreignBorderChainXAligned` (needs `ForeignBorderSideUps`). -/
   foreignBorderChainXAligned : Layered.PipelineImpl.ForeignBorderChainXAligned
-  /-- Plain counterpart: `layoutRecursive_childInset_fits_frame` plus parent closure. -/
-  fitClosed :
-    Layered.PipelineImpl.ExpandChildFitClosedB (Layered.PipelineImpl.layoutX exactIds)
   /-- Base-parametric C6 geometry hypothesis consumed by `stepC6_layoutX`. -/
   stepC6Geometry :
     Layered.PipelineImpl.RecursiveStepFactsB (Layered.PipelineImpl.layoutX exactIds)
@@ -155,9 +150,10 @@ structure ExactSeams (exactIds : List String) : Prop where
 `exactPartsBounded'` (the inset body consumes only placement conjunct 1, which
 holds with no hypothesis); `flatC4` from `SceneExecutionX.routes_orthogonal`;
 `subInputC2` from `subInputWellFormedC2`; `partsSep` from
-`labelsC7_partsSeparated` (all base-independent). `flatC3`, `flatC2`, `subInputB`,
-and `stepC2` are discharged by their no-hypothesis theorems; `frameClear` by
-`frameClearanceSeam_holds` over the executed bracket premises, and `labelRuns` /
+`labelsC7_partsSeparated` (all base-independent). `flatC3`, `flatC2`, `flatC5`,
+`canvasMargins`, `fitClosed`, `subInputB`, and `stepC2` are discharged by their
+no-hypothesis theorems; `frameClear` by `frameClearanceSeam_holds` over the
+executed bracket premises, and `labelRuns` /
 `captions` by the `baseSeams_of_layered` terms over the narrower `ExactSeams`
 fields; the step seams by the
 `stepC*_layoutX` assemblers over the `ExactSeams` geometry/ancestry hypotheses.
@@ -180,12 +176,12 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
   flatC4 := fun inp o res h route hroute => by
     obtain ⟨execution⟩ := Layered.PipelineImpl.layoutX_sceneExecution h
     exact Layered.PipelineImpl.SceneExecutionX.routes_orthogonal execution route hroute
-  flatC5 := R.flatC5
+  flatC5 := Layered.PipelineImpl.flatC5B_layoutX_closed exactIds
   flatC6 := R.flatC6
   flatC7 := R.flatC7
   flatC8a := R.flatC8a
   flatC8b := R.flatC8b
-  canvasMargins := R.canvasMargins
+  canvasMargins := Layered.PipelineImpl.exactCanvasMargins exactIds
   frameClear := fun inp o res hwf hfp =>
     Layered.PipelineImpl.frameClearanceSeam_holds
       (Layered.PipelineImpl.bracketInsidePremises
@@ -226,8 +222,8 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
                   Layered.PipelineImpl.titleCopySpanClearStrict_executed hwf hfp execution)))
           (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
   subInputC2 := Layered.PipelineImpl.subInputWellFormedC2
+  fitClosed := Layered.PipelineImpl.exactFitClosed exactIds
   subInputB := Layered.PipelineImpl.subInputWellFormedB_layoutX exactIds
-  fitClosed := R.fitClosed
   stepC2 := Layered.PipelineImpl.stepC2_layoutX exactIds
   stepC6 := Layered.PipelineImpl.stepC6_layoutX exactIds R.stepC6Geometry R.stepC6Anchors
   stepC7 := Layered.PipelineImpl.stepC7_layoutX exactIds R.stepC7Geometry R.stepC8aAncestry
