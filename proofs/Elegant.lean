@@ -466,3 +466,4 @@ import Elegant.Layered.ExpandChildC8bGeometryExecuted
 import Elegant.Kinds.ArchitectureC8a
 import Elegant.Layered.ExactFlatC7CaptionScope
 import Elegant.Layered.ExactFlatC7Forward
+import Elegant.Layered.ExactFlatC7Loop

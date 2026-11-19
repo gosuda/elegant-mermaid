@@ -2018,3 +2018,4 @@ Elegant.Kinds.Architecture.c8a_walk_step
 Elegant.Kinds.Architecture.architecture_valid'
 Elegant.Layered.PipelineImpl.x_captionScopeClearance_holds
 Elegant.Layered.PipelineImpl.x_runLocalForwardSeparation_holds
+Elegant.Layered.PipelineImpl.x_runLocalLoopSeparation_holds
