@@ -2945,3 +2945,10 @@ Elegant.Layered.PipelineImpl.XCA_markerBandBelowX_of_W
 Elegant.Layered.PipelineImpl.XCA_markerBelowX_closed_admission
 Elegant.Layered.PipelineImpl.xcb_markerBelowXW_closed
 Elegant.Layered.PipelineImpl.xcb_descendantFallbackBandXW_closed
+Elegant.Kinds.endsSplit_disjunction_eq_false
+Elegant.Kinds.endsSplitOn_false_of_route
+Elegant.Kinds.endsSplitWitnessG2G_gates
+Elegant.Kinds.endsSplitWitnessG2Loose_gates
+Elegant.Kinds.aboveLanePin_of_no_lanes
+Elegant.Kinds.aboveLanePin_of_no_loose
+Elegant.Kinds.aboveLane_of_residual
