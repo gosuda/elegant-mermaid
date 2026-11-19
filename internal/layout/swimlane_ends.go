@@ -76,33 +76,40 @@ func attachLaneEnds(s *scene.Scene, axis laneAxis, frames []laneFrame) error {
 		if len(route.Points) == 0 {
 			continue
 		}
-		head, headMoved, err := attachEnd(s, axis, frames, route.From, route.Points[0])
-		if err != nil {
+		if err := reattachRoute(s, axis, frames, route); err != nil {
 			return err
 		}
-		tail, tailMoved, err := attachEnd(s, axis, frames, route.To, route.Points[len(route.Points)-1])
-		if err != nil {
-			return err
-		}
-		if !headMoved && !tailMoved {
-			continue
-		}
-		raw := make([]geom.Point, 0, len(route.Points)+2)
-		if headMoved {
-			raw = append(raw, head)
-		}
-		raw = append(raw, route.Points...)
-		if tailMoved {
-			raw = append(raw, tail)
-		}
-		next := simplifyPolyline(raw)
-		if slices.Equal(next, route.Points) {
-			continue
-		}
-		previous := route.Points
-		route.Points = next
-		retargetEdgeItems(s, route.ID, previous, next)
 	}
+	return nil
+}
+
+func reattachRoute(s *scene.Scene, axis laneAxis, frames []laneFrame, route *scene.Route) error {
+	head, headMoved, err := attachEnd(s, axis, frames, route.From, route.Points[0])
+	if err != nil {
+		return err
+	}
+	tail, tailMoved, err := attachEnd(s, axis, frames, route.To, route.Points[len(route.Points)-1])
+	if err != nil {
+		return err
+	}
+	if !headMoved && !tailMoved {
+		return nil
+	}
+	raw := make([]geom.Point, 0, len(route.Points)+2)
+	if headMoved {
+		raw = append(raw, head)
+	}
+	raw = append(raw, route.Points...)
+	if tailMoved {
+		raw = append(raw, tail)
+	}
+	next := simplifyPolyline(raw)
+	if slices.Equal(next, route.Points) {
+		return nil
+	}
+	previous := route.Points
+	route.Points = next
+	retargetEdgeItems(s, route.ID, previous, next)
 	return nil
 }
 
@@ -112,27 +119,43 @@ func retargetEdgeItems(s *scene.Scene, owner string, previous, points []geom.Poi
 			continue
 		}
 		for _, item := range group.Items {
-			switch shape := item.(type) {
-			case *scene.Polyline:
-				shape.Points = slices.Clone(points)
-			case *scene.MarkerRef:
-				switch {
-				case shape.At == previous[0]:
-					shape.At = points[0]
-					neighbour := points[0]
-					if len(points) > 1 {
-						neighbour = points[1]
-					}
-					shape.Axis = layered.MarkerAxis(neighbour, points[0])
-				case shape.At == previous[len(previous)-1]:
-					shape.At = points[len(points)-1]
-					neighbour := points[len(points)-1]
-					if len(points) > 1 {
-						neighbour = points[len(points)-2]
-					}
-					shape.Axis = layered.MarkerAxis(neighbour, points[len(points)-1])
-				}
-			}
+			retargetEdgeItem(item, previous, points)
 		}
 	}
+}
+
+func retargetEdgeItem(item scene.Primitive, previous, points []geom.Point) {
+	switch shape := item.(type) {
+	case *scene.Polyline:
+		shape.Points = slices.Clone(points)
+	case *scene.MarkerRef:
+		retargetMarker(shape, previous, points)
+	}
+}
+
+func retargetMarker(shape *scene.MarkerRef, previous, points []geom.Point) {
+	switch {
+	case shape.At == previous[0]:
+		retargetHeadMarker(shape, points)
+	case shape.At == previous[len(previous)-1]:
+		retargetTailMarker(shape, points)
+	}
+}
+
+func retargetHeadMarker(shape *scene.MarkerRef, points []geom.Point) {
+	shape.At = points[0]
+	neighbour := points[0]
+	if len(points) > 1 {
+		neighbour = points[1]
+	}
+	shape.Axis = layered.MarkerAxis(neighbour, points[0])
+}
+
+func retargetTailMarker(shape *scene.MarkerRef, points []geom.Point) {
+	shape.At = points[len(points)-1]
+	neighbour := points[len(points)-1]
+	if len(points) > 1 {
+		neighbour = points[len(points)-2]
+	}
+	shape.Axis = layered.MarkerAxis(neighbour, points[len(points)-1])
 }

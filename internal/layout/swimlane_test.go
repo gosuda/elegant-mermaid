@@ -282,6 +282,48 @@ func laneEndsTailMarker(t *testing.T, s scene.Scene, route scene.Route) scene.Ma
 	return scene.MarkerRef{}
 }
 
+func topLevelLaneSet(s scene.Scene) map[string]bool {
+	lanes := map[string]bool{}
+	for _, box := range s.Boxes {
+		if box.Role == scene.RoleGroup && box.Parent == "" {
+			lanes[box.ID] = true
+		}
+	}
+	return lanes
+}
+
+func assertLaneLoopEndsOnFrame(t *testing.T, profile scene.Profile, name, direction string, s scene.Scene, route scene.Route) {
+	t.Helper()
+	frame := sceneBox(t, s, route.From)
+	var start, length, first, last int32
+	if direction == "LR" || direction == "RL" {
+		start, length = frame.Rect.Y, frame.Rect.H
+		first, last = route.Points[0].Y, route.Points[len(route.Points)-1].Y
+	} else {
+		start, length = frame.Rect.X, frame.Rect.W
+		first, last = route.Points[0].X, route.Points[len(route.Points)-1].X
+	}
+	if first != start+length || last != start+length {
+		t.Fatalf("%v %s: route %s ends at (%d, %d), lane frame ends at %d", profile, name, route.ID, first, last, start+length)
+	}
+}
+
+func assertLaneLoopsEndOnFrames(t *testing.T, profile scene.Profile, name, direction string, s scene.Scene) {
+	t.Helper()
+	lanes := topLevelLaneSet(s)
+	loops := 0
+	for _, route := range s.Routes {
+		if route.From != route.To || !lanes[route.From] {
+			continue
+		}
+		loops++
+		assertLaneLoopEndsOnFrame(t, profile, name, direction, s, route)
+	}
+	if loops == 0 {
+		t.Fatalf("%v %s: no lane self-loop route found", profile, name)
+	}
+}
+
 func TestSwimlaneLaneSelfLoopsEndOnLaneFrame(t *testing.T) {
 	cases := []struct {
 		name, direction, src string
@@ -302,34 +344,7 @@ func TestSwimlaneLaneSelfLoopsEndOnLaneFrame(t *testing.T) {
 	for _, profile := range []scene.Profile{scene.ProfileVector, scene.ProfileCell} {
 		for _, c := range cases {
 			s := swimlaneScene(t, c.src, profile)
-			lanes := map[string]bool{}
-			for _, box := range s.Boxes {
-				if box.Role == scene.RoleGroup && box.Parent == "" {
-					lanes[box.ID] = true
-				}
-			}
-			loops := 0
-			for _, route := range s.Routes {
-				if route.From != route.To || !lanes[route.From] {
-					continue
-				}
-				loops++
-				frame := sceneBox(t, s, route.From)
-				var start, length, first, last int32
-				if c.direction == "LR" || c.direction == "RL" {
-					start, length = frame.Rect.Y, frame.Rect.H
-					first, last = route.Points[0].Y, route.Points[len(route.Points)-1].Y
-				} else {
-					start, length = frame.Rect.X, frame.Rect.W
-					first, last = route.Points[0].X, route.Points[len(route.Points)-1].X
-				}
-				if first != start+length || last != start+length {
-					t.Fatalf("%v %s: route %s ends at (%d, %d), lane frame ends at %d", profile, c.name, route.ID, first, last, start+length)
-				}
-			}
-			if loops == 0 {
-				t.Fatalf("%v %s: no lane self-loop route found", profile, c.name)
-			}
+			assertLaneLoopsEndOnFrames(t, profile, c.name, c.direction, s)
 		}
 	}
 }
