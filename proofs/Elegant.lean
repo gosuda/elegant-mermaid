@@ -496,3 +496,4 @@ import Elegant.Layered.LoopFootprintBeyondPlainProof
 import Elegant.Layered.ExpandChildParentFixedMissProof
 import Elegant.Layered.LoopFootprintTopSeparationProof
 import Elegant.Layered.LoopFootprintBeyondTopProof
+import Elegant.Layered.LaneEndsClauses
