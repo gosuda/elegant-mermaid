@@ -1,4 +1,7 @@
 import Elegant.Layered.ForeignClusterFactsProof
+import Elegant.Layered.SideMarkerAnchorCoverProof
+import Elegant.Layered.ForeignBottomInCandidateProof
+import Elegant.Layered.SideMarkerFactsProof
 
 set_option autoImplicit false
 
@@ -177,7 +180,10 @@ between the anchor ranks, and the anchor ranks are ordered. The bounds are
 stated with `toNat` anchor ranks, matching the pair cover. This is the
 executed constraint-edge rank bracket (top anchor above, bottom anchor
 below) transported to proper level; it is about ranks only, pinned to the
-same three execution equations as the goal. -/
+same three execution equations as the goal. The labeled source is pinned by
+the same prepared-bundle witnesses (`NodeKeys`, ranking result, rank/node
+records, length alignment) that `ForeignRankPairAnchors` provides, so the
+member bounds are provable from the bundle. -/
 def ForeignMemberRankBounds : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
@@ -194,8 +200,17 @@ def ForeignMemberRankBounds : Prop :=
     (componentCandidate graph comp candidate).nodes[u]? = some uNode →
     (componentCandidate graph comp candidate).nodes[w]? = some wNode →
     uNode.border = -2 → wNode.border = -2 → uNode.decl ≠ wNode.decl →
-    ∀ {labeled : Proper},
+    ∀ {labeled : Proper} {rr : RankImpl.RankResult},
     coordinateGraph P labeled = run.coordinateProper →
+    labeled.nodes.length = labeled.rank.length →
+    NodeKeys (componentCandidate graph comp candidate) labeled →
+    rankWithBudget (Compound.rankingGraph (componentCandidate graph comp candidate)) =
+      .ok rr →
+    (∀ (index : Nat) (rank : Int), rr.ranks[index]? = some rank →
+      labeled.rank[index]? = some rank) →
+    (∀ (index : Nat) (node : Node),
+      (componentCandidate graph comp candidate).nodes[index]? = some node →
+        labeled.nodes[index]? = some ⟨node, false, none, false⟩) →
     ∀ {topU botU topW botW : ProperNode × Nat},
     topU ∈ (titleReservations (sizeProperPorts P labeled)).nodes.zipIdx →
     topU.1.node.border = -2 →
@@ -240,7 +255,7 @@ theorem foreignClusterRankSpans (hanch : ForeignRankPairAnchors)
     (hmem : ForeignMemberRankBounds) : ForeignClusterRankSpans := by
   intro P inp o lines graph hgraph hlines hwf hfp comp hcomp candidate run labels orderOptions hrun
     u w uNode wNode hu hw hbU hbW hne
-  obtain ⟨labeled, hcoord, haligned, hU⟩ :=
+  obtain ⟨labeled, _, hcoord, halignedL, hkeys, hrr, hranks, hrecords, haligned, hU⟩ :=
     hanch hgraph hcomp hrun hu hw hbU hbW hne
   obtain ⟨topU, botU, htopU, hbUtop, hlastU, hbotU, hW⟩ := hU
   obtain ⟨topW, botW, htopW, hbWtop, hlastW, hbotW⟩ := hW
@@ -283,8 +298,8 @@ theorem foreignClusterRankSpans (hanch : ForeignRankPairAnchors)
       simp only [rk, List.getD_eq_getElem?_getD, hrrW, Option.getD_some]
     exact ⟨lW, rW, _, _, hLW, rfl, hlastW, hrkLW, hRW, rfl, hlastW, hrkRW⟩
   obtain ⟨hordU, hordW, hmemU, hmemW⟩ :=
-    hmem hgraph hlines hwf hfp hcomp hrun hu hw hbU hbW hne hcoord
-      htopU hbUtop hlastU hbotU htopW hbWtop hlastW hbotW
+    hmem hgraph hlines hwf hfp hcomp hrun hu hw hbU hbW hne hcoord halignedL
+      hkeys hrr hranks hrecords htopU hbUtop hlastU hbotU htopW hbWtop hlastW hbotW
   refine ⟨_, _, _, _, hordU, hordW, hmemU, hmemW, ?_, ?_⟩
   · intro r hrU hrW
     have h0r : 0 ≤ r := by omega

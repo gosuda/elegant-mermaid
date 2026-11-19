@@ -98,7 +98,10 @@ proper graph carries a top anchor and a path-matched bottom anchor per
 declaration.  The coordinate equation and the length alignment pin the same
 labeled source (both are proved facts, bundled so the anchors refer to one
 source); the open content is the anchor lookups, which is what
-`coordinateGraph_rank_pair` consumes. -/
+`coordinateGraph_rank_pair` consumes.  The bundle also carries the
+prepared-graph witnesses (`NodeKeys`, the ranking result, and the rank/node
+records) that `ForeignMemberRankBounds` needs to prove member intervals
+about this same labeled source. -/
 def ForeignRankPairAnchors : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
@@ -112,8 +115,17 @@ def ForeignRankPairAnchors : Prop :=
     (componentCandidate graph comp candidate).nodes[u]? = some uNode →
     (componentCandidate graph comp candidate).nodes[w]? = some wNode →
     uNode.border = -2 → wNode.border = -2 → uNode.decl ≠ wNode.decl →
-    ∃ (labeled : Proper),
+    ∃ (labeled : Proper) (rr : RankImpl.RankResult),
       coordinateGraph P labeled = run.coordinateProper ∧
+      labeled.nodes.length = labeled.rank.length ∧
+      NodeKeys (componentCandidate graph comp candidate) labeled ∧
+      rankWithBudget (Compound.rankingGraph (componentCandidate graph comp candidate)) =
+        .ok rr ∧
+      (∀ (index : Nat) (rank : Int), rr.ranks[index]? = some rank →
+        labeled.rank[index]? = some rank) ∧
+      (∀ (index : Nat) (node : Node),
+        (componentCandidate graph comp candidate).nodes[index]? = some node →
+          labeled.nodes[index]? = some ⟨node, false, none, false⟩) ∧
       (titleReservations (sizeProperPorts P labeled)).nodes.length =
         (titleReservations (sizeProperPorts P labeled)).rank.length ∧
       ∃ (topU botU : ProperNode × Nat),
@@ -485,7 +497,7 @@ theorem foreignRankPairCover (hrank : ForeignRankPairAnchors)
             run.coordinateProper.nodes[mRW]? = some nRW ∧
             nRW.node.border = 1 ∧ nRW.node.clusterPath.getLast? = some wNode.decl ∧
             rk run.coordinateProper.rank mRW = (rank : Int)) := by
-  obtain ⟨labeled, hcoord, haligned, hU⟩ :=
+  obtain ⟨labeled, _, hcoord, _, _, _, _, _, haligned, hU⟩ :=
     hrank hgraph hcomp hrun hu hw hbU hbW hne
   obtain ⟨topU, botU, htopU, hbUtop, hlastU, hbotU, hW⟩ := hU
   obtain ⟨topW, botW, htopW, hbWtop, hlastW, hbotW⟩ := hW

@@ -189,12 +189,19 @@ theorem foreignRankPairAnchors (hbot : ForeignBottomInCandidate) :
     ForeignRankPairAnchors := by
   intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions
     hrun u w uNode wNode hu hw hbU hbW _hne
-  obtain ⟨_, _, labeled, _, hn, hl, hcoord, _⟩ :=
+  obtain ⟨rr, _, labeled, hrr, hn, hl, hcoord, _⟩ :=
     componentRun_ranked_source hrun
   have haligned : labeled.nodes.length = labeled.rank.length := by
     rw [← addLabelNodes_node_length hl, (Labels.addLabelNodes_metadata hl).2.1]
     exact (normalize_node_rank_alignment hn).1
   have hlenEq := titleReservations_node_rank_alignment P haligned
+  have hkeys : NodeKeys (componentCandidate graph comp candidate) labeled :=
+    addLabelNodes_keys _ _ _ (normalize_keys hn) hl
+  have hranks : ∀ (index : Nat) (rank : Int), rr.ranks[index]? = some rank →
+      labeled.rank[index]? = some rank := by
+    intro index rank hrank
+    rw [(Labels.addLabelNodes_metadata hl).2.1]
+    exact normalize_rank_record hn hrank
   have hnodeRec : ∀ (index : Nat) (node : Node),
       (componentCandidate graph comp candidate).nodes[index]? = some node →
       labeled.nodes[index]? = some (⟨node, false, none, false⟩ : ProperNode) :=
@@ -328,7 +335,7 @@ theorem foreignRankPairAnchors (hbot : ForeignBottomInCandidate) :
       have hnone := (List.find?_eq_none.mp h) _ hmemBW
       simp [hpredBW] at hnone
     | some x => exact ⟨x, rfl⟩
-  refine ⟨labeled, hcoord, hlenEq,
+  refine ⟨labeled, rr, hcoord, haligned, hkeys, hrr, hranks, hnodeRec, hlenEq,
     (titleF (⟨uNode, false, none, false⟩ : ProperNode), u), botU,
     htopUmem, hbUtop, hlastTopU, hbotU,
     (titleF (⟨wNode, false, none, false⟩ : ProperNode), w), botW,

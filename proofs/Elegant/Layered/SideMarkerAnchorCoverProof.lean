@@ -5,6 +5,14 @@ import Elegant.Layered.GroupWidthFacts
 import Elegant.Layered.CoordGraph
 import Elegant.Layered.PipelineFacts
 import Elegant.Layered.Route
+import Elegant.Layered.DummyChainRankProof
+import Elegant.Layered.BottomSyntheticRankProof
+import Elegant.Layered.BottomNestedRankProof
+import Elegant.Layered.ForeignBottomInCandidateProof
+import Elegant.Layered.BottomClearanceExistence
+import Elegant.Layered.FrameClearanceFacts
+import Elegant.Layered.ComponentCoverage
+import Elegant.Layered.CompoundPathFacts
 
 set_option autoImplicit false
 
@@ -120,6 +128,41 @@ def BottomMemberRankCover : Prop :=
     q.1.node.clusterPath.contains
       ((componentCandidate graph comp candidate).nodes.getD t default).decl = true →
     rk run.coordinateProper.rank q.2 ≤ rk run.coordinateProper.rank v
+
+/-- Executed top rank bound: a candidate `-2` group top ranks at or below
+every executed proper node whose path carries its declaration. Discharges
+`TopMemberRankLe` via the closed `groupTopSubtreeRankProper'`. -/
+theorem topMemberRankLe : TopMemberRankLe := by
+  intro P inp o lines graph hgraph hlines hwf hfp comp hcomp candidate run
+    labels orderOptions hrun u uNode hu hb q hq hcontains
+  have hqget : run.proper.nodes[q.2]? = some q.1 :=
+    List.mem_zipIdx_iff_getElem?.mp hq
+  have hi : q.2 < run.proper.nodes.length :=
+    (List.getElem?_eq_some_iff.mp hqget).1
+  have huLt : u < (componentCandidate graph comp candidate).nodes.length :=
+    (List.getElem?_eq_some_iff.mp hu).1
+  have hget : run.proper.nodes.getD q.2 default = q.1 := by
+    simp only [List.getD_eq_getElem?_getD, hqget, Option.getD_some]
+  have hcontains' : (run.proper.nodes.getD q.2 default).node.clusterPath.contains
+      uNode.decl = true := by
+    rw [hget]
+    exact hcontains
+  exact groupTopSubtreeRankProper' hgraph hlines hwf hfp hcomp hrun hu hb huLt
+    hi hcontains'
+
+/-- Executed bottom rank bound: every executed proper node whose path carries
+a group declaration ranks at or below the group's candidate `border = 2`
+bottom marker. Discharges `BottomMemberRankCover` via the closed
+`bottomMemberRankLe` with the proved synthetic and nested seams. -/
+theorem bottomMemberRankCover : BottomMemberRankCover := by
+  intro P inp o lines graph hgraph hlines hwf hfp comp hcomp candidate run
+    labels orderOptions hrun v t ndV ndT hvGet htGet hbV hbT hdecl q hq hcontains
+  have hsynth : ∀ (P : Params) (graph : Graph), BottomSyntheticRankLe P graph :=
+    bottomSyntheticRankLe bottomDummyRankLe
+  have hnest : ∀ (P : Params) (graph : Graph), BottomNestedBottomRankLe P graph :=
+    bottomNestedBottomRankLe
+  exact bottomMemberRankLe hgraph hlines hwf hfp hcomp hrun hvGet htGet hbV hbT
+    hdecl hsynth hnest q hq hcontains
 
 /-- `toNat` is monotone on nonnegative ranks. -/
 private theorem smc_rkToNat_le {a b : Int} (ha : 0 ≤ a) (h : a ≤ b) :
@@ -257,6 +300,186 @@ private theorem smc_mapped_border {boxesM : List ModelBox} {pad : Int}
       · simp [hbx', hg]
       · simp [hbx', hg, hb0]
 
+/-- The titled `find?` bottom is the candidate bottom index: bottom markers
+are unique per group box, and every titled path-match is one. Both bottoms
+sit in the extras part at the same declaration position. -/
+theorem titledBottomPin {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {graph : Graph}
+    (hgraph : measuredGraph P inp o lines = .ok graph)
+    {comp : List Nat} (hcomp : comp ∈ components graph)
+    {candidate : Nat} {labeled : Proper}
+    (hkeys : NodeKeys (componentCandidate graph comp candidate) labeled)
+    {u iB : Nat} {uNode bNode : Node}
+    (hu : (componentCandidate graph comp candidate).nodes[u]? = some uNode)
+    (hBUlook : (componentCandidate graph comp candidate).nodes[iB]? = some bNode)
+    (hBUbord : bNode.border = 2)
+    (hBUdecl : bNode.decl = uNode.decl)
+    {decl : Nat} (hdeclU : uNode.decl = decl)
+    (hlastTop : (titleF ⟨uNode, false, none, false⟩).node.clusterPath.getLast? =
+      some decl)
+    {bot : ProperNode × Nat}
+    (hbotFind : ((titleReservations (sizeProperPorts P labeled)).nodes.zipIdx.find?
+      (fun entry : ProperNode × Nat => entry.1.node.border == 2 &&
+        entry.1.node.clusterPath ==
+          (titleF ⟨uNode, false, none, false⟩).node.clusterPath)) =
+      some bot) :
+    bot.2 = iB := by
+  have hbotMem : bot ∈
+      (titleReservations (sizeProperPorts P labeled)).nodes.zipIdx :=
+    List.mem_of_find?_eq_some hbotFind
+  have hbotPred := List.find?_some hbotFind
+  simp only [Bool.and_eq_true, beq_iff_eq] at hbotPred
+  obtain ⟨hbotB, hbotP⟩ := hbotPred
+  have hbotLookup : (titleReservations (sizeProperPorts P labeled)).nodes[bot.2]? =
+      some bot.1 :=
+    List.mem_zipIdx_iff_getElem?.mp hbotMem
+  rcases titled_node_origin hkeys hbotLookup with
+    ⟨orig, horig, _, hbord, hpath⟩ | ⟨_, hb3⟩
+  · have horigB : orig.node.border = 2 := hbord.symm.trans hbotB
+    have horigP : orig.node.clusterPath =
+        (titleF ⟨uNode, false, none, false⟩).node.clusterPath :=
+      hpath.symm.trans hbotP
+    rcases hkeys bot.2 orig horig with
+      ⟨nE, hnE, _, hnB, hnP⟩ | ⟨hdum, hb0, _⟩
+    · have hnEB : nE.border = 2 := hnB.symm.trans horigB
+      have hnEP : nE.clusterPath =
+          (titleF ⟨uNode, false, none, false⟩).node.clusterPath :=
+        hnP.symm.trans horigP
+      have hlastE := smc_bottom_getLast hgraph hnE hnEB
+      have hnEdecl : nE.decl = decl := by
+        have hcongr := congrArg List.getLast? hnEP
+        rw [hlastE, hlastTop] at hcongr
+        exact Option.some.inj hcongr
+      have hnBdecl : bNode.decl = decl := hBUdecl.trans hdeclU
+      -- Both bottoms sit in the extras part, at the same position.
+      obtain ⟨srcNodes, _, srcTitles, hprep, _, hmeta⟩ :=
+        measuredGraph_prepared_source hgraph
+      let boxesM := (inp.boxes.map fun box =>
+        if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then
+          ({ box with role := .node } : ModelBox) else box)
+      have hmeta0 : ∀ (i : Nat) (n : Node), srcNodes[i]? = some n →
+          n.border = 0 := fun i n hn => (hmeta i n hn).2
+      have hnodes : graph.nodes =
+          (srcNodes.zipIdx.map (markOne boxesM P.clusterPad srcTitles)) ++
+          markExtras boxesM := by
+        rw [hprep]
+        rfl
+      have hmappedLen : (srcNodes.zipIdx.map
+          (markOne boxesM P.clusterPad srcTitles)).length = srcNodes.length := by
+        simp
+      obtain ⟨origE, hcompE, hvalE⟩ := smc_comp_origin hnE
+      obtain ⟨origB, hcompB, hvalB⟩ := smc_comp_origin hBUlook
+      have hlenE : origE < graph.nodes.length := by
+        have hmemC : origE ∈ comp := List.mem_of_getElem? hcompE
+        unfold components at hcomp
+        obtain ⟨_, _, hrfl⟩ := List.mem_map.mp hcomp
+        subst hrfl
+        have hmemF : origE ∈ (List.range graph.nodes.length).filter _ :=
+          List.mem_of_getElem? hcompE
+        exact List.mem_range.mp (List.mem_filter.mp hmemF).1
+      have hlenB : origB < graph.nodes.length := by
+        have hmemC : origB ∈ comp := List.mem_of_getElem? hcompB
+        unfold components at hcomp
+        obtain ⟨_, _, hrfl⟩ := List.mem_map.mp hcomp
+        subst hrfl
+        have hmemF : origB ∈ (List.range graph.nodes.length).filter _ :=
+          List.mem_of_getElem? hcompB
+        exact List.mem_range.mp (List.mem_filter.mp hmemF).1
+      have hgE : graph.nodes[origE]? = some nE := by
+        rw [← hvalE, List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem hlenE, Option.getD_some]
+      have hgB : graph.nodes[origB]? = some bNode := by
+        rw [← hvalB, List.getD_eq_getElem?_getD,
+          List.getElem?_eq_getElem hlenB, Option.getD_some]
+      have hleE : (srcNodes.zipIdx.map
+          (markOne boxesM P.clusterPad srcTitles)).length ≤ origE := by
+        by_cases hlt : origE < (srcNodes.zipIdx.map
+          (markOne boxesM P.clusterPad srcTitles)).length
+        · have hmapped : (srcNodes.zipIdx.map
+              (markOne boxesM P.clusterPad srcTitles))[origE]? = some nE := by
+            rw [hnodes] at hgE
+            rw [List.getElem?_append_left hlt] at hgE
+            exact hgE
+          have h02 := smc_mapped_border hmeta0 hmapped
+          omega
+        · omega
+      have hleB : (srcNodes.zipIdx.map
+          (markOne boxesM P.clusterPad srcTitles)).length ≤ origB := by
+        by_cases hlt : origB < (srcNodes.zipIdx.map
+          (markOne boxesM P.clusterPad srcTitles)).length
+        · have hmapped : (srcNodes.zipIdx.map
+              (markOne boxesM P.clusterPad srcTitles))[origB]? = some bNode := by
+            rw [hnodes] at hgB
+            rw [List.getElem?_append_left hlt] at hgB
+            exact hgB
+          have h02 := smc_mapped_border hmeta0 hmapped
+          omega
+        · omega
+      have hEextras : (markExtras boxesM)[origE -
+          (srcNodes.zipIdx.map (markOne boxesM P.clusterPad srcTitles)).length]? =
+          some nE := by
+        rw [hnodes] at hgE
+        rw [List.getElem?_append_right hleE] at hgE
+        exact hgE
+      have hBextras : (markExtras boxesM)[origB -
+          (srcNodes.zipIdx.map (markOne boxesM P.clusterPad srcTitles)).length]? =
+          some bNode := by
+        rw [hnodes] at hgB
+        rw [List.getElem?_append_right hleB] at hgB
+        exact hgB
+      have hdeclEq : nE.decl = bNode.decl := hnEdecl.trans hnBdecl.symm
+      have hpos : origE -
+          (srcNodes.zipIdx.map (markOne boxesM P.clusterPad srcTitles)).length =
+          origB - (srcNodes.zipIdx.map
+            (markOne boxesM P.clusterPad srcTitles)).length :=
+        nodup_map_inj_aux (fun nd : Node => nd.decl) (smc_extras_decl_nodup boxesM)
+          hEextras hBextras hdeclEq
+      have horigEq : origE = origB := by omega
+      rw [horigEq] at hcompE
+      exact nodup_map_inj_aux (fun x => x)
+        (by simpa using components_nodup graph comp hcomp) hcompE hcompB rfl
+    · omega
+  · omega
+
+/-- A titled `-2` anchor with the same path-last as the candidate top is the
+candidate top index: titled owners are unique. -/
+theorem titledTopPin {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {graph : Graph}
+    (hgraph : measuredGraph P inp o lines = .ok graph)
+    {comp : List Nat} (hcomp : comp ∈ components graph)
+    {candidate : Nat} {labeled : Proper}
+    (hkeys : NodeKeys (componentCandidate graph comp candidate) labeled)
+    (hrecords : ∀ (index : Nat) (node : Node),
+      (componentCandidate graph comp candidate).nodes[index]? = some node →
+        labeled.nodes[index]? = some ⟨node, false, none, false⟩)
+    {u : Nat} {uNode : Node}
+    (hu : (componentCandidate graph comp candidate).nodes[u]? = some uNode)
+    (hbU : uNode.border = -2)
+    {top : ProperNode × Nat}
+    (htopMem : top ∈ (titleReservations (sizeProperPorts P labeled)).nodes.zipIdx)
+    (hbTop : top.1.node.border = -2)
+    (hlastTop : top.1.node.clusterPath.getLast? = some uNode.decl) :
+    top.2 = u := by
+  have htopLookup : (titleReservations (sizeProperPorts P labeled)).nodes[top.2]? =
+      some top.1 :=
+    List.mem_zipIdx_iff_getElem?.mp htopMem
+  have hrequested : (titleReservations (sizeProperPorts P labeled)).nodes[u]? =
+      some (titleF ⟨uNode, false, none, false⟩) :=
+    titled_marker_record (hrecords u uNode hu) (Or.inl hbU)
+  have hrequestedBorder : (titleF ⟨uNode, false, none, false⟩).node.border = -2 :=
+    (titleF_keys _).2.1.trans hbU
+  have howner : top.1.node.clusterPath.getLast? =
+      (titleF ⟨uNode, false, none, false⟩).node.clusterPath.getLast? := by
+    have hpathTop : (titleF ⟨uNode, false, none, false⟩).node.clusterPath =
+        uNode.clusterPath :=
+      (titleF_keys _).2.2.1
+    have hlastU : uNode.clusterPath.getLast? = some uNode.decl :=
+      smc_top_getLast hgraph hu hbU
+    rw [hpathTop, hlastU]
+    exact hlastTop
+  exact titled_group_owner_unique hgraph hcomp hkeys hrecords htopLookup hrequested
+    hbTop hrequestedBorder howner
+
 /-- The executed side-marker anchor cover. -/
 theorem sideMarkerAnchorCover
     (hbot : ForeignBottomInCandidate)
@@ -342,123 +565,9 @@ theorem sideMarkerAnchorCover
     | some x => exact ⟨x, rfl⟩
   -- The `find?` result is the candidate bottom index: bottom markers are
   -- unique per group box, and every titled match is one.
-  have huniq : bot.2 = iB := by
-    have hbotMem : bot ∈
-        (titleReservations (sizeProperPorts P labeled)).nodes.zipIdx :=
-      List.mem_of_find?_eq_some hbotFind
-    have hbotPred := List.find?_some hbotFind
-    simp only [Bool.and_eq_true, beq_iff_eq] at hbotPred
-    obtain ⟨hbotB, hbotP⟩ := hbotPred
-    have hbotLookup : (titleReservations (sizeProperPorts P labeled)).nodes[bot.2]? =
-        some bot.1 :=
-      List.mem_zipIdx_iff_getElem?.mp hbotMem
-    rcases titled_node_origin hkeys hbotLookup with
-      ⟨orig, horig, _, hbord, hpath⟩ | ⟨_, hb3⟩
-    · have horigB : orig.node.border = 2 := hbord.symm.trans hbotB
-      have horigP : orig.node.clusterPath =
-          (titleF ⟨uNode, false, none, false⟩).node.clusterPath :=
-        hpath.symm.trans hbotP
-      rcases hkeys bot.2 orig horig with
-        ⟨nE, hnE, _, hnB, hnP⟩ | ⟨hdum, hb0, _⟩
-      · have hnEB : nE.border = 2 := hnB.symm.trans horigB
-        have hnEP : nE.clusterPath =
-            (titleF ⟨uNode, false, none, false⟩).node.clusterPath :=
-          hnP.symm.trans horigP
-        have hlastE := smc_bottom_getLast hgraph hnE hnEB
-        have hnEdecl : nE.decl = decl := by
-          have hcongr := congrArg List.getLast? hnEP
-          rw [hlastE, hlastTop] at hcongr
-          exact Option.some.inj hcongr
-        have hnBdecl : bNode.decl = decl := hBUdecl.trans hdeclU
-        -- Both bottoms sit in the extras part, at the same position.
-        obtain ⟨srcNodes, _, srcTitles, hprep, _, hmeta⟩ :=
-          measuredGraph_prepared_source hgraph
-        let boxesM := (inp.boxes.map fun box =>
-          if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then
-            ({ box with role := .node } : ModelBox) else box)
-        have hmeta0 : ∀ (i : Nat) (n : Node), srcNodes[i]? = some n →
-            n.border = 0 := fun i n hn => (hmeta i n hn).2
-        have hnodes : graph.nodes =
-            (srcNodes.zipIdx.map (markOne boxesM P.clusterPad srcTitles)) ++
-            markExtras boxesM := by
-          rw [hprep]
-          rfl
-        have hmappedLen : (srcNodes.zipIdx.map
-            (markOne boxesM P.clusterPad srcTitles)).length = srcNodes.length := by
-          simp
-        obtain ⟨origE, hcompE, hvalE⟩ := smc_comp_origin hnE
-        obtain ⟨origB, hcompB, hvalB⟩ := smc_comp_origin hBUlook
-        have hlenE : origE < graph.nodes.length := by
-          have hmemC : origE ∈ comp := List.mem_of_getElem? hcompE
-          unfold components at hcomp
-          obtain ⟨_, _, hrfl⟩ := List.mem_map.mp hcomp
-          subst hrfl
-          have hmemF : origE ∈ (List.range graph.nodes.length).filter _ :=
-            List.mem_of_getElem? hcompE
-          exact List.mem_range.mp (List.mem_filter.mp hmemF).1
-        have hlenB : origB < graph.nodes.length := by
-          have hmemC : origB ∈ comp := List.mem_of_getElem? hcompB
-          unfold components at hcomp
-          obtain ⟨_, _, hrfl⟩ := List.mem_map.mp hcomp
-          subst hrfl
-          have hmemF : origB ∈ (List.range graph.nodes.length).filter _ :=
-            List.mem_of_getElem? hcompB
-          exact List.mem_range.mp (List.mem_filter.mp hmemF).1
-        have hgE : graph.nodes[origE]? = some nE := by
-          rw [← hvalE, List.getD_eq_getElem?_getD,
-            List.getElem?_eq_getElem hlenE, Option.getD_some]
-        have hgB : graph.nodes[origB]? = some bNode := by
-          rw [← hvalB, List.getD_eq_getElem?_getD,
-            List.getElem?_eq_getElem hlenB, Option.getD_some]
-        have hleE : (srcNodes.zipIdx.map
-            (markOne boxesM P.clusterPad srcTitles)).length ≤ origE := by
-          by_cases hlt : origE < (srcNodes.zipIdx.map
-            (markOne boxesM P.clusterPad srcTitles)).length
-          · have hmapped : (srcNodes.zipIdx.map
-                (markOne boxesM P.clusterPad srcTitles))[origE]? = some nE := by
-              rw [hnodes] at hgE
-              rw [List.getElem?_append_left hlt] at hgE
-              exact hgE
-            have h02 := smc_mapped_border hmeta0 hmapped
-            omega
-          · omega
-        have hleB : (srcNodes.zipIdx.map
-            (markOne boxesM P.clusterPad srcTitles)).length ≤ origB := by
-          by_cases hlt : origB < (srcNodes.zipIdx.map
-            (markOne boxesM P.clusterPad srcTitles)).length
-          · have hmapped : (srcNodes.zipIdx.map
-                (markOne boxesM P.clusterPad srcTitles))[origB]? = some bNode := by
-              rw [hnodes] at hgB
-              rw [List.getElem?_append_left hlt] at hgB
-              exact hgB
-            have h02 := smc_mapped_border hmeta0 hmapped
-            omega
-          · omega
-        have hEextras : (markExtras boxesM)[origE -
-            (srcNodes.zipIdx.map (markOne boxesM P.clusterPad srcTitles)).length]? =
-            some nE := by
-          rw [hnodes] at hgE
-          rw [List.getElem?_append_right hleE] at hgE
-          exact hgE
-        have hBextras : (markExtras boxesM)[origB -
-            (srcNodes.zipIdx.map (markOne boxesM P.clusterPad srcTitles)).length]? =
-            some bNode := by
-          rw [hnodes] at hgB
-          rw [List.getElem?_append_right hleB] at hgB
-          exact hgB
-        have hdeclEq : nE.decl = bNode.decl := hnEdecl.trans hnBdecl.symm
-        have hpos : origE -
-            (srcNodes.zipIdx.map (markOne boxesM P.clusterPad srcTitles)).length =
-            origB - (srcNodes.zipIdx.map
-              (markOne boxesM P.clusterPad srcTitles)).length :=
-          nodup_map_inj_aux (fun nd : Node => nd.decl) (smc_extras_decl_nodup boxesM)
-            hEextras hBextras hdeclEq
-        have horigEq : origE = origB := by omega
-        rw [horigEq] at hcompE
-        exact nodup_map_inj_aux (fun x => x)
-          (by simpa using components_nodup graph comp hcomp) hcompE hcompB rfl
-      · omega
-    · omega
+  have huniq : bot.2 = iB :=
+    titledBottomPin hgraph hcomp hkeys hu hBUlook hBUbord hBUdecl hdeclU
+      hlastTop hbotFind
   -- Rank transports between titled, labeled, coordinate, and proper ranks.
   have hrkTopEq : rk (titleReservations (sizeProperPorts P labeled)).rank u =
       rk run.proper.rank u := by
