@@ -22,12 +22,15 @@ abbrev FlatC6B (base : Input → Options → Except LayoutError FamilyResult) : 
     FrameClearanceSeam inp o res →
     base inp o = .ok res → Validator.C6 res.scene.layoutDump
 
-/-- Base-parametric copy of `FlatC7`. The `PartsSeparated`,
+/-- Base-parametric copy of `FlatC7`. The fixed-size premise `InputFixedFit`
+threads through the recursion like the `captions` seam so the exact base
+can feed its fit-conditioned caption clearance; the `PartsSeparated`,
 `LabelRunsClearExclusiveBoxes`, and `SceneCaptionBoxContainment` premises
 speak about the plain execution, so they stay hypotheses of the B def. -/
 abbrev FlatC7B (base : Input → Options → Except LayoutError FamilyResult) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
+    InputFixedFit inp o →
     PartsSeparated inp o res →
     LabelRunsClearExclusiveBoxes inp o res →
     SceneCaptionBoxContainment inp o res →
@@ -184,14 +187,14 @@ theorem layoutRecursiveB_c7
   | zero =>
     intro inp o res hwf hframed hfit _hdisjoint h
     have hbase : base inp o = .ok res := by simpa [layoutRecursiveB] using h
-    exact hflat7 inp o res hwf hframed (hsep inp o res)
+    exact hflat7 inp o res hwf hframed hfit (hsep inp o res)
       (hseam1 inp o res hwf hframed) (hseam2 inp o res hwf hframed hfit) hbase
   | succ fuel ih =>
     intro inp o res hwf hframed hfit hdisjoint h
     rcases layoutRecursiveB_succ_sources base h with ⟨_, hbase⟩ |
       ⟨group, P, metric, child, titleLines, parent, hg, hP, hm,
         hchild, hwrap, hparent, hexpand⟩
-    · exact hflat7 inp o res hwf hframed (hsep inp o res)
+    · exact hflat7 inp o res hwf hframed hfit (hsep inp o res)
         (hseam1 inp o res hwf hframed) (hseam2 inp o res hwf hframed hfit) hbase
     · obtain ⟨hwfChild, hframedChild, hwfParent, hframedParent⟩ :=
         hsub fuel inp o group P metric titleLines child parent

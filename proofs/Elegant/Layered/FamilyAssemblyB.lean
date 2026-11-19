@@ -220,7 +220,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
       (groupBottomBoundaryFacts_of_dummy bottomDummyRankLe)
       groupTailPortOnYs groupAnchorSelection)
   flatC6 := flatC6_closed S.partFrameWitness (fun inp o res hwf hfp => loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (S.loopRectTitleCopy inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) S.loopFootprintTopSeparation S.loopFootprintBeyondProper
-  flatC7 := fun inp o res hwf hfp hsep hseam1 hseam2 hb =>
+  flatC7 := fun inp o res hwf hfp _hfit hsep hseam1 hseam2 hb =>
     layout_c7 hwf hfp hsep hseam1 hseam2 hb
   flatC8a := flatC8a_of_span_seams
     (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))

@@ -34,6 +34,7 @@ import Elegant.Layered.SideMarkerTopInCandidateProof
 import Elegant.Layered.ForeignBorderChainXAlignedClosed
 import Elegant.Layered.TitleExclusiveSamePartProof
 import Elegant.Layered.ExactFlatC7
+import Elegant.Layered.ExactFlatC7Fit
 import Elegant.Layered.ExactFlatC7ExclusiveKey
 import Elegant.Layered.ExactFlatC7Forward
 import Elegant.Layered.ExactFlatC7Placed
@@ -101,10 +102,10 @@ def actorIds (m : Model) : List String :=
 // the `labelRuns` term. There is no `bracketMarkersAtRank` field either: the
 // proved `bracketMarkersAtRank'` is used directly.
 //
-// Replaced `flatC7`: derived in `exactBaseSeams` by `flatC7B_layoutX`
-// (`ExactFlatC7.lean`) over the narrower open fields below (`loopEnvelopeMiss`
-// via `X_runLocalLoopSeparation_of_envelopeMiss`, and `captionScope`), with the
-// other five premises closed by `x_runLocalForwardSeparation_holds`
+// Replaced `flatC7`: derived in `exactBaseSeams` by `flatC7B_layoutX_fit`
+// (`ExactFlatC7Fit.lean`) over the narrower open fields below (`loopEnvelopeMiss`
+// via `X_runLocalLoopSeparation_of_envelopeMiss`, and `captionScopeFit`), with the
+// other five premises closed inside by `x_runLocalForwardSeparation_holds`
 // (`ExactFlatC7Forward.lean`), `x_runLocalReversedSeparation_holds`
 // (`ExactFlatC7Reversed.lean`), `x_routeLabelsPlaced_holds`
 // (`ExactFlatC7Placed.lean`), `x_exclusiveRunNodeDecl_holds` and
@@ -130,10 +131,10 @@ def actorIds (m : Model) : List String :=
 structure ExactSeams (exactIds : List String) : Prop where
   /-- Plain counterpart: the eight narrow `LayeredSeams` residuals via `flatC6_closed`. -/
   flatC6 : Layered.PipelineImpl.FlatC6B (Layered.PipelineImpl.layoutX exactIds)
-  /-- Narrower open fact consumed by `flatC7B_layoutX` via `X_runLocalLoopSeparation_of_envelopeMiss`. -/
+  /-- Narrower open fact consumed by `flatC7B_layoutX_fit` via `X_runLocalLoopSeparation_of_envelopeMiss`. -/
   loopEnvelopeMiss : Layered.PipelineImpl.X_LoopEnvelopeMiss exactIds
-  /-- Narrower open fact consumed by `flatC7B_layoutX` as `hcap`. -/
-  captionScope : Layered.PipelineImpl.X_CaptionScopeClearance exactIds
+  /-- Narrower open fact consumed by `flatC7B_layoutX_fit` as `hcapFit`: the fit-conditioned caption clearance. -/
+  captionScopeFit : Layered.PipelineImpl.X_CaptionScopeClearanceFit exactIds
   /-- `flatC8aB_layoutX` still needs the exact C8a span facts and `X_ForeignBorderChainXAligned`. -/
   flatC8a : Layered.PipelineImpl.FlatC8aB (Layered.PipelineImpl.layoutX exactIds)
   /-- Narrower open fact consumed by `flatC8bB_layoutX` as `hcores`. -/
@@ -211,7 +212,7 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
     exact Layered.PipelineImpl.SceneExecutionX.routes_orthogonal execution route hroute
   flatC5 := Layered.PipelineImpl.flatC5B_layoutX_closed exactIds
   flatC6 := R.flatC6
-  flatC7 := Layered.PipelineImpl.flatC7B_layoutX exactIds (Layered.PipelineImpl.X_runLocalLoopSeparation_of_envelopeMiss exactIds R.loopEnvelopeMiss) (Layered.PipelineImpl.x_runLocalForwardSeparation_holds exactIds) (Layered.PipelineImpl.x_runLocalReversedSeparation_holds exactIds) (Layered.PipelineImpl.x_routeLabelsPlaced_holds) (Layered.PipelineImpl.x_exclusiveRunNodeDecl_holds exactIds) (Layered.PipelineImpl.x_exclusiveKeyOutsideCgPaths_holds exactIds) R.captionScope
+  flatC7 := Layered.PipelineImpl.flatC7B_layoutX_fit exactIds (Layered.PipelineImpl.X_runLocalLoopSeparation_of_envelopeMiss exactIds R.loopEnvelopeMiss) R.captionScopeFit
   flatC8a := R.flatC8a
   flatC8b := Layered.PipelineImpl.flatC8bB_layoutX exactIds R.partFrameCores (Layered.PipelineImpl.X_packedPartTransportBounded_closed exactIds) R.fallbackCaption
   canvasMargins := Layered.PipelineImpl.exactCanvasMargins exactIds

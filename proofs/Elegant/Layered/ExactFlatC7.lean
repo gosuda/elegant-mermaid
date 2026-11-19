@@ -1518,7 +1518,7 @@ theorem flatC7B_layoutX (exactIds : List String)
     (hkey : X_ExclusiveKeyOutsideCgPaths exactIds)
     (hcap : X_CaptionScopeClearance exactIds) :
     FlatC7B (layoutX exactIds) := by
-  intro inp o res hwf hfp hsep hseam1 hseam2 h
+  intro inp o res hwf hfp _hfit hsep hseam1 hseam2 h
   obtain ⟨execution⟩ := layoutX_sceneExecution h
   have hrunlocal : X_RunLocalLabelClearance exactIds inp o res :=
     X_runLocalLabelClearance_holds (inp := inp) (o := o) (res := res) hloop hfwd hrev
