@@ -294,14 +294,17 @@ component, one exact run, and one ordinary (non-self-loop) candidate edge,
 the scene route emitted at the edge's decl attaches both endpoints to the
 boundary of its endpoint dump boxes. This mirrors
 `SceneExecution.chosen_part_group_c5_alias`, taking the exact row facts as
-premises. Self-loop edges take a separate loop-row path. It holds for
-executed exact layouts because port x-coordinates stay inside exact spans
-(`portCoord` divides by the port count), `ys` shifts move boxes and route
-endpoints together, and the anchor rows supply the same dump-box lookups as
-in the plain pipeline. -/
+premises. Self-loop edges take a separate loop-row path. The `WellFormed`
+and `framedParents` premises supply the box-id uniqueness
+(`Model.boxIds_nodup`) and the rank/boundary row applications its proof
+needs. It holds for executed exact layouts because port x-coordinates stay
+inside exact spans (`portCoord` divides by the port count), `ys` shifts move
+boxes and route endpoints together, and the anchor rows supply the same
+dump-box lookups as in the plain pipeline. -/
 def X_ChosenPart (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (_hrank : X_TopRank exactIds) (_hbottom : X_BottomBoundary exactIds)
     (_hport : X_TailPort exactIds) (_hanchor : GroupAnchorSelection)
     (packed : Pack.State)
@@ -1212,7 +1215,7 @@ theorem flatGroupEndpointsX {exactIds : List String}
         rw [hmk] at hidT
         exact hidT
     obtain ⟨out', start, finish, fromBox, toBox, hemitted, h1, h2, h3, h4, h5, h6⟩ :=
-      hassem execution hrank hbottom hport groupAnchorSelection packed hpacked
+      hassem execution hwf hfp hrank hbottom hport groupAnchorSelection packed hpacked
         hselected hrun hloops hpart hedge hne hrouteD hFa hTa
     rw [hdeclEq] at hemitted
     have hsame : out' = out := Option.some.inj (hemitted.symm.trans houtIndex)
