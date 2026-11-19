@@ -1629,3 +1629,8 @@ Elegant.Layered.PipelineImpl.loopForeignBoxBorderZeroRealQ
 Elegant.Layered.PipelineImpl.loopRectPlain_of_unfixed
 Elegant.Layered.PipelineImpl.loopRectNoBox
 Elegant.Kinds.IshikawaFinal.causeEntryEnvBound
+Elegant.Layered.PipelineImpl.expandChildChildRootChain
+Elegant.Layered.PipelineImpl.expandChild_c6_anchors'
+Elegant.Layered.PipelineImpl.expandChild_c8a_ancestry'
+Elegant.Layered.PipelineImpl.stepC6Anchors_holds
+Elegant.Layered.PipelineImpl.stepC8aAncestry_holds
