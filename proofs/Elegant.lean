@@ -393,3 +393,5 @@ import Elegant.Layered.RunStageChainKeys
 import Elegant.Layered.LoopFootprintResidualProof
 import Elegant.Layered.LaneBandsCoverage
 import Elegant.Layered.LaneBandsCoverageProof
+import Elegant.Layered.ForeignBorderSideUpsProof
+import Elegant.Layered.ForeignSideFoldBoundProof

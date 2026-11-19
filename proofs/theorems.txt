@@ -1595,3 +1595,7 @@ Elegant.Layered.PipelineImpl.childBottomStrict
 Elegant.Layered.PipelineImpl.childFrameStrictVertical_of_executed
 Elegant.Layered.PipelineImpl.SceneExecution.component_child_frame_strictInside'
 Elegant.Layered.LaneBands.swimlane_pinBoxCoverage
+Elegant.Layered.PipelineImpl.foreignSideFoldBound
+Elegant.Layered.PipelineImpl.foreignBorderSideUps_of
+Elegant.Layered.borderChainUps_of_pick
+Elegant.Layered.edgeClosed_of_executedChainFacts
