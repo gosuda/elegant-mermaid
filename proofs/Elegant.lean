@@ -679,3 +679,10 @@ import Elegant.Layered.ExactStepChildLabelsProof
 import Elegant.Layered.DivergeSweepSortProof
 import Elegant.Layered.ExactTopOutsideDisjointProof
 import Elegant.Layered.LaneBandsLooseLowerProof
+import Elegant.Layered.ExactFlatChildLabelsProof
+import Elegant.Layered.LoopHullExtentFitProof
+import Elegant.Layered.ExactTopInRangeProof
+import Elegant.Layered.ExactPlainRightNonPlainProof
+import Elegant.Layered.NotesFlagFactsProof
+import Elegant.Layered.NotesGeomC123Proof
+import Elegant.Layered.ExactDivergeStableBridgeProof
