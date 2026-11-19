@@ -451,3 +451,8 @@ import Elegant.Layered.CaptionSamePartProof
 import Elegant.Layered.TitleExclusiveSamePartProof
 import Elegant.Layered.ExactFlatC7Reversed
 import Elegant.Layered.LaneBandsFindRouteClearProof
+import Elegant.Layered.ExactFlatC7Placed
+import Elegant.Layered.ExactFlatC7ExclusiveKey
+import Elegant.Layered.LaneBandsFrameClause
+import Elegant.Layered.LaneBandsFrameClauseExecuted
+import Elegant.Layered.ExpandChildC7GeometryExecuted
