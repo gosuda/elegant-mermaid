@@ -24,10 +24,11 @@ exclusive key is `hmemW`), and concludes the same-part half of the def
 Proof route per case: `loopRect_exclusive_witness` turns the exclusive origin
 (`hsourceW`, `hexclW`, `hmemW`, needing only `hwf`) into a plain run node `w`
 with `frameRect w` transported to `b.rect`; `loopTransport_cancel` with
-`hrect`/`hrectW` gives the raw `frameRect w = frameRect v`; the width fact
-`hlineW` comes from `loopRect_lines_get`; then the corresponding
-`loopRect<Case>_samePart` lemma closes. The fixed case splits on `v = w`
-(`refl` supplies the existential, `ne` contradicts via disjointness).
+`hrect`/`hrectW` gives the raw `frameRect w = frameRect v`; positivity of the
+witness frame comes from `loopRect_frame_pos_of_rectEq` with the def-premise
+`hposW`/`hposH`; then the corresponding `loopRect<Case>_samePart` lemma
+closes. The fixed case splits on `v = w` (`refl` supplies the existential,
+`ne` contradicts via disjointness).
 
 ## Truth probe (`proofs/wip/Probe/LoopRectSamePartTProbe.lean`)
 
@@ -49,29 +50,21 @@ fixed-size exclusive box:
 Consequences:
 
 * `exclusiveBox_frame_pos` without `hnf` is FALSE in general, and
-  `InputFixedFit` does not save it: `zeroNext` satisfies `InputFixedFit`
-  vacuously (its only fixed entry names the exclusive box `a`; see
-  `inputFixedFit_of_fixedExclusive`), yet the executed frame is degenerate.
-  So there is no `exclusiveBox_frame_pos_of_fit` twin from `InputFixedFit`
-  alone. The non-fixed premise `hnfW` on the exclusive witness source is
-  load-bearing and is kept as a narrow residual (one box's fixed-status at
-  the `measuredGraph` fixed-size lookup stage; probe-tested above). `hnfW`
-  is strictly narrower than the target and is the only extra premise beyond
-  `WellFormed`, `framedParents`, and the `SceneExecution` equations.
+  `InputFixedFit` does not save it (`zeroNext` satisfies `InputFixedFit`
+  vacuously yet its executed frame `(-512, 0, 1024, 0)` is degenerate, probe
+  `degenerateEval`). The degenerate branch is now ruled out one stage up:
+  the `LoopRect*Real` defs carry `0 < b.rect.w → 0 < b.rect.h →`, and
+  `flatC6LoopCase` splits on it, closing the non-positive branch by
+  `Polyline.not_hits_of_zero`. The positive branch supplies `hposW`/`hposH`
+  here, and `loopRect_frame_pos_of_rectEq` turns them into witness-frame
+  positivity. No `hnfW` premise remains.
 * No `InputFixedFit` hypothesis is taken: it is vacuous for exclusive
-  sources, so it can neither replace `hnfW` nor discharge anything here. The
-  consumer (`flatC6_closed` via `loopRectPlainSourceRealQ`) must supply
-  `hnfW`/`hmemW` (or restrict the loop case to non-fixed exclusive boxes).
-* `hne` (`v ≠ w`) is derived two ways: per-branch from the `v = w` split in
-  the fixed theorem, and unconditionally by `loopRectFixed_keyNe_of_fixedUnfixed`
-  (fixed loop-owner source vs unfixed exclusive source) composed with
-  `loopRectFixed_posNe_of_keyNe`. The group-based variant
-  (`loopRectFixed_keyNe_of_groupNode`) additionally needs
-  `srcV.role = .group`, which `LoopRectFixedReal` does not supply — that is
-  the exact missing premise for the group-flavored derivation; the
-  fixed-status derivation needs nothing more.
+  sources, so it can neither replace the def premise nor discharge anything
+  here.
+* `hne` (`v ≠ w`) comes from the `v = w` split in the fixed theorem alone;
+  the key-inequality helpers are deleted.
 
-## Title (residual, no theorem stated)
+## Title (residual; closed in `LoopRectRealClosed`)
 
 The title same-part case needs, from `cg.nodes[v]? = none` plus
 `run.proper.nodes[v]? ≠ none`, the inversion of `v` to a border-3 title copy
@@ -79,104 +72,29 @@ with its bottom proxy `t` and the rank equality
 `rk v = rk t` for `titleCopySpanClearStrict_executed` (`hwf` + `hframed`),
 followed by plain-vs-title-copy band separation against `w`. No proper-node
 exhaustiveness (beyond-range real node is a title copy) exists in the current
-tree, and the probe inputs have no groups/titles to test it against. Stating
-the theorem with an unproved proxy/rank/band hypothesis would be a wrapper
-around the open fact, so it is left out and reported instead.
+tree, and the probe inputs have no groups/titles to test it against. The
+title half is closed in `LoopRectRealClosed` under the narrow
+`LoopRectTitleCopyReal` residual (shifted title-copy shelf containment,
+measured by the `LoopRectCrossPartProbe` `fit` rows, plus run-level
+title-vs-plain disjointness) instead of an unproved proxy/rank/band
+hypothesis here.
 -/
-
 /-!
-# Positivity case-split analysis (`hnfW` cannot be removed this way)
+# From the def premise, not from the witness (this section retired `hnfW`)
 
-Tested per follow-up: `by_cases` on `0 < (frameRect w).w ∧ 0 < (frameRect w).h`.
-Positive branch: closes with the current argument taking positivity from the
-case — the explicit-w/h lemmas are `loopRect_frameNe_of_disjoint` (bottom,
-fixed-ne) and the congrArg/`omega` step (range-deg); no `hnfW` needed there.
-Non-positive branch: the lemmas below show a degenerate frame meets nothing,
-so `hframe` plus the positivity-free disjointness facts
-(`bottomMarker_frame_disjoint`, `componentRun_positions_disjoint`, the
-default-frame shape) yields only `Disjoint Fw Fw` — consistent, not `False`.
-The `LoopRect*Real` conclusions (`False`, existential) are NOT interior
-tests; the interior test appears only as `Disjoint`, i.e. `¬ meetsInterior`
-(`ElegantGeometry/Disjoint.lean:9`, predicate `Rect.meetsInterior` at
-`ElegantGeometry/Basic.lean:96`). The per-case finishes route through
-`loopRect_frameNe_of_disjoint`, which needs `meetsInterior Fw Fw`, i.e.
-positivity. Hence `hnfW` stays: it rules out the consistent degenerate
-branch. Concrete evaluation: the `zeroNext` witness frame `(-512, 0, 1024, 0)`
-has `meetsInterior self = false` (probe `degenerateEval`), i.e. it is
-self-disjoint, so an exact equation against a same-shaped marker/default
-frame would not contradict disjointness.
+The `LoopRect*Real` defs now carry `0 < b.rect.w → 0 < b.rect.h →`, so with
+the rect equation the transported frame of `v` is positive
+(`loopRect_frame_pos_of_rectEq`), hence so is the witness frame via `hframe`.
+The per-case finishes route through `loopRect_frameNe_of_disjoint` (bottom,
+fixed-ne) and the congrArg/`omega` step (range-deg) with that positivity.
+The degenerate `zeroNext` branch (`meetsInterior self = false`, probe
+`degenerateEval`) is ruled out at the def premise instead of at the witness,
+so the non-fixed premise `hnfW` on the exclusive witness source is gone, with
+the key-inequality helpers that existed only to derive `v ≠ w` from it.
 -/
-
-/-- A rectangle with non-positive width or height meets nothing on its left:
-its interior is empty. -/
-theorem not_meetsInterior_of_nonpos_left {r s : Rect}
-    (h : r.w ≤ 0 ∨ r.h ≤ 0) : ¬ r.meetsInterior s := by
-  unfold Rect.meetsInterior
-  omega
-
-/-- A rectangle with non-positive width or height meets nothing on its right:
-the other rectangle's interior cannot reach into its empty span. -/
-theorem not_meetsInterior_of_nonpos_right {r s : Rect}
-    (h : s.w ≤ 0 ∨ s.h ≤ 0) : ¬ r.meetsInterior s := by
-  unfold Rect.meetsInterior
-  omega
-
-/-- A degenerate rectangle is self-disjoint: the non-positive branch of a
-positivity split ends here — consistent — instead of at `False`. -/
-theorem disjoint_self_of_nonpos {r : Rect} (h : r.w ≤ 0 ∨ r.h ≤ 0) :
-    Disjoint r r :=
-  not_meetsInterior_of_nonpos_left h
-
-/-- Key inequality for the fixed case: a fixed loop-owner source and an
-unfixed exclusive-witness source sit at different box indices (equal indices
-would give one box two fixed-statuses). -/
-theorem loopRectFixed_keyNe_of_fixedUnfixed
-    {inp : Input} {keyV keyW : Nat} {srcV srcW : ModelBox}
-    (hsrcV : inp.boxes[keyV]? = some srcV)
-    (hsrcW : inp.boxes[keyW]? = some srcW)
-    (hfixV : inp.fixedSizes.any (fun fixed => fixed.1 == srcV.id) = true)
-    (hnfW : inp.fixedSizes.any (fun fixed => fixed.1 == srcW.id) = false) :
-    keyV ≠ keyW := by
-  intro hcon
-  subst hcon
-  have heq : srcV = srcW := Option.some.inj (hsrcV.symm.trans hsrcW)
-  subst heq
-  rw [hfixV] at hnfW
-  exact Bool.noConfusion hnfW
-
-/-- Position distinctness from the key inequality within one part list:
-different keys at `v`, `w` mean different positions. -/
-theorem loopRectFixed_posNe_of_keyNe
-    {q : (List Nat × Part) × Rect} {v w keyV keyW : Nat}
-    (hkeyV : q.1.1[v]? = some keyV)
-    (hw : q.1.1[w]? = some keyW)
-    (hne : keyV ≠ keyW) :
-    v ≠ w := by
-  intro hcon
-  subst hcon
-  have heq : keyV = keyW := Option.some.inj (hkeyV.symm.trans hw)
-  exact hne heq
-
-/-- Group-flavored key inequality: a group loop-owner source and a node
-exclusive source are different boxes, hence at different indices. Needs
-`hgroupV`, which `LoopRectFixedReal` does not supply (exact missing premise
-for this variant; the fixed-status variant above needs nothing more). -/
-theorem loopRectFixed_keyNe_of_groupNode
-    {inp : Input} {keyV keyW : Nat} {srcV srcW : ModelBox}
-    (hsrcV : inp.boxes[keyV]? = some srcV)
-    (hsrcW : inp.boxes[keyW]? = some srcW)
-    (hgroupV : srcV.role = .group)
-    (hnodeW : srcW.role = .node) :
-    keyV ≠ keyW := by
-  intro hcon
-  subst hcon
-  have heq : srcV = srcW := Option.some.inj (hsrcV.symm.trans hsrcW)
-  rw [heq] at hgroupV
-  rw [hnodeW] at hgroupV
-  exact absurd hgroupV (by decide)
 
 /-- Bottom same-part executed case: the bottom-marker frame is degenerate in
-height while the same-part plain witness frame is positive (via `hnfW`). -/
+height while the same-part plain witness frame is positive (from the def premise). -/
 theorem loopRectBottom_samePart_executed
     {inp : Input} {o : Options} {res : FamilyResult}
     (hwf : WellFormed (inputModel inp o))
@@ -224,9 +142,9 @@ theorem loopRectBottom_samePart_executed
       (orientRect o.direction execution.packedAcc.canvasH
         (execution.packedAcc.rects.getD keyW default)))
     (hmemW : keyW ∈ q.1.1)
-    (hnfW : inp.fixedSizes.any (fun fixed => fixed.1 == sourceW.id) = false) :
+    (hposW : 0 < b.rect.w) (hposH : 0 < b.rect.h) :
     False := by
-  obtain ⟨w, hw, hroleW, hwlen, _, hbord0, hpackeq⟩ :=
+  obtain ⟨w, hw, _, hwlen, _, hbord0, hpackeq⟩ :=
     loopRect_exclusive_witness execution hwf packed hpack hselected hrun hpart
       hsourceW hexclW hmemW
   have hnodeW : (componentCandidate execution.graph q.1.1 candidate).nodes[w]? =
@@ -239,9 +157,6 @@ theorem loopRectBottom_samePart_executed
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hwlen, Option.getD_some]
     rw [← hget]
     exact hbord0
-  have hkeylenW : keyW < inp.boxes.length :=
-    (List.getElem?_eq_some_iff.mp hsourceW).1
-  obtain ⟨lsW, hlineW⟩ := loopRect_lines_get execution hkeylenW
   have hframe : frameRect execution.params
       (componentCandidate execution.graph q.1.1 candidate) run w =
       frameRect execution.params
@@ -271,12 +186,18 @@ theorem loopRectBottom_samePart_executed
       rw [← hpackeq, ← hrectW]
       exact hrect
     exact loopTransport_cancel hww
-  exact loopRectBottom_samePart execution hrun hnodeV hbV hnodeW hbW hw hsourceW
-    hlineW hroleW hnfW hframe
+  have hposV := loopRect_frame_pos_of_rectEq hrect hposW hposH
+  have hpos : 0 < (frameRect execution.params
+      (componentCandidate execution.graph q.1.1 candidate) run w).w ∧
+      0 < (frameRect execution.params
+        (componentCandidate execution.graph q.1.1 candidate) run w).h := by
+    rw [hframe]
+    exact hposV
+  exact loopRectBottom_samePart execution hrun hnodeV hbV hnodeW hbW hpos hframe
 
 /-- Range-degenerate same-part executed case: the out-of-range frame is the
 default degenerate rect while the same-part plain witness frame is positive
-(via `hnfW`). -/
+  (with positivity from the def premise). -/
 theorem loopRectRangeDeg_samePart_executed
     {inp : Input} {o : Options} {res : FamilyResult}
     (hwf : WellFormed (inputModel inp o))
@@ -323,9 +244,9 @@ theorem loopRectRangeDeg_samePart_executed
       (orientRect o.direction execution.packedAcc.canvasH
         (execution.packedAcc.rects.getD keyW default)))
     (hmemW : keyW ∈ q.1.1)
-    (hnfW : inp.fixedSizes.any (fun fixed => fixed.1 == sourceW.id) = false) :
+    (hposW : 0 < b.rect.w) (hposH : 0 < b.rect.h) :
     False := by
-  obtain ⟨w, hw, hroleW, hwlen, _, hbord0, hpackeq⟩ :=
+  obtain ⟨w, hw, _, hwlen, _, hbord0, hpackeq⟩ :=
     loopRect_exclusive_witness execution hwf packed hpack hselected hrun hpart
       hsourceW hexclW hmemW
   have hnodeW : (componentCandidate execution.graph q.1.1 candidate).nodes[w]? =
@@ -338,9 +259,6 @@ theorem loopRectRangeDeg_samePart_executed
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hwlen, Option.getD_some]
     rw [← hget]
     exact hbord0
-  have hkeylenW : keyW < inp.boxes.length :=
-    (List.getElem?_eq_some_iff.mp hsourceW).1
-  obtain ⟨lsW, hlineW⟩ := loopRect_lines_get execution hkeylenW
   have hframe : frameRect execution.params
       (componentCandidate execution.graph q.1.1 candidate) run w =
       frameRect execution.params
@@ -370,13 +288,19 @@ theorem loopRectRangeDeg_samePart_executed
       rw [← hpackeq, ← hrectW]
       exact hrect
     exact loopTransport_cancel hww
-  exact loopRectRangeDeg_samePart execution hrun hn hp hnodeW hbW hw hsourceW
-    hlineW hroleW hnfW hframe
+  have hposV := loopRect_frame_pos_of_rectEq hrect hposW hposH
+  have hpos : 0 < (frameRect execution.params
+      (componentCandidate execution.graph q.1.1 candidate) run w).w ∧
+      0 < (frameRect execution.params
+        (componentCandidate execution.graph q.1.1 candidate) run w).h := by
+    rw [hframe]
+    exact hposV
+  exact loopRectRangeDeg_samePart execution hrun hn hp hnodeW hbW hpos hframe
 
 /-- Fixed same-part executed case: the loop-owner key `keyV` (fixed source)
-and the exclusive-witness key `keyW` (unfixed source) both lie in `q.1.1`.
+and the exclusive-witness key `keyW` both lie in `q.1.1`.
 At equal positions `refl` supplies the non-group existential; at distinct
-positions `ne` contradicts the frame equation via disjointness and `hnfW`
+positions `ne` contradicts the frame equation via disjointness and def-premise
 positivity. -/
 theorem loopRectFixed_samePart_executed
     {inp : Input} {o : Options} {res : FamilyResult}
@@ -418,9 +342,9 @@ theorem loopRectFixed_samePart_executed
     {nodeV : Node} {keyV : Nat} {srcV : ModelBox}
     (hnodeV : (componentCandidate execution.graph q.1.1 candidate).nodes[v]? = some nodeV)
     (hbV : nodeV.border = 0)
-    (hkeyV : q.1.1[v]? = some keyV)
-    (hsrcV : inp.boxes[keyV]? = some srcV)
-    (hfixV : inp.fixedSizes.any (fun fixed => fixed.1 == srcV.id) = true)
+    (_hkeyV : q.1.1[v]? = some keyV)
+    (_hsrcV : inp.boxes[keyV]? = some srcV)
+    (_hfixV : inp.fixedSizes.any (fun fixed => fixed.1 == srcV.id) = true)
     {keyW : Nat} {sourceW : ModelBox}
     (hsourceW : inp.boxes[keyW]? = some sourceW)
     (hexclW : sourceW.exclusive = true)
@@ -428,7 +352,7 @@ theorem loopRectFixed_samePart_executed
       (orientRect o.direction execution.packedAcc.canvasH
         (execution.packedAcc.rects.getD keyW default)))
     (hmemW : keyW ∈ q.1.1)
-    (hnfW : inp.fixedSizes.any (fun fixed => fixed.1 == sourceW.id) = false) :
+    (hposW : 0 < b.rect.w) (hposH : 0 < b.rect.h) :
     ∃ (key' : Nat) (src' : ModelBox),
       q.1.1[v]? = some key' ∧ inp.boxes[key']? = some src' ∧ src'.role ≠ .group := by
   obtain ⟨w, hw, hroleW, hwlen, _, hbord0, hpackeq⟩ :=
@@ -444,9 +368,6 @@ theorem loopRectFixed_samePart_executed
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hwlen, Option.getD_some]
     rw [← hget]
     exact hbord0
-  have hkeylenW : keyW < inp.boxes.length :=
-    (List.getElem?_eq_some_iff.mp hsourceW).1
-  obtain ⟨lsW, hlineW⟩ := loopRect_lines_get execution hkeylenW
   have hframe : frameRect execution.params
       (componentCandidate execution.graph q.1.1 candidate) run w =
       frameRect execution.params
@@ -476,13 +397,17 @@ theorem loopRectFixed_samePart_executed
       rw [← hpackeq, ← hrectW]
       exact hrect
     exact loopTransport_cancel hww
-  have hkeys : keyV ≠ keyW :=
-    loopRectFixed_keyNe_of_fixedUnfixed hsrcV hsourceW hfixV hnfW
-  have hpos : v ≠ w := loopRectFixed_posNe_of_keyNe hkeyV hw hkeys
+  have hposV := loopRect_frame_pos_of_rectEq hrect hposW hposH
+  have hpos : 0 < (frameRect execution.params
+      (componentCandidate execution.graph q.1.1 candidate) run w).w ∧
+      0 < (frameRect execution.params
+        (componentCandidate execution.graph q.1.1 candidate) run w).h := by
+    rw [hframe]
+    exact hposV
   by_cases heq : v = w
   · exact loopRectFixed_samePart_refl hw hsourceW hroleW heq
   · exact False.elim (loopRectFixed_samePart_ne execution hcomp hrun hnodeV hbV
-      hnodeW hbW hpos hw hsourceW hlineW hroleW hnfW hframe)
+      hnodeW hbW heq hpos hframe)
 
 end PipelineImpl
 end Layered

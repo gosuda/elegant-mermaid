@@ -89,6 +89,30 @@ theorem loopTransport_cancel {M Ht qx qy lx ly : Int} {d : Direction}
   have h3 := shiftRect_inj h2
   exact shiftRect_inj h3
 
+/-- Transported positivity: with a positive scene rect and the rect equation,
+the run frame is positive. Shifts preserve size and orientation swaps width
+and height (`shiftRect_dims`, `orientRect_dims`). This replaces the non-fixed
+floor (`exclusiveBox_frame_pos`) wherever the def premise supplies `b.rect`
+positivity. -/
+theorem loopRect_frame_pos_of_rectEq
+    {M Ht qx qy lx ly : Int} {d : Direction}
+    {fr : Rect} {b : Rect}
+    (hrect : b = shiftRect M M (orientRect d Ht (shiftRect qx qy (shiftRect lx ly fr))))
+    (hw : 0 < b.w) (hh : 0 < b.h) :
+    0 < fr.w ∧ 0 < fr.h := by
+  have e1 : (shiftRect M M (orientRect d Ht (shiftRect qx qy (shiftRect lx ly fr)))).w =
+      (orientRect d Ht (shiftRect qx qy (shiftRect lx ly fr))).w := rfl
+  have e2 : (shiftRect M M (orientRect d Ht (shiftRect qx qy (shiftRect lx ly fr)))).h =
+      (orientRect d Ht (shiftRect qx qy (shiftRect lx ly fr))).h := rfl
+  have hwO : 0 < (orientRect d Ht (shiftRect qx qy (shiftRect lx ly fr))).w := by
+    rw [← e1, ← hrect]
+    exact hw
+  have hhO : 0 < (orientRect d Ht (shiftRect qx qy (shiftRect lx ly fr))).h := by
+    rw [← e2, ← hrect]
+    exact hh
+  have hs := (orientRect_dims d Ht _).mp ⟨hwO, hhO⟩
+  exact (shiftRect_dims lx ly fr).mp ((shiftRect_dims qx qy _).mp hs)
+
 /-- A candidate frame at a `border = 0` position is its node rect. -/
 theorem frameRect_of_border_zero {P : Params} {cg : Graph} {run : Run}
     {v : Nat} {node : Node}
@@ -592,19 +616,15 @@ theorem loopRectBottom_samePart
     (hnodeV : (componentCandidate execution.graph comp candidate).nodes[v]? = some nodeV)
     (hbV : nodeV.border = 2)
     {w : Nat} {nodeW : Node}
-    (hnodeW : (componentCandidate execution.graph comp candidate).nodes[w]? = some nodeW)
-    (hbW : nodeW.border = 0)
-    {key : Nat} {source : ModelBox} {ls : List Measure.Line}
-    (hkey : comp[w]? = some key)
-    (hsource : inp.boxes[key]? = some source)
-    (hline : execution.lines[key]? = some ls)
-    (hrole : source.role = .node)
-    (hnf : inp.fixedSizes.any (fun fixed => fixed.1 == source.id) = false)
+    (_hnodeW : (componentCandidate execution.graph comp candidate).nodes[w]? = some nodeW)
+    (_hbW : nodeW.border = 0)
+    (hpos : 0 < (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run w).w ∧
+      0 < (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run w).h)
     (hframe : frameRect execution.params (componentCandidate execution.graph comp candidate) run w =
       frameRect execution.params (componentCandidate execution.graph comp candidate) run v) :
     False := by
-  have hpos := exclusiveBox_frame_pos execution hrun hnodeW hbW
-    hkey hsource hline hrole hnf
   have hdis := bottomMarker_frame_disjoint hrun hnodeV hbV w
   exact loopRect_frameNe_of_disjoint hdis hframe hpos.1 hpos.2
 
@@ -614,25 +634,21 @@ theorem loopRectRangeDeg_samePart
     {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res)
     {comp : List Nat} {candidate : Nat} {run : Run}
-    (hrun : componentRun execution.params (componentCandidate execution.graph comp candidate)
+    (_hrun : componentRun execution.params (componentCandidate execution.graph comp candidate)
       execution.measured (candidateOrder candidate) = .ok run)
     {v : Nat}
     (hn : (componentCandidate execution.graph comp candidate).nodes[v]? = none)
     (hp : run.proper.nodes[v]? = none)
     {w : Nat} {nodeW : Node}
-    (hnodeW : (componentCandidate execution.graph comp candidate).nodes[w]? = some nodeW)
-    (hbW : nodeW.border = 0)
-    {key : Nat} {source : ModelBox} {ls : List Measure.Line}
-    (hkey : comp[w]? = some key)
-    (hsource : inp.boxes[key]? = some source)
-    (hline : execution.lines[key]? = some ls)
-    (hrole : source.role = .node)
-    (hnf : inp.fixedSizes.any (fun fixed => fixed.1 == source.id) = false)
+    (_hnodeW : (componentCandidate execution.graph comp candidate).nodes[w]? = some nodeW)
+    (_hbW : nodeW.border = 0)
+    (hpos : 0 < (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run w).w ∧
+      0 < (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run w).h)
     (hframe : frameRect execution.params (componentCandidate execution.graph comp candidate) run w =
       frameRect execution.params (componentCandidate execution.graph comp candidate) run v) :
     False := by
-  have hpos := exclusiveBox_frame_pos execution hrun hnodeW hbW
-    hkey hsource hline hrole hnf
   have hdeg : frameRect execution.params
       (componentCandidate execution.graph comp candidate) run v =
       ⟨run.xs.getD v 0, run.ys.getD v 0, 0, 0⟩ :=
@@ -662,19 +678,15 @@ theorem loopRectFixed_samePart_ne
     (hnodeW : (componentCandidate execution.graph comp candidate).nodes[w]? = some nodeW)
     (hbW : nodeW.border = 0)
     (hne : v ≠ w)
-    {key : Nat} {source : ModelBox} {ls : List Measure.Line}
-    (hkey : comp[w]? = some key)
-    (hsource : inp.boxes[key]? = some source)
-    (hline : execution.lines[key]? = some ls)
-    (hrole : source.role = .node)
-    (hnf : inp.fixedSizes.any (fun fixed => fixed.1 == source.id) = false)
+    (hpos : 0 < (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run w).w ∧
+      0 < (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run w).h)
     (hframe : frameRect execution.params (componentCandidate execution.graph comp candidate) run w =
       frameRect execution.params (componentCandidate execution.graph comp candidate) run v) :
     False := by
   have hdis := componentRun_positions_disjoint execution.graph_eq hcomp hrun
     hnodeW hnodeV hbW hbV (Ne.symm hne)
-  have hpos := exclusiveBox_frame_pos execution hrun hnodeW hbW
-    hkey hsource hline hrole hnf
   exact loopRect_frameNe_of_disjoint hdis hframe hpos.1 hpos.2
 
 /-- Fixed same-position sub-case: at the same position the witness key and

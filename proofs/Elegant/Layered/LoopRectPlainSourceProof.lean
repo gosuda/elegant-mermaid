@@ -89,6 +89,7 @@ def LoopRectTopReal (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
     (v : Nat) (b : Box),
     RouteImpl.IsReal run.proper v →
     b ∈ res.scene.boxes → b.exclusive = true →
+    0 < b.rect.w → 0 < b.rect.h →
     b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
       (orientRect o.direction execution.packedAcc.canvasH
         (shiftRect q.2.x q.2.y
@@ -128,6 +129,7 @@ def LoopRectFixedReal (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
     (v : Nat) (b : Box),
     RouteImpl.IsReal run.proper v →
     b ∈ res.scene.boxes → b.exclusive = true →
+    0 < b.rect.w → 0 < b.rect.h →
     b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
       (orientRect o.direction execution.packedAcc.canvasH
         (shiftRect q.2.x q.2.y
@@ -172,6 +174,7 @@ def LoopRectTitleReal (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
     (v : Nat) (b : Box),
     RouteImpl.IsReal run.proper v →
     b ∈ res.scene.boxes → b.exclusive = true →
+    0 < b.rect.w → 0 < b.rect.h →
     b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
       (orientRect o.direction execution.packedAcc.canvasH
         (shiftRect q.2.x q.2.y
@@ -210,6 +213,7 @@ def LoopRectBottomReal (inp : Input) (o : Options) (res : FamilyResult) : Prop :
     (v : Nat) (b : Box),
     RouteImpl.IsReal run.proper v →
     b ∈ res.scene.boxes → b.exclusive = true →
+    0 < b.rect.w → 0 < b.rect.h →
     b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
       (orientRect o.direction execution.packedAcc.canvasH
         (shiftRect q.2.x q.2.y
@@ -251,6 +255,7 @@ def LoopRectRangeDegReal (inp : Input) (o : Options) (res : FamilyResult) : Prop
     (v : Nat) (b : Box),
     RouteImpl.IsReal run.proper v →
     b ∈ res.scene.boxes → b.exclusive = true →
+    0 < b.rect.w → 0 < b.rect.h →
     b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
       (orientRect o.direction execution.packedAcc.canvasH
         (shiftRect q.2.x q.2.y
@@ -356,6 +361,7 @@ theorem loopRectPlainSourceRealQ {inp : Input} {o : Options} {res : FamilyResult
     (v : Nat) (b : Box)
     (hreal : RouteImpl.IsReal run.proper v)
     (hbmem : b ∈ res.scene.boxes) (hexcl : b.exclusive = true)
+    (hposW : 0 < b.rect.w) (hposH : 0 < b.rect.h)
     (hrect : b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
       (orientRect o.direction execution.packedAcc.canvasH
         (shiftRect q.2.x q.2.y
@@ -374,11 +380,11 @@ theorem loopRectPlainSourceRealQ {inp : Input} {o : Options} {res : FamilyResult
       cases hproper : run.proper.nodes[v]? with
       | none =>
           exact False.elim (hrange execution candidate run packed hpack c q
-            hselected hpart hcomp hrun v b hreal hbmem hexcl hrect hnode hproper)
+            hselected hpart hcomp hrun v b hreal hbmem hexcl hposW hposH hrect hnode hproper)
       | some _ =>
           have hne : run.proper.nodes[v]? ≠ none := by simp [hproper]
           exact False.elim (htitle execution candidate run packed hpack c q
-            hselected hpart hcomp hrun v b hreal hbmem hexcl hrect hnode hne)
+            hselected hpart hcomp hrun v b hreal hbmem hexcl hposW hposH hrect hnode hne)
   | some node =>
       obtain ⟨hshape, _⟩ := componentCandidate_marker_shape execution.graph_eq hnode
       rcases hshape with hb0 | hbtop | hbbot
@@ -395,15 +401,15 @@ theorem loopRectPlainSourceRealQ {inp : Input} {o : Options} {res : FamilyResult
             match hfb : inp.fixedSizes.any (fun fixed => fixed.1 == src.id) with
             | true =>
                 exact hfix execution candidate run packed hpack c q
-                  hselected hpart hcomp hrun v b hreal hbmem hexcl hrect hnode hb0
+                  hselected hpart hcomp hrun v b hreal hbmem hexcl hposW hposH hrect hnode hb0
                   hkey hsrc hfb
             | false =>
                 exact ⟨key, src, hkey, hsrc,
                   loopRectPlain_of_unfixed execution hnode hb0 hkey hsrc hfb⟩
       · exact False.elim (htop execution candidate run packed hpack c q
-          hselected hpart hcomp hrun v b hreal hbmem hexcl hrect hnode hbtop)
+          hselected hpart hcomp hrun v b hreal hbmem hexcl hposW hposH hrect hnode hbtop)
       · exact False.elim (hbot execution candidate run packed hpack c q
-          hselected hpart hcomp hrun v b hreal hbmem hexcl hrect hnode hbbot)
+          hselected hpart hcomp hrun v b hreal hbmem hexcl hposW hposH hrect hnode hbbot)
 
 /-- Real-part loop-case exclusive-box fact: the form `flatC6LoopCase` needs.
 Its `hbord` call site (`FlatC6LoopProof.lean`, `hborder0`) passes the real
@@ -439,6 +445,7 @@ theorem loopForeignBoxBorderZeroRealQ {inp : Input} {o : Options} {res : FamilyR
     {v : Nat} {b : Box}
     (hreal : RouteImpl.IsReal run.proper v)
     (hbmem : b ∈ res.scene.boxes) (hexcl : b.exclusive = true)
+    (hposW : 0 < b.rect.w) (hposH : 0 < b.rect.h)
     (hrect : b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
       (orientRect o.direction execution.packedAcc.canvasH
         (shiftRect q.2.x q.2.y
@@ -454,7 +461,7 @@ theorem loopForeignBoxBorderZeroRealQ {inp : Input} {o : Options} {res : FamilyR
   obtain ⟨key, src, hkey, hsrc, hng⟩ :=
     loopRectPlainSourceRealQ htop hfix htitle hbot hrange
       execution candidate run packed hpack c q hselected hpart hcomp hrun v b
-      hreal hbmem hexcl hrect
+      hreal hbmem hexcl hposW hposH hrect
   exact candidateBorderZeroOfNonGroup execution hkey hsrc hng
 
 

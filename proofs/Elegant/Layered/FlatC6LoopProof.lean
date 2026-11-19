@@ -379,6 +379,7 @@ def LoopForeignBoxBorderZeroReal (inp : Input) (o : Options) (res : FamilyResult
     (v : Nat) (b : Box),
       RouteImpl.IsReal run.proper v →
       b ∈ res.scene.boxes → b.exclusive = true →
+    0 < b.rect.w → 0 < b.rect.h →
       b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
         (orientRect o.direction execution.packedAcc.canvasH
           (shiftRect q.2.x q.2.y
@@ -463,34 +464,40 @@ theorem flatC6LoopCase {inp : Input} {o : Options} {res : FamilyResult}
   cases hv with
   | inl hleft =>
     obtain ⟨-, hreal, -, hbrect⟩ := hleft
-    -- the bridged foreign node comes from a plain node, discharging the
-    -- restricted separation premise
-    have hborder0 : ((componentCandidate execution.graph q.1.1 candidate).nodes.getD v
-        default).border = 0 :=
-      hbord execution candidate run packed hpacked c q hselected hpart hq1comp hrun
-        v b hreal hb hex hbrect
-    -- same part: the run-level loop miss, transported to the scene
-    have hframeEq : frameRect execution.params
-        (componentCandidate execution.graph q.1.1 candidate) run v =
-        frameRect default (componentCandidate execution.graph q.1.1 candidate) run v := rfl
-    obtain ⟨v₀, _hv₀, placements, hp, edge₀, hzip, _hdecl₀, htail, hhead⟩ :=
-      componentLoops_entry_origin hloops (List.mem_of_find?_eq_some hfound)
-    have hhex : run.exact = [] := componentRun_exact_nil hrun
-    have hnotexact : ¬ v₀ ∈ run.exact := by rw [hhex]; simp
-    have hcf : run.exact.contains v₀ = false := by rw [hhex]; rfl
-    simp only [hcf, Bool.false_eq_true, ite_false] at hp
-    have ⟨hslot, hres⟩ := hloopRes q.1.1 candidate run v₀ hq1comp hrun
-    have hdisj : LoopFootprintSeparation
-        (componentCandidate execution.graph q.1.1 candidate) run execution.measured v₀ v :=
-      hloopSep q.1.1 candidate run v₀ v hq1comp hborder0 hrun
-    have hmiss : ¬ Polyline.hitsRect loop.2.points
-        (frameRect default (componentCandidate execution.graph q.1.1 candidate) run v) :=
-      componentLoops_route_misses_foreign_boxes
-        ⟨placements, hp, hzip, htail, hhead⟩ hnotexact hslot hres hdisj
-    rw [hreq, hbrect, hframeEq, ← routePointTransport_eq]
-    apply not_hitsRect_shift_orient
-    apply not_hitsRect_shift
-    exact not_hitsRect_shift _ _ _ _ hmiss
+    -- a degenerate exclusive box is missed outright (`Polyline.not_hits_of_zero`);
+    -- the border fact below needs the positive scene rect
+    by_cases hpos : 0 < b.rect.w ∧ 0 < b.rect.h
+    · -- the bridged foreign node comes from a plain node, discharging the
+      -- restricted separation premise
+      have hborder0 : ((componentCandidate execution.graph q.1.1 candidate).nodes.getD v
+          default).border = 0 :=
+        hbord execution candidate run packed hpacked c q hselected hpart hq1comp hrun
+          v b hreal hb hex hpos.1 hpos.2 hbrect
+      -- same part: the run-level loop miss, transported to the scene
+      have hframeEq : frameRect execution.params
+          (componentCandidate execution.graph q.1.1 candidate) run v =
+          frameRect default (componentCandidate execution.graph q.1.1 candidate) run v := rfl
+      obtain ⟨v₀, _hv₀, placements, hp, edge₀, hzip, _hdecl₀, htail, hhead⟩ :=
+        componentLoops_entry_origin hloops (List.mem_of_find?_eq_some hfound)
+      have hhex : run.exact = [] := componentRun_exact_nil hrun
+      have hnotexact : ¬ v₀ ∈ run.exact := by rw [hhex]; simp
+      have hcf : run.exact.contains v₀ = false := by rw [hhex]; rfl
+      simp only [hcf, Bool.false_eq_true, ite_false] at hp
+      have ⟨hslot, hres⟩ := hloopRes q.1.1 candidate run v₀ hq1comp hrun
+      have hdisj : LoopFootprintSeparation
+          (componentCandidate execution.graph q.1.1 candidate) run execution.measured v₀ v :=
+        hloopSep q.1.1 candidate run v₀ v hq1comp hborder0 hrun
+      have hmiss : ¬ Polyline.hitsRect loop.2.points
+          (frameRect default (componentCandidate execution.graph q.1.1 candidate) run v) :=
+        componentLoops_route_misses_foreign_boxes
+          ⟨placements, hp, hzip, htail, hhead⟩ hnotexact hslot hres hdisj
+      rw [hreq, hbrect, hframeEq, ← routePointTransport_eq]
+      apply not_hitsRect_shift_orient
+      apply not_hitsRect_shift
+      exact not_hitsRect_shift _ _ _ _ hmiss
+    · -- degenerate box: no polyline hits it
+      have hdeg : b.rect.w ≤ 0 ∨ b.rect.h ≤ 0 := by omega
+      exact Polyline.not_hits_of_zero hdeg
   | inr hright =>
     obtain ⟨c', r', hne, hshelfget, hcont⟩ := hright
     have hc'len : c' < packed.boxes.length := (List.getElem?_eq_some_iff.mp hshelfget).1
