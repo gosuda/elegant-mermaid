@@ -1122,4 +1122,687 @@ theorem checkedParams_clusterBorderW_ge_one {profile : Profile} {kind : String} 
    execution.component_member_strictInside hwf hcomp hrun hnode hgroup hmember hplain hinside
      (memberFrameStrictVertical_of_executed execution hwf hcomp hrun hnode hgroup hmember hplain hinside)
 
+/-- Residual: every executed proper node whose cluster path contains a child
+group's declaration ranks at or below that child's top proxy. Rank-only
+restriction of `GroupTopSubtreeRankProper` to the executed child top; strictly
+simpler than `StrictInside` (one rank inequality, no frames). -/
+def ChildTopRankLe (cg : Graph) (run : Run) (childIndex : Nat) : Prop :=
+  ∀ (q : ProperNode × Nat), q ∈ run.proper.nodes.zipIdx →
+    q.1.node.clusterPath.contains (cg.nodes.getD childIndex default).decl = true →
+    rk run.proper.rank childIndex ≤ rk run.proper.rank q.2
+
+/-- Residual: every executed proper node whose cluster path contains a child
+group's declaration ranks (coordinate rank) at or below that child's bottom
+marker. Rank-only; strictly simpler than `StrictInside` (one rank inequality,
+no frames). -/
+def ChildBottomRankLe (cg : Graph) (run : Run) (childIndex : Nat) : Prop :=
+  ∀ (cb : Node × Nat),
+    (cg.nodes.zipIdx.find? fun entry =>
+      entry.1.border == 2 && entry.1.decl == (cg.nodes.getD childIndex default).decl) =
+      some cb →
+    ∀ (q : ProperNode × Nat), q ∈ run.proper.nodes.zipIdx →
+      q.1.node.clusterPath.contains (cg.nodes.getD childIndex default).decl = true →
+      rk run.coordinateProper.rank q.2 ≤ rk run.coordinateProper.rank cb.2
+
+/-- Fold invariant: a strict lower bound on `minY` survives the hull fold. -/
+private theorem foldl_strict_minY (rects : List Rect) (b : Bounds) (lo : Int)
+    (hb : lo < b.minY) (hall : ∀ r ∈ rects, lo < r.y) :
+    lo < ((rects.foldl fun b r =>
+      ⟨min b.minX r.x, min b.minY r.y, max b.right (r.x + r.w),
+        max b.bottom (r.y + r.h)⟩) b).minY := by
+  induction rects generalizing b with
+  | nil => simpa using hb
+  | cons first rest ih =>
+    simp only [List.foldl_cons]
+    apply ih
+    · show lo < min b.minY first.y
+      have h1 := hb
+      have h2 := hall first (by simp)
+      omega
+    · intro r hr
+      exact hall r (List.mem_cons_of_mem _ hr)
+/-- Strict hull minimum: every element strictly above `lo` puts the hull
+minimum strictly above `lo`. No positivity hypothesis is needed on this
+side because the nonempty fold starts at an element, not at zero. -/
+private theorem strict_minY_of_all_lt (rects : List Rect) (lo : Int)
+    (hall : ∀ r ∈ rects, lo < r.y) (hne : rects ≠ []) :
+    lo < (boundsOf rects []).minY := by
+  cases rects with
+  | nil => exact absurd rfl hne
+  | cons first rest =>
+    unfold boundsOf
+    dsimp only
+    exact foldl_strict_minY _ _ _ (hall first (by simp)) hall
+
+/-- Top half of child vertical strictness: the child frame top lies strictly
+below the parent frame top. Needs the marker interval (parent top + 1 ≤ child
+top) and the top rank residual for the hull lower bound. -/
+theorem childTopStrict {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRun execution.params (componentCandidate execution.graph comp candidate)
+      execution.measured orderOptions = .ok run)
+    {parentIndex childIndex : Nat} {parent child : Node}
+    (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? = some parent)
+    (hparentGroup : parent.border = -2)
+    (hchild : (componentCandidate execution.graph comp candidate).nodes[childIndex]? = some child)
+    (hchildGroup : child.border = -2)
+    {parentBox childBox : ModelBox}
+    (hparentBox : inp.boxes[parent.decl]? = some parentBox)
+    (hchildBox : inp.boxes[child.decl]? = some childBox)
+    (hparentRef : childBox.parent = parentBox.id) (hne : childBox.parent ≠ "")
+    (htop : ChildTopRankLe
+      (componentCandidate execution.graph comp candidate) run childIndex) :
+    (frameRect execution.params (componentCandidate execution.graph comp candidate)
+      run parentIndex).y <
+      (frameRect execution.params (componentCandidate execution.graph comp candidate)
+        run childIndex).y := by
+  let cg := componentCandidate execution.graph comp candidate
+  let childRects := run.proper.nodes.zipIdx.filterMap fun entry =>
+    if entry.1.node.clusterPath.contains child.decl then
+      some (Labels.rectAt run.proper run.xs run.ys entry.2)
+    else none
+  have hlines : execution.lines.length = inp.boxes.length := by
+    have h := (mapM_getElem? _ _ _ execution.lines_eq).1
+    simpa only [List.length_zipIdx] using h
+  obtain ⟨rr, _labeled, hrr, hc, _hk, hranks, _hrecords, _hshape⟩ :=
+    rankSource_of_componentRun execution.graph_eq hcomp hrun
+  obtain ⟨parentBottom, hparentBottom⟩ :=
+    componentRun_cg_bottom_find execution.graph_eq hlines hcomp hparent hparentGroup
+  obtain ⟨childBottom, hchildBottom⟩ :=
+    componentRun_cg_bottom_find execution.graph_eq hlines hcomp hchild hchildGroup
+  have hpath := execution.component_direct_group_path hwf hparent hparentGroup
+    hchild hchildGroup hparentBox hchildBox hparentRef hne
+  have htopMem : ((parent, parentIndex) : Node × Nat) ∈ cg.nodes.zipIdx :=
+    List.mk_mem_zipIdx_iff_getElem?.mpr hparent
+  have hchildMem : ((child, childIndex) : Node × Nat) ∈ cg.nodes.zipIdx :=
+    List.mk_mem_zipIdx_iff_getElem?.mpr hchild
+  have hinterv := ranked_compound_child_interval hrr htopMem hparentGroup hparentBottom
+    hchildMem hchildGroup hpath hchildBottom
+  have hintervTop : rk rr.ranks parentIndex + 1 ≤ rk rr.ranks childIndex := hinterv.1
+  have hparentLt : parentIndex < cg.nodes.length := (List.getElem?_eq_some_iff.mp hparent).1
+  have hchildLt : childIndex < cg.nodes.length := (List.getElem?_eq_some_iff.mp hchild).1
+  have eTopP : rk run.coordinateProper.rank parentIndex = rk rr.ranks parentIndex := by
+    have h2 := prepared_coordinate_original_rk (P := execution.params) hrr hranks hparentLt
+    rw [hc] at h2
+    exact h2
+  have eTopC : rk run.coordinateProper.rank childIndex = rk rr.ranks childIndex := by
+    have h2 := prepared_coordinate_original_rk (P := execution.params) hrr hranks hchildLt
+    rw [hc] at h2
+    exact h2
+  have rEqP := run_rank_eq_coordinate hrun parentIndex
+  have rEqC := run_rank_eq_coordinate hrun childIndex
+  obtain ⟨_, _, _, _, _, _, _, _, _, hproxy, hdrop, hroute, _, hry, _, _⟩ :=
+    componentRun_spec hrun
+  have hrankEq : ∀ x, rk run.proper.rank x = rk run.coordinateProper.rank x := by
+    intro x
+    rw [← hdrop, OrderImpl.dropSynthetic_rank, (proxyWidths_rel hproxy).2.1]
+  have hcov :=
+    (RouteImpl.layersOk_spec (RouteImpl.routeWithLanes_geometry hroute).1).2.2.2.1
+  have hparentLen : parentIndex < run.proper.nodes.length :=
+    componentRun_original_nodes_covered hrun parentIndex hparentLt
+  have hchildLen : childIndex < run.proper.nodes.length :=
+    componentRun_original_nodes_covered hrun childIndex hchildLt
+  obtain ⟨tcoordP, htcoordP, htbP, _htdP, htpathP⟩ :=
+    proper_top_coordinate_record hrun hparent hparentGroup
+  obtain ⟨tpropP, htpropP, htpropPP⟩ := proper_top_proper_clusterPath hrun htcoordP htbP
+  have hdeclP : parent.clusterPath.contains parent.decl = true :=
+    (proper_top_decl_path execution.graph_eq hparent hparentGroup).2
+  have htcontainsP : tpropP.node.clusterPath.contains parent.decl = true := by
+    rw [htpropPP, htpathP]; exact hdeclP
+  have hgroupGetP : cg.nodes.getD parentIndex default = parent := by
+    simp only [cg, List.getD_eq_getElem?_getD, hparent, Option.getD_some]
+  have hgroupGetC : cg.nodes.getD childIndex default = child := by
+    simp only [cg, List.getD_eq_getElem?_getD, hchild, Option.getD_some]
+  have hframeGroupP : (cg.nodes.getD parentIndex default).border = -2 := by
+    rw [hgroupGetP]; exact hparentGroup
+  have htqmemP : (tpropP, parentIndex) ∈ run.proper.nodes.zipIdx :=
+    List.mk_mem_zipIdx_iff_getElem?.mpr htpropP
+  have htcontainsP' : (tpropP, parentIndex).1.node.clusterPath.contains
+      (cg.nodes.getD parentIndex default).decl = true := by
+    rw [hgroupGetP]; exact htcontainsP
+  have htopLe : (frameRect execution.params cg run parentIndex).y ≤
+      (Labels.rectAt run.proper run.xs run.ys parentIndex).y :=
+    (frameRect_member_vertical (P := execution.params) (cg := cg) (run := run)
+      (i := parentIndex) (q := (tpropP, parentIndex)) hframeGroupP htqmemP htcontainsP').1
+  obtain ⟨ltP, hlyP, _, hnnP⟩ := hcov parentIndex hparentLen
+  obtain ⟨_, _, _, hnnC⟩ := hcov childIndex hchildLen
+  rw [rEqP] at hlyP hnnP
+  rw [rEqC] at hnnC
+  have hTopY_P : (Labels.rectAt run.proper run.xs run.ys parentIndex).y =
+      run.ys.getD parentIndex 0 := rfl
+  have hTopProxyP : run.ys.getD parentIndex 0 =
+      run.top.getD (rk run.coordinateProper.rank parentIndex).toNat 0 := by
+    have h := componentRun_group_proxy_ys_eq_top hrun hparent hparentGroup hparentLt
+    rw [rEqP] at h
+    exact h
+  have htopC : ∀ (q : ProperNode × Nat), q ∈ run.proper.nodes.zipIdx →
+      q.1.node.clusterPath.contains child.decl = true →
+      rk run.proper.rank childIndex ≤ rk run.proper.rank q.2 := by
+    intro q hq hc
+    have hc' : q.1.node.clusterPath.contains
+        (cg.nodes.getD childIndex default).decl = true := by
+      rw [hgroupGetC]; exact hc
+    exact htop q hq hc'
+  obtain ⟨sideIndex, side, hside, hsideBorder, howner⟩ :=
+    execution.component_group_final_side hcomp hrun hchild hchildGroup
+  have hmember : Labels.rectAt run.proper run.xs run.ys sideIndex ∈ childRects := by
+    apply List.mem_filterMap.mpr
+    refine ⟨(side, sideIndex), List.mk_mem_zipIdx_iff_getElem?.mpr hside, ?_⟩
+    have hmem : child.decl ∈ side.node.clusterPath := List.mem_of_getLast? howner
+    simp [hmem]
+  have hnonempty : childRects ≠ [] := by
+    intro hempty
+    rw [hempty] at hmember
+    exact List.not_mem_nil hmember
+  have hall : ∀ rect ∈ childRects,
+      (Labels.rectAt run.proper run.xs run.ys parentIndex).y < rect.y := by
+    intro rect hrect
+    obtain ⟨entry, hentry, heq⟩ := List.mem_filterMap.mp hrect
+    split at heq
+    · rename_i hcontains
+      have hrectEq := Option.some.inj heq
+      rw [← hrectEq]
+      have hle : rk run.proper.rank childIndex ≤ rk run.proper.rank entry.2 :=
+        htopC entry hentry hcontains
+      have hqLen : entry.2 < run.proper.nodes.length :=
+        (List.getElem?_eq_some_iff.mp (List.mem_zipIdx_iff_getElem?.mp hentry)).1
+      obtain ⟨lQ, hlyQ, _, hnnQ⟩ := hcov entry.2 hqLen
+      rw [hrankEq entry.2] at hlyQ hnnQ
+      have hltQ : (rk run.coordinateProper.rank parentIndex).toNat <
+          (rk run.coordinateProper.rank entry.2).toNat := by
+        have h1 := eTopP
+        have h2 := eTopC
+        have h3 := hintervTop
+        have h4 := hnnP
+        have h5 := hnnC
+        have h6 : 0 ≤ rk run.coordinateProper.rank entry.2 := hnnQ
+        have h7 : rk run.coordinateProper.rank childIndex ≤
+            rk run.coordinateProper.rank entry.2 := by
+          rw [← hrankEq childIndex, ← hrankEq entry.2]; exact hle
+        omega
+      have hbandQ := rankAxis_band_top_strict hry _ _ _ _ hltQ hlyP hlyQ
+      have hHtNonneg : 0 ≤ CoordsImpl.layerHeight run.coordinateProper ltP :=
+        CoordsImpl.layerHeight_nonneg _ _
+      have hYq : (Labels.rectAt run.proper run.xs run.ys entry.2).y =
+          run.ys.getD entry.2 0 := rfl
+      have hbandLoQ := (fbs_run_node_band hrun entry.2 hqLen).1
+      rw [hrankEq entry.2] at hbandLoQ
+      have h1 := hTopY_P
+      have h2 := hTopProxyP
+      have h3 := hbandQ
+      have h4 := hbandLoQ
+      have h5 := hHtNonneg
+      have h6 := hYq
+      omega
+    · cases heq
+  have hmin : (Labels.rectAt run.proper run.xs run.ys parentIndex).y <
+      (boundsOf childRects []).minY :=
+    strict_minY_of_all_lt _ _ hall hnonempty
+  have hchildY : (frameRect execution.params cg run childIndex).y =
+      (boundsOf childRects []).minY := by
+    simp only [childRects, frameRect, hgroupGetC, hchildGroup,
+      show ((-2 : Int) != -2) = false from rfl, Bool.false_eq_true, ↓reduceIte]
+  have hTopDone : (frameRect execution.params cg run parentIndex).y <
+      (frameRect execution.params cg run childIndex).y := by
+    have h1 := htopLe
+    have h2 := hmin
+    have h3 := hchildY
+    omega
+  exact hTopDone
+
+/-- Bottom half of child vertical strictness: the child frame bottom lies
+strictly above the parent frame bottom. Needs the marker interval (child
+bottom + 1 ≤ parent bottom) and the bottom rank residual for the hull upper
+bound. -/
+theorem childBottomStrict {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRun execution.params (componentCandidate execution.graph comp candidate)
+      execution.measured orderOptions = .ok run)
+    {parentIndex childIndex : Nat} {parent child : Node}
+    (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? = some parent)
+    (hparentGroup : parent.border = -2)
+    (hchild : (componentCandidate execution.graph comp candidate).nodes[childIndex]? = some child)
+    (hchildGroup : child.border = -2)
+    {parentBox childBox : ModelBox}
+    (hparentBox : inp.boxes[parent.decl]? = some parentBox)
+    (hchildBox : inp.boxes[child.decl]? = some childBox)
+    (hparentRef : childBox.parent = parentBox.id) (hne : childBox.parent ≠ "")
+    (hbot : ChildBottomRankLe
+      (componentCandidate execution.graph comp candidate) run childIndex) :
+    (frameRect execution.params (componentCandidate execution.graph comp candidate)
+      run childIndex).y +
+      (frameRect execution.params (componentCandidate execution.graph comp candidate)
+        run childIndex).h <
+      (frameRect execution.params (componentCandidate execution.graph comp candidate)
+        run parentIndex).y +
+        (frameRect execution.params (componentCandidate execution.graph comp candidate)
+          run parentIndex).h := by
+  let cg := componentCandidate execution.graph comp candidate
+  let childRects := run.proper.nodes.zipIdx.filterMap fun entry =>
+    if entry.1.node.clusterPath.contains child.decl then
+      some (Labels.rectAt run.proper run.xs run.ys entry.2)
+    else none
+  let parentRects := run.proper.nodes.zipIdx.filterMap fun entry =>
+    if entry.1.node.clusterPath.contains parent.decl then
+      some (Labels.rectAt run.proper run.xs run.ys entry.2)
+    else none
+  have hlines : execution.lines.length = inp.boxes.length := by
+    have h := (mapM_getElem? _ _ _ execution.lines_eq).1
+    simpa only [List.length_zipIdx] using h
+  obtain ⟨rr, _labeled, hrr, hc, _hk, hranks, _hrecords, _hshape⟩ :=
+    rankSource_of_componentRun execution.graph_eq hcomp hrun
+  obtain ⟨parentBottom, hparentBottom⟩ :=
+    componentRun_cg_bottom_find execution.graph_eq hlines hcomp hparent hparentGroup
+  obtain ⟨childBottom, hchildBottom⟩ :=
+    componentRun_cg_bottom_find execution.graph_eq hlines hcomp hchild hchildGroup
+  have hpath := execution.component_direct_group_path hwf hparent hparentGroup
+    hchild hchildGroup hparentBox hchildBox hparentRef hne
+  have htopMem : ((parent, parentIndex) : Node × Nat) ∈ cg.nodes.zipIdx :=
+    List.mk_mem_zipIdx_iff_getElem?.mpr hparent
+  have hchildMem : ((child, childIndex) : Node × Nat) ∈ cg.nodes.zipIdx :=
+    List.mk_mem_zipIdx_iff_getElem?.mpr hchild
+  have hinterv := ranked_compound_child_interval hrr htopMem hparentGroup hparentBottom
+    hchildMem hchildGroup hpath hchildBottom
+  have hintervBot : rk rr.ranks childBottom.2 + 1 ≤ rk rr.ranks parentBottom.2 :=
+    hinterv.2
+  have hgroupGetC : cg.nodes.getD childIndex default = child := by
+    simp only [cg, List.getD_eq_getElem?_getD, hchild, Option.getD_some]
+  have hgroupGetP : cg.nodes.getD parentIndex default = parent := by
+    simp only [cg, List.getD_eq_getElem?_getD, hparent, Option.getD_some]
+  have hbotMemC : childBottom ∈ cg.nodes.zipIdx :=
+    List.mem_of_find?_eq_some hchildBottom
+  have hbotLookupC : cg.nodes[childBottom.2]? = some childBottom.1 :=
+    List.mem_zipIdx_iff_getElem?.mp hbotMemC
+  have hcbLt : childBottom.2 < cg.nodes.length :=
+    (List.getElem?_eq_some_iff.mp hbotLookupC).1
+  have hbotMemP : parentBottom ∈ cg.nodes.zipIdx :=
+    List.mem_of_find?_eq_some hparentBottom
+  have hbotLookupP : cg.nodes[parentBottom.2]? = some parentBottom.1 :=
+    List.mem_zipIdx_iff_getElem?.mp hbotMemP
+  have hpbLt : parentBottom.2 < cg.nodes.length :=
+    (List.getElem?_eq_some_iff.mp hbotLookupP).1
+  have eCB : rk run.coordinateProper.rank childBottom.2 = rk rr.ranks childBottom.2 := by
+    have h2 := prepared_coordinate_original_rk (P := execution.params) hrr hranks hcbLt
+    rw [hc] at h2
+    exact h2
+  have ePB : rk run.coordinateProper.rank parentBottom.2 = rk rr.ranks parentBottom.2 := by
+    have h2 := prepared_coordinate_original_rk (P := execution.params) hrr hranks hpbLt
+    rw [hc] at h2
+    exact h2
+  have rEqCB := run_rank_eq_coordinate hrun childBottom.2
+  have rEqPB := run_rank_eq_coordinate hrun parentBottom.2
+  obtain ⟨_, _, _, _, _, _, _, _, _, hproxy, hdrop, hroute, _, hry, hyseq, _⟩ :=
+    componentRun_spec hrun
+  have hrankEq : ∀ x, rk run.proper.rank x = rk run.coordinateProper.rank x := by
+    intro x
+    rw [← hdrop, OrderImpl.dropSynthetic_rank, (proxyWidths_rel hproxy).2.1]
+  have hlenEq : run.proper.nodes.length = run.coordinateProper.nodes.length := by
+    rw [← hdrop]; exact (proxyWidths_rel hproxy).2.2.1
+  have hcov :=
+    (RouteImpl.layersOk_spec (RouteImpl.routeWithLanes_geometry hroute).1).2.2.2.1
+  have hcbLen : childBottom.2 < run.proper.nodes.length :=
+    componentRun_original_nodes_covered hrun childBottom.2 hcbLt
+  have hpbLen : parentBottom.2 < run.proper.nodes.length :=
+    componentRun_original_nodes_covered hrun parentBottom.2 hpbLt
+  have hbordCB : childBottom.1.border = 2 := by
+    have hcond := List.find?_some hchildBottom
+    simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+    exact hcond.1
+  have hdeclCB : childBottom.1.decl = child.decl := by
+    have hcond := List.find?_some hchildBottom
+    simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+    exact hcond.2
+  have hbordPB : parentBottom.1.border = 2 := by
+    have hcond := List.find?_some hparentBottom
+    simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+    exact hcond.1
+  have hdeclPB : parentBottom.1.decl = parent.decl := by
+    have hcond := List.find?_some hparentBottom
+    simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+    exact hcond.2
+  have hnodeCB : cg.nodes[childBottom.2]? = some childBottom.1 := hbotLookupC
+  have hnodePB : cg.nodes[parentBottom.2]? = some parentBottom.1 := hbotLookupP
+  obtain ⟨bcoordC, hbcoordC, hbbC, _hbdC, hbpathC, bh0C⟩ :=
+    proper_bottom_coordinate_record hrun hnodeCB hbordCB
+  obtain ⟨bpropC, hbpropC, hbpropPC, hnodeH_C⟩ :=
+    proper_bottom_proper_node hrun hbcoordC hbbC bh0C
+  obtain ⟨bcoordP, hbcoordP, hbbP, _hbdP, hbpathP, bh0P⟩ :=
+    proper_bottom_coordinate_record hrun hnodePB hbordPB
+  obtain ⟨bpropP, hbpropP, hbpropPP, hnodeH_P⟩ :=
+    proper_bottom_proper_node hrun hbcoordP hbbP bh0P
+  have hdeclBC : childBottom.1.clusterPath.contains childBottom.1.decl = true :=
+    (proper_bottom_decl_path execution.graph_eq hbotLookupC hbordCB).2
+  have hdeclBP : parentBottom.1.clusterPath.contains parentBottom.1.decl = true :=
+    (proper_bottom_decl_path execution.graph_eq hbotLookupP hbordPB).2
+  have hbcontainsC : bpropC.node.clusterPath.contains child.decl = true := by
+    rw [hbpropPC, hbpathC, ← hdeclCB]; exact hdeclBC
+  have hbcontainsP : bpropP.node.clusterPath.contains parent.decl = true := by
+    rw [hbpropPP, hbpathP, ← hdeclPB]; exact hdeclBP
+  have hframeGroupP : (cg.nodes.getD parentIndex default).border = -2 := by
+    rw [hgroupGetP]; exact hparentGroup
+  have hbqmemP : (bpropP, parentBottom.2) ∈ run.proper.nodes.zipIdx :=
+    List.mk_mem_zipIdx_iff_getElem?.mpr hbpropP
+  have hbcontainsP' : (bpropP, parentBottom.2).1.node.clusterPath.contains
+      (cg.nodes.getD parentIndex default).decl = true := by
+    rw [hgroupGetP]; exact hbcontainsP
+  have hparentGe : (Labels.rectAt run.proper run.xs run.ys parentBottom.2).y +
+        (Labels.rectAt run.proper run.xs run.ys parentBottom.2).h ≤
+      (frameRect execution.params cg run parentIndex).y +
+        (frameRect execution.params cg run parentIndex).h :=
+    (frameRect_member_vertical (P := execution.params) (cg := cg) (run := run)
+      (i := parentIndex) (q := (bpropP, parentBottom.2))
+      hframeGroupP hbqmemP hbcontainsP').2
+  have hBotYH_C : (Labels.rectAt run.proper run.xs run.ys childBottom.2).y +
+      (Labels.rectAt run.proper run.xs run.ys childBottom.2).h =
+      run.ys.getD childBottom.2 0 := by
+    simp only [Labels.rectAt, Labels.labelRect, RouteImpl.yAt]
+    simp [hnodeH_C]
+  have hBotYH_P : (Labels.rectAt run.proper run.xs run.ys parentBottom.2).y +
+      (Labels.rectAt run.proper run.xs run.ys parentBottom.2).h =
+      run.ys.getD parentBottom.2 0 := by
+    simp only [Labels.rectAt, Labels.labelRect, RouteImpl.yAt]
+    simp [hnodeH_P]
+  have hbgetC : run.coordinateProper.nodes.getD childBottom.2 default = bcoordC := by
+    rw [List.getD_eq_getElem?_getD, hbcoordC, Option.getD_some]
+  have hcoordVC : run.coordinateProper.nodes[childBottom.2]? =
+      some (run.coordinateProper.nodes.getD childBottom.2 default) := by
+    rw [hbgetC]; exact hbcoordC
+  have hcyLen : run.coordinateYs.length = run.coordinateProper.nodes.length := by
+    obtain ⟨_, _, _, _, _, _, hy⟩ := CoordsImpl.rankCoordsWith_spec hry
+    rw [hy]; simp
+  have hvYC : childBottom.2 < run.coordinateYs.length := by omega
+  have hYsV_C : run.ys.getD childBottom.2 0 =
+      run.top.getD (rk run.coordinateProper.rank childBottom.2).toNat 0 +
+      CoordsImpl.layerHeight run.coordinateProper
+        (run.layers.getD (rk run.coordinateProper.rank childBottom.2).toNat []) := by
+    have hpg := proxyYs_getD run.coordinateProper run.layers run.top run.coordinateYs
+      hcoordVC hvYC
+    have hbeqF : ((run.coordinateProper.nodes.getD childBottom.2 default).node.border
+        == -2) = false := by rw [hbgetC, hbbC]; simp
+    have hbeqT : ((run.coordinateProper.nodes.getD childBottom.2 default).node.border
+        == 2) = true := by rw [hbgetC, hbbC]; simp
+    simp only [hbeqF, ↓reduceIte, hbeqT, ↓reduceIte] at hpg
+    rw [← hyseq]
+    exact hpg
+  obtain ⟨lCB, hlyCB, _, hnnCB⟩ := hcov childBottom.2 hcbLen
+  obtain ⟨lPB, hlyPB, _, hnnPB⟩ := hcov parentBottom.2 hpbLen
+  rw [rEqCB] at hlyCB hnnCB
+  rw [rEqPB] at hlyPB hnnPB
+  have hltCB : (rk run.coordinateProper.rank childBottom.2).toNat <
+      (rk run.coordinateProper.rank parentBottom.2).toNat := by
+    have h1 := eCB
+    have h2 := ePB
+    have h3 := hintervBot
+    have h4 := hnnCB
+    have h5 := hnnPB
+    omega
+  have hbandCB := rankAxis_band_top_strict hry _ _ _ _ hltCB hlyCB hlyPB
+  have hTopBandPB := (fbs_run_node_band hrun parentBottom.2 hpbLen).1
+  rw [rEqPB] at hTopBandPB
+  have hChildLtParent : run.ys.getD childBottom.2 0 <
+      run.ys.getD parentBottom.2 0 := by
+    have hlyCBD : run.layers.getD (rk run.coordinateProper.rank childBottom.2).toNat [] =
+        lCB := by
+      rw [List.getD_eq_getElem?_getD, hlyCB]; rfl
+    have h1 := hYsV_C
+    rw [hlyCBD] at h1
+    have h2 := hbandCB
+    have h3 := hTopBandPB
+    omega
+  have hbotC : ∀ (q : ProperNode × Nat), q ∈ run.proper.nodes.zipIdx →
+      q.1.node.clusterPath.contains child.decl = true →
+      rk run.coordinateProper.rank q.2 ≤
+        rk run.coordinateProper.rank childBottom.2 := by
+    intro q hq hc
+    have hc' : q.1.node.clusterPath.contains
+        (cg.nodes.getD childIndex default).decl = true := by
+      rw [hgroupGetC]; exact hc
+    have hcbFind : (cg.nodes.zipIdx.find? fun entry =>
+        entry.1.border == 2 && entry.1.decl ==
+          (cg.nodes.getD childIndex default).decl) = some childBottom := by
+      rw [hgroupGetC]; exact hchildBottom
+    exact hbot childBottom hcbFind q hq hc'
+  have hallUpper : ∀ rect ∈ childRects,
+      rect.y + rect.h ≤ run.ys.getD childBottom.2 0 := by
+    intro rect hrect
+    obtain ⟨entry, hentry, heq⟩ := List.mem_filterMap.mp hrect
+    split at heq
+    · rename_i hcontains
+      have hrectEq := Option.some.inj heq
+      rw [← hrectEq]
+      have hqLen : entry.2 < run.proper.nodes.length :=
+        (List.getElem?_eq_some_iff.mp (List.mem_zipIdx_iff_getElem?.mp hentry)).1
+      have hle := hbotC entry hentry hcontains
+      obtain ⟨lQ, hlyQ, _, hnnQ⟩ := hcov entry.2 hqLen
+      rw [hrankEq entry.2] at hlyQ hnnQ
+      have hupQ := (fbs_run_node_band hrun entry.2 hqLen).2
+      rw [hrankEq entry.2] at hupQ
+      have hYqBH : (Labels.rectAt run.proper run.xs run.ys entry.2).y +
+          (Labels.rectAt run.proper run.xs run.ys entry.2).h =
+          run.ys.getD entry.2 0 + RouteImpl.nodeH run.proper entry.2 := rfl
+      by_cases heqR : (rk run.coordinateProper.rank entry.2).toNat =
+          (rk run.coordinateProper.rank childBottom.2).toNat
+      · have htopEq : run.top.getD (rk run.coordinateProper.rank entry.2).toNat 0 =
+            run.top.getD (rk run.coordinateProper.rank childBottom.2).toNat 0 := by
+          rw [heqR]
+        have hlayerEq :
+            run.layers.getD (rk run.coordinateProper.rank entry.2).toNat [] =
+            run.layers.getD (rk run.coordinateProper.rank childBottom.2).toNat [] := by
+          rw [heqR]
+        have h1 := hupQ
+        have h2 := hYsV_C
+        have h3 := htopEq
+        have h4 := hlayerEq
+        have h5 := hYqBH
+        have hLH : CoordsImpl.layerHeight run.coordinateProper
+            (run.layers.getD (rk run.coordinateProper.rank entry.2).toNat []) =
+            CoordsImpl.layerHeight run.coordinateProper
+              (run.layers.getD (rk run.coordinateProper.rank childBottom.2).toNat []) := by
+          rw [hlayerEq]
+        have h6 := hLH
+        omega
+      · have hltQ : (rk run.coordinateProper.rank entry.2).toNat <
+            (rk run.coordinateProper.rank childBottom.2).toNat := by
+          have h1 : 0 ≤ rk run.coordinateProper.rank entry.2 := hnnQ
+          have h2 : 0 ≤ rk run.coordinateProper.rank childBottom.2 := hnnCB
+          omega
+        have hbandQ := rankAxis_band_top_strict hry _ _ _ _ hltQ hlyQ hlyCB
+        have hlyQD : run.layers.getD (rk run.coordinateProper.rank entry.2).toNat [] =
+            lQ := by
+          rw [List.getD_eq_getElem?_getD, hlyQ]; rfl
+        have hlyCBD : run.layers.getD (rk run.coordinateProper.rank childBottom.2).toNat [] =
+            lCB := by
+          rw [List.getD_eq_getElem?_getD, hlyCB]; rfl
+        have hLHcb : 0 ≤ CoordsImpl.layerHeight run.coordinateProper lCB :=
+          CoordsImpl.layerHeight_nonneg _ _
+        have h1 := hupQ
+        have h2 := hbandQ
+        have h3 := hYsV_C
+        rw [hlyCBD] at h3
+        have h4 := hLHcb
+        have h5 := hYqBH
+        have hLQ : CoordsImpl.layerHeight run.coordinateProper
+            (run.layers.getD (rk run.coordinateProper.rank entry.2).toNat []) =
+            CoordsImpl.layerHeight run.coordinateProper lQ := by
+          rw [hlyQD]
+        have h6 := hLQ
+        omega
+    · cases heq
+  have hzero : 0 ≤ run.ys.getD childBottom.2 0 := by
+    have h1 := hYsV_C
+    have h2 := fbs_run_top_nonneg hrun
+      (rk run.coordinateProper.rank childBottom.2).toNat
+    have h3 : 0 ≤ CoordsImpl.layerHeight run.coordinateProper
+        (run.layers.getD (rk run.coordinateProper.rank childBottom.2).toNat []) :=
+      CoordsImpl.layerHeight_nonneg _ _
+    omega
+  have hleMax : (boundsOf childRects []).bottom ≤ run.ys.getD childBottom.2 0 :=
+    boundsOf_bottom_le_of_all hzero hallUpper
+  have hchildBottomEq : (frameRect execution.params cg run childIndex).y +
+      (frameRect execution.params cg run childIndex).h =
+      (boundsOf childRects []).bottom := by
+    simp only [childRects, frameRect, hgroupGetC, hchildGroup,
+      show ((-2 : Int) != -2) = false from rfl, Bool.false_eq_true, ↓reduceIte]
+    omega
+  have hparentBottomEq : (frameRect execution.params cg run parentIndex).y +
+      (frameRect execution.params cg run parentIndex).h =
+      (boundsOf parentRects []).bottom := by
+    simp only [parentRects, frameRect, hgroupGetP, hparentGroup,
+      show ((-2 : Int) != -2) = false from rfl, Bool.false_eq_true, ↓reduceIte]
+    omega
+  have hBotDone : (frameRect execution.params cg run childIndex).y +
+      (frameRect execution.params cg run childIndex).h <
+      (frameRect execution.params cg run parentIndex).y +
+        (frameRect execution.params cg run parentIndex).h := by
+    have h1 := hchildBottomEq
+    have h2 := hleMax
+    have h3 := hChildLtParent
+    have h4 := hBotYH_P
+    have h5 := hparentGe
+    have h6 := hparentBottomEq
+    omega
+  exact hBotDone
+
+/-- Vertical strictness for an executed child group frame, discharged to the
+two rank residuals: the child frame sits strictly inside its parent frame
+vertically. Discharges `ChildFrameStrictVertical`. -/
+theorem childFrameStrictVertical_of_executed {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRun execution.params (componentCandidate execution.graph comp candidate)
+      execution.measured orderOptions = .ok run)
+    {parentIndex childIndex : Nat} {parent child : Node}
+    (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? = some parent)
+    (hparentGroup : parent.border = -2)
+    (hchild : (componentCandidate execution.graph comp candidate).nodes[childIndex]? = some child)
+    (hchildGroup : child.border = -2)
+    {parentBox childBox : ModelBox}
+    (hparentBox : inp.boxes[parent.decl]? = some parentBox)
+    (hchildBox : inp.boxes[child.decl]? = some childBox)
+    (hparentRef : childBox.parent = parentBox.id) (hne : childBox.parent ≠ "")
+    (htop : ChildTopRankLe
+      (componentCandidate execution.graph comp candidate) run childIndex)
+    (hbot : ChildBottomRankLe
+      (componentCandidate execution.graph comp candidate) run childIndex) :
+    ChildFrameStrictVertical execution.params
+      (componentCandidate execution.graph comp candidate) run parentIndex childIndex := by
+  exact ⟨childTopStrict execution hwf hcomp hrun hparent hparentGroup
+    hchild hchildGroup hparentBox hchildBox hparentRef hne htop,
+    childBottomStrict execution hwf hcomp hrun hparent hparentGroup
+    hchild hchildGroup hparentBox hchildBox hparentRef hne hbot⟩
+
+/-- The parent frame right edge is positive, discharged from the child group's
+own final side marker: the parent's right border marker (located through the
+child side-parent bracket, no plain member needed) has a positive right edge
+at a nonnegative centre, and it is contained in the parent frame. Discharges
+`ParentFrameRightEdgePos` for the child strictness proof. -/
+private theorem parentFrameRightEdgePos_of_childSide {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRun execution.params (componentCandidate execution.graph comp candidate)
+      execution.measured orderOptions = .ok run)
+    {parentIndex childIndex : Nat} {parent child : Node}
+    (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? = some parent)
+    (hparentGroup : parent.border = -2)
+    (hchild : (componentCandidate execution.graph comp candidate).nodes[childIndex]? = some child)
+    (hchildGroup : child.border = -2)
+    {parentBox childBox : ModelBox}
+    (hparentBox : inp.boxes[parent.decl]? = some parentBox)
+    (hchildBox : inp.boxes[child.decl]? = some childBox)
+    (hparentRef : childBox.parent = parentBox.id) (hne : childBox.parent ≠ "") :
+    ParentFrameRightEdgePos execution.params
+      (componentCandidate execution.graph comp candidate) run parentIndex := by
+  let cg := componentCandidate execution.graph comp candidate
+  obtain ⟨sideIndex, side, hside, hsideBorder, howner⟩ :=
+    execution.component_group_final_side hcomp hrun hchild hchildGroup
+  have hcoordinate := (componentRun_final_border_source hrun hside hsideBorder).1
+  obtain ⟨_ord, _left, right, _hord, _hlayers, _hdummy, _hpath, _hleft, hright, _hbracket⟩ :=
+    execution.component_child_side_parent_bracket hwf hcomp hrun hparent hparentGroup
+      hchild hchildGroup hparentBox hchildBox hparentRef hne hcoordinate hsideBorder howner
+  obtain ⟨hrightFinal, hrightX⟩ := componentRun_border_record hrun hright (Or.inr rfl)
+  have hgroupGet : cg.nodes.getD parentIndex default = parent := by
+    simp only [cg, List.getD_eq_getElem?_getD, hparent, Option.getD_some]
+  have hframeGroup : (cg.nodes.getD parentIndex default).border = -2 := by
+    rw [hgroupGet]; exact hparentGroup
+  obtain ⟨_, _, hgroupSource⟩ := componentCandidate_nonplain_source hparent (by omega)
+  obtain ⟨box, _, hdecl, hpath⟩ := execution.group_node_path_source hgroupSource hparentGroup
+  have hgroupPath : parent.clusterPath = Compound.path inp.boxes box ++ [parent.decl] := by
+    simpa only [hdecl] using hpath
+  have hrightPath : (OrderImpl.borderRight (titleF ⟨parent, false, none, false⟩, parentIndex)
+      execution.params.clusterBorderW).node.clusterPath =
+        Compound.path inp.boxes box ++ [(cg.nodes.getD parentIndex default).decl] := by
+    change (titleF ⟨parent, false, none, false⟩).node.clusterPath = _
+    rw [(titleF_keys _).2.2.1, hgroupGet]
+    exact hgroupPath
+  have hrightContained := frameRect_side_marker_contained (P := execution.params) (cg := cg)
+    hframeGroup (List.mk_mem_zipIdx_iff_getElem?.mpr hrightFinal) (Or.inr rfl) hrightPath
+  have hmarker : (Labels.rectAt run.proper run.xs run.ys right).x +
+      (Labels.rectAt run.proper run.xs run.ys right).w =
+      run.xs.getD right 0 - Int.fdiv execution.params.clusterBorderW 2 +
+        execution.params.clusterBorderW := by
+    simp only [Labels.rectAt, Labels.labelRect, RouteImpl.xAt, RouteImpl.nodeW,
+      hrightFinal, OrderImpl.borderRight]
+  have hcbw : 1 ≤ execution.params.clusterBorderW :=
+    checkedParams_clusterBorderW_ge_one execution.checked
+  have hxsNonneg := fbs_coordinate_centers_nonneg hrun right
+  unfold ParentFrameRightEdgePos
+  have h1 : (Labels.rectAt run.proper run.xs run.ys right).x +
+      (Labels.rectAt run.proper run.xs run.ys right).w ≤
+      (frameRect execution.params cg run parentIndex).x +
+        (frameRect execution.params cg run parentIndex).w := hrightContained.2.1
+  have h2 : 0 < (Labels.rectAt run.proper run.xs run.ys right).x +
+      (Labels.rectAt run.proper run.xs run.ys right).w := by
+    have e1 := hmarker
+    simp only [Int.fdiv_eq_ediv_of_nonneg _ (show (0 : Int) ≤ 2 by decide)] at e1
+    have e2 := hrightX
+    omega
+  change 0 < (frameRect execution.params cg run parentIndex).x +
+    (frameRect execution.params cg run parentIndex).w
+  omega
+
+/-- Strict counterpart of `SceneExecution.component_child_frame_contained`: a
+child group frame lies strictly inside its parent group frame. Same binders
+as the non-strict theorem; the frame residuals are discharged to the two rank
+residuals and the strict hull-maximum base follows from the child's own side
+marker. -/
+theorem SceneExecution.component_child_frame_strictInside' {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRun execution.params (componentCandidate execution.graph comp candidate)
+      execution.measured orderOptions = .ok run)
+    {parentIndex childIndex : Nat} {parent child : Node}
+    (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? = some parent)
+    (hparentGroup : parent.border = -2)
+    (hchild : (componentCandidate execution.graph comp candidate).nodes[childIndex]? = some child)
+    (hchildGroup : child.border = -2)
+    {parentBox childBox : ModelBox}
+    (hparentBox : inp.boxes[parent.decl]? = some parentBox)
+    (hchildBox : inp.boxes[child.decl]? = some childBox)
+    (hparentRef : childBox.parent = parentBox.id) (hne : childBox.parent ≠ "")
+    (htop : ChildTopRankLe
+      (componentCandidate execution.graph comp candidate) run childIndex)
+    (hbot : ChildBottomRankLe
+      (componentCandidate execution.graph comp candidate) run childIndex) :
+    (frameRect execution.params (componentCandidate execution.graph comp candidate)
+      run parentIndex).StrictInside
+      (frameRect execution.params (componentCandidate execution.graph comp candidate)
+        run childIndex) :=
+  execution.component_child_frame_strictInside hwf hcomp hrun hparent hparentGroup
+    hchild hchildGroup hparentBox hchildBox hparentRef hne
+    (childFrameStrictVertical_of_executed execution hwf hcomp hrun hparent hparentGroup
+      hchild hchildGroup hparentBox hchildBox hparentRef hne htop hbot)
+    (parentFrameRightEdgePos_of_childSide execution hwf hcomp hrun hparent hparentGroup
+      hchild hchildGroup hparentBox hchildBox hparentRef hne)
  end Elegant.Layered.PipelineImpl
