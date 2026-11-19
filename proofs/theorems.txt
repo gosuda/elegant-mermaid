@@ -2174,3 +2174,11 @@ Elegant.Layered.PipelineImpl.walkParentNe
 Elegant.Layered.PipelineImpl.walkStrictFrom
 Elegant.Layered.PipelineImpl.walkStrictFromAux
 Elegant.Layered.PipelineImpl.executedPartFrameCores_closed
+Elegant.Layered.PipelineImpl.SceneExecutionR.boxes_eq_mapR
+Elegant.Layered.PipelineImpl.componentRunR_none_eq_gen
+Elegant.Layered.PipelineImpl.componentRunR_spec
+Elegant.Layered.PipelineImpl.layoutComponentR_sizes
+Elegant.Layered.PipelineImpl.layoutRIds_sceneExecution
+Elegant.Layered.PipelineImpl.layoutRIds_success_phases
+Elegant.Layered.PipelineImpl.fitParent_of_top
+Elegant.Layered.PipelineImpl.fitPerCall_of_top
