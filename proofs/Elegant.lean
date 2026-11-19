@@ -686,3 +686,15 @@ import Elegant.Layered.ExactPlainRightNonPlainProof
 import Elegant.Layered.NotesFlagFactsProof
 import Elegant.Layered.NotesGeomC123Proof
 import Elegant.Layered.ExactDivergeStableBridgeProof
+import Elegant.Layered.RegionFlatC8bWProof
+import Elegant.Layered.RegionFlatC7
+import Elegant.Layered.RegionPositionsSomeProof
+import Elegant.Layered.RegionStepGeometry
+import Elegant.Layered.RegionFitClosed
+import Elegant.Layered.RegionFallbackStructuralProof
+import Elegant.Layered.NotesRouterEndsProof
+import Elegant.Layered.NotesGeomC68Proof
+import Elegant.Layered.ExactMarkerBracketProof
+import Elegant.Layered.ExactStepRecursionPremisesProof
+import Elegant.Layered.ExpandChildParentFrameFlatRecursionProof
+import Elegant.Layered.ExpandChildLabelOwnersProof
