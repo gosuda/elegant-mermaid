@@ -537,3 +537,4 @@ import Elegant.Layered.ExactCaptionAncestorsProof
 import Elegant.Layered.ExactLoopRectResidualsProof
 import Elegant.Layered.LoopRectTitleCopySepProof
 import Elegant.Layered.ExactCaptionMembersProof
+import Elegant.Layered.ExactForwardDummyFactsProof

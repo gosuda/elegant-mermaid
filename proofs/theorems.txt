@@ -2371,3 +2371,6 @@ Elegant.Layered.PipelineImpl.loopRectTitleCopy_closed
 Elegant.Layered.PipelineImpl.XC_sameDeclMarkerX_holds
 Elegant.Layered.PipelineImpl.XC_plainMemberX_holds
 Elegant.Layered.PipelineImpl.XC_memberDescX_holds
+Elegant.Layered.PipelineImpl.XFR_dummyExLabeledX_holds
+Elegant.Layered.PipelineImpl.XFR_routeLabelInDummyX_holds
+Elegant.Layered.PipelineImpl.XFR_strictDummyLinkedX_holds
