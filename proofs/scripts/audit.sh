@@ -52,8 +52,8 @@ done
 
 while IFS= read -r report; do
   [[ -z "$report" ]] && continue
-  list="${report#*\[}"
-  list="${list%\]}"
+  list="${report#*'['}"
+  list="${list%']'}"
   IFS=',' read -r -a axs <<< "$list"
   for a in "${axs[@]}"; do
     a="${a// /}"
