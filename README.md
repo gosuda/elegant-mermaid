@@ -58,6 +58,8 @@ cargo install emd-cli --locked     # any platform with Rust 1.99 or later
 npm install --global emd-cli       # GNU/Linux x64 with glibc, Node.js 26 or later
 ```
 
+When both are installed, check that `emd` resolves to the source build (`which emd`): if npm's directory comes first on `PATH`, `emd` is still the published 0.1.0 build, and `emd lint` answers `unknown command lint`.
+
 ## Usage
 
 Check a whole docs folder and fail CI on warnings:
