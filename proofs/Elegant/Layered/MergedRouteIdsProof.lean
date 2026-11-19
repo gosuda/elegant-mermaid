@@ -7,7 +7,8 @@ import Elegant.Layered.RecursiveCallParams
 import Elegant.Layered.ExpandChildStepsFacts
 import Elegant.Layered.ExpandChildContainment
 import Elegant.Layered.ExpandChildStructureFacts
-import Elegant.Layered.ExpandChildLabelFactsProof
+import Elegant.Layered.BoxRouteIdsDisjoint
+import Elegant.Layered.MergedAncestorsProof
 
 set_option autoImplicit false
 
@@ -619,7 +620,7 @@ theorem expandChild_owner_separation
     (hframed : framedParents inp = true)
     (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res)
     (hparams : ExpandChildCallParams P inp o group titleLines titleHeight)
-    (hdisjoint : ∀ id ∈ inp.boxes.map (·.id), id ∉ inp.routes.map (·.id)) :
+    (hdisjoint : BoxRouteIdsDisjoint inp) :
     ExpandChildC7OwnerSeparation group parent child := by
   obtain ⟨hwf, hfind, _hpboxes, hchild, hparent, _⟩ := hctx
   obtain ⟨_frameS, metricS, _tlS, _lS, _dxS, _dyS, _hframeS, hmetricS, htitleS,
@@ -737,4 +738,32 @@ theorem expandChild_owner_separation
       have hrouteIn : group.id ∈ inp.routes.map (·.id) :=
         hrtid ▸ hparentRouteInp rt.id (List.mem_map.mpr ⟨rt, hrtmem, rfl⟩)
       exact False.elim (hdisjoint group.id hgroupBox hrouteIn)
+
+/-- C7 label scopes from disjointness. Applies the landed
+`expandChild_c7_label_scopes` to ancestor monotonicity (executed calls),
+the merged route agreement, owner separation under `BoxRouteIdsDisjoint`,
+and the child route endpoints. The remaining `hanc` premise
+(`ExpandChildC8aAncestry`, a named residual about this same call, strictly
+simpler than the scope goal) has no executed-call proof in the tree yet:
+every consumer takes it as a hypothesis (`ParentFrameProof.hancAll`, the
+`FamilyAssembly.stepC8aAncestry` seam field). When its proof lands, delete
+the `hanc` binder to close this step. -/
+theorem expandChild_c7_label_scopes_of_disjoint
+    {fuel : Nat} {P : Params} {inp : Input} {o : Options} {group : ModelBox}
+    {titleLines : List Measure.Line} {titleHeight : Int}
+    {parent child res : FamilyResult}
+    (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res)
+    (hparams : ExpandChildCallParams P inp o group titleLines titleHeight)
+    (hdisjoint : BoxRouteIdsDisjoint inp)
+    (hanc : ExpandChildC8aAncestry group parent child res) :
+    ExpandChildC7LabelScopes P group parent child res :=
+  expandChild_c7_label_scopes fuel P inp o group titleLines titleHeight parent child res
+    hexpand hframed hctx hparams
+    (expandChild_ancestor_mono hexpand hframed hctx hparams)
+    (expandChild_route_agreement hexpand hframed hctx hparams)
+    (expandChild_owner_separation hexpand hframed hctx hparams hdisjoint)
+    hanc
+    (expandChild_child_route_endpoints hexpand hframed hctx hparams)
 
