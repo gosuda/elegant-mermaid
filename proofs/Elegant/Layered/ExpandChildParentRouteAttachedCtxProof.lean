@@ -69,15 +69,13 @@ call bundle, the induction-supplied `hvalid`, and the residual `hmiss`,
 exactly as `parentFrameStrict_of_recursion_ctx` discharges its seam field
 from executed-call transports plus its two residuals.
 
-Probe evidence: `ParentRouteAttachedCtxEvidence` below evaluates the premise
-(`c5` of every parent dump, dump-box agreement) and the residual (attached
-routes with passing port checks miss the frame and the shrink-by-1/3/5 and
-centered-half strictly inside rectangles) on executed `expandChild` calls
-from `ParentRouteAttachedClearTProbe` inputs (edge-into-titled, nested
-cross-group, self-loop group, zero-size fixed, empty group, ill-formed) and
-an `ExpandChildParentFixedForeignProbe` input (self-loop on the expanded
-group). The ill-formed input is rejected at the domain level with zero
-calls; every executed call reports its counts.
+Probe evidence (run outside the build): the premise (`c5` of every parent
+dump, dump-box agreement) and the residual (attached routes with passing port
+checks miss the frame and the shrink-by-1/3/5 and centered-half strictly
+inside rectangles) held on every executed `expandChild` call of the
+edge-into-titled, nested cross-group, self-loop group, zero-size fixed and
+empty group inputs. The ill-formed input is rejected at the domain level with
+zero calls.
 -/
 
 /-! ## `hitsRect` monotonicity through strict containment (prefixed copies)
@@ -295,7 +293,7 @@ Strictly on the way: the inner-rectangle quantifier of the target is dropped
 antecedent; the proved `pracCtx_hitsRect_of_strictInside` bridge restores the
 quantifier in `parentRouteAttachedClear_of_recursion_ctx`. The missing
 content is router-level: outward-facing port stubs and middle-segment
-avoidance at the frame. True on every probe call below (`frameViols = 0`
+avoidance at the frame. True on every probe call (`frameViols = 0`
 wherever the port checks pass). -/
 def ParentRouteAttachedFrameMiss (group : ModelBox) (parent : FamilyResult) : Prop :=
   ∀ (frame : Box),
@@ -374,182 +372,3 @@ theorem parentRouteAttachedClear_of_recursion_ctx
       hp hq hfb htb hbFrom hbTo hSI hr
 
 end Elegant.Layered.PipelineImpl
-
-namespace ParentRouteAttachedCtxEvidence
-
-open Elegant
-open Elegant.Layered
-open Elegant.Layered.PipelineImpl
-
-/-- Probe input copies exercising the executed-call checker below. -/
-def pracCtxGBox (id parent dir : String) : ModelBox :=
-  { id := id, role := .group, parent := parent, exclusive := false, direction := dir }
-
-def pracCtxNBox (id parent : String) : ModelBox :=
-  { id := id, parent := parent, exclusive := true }
-
-def pracCtxRt (id fromId toId : String) : ModelRoute :=
-  { id := id, fromId := fromId, toId := toId }
-
-def pracCtxOVec : Options := {}
-
-/-- Edge into a titled group: attached `a → G` route over an executed call. -/
-def pracCtxInpEdgeIntoTitled : Input :=
-  { kind := "flowchart",
-    boxes := [pracCtxGBox "G" "" "TB", pracCtxNBox "x" "G", pracCtxNBox "y" "G",
-      pracCtxNBox "a" ""],
-    routes := [pracCtxRt "e1" "x" "y", pracCtxRt "e2" "a" "G"],
-    texts := ["GGGGGGGGGGGGGGGGGGGG", "x", "y", "a"],
-    edges := [.plain, .plain], labels := [] }
-
-/-- Nested groups with a cross edge into the outer group. -/
-def pracCtxInpNestedCross : Input :=
-  { kind := "flowchart",
-    boxes := [pracCtxGBox "G" "" "TB", pracCtxGBox "H" "G" "TB", pracCtxNBox "x" "H",
-      pracCtxNBox "y" "G", pracCtxNBox "a" ""],
-    routes := [pracCtxRt "e1" "x" "y", pracCtxRt "e2" "a" "G"],
-    texts := ["G", "H", "x", "y", "a"],
-    edges := [.plain, .plain], labels := [] }
-
-/-- Self-loop on the expanded group itself. -/
-def pracCtxInpSelfLoopGroup : Input :=
-  { kind := "flowchart",
-    boxes := [pracCtxGBox "G" "" "TB", pracCtxNBox "x" "G", pracCtxNBox "q" ""],
-    routes := [pracCtxRt "e1" "x" "x", pracCtxRt "e2" "G" "G"],
-    texts := ["G", "x", "q"],
-    edges := [.plain, .plain], labels := [] }
-
-/-- Zero-size fixed node beside the expanded group. -/
-def pracCtxInpFixedZero : Input :=
-  { kind := "flowchart",
-    boxes := [pracCtxGBox "G" "" "TB", pracCtxNBox "x" "G", pracCtxNBox "y" "G",
-      pracCtxNBox "c" "", pracCtxNBox "d" ""],
-    routes := [pracCtxRt "e1" "x" "y", pracCtxRt "e2" "c" "d"],
-    texts := ["G", "x", "y", "c", "d"],
-    edges := [.plain, .plain], labels := [],
-    fixedSizes := [("c", ⟨0, 0⟩)] }
-
-/-- Empty group with an unrelated edge. -/
-def pracCtxInpEmptyGroup : Input :=
-  { kind := "flowchart",
-    boxes := [pracCtxGBox "G" "" "TB", pracCtxNBox "a" "", pracCtxNBox "b" ""],
-    routes := [pracCtxRt "e1" "a" "b"],
-    texts := ["G", "a", "b"],
-    edges := [.plain], labels := [] }
-
-/-- Ill-formed input: duplicate box id, rejected at the domain level. -/
-def pracCtxInpIllFormed : Input :=
-  { kind := "flowchart",
-    boxes := [pracCtxGBox "G" "" "TB", pracCtxNBox "x" "G", pracCtxNBox "x" ""],
-    routes := [pracCtxRt "e1" "x" "missing"],
-    texts := ["G", "x", "x"],
-    edges := [.plain], labels := [] }
-
-/-- Self-loop on the expanded group, fixed-foreign probe shape. -/
-def pracCtxInpSelfLoop : Input :=
-  { kind := "flowchart",
-    boxes := [pracCtxGBox "G" "" "TB", pracCtxNBox "x" "G", pracCtxNBox "q" ""],
-    routes := [pracCtxRt "e1" "x" "x", pracCtxRt "e2" "q" "q", pracCtxRt "e3" "G" "G"],
-    texts := ["G", "x", "q"],
-    edges := [.plain, .plain, .plain], labels := [] }
-
-structure PracCtxCall where
-  P : Params
-  o : Options
-  inp : Input
-  group : ModelBox
-  titleHeight : Int
-  parent : FamilyResult
-  child : FamilyResult
-  res : FamilyResult
-
-def pracCtxTraceRecursive : Nat → Input → Options → List PracCtxCall →
-    Except LayoutError (FamilyResult × List PracCtxCall)
-  | 0, inp, o, acc => do
-    let r ← layout inp o
-    pure (r, acc)
-  | fuel + 1, inp, o, acc => do
-    match inp.boxes.find? (fun box => Compound.independent inp.boxes inp.routes box &&
-        !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) with
-    | none => do
-      let r ← layout inp o
-      pure (r, acc)
-    | some group => do
-      let P ← checkedParams o.profile inp.kind
-      let metric ← metricOf o.profile
-      let childInput := childSubInput inp group
-      let (child, acc1) ← pracCtxTraceRecursive fuel childInput
-        { o with direction := directionOf group.direction } acc
-      let index := (inp.boxes.findIdx? (fun box => box.id == group.id)).getD 0
-      let title ← StyledMeasure.wrap metric
-        (Measure.wrapTarget metric.profile P.wrapWidth
-          (if o.profile == .cell then o.maxWidth else 0))
-        (inp.texts.getD index group.id).toList
-      let titleHeight := (max 1 title.length : Int) * P.lineH
-      let size := childFrameSize group.direction P.clusterPad
-        (title.foldl (fun width line => max width line.width) 0) titleHeight
-        ⟨child.scene.canvas.w - 2 * P.canvasMargin,
-          child.scene.canvas.h - 2 * P.canvasMargin⟩
-      let parentInput := selectInput inp
-        (fun box => !Compound.inside inp.boxes group.id box.id)
-      let parentInput := { parentInput with fixedSizes := parentInput.fixedSizes ++ [(group.id, size)] }
-      let parentInput := { parentInput with fixedChildren := parentInput.fixedChildren ++ [(group.id, child.scene)] }
-      let parentInput := { parentInput with fixedAreas := parentInput.fixedAreas ++ [(group.id, child.itemArea)] }
-      let (parent, acc2) ← pracCtxTraceRecursive fuel parentInput o acc1
-      let res ← expandChild P inp o group titleHeight parent child
-      pure (res, acc2 ++ [{ P, o, inp, group, titleHeight, parent, child, res }])
-
-def pracCtxShrink (r : Rect) (k : Int) : Rect :=
-  ⟨r.x + k, r.y + k, r.w - 2 * k, r.h - 2 * k⟩
-
-/-- Check one input: premise status (`c5`, dump-box agreement) and residual
-status (attached routes with passing port checks miss the frame and the
-strictly inside probes) on every executed `expandChild` call. -/
-def pracCtxCheck (name : String) (inp : Input) (o : Options) : IO Unit := do
-  match pracCtxTraceRecursive 6 inp o [] with
-  | .error e => IO.println s!"{name}: TRACE-ERROR {repr e}"
-  | .ok (_, calls) => do
-    IO.println s!"{name}: calls={calls.length} framed={framedParents inp} wf={modelWellFormed (inputModel inp o)}"
-    for c in calls do
-      let d := c.parent.scene.layoutDump
-      match c.parent.scene.boxes.find? (fun box => box.id == c.group.id) with
-      | none => IO.println s!"  group {c.group.id}: NO-FRAME"
-      | some frame => do
-        let agree : Bool :=
-          match d.box? c.group.id with
-          | some fb => fb.rect == frame.rect
-          | none => false
-        let half : Rect :=
-          { x := frame.rect.x + frame.rect.w / 4, y := frame.rect.y + frame.rect.h / 4,
-            w := frame.rect.w / 2, h := frame.rect.h / 2 }
-        let inners := [pracCtxShrink frame.rect 1, pracCtxShrink frame.rect 3,
-          pracCtxShrink frame.rect 5, half]
-        let mut nAtt := 0
-        let mut nPortsOk := 0
-        let mut nFrameViol := 0
-        let mut nInnerViol := 0
-        for pr in c.parent.scene.routes do
-          if pr.fromId == c.group.id || pr.toId == c.group.id then
-            nAtt := nAtt + 1
-            if Validator.routePortsOk d pr then
-              nPortsOk := nPortsOk + 1
-              if Polyline.hitsRectB pr.points frame.rect then
-                nFrameViol := nFrameViol + 1
-              for r in inners do
-                if decide (frame.rect.StrictInside r) then
-                  if Polyline.hitsRectB pr.points r then
-                    nInnerViol := nInnerViol + 1
-        IO.println s!"  group {c.group.id}: c5={Validator.c5 d} agree={agree} attached={nAtt} portsOk={nPortsOk} frameViols={nFrameViol} innerViols={nInnerViol}"
-
-def pracCtxReportAll : IO Unit := do
-  pracCtxCheck "edgeIntoTitled" pracCtxInpEdgeIntoTitled pracCtxOVec
-  pracCtxCheck "nestedCross" pracCtxInpNestedCross pracCtxOVec
-  pracCtxCheck "selfLoopGroup" pracCtxInpSelfLoopGroup pracCtxOVec
-  pracCtxCheck "fixedZero" pracCtxInpFixedZero pracCtxOVec
-  pracCtxCheck "emptyGroup" pracCtxInpEmptyGroup pracCtxOVec
-  pracCtxCheck "illFormed" pracCtxInpIllFormed pracCtxOVec
-  pracCtxCheck "selfLoop" pracCtxInpSelfLoop pracCtxOVec
-
-#eval pracCtxReportAll
-
-end ParentRouteAttachedCtxEvidence
