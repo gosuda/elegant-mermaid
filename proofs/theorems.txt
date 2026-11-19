@@ -2955,3 +2955,5 @@ Elegant.Kinds.aboveLane_of_residual
 Elegant.Layered.PipelineImpl.xfwd_strictLeftXW
 Elegant.Layered.PipelineImpl.xfwd_strictRightXW
 Elegant.Layered.PipelineImpl.xfwd_strictDummyLinkedXW_holds
+Elegant.Layered.PipelineImpl.notesC2Geom_holds
+Elegant.Layered.PipelineImpl.notesC3Geom_holds
