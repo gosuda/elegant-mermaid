@@ -37,6 +37,8 @@ import Elegant.Layered.RunLocalSeparationsProof
 import Elegant.Layered.ExclusiveKeyOutsideCgPathsProof
 import Elegant.Layered.CaptionsSeamProof
 import Elegant.Layered.CaptionCrossPartProof
+import Elegant.Layered.FlatC6ClosedProof
+import Elegant.Layered.FrameLabelsProof
 import ElegantGeometry.Validator
 set_option autoImplicit false
 
@@ -57,10 +59,14 @@ abbrev RecursiveStepFacts
     Step P inp o group titleHeight parent child res
 
 /-- Every fact the layered family validity theorem still takes as a premise.
-Remaining fields: `flatC6`, `runLocalLoopFootprint`, `foreignClusterRankSpans`,
-`foreignBorderChainXAligned`, `bracketMarkersAtRank`, `frameLabels`,
-`titleExclusiveSamePart`, `stepC6Geometry`, `stepC6Anchors`, `stepC7Geometry`,
-`stepC8aGeometry`, `stepC8bGeometry`, `stepC8aAncestry`.  Each field is a named
+Remaining fields: `partFrameWitness`, `loopRectTopReal`, `loopRectFixedReal`,
+`loopRectTitleReal`, `loopRectBottomReal`, `loopRectRangeDegReal`,
+`loopFootprintTopSeparation`, `loopFootprintBeyondProper`,
+`runLocalLoopFootprint`, `titleExclusiveSamePart`, `foreignClusterRankSpans`,
+`foreignBorderChainXAligned`, `bracketMarkersAtRank`,
+`executedPartFrameCores`, `fallbackOwnerFrameClear`, `stepC6Geometry`,
+`stepC6Anchors`, `stepC7Geometry`, `stepC8aGeometry`, `stepC8bGeometry`,
+`stepC8aAncestry`.  Each field is a named
 OPEN statement about the executed pipeline; a field leaves this structure when
 its discharge theorem lands.  The refuted `GroupAttach`, `GroupAnchors`, and
 universal nonempty-id statements were replaced by the four group endpoint
@@ -77,9 +83,40 @@ footprint (`RunLocalSeparationsProof.lean`), the exclusive-box run bridge
 (`ExclusiveKeyOutsideCgPathsProof.lean`), and the cross-part title clearance,
 which the `captions` field now takes narrowed to `titleExclusiveSamePart`
 via `sceneCaptionBoxContainment_of_fit` (`CaptionsSeamProof.lean`,
-`CaptionCrossPartProof.lean`). -/
+`CaptionCrossPartProof.lean`).  The old `flatC6` field is narrowed to its
+eight residuals, closed by `flatC6_closed` (`FlatC6ClosedProof.lean`), and
+the old `frameLabels` field is narrowed to `executedPartFrameCores` and
+`fallbackOwnerFrameClear`, closed by `frameLabels_executed`
+(`FrameLabelsProof.lean`).  `stepC6Anchors` and `stepC8aAncestry` are kept:
+`stepC6Anchors_holds` and `stepC8aAncestry_holds`
+(`ExpandChildAncestryProof.lean`) have exactly these field types, but that
+file imports `FamilyAssembly` for `RecursiveStepFacts`, so using them here
+would be an import cycle. -/
 structure LayeredSeams : Prop where
-  flatC6 : FlatC6
+  partFrameWitness : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    PartFrameWitness inp o res
+  loopRectTopReal : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    LoopRectTopReal inp o res
+  loopRectFixedReal : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    LoopRectFixedReal inp o res
+  loopRectTitleReal : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    LoopRectTitleReal inp o res
+  loopRectBottomReal : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    LoopRectBottomReal inp o res
+  loopRectRangeDegReal : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    LoopRectRangeDegReal inp o res
+  loopFootprintTopSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    LoopFootprintTopSeparation inp o res
+  loopFootprintBeyondProper : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    LoopFootprintBeyondProper inp o res
   runLocalLoopFootprint : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     RunLocalLoopFootprint inp o res
   titleExclusiveSamePart : ∀ (inp : Input) (o : Options) (res : FamilyResult),
@@ -88,11 +125,13 @@ structure LayeredSeams : Prop where
   foreignClusterRankSpans : ForeignClusterRankSpans
   foreignBorderChainXAligned : ForeignBorderChainXAligned
   bracketMarkersAtRank : BracketMarkersAtRank
-  frameLabels : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    WellFormed (inputModel inp o) → framedParents inp = true → InputFixedFit inp o →
+  executedPartFrameCores : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    ∀ (execution : SceneExecution inp o res), ExecutedPartFrameCores execution
+  fallbackOwnerFrameClear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
     ∀ (execution : SceneExecution inp o res),
-      LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
-        FallbackCaptionClear execution
+      Elegant.Layered.FallbackOwnerFrameClear execution
   stepC6Geometry : RecursiveStepFacts ExpandChildC6Geometry
   stepC6Anchors : RecursiveStepFacts
     (fun _ _ _ group _ parent child res => ExpandChildC6Anchors group parent child res)
@@ -118,8 +157,21 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
   have hflat3 : FlatC3' := fun inp o res hwf hfp h => layout_c3 h hwf hfp
   have hflat7 : FlatC7 := fun inp o res hwf hfp hsep s1 s2 h =>
     layout_c7 hwf hfp hsep s1 s2 h
+  have hframeLabels : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true → InputFixedFit inp o →
+      ∀ (execution : SceneExecution inp o res),
+        LabelFramePackedClear execution.params inp o execution.lines execution.packedAcc ∧
+          FallbackCaptionClear execution :=
+    fun inp o res hwf hfp hfit execution =>
+      frameLabels_executed execution hwf hfp hfit
+        (S.executedPartFrameCores inp o res hwf hfp execution)
+        (S.fallbackOwnerFrameClear inp o res hwf hfp execution)
+  have hflat6 : FlatC6 :=
+    flatC6_closed S.partFrameWitness S.loopRectTopReal S.loopRectFixedReal
+      S.loopRectTitleReal S.loopRectBottomReal S.loopRectRangeDegReal
+      S.loopFootprintTopSeparation S.loopFootprintBeyondProper
   have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
-    layout_c8b h hwf (S.frameLabels inp o res hwf hfp hfit)
+    layout_c8b h hwf (hframeLabels inp o res hwf hfp hfit)
   have hlabelRuns : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       LabelRunsClearExclusiveBoxes inp o res := fun inp o res hwf hfp =>
@@ -134,7 +186,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
     sceneCaptionBoxContainment_of_fit hwf hfp hfit
       (S.titleExclusiveSamePart inp o res hwf hfp)
       (titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
-      (S.frameLabels inp o res hwf hfp hfit)
+      (hframeLabels inp o res hwf hfp hfit)
   have hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       BracketInsidePremises inp o res := fun inp o res hwfInp hframedInp =>
@@ -203,7 +255,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
         (groupBottomBoundaryFacts_of_dummy bottomDummyRankLe) groupTailPortOnYs
         groupAnchorSelection)
       subInputWellFormed h,
-    layoutRecursive_c6_of_flat S.flatC6 hclear subInputWellFormed hstepC6
+    layoutRecursive_c6_of_flat hflat6 hclear subInputWellFormed hstepC6
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c7_of_flat hflat7 (fun _ _ _ => labelsC7_partsSeparated) hlabelRuns
       hcaptions subInputWellFormed hstepC7

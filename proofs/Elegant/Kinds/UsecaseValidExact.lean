@@ -34,13 +34,13 @@ structure ExactSeams (exactIds : List String) : Prop where
   flatC2 : Layered.PipelineImpl.FlatC2B (Layered.PipelineImpl.layoutX exactIds)
   /-- Plain counterpart: `FlatGroupEndpoints` via `flatC5B_of_endpoints`. -/
   flatC5 : Layered.PipelineImpl.FlatC5B (Layered.PipelineImpl.layoutX exactIds)
-  /-- Plain counterpart: `LayeredSeams.flatC6`. -/
+  /-- Plain counterpart: the eight narrow `LayeredSeams` residuals via `flatC6_closed`. -/
   flatC6 : Layered.PipelineImpl.FlatC6B (Layered.PipelineImpl.layoutX exactIds)
   /-- Plain counterpart: `layout_c7`. -/
   flatC7 : Layered.PipelineImpl.FlatC7B (Layered.PipelineImpl.layoutX exactIds)
   /-- Plain counterpart: `flatC8a_of_span_seams` plus foreign-span premises. -/
   flatC8a : Layered.PipelineImpl.FlatC8aB (Layered.PipelineImpl.layoutX exactIds)
-  /-- Plain counterpart: `layout_c8b` plus `S.frameLabels`. -/
+  /-- Plain counterpart: `layout_c8b` plus the narrow label residuals via `frameLabels_executed`. -/
   flatC8b : Layered.PipelineImpl.FlatC8bB (Layered.PipelineImpl.layoutX exactIds)
   /-- Residual: the canvas-margin bound the C7/C8b lifts need. -/
   canvasMargins :

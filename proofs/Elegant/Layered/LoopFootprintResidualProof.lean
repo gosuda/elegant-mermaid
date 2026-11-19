@@ -6,79 +6,84 @@ namespace Elegant
 namespace Layered
 namespace PipelineImpl
 
-/-- Narrow residual, proved below: an in-range non-plain candidate node has
-    border `-2` (group top) or `2` (group bottom). Side (`±1`), title-copy
-    (`3`) and other borders are created later in the coordinate phases, never
-    in a component candidate. The probe census over all executed runs shows
-    only borders `0`, `-2`, `2`; zero other-border nodes. -/
-def LoopFootprintOtherBorder (inp : Input) (o : Options)
+ /-- Narrow residual, proved below, general over `orderOptions`: an in-range
+    non-plain candidate node has border `-2` (group top) or `2` (group
+    bottom). Side (`±1`), title-copy (`3`) and other borders are created later
+    in the coordinate phases, never in a component candidate. The probe census
+    over all executed runs and all six orderings shows only borders `0`,
+    `-2`, `2`; zero other-border nodes. `loopFootprintOtherBorder_candidate`
+    is the `candidateOrder` instance. -/
+ def LoopFootprintOtherBorder (inp : Input) (o : Options)
     (res : FamilyResult) : Prop :=
   ∀ (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
-    (run : Run) (v : Nat),
+    (run : Run) (orderOptions : OrderOptions) (v : Nat),
     comp ∈ components e.graph →
-    componentRun e.params (componentCandidate e.graph comp candidate) e.measured
-      (candidateOrder candidate) = .ok run →
+     componentRun e.params (componentCandidate e.graph comp candidate) e.measured
+      orderOptions = .ok run →
     v < (componentCandidate e.graph comp candidate).nodes.length →
     ((componentCandidate e.graph comp candidate).nodes.getD v default).border ≠ 0 →
     ((componentCandidate e.graph comp candidate).nodes.getD v default).border = -2 ∨
       ((componentCandidate e.graph comp candidate).nodes.getD v default).border = 2
 
-/-- Narrow residual about `loopSizes`, proved below: an in-range `border = 2`
-    (group bottom) candidate node owns no loop sizes. Bottom nodes are
-    appended after the original nodes and no aliased raw edge maps to them.
-    The probe census shows `0` loops on every bottom node of every executed
-    run. -/
-def LoopFootprintBottomEmpty (inp : Input) (o : Options)
+ /-- Narrow residual about `loopSizes`, proved below, general over
+    `orderOptions` (the conclusion never mentions the run): an in-range
+    `border = 2` (group bottom) candidate node owns no loop sizes. Bottom
+    nodes are appended after the original nodes and no aliased raw edge maps
+    to them. The probe census shows `0` loops on every bottom node of every
+    executed run and ordering. `loopFootprintBottomEmpty_candidate` is the
+    `candidateOrder` instance. -/
+ def LoopFootprintBottomEmpty (inp : Input) (o : Options)
     (res : FamilyResult) : Prop :=
   ∀ (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
-    (run : Run) (v : Nat),
+    (run : Run) (orderOptions : OrderOptions) (v : Nat),
     comp ∈ components e.graph →
-    componentRun e.params (componentCandidate e.graph comp candidate) e.measured
-      (candidateOrder candidate) = .ok run →
+     componentRun e.params (componentCandidate e.graph comp candidate) e.measured
+      orderOptions = .ok run →
     v < (componentCandidate e.graph comp candidate).nodes.length →
     ((componentCandidate e.graph comp candidate).nodes.getD v default).border = 2 →
     loopSizes (componentCandidate e.graph comp candidate).edges e.measured v
       (componentCandidate e.graph comp candidate).slot = []
 
- /-- Narrow residual about `loopFootprint`, still open: the footprint of an
-    in-range `border = -2` (group top) node separates from every plain box
-    frame. A nonfixed group's self-loop attaches to its top node, so tops may
-    own loops. The plain-pair core uses `border = 0` for the owner `v` in two
-    places that fail for tops: the same-rank gap, which for a plain owner is
-    discharged by `componentRun_original_plain_record` and the coordinate gap
-    that reserves the owner's own loop extent (a top's extent is zeroed by
-    `clearProxyExtents`, and the group frame's right edge is a per-rank
-    maximum, so a marker-anchored gap does not cover the footprint's full
-    width). The probe shows `sep = true` for every top-vs-plain pair on all
-    executed runs (12 candidate pairs plus 15 adversarial sibling-group
-    geometry pairs), including looping tops, and no falsifying witness was
-    found; the same-rank right-outsider case stays open. -/
+ /-- Narrow residual about `loopFootprint`, still open, general over
+    `orderOptions`: the footprint of an in-range `border = -2` (group top) node
+    separates from every plain box frame. A nonfixed group's self-loop attaches
+    to its top node, so tops may own loops. The plain-pair core uses `border = 0`
+    for the owner `v` in two places that fail for tops: the same-rank gap, which
+    for a plain owner is discharged by `componentRun_original_plain_record` and
+    the coordinate gap that reserves the owner's own loop extent (a top's extent
+    is zeroed by `clearProxyExtents`, and the group frame's right edge is a
+    per-rank maximum, so a marker-anchored gap does not cover the footprint's
+    full width). The probe shows `sep = true` for every top-vs-plain pair on
+    all executed runs and orderings, including looping tops, and no falsifying
+    witness was found; the same-rank right-outsider case stays open.
+    `loopFootprintTopSeparation_candidate` is the `candidateOrder` instance. -/
 def LoopFootprintTopSeparation (inp : Input) (o : Options)
     (res : FamilyResult) : Prop :=
   ∀ (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
-    (run : Run) (v b : Nat),
+    (run : Run) (orderOptions : OrderOptions) (v b : Nat),
     comp ∈ components e.graph →
     ((componentCandidate e.graph comp candidate).nodes.getD b default).border = 0 →
-    componentRun e.params (componentCandidate e.graph comp candidate) e.measured
-      (candidateOrder candidate) = .ok run →
+     componentRun e.params (componentCandidate e.graph comp candidate) e.measured
+      orderOptions = .ok run →
     v < (componentCandidate e.graph comp candidate).nodes.length →
     ((componentCandidate e.graph comp candidate).nodes.getD v default).border = -2 →
     LoopFootprintSeparation (componentCandidate e.graph comp candidate) run
       e.measured v b
 
- /-- Narrow residual about `frameRect` at beyond-candidate indices, still open:
-    when `b` lies past the candidate nodes but inside the proper nodes,
-    `frameRect` takes the `nodeRect` branch (the `getD` default node has
-    border `0 ≠ -2`) over the proper node at `b` — a title copy, border
-    marker, or routing dummy. The probe evaluates 168 sliver pairs plus 84
-    reversed-direction pairs with zero failures. -/
+ /-- Narrow residual about `frameRect` at beyond-candidate indices, still open,
+    general over `orderOptions`: when `b` lies past the candidate nodes but
+    inside the proper nodes, `frameRect` takes the `nodeRect` branch (the `getD`
+    default node has border `0 ≠ -2`) over the proper node at `b` — a title
+    copy, border marker, or routing dummy. The probe evaluates every sliver
+    pair in both directions, under every ordering, with zero failures.
+    `loopFootprintBeyondProper_candidate` is the `candidateOrder` instance. -/
 def LoopFootprintBeyondProper (inp : Input) (o : Options)
     (res : FamilyResult) : Prop :=
   ∀ (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
-    (run : Run) (v b : Nat),
+    (run : Run) (orderOptions : OrderOptions) (v b : Nat),
     comp ∈ components e.graph →
-    componentRun e.params (componentCandidate e.graph comp candidate) e.measured
-      (candidateOrder candidate) = .ok run →
+     componentRun e.params (componentCandidate e.graph comp candidate) e.measured
+      orderOptions = .ok run →
     v < (componentCandidate e.graph comp candidate).nodes.length →
     (componentCandidate e.graph comp candidate).nodes.length ≤ b →
     b < run.proper.nodes.length →
@@ -648,9 +653,9 @@ private theorem resid_bottomLoopEmpty {inp : Input} {o : Options} {res : FamilyR
 
 /-- The other-border residual holds unconditionally: candidate borders are
 `0`, `-2`, or `2`. -/
-theorem LoopFootprintOtherBorder_holds {inp : Input} {o : Options} {res : FamilyResult} :
+ theorem LoopFootprintOtherBorder_holds {inp : Input} {o : Options} {res : FamilyResult} :
     LoopFootprintOtherBorder inp o res := by
-  intro e comp candidate run v _hcomp _hrun hvlen hne0
+  intro e comp candidate run orderOptions v _hcomp _hrun hvlen hne0
   have hv : v < comp.length := by
     rw [← candidate_nodes_length e.graph comp candidate]
     exact hvlen
@@ -740,9 +745,9 @@ theorem LoopFootprintOtherBorder_holds {inp : Input} {o : Options} {res : Family
 
 /-- The bottom-empty residual holds unconditionally: border-`2` indices sit
 past the box count, hence own no loops. -/
-theorem LoopFootprintBottomEmpty_holds {inp : Input} {o : Options} {res : FamilyResult} :
+ theorem LoopFootprintBottomEmpty_holds {inp : Input} {o : Options} {res : FamilyResult} :
     LoopFootprintBottomEmpty inp o res := by
-  intro e comp candidate run v hcomp _hrun hvlen hborder
+  intro e comp candidate run orderOptions v hcomp _hrun hvlen hborder
   have hv : v < comp.length := by
     rw [← candidate_nodes_length e.graph comp candidate]
     exact hvlen
@@ -801,6 +806,67 @@ theorem LoopFootprintBottomEmpty_holds {inp : Input} {o : Options} {res : Family
   have hempty := resid_bottomLoopEmpty e comp candidate v hcomp hv hge
   simp only [loopSizes, hempty, List.map_nil]
 
+ /-- Candidate instance of the general other-border residual. -/
+ theorem loopFootprintOtherBorder_candidate {inp : Input} {o : Options} {res : FamilyResult}
+    (h : LoopFootprintOtherBorder inp o res) :
+    ∀ (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
+      (run : Run) (v : Nat),
+      comp ∈ components e.graph →
+      componentRun e.params (componentCandidate e.graph comp candidate) e.measured
+        (candidateOrder candidate) = .ok run →
+      v < (componentCandidate e.graph comp candidate).nodes.length →
+      ((componentCandidate e.graph comp candidate).nodes.getD v default).border ≠ 0 →
+      ((componentCandidate e.graph comp candidate).nodes.getD v default).border = -2 ∨
+        ((componentCandidate e.graph comp candidate).nodes.getD v default).border = 2 :=
+   fun e comp candidate run v hcomp hrun hvlen hne0 =>
+    h e comp candidate run (candidateOrder candidate) v hcomp hrun hvlen hne0
+
+ /-- Candidate instance of the general bottom-empty residual. -/
+ theorem loopFootprintBottomEmpty_candidate {inp : Input} {o : Options} {res : FamilyResult}
+    (h : LoopFootprintBottomEmpty inp o res) :
+    ∀ (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
+      (run : Run) (v : Nat),
+      comp ∈ components e.graph →
+      componentRun e.params (componentCandidate e.graph comp candidate) e.measured
+        (candidateOrder candidate) = .ok run →
+      v < (componentCandidate e.graph comp candidate).nodes.length →
+      ((componentCandidate e.graph comp candidate).nodes.getD v default).border = 2 →
+      loopSizes (componentCandidate e.graph comp candidate).edges e.measured v
+        (componentCandidate e.graph comp candidate).slot = [] :=
+   fun e comp candidate run v hcomp hrun hvlen hbord =>
+    h e comp candidate run (candidateOrder candidate) v hcomp hrun hvlen hbord
+
+ /-- Candidate instance of the general top-separation residual. -/
+ theorem loopFootprintTopSeparation_candidate {inp : Input} {o : Options} {res : FamilyResult}
+    (h : LoopFootprintTopSeparation inp o res) :
+    ∀ (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
+      (run : Run) (v b : Nat),
+      comp ∈ components e.graph →
+      ((componentCandidate e.graph comp candidate).nodes.getD b default).border = 0 →
+      componentRun e.params (componentCandidate e.graph comp candidate) e.measured
+        (candidateOrder candidate) = .ok run →
+      v < (componentCandidate e.graph comp candidate).nodes.length →
+      ((componentCandidate e.graph comp candidate).nodes.getD v default).border = -2 →
+      LoopFootprintSeparation (componentCandidate e.graph comp candidate) run
+        e.measured v b :=
+   fun e comp candidate run v b hcomp hbord hrun hvlen htop =>
+    h e comp candidate run (candidateOrder candidate) v b hcomp hbord hrun hvlen htop
+
+ /-- Candidate instance of the general beyond-proper residual. -/
+ theorem loopFootprintBeyondProper_candidate {inp : Input} {o : Options} {res : FamilyResult}
+    (h : LoopFootprintBeyondProper inp o res) :
+    ∀ (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
+      (run : Run) (v b : Nat),
+      comp ∈ components e.graph →
+      componentRun e.params (componentCandidate e.graph comp candidate) e.measured
+        (candidateOrder candidate) = .ok run →
+      v < (componentCandidate e.graph comp candidate).nodes.length →
+      (componentCandidate e.graph comp candidate).nodes.length ≤ b →
+      b < run.proper.nodes.length →
+      LoopFootprintSeparation (componentCandidate e.graph comp candidate) run
+        e.measured v b :=
+   fun e comp candidate run v b hcomp hrun hvlen hle hlt =>
+    h e comp candidate run (candidateOrder candidate) v b hcomp hrun hvlen hle hlt
 /-- The broad residual follows from the two proved narrow results plus the two
 remaining hypotheses. Out-of-range `v` has no loops, hence a zero-width
 footprint; out-of-range `b` past the proper nodes has a degenerate frame,
@@ -815,9 +881,9 @@ theorem loopFootprintSeparationResidual {inp : Input} {o : Options}
   intro e comp candidate run v b hcomp hbord hrun hdisj
   rcases hdisj with hne0 | hvnlen | hbnlen
   · by_cases hvlen : v < (componentCandidate e.graph comp candidate).nodes.length
-    · rcases LoopFootprintOtherBorder_holds e comp candidate run v hcomp hrun hvlen hne0 with htop2 | hbot2
-      · exact htop e comp candidate run v b hcomp hbord hrun hvlen htop2
-      · have hempty := LoopFootprintBottomEmpty_holds e comp candidate run v hcomp hrun hvlen hbot2
+    · rcases LoopFootprintOtherBorder_holds e comp candidate run (candidateOrder candidate) v hcomp hrun hvlen hne0 with htop2 | hbot2
+      · exact htop e comp candidate run (candidateOrder candidate) v b hcomp hbord hrun hvlen htop2
+      · have hempty := LoopFootprintBottomEmpty_holds e comp candidate run (candidateOrder candidate) v hcomp hrun hvlen hbot2
         exact sep_of_empty_loops hempty (exact_nil_of_run hrun)
     · exact sep_of_empty_loops (loopSizes_empty_of_oob e comp candidate v hcomp hvlen)
         (exact_nil_of_run hrun)
@@ -825,7 +891,7 @@ theorem loopFootprintSeparationResidual {inp : Input} {o : Options}
       (exact_nil_of_run hrun)
   · by_cases hvlen : v < (componentCandidate e.graph comp candidate).nodes.length
     · by_cases hbproper : b < run.proper.nodes.length
-      · exact hbeyond e comp candidate run v b hcomp hrun hvlen
+      · exact hbeyond e comp candidate run (candidateOrder candidate) v b hcomp hrun hvlen
           (Nat.le_of_not_lt hbnlen) hbproper
       · have hnone : (componentCandidate e.graph comp candidate).nodes[b]? = none :=
           List.getElem?_eq_none (by omega)

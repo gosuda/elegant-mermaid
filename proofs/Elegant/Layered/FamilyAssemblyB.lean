@@ -212,7 +212,9 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
     (flatGroupEndpoints groupTopSubtreeRankProper'
       (groupBottomBoundaryFacts_of_dummy bottomDummyRankLe)
       groupTailPortOnYs groupAnchorSelection)
-  flatC6 := S.flatC6
+  flatC6 := flatC6_closed S.partFrameWitness S.loopRectTopReal S.loopRectFixedReal
+    S.loopRectTitleReal S.loopRectBottomReal S.loopRectRangeDegReal
+    S.loopFootprintTopSeparation S.loopFootprintBeyondProper
   flatC7 := fun inp o res hwf hfp hsep hseam1 hseam2 hb =>
     layout_c7 hwf hfp hsep hseam1 hseam2 hb
   flatC8a := flatC8a_of_span_seams
@@ -230,7 +232,9 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
         (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
   flatC8b := fun inp o res hwf hfp hfit hb =>
-    layout_c8b hb hwf (S.frameLabels inp o res hwf hfp hfit)
+    layout_c8b hb hwf (fun execution => frameLabels_executed execution hwf hfp hfit
+      (S.executedPartFrameCores inp o res hwf hfp execution)
+      (S.fallbackOwnerFrameClear inp o res hwf hfp execution))
   canvasMargins := fun fuel inp o res h P hP => by
     have hm := layoutRecursive_canvas_margins fuel (by rw [layoutRecursive_eq_B]; exact h)
     rw [checkedParams_canvasMargin hP]
@@ -246,7 +250,9 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
     sceneCaptionBoxContainment_of_fit hwf hfp hfit
       (S.titleExclusiveSamePart inp o res hwf hfp)
       (titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
-      (S.frameLabels inp o res hwf hfp hfit)
+      (fun execution => frameLabels_executed execution hwf hfp hfit
+        (S.executedPartFrameCores inp o res hwf hfp execution)
+        (S.fallbackOwnerFrameClear inp o res hwf hfp execution))
   subInputC2 := subInputWellFormedC2
   subInputB := by
     intro fuel inp o group P metric titleLines child parent hwf hfp hP hm hwrap
