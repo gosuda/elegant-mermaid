@@ -1,8 +1,6 @@
 import Elegant.Layered.ExactBorder2UnchangedProof
 import Elegant.Layered.RegionActualParts
-import Elegant.Layered.RegionFlatInset
 import Elegant.Layered.RegionRunSpec
-import Elegant.Layered.RegionFlatC3
 
 set_option autoImplicit false
 
@@ -12,12 +10,15 @@ namespace PipelineImpl
 
 open RegionImpl
 
-/-! # Region part sizing (`R_PartSizingR` discharge).
-
-Packet P1-followup of `local://region-tower-plan.md`: discharge the single
-residual `R_PartSizingR` (`RegionFlatInset.lean`) from `componentRunR_specR`
-(`RegionRunSpec.lean`), then close `flatInsetB_layoutRIds` and the bounded
-conjunct of `ExactComponentPlacementR` (`RegionFlatC3.lean`).
+/-! # Region part sizing (chosen-run residual).
+Packet P1-followup of `local://region-tower-plan.md`: the universal
+residual `R_PartSizingR` was FALSE (junk-node witness below: the part
+equation does not pin the run), so it is deleted. What `componentRunR_specR`
+(`RegionRunSpec.lean`) closes is kept here: the single chosen-run residual
+`R_PartSizingRResidual` plus the closed dims/titles/slot facts on chosen
+runs. The bounded and flat-inset replays live in place
+(`exactComponentPlacementR_bounded_of_residual` and `flatInsetB_layoutRIds`
+in `RegionFlatInset.lean`).
 
 Truth probes (`proofs/wip/Probe/RegionPartSizingTProbe.lean`), all runs clean
 (no warnings), verbatim outputs in order:
@@ -236,44 +237,6 @@ theorem R_partSizingR_chosenFacts {exactIds : List String}
   ⟨rps_dims_of_specR hrun,
     fun i top hi hb => rps_titles_of_specR execution hrun i top hi hb,
     rps_slot_of_specR hrun⟩
-
-/-- The bounded conjunct of `ExactComponentPlacementR` from the single chosen-run
-residual: replay of `exactPartsBoundedR` (`RegionFlatInset.lean`) with the
-three closed conjuncts supplied by `R_partSizingR_chosenFacts`. -/
-theorem exactComponentPlacementR_bounded_of_residual {exactIds : List String}
-    {idSets : List (String × List String)} {inp : Input} {o : Options}
-    {res : FamilyResult}
-    (execution : SceneExecutionR exactIds idSets inp o res)
-    (hres : R_PartSizingRResidual exactIds idSets) :
-    ∀ q ∈ execution.componentsAcc.parts, PartBounded q.2 := by
-  intro q hq
-  obtain ⟨_, hall⟩ :=
-    actual_components_parts_geometryR (by rfl) execution.components_eq
-  obtain ⟨index, chosen, cg, run, loops, area, spec', hi, hc, hv, hrs, hrun,
-    hloops, heq⟩ := hall q hq
-  obtain ⟨hdims, htitle, hslot⟩ := R_partSizingR_chosenFacts execution hrun
-  obtain ⟨hcov, hfit⟩ := hres execution q hq hrun
-  have hbound := placeComponentExact_partBounded execution.params cg run
-    execution.measured loops hdims hcov htitle
-    (SceneExecutionR.measured_nonnegR execution) hslot hfit
-  rw [heq]
-  exact hbound
-
-/-- The flat inset for the region pipeline from the single chosen-run residual:
-replay of `flatInsetB_layoutRIds` (`RegionFlatInset.lean`). -/
-theorem flatInsetB_layoutRIds_of_residual (exactIds : List String)
-    (idSets : List (String × List String))
-    (hres : R_PartSizingRResidual exactIds idSets) :
-    FlatInsetB (layoutRIds exactIds idSets) := by
-  intro inp o res h
-  obtain ⟨execution⟩ := layoutRIds_sceneExecution h
-  have hacc := SceneExecutionR.packedAcc_boundedR execution
-    (exactComponentPlacementR_bounded_of_residual execution hres)
-  have hm1 := checkedParams_canvasMargin_ge_one execution.checked
-  refine ⟨execution.params, execution.checked, by omega, ?_⟩
-  rw [execution.scene_eq]
-  exact sceneOf_boxes_inset execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc (by omega)
 
 end PipelineImpl
 end Layered

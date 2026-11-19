@@ -2,6 +2,7 @@ import Elegant.Layered.RegionActualParts
 import Elegant.Layered.ExactPartBounded
 import Elegant.Layered.RecursiveBLiftsA
 import Elegant.Layered.InsetFit
+import Elegant.Layered.RegionPartSizing
 
 set_option autoImplicit false
 
@@ -19,41 +20,22 @@ Route: `layoutRIds_sceneExecution` (`RegionFoundation.lean:208`) gives the
 `SceneExecutionX.packedAcc_bounded`, `ExactFlatFacts.lean:983`) lifts
 per-part boundedness through the shared `packAcc`; `sceneOf_boxes_inset`
 (`InsetFit.lean`) lands in the margin inset. Per-part boundedness is
-`exactPartsBoundedR`, proved from `actual_components_parts_geometryR`
-(`RegionActualParts.lean`) via the shared `placeComponentExact_partBounded`
-(`ExactPartBounded.lean:690`), modulo the single residual `R_PartSizingR`.
+`exactComponentPlacementR_bounded_of_residual`, proved from
+`actual_components_parts_geometryR` (`RegionActualParts.lean`) via the shared
+`placeComponentExact_partBounded` (`ExactPartBounded.lean:690`), modulo the
+single chosen-run residual `R_PartSizingRResidual` (`RegionPartSizing.lean`):
+the stage equations close dims, titles, and slot on chosen runs, leaving
+coverage and envelope fit open. The universal `R_PartSizingR` was FALSE
+(junk-node witness in `RegionPartSizing.lean`: the part equation does not pin
+the run) and is deleted; no theorem takes it.
 
 Truth probes (`proofs/wip/Probe/RegionFlatInsetProbe.lean`, all `.ok [true]`):
 * two-region witness (copies `rapProbeInp`/`rapProbeSets` of
-  `RegionActualParts.lean:49-102`): every placed part satisfies `PartBounded`,
-  and every executed run satisfies the `R_PartSizingR` premises;
+  `RegionActualParts.lean:49-102`): every placed part satisfies `PartBounded`;
 * own witness with a nested region (`G` over `{H}`, `H` over `{J}`) and a
   reversed edge (`b` -> `a`, inward against containment): same results.
 -/
 open RegionImpl
-
-/-- Executed-run sizing premises for region parts: every part shaped as an
-exact-placed component comes from a run with nonnegative proper dims, full
-proper coverage, nonnegative title anchors, a nonnegative slot, and fitting
-label envelopes. This is the single residual of the packet: strictly narrower
-than `PartBounded` (it demands the sizing evidence, not just the bound), stated
-over the executed run only, and true on both probes. Later packets discharge it
-from `componentRunR` equations (dims/coverage/titles/slot) and the envelope
-transport. -/
-def R_PartSizingR {exactIds : List String} {idSets : List (String × List String)}
-    {inp : Input} {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionR exactIds idSets inp o res) : Prop :=
-  ∀ (q : List Nat × Part),
-    q ∈ execution.componentsAcc.parts →
-    ∀ (cg : Graph) (run : Run) (loops : List (Nat × LoopPlacement)) (area : Int),
-      q.2 = { placeComponentExact execution.params cg run 0 execution.measured loops with area := area } →
-      ProperDimsNonneg run.proper ∧
-      (∀ i, i < cg.nodes.length → i < run.proper.nodes.length) ∧
-      (∀ (i : Nat) (top : Node),
-        cg.nodes[i]? = some top →
-        top.border = -2 → 0 ≤ top.w ∧ execution.params.clusterPad ≤ top.h) ∧
-      0 ≤ cg.slot ∧
-      EnvelopeFits execution.params cg run execution.measured
 
 /-- The region execution's measured labels have nonnegative dimensions (replay
 of `SceneExecutionX.measured_nonneg`; the equations are shared). -/
@@ -66,21 +48,23 @@ theorem SceneExecutionR.measured_nonnegR {exactIds : List String}
   have hline := (checkedParams_sizing_nonneg execution.checked).1
   exact measureLabels_nonneg hline (by omega) execution.measured_eq
 
-/-- Every region component part is bounded by its part dimensions, modulo the
-executed-run sizing residual (region analogue of `exactPartsBounded'`,
-`ExactBorder2UnchangedProof.lean:215`). -/
-theorem exactPartsBoundedR {exactIds : List String}
+/-- The bounded conjunct of `ExactComponentPlacementR` from the single chosen-run
+residual: replay of the deleted false-premise `exactPartsBoundedR` with the
+three closed conjuncts supplied by `R_partSizingR_chosenFacts`
+(`RegionPartSizing.lean`). -/
+theorem exactComponentPlacementR_bounded_of_residual {exactIds : List String}
     {idSets : List (String × List String)} {inp : Input} {o : Options}
     {res : FamilyResult}
     (execution : SceneExecutionR exactIds idSets inp o res)
-    (hR : R_PartSizingR execution) :
+    (hres : R_PartSizingRResidual exactIds idSets) :
     ∀ q ∈ execution.componentsAcc.parts, PartBounded q.2 := by
   intro q hq
   obtain ⟨_, hall⟩ :=
     actual_components_parts_geometryR (by rfl) execution.components_eq
-  obtain ⟨index, chosen, cg, run, loops, area, spec', hi, hc, hv, hrs, hpair,
+  obtain ⟨index, chosen, cg, run, loops, area, spec', hi, hc, hv, hrs, hrun,
     hloops, heq⟩ := hall q hq
-  obtain ⟨hdims, hcov, htitle, hslot, hfit⟩ := hR q hq cg run loops area heq
+  obtain ⟨hdims, htitle, hslot⟩ := R_partSizingR_chosenFacts execution hrun
+  obtain ⟨hcov, hfit⟩ := hres execution q hq hrun
   have hbound := placeComponentExact_partBounded execution.params cg run
     execution.measured loops hdims hcov htitle
     (SceneExecutionR.measured_nonnegR execution) hslot hfit
@@ -161,17 +145,15 @@ theorem SceneExecutionR.packedAcc_boundedR {exactIds : List String}
 /-- The region flat inset: `layoutRIds` keeps every scene box inside the margin
 inset of its canvas (region analogue of the `flatInset` term of
 `exactBaseSeams`, `Kinds/UsecaseValidExact.lean:199-207`), modulo the single
-executed-run sizing residual `R_PartSizingR`. -/
+chosen-run sizing residual `R_PartSizingRResidual` (`RegionPartSizing.lean`). -/
 theorem flatInsetB_layoutRIds (exactIds : List String)
     (idSets : List (String × List String))
-    (hR : ∀ {inp : Input} {o : Options} {res : FamilyResult}
-      (execution : SceneExecutionR exactIds idSets inp o res),
-      R_PartSizingR execution) :
+    (hres : R_PartSizingRResidual exactIds idSets) :
     FlatInsetB (layoutRIds exactIds idSets) := by
   intro inp o res h
   obtain ⟨execution⟩ := layoutRIds_sceneExecution h
   have hacc := SceneExecutionR.packedAcc_boundedR execution
-    (exactPartsBoundedR execution (hR execution))
+    (exactComponentPlacementR_bounded_of_residual execution hres)
   have hm1 := checkedParams_canvasMargin_ge_one execution.checked
   refine ⟨execution.params, execution.checked, by omega, ?_⟩
   rw [execution.scene_eq]

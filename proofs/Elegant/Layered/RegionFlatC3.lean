@@ -1,5 +1,6 @@
 import Elegant.Layered.RegionActualParts
 import Elegant.Layered.RegionFlatInset
+import Elegant.Layered.RegionPartSizing
 import Elegant.Layered.RegionFoundation
 import Elegant.Layered.ExactFlatFacts
 import Elegant.Layered.RecursiveBLiftsA
@@ -129,29 +130,18 @@ def ExactComponentPlacementR (exactIds : List String)
       (_hparentRef : childBox.parent = parentBox.id) (_hparentNe : childBox.parent ≠ ""),
       parentKey ∈ comp)
 
-/-- The bounded conjunct is discharged by `exactPartsBoundedR` modulo the
-executed-run sizing residual `R_PartSizingR` (`RegionFlatInset.lean`). -/
-theorem exactComponentPlacementR_bounded {exactIds : List String}
-    {idSets : List (String × List String)} {inp : Input} {o : Options}
-    {res : FamilyResult}
-    (execution : SceneExecutionR exactIds idSets inp o res)
-    (hR : R_PartSizingR execution) :
-    ∀ q ∈ execution.componentsAcc.parts, PartBounded q.2 :=
-  exactPartsBoundedR execution hR
-
-/-- Assemble the placement premise from the discharged bounded conjunct and
-the two open residuals. -/
+/-- Assemble the placement premise from the bounded conjunct (closed from the
+chosen-run residual) and the two open residuals. -/
 theorem exactComponentPlacementR_of {exactIds : List String}
     {idSets : List (String × List String)} {inp : Input} {o : Options}
     {res : FamilyResult}
-    (hsize : ∀ (execution : SceneExecutionR exactIds idSets inp o res),
-      R_PartSizingR execution)
+    (hres : R_PartSizingRResidual exactIds idSets)
     (hnest : R_MemberFramesNestR exactIds idSets)
     (hpar : R_ParentInComponentR exactIds idSets) :
     ExactComponentPlacementR exactIds idSets inp o res := by
   intro hwf hframed execution
   refine ⟨?_, ?_, ?_⟩
-  · exact exactPartsBoundedR execution (hsize execution)
+  · exact exactComponentPlacementR_bounded_of_residual execution hres
   · intro comp candidate spec' cg' run orderOptions hcomp hrun
     exact hnest execution hwf hframed comp candidate spec' cg' run orderOptions
       hcomp hrun

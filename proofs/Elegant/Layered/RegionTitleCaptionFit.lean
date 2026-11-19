@@ -345,20 +345,6 @@ theorem R_exactTitleCaptionFitB8_holds (exactIds : List String)
   rw [hindex, hw, hh]
   cases hd : o.direction <;> simp only [hd] at hfit ⊢ <;>
     exact ⟨by omega, by omega, by omega, by omega⟩
-theorem R_packedPartTransportBounded_closed' (exactIds : List String)
-    (idSets : List (String × List String))
-    (hsize : ∀ {inp : Input} {o : Options} {res : FamilyResult}
-      (execution : SceneExecutionR exactIds idSets inp o res),
-      R_PartSizingR execution) :
-    R_PackedPartTransportBoundedB8 exactIds idSets :=
-  R_packedPartTransportBounded_closed exactIds idSets hsize
-    (R_exactTitleCaptionFitB8_holds exactIds idSets)
-
-
-
-
-
-
 
 end PipelineImpl
 end Layered

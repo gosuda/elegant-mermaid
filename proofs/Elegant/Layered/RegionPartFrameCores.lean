@@ -1,4 +1,5 @@
 import Elegant.Layered.RegionFlatC8b
+import Elegant.Layered.RegionPartSizing
 import Elegant.Layered.RegionRunSpec
 import Elegant.Layered.ExactPartFrameCoresWProof
 import Elegant.Layered.RegionReduction
@@ -674,16 +675,14 @@ theorem flatC8bB_layoutRIdsW (exactIds : List String)
     (idSets : List (String × List String))
     (hcoresW : R_ExecutedPartFrameCoresB8W exactIds idSets)
     (hfall : R_FallbackCaptionClearB8 exactIds idSets)
-    (hsize : ∀ {inp : Input} {o : Options} {res : FamilyResult}
-      (execution : SceneExecutionR exactIds idSets inp o res),
-      R_PartSizingR execution)
+    (hres : R_PartSizingRResidual exactIds idSets)
     (hcap : R_ExactTitleCaptionFitB8 exactIds idSets) :
     FlatC8bB (PipelineImpl.layoutRIds exactIds idSets) := by
   intro inp o res hwf hfp hfit h
   obtain ⟨execution⟩ := layoutRIds_sceneExecution h
   have hpack :=
     rpc_labelFramePackedClear_of_boundedW execution (hcoresW execution hwf hfp)
-      (R_packedPartTransportBounded_closed exactIds idSets hsize hcap)
+      (R_packedPartTransportBounded_closed exactIds idSets hres hcap)
   exact rpc_layout_c8bW execution hpack hfall hfit hwf
 
 end PipelineImpl

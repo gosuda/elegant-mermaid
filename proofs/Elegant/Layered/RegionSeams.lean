@@ -1,4 +1,5 @@
 import Elegant.Layered.RegionFlatInset
+import Elegant.Layered.RegionPartSizing
 import Elegant.Layered.RegionCanvasMargins
 import Elegant.Layered.RegionFlatC3
 import Elegant.Layered.RegionParentInComponent
@@ -108,7 +109,7 @@ private abbrev rsmC8bGeometry (exactIds : List String)
 
 /-- Region seams: exactly the open named premises of the finished region
 theorems, each strictly narrower than its `BaseSeams` target clause.
-`partSizing` feeds `flatInset`, `canvasMargins`, the `flatC3` bounded
+`partSizing` feeds `flatInset`, the `flatC3` bounded
 conjunct, and the `flatC8b` transport; `nestResidual` feeds the `flatC3`
 nesting conjunct via `R_memberFramesNestR_holds`; `disjointR` feeds `flatC2`;
 `groupBoundary` feeds `flatC5`; the C8b residuals feed `flatC8b`; the step
@@ -116,15 +117,13 @@ hypotheses feed the step assemblers. Clauses with no finished region module
 are carried as the clause itself, marked OPEN CLAUSE. -/
 structure RegionSeams (exactIds : List String)
     (idSets : List (String × List String)) : Prop where
-  /-- Executed-run sizing residual (`RegionFlatInset.lean`): open premise of
-  `flatInsetB_layoutRIds_reindex`, `exactCanvasMarginsR`,
-  `exactComponentPlacementR_of`, and `flatC8bB_layoutRIds`. Stated decoupled:
-  for each sub-input, over every executed run at its reindexed sets. The
-  coupled premise shapes of the flat theorems are instances of this. -/
-  partSizing : ∀ (sub : Input) {inp : Input} {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionR exactIds (reindexRegionSets idSets sub) inp o
-      res),
-    R_PartSizingR execution
+  /-- Chosen-run sizing residual (`RegionPartSizing.lean`): open premise of
+  `flatInsetB_layoutRIds_reindex`, `flatC3B_layoutRIds` (via
+  `exactComponentPlacementR_of`), and `flatC8bB_layoutRIds`, per sub-input.
+  The residual already quantifies over executions; the deleted universal
+  `R_PartSizingR` was FALSE. -/
+  partSizing : ∀ (sub : Input),
+    R_PartSizingRResidual exactIds (reindexRegionSets idSets sub)
   /-- Narrow region-nest residual (`RegionMemberFramesNest.lean`): open
   premise discharged via `R_memberFramesNestR_holds` into the `flatC3`
   nesting conjunct, per sub-input. -/
@@ -195,19 +194,12 @@ matching OPEN CLAUSE projections. -/
 theorem regionBaseSeams {exactIds : List String}
     {idSets : List (String × List String)} (R : RegionSeams exactIds idSets) :
     BaseSeams (rsmBase exactIds idSets) where
-  flatInset := flatInsetB_layoutRIds_reindex exactIds idSets
-    (fun {s o' res'}
-      (execution : SceneExecutionR exactIds (reindexRegionSets idSets s) s o'
-        res') =>
-      R.partSizing s execution)
+  flatInset := flatInsetB_layoutRIds_reindex exactIds idSets (fun s => R.partSizing s)
   flatC3 := fun sub o' res' hwf hframed hok =>
     flatC3B_layoutRIds exactIds (reindexRegionSets idSets sub)
-      (fun {inp o res} =>
-        (exactComponentPlacementR_of (fun execution => R.partSizing sub execution)
-          (R_memberFramesNestR_holds (R.nestResidual sub))
-          R_parentInComponentR_holds :
-          ExactComponentPlacementR exactIds (reindexRegionSets idSets sub) inp o
-            res))
+      (exactComponentPlacementR_of (R.partSizing sub)
+        (R_memberFramesNestR_holds (R.nestResidual sub))
+        R_parentInComponentR_holds)
       sub o' res' hwf hframed hok
   flatC2 := fun sub o' res' hwf hok =>
     flatC2B_layoutRIds exactIds (reindexRegionSets idSets sub) R.disjointR
@@ -225,13 +217,9 @@ theorem regionBaseSeams {exactIds : List String}
   flatC8b := fun sub o' res' hwf hfp hfit hok =>
     flatC8bB_layoutRIds exactIds (reindexRegionSets idSets sub)
       (R.partFrameCores sub) (R.fallbackCaption sub)
-      (fun execution => R.partSizing sub execution) (R.titleCaptionFit sub)
+      (R.partSizing sub) (R.titleCaptionFit sub)
       sub o' res' hwf hfp hfit hok
   canvasMargins := exactCanvasMarginsR exactIds idSets
-    (fun {s o' res'}
-      (execution : SceneExecutionR exactIds (reindexRegionSets idSets s) s o'
-        res') =>
-      R.partSizing s execution)
   frameClear := fun _inp _o _res hwf hfp =>
     frameClearanceSeam_holds
       (bracketInsidePremises

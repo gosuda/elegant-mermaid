@@ -1,5 +1,6 @@
 import Elegant.Layered.RegionActualParts
 import Elegant.Layered.RegionFlatInset
+import Elegant.Layered.RegionPartSizing
 import Elegant.Layered.RegionFoundation
 import Elegant.Layered.LabelsC8b
 import Elegant.Layered.LabelsC8bFacts
@@ -29,12 +30,14 @@ pipeline, so the packed transport replays with the region part family
 `actual_components_packed_frame_sourceR` in `RegionActualParts.lean`).
 
 The packed transport is proved outright except for two narrow per-execution
-residuals: the sizing residual `R_PartSizingR` (public in
-`RegionFlatInset.lean`, discharged later from `componentRunR` equations) and
-the caption-fit residual `R_ExactTitleCaptionFitB8` below (twin of
-`X_ExactTitleCaptionFit`; needs the region title-reservation transfer of
-packet P6). The core and fallback residuals stay open exactly as in the
-exact tower (`ExactSeams.partFrameCores`, `ExactSeams.fallbackCaption`). -/
+residuals: the chosen-run sizing residual `R_PartSizingRResidual`
+(`RegionPartSizing.lean`: the universal `R_PartSizingR` was FALSE, junk-node
+witness in `RegionPartSizing.lean`, and is deleted) and the caption-fit
+residual `R_ExactTitleCaptionFitB8` below (twin of `X_ExactTitleCaptionFit`;
+needs the region title-reservation transfer of packet P6). The core and
+fallback residuals stay open exactly as in the exact tower
+(`ExactSeams.partFrameCores`, `ExactSeams.fallbackCaption`).
+-/
 
 /-- R core residual: twin of `X_ExecutedPartFrameCoresB8`
 (`ExactFlatC8b.lean:38-45`) over `SceneExecutionR`. -/
@@ -711,18 +714,19 @@ private theorem r8b_index_eq_of_id_eq {l : List ModelBox}
   · by_cases hjt : j < i
     · exact absurd hv.symm (hp j i hjl hil hjt)
     · omega
-
 /-- The region packed-part transport holds modulo the two narrow residuals:
 replay of `X_packedPartTransportBounded_holds` over `SceneExecutionR`.
-Shelf containment in every clause comes from the tracked `exactPartsBoundedR`
-plus the base-independent shelf dimensions; the title clause additionally
-consumes the title-membership and caption-fit residuals, and the label
-clause consumes the label-provenance residual. -/
+Shelf containment in every clause comes from the tracked part bounds plus the
+base-independent shelf dimensions; the title clause additionally consumes the
+title-membership and caption-fit residuals, and the label clause consumes the
+label-provenance residual. The bounds come from the chosen-run residual
+(`exactComponentPlacementR_bounded_of_residual`); the deleted universal
+`R_PartSizingR` was FALSE. -/
 private theorem r8b_packedPartTransportBounded_holds
     {exactIds : List String} {idSets : List (String × List String)}
     {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionR exactIds idSets inp o res)
-    (hsize : R_PartSizingR execution)
+    (hbnd : ∀ q ∈ execution.componentsAcc.parts, PartBounded q.2)
     (hcap : R_ExactTitleCaptionFitB8 exactIds idSets)
     (hlab : r8b_PackedLabelsTransport exactIds idSets)
     (htit : r8b_PackedTitlesMemSource exactIds idSets) :
@@ -769,8 +773,8 @@ private theorem r8b_packedPartTransportBounded_holds
     obtain ⟨pk, part, pos, r0, box, hparts, hpos1, hpos2, hboxes, hreq⟩ :=
       r8b_rect_value_sourceR execution hpackE hk hget
     refine ⟨pk, part, pos, r0, box, hparts, hpos1, hpos2, hboxes, hreq, ?_⟩
-    have hbnd := exactPartsBoundedR execution hsize part (List.mem_of_getElem? hparts)
-    have hr0 := hbnd.2.2.1 r0 (List.mem_of_getElem? hpos2)
+    have hbndp := hbnd part (List.mem_of_getElem? hparts)
+    have hr0 := hbndp.2.2.1 r0 (List.mem_of_getElem? hpos2)
     have hdim := r8b_shelfDims_of_mem hpackE hparts hboxes
     unfold Rect.Contained
     rw [hreq]
@@ -780,8 +784,8 @@ private theorem r8b_packedPartTransportBounded_holds
     rcases hlabcl index r hget with
       ⟨pl, part, r0, box, hparts, hmem, hboxes, hreq⟩ | hdef
     · refine Or.inl ⟨pl, part, r0, box, hparts, hmem, hboxes, hreq, ?_⟩
-      have hbnd := exactPartsBoundedR execution hsize part (List.mem_of_getElem? hparts)
-      have hr0 := hbnd.2.2.2.2.2 (index, r0) hmem
+      have hbndp := hbnd part (List.mem_of_getElem? hparts)
+      have hr0 := hbndp.2.2.2.2.2 (index, r0) hmem
       have hr0' : 0 ≤ r0.x ∧ r0.x + r0.w ≤ part.2.width ∧
           0 ≤ r0.y ∧ r0.y + r0.h ≤ part.2.height :=
         ⟨hr0.1, hr0.2.1, hr0.2.2.1, hr0.2.2.2.1⟩
@@ -796,8 +800,8 @@ private theorem r8b_packedPartTransportBounded_holds
       htit execution hpackE hmem
     refine ⟨pl, part, i, stored0, box, hparts, hkey, htmem, hboxes, hstored, ?_⟩
     have hpartmem := List.mem_of_getElem? hparts
-    have hbnd := exactPartsBoundedR execution hsize part hpartmem
-    have htB := hbnd.2.2.2.1 (i, stored0) htmem
+    have hbndp := hbnd part hpartmem
+    have htB := hbndp.2.2.2.1 (i, stored0) htmem
     have htB' : 0 ≤ stored0.x ∧ stored0.x + stored0.w ≤ part.2.width ∧
         0 ≤ stored0.y ∧ stored0.y + stored0.h ≤ part.2.height :=
       ⟨htB.1, htB.2.1, htB.2.2.1, htB.2.2.2.1⟩
@@ -824,8 +828,8 @@ private theorem r8b_packedPartTransportBounded_holds
         r8b_rect_value_sourceR execution hpackE hk hget
       have hb := Pack.pack_bounds hpackE
       have hbx := (hb.2 box (List.mem_of_getElem? hboxes)).1
-      have hbnd := exactPartsBoundedR execution hsize part (List.mem_of_getElem? hparts)
-      have hr0 := hbnd.2.2.1 r0 (List.mem_of_getElem? hpos2)
+      have hbndp := hbnd part (List.mem_of_getElem? hparts)
+      have hr0 := hbndp.2.2.1 r0 (List.mem_of_getElem? hpos2)
       rw [hreq]
       dsimp only [shiftRect]
       omega
@@ -843,16 +847,17 @@ private theorem r8b_packedPartTransportBounded_holds
 residuals: pack existence and the rect/label/title sources are proved
 outright in-file (`r8b_packedLabelsTransport_closed`,
 `r8b_packedTitlesMemSource_closed`); only the two narrow per-execution
-residuals stay open. Twin of `X_packedPartTransportBounded_closed`. -/
+residuals stay open. The sizing half is the chosen-run residual
+`R_PartSizingRResidual` (the deleted universal `R_PartSizingR` was FALSE).
+Twin of `X_packedPartTransportBounded_closed`. -/
 theorem R_packedPartTransportBounded_closed (exactIds : List String)
     (idSets : List (String × List String))
-    (hsize : ∀ {inp : Input} {o : Options} {res : FamilyResult}
-      (execution : SceneExecutionR exactIds idSets inp o res),
-      R_PartSizingR execution)
+    (hres : R_PartSizingRResidual exactIds idSets)
     (hcap : R_ExactTitleCaptionFitB8 exactIds idSets) :
     R_PackedPartTransportBoundedB8 exactIds idSets := by
   intro inp o res execution
-  exact r8b_packedPartTransportBounded_holds execution (hsize execution)
+  exact r8b_packedPartTransportBounded_holds execution
+    (exactComponentPlacementR_bounded_of_residual execution hres)
     hcap (r8b_packedLabelsTransport_closed exactIds idSets)
     (r8b_packedTitlesMemSource_closed exactIds idSets)
 
@@ -1145,18 +1150,20 @@ private theorem r8b_layout_c8b {exactIds : List String}
 
 /-- Flat C8b for the region pipeline: every successful `layoutRIds` keeps
 every group frame disjoint from every scene label or strictly containing it,
-modulo the core, fallback, sizing, and caption-fit residuals. -/
+modulo the core, fallback, chosen-run sizing, and caption-fit residuals. -/
 theorem flatC8bB_layoutRIds (exactIds : List String)
     (idSets : List (String × List String))
     (hcores : R_ExecutedPartFrameCoresB8 exactIds idSets)
     (hfall : R_FallbackCaptionClearB8 exactIds idSets)
-    (hsize : ∀ {inp : Input} {o : Options} {res : FamilyResult}
-      (execution : SceneExecutionR exactIds idSets inp o res),
-      R_PartSizingR execution)
+    (hres : R_PartSizingRResidual exactIds idSets)
     (hcap : R_ExactTitleCaptionFitB8 exactIds idSets) :
     FlatC8bB (PipelineImpl.layoutRIds exactIds idSets) := by
   intro inp o res hwf _hfp hfit h
   obtain ⟨execution⟩ := layoutRIds_sceneExecution h
   have hpack := r8b_labelFramePackedClear_of_bounded execution hcores
-    (R_packedPartTransportBounded_closed exactIds idSets hsize hcap)
+    (R_packedPartTransportBounded_closed exactIds idSets hres hcap)
   exact r8b_layout_c8b execution hpack hfall hfit hwf
+
+end PipelineImpl
+end Layered
+end Elegant
