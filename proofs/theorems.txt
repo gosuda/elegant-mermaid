@@ -1553,3 +1553,15 @@ Elegant.Layered.PipelineImpl.exactRunFrameNesting
 Elegant.Layered.PipelineImpl.exactMemberInFrame'
 Elegant.Layered.LaneBands.pinBands_c6
 Elegant.Kinds.Swimlane.swimlane_pinBands_c6
+Elegant.Layered.PipelineImpl.runLocalForwardSeparation
+Elegant.Layered.PipelineImpl.runLocalReversedSeparation
+Elegant.Layered.PipelineImpl.runLocalLoopSeparation
+Elegant.Layered.PipelineImpl.exactComponentPlacement
+Elegant.Layered.PipelineImpl.layoutX_c3'
+Elegant.Layered.PipelineImpl.flatC3B_layoutX
+Elegant.Kinds.IshikawaFinal.place_drawn_le_count
+Elegant.Kinds.IshikawaFinal.accounted_odd_born_x0_nonpos
+Elegant.Kinds.IshikawaFinal.accounted_odd_born_x0_nonpos_of_prefix
+Elegant.Kinds.IshikawaFinal.ishikawaRouteXEnvelope_of_lower_upper
+Elegant.Kinds.IshikawaFinal.ishikawaCrossRibPieceClearance''
+Elegant.Layered.ownerCaptionContainFallback_of_fit

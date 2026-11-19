@@ -380,3 +380,7 @@ import Elegant.IshikawaDeeperOrdIntervalProof
 import Elegant.Layered.ExactMemberInFrame
 import Elegant.Layered.ExactRunFrameNestingProof
 import Elegant.Layered.LaneBandsClearance
+import Elegant.Layered.RunLocalSeparationsProof
+import Elegant.Layered.ExactFlatC3Closure
+import Elegant.Kinds.IshikawaPlaceDrawnBound
+import Elegant.Layered.CaptionFallbackContainProof
