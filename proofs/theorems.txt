@@ -1628,3 +1628,4 @@ Elegant.Layered.PipelineImpl.loopRectPlainSourceRealQ
 Elegant.Layered.PipelineImpl.loopForeignBoxBorderZeroRealQ
 Elegant.Layered.PipelineImpl.loopRectPlain_of_unfixed
 Elegant.Layered.PipelineImpl.loopRectNoBox
+Elegant.Kinds.IshikawaFinal.causeEntryEnvBound
