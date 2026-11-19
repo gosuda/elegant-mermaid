@@ -2076,3 +2076,9 @@ Elegant.Layered.PipelineImpl.loopRectFixedReal_holds
 Elegant.Layered.PipelineImpl.loopRectRangeDegReal_holds
 Elegant.Layered.PipelineImpl.loopRectTitleReal_holds
 Elegant.Layered.PipelineImpl.loopRectTopReal_holds
+Elegant.Layered.LaneBands.exec_combined_mirror_of_family
+Elegant.Layered.LaneBands.exec_parMember
+Elegant.Layered.LaneBands.exec_sibShift
+Elegant.Layered.LaneBands.swimlane_pinBands_c2_closed
+Elegant.Layered.LaneBands.swimlane_pinBands_c3_closed
+Elegant.Layered.LaneBands.swimlane_pinSetup_closed
