@@ -241,7 +241,9 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
     exact hm
   labelRuns := fun inp o res hwf hfp =>
     ⟨runLocalLabelClearance_holds hwf hfp
-        (runLocalLoopSeparation inp o res (S.runLocalLoopFootprint inp o res))
+        (runLocalLoopSeparation inp o res (runLocalLoopFootprint_executed hwf hfp
+          (S.loopFootprintTopSeparation inp o res hwf hfp)
+          (S.loopFootprintBeyondProper inp o res hwf hfp)))
         (runLocalForwardSeparation inp o res) (runLocalReversedSeparation inp o res),
       routeLabelDumpBridges hwf (labelBelongsToRun hwf routeLabelsPlaced)
         (exclusiveBoxInLabelRun' hwf hfp)⟩
@@ -338,7 +340,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         parent child res).mpr hctxB)
   stepC6 := fun fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctxB hparams =>
-    expandChild_c6_step_of_geometry S.stepC6Geometry S.stepC6Anchors
+    expandChild_c6_step_of_geometry S.stepC6Geometry stepC6Anchors_holds
       fuel P inp o group titleLines titleHeight parent child res hexpand hframed
       ((expandChildCallContext_iff fuel P inp o group titleLines titleHeight
         parent child res).mpr hctxB)
@@ -357,7 +359,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         (expandChild_label_owners fuel P inp o group titleLines titleHeight parent
           child res hexpand hframed hctx hparams)
         (expandChild_c7_label_scopes_of_disjoint hexpand hframed hctx hparams hdisjoint
-          (S.stepC8aAncestry fuel P inp o group titleLines titleHeight parent
+          (stepC8aAncestry_holds fuel P inp o group titleLines titleHeight parent
             child res hexpand hframed hctx hparams))
         frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨g1, g2, g3, g4⟩ :=
@@ -371,7 +373,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         hframed hctx hparams =>
         expandChild_c8a_structure fuel P inp o group titleLines titleHeight
           parent child res hexpand hframed hctx
-          (S.stepC8aAncestry fuel P inp o group titleLines titleHeight parent
+          (stepC8aAncestry_holds fuel P inp o group titleLines titleHeight parent
             child res hexpand hframed hctx hparams))
       fuel P inp o group titleLines titleHeight parent child res hexpand hframed
       ((expandChildCallContext_iff fuel P inp o group titleLines titleHeight

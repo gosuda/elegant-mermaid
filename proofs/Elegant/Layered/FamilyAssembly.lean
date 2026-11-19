@@ -40,33 +40,21 @@ import Elegant.Layered.CaptionCrossPartProof
 import Elegant.Layered.FlatC6ClosedProof
 import Elegant.Layered.FrameLabelsProof
 import ElegantGeometry.Validator
+import Elegant.Layered.RecursiveStepFacts
+import Elegant.Layered.ExpandChildAncestryProof
+import Elegant.Layered.RunLocalLoopFootprintProof
 set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
-
-/-- The per-expansion step fact of clause `Step`, quantified over the
-`expandChild` calls `layoutRecursive` performs, with the measurements the
-recursion ran the call with. -/
-abbrev RecursiveStepFacts
-    (Step : Params → Input → Options → ModelBox → Int → FamilyResult → FamilyResult →
-      FamilyResult → Prop) : Prop :=
-  ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-    (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
-    expandChild P inp o group titleHeight parent child = .ok res →
-    framedParents inp = true →
-    ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-    ExpandChildCallParams P inp o group titleLines titleHeight →
-    Step P inp o group titleHeight parent child res
 
 /-- Every fact the layered family validity theorem still takes as a premise.
 Remaining fields: `partFrameWitness`, `loopRectTopReal`, `loopRectFixedReal`,
 `loopRectTitleReal`, `loopRectBottomReal`, `loopRectRangeDegReal`,
 `loopFootprintTopSeparation`, `loopFootprintBeyondProper`,
-`runLocalLoopFootprint`, `titleExclusiveSamePart`, `foreignClusterRankSpans`,
+`titleExclusiveSamePart`, `foreignClusterRankSpans`,
 `foreignBorderChainXAligned`, `bracketMarkersAtRank`,
 `executedPartFrameCores`, `fallbackOwnerFrameClear`, `stepC6Geometry`,
-`stepC6Anchors`, `stepC7Geometry`, `stepC8aGeometry`, `stepC8bGeometry`,
-`stepC8aAncestry`.  Each field is a named
+`stepC7Geometry`, `stepC8aGeometry`, `stepC8bGeometry`.  Each field is a named
 OPEN statement about the executed pipeline; a field leaves this structure when
 its discharge theorem lands.  The refuted `GroupAttach`, `GroupAnchors`, and
 universal nonempty-id statements were replaced by the four group endpoint
@@ -87,11 +75,12 @@ via `sceneCaptionBoxContainment_of_fit` (`CaptionsSeamProof.lean`,
 eight residuals, closed by `flatC6_closed` (`FlatC6ClosedProof.lean`), and
 the old `frameLabels` field is narrowed to `executedPartFrameCores` and
 `fallbackOwnerFrameClear`, closed by `frameLabels_executed`
-(`FrameLabelsProof.lean`).  `stepC6Anchors` and `stepC8aAncestry` are kept:
-`stepC6Anchors_holds` and `stepC8aAncestry_holds`
-(`ExpandChildAncestryProof.lean`) have exactly these field types, but that
-file imports `FamilyAssembly` for `RecursiveStepFacts`, so using them here
-would be an import cycle. -/
+(`FrameLabelsProof.lean`).  The `stepC6Anchors` and `stepC8aAncestry` fields
+are discharged by `stepC6Anchors_holds` and `stepC8aAncestry_holds`
+(`ExpandChildAncestryProof.lean`), sharing `RecursiveStepFacts`
+(`RecursiveStepFacts.lean`).  The `runLocalLoopFootprint` field is derived
+by `runLocalLoopFootprint_executed` (`RunLocalLoopFootprintProof.lean`) from
+the `loopFootprintTopSeparation` and `loopFootprintBeyondProper` fields. -/
 structure LayeredSeams : Prop where
   partFrameWitness : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
@@ -117,8 +106,6 @@ structure LayeredSeams : Prop where
   loopFootprintBeyondProper : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     LoopFootprintBeyondProper inp o res
-  runLocalLoopFootprint : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    RunLocalLoopFootprint inp o res
   titleExclusiveSamePart : ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     TitleExclusiveSamePart inp o res
@@ -133,13 +120,9 @@ structure LayeredSeams : Prop where
     ∀ (execution : SceneExecution inp o res),
       Elegant.Layered.FallbackOwnerFrameClear execution
   stepC6Geometry : RecursiveStepFacts ExpandChildC6Geometry
-  stepC6Anchors : RecursiveStepFacts
-    (fun _ _ _ group _ parent child res => ExpandChildC6Anchors group parent child res)
   stepC7Geometry : RecursiveStepFacts ExpandChildC7Geometry
   stepC8aGeometry : RecursiveStepFacts ExpandChildC8aGeometry
   stepC8bGeometry : RecursiveStepFacts ExpandChildC8bGeometry
-  stepC8aAncestry : RecursiveStepFacts
-    (fun _ _ _ group _ parent child res => ExpandChildC8aAncestry group parent child res)
 
 /-- Layered family validity for an input with nonempty box ids, fixed-size room
 for labeled boxes, and disjoint box route ids, modulo exactly the fields of
@@ -176,7 +159,9 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       WellFormed (inputModel inp o) → framedParents inp = true →
       LabelRunsClearExclusiveBoxes inp o res := fun inp o res hwf hfp =>
     ⟨runLocalLabelClearance_holds hwf hfp
-        (runLocalLoopSeparation inp o res (S.runLocalLoopFootprint inp o res))
+        (runLocalLoopSeparation inp o res (runLocalLoopFootprint_executed hwf hfp
+          (S.loopFootprintTopSeparation inp o res hwf hfp)
+          (S.loopFootprintBeyondProper inp o res hwf hfp)))
         (runLocalForwardSeparation inp o res) (runLocalReversedSeparation inp o res),
       routeLabelDumpBridges hwf (labelBelongsToRun hwf routeLabelsPlaced)
         (exclusiveBoxInLabelRun' hwf hfp)⟩
@@ -194,7 +179,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       (fun execution => dummyInsideProxyRowClear_executed' execution hwfInp hframedInp)
       (fun execution => titleCopySpanClearStrict_executed hwfInp hframedInp execution)
   have hstepC6 : RecursiveStepFacts ExpandChildC6Step :=
-    expandChild_c6_step_of_geometry S.stepC6Geometry S.stepC6Anchors
+    expandChild_c6_step_of_geometry S.stepC6Geometry stepC6Anchors_holds
   have hstepC7 : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -214,7 +199,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
         (expandChild_label_owners fuel P inp o group titleLines titleHeight parent child res
           hexpand hframed hctx hparams)
         (expandChild_c7_label_scopes_of_disjoint hexpand hframed hctx hparams hdisjoint
-          (S.stepC8aAncestry fuel P inp o group titleLines titleHeight parent child res
+          (stepC8aAncestry_holds fuel P inp o group titleLines titleHeight parent child res
             hexpand hframed hctx hparams))
         frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨g1, g2, g3, g4⟩ :=
@@ -227,7 +212,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
           hparams =>
         expandChild_c8a_structure fuel P inp o group titleLines titleHeight parent child res
           hexpand hframed hctx
-          (S.stepC8aAncestry fuel P inp o group titleLines titleHeight parent child res
+          (stepC8aAncestry_holds fuel P inp o group titleLines titleHeight parent child res
             hexpand hframed hctx hparams))
   have hstepC8b : RecursiveStepFacts ExpandChildC8bStep :=
     expandChild_c8b_step_of_geometry S.stepC8bGeometry

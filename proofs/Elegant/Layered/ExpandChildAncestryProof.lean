@@ -1,6 +1,6 @@
 import Elegant.Layered.RecursiveC1C3
 import Elegant.Layered.SubInputWellFormedFacts
-import Elegant.Layered.FamilyAssembly
+import Elegant.Layered.RecursiveStepFacts
 import Elegant.Layered.ExpandChildC6StepFacts
 import Elegant.Layered.ExpandChildStructureFacts
 import Elegant.Layered.MergedAncestorsProof
