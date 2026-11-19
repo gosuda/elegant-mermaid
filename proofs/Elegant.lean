@@ -431,3 +431,4 @@ import Elegant.Layered.LaneBandsLabelClauses
 import Elegant.Layered.ExpandChildFrameLiftResiduals
 import Elegant.Layered.RouteNonforwardLabelClearProof
 import Elegant.Layered.LaneBandsBoxClausesProof
+import Elegant.Layered.ShapeIncidentInheritedProof

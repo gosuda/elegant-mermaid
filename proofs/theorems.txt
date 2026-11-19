@@ -1724,3 +1724,5 @@ Elegant.Layered.LaneBands.pinC2Sep_of_pin
 Elegant.Layered.LaneBands.pinC3Cross_of_pin
 Elegant.Layered.LaneBands.pinBands_c3'
 Elegant.Layered.LaneBands.pinBands_c2'
+Elegant.Layered.PipelineImpl.normalize_edges_bound
+Elegant.Layered.PipelineImpl.borderInnerTitledBound_executed
