@@ -400,3 +400,10 @@ import Elegant.Layered.ExpandChildAncestryProof
 import Elegant.IshikawaFlattenClausesProof
 import Elegant.Layered.ExpandChildFrameLiftProof
 import Elegant.Layered.LaneBandsRouteClauses
+import Elegant.Kinds.IshikawaSameRibFramesProof
+import Elegant.Kinds.IshikawaValidAssembly
+import Elegant.Kinds.IshikawaCauseRouteClearance
+import Elegant.Kinds.IshikawaDescRouteClearance
+import Elegant.Layered.RunStageChainKeysResiduals
+import Elegant.Layered.ForeignSideMarkingCrossedProof
+import Elegant.Layered.ExactFlatC5

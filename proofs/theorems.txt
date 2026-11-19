@@ -1544,8 +1544,6 @@ Elegant.Layered.PipelineImpl.routeLabelsPlaced
 Elegant.Ishikawa.hardBDeeperGapOnly
 Elegant.Ishikawa.hardBDeeperRouteGap''
 Elegant.Ishikawa.hardBDeeperEnvTransport''
-Elegant.Kinds.IshikawaFinal.ishikawaSameRibEnvelopeClearance
-Elegant.Kinds.IshikawaFinal.ishikawaSameRibPieceClearance'
 Elegant.Ishikawa.hardBDeeperOrdInterval
 Elegant.Layered.PipelineImpl.exactMemberInFrame
 Elegant.Layered.PipelineImpl.exactRunFrameNesting
@@ -1613,3 +1611,17 @@ Elegant.Layered.PipelineImpl.expandChild_frame_scope_outside
 Elegant.Layered.PipelineImpl.expandChild_parentRouteFrameClear
 Elegant.Layered.LaneBands.buildPin_boxDelta
 Elegant.Layered.LaneBands.buildPin_route_find
+Elegant.Kinds.IshikawaFinal.ishikawaSameRibEnvelopeClearance_frames
+Elegant.Kinds.IshikawaFinal.ishikawaSameRibPieceClearance_frames
+Elegant.Kinds.IshikawaFinal.ishikawa_valid_of_leaves
+Elegant.Kinds.IshikawaFinal.ishikawaCauseRouteEntryBoxClearanceAccounted
+Elegant.Kinds.IshikawaFinal.ishikawaCauseRouteEntryBoxClearance_false
+Elegant.Kinds.IshikawaFinal.ishikawaDescendantFrameClearance
+Elegant.Layered.PipelineImpl.aliasDeclTransport
+Elegant.Layered.PipelineImpl.properChainEndpointKeys'
+Elegant.Layered.PipelineImpl.partPositiveContent'
+Elegant.Layered.PipelineImpl.foreignSideMarkingCrossed
+Elegant.Layered.PipelineImpl.foreignSideFoldBound'
+Elegant.Layered.PipelineImpl.flatC5B_layoutX
+Elegant.Layered.PipelineImpl.X_edge_anchors_holds
+Elegant.Layered.PipelineImpl.layoutX_ids
