@@ -2352,3 +2352,9 @@ Elegant.Layered.PipelineImpl.notesShiftRect_contained
 Elegant.Layered.PipelineImpl.notesShiftRect_disjoint
 Elegant.Layered.PipelineImpl.notesShiftRect_nonneg
 Elegant.Layered.PipelineImpl.notesShiftRect_size
+Elegant.Layered.PipelineImpl.flatC7B_layoutX_fit
+Elegant.Layered.PipelineImpl.xc7f_sceneCaptionBoxContainmentFit
+Elegant.Layered.PipelineImpl.parentFrameStrict_of_recursion
+Elegant.Layered.PipelineImpl.loopResNeighborGap_holds
+Elegant.Layered.PipelineImpl.loopResNeighborGap_plainSpan_holds
+Elegant.Layered.PipelineImpl.loopResNeighborGap_plain_holds

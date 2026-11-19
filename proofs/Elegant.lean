@@ -528,3 +528,6 @@ import Elegant.Layered.ExactRouteForwardClearProof
 import Elegant.Layered.LaneEndsPinLanesClauses
 import Elegant.Layered.PlaceBoundsBeyondNodesProof
 import Elegant.Layered.NotesFoundation
+import Elegant.Layered.ExactFlatC7Fit
+import Elegant.Layered.ExpandChildParentFramePlacementProof
+import Elegant.Layered.LoopResNeighborGapProof
