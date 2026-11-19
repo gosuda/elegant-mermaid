@@ -2952,3 +2952,6 @@ Elegant.Kinds.endsSplitWitnessG2Loose_gates
 Elegant.Kinds.aboveLanePin_of_no_lanes
 Elegant.Kinds.aboveLanePin_of_no_loose
 Elegant.Kinds.aboveLane_of_residual
+Elegant.Layered.PipelineImpl.xfwd_strictLeftXW
+Elegant.Layered.PipelineImpl.xfwd_strictRightXW
+Elegant.Layered.PipelineImpl.xfwd_strictDummyLinkedXW_holds
