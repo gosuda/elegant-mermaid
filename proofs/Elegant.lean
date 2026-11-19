@@ -471,3 +471,5 @@ import Elegant.Layered.DummyMarkerBracketProof
 import Elegant.Layered.CaptionRunClearClosed
 import Elegant.Layered.LaneBandsBoxClausesExecuted
 import Elegant.Layered.ExactFlatC5ChosenPart
+import Elegant.Layered.LoopRectCrossPartProof
+import Elegant.Layered.LoopRectRealClosed
