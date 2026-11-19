@@ -33,6 +33,10 @@ import Elegant.Layered.MergedRouteIdsProof
 import Elegant.Layered.RouteLabelsPlacedProof
 import Elegant.Layered.BottomSyntheticRankProof
 import Elegant.Layered.DummyChainRankProof
+import Elegant.Layered.RunLocalSeparationsProof
+import Elegant.Layered.ExclusiveKeyOutsideCgPathsProof
+import Elegant.Layered.CaptionsSeamProof
+import Elegant.Layered.CaptionCrossPartProof
 import ElegantGeometry.Validator
 set_option autoImplicit false
 
@@ -53,30 +57,34 @@ abbrev RecursiveStepFacts
     Step P inp o group titleHeight parent child res
 
 /-- Every fact the layered family validity theorem still takes as a premise.
-Each field is a named OPEN statement about the executed pipeline; a field
-leaves this structure when its discharge theorem lands.  The refuted
-`GroupAttach`, `GroupAnchors`, and universal nonempty-id statements were
-replaced by the four group endpoint fields and a premise on the input.  The
-sub-input well-formedness seams are discharged (`SubInputWellFormedFacts.lean`), as are the
-group-rank, route-label, dummy-row, title-copy, border-layer-order, side-marker,
+Remaining fields: `flatC6`, `runLocalLoopFootprint`, `foreignClusterRankSpans`,
+`foreignBorderChainXAligned`, `bracketMarkersAtRank`, `frameLabels`,
+`titleExclusiveSamePart`, `stepC6Geometry`, `stepC6Anchors`, `stepC7Geometry`,
+`stepC8aGeometry`, `stepC8bGeometry`, `stepC8aAncestry`.  Each field is a named
+OPEN statement about the executed pipeline; a field leaves this structure when
+its discharge theorem lands.  The refuted `GroupAttach`, `GroupAnchors`, and
+universal nonempty-id statements were replaced by the four group endpoint
+fields and a premise on the input.  The sub-input well-formedness seams are
+discharged (`SubInputWellFormedFacts.lean`), as are the group-rank,
+route-label, dummy-row, title-copy, border-layer-order, side-marker,
 label-owner, and label-scope seams (`DummyChainRankProof.lean`,
 `BottomSyntheticRankProof.lean`, `RouteLabelsPlacedProof.lean`,
 `DummyNestedMarkerProof.lean`, `TitleCopySpanProof.lean`,
 `ForeignBorderAnchorsProof.lean`, `SideMarkerPathsProof.lean`,
-`ExpandChildLabelFactsProof.lean`, `MergedRouteIdsProof.lean`). -/
+`ExpandChildLabelFactsProof.lean`, `MergedRouteIdsProof.lean`), the
+forward/reversed run-local separations and the loop separation modulo its
+footprint (`RunLocalSeparationsProof.lean`), the exclusive-box run bridge
+(`ExclusiveKeyOutsideCgPathsProof.lean`), and the cross-part title clearance,
+which the `captions` field now takes narrowed to `titleExclusiveSamePart`
+via `sceneCaptionBoxContainment_of_fit` (`CaptionsSeamProof.lean`,
+`CaptionCrossPartProof.lean`). -/
 structure LayeredSeams : Prop where
   flatC6 : FlatC6
-  runLocalLoopSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    RunLocalLoopSeparation inp o res
-  runLocalForwardSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    RunLocalForwardSeparation inp o res
-  runLocalReversedSeparation : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    RunLocalReversedSeparation inp o res
-  exclusiveBoxInLabelRun : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    ExclusiveBoxInLabelRun inp o res
-  captions : ∀ (inp : Input) (o : Options) (res : FamilyResult),
-    WellFormed (inputModel inp o) → framedParents inp = true → InputFixedFit inp o →
-    SceneCaptionBoxContainment inp o res
+  runLocalLoopFootprint : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    RunLocalLoopFootprint inp o res
+  titleExclusiveSamePart : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+    WellFormed (inputModel inp o) → framedParents inp = true →
+    TitleExclusiveSamePart inp o res
   foreignClusterRankSpans : ForeignClusterRankSpans
   foreignBorderChainXAligned : ForeignBorderChainXAligned
   bracketMarkersAtRank : BracketMarkersAtRank
@@ -115,10 +123,18 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
   have hlabelRuns : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       LabelRunsClearExclusiveBoxes inp o res := fun inp o res hwf hfp =>
-    ⟨runLocalLabelClearance_holds hwf hfp (S.runLocalLoopSeparation inp o res)
-        (S.runLocalForwardSeparation inp o res) (S.runLocalReversedSeparation inp o res),
+    ⟨runLocalLabelClearance_holds hwf hfp
+        (runLocalLoopSeparation inp o res (S.runLocalLoopFootprint inp o res))
+        (runLocalForwardSeparation inp o res) (runLocalReversedSeparation inp o res),
       routeLabelDumpBridges hwf (labelBelongsToRun hwf routeLabelsPlaced)
-        (S.exclusiveBoxInLabelRun inp o res)⟩
+        (exclusiveBoxInLabelRun' hwf hfp)⟩
+  have hcaptions : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true → InputFixedFit inp o →
+      SceneCaptionBoxContainment inp o res := fun inp o res hwf hfp hfit =>
+    sceneCaptionBoxContainment_of_fit hwf hfp hfit
+      (S.titleExclusiveSamePart inp o res hwf hfp)
+      (titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
+      (S.frameLabels inp o res hwf hfp hfit)
   have hbracket : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       BracketInsidePremises inp o res := fun inp o res hwfInp hframedInp =>
@@ -190,7 +206,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
     layoutRecursive_c6_of_flat S.flatC6 hclear subInputWellFormed hstepC6
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c7_of_flat hflat7 (fun _ _ _ => labelsC7_partsSeparated) hlabelRuns
-      S.captions subInputWellFormed hstepC7
+      hcaptions subInputWellFormed hstepC7
       (inp.boxes.length + 1) inp o res hwf hfp hfix hdisj hrec,
     layoutRecursive_c8a_of_flat
       (flatC8a_of_span_seams

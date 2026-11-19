@@ -236,12 +236,17 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
     rw [checkedParams_canvasMargin hP]
     exact hm
   labelRuns := fun inp o res hwf hfp =>
-    ⟨runLocalLabelClearance_holds hwf hfp (S.runLocalLoopSeparation inp o res)
-        (S.runLocalForwardSeparation inp o res) (S.runLocalReversedSeparation inp o res),
+    ⟨runLocalLabelClearance_holds hwf hfp
+        (runLocalLoopSeparation inp o res (S.runLocalLoopFootprint inp o res))
+        (runLocalForwardSeparation inp o res) (runLocalReversedSeparation inp o res),
       routeLabelDumpBridges hwf (labelBelongsToRun hwf routeLabelsPlaced)
-        (S.exclusiveBoxInLabelRun inp o res)⟩
+        (exclusiveBoxInLabelRun' hwf hfp)⟩
   partsSep := fun _ _ _ => labelsC7_partsSeparated
-  captions := S.captions
+  captions := fun inp o res hwf hfp hfit =>
+    sceneCaptionBoxContainment_of_fit hwf hfp hfit
+      (S.titleExclusiveSamePart inp o res hwf hfp)
+      (titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
+      (S.frameLabels inp o res hwf hfp hfit)
   subInputC2 := subInputWellFormedC2
   subInputB := by
     intro fuel inp o group P metric titleLines child parent hwf hfp hP hm hwrap

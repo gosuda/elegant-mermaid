@@ -57,7 +57,7 @@ structure ExactSeams (exactIds : List String) : Prop where
       WellFormed (Layered.inputModel inp o) →
         Layered.framedParents inp = true →
           Layered.LabelRunsClearExclusiveBoxes inp o res
-  /-- Plain counterpart: `LayeredSeams.captions`. -/
+  /-- Plain counterpart: `LayeredSeams.titleExclusiveSamePart` via `sceneCaptionBoxContainment_of_fit`. -/
   captions :
     ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
       WellFormed (Layered.inputModel inp o) →
