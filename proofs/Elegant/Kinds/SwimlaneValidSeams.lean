@@ -16,7 +16,7 @@ import Elegant.Layered.LaneBandsFrameClause
 import Elegant.Layered.LaneBandsFindRouteFactsProof
 import Elegant.Layered.LaneBandsKeptClearExecutedProof
 import Elegant.Layered.LaneBandsFrameClauseExecuted
-import Elegant.Layered.LaneBandsLooseVictimProof
+ import Elegant.Layered.LaneBandsLooseLowerProof
 import Elegant.Layered.LaneBandsRouteClausesProof
 import Elegant.Layered.SceneParentsProof
 import ElegantGeometry.Validator
@@ -58,10 +58,11 @@ no premise quantifies over arbitrary scenes or bands):
 - `orthoAll`: OPEN. Executed family scene routes carry the orthogonal flag
   (feeds the pin-level C6 through the `swimPin_allOrtho` copy). No finished
   fact.
-- `lower`: OPEN, narrow. The single narrow loose-pair residual
-  (`PinLooseRouteLower`) on executed runs. The wide victim
-  (`PinLooseRouteLaneVictimClear`) is closed by
-  `pinLooseRouteLaneVictimClear_of_lower`, so only `lower` travels.
+ - `aboveLane`: OPEN, narrow. The single narrow loose-pair residual
+   (`PinLooseRouteAboveLaneBox`) on executed runs. The wide victim
+   (`PinLooseRouteLaneVictimClear`) is closed by
+   `pinLooseRouteLaneVictimClear_of_above`, so only `aboveLane` travels
+   (lower bound refuted: see `LaneBandsLooseLowerProof`).
 
 Closed by name (no seam): C1 by `pinBands_c1` + `attachLaneEnds_c1`;
 C7 by `pinBands_c7` (from `swimPin_clean`/`swimPin_shape`); C8b by
@@ -137,22 +138,22 @@ structure SwimlanePinSeams (m : Model) where
   orthoAll : ∀ base : Layered.FamilyResult,
     Layered.layoutFamily (Swimlane.input m) m.options = .ok base →
     ∀ rt ∈ base.scene.routes, rt.orthogonal = true
-  /-- OPEN, narrow: the single loose-pair residual on executed runs,
-  in its narrowed lower-bound form (`PinLooseRouteLower`). The wide victim
-  is closed by `pinLooseRouteLaneVictimClear_of_lower`, so only `lower`
-  travels as a seam. -/
-  lower : ∀ base : Layered.FamilyResult,
-    Layered.layoutFamily (Swimlane.input m) m.options = .ok base →
-    ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
-    ∀ (s1 : Scene),
-      applyPin (buildPin (Axis.ofDirection m.options.direction)
-        (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-          (lanesOf m.boxes)) base.scene)
-        (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-          (lanesOf m.boxes)) base.scene = .ok s1 →
-      PinLooseRouteLower (Axis.ofDirection m.options.direction)
-        (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-          (lanesOf m.boxes)) base.scene sp
+   /-- OPEN, narrow: the single loose-pair residual on executed runs,
+   in its corrected per-pair above-box form (`PinLooseRouteAboveLaneBox`).
+   The wide victim is closed by `pinLooseRouteLaneVictimClear_of_above`,
+   so only `aboveLane` travels as a seam. -/
+   aboveLane : ∀ base : Layered.FamilyResult,
+     Layered.layoutFamily (Swimlane.input m) m.options = .ok base →
+     ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
+     ∀ (s1 : Scene),
+       applyPin (buildPin (Axis.ofDirection m.options.direction)
+         (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
+           (lanesOf m.boxes)) base.scene)
+         (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
+           (lanesOf m.boxes)) base.scene = .ok s1 →
+       PinLooseRouteAboveLaneBox (Axis.ofDirection m.options.direction)
+         (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
+           (lanesOf m.boxes)) base.scene
 
 /-- Prefixed copy of the private `bindOk` splitter used by the pin
 orthogonality transport. -/
@@ -507,9 +508,9 @@ private theorem swimPin_endsOld {m : Model} {base : Layered.FamilyResult}
   exact pinBands_ends_exec_final hC5 hlanes hrouteNodup hnodupB hNoEmpty hEnds
     findRouteEndsPin_holds hModelClean hpin
 
-/-- The executed kept-clear bundle for an arbitrary spacing: every
-conjunct follows from the seams and closed wrappers except the narrow
-`lower` residual, which travels as a seam. -/
+ /-- The executed kept-clear bundle for an arbitrary spacing: every
+ conjunct follows from the seams and closed wrappers except the narrow
+ `aboveLane` residual, which travels as a seam. -/
 private theorem swimPin_kept {m : Model} {base : Layered.FamilyResult}
     (P : SwimlanePinSeams m) (hwf : WellFormed m)
     (hfam : Layered.layoutFamily (Swimlane.input m) m.options = .ok base)
@@ -535,8 +536,8 @@ private theorem swimPin_kept {m : Model} {base : Layered.FamilyResult}
   exact ⟨rfl, happ, hbase, hcover, hends, hsetup, hParents, hrouteNodup,
     hsNodup, hBoxesNodup, P.modelNe, hnn⟩
 
-/-- Closed C6 after the executed pin, via the executed bundle plus the
-narrow `lower` seam. -/
+ /-- Closed C6 after the executed pin, via the executed bundle plus the
+ narrow `aboveLane` seam. -/
 private theorem swimPin_c6mid {m : Model} {base : Layered.FamilyResult}
     {pinned : Scene}
     (P : SwimlanePinSeams m) (hwf : WellFormed m)
@@ -555,18 +556,18 @@ private theorem swimPin_c6mid {m : Model} {base : Layered.FamilyResult}
           (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
             (lanesOf m.boxes)) base.scene s1 m.boxes sp :=
     fun sp hsp s1 happ => swimPin_kept P hwf hfam hbase sp hsp s1 happ
-  have hlower : ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
+  have habove : ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
       ∀ (s1 : Scene),
         applyPin (buildPin (Axis.ofDirection m.options.direction)
           (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
             (lanesOf m.boxes)) base.scene)
           (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
             (lanesOf m.boxes)) base.scene = .ok s1 →
-        PinLooseRouteLower (Axis.ofDirection m.options.direction)
+        PinLooseRouteAboveLaneBox (Axis.ofDirection m.options.direction)
           (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-            (lanesOf m.boxes)) base.scene sp :=
-    fun sp hsp s1 happ => P.lower base hfam sp hsp s1 happ
-  exact pinBands_c6_executed_closed hfam hpin hbase hkept hlower
+            (lanesOf m.boxes)) base.scene :=
+    fun sp hsp s1 happ => P.aboveLane base hfam sp hsp s1 happ
+  exact pinBands_c6_executed_closed hfam hpin hbase hkept habove
 
 /-- Swimlane validity from the family seams and the pin seams: a successful
 layout of a well-formed model within limits satisfies the hard constraints.
