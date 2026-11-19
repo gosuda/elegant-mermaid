@@ -30,8 +30,10 @@ import Elegant.Layered.LabelsC8bFacts
 import Elegant.Layered.FallbackCaptionClearProof
 import Elegant.Layered.FlatC8aExecutedProof
 import Elegant.Layered.FallbackOwnerFrameProof
-import Elegant.Layered.FallbackOwnerStrictStepProof
 import Elegant.Layered.SideMarkerTopInCandidateProof
+import Elegant.Layered.ForeignBorderChainXAlignedClosed
+import Elegant.Layered.TitleExclusiveSamePartProof
+import Elegant.Layered.ExecutedPartFrameCoresClosed
 import Elegant.Kinds.Usecase
 import ElegantGeometry.Validator
 
@@ -67,27 +69,37 @@ def actorIds (m : Model) : List String :=
 // - `fallbackOwnerFrameClear`: `fallbackOwnerFrameClear_executed`
 //   (`FallbackOwnerFrameProof.lean`) over `flatC8a_executed`
 //   (`FlatC8aExecutedProof.lean`), with the span premises built from the
-//   `foreignBorderChainXAligned` field below, the closed `bracketMarkersAtRank'`
-//   (`SideMarkerTopInCandidateProof.lean`) and the other closed span theorems,
-//   plus `fallbackOwnerStrictStep_executed` (`FallbackOwnerStrictStepProof.lean`).
+//   `foreignBorderDivergeStable` field below (via `foreignBorderChainXAligned'`),
+//   the closed `bracketMarkersAtRank'` (`SideMarkerTopInCandidateProof.lean`)
+//   and the other closed span theorems, plus `fallbackOwnerStrictStep_executed`
+//   (`FallbackOwnerStrictStepProof.lean`).
 //
 // Replaced `labelRuns`/`captions` (both base-independent): derived in
 // `exactBaseSeams` by the same `baseSeams_of_layered` terms over narrower open
 // `LayeredSeams` fields below (`loopFootprintTopSeparation`,
-// `loopFootprintBeyondProper` for `labelRuns`; `titleExclusiveSamePart`,
-// `executedPartFrameCores`, `foreignBorderChainXAligned` for `captions`). There is
-// no `routeLabelsPlaced` field: it is a closed proved theorem used inside the
-// `labelRuns` term. There is no `bracketMarkersAtRank` field either: the proved
-// `bracketMarkersAtRank'` is used directly.
+// `loopFootprintBeyondProper` for `labelRuns`; `foreignBorderDivergeStable`,
+// `loopHullRightCover`, `loopHullRightNeighborCover` for `captions`, with the
+// old `titleExclusiveSamePart` closed by `titleExclusiveSamePart_holds` and the
+// old `executedPartFrameCores` closed by `executedPartFrameCores_closed`). There
+// is no `routeLabelsPlaced` field: it is a closed proved theorem used inside
+// the `labelRuns` term. There is no `bracketMarkersAtRank` field either: the
+// proved `bracketMarkersAtRank'` is used directly.
 //
 // Replaced step fields: `stepC6`, `stepC7`, `stepC8a`, `stepC8b` are derived in
 // `exactBaseSeams` from the geometry/ancestry hypothesis fields below via
 // `stepC6_layoutX`, `stepC7_layoutX`, `stepC8a_layoutX`, `stepC8b_layoutX`
-// (`ExactStepFacts.lean`). The anchor/ancestry hypotheses stay open: the proved
-// `stepC6Anchors_holds`/`stepC8aAncestry_holds` (`ExpandChildAncestryProof.lean`)
-// are stated over the plain `ExpandChildCallContext` (`RecursiveStepFacts`), not
-// the base-parametric `ExpandChildCallContextB` (`RecursiveStepFactsB`), so
-// their types do not fit the required hypotheses.
+// (`ExactStepFacts.lean`). Every geometry/ancestry hypothesis stays open: the
+// proved outright theorems `stepC8aGeometry_holds`
+// (`ExpandChildC8aGeometryExecuted.lean`), `stepC6Anchors_holds` and
+// `stepC8aAncestry_holds` (`ExpandChildAncestryProof.lean`) are stated over the
+// plain `ExpandChildCallContext` (`RecursiveStepFacts`), not the
+// base-parametric `ExpandChildCallContextB` (`RecursiveStepFactsB`), so their
+// types do not fit the required hypotheses. The `B` twins
+// (`stepC8aGeometry_holdsB`, `stepC6Geometry_holdsB`) still take base-stage
+// hypotheses, so no step field is proved outright. The narrower parent-frame
+// replacement is blocked too: the old plain fields were plain
+// `RecursiveStepFacts`, while these fields are `RecursiveStepFactsB`, so the
+// plain `c6Geometry_of_seams`/`c8bGeometry_of_seams` derivations do not apply.
 // Each remaining field below names in one line the plain-pipeline theorem
 // proving its counterpart, for the porting slices. -/
 structure ExactSeams (exactIds : List String) : Prop where
@@ -107,17 +119,24 @@ structure ExactSeams (exactIds : List String) : Prop where
   loopFootprintBeyondProper : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
     WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
     Layered.PipelineImpl.LoopFootprintBeyondProper inp o res
-  /-- Narrower open fact consumed by `captions`: same-part title exclusivity. Best partial: `titleExclusiveSamePart_holds` (needs `ForeignBorderChainXAligned`). -/
-  titleExclusiveSamePart : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
+  /-- Narrower open fact consumed by `captions` via `flatC8a_executed`: ordering-stage stability of divergent blocks. Closed to the old alignment by `foreignBorderChainXAligned'` (`ForeignBorderChainXAlignedClosed.lean`). -/
+  foreignBorderDivergeStable : Layered.PipelineImpl.ForeignBorderDivergeStable
+  /-- Narrower open fact consumed by `captions`: right hull cover of loop groups. Best partial: `loopHullRightCover_holds` modulo `R1ExtentFitGap` (`LoopHullCoverProof.lean`). -/
+  loopHullRightCover : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
     WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
-    Layered.PipelineImpl.TitleExclusiveSamePart inp o res
-  /-- Narrower open fact consumed by `captions`: executed part-frame cores. Best partial: `executedPartFrameCores` (`PartFrameCoresProof.lean`, needs route-run-clear and caption premises). -/
-  executedPartFrameCores : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
+    ∀ (execution : Layered.PipelineImpl.SceneExecution inp o res) (comp : List Nat),
+      comp ∈ Layered.PipelineImpl.components execution.graph →
+      ∀ (candidate : Nat) (run : Layered.PipelineImpl.Run) (orderOptions : Layered.OrderOptions),
+        Layered.PipelineImpl.componentRun execution.params (Layered.PipelineImpl.componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run →
+        Layered.PipelineImpl.LoopHullRightCover execution.params (Layered.PipelineImpl.componentCandidate execution.graph comp candidate) run execution.measured
+  /-- Narrower open fact consumed by `captions`: neighbor right hull cover of loop groups. Best partial: `loopHullRightNeighborCover_holds` modulo `R3ExtentFitGap` (`LoopHullCoverProof.lean`). -/
+  loopHullRightNeighborCover : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
     WellFormed (Layered.inputModel inp o) → Layered.framedParents inp = true →
-    ∀ (execution : Layered.PipelineImpl.SceneExecution inp o res),
-      Layered.PipelineImpl.ExecutedPartFrameCores execution
-  /-- Narrower open fact consumed by `captions` via `flatC8a_executed`: cross-coordinate-placement residual for the border-chain span separation. Best partial: `foreignBorderChainXAligned` (needs `ForeignBorderSideUps`). -/
-  foreignBorderChainXAligned : Layered.PipelineImpl.ForeignBorderChainXAligned
+    ∀ (execution : Layered.PipelineImpl.SceneExecution inp o res) (comp : List Nat),
+      comp ∈ Layered.PipelineImpl.components execution.graph →
+      ∀ (candidate : Nat) (run : Layered.PipelineImpl.Run) (orderOptions : Layered.OrderOptions),
+        Layered.PipelineImpl.componentRun execution.params (Layered.PipelineImpl.componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run →
+        Layered.PipelineImpl.LoopHullRightNeighborCover execution.params (Layered.PipelineImpl.componentCandidate execution.graph comp candidate) run execution.measured
   /-- Base-parametric C6 geometry hypothesis consumed by `stepC6_layoutX`. -/
   stepC6Geometry :
     Layered.PipelineImpl.RecursiveStepFactsB (Layered.PipelineImpl.layoutX exactIds)
@@ -201,19 +220,19 @@ theorem exactBaseSeams (exactIds : List String) (R : ExactSeams exactIds) :
         (Layered.PipelineImpl.exclusiveBoxInLabelRun' hwf hfp)⟩
   captions := fun inp o res hwf hfp hfit =>
     Layered.PipelineImpl.sceneCaptionBoxContainment_of_fit hwf hfp hfit
-      (R.titleExclusiveSamePart inp o res hwf hfp)
+      (Layered.PipelineImpl.titleExclusiveSamePart_holds (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable) inp o res hwf hfp)
       (Layered.PipelineImpl.titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
       (fun execution => Layered.PipelineImpl.frameLabels_executed execution hwf hfp hfit
-        (R.executedPartFrameCores inp o res hwf hfp execution)
+        (Layered.PipelineImpl.executedPartFrameCores_closed execution hwf hfp (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable) (R.loopFootprintTopSeparation inp o res hwf hfp) (R.loopFootprintBeyondProper inp o res hwf hfp) (R.loopHullRightCover inp o res hwf hfp execution) (R.loopHullRightNeighborCover inp o res hwf hfp execution))
         (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
           (Layered.PipelineImpl.flatC8a_executed execution hwf hfp
             (Layered.PipelineImpl.foreignBorderSpansSeparated
               Layered.PipelineImpl.foreignClusterRankSpans'
-              Layered.PipelineImpl.foreignBorderLayerOrder' R.foreignBorderChainXAligned)
+              Layered.PipelineImpl.foreignBorderLayerOrder' (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable))
             (Layered.PipelineImpl.foreignNonGroupSpansClear
               Layered.PipelineImpl.bracketMarkersAtRank'
               Layered.PipelineImpl.plainClearOfSideMarker'
-              (Layered.PipelineImpl.sideMarkerSpanAligned' R.foreignBorderChainXAligned))
+              (Layered.PipelineImpl.sideMarkerSpanAligned' (Layered.PipelineImpl.foreignBorderChainXAligned' R.foreignBorderDivergeStable)))
             (fun inp o res hwf hfp =>
               Layered.PipelineImpl.bracketInsidePremises
                 (fun execution =>
