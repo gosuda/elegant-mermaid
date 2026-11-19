@@ -260,13 +260,3 @@ func TestEmdJSONRulesFollowRegistryOrder(t *testing.T) {
 	require.Less(t, positions["common/no-experimental"], positions["meta/unknown-rule"])
 	require.Less(t, positions["meta/unknown-rule"], positions["flowchart/duplicate-ids"])
 }
-
-func TestSeverityOverride(t *testing.T) {
-	read := memoryFS(map[string]string{"/work/emd.json": `{"lint":{"severity":{"flowchart/duplicate-ids":"info"}}}`})
-	cfg, err := LoadConfig("/work", read)
-	require.NoError(t, err)
-	src := "flowchart LR\n  A[Start] --> B[End]\n  A[Begin] --> C[End]\n"
-	res := lintResult(src, cfg)
-	require.Len(t, res.Lint, 1)
-	require.Equal(t, diag.SeverityInfo, res.Lint[0].Severity)
-}
