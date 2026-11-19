@@ -1450,7 +1450,6 @@ Elegant.Layered.PipelineImpl.exclusiveRunNodeDecl_of_preserved
 Elegant.Layered.PipelineImpl.runRouteEndpointIdsScoped_of_keys
 Elegant.Layered.PipelineImpl.routePartShelfPositive_of_content
 Elegant.Layered.PipelineImpl.candidateBorderZeroOfNonGroup
-Elegant.Layered.PipelineImpl.loopForeignBoxBorderZero
 Elegant.Layered.PipelineImpl.foreignBottomInCandidate
 Elegant.Layered.PipelineImpl.foreignRankPairAnchors'
 Elegant.Layered.PipelineImpl.SceneExecution.fallback_owner_cases
@@ -1625,3 +1624,7 @@ Elegant.Layered.PipelineImpl.foreignSideFoldBound'
 Elegant.Layered.PipelineImpl.flatC5B_layoutX
 Elegant.Layered.PipelineImpl.X_edge_anchors_holds
 Elegant.Layered.PipelineImpl.layoutX_ids
+Elegant.Layered.PipelineImpl.loopRectPlainSourceRealQ
+Elegant.Layered.PipelineImpl.loopForeignBoxBorderZeroRealQ
+Elegant.Layered.PipelineImpl.loopRectPlain_of_unfixed
+Elegant.Layered.PipelineImpl.loopRectNoBox
