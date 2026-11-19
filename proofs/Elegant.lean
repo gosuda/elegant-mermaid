@@ -385,3 +385,5 @@ import Elegant.Layered.ExactFlatC3Closure
 import Elegant.Kinds.IshikawaPlaceDrawnBound
 import Elegant.Layered.CaptionFallbackContainProof
 import Elegant.Layered.ExactSubInputStepC2
+import Elegant.Layered.ExclusiveKeyOutsideCgPathsProof
+import Elegant.Layered.CaptionsSeamProof

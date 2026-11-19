@@ -1388,7 +1388,6 @@ Elegant.Layered.PipelineImpl.layoutRecursiveB_c8a
 Elegant.Layered.PipelineImpl.layoutRecursiveB_c8b
 Elegant.Layered.PipelineImpl.expandChild_title_band
 Elegant.Layered.PipelineImpl.titleExclusiveCrossPart
-Elegant.Layered.PipelineImpl.sceneCaptionBoxContainment_of_residuals
 Elegant.Layered.PipelineImpl.groupAnchorSelection
 Elegant.Layered.PipelineImpl.groupTopSubtreeRankProper_of_seams
 Elegant.Kinds.IshikawaFinal.ishikawa_hard_b_real'
@@ -1572,3 +1571,9 @@ Elegant.Layered.PipelineImpl.SceneExecution.component_member_strictInside'
 Elegant.Layered.PipelineImpl.subInputWellFormedB_of
 Elegant.Layered.PipelineImpl.subInputWellFormedB_layoutX
 Elegant.Layered.PipelineImpl.stepC2_layoutX
+Elegant.Layered.PipelineImpl.exclusiveKeyOutsideCgPaths
+Elegant.Layered.PipelineImpl.exclusiveBoxInLabelRun'
+Elegant.Layered.PipelineImpl.ownerRes_node_border_zero
+Elegant.Layered.PipelineImpl.ownerScopeSamePartClear_of_fallback
+Elegant.Layered.PipelineImpl.sceneCaptionBoxContainment_of_fit
+Elegant.Layered.PipelineImpl.flat_layout_labels_inset
