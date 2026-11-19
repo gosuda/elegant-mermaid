@@ -352,3 +352,4 @@ import Elegant.Layered.SideMarkerPathsProof
 import Elegant.Kinds.IshikawaSameRibClearance
 import Elegant.Layered.FamilyAssemblyB
 import Elegant.Kinds.IshikawaCrossRibSameSide
+import Elegant.Layered.PartFrameCoresProof
