@@ -2789,3 +2789,6 @@ Elegant.Layered.PipelineImpl.xcsp_sceneBox_rect_transport
 Elegant.Layered.PipelineImpl.xcapSamePart_ownerScopeW_of_cases
 Elegant.Layered.PipelineImpl.XNonfwd_ancHull_holds
 Elegant.Layered.PipelineImpl.XNonfwd_nonAncHull_holds
+Elegant.Layered.PipelineImpl.XB_foreignBorderLayerOrder_holds
+Elegant.Layered.PipelineImpl.XB_foreignClusterRankSpans_holds
+Elegant.Layered.PipelineImpl.divergeSweepStepAgree_holds
