@@ -326,4 +326,14 @@ theorem bottomNestedBottomRankLe_wf
     exact h1
   omega
 
+theorem bottomNestedBottomRankLe :
+    ∀ (P : Params) (graph : Graph), BottomNestedBottomRankLe P graph := by
+  intro P graph
+  unfold BottomNestedBottomRankLe
+  intro inp o lines hgraph hlines hwf hframed comp hcomp candidate run
+    labels orderOptions hrun v t ndV ndT hvGet htGet hbordV hbordT hdecl j nb
+    hjGet hbordJ hne hcontains
+  exact bottomNestedBottomRankLe_wf hgraph hlines hwf hframed hcomp hrun hvGet
+    htGet hbordV hbordT hdecl hjGet hbordJ hne hcontains
+
 end Elegant.Layered.PipelineImpl

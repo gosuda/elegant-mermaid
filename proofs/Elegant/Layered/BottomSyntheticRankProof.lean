@@ -1,4 +1,5 @@
 import Elegant.Layered.GroupBottomBoundaryProof
+import Elegant.Layered.BottomNestedRankProof
 
 set_option autoImplicit false
 
@@ -15,6 +16,9 @@ premises, conclusion restricted to the dummy disjunct. -/
 def BottomDummyRankLe (P : Params) (graph : Graph) : Prop :=
   ∀ {inp : Input} {o : Options} {lines : List (List Measure.Line)},
   measuredGraph P inp o lines = .ok graph →
+  lines.length = inp.boxes.length →
+  WellFormed (inputModel inp o) →
+  framedParents inp = true →
   ∀ {comp : List Nat}, comp ∈ components graph →
   ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions},
   componentRun P (componentCandidate graph comp candidate) labels orderOptions = .ok run →
@@ -43,6 +47,9 @@ private theorem side_marker_rank_le
     {P : Params} {inp : Input} {o : Options} {lines : List (List Measure.Line)}
     {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
     (hrun : componentRun P (componentCandidate graph comp candidate) labels
@@ -112,7 +119,7 @@ private theorem side_marker_rank_le
       have hbv : bottom.2 = v := congrArg Prod.snd heq
       rw [hbv]
       exact Int.le_refl _
-    · exact hnest P graph hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
+    · exact hnest P graph hgraph hlines hwf hframed hcomp hrun hvGet htGet hbordV hbordT hdecl
         horigB hborderB hdeq hpathBmem
   have hBcoord : rk run.coordinateProper.rank bottom.2 = rk rr.ranks bottom.2 := by
     have hlt : bottom.2 < (componentCandidate graph comp candidate).nodes.length :=
@@ -147,6 +154,9 @@ private theorem title_copy_rank_le
     {P : Params} {inp : Input} {o : Options} {lines : List (List Measure.Line)}
     {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
     (hrun : componentRun P (componentCandidate graph comp candidate) labels
@@ -190,7 +200,7 @@ private theorem title_copy_rank_le
   · have hnBorder : n.border = -2 := hborderN.symm.trans hOrigBorder
     have hncN : n.clusterPath.contains ndT.decl = true := by
       rw [← hpathN]; exact horigContains
-    have hle := bottomOrigRankLe hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
+    have hle := bottomOrigRankLe hgraph hlines hwf hframed hcomp hrun hvGet htGet hbordV hbordT hdecl
       hnest hn hncN
     have hrankEq : rk run.coordinateProper.rank q.2 = rk labeled.rank originalIndex := by
       rw [← hc]; exact htitleRank
@@ -214,19 +224,31 @@ private theorem title_copy_rank_le
 /-- The synthetic-member rank bound: side markers and title copies by the two
 lemmas above; edge dummies by the `BottomDummyRankLe` residual. -/
 theorem bottomSyntheticRankLe
-    (hnest : ∀ P graph, BottomNestedBottomRankLe P graph)
     (hdummy : ∀ P graph, BottomDummyRankLe P graph) :
     ∀ (P : Params) (graph : Graph), BottomSyntheticRankLe P graph := by
-  intro P graph inp o lines hgraph comp hcomp candidate run labels orderOptions hrun
-    v t ndV ndT hvGet htGet hbordV hbordT hdecl q hq hcontains hkind
+  intro P graph inp o lines hgraph hlines hwf hframed comp hcomp candidate run
+    labels orderOptions hrun v t ndV ndT hvGet htGet hbordV hbordT hdecl q hq
+    hcontains hkind
+  have hnest : ∀ P graph, BottomNestedBottomRankLe P graph :=
+    bottomNestedBottomRankLe
   rcases hkind with hd | hb1 | hb2 | hb3
-  · exact hdummy P graph hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
-      q hq hcontains hd
-  · exact side_marker_rank_le hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
-      hnest q hq hcontains (Or.inl hb1)
-  · exact side_marker_rank_le hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
-      hnest q hq hcontains (Or.inr hb2)
-  · exact title_copy_rank_le hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
-      hnest q hq hcontains hb3
+  · exact hdummy P graph hgraph hlines hwf hframed hcomp hrun hvGet htGet hbordV
+      hbordT hdecl q hq hcontains hd
+  · exact side_marker_rank_le hgraph hlines hwf hframed hcomp hrun hvGet htGet
+      hbordV hbordT hdecl hnest q hq hcontains (Or.inl hb1)
+  · exact side_marker_rank_le hgraph hlines hwf hframed hcomp hrun hvGet htGet
+      hbordV hbordT hdecl hnest q hq hcontains (Or.inr hb2)
+  · exact title_copy_rank_le hgraph hlines hwf hframed hcomp hrun hvGet htGet
+      hbordV hbordT hdecl hnest q hq hcontains hb3
+
+/-- The group bottom boundary fact from the single remaining dummy residual:
+`bottomSyntheticRankLe` discharges the synthetic seam with `hdummy` and the
+proved `bottomNestedBottomRankLe`, and `groupBottomBoundaryFacts_executed`
+closes the boundary with both seams. -/
+theorem groupBottomBoundaryFacts_of_dummy
+    (hdummy : ∀ P graph, BottomDummyRankLe P graph) :
+    GroupBottomBoundaryFacts :=
+  groupBottomBoundaryFacts_executed (bottomSyntheticRankLe hdummy)
+    bottomNestedBottomRankLe
 
 end Elegant.Layered.PipelineImpl

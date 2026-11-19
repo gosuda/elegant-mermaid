@@ -182,6 +182,9 @@ Pinned to the executed equations; strictly simpler than the geometric goal. -/
 def BottomNestedBottomRankLe (P : Params) (graph : Graph) : Prop :=
   ∀ {inp : Input} {o : Options} {lines : List (List Measure.Line)},
   measuredGraph P inp o lines = .ok graph →
+  lines.length = inp.boxes.length →
+  WellFormed (inputModel inp o) →
+  framedParents inp = true →
   ∀ {comp : List Nat}, comp ∈ components graph →
   ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions},
   componentRun P (componentCandidate graph comp candidate) labels orderOptions = .ok run →
@@ -208,6 +211,9 @@ executed equations; strictly simpler than the geometric goal. -/
 def BottomSyntheticRankLe (P : Params) (graph : Graph) : Prop :=
   ∀ {inp : Input} {o : Options} {lines : List (List Measure.Line)},
   measuredGraph P inp o lines = .ok graph →
+  lines.length = inp.boxes.length →
+  WellFormed (inputModel inp o) →
+  framedParents inp = true →
   ∀ {comp : List Nat}, comp ∈ components graph →
   ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions},
   componentRun P (componentCandidate graph comp candidate) labels orderOptions = .ok run →
@@ -252,15 +258,17 @@ node whose cluster path contains the outer title's declaration ranks at or
 below the outer bottom proxy in the ranking: plain members by
 `ranked_compound_member_interval` against the outer group; tops by their own
 group's member/child/empty edges with the induction hypothesis on strictly
-longer paths; the outer bottom itself by
-`componentCandidate_bottom_find_eq`; nested bottoms defer to
-`BottomNestedBottomRankLe`. No line-count premises are needed: every bottom
-find comes from `componentRun_group_bottom_source` plus
-`candidate_titled_bottom_constraint_source`. -/
+  longer paths; the outer bottom itself by `componentCandidate_bottom_find_eq`;
+  nested bottoms defer to `BottomNestedBottomRankLe` with the threaded
+  line-count, well-formed, and framed premises. Bottom finds come from
+  `componentRun_group_bottom_source` plus `candidate_titled_bottom_constraint_source`. -/
 theorem bottomOrigRankLe
     {P : Params} {inp : Input} {o : Options} {lines : List (List Measure.Line)}
     {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
     {orderOptions : OrderOptions}
@@ -344,7 +352,7 @@ theorem bottomOrigRankLe
           · have hne := hdeq
             have hleB : rk run.coordinateProper.rank bottomTB.2 ≤
                 rk run.coordinateProper.rank v :=
-              hnest P graph hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
+              hnest P graph hgraph hlines hwf hframed hcomp hrun hvGet htGet hbordV hbordT hdecl
                 horigB hborderB hne hpathBmem
             have e1 : rk run.coordinateProper.rank bottomTB.2 =
                 rk rr.ranks bottomTB.2 := by
@@ -432,7 +440,7 @@ theorem bottomOrigRankLe
           rw [hiv]
           exact Int.le_refl _
         · have hleB : rk run.coordinateProper.rank idx ≤ rk run.coordinateProper.rank v :=
-            hnest P graph hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
+            hnest P graph hgraph hlines hwf hframed hcomp hrun hvGet htGet hbordV hbordT hdecl
               hidx hbottom hdeq hcontains
           have e1 : rk run.coordinateProper.rank idx = rk rr.ranks idx := by
             have h1 := prepared_coordinate_original_rk (P := P) hrr hranks
@@ -627,6 +635,9 @@ theorem bottomMemberRankLe
     {P : Params} {inp : Input} {o : Options} {lines : List (List Measure.Line)}
     {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
     (hrun : componentRun P (componentCandidate graph comp candidate) labels orderOptions = .ok run)
@@ -641,7 +652,7 @@ theorem bottomMemberRankLe
     q.1.node.clusterPath.contains
       ((componentCandidate graph comp candidate).nodes.getD t default).decl = true →
     rk run.coordinateProper.rank q.2 ≤ rk run.coordinateProper.rank v := by
-  have hsynthAt := hsynth P graph hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
+  have hsynthAt := hsynth P graph hgraph hlines hwf hframed hcomp hrun hvGet htGet hbordV hbordT hdecl
   have hdeclT : ((componentCandidate graph comp candidate).nodes.getD t default).decl =
       ndT.decl := by
     rw [List.getD_eq_getElem?_getD, htGet, Option.getD_some]
@@ -678,7 +689,7 @@ theorem bottomMemberRankLe
           rcases hk q.2 m hm with ⟨n, hn, _, _, hnp⟩ | ⟨hdT, _, _⟩
           · have hncN : n.clusterPath.contains ndT.decl = true := by
               rw [← hnp, ← hp hmdF, hpathT, ← hdeclT]; exact hcontains
-            exact bottomOrigRankLe hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
+            exact bottomOrigRankLe hgraph hlines hwf hframed hcomp hrun hvGet htGet hbordV hbordT hdecl
               hnest hn hncN
           · rw [hdT] at hmdF
             simp at hmdF
@@ -689,7 +700,7 @@ theorem bottomMemberRankLe
           rcases hk q.2 m hm with ⟨n, hn, _, _, hnp⟩ | ⟨hdT, _, _⟩
           · have hncN : n.clusterPath.contains ndT.decl = true := by
               rw [← hnp, ← hp hmdF, hpathT, ← hdeclT]; exact hcontains
-            exact bottomOrigRankLe hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
+            exact bottomOrigRankLe hgraph hlines hwf hframed hcomp hrun hvGet htGet hbordV hbordT hdecl
               hnest hn hncN
           · rw [hdT] at hmdF
             simp at hmdF
@@ -811,13 +822,13 @@ theorem groupBottomBoundaryFacts_executed
     (hsynth : ∀ (P : Params) (graph : Graph), BottomSyntheticRankLe P graph)
     (hnest : ∀ (P : Params) (graph : Graph), BottomNestedBottomRankLe P graph) :
     GroupBottomBoundaryFacts := by
-  intro P inp o lines graph hgraph _hlines _hwf _hframed comp hcomp candidate run
+  intro P inp o lines graph hgraph hlines hwf hframed comp hcomp candidate run
     labels orderOptions hrun v t px hbordV hbordT hdecl hpx
   obtain ⟨hvLt, hvGet⟩ := bottom_marker_index hbordV
   obtain ⟨htLt, htGet⟩ := top_marker_index hbordT
   have hR := bottomProxyRunFacts P graph hgraph hcomp hrun hbordV hbordT hdecl
   obtain ⟨hcoordB, howner, hcontains, hHzero, hYnonneg, hvLen, htLen, hvCoord⟩ := hR
-  have hrank := bottomMemberRankLe hgraph hcomp hrun hvGet htGet hbordV hbordT hdecl
+  have hrank := bottomMemberRankLe hgraph hlines hwf hframed hcomp hrun hvGet htGet hbordV hbordT hdecl
     hsynth hnest
   have hgetV : run.proper.nodes[v]? = some (run.proper.nodes.getD v default) := by
     simp [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hvLen]
