@@ -16,24 +16,25 @@ open Elegant Layered
 /-! # Exact caption scope clearance, well-formed-local (W) form.
 
 `X_CaptionScopeClearanceFitW` is the `X_CaptionScopeClearanceFit`
-(`ExactCaptionFallbackProof.lean`) statement with a local
-`WellFormed (inputModel inp o)` premise directly after the execution
-binder, next to its local `InputFixedFit` premise. No `framedParents`
-premise appears: none of the consumed leaves needs it
-(`X_OwnerCaptionContainFallbackFitW` and `X_OwnerScopeSamePartClearW`
-take only `WellFormed`; the title and descendant branches take no
-admission premise at all). `X_captionScopeClearanceFitW_holds` replays
+(`ExactCaptionFallbackProof.lean`) statement with local
+`WellFormed (inputModel inp o)` and `framedParents inp = true` premises
+directly after the execution binder, next to its local `InputFixedFit`
+premise. The title and descendant W leaves need both admission premises
+(their part-local bands are false, resp. unprovable, without them; see
+`ExactCaptionWCutoverTProbe.lean`); the containment and owner-scope leaves
+take only `WellFormed`. `X_captionScopeClearanceFitW_holds` replays
 `X_captionScopeClearanceFit_holds` over the W leaves proved in
 `ExactCaptionFitFactsProof.lean`. -/
 
 /-- Well-formed-local twin of `X_CaptionScopeClearanceFit`: the same
-caption clearance tail with local `WellFormed` and `InputFixedFit`
-premises after the execution binder, so family theorems discharge it
-per executed input instead of over all inputs. -/
+caption clearance tail with local `WellFormed`, `framedParents`, and
+`InputFixedFit` premises after the execution binder, so family theorems
+discharge them per executed input instead of over all inputs. -/
 def X_CaptionScopeClearanceFitW (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res),
     WellFormed (inputModel inp o) →
+    framedParents inp = true →
     InputFixedFit inp o →
     ∀ (index ownerIndex : Nat) (source : ModelLabel) (lines : List String) (b : Box),
       inp.labels[index]? = some source →
@@ -80,11 +81,13 @@ private theorem xcsw_ownerScope_shiftRect_disjoint {a b : Rect} {dx dy : Int}
 
 /-- Per-instance replay of `XCapScope_captionDescendantClear_of_same_part`
 over the W same-part core: the descendant clearance at one executed input,
-threading that input's local core. The lookups need no admission premise. -/
+threading that input's local admission premises into the core. The lookups
+need no admission premise. -/
 private theorem xcsw_descendantClear_of_samePartW {exactIds : List String}
     {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
-    (hsame : X_CaptionDescendantSamePartClear exactIds)
+    (hsame : X_CaptionDescendantSamePartClearW exactIds)
+    (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
     {index ownerIndex : Nat} {source : ModelLabel} {lines : List String} {b : Box}
     (hsrc : inp.labels[index]? = some source)
     (hmeas : execution.measured.find? (fun item => item.index == index) = none)
@@ -106,7 +109,7 @@ private theorem xcsw_descendantClear_of_samePartW {exactIds : List String}
   obtain ⟨hOILen, _obox, _hobox, _hpobox⟩ := xcsw_findIdx_lookup hfindIdx
   obtain ⟨partO, posO, kO, _hmemO, hkO, hposO⟩ := key_part_positionX execution hOILen
   obtain ⟨partB, posB, kB, _hmemB, hkB, hposB⟩ := key_part_positionX execution hbiLen
-  exact hsame inp o res execution index ownerIndex bi source lines b hsrc hmeas
+  exact hsame inp o res execution hwf hfp index ownerIndex bi source lines b hsrc hmeas
     hfindIdx hmem0 hex hscope hd kO kB posO posB partO partB hbi hkO hkB hposO hposB
 
 /-- Per-instance replay of `XCapScope_ownerScopeExclusiveClear_of_same_part`
@@ -210,20 +213,20 @@ private theorem xcsw_ownerScopeExclusiveClear_of_samePartW (exactIds : List Stri
       hbiLen hownerRect hbrect hkO hkB hposO hposB hksame
 
 /-- The well-formed-local exact caption scope clearance from the W leaves:
-replay of `X_captionScopeClearanceFit_holds` feeding the local `WellFormed`
-premise where the old proof used the global fit-only hypothesis. No premise
-over all inputs. -/
+replay of `X_captionScopeClearanceFit_holds` feeding the local
+`WellFormed` and `framedParents` premises where the old proof used the
+global fit-only hypothesis. No premise over all inputs. -/
 theorem X_captionScopeClearanceFitW_holds (exactIds : List String)
-    (hdesc : X_CaptionDescendantSamePartClear exactIds)
+    (hdesc : X_CaptionDescendantSamePartClearW exactIds)
     (hcontainW : X_OwnerCaptionContainFallbackFitW exactIds)
     (hownersW : X_OwnerScopeSamePartClearW exactIds)
-    (htitle : X_CaptionTitleBranchClear exactIds)
+    (htitle : X_CaptionTitleBranchClearW exactIds)
     (_hborder : X_OwnerResNodeBorderZeroX exactIds) :
     X_CaptionScopeClearanceFitW exactIds := by
-  intro inp o res execution hwf hfit index ownerIndex source lines b hsrc hmeas
+  intro inp o res execution hwf hfp hfit index ownerIndex source lines b hsrc hmeas
     hfindIdx hmem hex hscope
   by_cases hd : source.owner ∈ res.scene.layoutDump.ancestors b.id
-  · exact xcsw_descendantClear_of_samePartW execution hdesc hsrc hmeas hfindIdx
+  · exact xcsw_descendantClear_of_samePartW execution hdesc hwf hfp hsrc hmeas hfindIdx
       hmem hex hscope hd
   · simp only [sceneCaptionRect]
     cases hopt : (sceneTitlesExpr execution.params inp o execution.lines
@@ -250,8 +253,7 @@ theorem X_captionScopeClearanceFitW_holds (exactIds : List String)
       exact fun hmeet =>
         hclr (rect_meetsInterior_comm (contained_meetsInterior_mono hc hmeet))
     | some t =>
-      simp only [Option.map_some, Option.getD_some]
-      have ht := htitle inp o res execution index ownerIndex source lines b hsrc hmeas
+      have ht := htitle inp o res execution hwf hfp index ownerIndex source lines b hsrc hmeas
         hfindIdx hmem hex hscope (by rw [hopt]; rfl)
       simp only [sceneCaptionRect] at ht
       rw [hopt] at ht
@@ -288,10 +290,12 @@ private theorem xcsw_caption_index_eq_of_id_eq {l : List ModelLabel}
 
 /-- Fit-conditioned X caption containment over the W scope clearance:
 mirror of `xc7f_sceneCaptionBoxContainmentFit` (`ExactFlatC7Fit.lean`)
-threading the executed input's `WellFormed` premise into `hclearFitW`. -/
+threading the executed input's `WellFormed` and `framedParents` premises
+into `hclearFitW`. -/
 private theorem xcsw_sceneCaptionBoxContainmentFitW {exactIds : List String}
     {inp : Input} {o : Options} {res : FamilyResult}
     (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     (hfit : InputFixedFit inp o)
     (hclearFitW : X_CaptionScopeClearanceFitW exactIds) :
     X_SceneCaptionBoxContainment exactIds inp o res := by
@@ -360,7 +364,7 @@ private theorem xcsw_sceneCaptionBoxContainmentFitW {exactIds : List String}
             rw [h2]
           rw [Elegant.Layered.labelOwnerAnc_congr_owner hown]
           exact hscope
-        have hclr := hclearFitW inp o res execution hwf hfit index ownerIndex source
+        have hclr := hclearFitW inp o res execution hwf hfp hfit index ownerIndex source
           l.lines b hsrc (by rw [hindex] at hm; exact hm) hoS hb hex hscope'
         rw [hrect]
         exact hclr
@@ -368,7 +372,8 @@ private theorem xcsw_sceneCaptionBoxContainmentFitW {exactIds : List String}
 /-- Flat C7 for the exact pipeline under the W scope premise: replay of
 `flatC7B_layoutX_fit` (`ExactFlatC7Fit.lean`) taking
 `X_CaptionScopeClearanceFitW` instead of the non-W premise. `FlatC7B` gives
-the well-formedness of the input per call, fed to the W premise there. -/
+the well-formedness and framed-parents facts of the input per call, fed to
+the W premise there. -/
 theorem flatC7B_layoutX_fitW (exactIds : List String)
     (hloop : X_RunLocalLoopSeparation exactIds)
     (hcapFitW : X_CaptionScopeClearanceFitW exactIds) :
@@ -390,7 +395,7 @@ theorem flatC7B_layoutX_fitW (exactIds : List String)
   have hparts : X_PartsSeparated exactIds inp o res :=
     X_partsSeparated_holds (inp := inp) (o := o) (res := res)
   have hcaps : X_SceneCaptionBoxContainment exactIds inp o res :=
-    xcsw_sceneCaptionBoxContainmentFitW (inp := inp) (o := o) (res := res) hwf hfit
+    xcsw_sceneCaptionBoxContainmentFitW (inp := inp) (o := o) (res := res) hwf hfp hfit
       hcapFitW
   exact X_layout_c7 hwf hfp hparts ⟨hrunlocal, hbridges⟩ hcaps h
 

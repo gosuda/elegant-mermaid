@@ -26,24 +26,30 @@ namespace PipelineImpl
 
 open Elegant Layered
 
-/-! # Exact caption fit facts: the per-execution premises of `X_captionScopeClearanceFit_holds`.
+/-! # Exact caption fit facts: the per-execution premises of `X_captionScopeClearanceFitW_holds`.
 
-Proves per-execution (`W`) forms of two premises of
-`X_captionScopeClearanceFit_holds` (`ExactCaptionFallbackProof.lean:197`),
-plus the other two premises unchanged:
+Proves per-execution (`W`) forms of the four leaves of
+`X_captionScopeClearanceFitW_holds` (`ExactCaptionScopeFitWProof.lean`).
+The title and descendant twins carry local `WellFormed (inputModel inp o)`
+and `framedParents inp = true` premises directly after the execution binder;
+the containment and owner-scope twins carry the local `WellFormed` premise
+(plus `InputFixedFit` for containment), so family theorems discharge them
+per executed input instead of over all inputs:
 
 * `x_ownerCaptionContainFallbackFitW_holds`: replay of
   `ownerCaptionContainFallback_of_fit` (`CaptionFallbackContainProof.lean:55`)
-  over `SceneExecutionX`, from a local `WellFormed (inputModel inp o)` premise
-  plus three narrow exact execution facts (fixed-owner fit, fallback-owner
-  cases, ordinary line height). The `WellFormed` premise is local to the
-  executed input, never over all inputs.
-* `x_captionTitleBranchClear_holds`: replay of
+  over `SceneExecutionX`, from three narrow exact execution facts
+  (fixed-owner fit, fallback-owner cases, ordinary line height).
+* `x_captionTitleBranchClearW_holds`: replay of
   `captionTitleBranchClear_of_frames`
   (`CaptionTitleBranchFacts.lean:61`) over `SceneExecutionX`, from the
-  part-local band and cross-part residuals plus the packed transport premise.
-* `x_captionDescendantSamePartClear_holds`: case split on the installed title,
-  title branch by the proved title fact above, fallback branch by one narrow
+  W part-local band (`X_TitleSamePartBandXW`, defined below and proved in
+  `ExactCaptionBandsProof.lean` from `X_RunTitleBandClearX`) and the
+  cross-part plus packed transport premises.
+* `x_captionDescendantSamePartClearW_holds`: case split on the installed
+  title, title branch by the proved W title fact above, fallback branch by
+  the W fallback band (`X_DescendantFallbackBandXW`, defined below and
+  proved in `ExactCaptionBandsProof.lean` from the fallback-owner cases).
 * `x_ownerScopeSamePartClearW_holds`: replay of the same-part half of
   `ownerScopeSamePartClear_of_fallback` (`CaptionsSeamProof.lean:43`) over
   `SceneExecutionX`, from a local `WellFormed` premise plus the
@@ -51,6 +57,23 @@ plus the other two premises unchanged:
   (`ExactC8aSpansProof.lean:1868`) and the in-file
   `x_ownerResNodeBorderZeroX_holds` (plain `ownerRes_node_border_zero` run on
   the measured graph plus `exactGraph_node_key` transport).
+
+Removed 2026-11-19 (`ExactCaptionWCutoverTProbe`): the unconditional
+part-local band `X_TitleSamePartBandX` was FALSE (witness `wGroupExclInp`:
+group-role exclusive box with an installed title, `BAND-VIOL c=0 posB=0`
+over a succeeding `layoutX` run), so it and the holds theorems taking it
+(`x_captionTitleBranchClear_holds`,
+`x_captionDescendantSamePartClear_holds`) are deleted; the W twins above
+are the true forms. The unconditional fallback band
+`X_DescendantFallbackBandX` had no falsifier on any probe row but its only
+proof needs the admission premises, so it is deleted in favour of its
+proved W twin as well. The unguarded installed-title branch
+`X_CaptionTitleBranchClear` and descendant clearance
+`X_CaptionDescendantSamePartClear` (defined in
+`ExactFlatC7CaptionScope.lean` / `ExactCaptionScopeProof.lean`) had no
+falsifier (`vacuous` on the group-exclusive witness: no nonexclusive
+owner; `descViol=0` on the duplicate-id and dangling rows) and stay
+defined where they are; nothing here takes them anymore.
 
 Note on `XF_CaptionRunClearX` (`ExactPartFrameCoresProof.lean:74`): none of the
 four conclusions follows from it, so none takes it as a premise. It concludes
@@ -502,17 +525,12 @@ theorem x_ownerScopeSamePartClearW_holds (exactIds : List String)
   exact XS_C8a_PositionsDisjoint_of_run execution.graph0_eq
     execution.graph_eq hcomp hrun hnodeOlookup hnodeBlookup hbO hbB hne
 
-/-- Exact mirror of the part-local title band `TitleSamePartBand`
-(`CaptionSamePartProof.lean:32`): within one executed exact part, the
-substituted title caption is disjoint from the part rect of every exclusive
-model box. Single part-level fact, strictly narrower than the title-branch
-goal; true on every installed-title probe row
-(`caps-empty-title`, `caps-nofix`, both `caps-desc` rows, all `meets=false`).
-Plain path: the run-level band `RunTitleBandClear` transported through
-packing. -/
-def X_TitleSamePartBandX (exactIds : List String) : Prop :=
+/-- Well-formed-local same-part title band: the part-local title/exclusive
+disjointness with local admission premises after the execution binder. -/
+def X_TitleSamePartBandXW (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (c : Nat) (part : List Nat × Part),
     execution.componentsAcc.parts[c]? = some part →
     ∀ (title : Nat × Rect), title ∈ part.2.titles →
@@ -527,6 +545,34 @@ def X_TitleSamePartBandX (exactIds : List String) : Prop :=
                 (execution.lines.getD (part.1.getD title.1 0) [])).w
               h := (titleCaptionSize execution.params o
                 (execution.lines.getD (part.1.getD title.1 0) [])).h }
+
+/-- Well-formed-local descendant fallback band: the fallback-caption
+disjointness with local admission premises after the execution binder. -/
+def X_DescendantFallbackBandXW (exactIds : List String) : Prop :=
+  ∀ (inp : Input) (o : Options) (res : FamilyResult)
+    (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
+    (index ownerIndex bi : Nat)
+    (source : ModelLabel) (lines : List String) (b : Box),
+    inp.labels[index]? = some source →
+    execution.measured.find? (fun item => item.index == index) = none →
+    inp.boxes.findIdx?
+      (fun box => box.id == source.owner && !box.exclusive) = some ownerIndex →
+    b ∈ res.scene.layoutDump.boxes →
+    b.exclusive = true →
+    b.id ∉ res.scene.layoutDump.labelOwnerAnc
+      (X_captionLabel exactIds execution ownerIndex source lines) →
+    source.owner ∈ res.scene.layoutDump.ancestors b.id →
+    (sceneTitlesExpr execution.params inp o execution.lines
+      execution.packedAcc).find? (fun title => title.1 == source.owner) = none →
+    ∀ (kO kB posO posB : Nat) (partO partB : List Nat × Part),
+      res.scene.boxes[bi]? = some b →
+      execution.componentsAcc.parts[kO]? = some partO →
+      execution.componentsAcc.parts[kB]? = some partB →
+      partO.1[posO]? = some ownerIndex →
+      partB.1[posB]? = some bi →
+      ¬ (sceneCaptionRect execution.params inp o execution.lines
+        execution.packedAcc ownerIndex source.owner).meetsInterior b.rect
 
 /-- Exact mirror of the cross-part half `TitleExclusiveCrossPart`
 (`CaptionResidualsProof.lean:124`): the packed title caption is disjoint
@@ -606,13 +652,14 @@ private theorem xcf_caption_shift_comm {stored : Rect} {dx dy w h : Int} :
 
 /-- Packed title-vs-exclusive disjointness behind the installed-title branch:
 the packed title and the packed exclusive rect live in located parts; equal
-indices use the part-local band `X_TitleSamePartBandX`, distinct indices use
-`X_TitleExclusiveCrossPartX`. Replays the `titleExclusiveSamePart` /
+indices use the W part-local band `X_TitleSamePartBandXW`, distinct indices
+use `X_TitleExclusiveCrossPartX`. Replays the `titleExclusiveSamePart` /
 cross-part combination over the exact transport. -/
-private theorem xcf_titlePackedDisjoint {exactIds : List String} {inp : Input}
+private theorem xcf_titlePackedDisjointW {exactIds : List String} {inp : Input}
     {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
-    (hband : X_TitleSamePartBandX exactIds)
+    (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
+    (hband : X_TitleSamePartBandXW exactIds)
     (hcross : X_TitleExclusiveCrossPartX exactIds)
     (htransport : X_PackedPartTransportBoundedB8 exactIds)
     {stored : Nat × Rect}
@@ -643,7 +690,7 @@ private theorem xcf_titlePackedDisjoint {exactIds : List String} {inp : Input}
     obtain rfl : partk = partl :=
       Option.some.inj (hpartk.symm.trans hpartl)
     obtain rfl : bk = bl := Option.some.inj (hbk.symm.trans hbl)
-    have hclr := hband execution pk partk hpartk (i, stored0) hmeml
+    have hclr := hband execution hwf hfp pk partk hpartk (i, stored0) hmeml
       posk hKey r0 hkeyk hr0 fBox hKeyBox hex'
     simp only [hgetD] at hclr
     rw [hreq, hstored, xcf_caption_shift_comm]
@@ -654,18 +701,42 @@ private theorem xcf_titlePackedDisjoint {exactIds : List String} {inp : Input}
       packed hpack pl partl bl (i, stored0) hzipT hmeml hgetD.symm hstored
       pk partk posk hpartk hkeyk (fun h => hpk h.symm)
 
-/-- The exact installed-title branch. Replay of
+/-- Well-formed-local twin of `X_CaptionTitleBranchClear`: the same
+installed-title branch with local `WellFormed (inputModel inp o)` and
+`framedParents inp = true` premises directly after the execution binder. -/
+def X_CaptionTitleBranchClearW (exactIds : List String) : Prop :=
+  ∀ (inp : Input) (o : Options) (res : FamilyResult)
+    (execution : SceneExecutionX exactIds inp o res),
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
+    ∀ (index ownerIndex : Nat)
+    (source : ModelLabel) (lines : List String) (b : Box),
+    inp.labels[index]? = some source →
+    execution.measured.find? (fun item => item.index == index) = none →
+    inp.boxes.findIdx?
+      (fun box => box.id == source.owner && !box.exclusive) = some ownerIndex →
+    b ∈ res.scene.layoutDump.boxes →
+    b.exclusive = true →
+    b.id ∉ res.scene.layoutDump.labelOwnerAnc
+      (X_captionLabel exactIds execution ownerIndex source lines) →
+    ((sceneTitlesExpr execution.params inp o execution.lines
+        execution.packedAcc).find?
+          (fun title => title.1 == source.owner)).isSome = true →
+    ¬ (sceneCaptionRect execution.params inp o execution.lines
+        execution.packedAcc ownerIndex source.owner).meetsInterior b.rect
+
+/-- The exact installed-title branch, well-formed-local. Replay of
 `captionTitleBranchClear_of_frames`
 (`CaptionTitleBranchFacts.lean:61`) over `SceneExecutionX`: the scene title
 is the transported stored title, the exclusive box is located through
-`boxes_eq_mapX`, and the packed disjointness from `xcf_titlePackedDisjoint`
+`boxes_eq_mapX`, and the packed disjointness from `xcf_titlePackedDisjointW`
 survives the scene transport. -/
-theorem x_captionTitleBranchClear_holds (exactIds : List String)
-    (hband : X_TitleSamePartBandX exactIds)
+theorem x_captionTitleBranchClearW_holds (exactIds : List String)
+    (hband : X_TitleSamePartBandXW exactIds)
     (hcross : X_TitleExclusiveCrossPartX exactIds)
     (htransport : X_PackedPartTransportBoundedB8 exactIds) :
-    X_CaptionTitleBranchClear exactIds := by
-  intro inp o res execution index ownerIndex source lines b _hsrc _hmeas
+    X_CaptionTitleBranchClearW exactIds := by
+  intro inp o res execution hwf hfp index ownerIndex source lines b _hsrc _hmeas
     _hfindIdx hmem hex _hscope htitle
   cases hfind : (sceneTitlesExpr execution.params inp o execution.lines
       execution.packedAcc).find? (fun title => title.1 == source.owner) with
@@ -704,22 +775,19 @@ theorem x_captionTitleBranchClear_holds (exactIds : List String)
         simpa using hex
       rw [← hbeq]
       dsimp only
-      have hdp := xcf_titlePackedDisjoint execution hband hcross htransport
+      have hdp := xcf_titlePackedDisjointW execution hwf hfp hband hcross htransport
         hstoredMem hKeyBox hex'
       exact disjoint_sceneTransport (fun hm => hdp (rect_meetsInterior_comm hm))
 
-/-- Exact mirror of the fallback half `DescendantFallbackClear`
-(`CaptionResidualsProof.lean:140`): when the packed accumulator carries no
-installed title for the owner, the fallback `ownedTextRect` caption misses
-the interior of the exclusive descendant member. The plain binders for
-`WellFormed`/`framedParents` are unused and dropped. Single fact, strictly
-narrower than the descendant goal (fallback branch only); true on the
-fallback probe rows (all `meets=false`). Plain path: the group caption-band
-reservation transported through packing and the margin/orientation
-projection. -/
-def X_DescendantFallbackBandX (exactIds : List String) : Prop :=
+/-- Well-formed-local twin of `X_CaptionDescendantSamePartClear`: the same
+same-part descendant core with local `WellFormed (inputModel inp o)` and
+`framedParents inp = true` premises directly after the execution binder. -/
+def X_CaptionDescendantSamePartClearW (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
-    (execution : SceneExecutionX exactIds inp o res) (index ownerIndex bi : Nat)
+    (execution : SceneExecutionX exactIds inp o res),
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
+    ∀ (index ownerIndex bi : Nat)
     (source : ModelLabel) (lines : List String) (b : Box),
     inp.labels[index]? = some source →
     execution.measured.find? (fun item => item.index == index) = none →
@@ -730,8 +798,6 @@ def X_DescendantFallbackBandX (exactIds : List String) : Prop :=
     b.id ∉ res.scene.layoutDump.labelOwnerAnc
       (X_captionLabel exactIds execution ownerIndex source lines) →
     source.owner ∈ res.scene.layoutDump.ancestors b.id →
-    (sceneTitlesExpr execution.params inp o execution.lines
-      execution.packedAcc).find? (fun title => title.1 == source.owner) = none →
     ∀ (kO kB posO posB : Nat) (partO partB : List Nat × Part),
       res.scene.boxes[bi]? = some b →
       execution.componentsAcc.parts[kO]? = some partO →
@@ -741,31 +807,32 @@ def X_DescendantFallbackBandX (exactIds : List String) : Prop :=
       ¬ (sceneCaptionRect execution.params inp o execution.lines
         execution.packedAcc ownerIndex source.owner).meetsInterior b.rect
 
-/-- The exact descendant same-part clearance. Replay of
+/-- The exact descendant same-part clearance, well-formed-local. Replay of
 `captionDescendantSamePartClear_of_fallback`
 (`CaptionResidualsProof.lean:155`) over `SceneExecutionX`: the installed-title
-case is the proved title branch above, the fallback case is the narrow band
-residual. -/
-theorem x_captionDescendantSamePartClear_holds (exactIds : List String)
-    (htitle : X_CaptionTitleBranchClear exactIds)
-    (hfall : X_DescendantFallbackBandX exactIds) :
-    X_CaptionDescendantSamePartClear exactIds := by
-  intro inp o res execution index ownerIndex bi source lines b hsrc hmeas
+case is the proved W title branch above, the fallback case is the W narrow
+band residual. -/
+theorem x_captionDescendantSamePartClearW_holds (exactIds : List String)
+    (htitle : X_CaptionTitleBranchClearW exactIds)
+    (hfall : X_DescendantFallbackBandXW exactIds) :
+    X_CaptionDescendantSamePartClearW exactIds := by
+  intro inp o res execution hwf hfp index ownerIndex bi source lines b hsrc hmeas
     hfindIdx hmem hex hscope hd kO kB posO posB partO partB hbi hkO hkB
     hposO hposB
   cases hopt : (sceneTitlesExpr execution.params inp o execution.lines
       execution.packedAcc).find? (fun title => title.1 == source.owner) with
   | none =>
-    exact hfall inp o res execution index ownerIndex bi source lines b hsrc
+    exact hfall inp o res execution hwf hfp index ownerIndex bi source lines b hsrc
       hmeas hfindIdx hmem hex hscope hd hopt kO kB posO posB partO partB hbi
       hkO hkB hposO hposB
+
   | some _ =>
     have hsome : ((sceneTitlesExpr execution.params inp o execution.lines
         execution.packedAcc).find?
           (fun title => title.1 == source.owner)).isSome = true := by
       rw [hopt]
       rfl
-    exact htitle inp o res execution index ownerIndex source lines b hsrc hmeas
+    exact htitle inp o res execution hwf hfp index ownerIndex source lines b hsrc hmeas
       hfindIdx hmem hex hscope hsome
 
 end PipelineImpl

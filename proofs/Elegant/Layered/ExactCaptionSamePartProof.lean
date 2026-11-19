@@ -11,10 +11,11 @@ open Elegant Layered
 /-! # Exact caption same-part leaves: descendant and owner scope.
 
 Targets (fields of `ExactSeams`, `Kinds/UsecaseValidExact.lean`):
-* `capDesc  : X_CaptionDescendantSamePartClear exactIds`
-  (`ExactCaptionScopeProof.lean`): the scene caption rect of a non-exclusive
-  owner misses the interior of every exclusive descendant box, for every
-  same-part position tuple.
+* `capDesc  : X_CaptionDescendantSamePartClearW exactIds`
+  (`ExactCaptionFitFactsProof.lean`): the well-formed-local twin of
+  `X_CaptionDescendantSamePartClear` (`ExactCaptionScopeProof.lean`), with
+  local `WellFormed (inputModel inp o)` and `framedParents inp = true`
+  premises after the execution binder.
 * `capOwnersW : X_OwnerScopeSamePartClearW exactIds`
   (`ExactCaptionFitFactsProof.lean`): the well-formed-local twin of
   `X_OwnerScopeSamePartClear`, with the local
@@ -27,7 +28,21 @@ Rows: nest (descendant, installed title), flat (scope, installed title),
 nodechild (node owner with exclusive child, fallback, descendant),
 nolab (vacuous), self (self-loop), zero (zero-size fixed descendant),
 deep (two nested labels), fixdesc (fixed group owner, fallback,
-descendant). No falsifier found; both leaves are kept as stated.
+descendant). Cutover probe
+(`proofs/wip/Probe/ExactCaptionWCutoverTProbe.lean`): the descendant and
+fallback cores report `descViol=0` on the well-formed control, the
+duplicate-id row, and the dangling-parent row, and `vacuous` (no
+nonexclusive owner) on the group-exclusive witness; the part-level title
+band reports `BAND-VIOL` there. No falsifier for the descendant same-part
+core; its unconditional form stays defined in `ExactCaptionScopeProof.lean`
+and the unconditional fallback band is deleted in favour of its proved W
+twin, so this file keeps no descendant skeleton: the W descendant
+clearance is `x_captionDescendantSamePartClearW_holds`
+(`ExactCaptionFitFactsProof.lean`), from the W title leaf
+(`xctb_captionTitleBranchClearW_of_bandW` in
+`ExactCaptionTitleBranchProof.lean`) and the W fallback band
+(`xcb_descendantFallbackBandXW_of_cases` in
+`ExactCaptionBandsProof.lean`).
 
 Proof shape, one named sub-lemma residual per leaf:
 * `capOwnersW` follows from the single residual `X_FallbackOwnerCasesX`
@@ -35,22 +50,18 @@ Proof shape, one named sub-lemma residual per leaf:
   `x_ownerScopeSamePartClearW_holds`, discharging its node-border premise
   with the closed `x_ownerResNodeBorderZeroX_holds`. The cross-part half is
   closed inside `XCapScope_ownerScopeExclusiveClear_cross_part`.
-* `capDesc` follows from the sibling installed-title leaf
-  `X_CaptionTitleBranchClear` (the `capTitle` seam field) and the single
-  residual `X_DescendantFallbackBandX` by the proved
-  `x_captionDescendantSamePartClear_holds` (replayed below as the private
-  skeleton `xcsp_desc_of_title_fall`). The two closed rewrites below
+* `capDesc` follows from the sibling W installed-title leaf
+  `X_CaptionTitleBranchClearW` and the single W fallback-band residual
+  `X_DescendantFallbackBandXW` by the proved
+  `x_captionDescendantSamePartClearW_holds`. The two closed rewrites below
   discharge the fallback band's first steps: the caption rect under an
   absent installed title is the `ownedTextRect` fallback, and every scene
   box rect is the margin/orientation transport of its packed rect.
-  The remaining run-level band (group caption reservation over
-  `componentRunX`, packed transport, scene transport) stays open in
-  `X_DescendantFallbackBandX`.
 -/
 
 /-- Scene caption rect under an absent installed title: the `find?` misses,
-so the rect is the `ownedTextRect` fallback. Closed; discharges the first
-rewrite of `X_DescendantFallbackBandX`. -/
+so the rect is the `ownedTextRect` fallback. Closed projection of the
+fallback-caption rect value. -/
 theorem xcsp_sceneCaptionRect_of_titles_none {P : Params} {inp : Input}
     {o : Options} {lines : List (List Measure.Line)} {packed : Acc}
     {ownerIndex : Nat} {owner : String}
@@ -67,8 +78,7 @@ theorem xcsp_sceneCaptionRect_of_titles_none {P : Params} {inp : Input}
 
 /-- Scene box rect transport: every executed scene box rect is the canvas
 margin shift of the orientation transport of its packed rect. Closed public
-projection of `sceneBox_source_rectX`; discharges the rect-value steps of
-`X_DescendantFallbackBandX`. -/
+projection of `sceneBox_source_rectX`. -/
 theorem xcsp_sceneBox_rect_transport {exactIds : List String} {inp : Input}
     {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
@@ -89,14 +99,6 @@ theorem xcapSamePart_ownerScopeW_of_cases (exactIds : List String)
     X_OwnerScopeSamePartClearW exactIds :=
   x_ownerScopeSamePartClearW_holds exactIds hcases
     (x_ownerResNodeBorderZeroX_holds exactIds)
-
-/-- Private skeleton: the descendant same-part clearance from the sibling
-installed-title leaf and its single fallback-band residual. -/
-private theorem xcsp_desc_of_title_fall (exactIds : List String)
-    (htitle : X_CaptionTitleBranchClear exactIds)
-    (hfall : X_DescendantFallbackBandX exactIds) :
-    X_CaptionDescendantSamePartClear exactIds :=
-  x_captionDescendantSamePartClear_holds exactIds htitle hfall
 
 end PipelineImpl
 end Layered

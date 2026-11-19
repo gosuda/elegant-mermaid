@@ -16,6 +16,10 @@ import Elegant.Layered.ExactLoopEnvelopeMissProof
 import Elegant.Layered.ExactLoopEnvelopeFootBelowProof
 import Elegant.Layered.ExactLoopEnvelopeSidesProof
 import Elegant.Layered.ExactLoopEnvelopeGroupMissProof
+import Elegant.Layered.ExactLoopEnvelopeRightProof
+import Elegant.Layered.ExactLoopEnvelopeReserveProof
+import Elegant.Layered.ExactLoopEnvelopeLeftNonPlainProof
+import Elegant.Layered.ExactStepLeafFactsProof
  import Elegant.Layered.ExactStepGeometryProof
 
 set_option autoImplicit false
@@ -254,13 +258,13 @@ theorem X6_shelfPositiveW_of_partPosW (exactIds : List String)
   exact X6_shelfPositiveW_of_partPos_holds exactIds execution hwf hfp packed hpacked hsel hedge hW hH
 
 /-- Assembled W caption scope clearance: replay of
-`X_captionScopeClearanceFit_holds` over the four open leaves; the
+`X_captionScopeClearanceFitW_holds` over the four W leaves; the
 node-border premise is the closed `x_ownerResNodeBorderZeroX_holds`. -/
 theorem glue_captionScopeFitW (exactIds : List String)
-    (hdesc : X_CaptionDescendantSamePartClear exactIds)
+    (hdesc : X_CaptionDescendantSamePartClearW exactIds)
     (hcontainW : X_OwnerCaptionContainFallbackFitW exactIds)
     (hownersW : X_OwnerScopeSamePartClearW exactIds)
-    (htitle : X_CaptionTitleBranchClear exactIds) :
+    (htitle : X_CaptionTitleBranchClearW exactIds) :
     X_CaptionScopeClearanceFitW exactIds :=
   X_captionScopeClearanceFitW_holds exactIds hdesc hcontainW hownersW htitle
     (x_ownerResNodeBorderZeroX_holds exactIds)
@@ -450,6 +454,55 @@ theorem glue_partFrameCoresW (exactIds : List String)
         hxalign)
       (glue_nonforward exactIds hmissN hhullN))
 
+/-- Closed C8b caption-disjointness residual: replay of `XSGL_stepC8bCapDisj`
+with the executed-run binders reintroduced. Discharges the `stepC8bCapDisj`
+field of `ExactSeams`. -/
+theorem glue_stepC8bCapDisjB (exactIds : List String) :
+    XG_StepC8bCapDisjB exactIds := by
+  intro fuel P inp o group titleLines titleHeight parent child res
+    hexpand hframed hctxB hparams
+  exact XSGL_stepC8bCapDisj exactIds fuel P inp o group titleLines titleHeight
+    parent child res hexpand hframed hctxB hparams
+
+/-- Closed C8b caption-strictness residual: replay of `XSGL_stepC8bCapStrict`
+with the executed-run binders reintroduced. Discharges the `stepC8bCapStrict`
+field of `ExactSeams`. -/
+theorem glue_stepC8bCapStrictB (exactIds : List String) :
+    XG_StepC8bCapStrictB exactIds := by
+  intro fuel P inp o group titleLines titleHeight parent child res
+    hexpand hframed hctxB hparams
+  exact XSGL_stepC8bCapStrict exactIds fuel P inp o group titleLines titleHeight
+    parent child res hexpand hframed hctxB hparams
+
+/-- Assembled C8b inset core: replay of `XSGL_c8bCore` with the executed-run
+binders reintroduced. The inner premises are exactly the core binders, so no
+`ExactSeams` field is needed. Discharges the `stepC8bCore` field. -/
+theorem glue_stepC8bCoreB (exactIds : List String) :
+    XG_C8bCoreB exactIds := by
+  intro fuel P inp o group titleLines titleHeight parent child res
+    hexpand hframed hctxB hparams hChildBoxes hChildLabels hFitStrict
+    hCapStrict hCapDisj hAnc hParentFrame
+  exact XSGL_c8bCore exactIds fuel P inp o group titleLines titleHeight
+    parent child res hexpand hframed hctxB hparams hChildBoxes hChildLabels
+    hFitStrict hCapStrict hCapDisj hAnc hParentFrame
+
+
+/-- Assembled other-owner miss from the four intermediate misses: the
+other-rank miss (plain reserve closed, group rank from the kept overlap
+residual), the right miss (kept right-nonplain residual), the left miss
+(left non-plain closed), and the group miss (kept marker order).
+Discharges the `loopOwner` field of `ExactSeams`. -/
+theorem glue_loopEnvOtherOwner (exactIds : List String)
+    (hgrp : XLEM_GroupOverlapMiss exactIds)
+    (hRightNP : XLEM_PlainRightNonPlain exactIds)
+    (hgrpOrd : XLEG_GroupMarkerOrderX exactIds) :
+    X_loopEnvOtherOwner exactIds :=
+  X_loopEnvOtherOwner_of_parts exactIds
+    (XLEM_otherRankMiss_closed exactIds (XLEM_plainReserve_holds exactIds)
+      (XLEM_groupOtherRank_holds exactIds hgrp))
+    (XLEM_plainRightMiss_holds exactIds hRightNP)
+    (XLEM_leftMiss_holds exactIds (XLEM_leftNonPlain_holds exactIds))
+    (XLEM_groupOwnerMiss_holds exactIds hgrpOrd)
 end PipelineImpl
 end Layered
 end Elegant

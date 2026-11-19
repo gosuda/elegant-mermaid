@@ -31,11 +31,17 @@ open Elegant Layered
 
 /-! # Exact caption title branch and fallback containment (`capTitle`, `capContainW`).
 
-Leaf defs (in `ExactFlatC7CaptionScope.lean:139` and
+Leaf defs (`X_CaptionTitleBranchClearW` in
+`ExactCaptionFitFactsProof.lean`, `X_OwnerCaptionContainFallbackFitW` in
 `ExactCaptionFitFactsProof.lean:256`):
 
-* `X_CaptionTitleBranchClear exactIds` (field `capTitle`): the installed-title
-  branch of the caption scope clearance.
+* `X_CaptionTitleBranchClearW exactIds` (field `capTitle`): the
+  installed-title branch of the caption scope clearance, with local
+  `WellFormed` and `framedParents` premises. Its unconditional twin
+  `X_CaptionTitleBranchClear` (`ExactFlatC7CaptionScope.lean:139`) stays
+  defined where it is (no falsifier on any probe row) but nothing here
+  takes it anymore: the only proof path went through the unconditional
+  part-local band, which is FALSE (see below).
 * `X_OwnerCaptionContainFallbackFitW exactIds` (field `capContainW`): the
   fallback caption containment under the local `InputFixedFit` premise.
 
@@ -58,11 +64,20 @@ fallback caption `cap=(w,h)`):
 * `caps-self-loop`, `caps-nest-fit`, `caps-fit-5000`: no outside-scope
   exclusive hit.
 
+Cutover probe (`proofs/wip/Probe/ExactCaptionWCutoverTProbe.lean`):
+the unconditional part-local band `X_TitleSamePartBandX` is FALSE
+(`tb-group-excl BAND-VIOL c=0 posB=0` on the group-exclusive witness, a
+succeeding `layoutX` run), so the band consumer
+`xctb_captionTitleBranchClear_of_band` is deleted and replaced below by
+the W twin `xctb_captionTitleBranchClearW_of_bandW` over
+`X_TitleSamePartBandXW`.
+
 What closes here: the ordinary node sizing (`X_OrdinaryBoxLineHeightX`), the
 fixed-owner fit (`X_FixedOwnerFitX`), and the cross-part title disjointness
 (`X_TitleExclusiveCrossPartX`) replay their plain twins over
-`SceneExecutionX` with shared measured-graph lemmas. The installed-title
-band (`X_TitleSamePartBandX`) and the fallback-owner cases
+`SceneExecutionX` with shared measured-graph lemmas. The W installed-title
+band (`X_TitleSamePartBandXW`, proved in `ExactCaptionBandsProof.lean` from
+`X_RunTitleBandClearX`) and the fallback-owner cases
 (`X_FallbackOwnerCasesX`) stay open: each is one strictly narrower named
 residual (part-level band geometry, resp. owner role classification), true
 on every probe row above.
@@ -747,15 +762,14 @@ theorem xctb_titleExclusiveCrossPartX_holds (exactIds : List String) :
     rwa [hboxTeq] at h
   rw [hstoredEq]
   exact disjoint_of_contained_disjoint hcontB hcontT hdisj
-
-/-- The installed-title branch from its single residual: the part-local band
-stays open (`X_TitleSamePartBandX`, true on every installed-title probe
-row); the cross-part half closes above and the packed transport closes in
-`ExactPackedTransportResidualsProof`. -/
-theorem xctb_captionTitleBranchClear_of_band (exactIds : List String)
-    (hband : X_TitleSamePartBandX exactIds) :
-    X_CaptionTitleBranchClear exactIds :=
-  x_captionTitleBranchClear_holds exactIds hband
+/-- The installed-title branch from its single residual: the part-local W band
+stays open (`X_TitleSamePartBandXW`, proved from `X_RunTitleBandClearX` in
+`ExactCaptionBandsProof.lean`); the cross-part half closes above and the
+packed transport closes in `ExactPackedTransportResidualsProof`. -/
+theorem xctb_captionTitleBranchClearW_of_bandW (exactIds : List String)
+    (hband : X_TitleSamePartBandXW exactIds) :
+    X_CaptionTitleBranchClearW exactIds :=
+  x_captionTitleBranchClearW_holds exactIds hband
     (xctb_titleExclusiveCrossPartX_holds exactIds)
     (X_packedPartTransportBounded_closed exactIds)
 
