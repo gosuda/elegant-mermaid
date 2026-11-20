@@ -240,14 +240,21 @@ def NotesC8aFragFound {base : List String → Input → Options → Except Layou
     (placedOf' e.margin e.contracted.scene l).any
       (fun p => p.scene.boxes.any (fun b => b.id == id)) = true
 
-/-- Shifted fragment boxes clear contracted boxes no bundle owns. -/
+/-- Mixed C8a clearance uses the exact fragment list from the note execution. -/
 def NotesC8aClear {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
-  ∀ l ∈ e.layouts, ∀ p ∈ placedOf' e.margin e.contracted.scene l,
-    ∀ sb ∈ p.scene.boxes, ∀ cb ∈ e.contracted.scene.boxes,
-      fragmentIdOf inp l cb.id = false →
-      Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect
+  MixedNotesC8aClear inp e.margin e.contracted.scene e.layouts e.fragments
+
+theorem NotesC8aClear.forPlaced {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    {e : NotesExecution base exactIds fuel inp o res} (hclear : NotesC8aClear e)
+    {placed : List (List Placed)}
+    (hp : e.layouts.mapM (placedFragments e.margin e.contracted.scene) = .ok placed) :
+    MixedNotesC8aClear inp e.margin e.contracted.scene e.layouts placed.flatten := by
+  have hplaced : placed = e.placed := Except.ok.inj (hp.symm.trans e.placed_eq)
+  rw [hplaced, ← e.fragments_eq]
+  exact hclear
 
 /-- Shifted boxes of distinct placed scenes of one bundle are pairwise disjoint. -/
 def NotesC8aFragDisj {base : List String → Input → Options → Except LayoutError FamilyResult}
@@ -286,7 +293,7 @@ def NotesC8aGeom {base : List String → Input → Options → Except LayoutErro
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
   NotesC8aTopNodup e ∧ NotesC8aFold e ∧ NotesC8aLen e ∧ NotesC8aContractScene e ∧
-    NotesC8aContractRole e ∧ NotesC8aFragRole e ∧ NotesC8aFragFound e ∧
+    NotesC8aContractRole e ∧ NotesC8aFragRole e ∧
     NotesC8aClear e ∧ NotesC8aFragDisj e ∧ NotesC8aSceneAnc e ∧
     NotesC8aEnv e ∧ NotesC8aEnvDisj e
 
@@ -302,9 +309,10 @@ theorem notes_c8a {base : List String → Input → Options → Except LayoutErr
     (hFragN : ∀ l ∈ e.layouts, ∀ q ∈ l.notes, Validator.C8a q.2.scene.layoutDump)
     (hGeom : NotesC8aGeom e) :
     Validator.C8a res.scene.layoutDump := by
-  obtain ⟨htop, hfold, hlen, hcs, hcr, hfr, hff, hclr, hfd, hsa, henv, henvd⟩ := hGeom
+  obtain ⟨htop, hfold, hlen, hcs, hcr, hfr, hclr, hfd, hsa, henv, henvd⟩ := hGeom
   exact composeNotes_c8a e.scene_eq (Model.boxIds_nodup hwf) htop hBase hfold hlen hcs
-    hcr hfr hff hclr hfd hsa hFragP hFragN henv henvd
+    hcr hfr (fun {placed} hp => NotesC8aClear.forPlaced hclr (placed := placed) hp)
+    hfd hsa hFragP hFragN henv henvd
 
 /-! ### Clause C6: routes clear of unrelated boxes -/
 

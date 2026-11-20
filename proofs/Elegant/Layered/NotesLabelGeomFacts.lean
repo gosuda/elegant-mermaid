@@ -31,14 +31,11 @@ over whatever labels occur.
 
 * `NotesC8bGeom`: fully proved (`ngfC8bGeom_holds`).
 * `NotesC7Geom`: fully proved (`ngfC7Geom_holds`).
-* `NotesC8aGeom`: `Env`, `FragRole`, `ContractRole`, `FragDisj`, `Clear`
-  (modulo its id bridge), and `EnvDisj` proved above as separate conjunct
-  theorems. Still open: `TopNodup` (bundle-top nodup from `bundlesOf`),
-  `Fold` and `ContractScene` (`IdParentTransfer` through the `contractOne`
-  fold), `Len` (base id-list preservation, `NotesBaseContract` shape),
-  `FragFound` (per-bundle id presence in `placedFragments`), `SceneAnc`
-  (fragment ancestor subsumption), and the `Clear` id bridge
-  (`fragmentIdOf`-false implies unclaimed by every fragment).
+* `NotesC8aGeom`: `Env`, `FragRole`, `ContractRole`, `FragDisj`, and `EnvDisj`
+  have separate transport theorems. For a mixed pair, envelope fit transfers
+  contracted C2 or C8a when their respective hypotheses hold for the envelope
+  and the kept box. General mixed clearance still needs the translation to
+  contracted ancestry and separation of ordinary contracted nodes.
 * `NotesC6Geom`: `BoxExclC`/`BoxExclF` proved above (shared with C7).
   Still open: `AncC`/`AncF` (contracted/fragment ancestor preservation
   over the base layouts), `FlagsKept`/`FlagsFrag` (route endpoint
@@ -676,19 +673,40 @@ theorem ngfC8aFragDisj_holds {base : List String → Input → Options → Excep
     exact placedOf_mem_flatten e.placed_eq hl hpl'
   exact hPlacedDisj p hpf p' hpf' hne sg hsg sb hsb
 
-/-- Shifted fragment boxes clear contracted boxes no bundle owns: the
-foreign-clearance fact via the id bridge (a `fragmentIdOf`-false box is
-claimed by no fragment). -/
+/-- Transfer clearance from the actual contracted footprint to a placed box
+when the kept box and the footprint satisfy contracted C2 or C8a. This is a
+per-pair transport, not an assertion that the validator applies to every pair. -/
 theorem ngfC8aClear_holds {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
-    (hForeign : NotesForeignClear e)
-    (hBridge : ∀ l ∈ e.layouts, ∀ cb ∈ e.contracted.scene.boxes,
-      fragmentIdOf inp l cb.id = false →
-      ∀ q ∈ e.fragments, ∀ r : Rect, q.rect cb.id ≠ some r) :
-    NotesC8aClear e := by
-  intro l hl p hpl sb hsb cb hcb hfrag
-  exact hForeign l hl p hpl sb hsb cb hcb (hBridge l hl cb hcb hfrag)
+    (hFit : NotesC8aEnv e)
+    (hBaseC2 : Validator.C2 e.contracted.scene.layoutDump)
+    (hBaseC8a : Validator.C8a e.contracted.scene.layoutDump)
+    (hSubc : ∀ (s x : String), x ∈ e.contracted.scene.layoutDump.ancestors s →
+      x ∈ (inpDumpOf inp).ancestors s)
+    {l : BundleLayout} (hl : l ∈ e.layouts) {p : Placed}
+    (hp : p ∈ placedOf' e.margin e.contracted.scene l) {sb cb : Box}
+    (hsb : sb ∈ p.scene.boxes) (hcb : cb ∈ e.contracted.scene.boxes)
+    (hApply : ∀ eb ∈ e.contracted.scene.boxes, eb.id = l.top.id →
+      eb.id ≠ cb.id ∧
+      ((eb.exclusive = true ∧ cb.exclusive = true ∧ eb.parent = cb.parent) ∨
+        (cb.role = "group" ∧ cb.id ∉ (inpDumpOf inp).ancestors l.top.id ∧
+          l.top.id ∉ (inpDumpOf inp).ancestors cb.id))) :
+    Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect := by
+  obtain ⟨eb, heb, hId, hRect⟩ := ngf_envelope_mem e hl
+  obtain ⟨hne, happ⟩ := hApply eb heb hId
+  have hdisj : Disjoint eb.rect cb.rect := by
+    rcases happ with ⟨he, hc, hpar⟩ | ⟨hrole, hanc1, hanc2⟩
+    · exact hBaseC2 eb heb cb hcb hne he hc hpar
+    · have h₁ : cb.id ∉ e.contracted.scene.layoutDump.ancestors eb.id := by
+        intro hm
+        exact hanc1 (by simpa only [hId] using hSubc eb.id cb.id hm)
+      have h₂ : eb.id ∉ e.contracted.scene.layoutDump.ancestors cb.id := by
+        intro hm
+        exact hanc2 (by simpa only [hId] using hSubc cb.id eb.id hm)
+      exact (Disjoint.comm _ _).mp (hBaseC8a cb hcb hrole eb heb hne h₁ h₂)
+  rw [hRect] at hdisj
+  exact ngf_disjoint_of_subset hdisj (hFit l hl p hp sb hsb) (Rect.Contained.refl _)
 
 /-- Envelopes of distinct bundles are pairwise disjoint: the two footprint
 boxes in the contracted scene, separated by the contracted C2 clause (the

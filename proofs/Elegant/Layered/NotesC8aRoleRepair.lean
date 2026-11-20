@@ -43,8 +43,8 @@ def NotesC8aContractRoleT {base : List String → Input → Options → Except L
       (ib.role.id = cg.role ∨
         ∃ l ∈ e.layouts, l.top.id = cg.id ∧ ib.role.id = "group" ∧ cg.role = "node")
 
-/-- The geometric context for C8a with the role conjunct replaced by the
-true form. Every other conjunct is the existing `NotesC8aGeom` conjunct. -/
+/-- The role-aware C8a context. Fragment id presence rules out a contracted
+bundle top as the source of a group frame's rectangle. -/
 def NotesC8aGeomT {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
@@ -462,50 +462,25 @@ namespace Elegant
 namespace Layered
 namespace PipelineImpl
 
-/-- C8a, fragment rect against contracted rect: the contracted box is foreign
-to the fragment's bundle, so the clearance residual applies (replayed). -/
+/-- Mixed clearance with the fragment as the output group. -/
 private theorem ncrr_c8a_fc {inp : Input} {margin : Int}
     {layouts : List BundleLayout} {contracted : FamilyResult}
-    {placed : List (List Placed)}
-    (hp : layouts.mapM (placedFragments margin contracted.scene) = .ok placed)
-    (hfragfound : ∀ l ∈ layouts, ∀ id : String, fragmentIdOf inp l id = true →
-      (placedOf' margin contracted.scene l).any
-        (fun p => p.scene.boxes.any (fun b => b.id == id)) = true)
-    (hclear : ∀ l ∈ layouts, ∀ p ∈ placedOf' margin contracted.scene l,
-      ∀ sb ∈ p.scene.boxes, ∀ cb ∈ contracted.scene.boxes,
-        fragmentIdOf inp l cb.id = false →
-        Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect)
-    {g b : Box} {bi : ModelBox}
-    {lg : BundleLayout} (hlgm : lg ∈ layouts)
+    {fragments : List Placed}
+    (hclear : MixedNotesC8aClear inp margin contracted.scene layouts fragments)
+    {gi bi : ModelBox} (hgimem : gi ∈ inp.boxes) (hgroup : gi.role.id = "group")
+    (hg1 : gi.id ∉ (inpDumpOf inp).ancestors bi.id)
+    (hg2 : bi.id ∉ (inpDumpOf inp).ancestors gi.id) (hne : gi.id ≠ bi.id)
+    {g b : Box} {lg : BundleLayout} (hlgm : lg ∈ layouts)
     {pg : Placed} (hpgp : pg ∈ placedOf' margin contracted.scene lg)
-    {sg : Box} (hsgm : sg ∈ pg.scene.boxes)
+    {sg : Box} (hsgm : sg ∈ pg.scene.boxes) (hsgid : sg.id = gi.id)
     (hsgshift : shiftRect pg.dx pg.dy sg.rect = g.rect)
     {cb : Box} (hcbmem : cb ∈ contracted.scene.boxes)
     (hcbid : cb.id = bi.id) (hcbr : cb.rect = b.rect)
-    (hnotfB : ∀ p ∈ placed.flatten, ∀ q : Rect, p.rect bi.id ≠ some q) :
+    (hnotfB : ∀ p ∈ fragments, ∀ q : Rect, p.rect bi.id ≠ some q) :
     Disjoint g.rect b.rect := by
-  have hf : fragmentIdOf inp lg cb.id = false := by
-    cases hfb : fragmentIdOf inp lg cb.id with
-    | false => rfl
-    | true =>
-      exfalso
-      obtain ⟨p, hpm, hsbany⟩ :=
-        List.any_eq_true.mp (hfragfound lg hlgm cb.id hfb)
-      have hfnd : p.scene.boxes.find? (fun x => x.id == cb.id) ≠ none := by
-        intro hfnd0
-        rw [List.find?_eq_none] at hfnd0
-        obtain ⟨bx, hbxmem, hbxany⟩ := List.any_eq_true.mp hsbany
-        exact absurd hbxany (hfnd0 bx hbxmem)
-      have hpR : ∃ q : Rect, p.rect cb.id = some q := by
-        simp only [Placed.rect]
-        cases hfnd' : p.scene.boxes.find? (fun x => x.id == cb.id) with
-        | none => exact absurd hfnd' hfnd
-        | some _ => exact ⟨_, rfl⟩
-      obtain ⟨q, hq⟩ := hpR
-      exact hnotfB p (placedOf_mem_flatten hp hlgm hpm) q (by simpa [hcbid] using hq)
-  have hdd := hclear lg hlgm pg hpgp sg hsgm cb hcbmem hf
-  rw [← hsgshift, ← hcbr]
-  exact hdd
+  have hdd := MixedNotesC8aClear.ofIds hclear hlgm hpgp hsgm hcbmem hsgid hcbid
+    hnotfB hne hg1 hg2 ⟨gi, hgimem, hgroup, Or.inl rfl⟩
+  simpa only [hsgshift, hcbr] using hdd
 
 end PipelineImpl
 end Layered
@@ -515,50 +490,25 @@ namespace Elegant
 namespace Layered
 namespace PipelineImpl
 
-/-- C8a, contracted rect against fragment rect: symmetric to the previous
-case (replayed). -/
+/-- Mixed clearance with the contracted rectangle as the output group. -/
 private theorem ncrr_c8a_cf {inp : Input} {margin : Int}
     {layouts : List BundleLayout} {contracted : FamilyResult}
-    {placed : List (List Placed)}
-    (hp : layouts.mapM (placedFragments margin contracted.scene) = .ok placed)
-    (hfragfound : ∀ l ∈ layouts, ∀ id : String, fragmentIdOf inp l id = true →
-      (placedOf' margin contracted.scene l).any
-        (fun p => p.scene.boxes.any (fun b => b.id == id)) = true)
-    (hclear : ∀ l ∈ layouts, ∀ p ∈ placedOf' margin contracted.scene l,
-      ∀ sb ∈ p.scene.boxes, ∀ cb ∈ contracted.scene.boxes,
-        fragmentIdOf inp l cb.id = false →
-        Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect)
-    {g b : Box} {gi : ModelBox}
-    {lb : BundleLayout} (hlbm : lb ∈ layouts)
+    {fragments : List Placed}
+    (hclear : MixedNotesC8aClear inp margin contracted.scene layouts fragments)
+    {gi bi : ModelBox} (hgimem : gi ∈ inp.boxes) (hgroup : gi.role.id = "group")
+    (hg1 : gi.id ∉ (inpDumpOf inp).ancestors bi.id)
+    (hg2 : bi.id ∉ (inpDumpOf inp).ancestors gi.id) (hne : gi.id ≠ bi.id)
+    {g b : Box} {lb : BundleLayout} (hlbm : lb ∈ layouts)
     {pb : Placed} (hpbp : pb ∈ placedOf' margin contracted.scene lb)
-    {sb : Box} (hsbm : sb ∈ pb.scene.boxes)
+    {sb : Box} (hsbm : sb ∈ pb.scene.boxes) (hsbid : sb.id = bi.id)
     (hsbshift : shiftRect pb.dx pb.dy sb.rect = b.rect)
     {cg : Box} (hcgmem : cg ∈ contracted.scene.boxes)
     (hcgid : cg.id = gi.id) (hcgr : cg.rect = g.rect)
-    (hnotfG : ∀ p ∈ placed.flatten, ∀ q : Rect, p.rect gi.id ≠ some q) :
+    (hnotfG : ∀ p ∈ fragments, ∀ q : Rect, p.rect gi.id ≠ some q) :
     Disjoint g.rect b.rect := by
-  have hf : fragmentIdOf inp lb cg.id = false := by
-    cases hfb : fragmentIdOf inp lb cg.id with
-    | false => rfl
-    | true =>
-      exfalso
-      obtain ⟨p, hpm, hsbany⟩ :=
-        List.any_eq_true.mp (hfragfound lb hlbm cg.id hfb)
-      have hfnd : p.scene.boxes.find? (fun x => x.id == cg.id) ≠ none := by
-        intro hfnd0
-        rw [List.find?_eq_none] at hfnd0
-        obtain ⟨bx, hbxmem, hbxany⟩ := List.any_eq_true.mp hsbany
-        exact absurd hbxany (hfnd0 bx hbxmem)
-      have hpR : ∃ q : Rect, p.rect cg.id = some q := by
-        simp only [Placed.rect]
-        cases hfnd' : p.scene.boxes.find? (fun x => x.id == cg.id) with
-        | none => exact absurd hfnd' hfnd
-        | some _ => exact ⟨_, rfl⟩
-      obtain ⟨q, hq⟩ := hpR
-      exact hnotfG p (placedOf_mem_flatten hp hlbm hpm) q (by simpa [hcgid] using hq)
-  have hz := hclear lb hlbm pb hpbp sb hsbm cg hcgmem hf
-  rw [hsbshift, hcgr] at hz
-  exact (Rect.disjoint_comm _ _).mpr hz
+  have hdd := MixedNotesC8aClear.ofIds hclear hlbm hpbp hsbm hcgmem hsbid hcgid
+    hnotfG hne.symm hg2 hg1 ⟨gi, hgimem, hgroup, Or.inr rfl⟩
+  exact (Rect.disjoint_comm _ _).mpr (by simpa only [hsbshift, hcgr] using hdd)
 
 end PipelineImpl
 end Layered
@@ -697,10 +647,9 @@ private theorem ncrr_composeNotes_c8aT
     (hfragfound : ∀ l ∈ layouts, ∀ id : String, fragmentIdOf inp l id = true →
       (placedOf' margin contracted.scene l).any
         (fun p => p.scene.boxes.any (fun b => b.id == id)) = true)
-    (hclear : ∀ l ∈ layouts, ∀ p ∈ placedOf' margin contracted.scene l,
-      ∀ sb ∈ p.scene.boxes, ∀ cb ∈ contracted.scene.boxes,
-        fragmentIdOf inp l cb.id = false →
-        Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect)
+    (hclear : ∀ {placed : List (List Placed)},
+      layouts.mapM (placedFragments margin contracted.scene) = .ok placed →
+      MixedNotesC8aClear inp margin contracted.scene layouts placed.flatten)
     (hfragdisj : ∀ l ∈ layouts, ∀ p ∈ placedOf' margin contracted.scene l,
       ∀ p' ∈ placedOf' margin contracted.scene l, ∀ sg ∈ p.scene.boxes, ∀ sb ∈ p'.scene.boxes,
         p ≠ p' → sg.id ≠ sb.id →
@@ -740,6 +689,7 @@ private theorem ncrr_composeNotes_c8aT
     exact (outBox_ok_fields (hFmem bi hbimem)).1
   rw [hgid, hbid] at hg1 hg2 gidne
   have hrole_g : (F gi).role = gi.role.id := (outBox_ok_fields (hFmem gi hgimem)).2.1
+  have hgrouprole : gi.role.id = "group" := by rw [← hrole_g, hgif, grole]
   have hrect_g : outRect placed contracted.scene gi.id = some g.rect := by
     rw [← hgif]
     exact (outBox_ok_fields (hFmem gi hgimem)).2.2.2.2
@@ -765,8 +715,8 @@ private theorem ncrr_composeNotes_c8aT
       exact ncrr_c8a_ff hp hnd htopndup hfragrole hfragdisj hsceneAnc hsame hnote henv
         henvdisj hgimem hrole_g hgif grole hg1 hg2 hne2 hgpf hsgm hsgid hsgshift hbpf
         hsbm hsbid hsbshift
-    · exact ncrr_c8a_fc hp hfragfound hclear hlgm hpgp hsgm hsgshift hcbmem hcbid hcbr
-        hnotfB
+    · exact ncrr_c8a_fc (hclear hp) hgimem hgrouprole hg1 hg2 hne2
+        hlgm hpgp hsgm hsgid hsgshift hcbmem hcbid hcbr hnotfB
   · rcases classifyRect hrect_b with hbfrag | ⟨hnotfB, cb, hcbmem, hcbid, hcbr⟩
     · obtain ⟨pb, hbpf, sb, hsbm, hsbid, hsbshift⟩ :
           ∃ pb ∈ placed.flatten, ∃ sb ∈ pb.scene.boxes, sb.id = bi.id ∧
@@ -775,8 +725,8 @@ private theorem ncrr_composeNotes_c8aT
         obtain ⟨sb, hsbm, hsbid, hshift⟩ := Placed.rect_scene_box hpR
         exact ⟨p, hpf, sb, hsbm, hsbid, hshift⟩
       obtain ⟨lb, hlbm, hpbp⟩ := placedFlatten_mem hp hbpf
-      exact ncrr_c8a_cf hp hfragfound hclear hlbm hpbp hsbm hsbshift hcgmem hcgid hcgr
-        hnotfG
+      exact ncrr_c8a_cf (hclear hp) hgimem hgrouprole hg1 hg2 hne2
+        hlbm hpbp hsbm hsbid hsbshift hcgmem hcgid hcgr hnotfG
     · exact ncrr_c8a_cc hp hnd hcontract hsubc hfragfound hgimem hrole_g hgif grole hg1
         hg2 hne2 hcgmem hcgid hcgr hnotfG (hcontractroleT cg hcgmem) hcbmem hcbid hcbr
 
@@ -804,7 +754,8 @@ theorem notes_c8a' {base : List String → Input → Options → Except LayoutEr
     Validator.C8a res.scene.layoutDump := by
   obtain ⟨htop, hfold, hlen, hcs, hcrT, hfr, hff, hclr, hfd, hsa, henv, henvd⟩ := hGeomT
   exact ncrr_composeNotes_c8aT e.scene_eq (Model.boxIds_nodup hwf) htop hBase hfold hlen hcs
-    hcrT hfr hff hclr hfd hsa hFragP hFragN henv henvd
+    hcrT hfr hff (fun {placed} hp => NotesC8aClear.forPlaced hclr (placed := placed) hp)
+    hfd hsa hFragP hFragN henv henvd
 
 end PipelineImpl
 end Layered
@@ -932,7 +883,11 @@ private def ncrrGeomTBool (name : String) (inp : Input) : String :=
       (placedOf' margin contracted.scene l).all fun p =>
         p.scene.boxes.all fun sb =>
           contracted.scene.boxes.all fun cb =>
-            (fragmentIdOf inp l cb.id) ||
+            (fragments.any fun q => (q.rect cb.id).isSome) ||
+              (sb.id == cb.id) || ((inpDumpOf inp).ancestors cb.id).contains sb.id ||
+              ((inpDumpOf inp).ancestors sb.id).contains cb.id ||
+              !(inp.boxes.any fun ib => ib.role.id == "group" &&
+                (ib.id == sb.id || ib.id == cb.id)) ||
               decide (Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect)
     let aFDisj := layouts.all fun l =>
       (ncrrIdx (placedOf' margin contracted.scene l)).all fun (i, p) =>
@@ -953,7 +908,6 @@ private def ncrrGeomTBool (name : String) (inp : Input) : String :=
       (a.top.id == b.top.id) ||
         decide (Disjoint (envRect contracted.scene a) (envRect contracted.scene b))
     let _ := placed
-    let _ := fragments
     name ++ ": topNodup=" ++ toString aTopNodup ++ " fold=" ++ toString aFold ++
       " len=" ++ toString aLen ++ " contractScene=" ++ toString aSceneReal ++
       " cRole=" ++ toString aCRole ++ " cRoleT=" ++ toString aRoleT ++

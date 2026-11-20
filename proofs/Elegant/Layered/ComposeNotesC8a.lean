@@ -547,6 +547,40 @@ private theorem nodup_map_inj_on {α β : Type} (f : α → β) :
           exact List.mem_map_of_mem ha'
         · exact nodup_map_inj_on f xs h.2 ha' hb' e
 
+/-- A fragment rectangle and an unclaimed contracted rectangle must clear each
+other when their input boxes have different ids, neither contains the other,
+and one of them is a group. Composition restores roles and parents from the input. -/
+def MixedNotesC8aClear (inp : Input) (margin : Int) (contracted : Scene)
+    (layouts : List BundleLayout) (fragments : List Placed) : Prop :=
+  ∀ l ∈ layouts, ∀ p ∈ placedOf' margin contracted l,
+    ∀ sb ∈ p.scene.boxes, ∀ cb ∈ contracted.boxes,
+      (∀ q ∈ fragments, ∀ r : Rect, q.rect cb.id ≠ some r) →
+      sb.id ≠ cb.id →
+      sb.id ∉ (inpDumpOf inp).ancestors cb.id →
+      cb.id ∉ (inpDumpOf inp).ancestors sb.id →
+      (∃ ib ∈ inp.boxes, ib.role.id = "group" ∧ (ib.id = sb.id ∨ ib.id = cb.id)) →
+      Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect
+
+theorem MixedNotesC8aClear.ofIds {inp : Input} {margin : Int}
+    {contracted : Scene} {layouts : List BundleLayout} {fragments : List Placed}
+    (hclear : MixedNotesC8aClear inp margin contracted layouts fragments)
+    {l : BundleLayout} (hl : l ∈ layouts) {p : Placed}
+    (hp : p ∈ placedOf' margin contracted l) {sb cb : Box}
+    (hsb : sb ∈ p.scene.boxes) (hcb : cb ∈ contracted.boxes)
+    {sid cid : String} (hsid : sb.id = sid) (hcid : cb.id = cid)
+    (hnotf : ∀ q ∈ fragments, ∀ r : Rect, q.rect cid ≠ some r)
+    (hne : sid ≠ cid)
+    (hanc1 : sid ∉ (inpDumpOf inp).ancestors cid)
+    (hanc2 : cid ∉ (inpDumpOf inp).ancestors sid)
+    (hgroup : ∃ ib ∈ inp.boxes, ib.role.id = "group" ∧ (ib.id = sid ∨ ib.id = cid)) :
+    Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect := by
+  exact hclear l hl p hp sb hsb cb hcb
+    (by simpa only [hcid] using hnotf)
+    (by simpa only [hsid, hcid] using hne)
+    (by simpa only [hsid, hcid] using hanc1)
+    (by simpa only [hsid, hcid] using hanc2)
+    (by simpa only [hsid, hcid] using hgroup)
+
 /-! ### The composition theorem -/
 
 /-- Bundle composition preserves validator clause C8a: the composed scene's group frames
@@ -571,13 +605,9 @@ theorem composeNotes_c8a
       ∃ ib, inp.boxes.find? (fun b => b.id == cg.id) = some ib ∧ ib.role.id = cg.role)
     (hfragrole : ∀ l ∈ layouts, ∀ p ∈ placedOf' margin contracted.scene l,
       ∀ sb ∈ p.scene.boxes, ∃ ib ∈ inp.boxes, ib.id = sb.id ∧ ib.role.id = sb.role)
-    (hfragfound : ∀ l ∈ layouts, ∀ id : String, fragmentIdOf inp l id = true →
-      (placedOf' margin contracted.scene l).any
-        (fun p => p.scene.boxes.any (fun b => b.id == id)) = true)
-    (hclear : ∀ l ∈ layouts, ∀ p ∈ placedOf' margin contracted.scene l,
-      ∀ sb ∈ p.scene.boxes, ∀ cb ∈ contracted.scene.boxes,
-        fragmentIdOf inp l cb.id = false →
-        Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect)
+    (hclear : ∀ {placed : List (List Placed)},
+      layouts.mapM (placedFragments margin contracted.scene) = .ok placed →
+      MixedNotesC8aClear inp margin contracted.scene layouts placed.flatten)
     (hfragdisj : ∀ l ∈ layouts, ∀ p ∈ placedOf' margin contracted.scene l,
       ∀ p' ∈ placedOf' margin contracted.scene l, ∀ sg ∈ p.scene.boxes, ∀ sb ∈ p'.scene.boxes,
         p ≠ p' → sg.id ≠ sb.id →
@@ -632,6 +662,7 @@ theorem composeNotes_c8a
   -- roles and rect sources
   have hrole_g : (F gi).role = gi.role.id := (outBox_ok_fields (hFmem gi hgimem)).2.1
   have hrole_b : (F bi).role = bi.role.id := (outBox_ok_fields (hFmem bi hbimem)).2.1
+  have hgrouprole : gi.role.id = "group" := by rw [← hrole_g, hgif, grole]
   have hrect_g : outRect placed contracted.scene gi.id = some g.rect := by
     rw [← hgif]
     exact (outBox_ok_fields (hFmem gi hgimem)).2.2.2.2
@@ -709,28 +740,9 @@ theorem composeNotes_c8a
       obtain ⟨sg, hsgm, hsgid, hshift⟩ := Placed.rect_scene_box hpR
       exact ⟨p, hpf, sg, hsgm, hsgid, hshift⟩
     obtain ⟨lg, hlgm, hpgp⟩ := placedFlatten_mem hp hgpf
-    have hf : fragmentIdOf inp lg cb.id = false := by
-      cases hfb : fragmentIdOf inp lg cb.id with
-      | false => rfl
-      | true =>
-        exfalso
-        obtain ⟨p, hpm, hsbany⟩ :=
-          List.any_eq_true.mp (hfragfound lg hlgm cb.id hfb)
-        have hfnd : p.scene.boxes.find? (fun x => x.id == cb.id) ≠ none := by
-          intro hfnd0
-          rw [List.find?_eq_none] at hfnd0
-          obtain ⟨bx, hbxmem, hbxany⟩ := List.any_eq_true.mp hsbany
-          exact absurd hbxany (hfnd0 bx hbxmem)
-        have hpR : ∃ q : Rect, p.rect cb.id = some q := by
-          simp only [Placed.rect]
-          cases hfnd' : p.scene.boxes.find? (fun x => x.id == cb.id) with
-          | none => exact absurd hfnd' hfnd
-          | some _ => exact ⟨_, rfl⟩
-        obtain ⟨q, hq⟩ := hpR
-        exact hnotfB p (placedOf_mem_flatten hp hlgm hpm) q (by simpa [hcbid] using hq)
-    have hdd := hclear lg hlgm pg hpgp sg hsgm cb hcbmem hf
-    rw [← hsgshift, ← hcbr]
-    exact hdd
+    have hdd := MixedNotesC8aClear.ofIds (hclear hp) hlgm hpgp hsgm hcbmem hsgid hcbid
+      hnotfB hne2 hg1 hg2 ⟨gi, hgimem, hgrouprole, Or.inl rfl⟩
+    simpa only [hsgshift, hcbr] using hdd
   · -- g contracted rect, b fragment: symmetric to the previous case
     obtain ⟨pb, hbpf, sb, hsbm, hsbid, hsbshift⟩ :
         ∃ pb ∈ placed.flatten, ∃ sb ∈ pb.scene.boxes, sb.id = bi.id ∧
@@ -739,28 +751,9 @@ theorem composeNotes_c8a
       obtain ⟨sb, hsbm, hsbid, hshift⟩ := Placed.rect_scene_box hpR
       exact ⟨p, hpf, sb, hsbm, hsbid, hshift⟩
     obtain ⟨lb, hlbm, hpbp⟩ := placedFlatten_mem hp hbpf
-    have hf : fragmentIdOf inp lb cg.id = false := by
-      cases hfb : fragmentIdOf inp lb cg.id with
-      | false => rfl
-      | true =>
-        exfalso
-        obtain ⟨p, hpm, hsbany⟩ :=
-          List.any_eq_true.mp (hfragfound lb hlbm cg.id hfb)
-        have hfnd : p.scene.boxes.find? (fun x => x.id == cg.id) ≠ none := by
-          intro hfnd0
-          rw [List.find?_eq_none] at hfnd0
-          obtain ⟨bx, hbxmem, hbxany⟩ := List.any_eq_true.mp hsbany
-          exact absurd hbxany (hfnd0 bx hbxmem)
-        have hpR : ∃ q : Rect, p.rect cg.id = some q := by
-          simp only [Placed.rect]
-          cases hfnd' : p.scene.boxes.find? (fun x => x.id == cg.id) with
-          | none => exact absurd hfnd' hfnd
-          | some _ => exact ⟨_, rfl⟩
-        obtain ⟨q, hq⟩ := hpR
-        exact hnotfG p (placedOf_mem_flatten hp hlbm hpm) q (by simpa [hcgid] using hq)
-    have hz := hclear lb hlbm pb hpbp sb hsbm cg hcgmem hf
-    rw [hsbshift, hcgr] at hz
-    exact (Rect.disjoint_comm _ _).mpr hz
+    have hdd := MixedNotesC8aClear.ofIds (hclear hp) hlbm hpbp hsbm hcgmem hsbid hcgid
+      hnotfG hne2.symm hg2 hg1 ⟨gi, hgimem, hgrouprole, Or.inr rfl⟩
+    exact (Rect.disjoint_comm _ _).mpr (by simpa only [hsbshift, hcgr] using hdd)
   · -- both contracted rects: transport the contracted scene's C8a
     obtain ⟨ibg, hibgf, hibgr⟩ := hcontractrole cg hcgmem
     rw [hcgid] at hibgf
