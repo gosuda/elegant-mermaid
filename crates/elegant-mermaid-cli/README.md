@@ -4,6 +4,8 @@ Render, check, and lint Mermaid diagrams as SVG, PNG, or terminal text, without 
 
 [![ci](https://github.com/gosuda/elegant-mermaid/actions/workflows/ci.yml/badge.svg)](https://github.com/gosuda/elegant-mermaid/actions/workflows/ci.yml) [![crates.io](https://img.shields.io/crates/v/emd-cli?style=flat)](https://crates.io/crates/emd-cli) [![license](https://img.shields.io/github/license/gosuda/elegant-mermaid?style=flat)](LICENSE)
 
+[![Built with Depot](https://depot.dev/badges/built-with-depot.svg)](https://depot.dev?utm_source=gosuda)
+
 elegant-mermaid gives you the `emd` command and libraries for Go, Rust, and Node.js. Use it to draw a diagram in your terminal, render SVG or PNG in a build, or check every diagram in a docs folder in CI. Unlike the upstream Mermaid stack, no browser or JavaScript runtime is in the render path: `emd` is a single binary. It reads no network, host fonts, clock, or randomness, so the same input always gives the same bytes.
 
 ```sh
