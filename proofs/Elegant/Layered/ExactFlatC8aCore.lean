@@ -858,17 +858,22 @@ private theorem xfc8a_layout_c8a_executedX {exactIds : List String}
     exact hdisjRects (meetsInterior_contained_mono
       (meetsInterior_of_orientRect (meetsInterior_of_shiftRect hmeet)) hconG hconB)
 
-/-- Flat C8a for the exact pipeline. -/
-theorem flatC8aB_layoutX (exactIds : List String)
+/-- Execution-level flat C8a for the exact pipeline: the C8a clause of the
+scene produced by the executed exact phases, from the six span leaves. Public
+extraction of the former `flatC8aB_layoutX` body; the wrapper recovers the
+execution from `layoutX_sceneExecution` and applies this. -/
+theorem xC8a_executed_of_spans {exactIds : List String}
+    {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecutionX exactIds inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     (hcluster : XB_ForeignClusterRankSpans exactIds)
     (hlayer : XB_ForeignBorderLayerOrder exactIds)
     (hchain : X_ForeignBorderChainXAligned exactIds)
     (hbracket : XN_BracketMarkersAtRank exactIds)
     (hplain : XN_PlainClearOfSideMarker exactIds)
     (halignSide : XN_SideMarkerSpanAligned exactIds) :
-    FlatC8aB (layoutX exactIds) := by
-  intro inp o res hwf hfp h
-  obtain ⟨execution⟩ := layoutX_sceneExecution h
+    Validator.C8a res.scene.layoutDump := by
   have hgroups : XB_ForeignBorderSpansSeparated exactIds :=
     xfc8a_groups_of hcluster hlayer hchain
   have hothers : XN_ForeignNonGroupSpansClear exactIds :=
@@ -888,6 +893,20 @@ theorem flatC8aB_layoutX (exactIds : List String)
     exact List.mem_map_of_mem hpart
   exact xfc8a_spansClear_of_run execution.graph0_eq execution.graph_eq hlen hwf hfp
     hgroups hothers hcomp hrun
+
+/-- Flat C8a for the exact pipeline. -/
+theorem flatC8aB_layoutX (exactIds : List String)
+    (hcluster : XB_ForeignClusterRankSpans exactIds)
+    (hlayer : XB_ForeignBorderLayerOrder exactIds)
+    (hchain : X_ForeignBorderChainXAligned exactIds)
+    (hbracket : XN_BracketMarkersAtRank exactIds)
+    (hplain : XN_PlainClearOfSideMarker exactIds)
+    (halignSide : XN_SideMarkerSpanAligned exactIds) :
+    FlatC8aB (layoutX exactIds) := by
+  intro inp o res hwf hfp h
+  obtain ⟨execution⟩ := layoutX_sceneExecution h
+  exact xC8a_executed_of_spans execution hwf hfp hcluster hlayer hchain
+    hbracket hplain halignSide
 end PipelineImpl
 end Layered
 end Elegant

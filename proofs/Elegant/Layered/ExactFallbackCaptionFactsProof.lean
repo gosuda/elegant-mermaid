@@ -47,9 +47,11 @@ binder. Failing rows:
   below by replaying `owner_not_in_ancestors_of_framed`.
 
 True on every probed row, ill-formed included, and kept premise-free:
-`X_NonfixedGroupTitleX` (non-fixed groups record titles) and
-`X_OwnerFrameDisjointX` (the C8a instance), plus the imported
-`X_FixedOwnerFitX` and `X_OwnerCaptionContainFallbackFit`.
+`X_NonfixedGroupTitleX` (non-fixed groups record titles), plus the imported
+`X_FixedOwnerFitX` and `X_OwnerCaptionContainFallbackFit`. The `W`
+owner-frame disjointness `XFB_OwnerFrameDisjointW` below is closed by
+`XFB_ownerFrameDisjointW_of_chain` (`ExactOwnerFrameDisjointProof.lean`)
+from the `c8aChain` seam through the executed flat C8a clause.
 -/
 
 /-- A non-fixed group owner always records an installed title: mirror of the
@@ -67,13 +69,17 @@ def X_NonfixedGroupTitleX (exactIds : List String) : Prop :=
     ((sceneTitlesExpr execution.params inp o execution.lines
       execution.packedAcc).find? (fun title => title.1 == obox.id)).isSome = true
 
-/-- The exact C8a instance the owner-frame proof needs: a group scene box
-disjoint from the owner frame once the two are distinct and neither is the
-other's ancestor. Narrower than full `Validator.C8a` (fixed to the fallback
-owner frame); its future proof is one C8a application. -/
-def X_OwnerFrameDisjointX (exactIds : List String) : Prop :=
+/-- `W` owner-frame disjointness: a group scene box is disjoint from the
+fallback owner's scene box at `ownerIndex` once the two ids differ and
+neither is a dump ancestor of the other, under the local admission premises
+(`WellFormed`, `framedParents`). Moved here from
+`ExactFallbackFrameFactsProof.lean` (which imports this module); closed by
+`XFB_ownerFrameDisjointW_of_chain`
+(`ExactOwnerFrameDisjointProof.lean`). -/
+def XFB_OwnerFrameDisjointW (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (ownerIndex : Nat) (obox : ModelBox) (g : Box),
     inp.boxes[ownerIndex]? = some obox →
     (sceneTitlesExpr execution.params inp o execution.lines
@@ -410,7 +416,7 @@ over `SceneExecutionX`: the owner itself is identified by index, an ancestor
 group strictly contains the owner frame, and every other group is disjoint
 by the C8a instance. -/
 theorem X_fallbackOwnerFrameClearXW_holds (exactIds : List String)
-    (hdisj : X_OwnerFrameDisjointX exactIds)
+    (hdisj : XFB_OwnerFrameDisjointW exactIds)
     (hastrict : X_AncestorFrameStrictW exactIds)
     (hnodesc : X_FallbackOwnerNoDescW exactIds)
     (hnodup : X_SceneBoxesNodupW exactIds) :
@@ -466,8 +472,8 @@ theorem X_fallbackOwnerFrameClearXW_holds (exactIds : List String)
           rw [← hobId]
           exact hanc
         have hobAbsent := hnodesc execution hwf hfp ownerIndex obox hobox hnone g
-        have hd := hdisj execution ownerIndex obox g hobox hnone hgMem hgRole
-          hEqId hancOb hobAbsent
+        have hd := hdisj execution hwf hfp ownerIndex obox g hobox hnone hgMem
+          hgRole hEqId hancOb hobAbsent
         rw [hgetD] at hd
         exact Or.inl hd
 
@@ -480,7 +486,7 @@ theorem X_fallbackCaptionClearBW_closed (exactIds : List String)
     (hcontain : X_OwnerCaptionContainFallbackFit exactIds)
     (hfix : X_FixedOwnerFitX exactIds)
     (htitle : X_NonfixedGroupTitleX exactIds)
-    (hdisj : X_OwnerFrameDisjointX exactIds)
+    (hdisj : XFB_OwnerFrameDisjointW exactIds)
     (hastrict : X_AncestorFrameStrictW exactIds)
     (hcases : X_FallbackOwnerCasesX exactIds) :
     X_FallbackCaptionClearBW exactIds := by

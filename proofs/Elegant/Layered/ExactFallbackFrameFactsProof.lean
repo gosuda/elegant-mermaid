@@ -13,12 +13,14 @@ namespace PipelineImpl
 
 open Elegant Layered
 
-/-! # Exact fallback frame facts: ancestor containment core and the two narrow residuals.
+/-! # Exact fallback frame facts: ancestor containment core and the strict upgrade residual.
 
-Two `ExactSeams` fields (`Kinds/UsecaseValidExact.lean`):
-`fbDisj : X_OwnerFrameDisjointX exactIds` (premise-free C8a instance for the
-fallback owner frame) and `fbStrict : X_AncestorFrameStrictW exactIds`
-(W ancestor-frame strictness).
+`ExactSeams` field (`Kinds/UsecaseValidExact.lean`):
+`fbStrict : X_AncestorFrameStrictW exactIds`
+(W ancestor-frame strictness). The W owner-frame disjointness predicate
+`XFB_OwnerFrameDisjointW` lives in `ExactFallbackCaptionFactsProof.lean`
+(this module's import) and is closed there by
+`XFB_ownerFrameDisjointW_of_chain` (`ExactOwnerFrameDisjointProof.lean`).
 
 Probe evidence (`proofs/wip/Probe/ExactFbFrameTProbe.lean`, vector profile,
 `layoutX [] inp tOpts`, eight executed exact inputs: nested fitting, nested
@@ -37,12 +39,14 @@ self-loop route, ill-formed self-parent):
 | fb-ill-self | false | true | false | true | true | false |
 
 `strict`/`disj` mirror `X_AncestorFrameStrictW` (all ancestor pairs
-`StrictInside`) and `X_OwnerFrameDisjointX` (every non-ancestor group frame
-disjoint from the fallback owner frame); `contained` mirrors the non-strict
+`StrictInside`) and `XFB_OwnerFrameDisjointW` (every non-ancestor group
+frame disjoint from the fallback owner frame, proved by
+`XFB_ownerFrameDisjointW_of_chain` in `ExactOwnerFrameDisjointProof.lean`);
+`contained` mirrors the non-strict
 core below; `upgrade` mirrors the `Contained -> StrictInside` implication.
 The two bare-false rows are W-vacuous: `fb-zero-outer` has
 `framedParents = false`, `fb-ill-self` has `WellFormed = false`.
-`X_OwnerFrameDisjointX` is true on every row, ill-formed included.
+`XFB_OwnerFrameDisjointW` holds on every row, ill-formed included.
 `XFB_AncestorStrictUpgradeW` is true on every row where the W premises hold
 (the one bare-false row, `fb-ill-self`, has `WellFormed = false`).
 
@@ -61,12 +65,14 @@ Staying open, one public def each:
   containment. Needs the strict-step chain (title/margin reservation at
   frame level: `XCA_groupLinkXW_closed` per direct link, transported through
   `xcsp_sceneBox_rect_transport`); true on every probed W row.
-* `XFB_OwnerFrameDisjointW`: the W form of `X_OwnerFrameDisjointX` (local
-  `WellFormed`/`framedParents` after the execution binder). Needs the C8a
-  span replay (`ExactFlatC8a.lean`) restricted to fallback pairs; true on
-  every probed row. The consumers (`X_fallbackOwnerFrameClearXW_holds`,
-  `X_fallbackCaptionClearBW_closed`) already hold `hwf`/`hfp` and can pass
-  them once `ExactSeams.fbDisj` is rewired to this form.
+
+Closed elsewhere:
+* `XFB_OwnerFrameDisjointW` (`ExactFallbackCaptionFactsProof.lean`): the W
+  form of the fallback-owner C8a instance, proved by
+  `XFB_ownerFrameDisjointW_of_chain` (`ExactOwnerFrameDisjointProof.lean`)
+  over the `c8aChain` seam; the consumers
+  (`X_fallbackOwnerFrameClearXW_holds`, `X_fallbackCaptionClearBW_closed`)
+  pass their `hwf`/`hfp` binders.
 -/
 
 private theorem xfbfr_go_succ_step {d : LayoutDump} {k : Nat} {s : String} {b : Box}
@@ -304,25 +310,6 @@ def XFB_AncestorStrictUpgradeW (exactIds : List String) : Prop :=
     g.id ∈ res.scene.layoutDump.ancestors ob.id →
     g.rect.Contained ob.rect →
     g.rect.StrictInside ob.rect
-
-/-- W fallback-owner frame disjointness: the strictly narrower residual for
-`fbDisj` (`X_OwnerFrameDisjointX`), adding the local admission premises. The
-full instance needs the C8a span replay; true on every probed row. -/
-def XFB_OwnerFrameDisjointW (exactIds : List String) : Prop :=
-  ∀ {inp : Input} {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
-    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
-    (ownerIndex : Nat) (obox : ModelBox) (g : Box),
-    inp.boxes[ownerIndex]? = some obox →
-    (sceneTitlesExpr execution.params inp o execution.lines
-      execution.packedAcc).find? (fun title => title.1 == obox.id) = none →
-    g ∈ res.scene.boxes → g.role = "group" →
-    g.id ≠ obox.id →
-    g.id ∉ res.scene.layoutDump.ancestors obox.id →
-    obox.id ∉ res.scene.layoutDump.ancestors g.id →
-    Disjoint g.rect
-      ((sceneBoxesExpr execution.params inp o execution.packedAcc).getD
-        ownerIndex ⟨"", "", default, "", false⟩).rect
 
 /-- `X_AncestorFrameStrictW` from the containment core plus the upgrade
 residual. -/

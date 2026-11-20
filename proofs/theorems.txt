@@ -2483,6 +2483,7 @@ Elegant.Layered.PipelineImpl.XC_selfSidesX_closed
 Elegant.Layered.PipelineImpl.X_fallbackGroupStrictCaption_holds
 Elegant.Layered.PipelineImpl.X_sceneBoxesNodupW_holds
 Elegant.Layered.PipelineImpl.X_fallbackOwnerNoDescW_holds
+Elegant.Layered.PipelineImpl.XFB_ownerFrameDisjointW_of_chain
 Elegant.Layered.PipelineImpl.X_fallbackOwnerFrameClearXW_holds
 Elegant.Layered.PipelineImpl.X_fallbackCaptionClearBW_closed
 Elegant.Layered.PipelineImpl.loopResNeighborGapDisj_offRankYGap_holds
@@ -2561,6 +2562,7 @@ Elegant.Layered.PipelineImpl.loopResGroupHullRightWitness_closed
 Elegant.Layered.PipelineImpl.loopResGroupHullRight_closed''
 Elegant.Layered.PipelineImpl.loopHullRightCover_closed''
 Elegant.Layered.PipelineImpl.R_memberFramesNestR_holds
+Elegant.Layered.PipelineImpl.xC8a_executed_of_spans
 Elegant.Layered.PipelineImpl.flatC8aB_layoutX
 Elegant.Layered.PipelineImpl.XC_selfBottomHeightNarrowX_holds
 Elegant.Layered.PipelineImpl.XC_selfBottomX_closed
