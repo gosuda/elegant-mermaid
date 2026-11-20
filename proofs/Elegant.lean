@@ -287,6 +287,7 @@ import Elegant.Layered.ExpandChildC6StepFacts
 import Elegant.Layered.BracketInsideRankFacts
 import Elegant.Chart.TreemapC8bLabelKernels
 import Elegant.Layered.BracketInsidePremisesProof
+import Elegant.Layered.GroupFrameWidthProof
 import Elegant.Kinds.ArchitectureC6
 import Elegant.Layered.FlatGroupEndpointsProof
 import Elegant.Layered.FlatC6ScopeBridgeProof

@@ -630,6 +630,8 @@ Elegant.Kinds.IshikawaValid.normalized_target_boundary
 Elegant.Treemap.CanvasC1.treemap_c1
 Elegant.Layered.PipelineImpl.SceneExecution.group_caption_packed_rank_fit
 Elegant.Layered.PipelineImpl.SceneExecution.group_caption_output_rank_fit
+Elegant.Layered.PipelineImpl.componentRun_group_frame_cross_fit
+Elegant.Layered.PipelineImpl.SceneExecution.nonfixed_group_output_dimensions
 Elegant.Kinds.Timeline.horizontal_routes_fold_indexed
 Elegant.Kinds.Timeline.horizontal_routes_fold_indexed_ports
 Elegant.Kinds.Timeline.horizontalPlan_route_indexed_geometry
