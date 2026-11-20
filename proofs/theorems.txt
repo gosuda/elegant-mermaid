@@ -2294,7 +2294,6 @@ Elegant.Layered.PipelineImpl.loopRes_plainExtentGap_holds
 Elegant.Layered.PipelineImpl.loopRes_sameLayer_frame_holds
 Elegant.Layered.PipelineImpl.loopRes_sameLayer_holds
 Elegant.Layered.PipelineImpl.loopHullRightCover_holds
-Elegant.Layered.PipelineImpl.loopHullRightNeighborCover_holds
 Elegant.Layered.PipelineImpl.X_envelopeMiss_implies_footprintMiss
 Elegant.Layered.PipelineImpl.X_loopEnvelope_containedExt
 Elegant.Layered.PipelineImpl.X_loopExactEnvelope_containedExt

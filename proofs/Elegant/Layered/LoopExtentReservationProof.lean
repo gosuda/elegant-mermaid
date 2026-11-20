@@ -61,39 +61,9 @@ Status: the plain-owner same-layer reservation is proved below
 single-inequality Props with executed probe evidence:
 `LoopResMarkerCopy` (the right marker carries the top's extent) and
 `LoopResTopReservation` (the top's footprint ends left of nodes right of its
-right marker). The ancestor-hull residuals `R1ExtentFitGap` and
-`R3ExtentFitGap` live here (moved from `LoopHullCoverProof`); the former is
-discharged for plain owners (`loopRes_plainExtentGap_holds`), the latter
-stays open with its exact goal stated in the hull file. -/
+right marker). The foreign-hull right-neighbor cover is proved through
+`LoopResNeighborDisjointProof.loopHullRightNeighborCover_Disj_holds`. -/
 
-/-- Sub-lemma R1-B (loop extent fits the ancestor right gap): the footprint
-width is strictly smaller than the frame-right to hull-right gap. Moved from
-`LoopHullCoverProof`; discharged for plain owners below. -/
-def R1ExtentFitGap (P : Params) (cg : Graph) (run : Run)
-    (labels : List MeasuredLabel) : Prop :=
-  ∀ (t : Nat) (nt : Node), cg.nodes[t]? = some nt →
-    (∃ e ∈ cg.edges, e.tail = t ∧ e.head = t) →
-    ∀ (pos : Nat) (np : Node), cg.nodes[pos]? = some np → np.border = -2 →
-      pos ≠ t → np.decl ∈ nt.clusterPath →
-      (loopFootprint cg run labels t).w <
-        ((frameRect P cg run pos).x + (frameRect P cg run pos).w) -
-        ((frameRect P cg run t).x + (frameRect P cg run t).w)
-
-/-- Sub-lemma R3-B (loop extent fits the foreign left gap): whenever a
-foreign hull lies right of the owner's frame, it lies right of the footprint
-too. Moved from `LoopHullCoverProof`; stays as the residual with its exact
-open goal reported in the hull file. -/
-def R3ExtentFitGap (P : Params) (cg : Graph) (run : Run)
-    (labels : List MeasuredLabel) : Prop :=
-  ∀ (t : Nat) (nt : Node), cg.nodes[t]? = some nt →
-    (∃ e ∈ cg.edges, e.tail = t ∧ e.head = t) →
-    ∀ (pos : Nat) (np : Node), cg.nodes[pos]? = some np → np.border = -2 →
-      pos ≠ t → nt.decl ≠ np.decl →
-      np.decl ∉ nt.clusterPath → nt.decl ∉ np.clusterPath →
-      (frameRect P cg run t).x + (frameRect P cg run t).w ≤
-        (frameRect P cg run pos).x →
-      (loopFootprint cg run labels t).x + (loopFootprint cg run labels t).w ≤
-        (frameRect P cg run pos).x
 
 /-- Residual: a group-top right marker carries at least the top's loop
 extent. Same shape as the `hext_all` premise of
@@ -777,7 +747,7 @@ theorem loopRes_sameLayer_frame_holds {inp : Input} {o : Options}
   exact hcore
 
 
-/-- Plain-owner ancestor-hull right cover: `R1ExtentFitGap` for plain looping
+/-- Plain-owner ancestor-hull right cover: the ancestor right-gap for plain looping
 nodes. The ancestor's right border marker in the owner's layer sits right of
 the owner (executed bracket), carries a positive width (`1 ≤ clusterBorderW`),
 and its rect achieves no more than the hull's right edge. -/

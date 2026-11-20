@@ -14,20 +14,20 @@ namespace PipelineImpl
 
 /-! # Loop-footprint neighbor gap, disjoint form
 
-The seam `R3ExtentFitGap` (`LoopExtentReservationProof.lean`) asks for an
-`x`-gap between a loop footprint and a foreign group hull whenever the
-owner frame lies left of that hull. That statement is false: with a
-top-level looping owner and an off-rank foreign hull on another rank, the
-frame can sit left of the hull while the loop lane runs past its left edge
-(`LoopResNeighborGapOffRankProof.lean`, witness `wit3r`: frame-right `1026`
-against hull-left `3003`, footprint-right `13530`).
+The seam asks for an `x`-gap between a loop footprint and a foreign group
+hull whenever the owner frame lies left of that hull. That statement is
+false: with a top-level looping owner and an off-rank foreign hull on
+another rank, the frame can sit left of the hull while the loop lane runs
+past its left edge (`LoopResNeighborGapOffRankProof.lean`, witness `wit3r`:
+frame-right `1026` against hull-left `3003`, footprint-right `13530`).
 
 Consumer trace (files owned by another worker, not edited here): the plain
 case splits in `loopResNeighborGap_plain_holds`
 (`LoopResNeighborGapProof.lean`) over spanning/off-rank and assembles with
 the two non-plain residuals in `loopResNeighborGap_holds`; the executed
-`R3ExtentFitGap` feeds `loopHullRightNeighborCover_holds`
-(`LoopHullCoverProof.lean`), whose conclusion `LoopHullRightNeighborCover`
+`x`-gap feeds `loopHullRightNeighborCover_Disj_holds` below, whose
+conclusion `LoopHullRightNeighborCover` (defined in
+`LoopFootprintGroupHullProof.lean`)
 is exactly what `FamilyAssemblyB.lean` consumes (both `flatC8b` sites) on
 the way to `loopFootprintGroupHullClear_of_run` and the packed label/frame
 clearance behind validator clause C8b (`layout_c8b`). The cover already
@@ -36,7 +36,7 @@ and hull overlap in `y`. The top-level witness is `y`-disjoint, so it never
 triggers the cover's `x`-gap obligation.
 
 Weakest sufficient replacement (`LoopResNeighborGapDisj` below): the same
-binders as `R3ExtentFitGap`, concluding the `x`-gap OR a `y`-gap
+binders as the `x`-gap goal, concluding the `x`-gap OR a `y`-gap
 (footprint above hull or hull above footprint). The witness satisfies the
 `y`-gap disjunct; every grouped off-rank probe instance satisfies the `x`-gap
 disjunct. From the disjunction plus the cover's `y`-overlap premise the
@@ -44,7 +44,7 @@ disjunct. From the disjunction plus the cover's `y`-overlap premise the
 `FamilyAssemblyB.lean` consumes) is recovered with no width reasoning. -/
 
 /-- Weakest sufficient neighbor gap: the `x`-gap, or a `y`-gap in either
-direction. Same binders as `R3ExtentFitGap` (any owner, no spanning premise);
+direction. Same binders as the `x`-gap goal (any owner, no spanning premise);
 the witness `wit3r` satisfies the third disjunct, grouped and spanning
 off-rank probes satisfy the first. -/
 def LoopResNeighborGapDisj (P : Params) (cg : Graph) (run : Run)
@@ -539,10 +539,9 @@ theorem loopResNeighborGapDisj_holds {inp : Input} {o : Options}
       hchain hnt ht0 het hnp hgrpB hne hne2 hni1 hni2 hFL
   · exact hgrp t nt hnt htG het pos np hnp hgrpB hne hne2 hni1 hni2 hFL
   · exact hbot t nt hnt htBot het pos np hnp hgrpB hne hne2 hni1 hni2 hFL
-/-- Executed foreign-hull right-neighbor cover from the disjoint gap: replay
-of `loopHullRightNeighborCover_holds` with the weaker premise. Under the
-cover's `y`-overlap premise the `y`-gap disjuncts are contradictory, so the
-`x`-gap disjunct must hold; no width reasoning is needed. This is the exact
+/-- Executed foreign-hull right-neighbor cover from the disjoint gap. Under
+the cover's `y`-overlap premise the `y`-gap disjuncts are contradictory, so
+the `x`-gap disjunct must hold; no width reasoning is needed. This is the exact
 statement shape `FamilyAssemblyB.lean` consumes (both `flatC8b` sites apply
 the `_holds` lemma to the seam field). -/
 theorem loopHullRightNeighborCover_Disj_holds {inp : Input} {o : Options}

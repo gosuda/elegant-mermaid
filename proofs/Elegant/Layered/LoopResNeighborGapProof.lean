@@ -22,8 +22,7 @@ namespace PipelineImpl
 
 /-! # Loop-footprint neighbor gap for plain owners
 
-Proves the residual `R3ExtentFitGap` (in
-`Elegant.Layered.LoopExtentReservationProof`) for a plain looping owner
+Proves the foreign-hull `x`-gap residual for a plain looping owner
 (`nt.border = 0`): whenever a foreign group hull starts right of the plain
 owner's frame, the loop footprint ends left of that hull.
 
@@ -53,9 +52,9 @@ def LoopResNeighborSpanning (run : Run) (t decl : Nat) : Prop :=
     highNd.node.clusterPath.contains decl = true ∧
     (rk run.proper.rank t).toNat ≤ (rk run.proper.rank high).toNat
 
-/-- Residual: the plain-owner off-rank case. Same binders as `R3ExtentFitGap`
-with `nt.border = 0` and the group's proper members not spanning the
-owner's rank. Probe: `LoopResNeighborGapTProbe` (15 off-rank `Fleft`
+/-- Residual: the plain-owner off-rank case. Same binders as the
+foreign-hull `x`-gap goal with `nt.border = 0` and the group's proper
+members not spanning the owner's rank. Probe: `LoopResNeighborGapTProbe` (15 off-rank `Fleft`
 instances across the flat, wide-label, nested, and tower inputs, every one
 `R3`-holding, zero violations). -/
 def LoopResNeighborGapOffRank (P : Params) (cg : Graph) (run : Run)
@@ -71,9 +70,9 @@ def LoopResNeighborGapOffRank (P : Params) (cg : Graph) (run : Run)
       (loopFootprint cg run labels t).x + (loopFootprint cg run labels t).w ≤
         (frameRect P cg run pos).x
 
-/-- Residual: the group-top owner case of `R3ExtentFitGap` (loop on a group
-top, `nt.border = -2`). Needs `LoopResMarkerCopy` plus the marker-layer
-reservation; both stay open in the shared core. Probe:
+/-- Residual: the group-top owner case of the foreign-hull `x`-gap goal
+(loop on a group top, `nt.border = -2`). Needs `LoopResMarkerCopy` plus the
+marker-layer reservation; both stay open in the shared core. Probe:
 `LoopResNeighborGapTProbe` (`grpLoopSameRank`: 3 group-owner `Fleft`
 instances, every one `R3`-holding, zero violations). -/
 def LoopResNeighborGapGroupTop (P : Params) (cg : Graph) (run : Run)
@@ -88,7 +87,7 @@ def LoopResNeighborGapGroupTop (P : Params) (cg : Graph) (run : Run)
       (loopFootprint cg run labels t).x + (loopFootprint cg run labels t).w ≤
         (frameRect P cg run pos).x
 
-/-- Residual: the bottom-marker owner case of `R3ExtentFitGap`
+/-- Residual: the bottom-marker owner case of the foreign-hull `x`-gap goal
 (`nt.border = -2` is impossible for loop owners by marker shape, and bottom
 indices carry no self-loops by `bottomLoopEmpty_holds`). Probe:
 `LoopResNeighborGapTProbe` (no bottom-marker self-loop on any sample, so
@@ -151,7 +150,7 @@ private theorem lng_side_width (source : Proper) (width : Int)
             rcases hnew with rfl | rfl <;> rfl
   exact hP node (List.mem_of_getElem? hnode) hside
 
-/-- Plain owner with spanning witnesses: `R3ExtentFitGap` holds. The
+/-- Plain owner with spanning witnesses: the `x`-gap holds. The
 bracket at the owner's rank puts both side markers in the owner's layer;
 before the left marker the same-layer reservation applies, at/after it
 ordered intervals contradict the frame-left premise. -/
@@ -331,7 +330,7 @@ theorem loopResNeighborGap_plainSpan_holds {inp : Input} {o : Options}
       have hwtNN : 0 ≤ actualT.node.w := hnWt ▸ (hwwT t hwT).1
       omega
 
-/-- Plain looping owner: `R3ExtentFitGap` holds modulo the off-rank
+/-- Plain looping owner: the `x`-gap holds modulo the off-rank
 residual. The spanning case is `loopResNeighborGap_plainSpan_holds`; the
 off-rank case is the residual premise. -/
 theorem loopResNeighborGap_plain_holds {inp : Input} {o : Options}
@@ -374,7 +373,7 @@ theorem loopResNeighborGap_plain_holds {inp : Input} {o : Options}
       hnt htB het hnp hgrpB hne hne2 hni1 hni2 hspan hFL
   · exact hoff t nt hnt htB het pos np hnp hgrpB hne hne2 hni1 hni2 hspan hFL
 
-/-- Full `R3ExtentFitGap` from the plain theorem and the two non-plain
+/-- Full `x`-gap from the plain theorem and the two non-plain
 residuals. Candidate loop owners have border `0`, `-2` or `2`
 (`componentCandidate_marker_shape`); the plain case splits on spanning. -/
 theorem loopResNeighborGap_holds {inp : Input} {o : Options}

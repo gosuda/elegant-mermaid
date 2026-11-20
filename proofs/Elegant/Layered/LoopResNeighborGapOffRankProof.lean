@@ -10,7 +10,7 @@ namespace PipelineImpl
 /-! # Loop-footprint neighbor gap for grouped off-rank plain owners
 
 Target: `LoopResNeighborGapOffRank` (`LoopResNeighborGapProof.lean`), the
-plain-owner off-rank case of `R3ExtentFitGap`: a plain looping owner `t`
+plain-owner off-rank case of the foreign-hull `x`-gap: a plain looping owner `t`
 (`nt.border = 0`) and a foreign group hull `pos` (`np.border = -2`,
 disjoint paths) whose proper members do not span the owner's rank, with the
 frame-left premise `frame(t).right ≤ hull(pos).left`, conclude
@@ -83,7 +83,7 @@ def LoopResOffRankParentChain : Prop :=
       (frameRect execution.params
         (componentCandidate execution.graph comp candidate) run pos).x
 
-/-- Grouped plain owner, off-rank foreign hull: `R3ExtentFitGap` holds
+/-- Grouped plain owner, off-rank foreign hull: the `x`-gap holds
 modulo `LoopResOffRankParentChain`. The residual supplies a parent node
 `u`; the shared core (`loopRes_plainExtentGap_holds`) bounds the loop
 extent by the parent-hull gap, and the residual chains the parent hull

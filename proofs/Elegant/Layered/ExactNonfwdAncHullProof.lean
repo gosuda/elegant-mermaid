@@ -45,7 +45,7 @@ hull-right cover (`LoopHullRightCover`, non-plain part `LoopResGroupHullRight`)
 plus positive hull margins for the strict upgrade, and the exact ancestor walk
 (transitive `ExactRunFrameNesting`) for group owners; the non-ancestor side
 needs the right-neighbour extent bound (`LoopHullRightNeighborCover`, through
-`R3ExtentFitGap`) with the foreign-span seams for foreign hulls, and the exact
+`LoopResNeighborGapDisj`) with the foreign-span seams for foreign hulls, and the exact
 downward walk (`X_child_frame_contained` chained) for nested containment.
 -/
 
@@ -145,7 +145,7 @@ sub-case, plus the nested containment fact on the way to disjointness. Each
 conjunct is strictly narrower than `XNonfwd_NonAncHullXW` (extra descendant
 premise; the nested conjunct concludes containment rather than disjointness).
 True on every executed probe (foreign `keep`, nested `nestCont`). Open bounds
-named: `LoopHullRightNeighborCover` through `R3ExtentFitGap` with the
+named: `LoopHullRightNeighborCover` through `LoopResNeighborGapDisj` with the
 foreign-span seams (first conjunct), and the exact downward walk (second
 conjunct). -/
 def XNonfwd_NonAncRemXW (exactIds : List String) : Prop :=

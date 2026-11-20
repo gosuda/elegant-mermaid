@@ -30,17 +30,16 @@ Proved here (plain pipeline, executed runs only):
 
 Residual accounting for the two extent-fit gaps named in
 `LoopHullCoverProof.lean`:
-* `R1ExtentFitGap` in full generality (all owner borders) is NOT assumed
-  and NOT proved here. Its plain-owner instance is already proved
+* The ancestor right-gap goal in full generality (all owner borders) is NOT
+  assumed and NOT proved here. Its plain-owner instance is already proved
   (`loopRes_plainExtentGap_holds`, used inside `loopHullRightCover_holds`);
   the group-owner remainder travels through `LoopResGroupHullRight` and the
   ordered-marker witness chain, whose last open link (ancestor rank nesting)
-  is now proved. Hence the ancestor-cover field needs no `R1ExtentFitGap`
-  premise at all.
-* `R3ExtentFitGap` as stated is refuted by an executed top-level witness
-  (frame left of an off-rank foreign hull while the loop lane runs past its
-  left edge; see `LoopResNeighborDisjointProof.lean`). It is NOT assumed and
-  NOT proved here. The field needs only the disjoint replacement
+  is now proved. Hence the ancestor-cover field needs no such premise.
+* The unconditional foreign-hull `x`-gap is refuted by an executed top-level
+  witness (frame left of an off-rank foreign hull while the loop lane runs
+  past its left edge; see `LoopResNeighborDisjointProof.lean`). It is NOT
+  assumed and NOT proved here. The field needs only the disjoint replacement
   (`LoopResNeighborGapDisj`, closed above) because the cover carries the
   `y`-overlap premise that selects the `x`-gap disjunct.
 

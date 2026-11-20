@@ -47,7 +47,7 @@ Staying open, as strictly smaller residuals:
 * group-owner `StrictInside` given the now-proved containment (needs the same
   hull-right cover);
 * foreign disjointness (needs `LoopHullRightNeighborCover` through
-  `R3ExtentFitGap` with the foreign-span seams);
+  `LoopResNeighborGapDisj` with the foreign-span seams);
 * nested containment for non-group owners (`nt.border != -2`: plain owners
   whose decl lies in a group path are demoted fixed groups, bottom owners
   carry a group decl; loop ownership there is absent on every probe and its

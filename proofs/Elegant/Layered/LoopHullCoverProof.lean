@@ -26,7 +26,8 @@ Closes the two remaining cover residuals consumed as the seam fields
 
 * R1 (`loopHullRightCover_holds`): every ancestor group hull's right edge
   strictly covers the loop footprint's right edge.
-* R3 (`loopHullRightNeighborCover_holds`): a foreign hull right of the loop
+* R3 (`loopHullRightNeighborCover_Disj_holds` in
+  `LoopResNeighborDisjointProof`): a foreign hull right of the loop
   owner's frame stays right of the footprint (the `y`-overlap premise is
   carried but the `x` conclusion needs no `y` fact).
 
@@ -48,13 +49,14 @@ right markers share one `x` via `sideMarkerSpanAligned' hx`
 (see `loopRectTopForeignReal_holds`).
 
 Status: R1-A is discharged below (`lh_R1A_holds`, frame-only walk, no
-footprints); R1-B (`R1ExtentFitGap`, now in `LoopExtentReservationProof`) is
-discharged for plain owners via the shared core
-(`loopRes_plainExtentGap_holds`, bracket + reservation + right-marker width);
-non-plain owners stay as the single residual `LoopResGroupHullRight` below.
-R3-B (`R3ExtentFitGap`, also in the core file) stays as the residual with its
-exact open goal stated below. `hx : ForeignBorderChainXAligned` joins a
+footprints); the plain-owner case of the ancestor right-gap cover is
+discharged via the shared core (`loopRes_plainExtentGap_holds`, bracket +
+reservation + right-marker width); non-plain owners stay as the single
+residual `LoopResGroupHullRight` below. The foreign-hull right-neighbor
+cover is proved through `loopHullRightNeighborCover_Disj_holds` in
+`LoopResNeighborDisjointProof`. `hx : ForeignBorderChainXAligned` joins a
 statement when its discharge needs alignment. -/
+
 
 /-- Sub-lemma R1-A (ancestor frame right strictness): the loop owner's frame
 right edge is strictly left of every ancestor group hull's right edge.
@@ -228,44 +230,5 @@ theorem loopHullRightCover_holds {inp : Input} {o : Options} {res : FamilyResult
     rw [hfx]
     omega
   · exact hGrp t nt hnt het ht0 pos np hnp hgrp hne hmem
- /-! `R3ExtentFitGap` now lives in `LoopExtentReservationProof` (shared core). -/
-
-/-- Executed foreign-hull right-neighbor cover, modulo the named sub-lemma.
-Exact open goal (`R3ExtentFitGap`): for a loop owner `t` (any border) with a
-self-loop and a foreign group hull `pos` with `frame(t).right ≤ hull.left`,
-show `fp(t).right ≤ hull.left`. What closes from the core today: the plain
-owner's same-layer reservation (`loopRes_sameLayer_holds`) bounds the extent
-by every same-layer right gap. What remains open: (1) the hull's left edge is
-the minimum over its border markers, and the minimum-achieving marker must be
-located in the owner's layer right of the owner — for a foreign hull there is
-no member bracket forcing this position (markers of the foreign hull flank
-its own members, and cross-rank `x` is otherwise unconstrained); the
-`Fleft` premise plus `SideMarkerSpanAligned` span sharing is the only grip,
-and the between-markers case needs positive marker width to rule out;
-(2) group-top owners need `LoopResMarkerCopy` + `LoopResTopReservation`
-(marker copy and marker-layer reservation), themselves open. Probe:
-`LoopHullCoverTProbe` (R3 margins 5000+ wherever `Fleft ∧ yOvl`; no
-`Fleft ∧ ¬R3` instance with or without `yOvl`) and `BeyondTopSliverTProbe`
-(48 firings for the top-vs-sliver shape). -/
-theorem loopHullRightNeighborCover_holds {inp : Input} {o : Options}
-    {res : FamilyResult}
-    (hwf : WellFormed (inputModel inp o))
-    (hframed : framedParents inp = true)
-    (execution : SceneExecution inp o res)
-    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
-    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
-    (hrun : componentRun execution.params
-      (componentCandidate execution.graph comp candidate) execution.measured
-      orderOptions = .ok run)
-    (hB : R3ExtentFitGap execution.params
-      (componentCandidate execution.graph comp candidate) run execution.measured) :
-    LoopHullRightNeighborCover execution.params
-      (componentCandidate execution.graph comp candidate) run execution.measured := by
-  have _hwf := hwf
-  have _hframed := hframed
-  have _hcomp := hcomp
-  have _hrun := hrun
-  intro t nt hnt het pos np hnp hgrp hne hne2 hni1 hni2 hFL _hyOvl
-  exact hB t nt hnt het pos np hnp hgrp hne hne2 hni1 hni2 hFL
 
 end Elegant.Layered.PipelineImpl
