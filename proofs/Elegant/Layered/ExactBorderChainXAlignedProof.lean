@@ -70,6 +70,36 @@ def X_ForeignBorderDivergeStable (exactIds : List String) : Prop :=
       ∀ {i j i' j' : Nat}, l1[i]? = some a → l1[j]? = some b →
         l2[i']? = some a' → l2[j']? = some b' →
         (i < j ↔ i' < j')
+/-- Per-run suffix of `X_ForeignBorderDivergeStable`: the executed divergent
+marker order of one run. The public `..._of_local_stable` alignment takes
+this shape so a caller can discharge stability per run without the global
+premise. -/
+abbrev X_ForeignBorderDivergeStableRun (run : Run) : Prop :=
+  ∀ {l1 l2 : List Nat}, l1 ∈ run.layers → l2 ∈ run.layers →
+    ∀ {a b a' b' : Nat} {na nb na' nb' : ProperNode},
+      run.coordinateProper.nodes[a]? = some na →
+      run.coordinateProper.nodes[b]? = some nb →
+      (na.node.border = -1 ∨ na.node.border = 1) →
+      (nb.node.border = -1 ∨ nb.node.border = 1) →
+      run.coordinateProper.nodes[a']? = some na' →
+      run.coordinateProper.nodes[b']? = some nb' →
+      (na'.node.border = -1 ∨ na'.node.border = 1) →
+      (nb'.node.border = -1 ∨ nb'.node.border = 1) →
+      na.node.clusterPath = na'.node.clusterPath →
+      nb.node.clusterPath = nb'.node.clusterPath →
+      Divergent na.node.clusterPath nb.node.clusterPath →
+      ∀ {i j i' j' : Nat}, l1[i]? = some a → l1[j]? = some b →
+        l2[i']? = some a' → l2[j']? = some b' →
+        (i < j ↔ i' < j')
+/-- Per-run suffix of `X_ForeignSideChainShapeClosed`: the side-chain shape
+of one executed run. -/
+abbrev X_ForeignSideChainShapeRun (P : Params) (run : Run) : Prop :=
+  ∀ {side : Int} {decl : Nat}, side = -1 ∨ side = 1 →
+    ∀ {pos : Array Nat} {k : Nat},
+    CoordsImpl.checkLayers (sideBase run) run.layers = .ok pos →
+    ForeignSideChainShape P run side decl pos k
+
+
 
 /-- X mirror of `ForeignSideChainShape` closure: the executed side-chain shape
 for exact runs. Single-fact residual (ranks/edges/paths only). -/
@@ -742,7 +772,7 @@ private theorem XBC_borderEdgesNoncrossing_executed {P : Params} {exactIds : Lis
       (componentCandidate graph comp candidate) labels orderOptions = .ok run)
     {pos : Array Nat} {k : Nat}
     (hpos : CoordsImpl.checkLayers (sideBase run) run.layers = .ok pos)
-    (hstabX : X_ForeignBorderDivergeStable exactIds) :
+    (hstabLocal : X_ForeignBorderDivergeStableRun run) :
     ForeignBorderEdgesNoncrossing P run pos k := by
   intro e f w x a b he hf he_or hf_or hbe hbf hr1 hr2 hr3 hp1 hp2
   obtain ⟨hL, hE⟩ :=
@@ -995,7 +1025,7 @@ private theorem XBC_borderEdgesNoncrossing_executed {P : Params} {exactIds : Lis
         omega
   · have hdiv' : Divergent nw.node.clusterPath na.node.clusterPath := by
       rw [hpew, hpfa]; exact hdiv
-    have hiff := hstabX hgraph0 hgraphX hcomp hrunX hmem_lo hmem_hi
+    have hiff := hstabLocal hmem_lo hmem_hi
       hnw' hna' (by rw [hsew]; exact hse_or) (by rw [hsfa]; exact hsf_or)
       hnx' hnb' (by rw [hsex]; exact hse_or) (by rw [hsfb]; exact hsf_or)
       (hpew.trans hpex.symm) (hpfa.trans hpfb.symm) hdiv' hjw hja hjx hjb
@@ -1007,20 +1037,42 @@ private theorem XBC_borderEdgesNoncrossing_executed {P : Params} {exactIds : Lis
       have u := tHi.2 hkodd
       omega
 
-/-- X side chains form single alignment blocks, closed for executed exact runs:
-replay of the plain closed proof with the exact twin stability and the
-executed shape residual. -/
-private theorem XBC_sideUps_closed {exactIds : List String}
-    (hstabX : X_ForeignBorderDivergeStable exactIds)
-    (hshapeX : X_ForeignSideChainShapeClosed exactIds) :
-    X_ForeignBorderSideUps exactIds := by
-  intro P inp o lines measured graph0 graph hgraph0 hgraphX comp hcomp candidate run labels
-    orderOptions hrunX decl side hside k hk pos hpos
+/-- Per-run core of `XBC_sideUps_closed`: the side-ups suffix from the
+per-run diverge stability and the per-run side-chain shape. -/
+private theorem XBC_sideUps_run {P : Params} {exactIds : List String}
+    {inp : Input} {o : Options} {lines : List (List Measure.Line)}
+    {measured : List MeasuredLabel} {graph0 graph : Graph}
+    (hgraph0 : measuredGraph P inp o lines = .ok graph0)
+    (hgraphX : exactGraph P exactIds inp o measured graph0 = .ok graph)
+    {comp : List Nat} (hcomp : comp ∈ components graph)
+    {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
+    {orderOptions : OrderOptions}
+    (hrunX : componentRunX P (exactDecls exactIds inp)
+      (componentCandidate graph comp candidate) labels orderOptions = .ok run)
+    (hstabLocal : X_ForeignBorderDivergeStableRun run)
+    (hshapeLocal : X_ForeignSideChainShapeRun P run) :
+    ∀ {decl : Nat} {side : Int}, side = -1 ∨ side = 1 →
+    ∀ {k : Nat}, k < 4 →
+    ∀ {pos : Array Nat},
+    CoordsImpl.checkLayers
+      (CoordsImpl.borderAlignment run.coordinateProper run.layers) run.layers = .ok pos →
+    ∃ chain ordered : List Nat,
+      (∀ a, a ∈ chain ↔ ∃ na, run.coordinateProper.nodes[a]? = some na ∧
+        na.node.border = side ∧ na.node.w = P.clusterBorderW ∧
+        na.node.clusterPath.getLast? = some decl) ∧
+      ∀ (hL : CoordsImpl.Lay (CoordsImpl.clusterCtx P.nodeGap P.clusterPad
+        (CoordsImpl.borderAlignment run.coordinateProper run.layers) run.layers
+        (CoordsImpl.typeOneConflicts
+          (CoordsImpl.borderAlignment run.coordinateProper run.layers) pos) k)),
+      Elegant.Layered.BorderChainUps P.nodeGap P.clusterPad (CoordsImpl.borderAlignment run.coordinateProper run.layers) run.layers
+        (CoordsImpl.typeOneConflicts
+          (CoordsImpl.borderAlignment run.coordinateProper run.layers) pos)
+        k chain ordered hL := by
+  intro decl side hside k hk pos hpos
   have hpos' : CoordsImpl.checkLayers (sideBase run) run.layers = .ok pos := hpos
-  have hsh : ForeignSideChainShape P run side decl pos k :=
-    hshapeX hgraph0 hgraphX hcomp hrunX hside hpos'
+  have hsh : ForeignSideChainShape P run side decl pos k := hshapeLocal hside hpos'
   have hcross : ForeignBorderEdgesNoncrossing P run pos k :=
-    XBC_borderEdgesNoncrossing_executed hgraph0 hgraphX hcomp hrunX hpos' hstabX
+    XBC_borderEdgesNoncrossing_executed hgraph0 hgraphX hcomp hrunX hpos' hstabLocal
   have hfo : ForeignSideFoldBound P run side decl pos k :=
     XBC_foreignSideFoldBound' hside hk hpos' hsh hcross
   refine ⟨sideChainNodes P run side decl, sideOrdered P run pos k side decl,
@@ -1053,19 +1105,47 @@ private theorem XBC_sideUps_closed {exactIds : List String}
     have hord := sideOrdered_ctx P run pos k side decl
     exact borderChainUps_of_pick hL hocc hord hpick
 
+/-- X side chains form single alignment blocks, closed for executed exact runs:
+replay of the plain closed proof with the exact twin stability and the
+executed shape residual. -/
+private theorem XBC_sideUps_closed {exactIds : List String}
+    (hstabX : X_ForeignBorderDivergeStable exactIds)
+    (hshapeX : X_ForeignSideChainShapeClosed exactIds) :
+    X_ForeignBorderSideUps exactIds := by
+  intro P inp o lines measured graph0 graph hgraph0 hgraphX comp hcomp candidate run labels
+    orderOptions hrunX decl side hside k hk pos hpos
+  exact XBC_sideUps_run hgraph0 hgraphX hcomp hrunX
+    (hstabX hgraph0 hgraphX hcomp hrunX)
+    (hshapeX hgraph0 hgraphX hcomp hrunX) hside hk hpos
 /-- X side chains are single alignment blocks over the exact pipeline. -/
 private theorem XBC_sideBlocked {exactIds : List String}
-    (hupX : X_ForeignBorderSideUps exactIds)
     {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {measured : List MeasuredLabel}
     {graph0 graph : Graph}
-    (hgraph0 : measuredGraph P inp o lines = .ok graph0)
-    (hgraphX : exactGraph P exactIds inp o measured graph0 = .ok graph)
-    {comp : List Nat} (hcomp : comp ∈ components graph)
+    (_hgraph0 : measuredGraph P inp o lines = .ok graph0)
+    (_hgraphX : exactGraph P exactIds inp o measured graph0 = .ok graph)
+    {comp : List Nat} (_hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
     {orderOptions : OrderOptions}
     (hrunX : componentRunX P (exactDecls exactIds inp)
       (componentCandidate graph comp candidate) labels orderOptions = .ok run)
+    (hupLocal : ∀ {decl : Nat} {side : Int}, side = -1 ∨ side = 1 →
+      ∀ {k : Nat}, k < 4 →
+      ∀ {pos : Array Nat},
+      CoordsImpl.checkLayers
+        (CoordsImpl.borderAlignment run.coordinateProper run.layers) run.layers = .ok pos →
+      ∃ chain ordered : List Nat,
+        (∀ a, a ∈ chain ↔ ∃ na, run.coordinateProper.nodes[a]? = some na ∧
+          na.node.border = side ∧ na.node.w = P.clusterBorderW ∧
+          na.node.clusterPath.getLast? = some decl) ∧
+        ∀ (hL : CoordsImpl.Lay (CoordsImpl.clusterCtx P.nodeGap P.clusterPad
+          (CoordsImpl.borderAlignment run.coordinateProper run.layers) run.layers
+          (CoordsImpl.typeOneConflicts
+            (CoordsImpl.borderAlignment run.coordinateProper run.layers) pos) k)),
+        Elegant.Layered.BorderChainUps P.nodeGap P.clusterPad (CoordsImpl.borderAlignment run.coordinateProper run.layers) run.layers
+          (CoordsImpl.typeOneConflicts
+            (CoordsImpl.borderAlignment run.coordinateProper run.layers) pos)
+          k chain ordered hL)
     {decl : Nat} {side : Int} (hside : side = -1 ∨ side = 1)
     {k : Nat} (hk : k < 4) :
     ∀ {pos : Array Nat}
@@ -1084,7 +1164,7 @@ private theorem XBC_sideBlocked {exactIds : List String}
         (CoordsImpl.typeOneConflicts
           (CoordsImpl.borderAlignment run.coordinateProper run.layers) pos) k chain) := by
   intro pos hpos hL
-  obtain ⟨chain, ordered, hiff, hupsK⟩ := hupX hgraph0 hgraphX hcomp hrunX hside hk hpos
+  obtain ⟨chain, ordered, hiff, hupsK⟩ := hupLocal hside hk hpos
   have hflat : ∀ v ∈ chain, v ∈ run.layers.flatten := by
     intro v hv
     rw [hiff] at hv
@@ -1107,14 +1187,47 @@ private theorem XBC_sideBlocked {exactIds : List String}
     (chain := chain) (ordered := ordered) (pos := pos)
     hk hne hflat hpos hL (hupsK hL)
 
-/-- X cross-coordinate placement: two same-side border markers of one
-declaration share one closed `x`-interval over the exact pipeline. Proved
-outright from the exact side-ups. -/
-private theorem XBC_chainAligned_of_ups {exactIds : List String}
-    (hupX : X_ForeignBorderSideUps exactIds) :
-    X_ForeignBorderChainXAligned exactIds := by
-  intro P inp o lines measured graph0 graph hgraph0 hgraphX comp hcomp candidate run labels
-    orderOptions hrunX a b na nb ha hb hsideA hsideB hborder howner
+/-- Per-run core of `XBC_chainAligned_of_ups`: two same-side border markers
+of one declaration share one closed `x`-interval from the per-run side-ups
+fact. -/
+private theorem XBC_chainAligned_run {P : Params} {exactIds : List String}
+    {inp : Input} {o : Options} {lines : List (List Measure.Line)}
+    {measured : List MeasuredLabel} {graph0 graph : Graph}
+    (hgraph0 : measuredGraph P inp o lines = .ok graph0)
+    (hgraphX : exactGraph P exactIds inp o measured graph0 = .ok graph)
+    {comp : List Nat} (hcomp : comp ∈ components graph)
+    {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
+    {orderOptions : OrderOptions}
+    (hrunX : componentRunX P (exactDecls exactIds inp)
+      (componentCandidate graph comp candidate) labels orderOptions = .ok run)
+    (hupLocal : ∀ {decl : Nat} {side : Int}, side = -1 ∨ side = 1 →
+      ∀ {k : Nat}, k < 4 →
+      ∀ {pos : Array Nat},
+      CoordsImpl.checkLayers
+        (CoordsImpl.borderAlignment run.coordinateProper run.layers) run.layers = .ok pos →
+      ∃ chain ordered : List Nat,
+        (∀ a, a ∈ chain ↔ ∃ na, run.coordinateProper.nodes[a]? = some na ∧
+          na.node.border = side ∧ na.node.w = P.clusterBorderW ∧
+          na.node.clusterPath.getLast? = some decl) ∧
+        ∀ (hL : CoordsImpl.Lay (CoordsImpl.clusterCtx P.nodeGap P.clusterPad
+          (CoordsImpl.borderAlignment run.coordinateProper run.layers) run.layers
+          (CoordsImpl.typeOneConflicts
+            (CoordsImpl.borderAlignment run.coordinateProper run.layers) pos) k)),
+        Elegant.Layered.BorderChainUps P.nodeGap P.clusterPad (CoordsImpl.borderAlignment run.coordinateProper run.layers) run.layers
+          (CoordsImpl.typeOneConflicts
+            (CoordsImpl.borderAlignment run.coordinateProper run.layers) pos)
+          k chain ordered hL) :
+    ∀ {a b : Nat} {na nb : ProperNode},
+      run.coordinateProper.nodes[a]? = some na →
+      run.coordinateProper.nodes[b]? = some nb →
+      (na.node.border = -1 ∨ na.node.border = 1) →
+      (nb.node.border = -1 ∨ nb.node.border = 1) →
+      na.node.border = nb.node.border →
+      na.node.clusterPath.getLast? = nb.node.clusterPath.getLast? →
+      RouteImpl.leftOf run.proper run.xs a = RouteImpl.leftOf run.proper run.xs b ∧
+        RouteImpl.leftOf run.proper run.xs a + RouteImpl.nodeW run.proper a =
+          RouteImpl.leftOf run.proper run.xs b + RouteImpl.nodeW run.proper b := by
+  intro a b na nb ha hb hsideA hsideB hborder howner
   obtain ⟨hproperA, hxsA⟩ := XBC_border_record hrunX ha hsideA
   obtain ⟨hproperB, hxsB⟩ := XBC_border_record hrunX hb hsideB
   obtain ⟨labeled, hcoordL, hready⟩ :=
@@ -1161,8 +1274,8 @@ private theorem XBC_chainAligned_of_ups {exactIds : List String}
             .ok x → x[a]! = x[b]! := by
         intro k hk x hx
         obtain ⟨chain, hiff, hblock⟩ :=
-          XBC_sideBlocked (decl := decl) (side := na.node.border) hupX hgraph0 hgraphX hcomp
-            hrunX hsideA hk hcl
+          XBC_sideBlocked (decl := decl) (side := na.node.border) hgraph0 hgraphX hcomp
+            hrunX hupLocal hsideA hk hcl
             ((Elegant.Layered.clusterCtx_facts (ng := P.nodeGap) (cp := P.clusterPad)
               (p := CoordsImpl.borderAlignment run.coordinateProper run.layers)
               (layers := run.layers)
@@ -1210,6 +1323,46 @@ private theorem XBC_chainAligned_of_ups {exactIds : List String}
         unfold RouteImpl.leftOf RouteImpl.xAt
         rw [hxsA, hxsB, hxs, hnW]
       exact ⟨hleft, by rw [hleft, hnW]⟩
+/-- X cross-coordinate placement: two same-side border markers of one
+declaration share one closed `x`-interval over the exact pipeline. Proved
+outright from the exact side-ups. -/
+private theorem XBC_chainAligned_of_ups {exactIds : List String}
+    (hupX : X_ForeignBorderSideUps exactIds) :
+    X_ForeignBorderChainXAligned exactIds := by
+  intro P inp o lines measured graph0 graph hgraph0 hgraphX comp hcomp candidate run labels
+    orderOptions hrunX a b na nb ha hb hsideA hsideB hborder howner
+  exact XBC_chainAligned_run hgraph0 hgraphX hcomp hrunX
+    (hupX hgraph0 hgraphX hcomp hrunX) ha hb hsideA hsideB hborder howner
+
+/-- Per-run exact alignment: with only the per-run diverge stability and the
+per-run side-chain shape, two same-side markers of one declaration share one
+closed `x`-interval. Used where the executed run discharges the layer
+conditions locally instead of the global `X_ForeignBorderDivergeStable`. -/
+theorem X_foreignBorderChainXAligned_of_local_stable {P : Params}
+    {exactIds : List String} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {measured : List MeasuredLabel}
+    {graph0 graph : Graph}
+    (hgraph0 : measuredGraph P inp o lines = .ok graph0)
+    (hgraphX : exactGraph P exactIds inp o measured graph0 = .ok graph)
+    {comp : List Nat} (hcomp : comp ∈ components graph)
+    {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
+    {orderOptions : OrderOptions}
+    (hrunX : componentRunX P (exactDecls exactIds inp)
+      (componentCandidate graph comp candidate) labels orderOptions = .ok run)
+    (hstabLocal : X_ForeignBorderDivergeStableRun run)
+    (hshapeLocal : X_ForeignSideChainShapeRun P run) :
+    ∀ {a b : Nat} {na nb : ProperNode},
+      run.coordinateProper.nodes[a]? = some na →
+      run.coordinateProper.nodes[b]? = some nb →
+      (na.node.border = -1 ∨ na.node.border = 1) →
+      (nb.node.border = -1 ∨ nb.node.border = 1) →
+      na.node.border = nb.node.border →
+      na.node.clusterPath.getLast? = nb.node.clusterPath.getLast? →
+      RouteImpl.leftOf run.proper run.xs a = RouteImpl.leftOf run.proper run.xs b ∧
+        RouteImpl.leftOf run.proper run.xs a + RouteImpl.nodeW run.proper a =
+          RouteImpl.leftOf run.proper run.xs b + RouteImpl.nodeW run.proper b :=
+  XBC_chainAligned_run hgraph0 hgraphX hcomp hrunX
+    (XBC_sideUps_run hgraph0 hgraphX hcomp hrunX hstabLocal hshapeLocal)
 
 /-- The closed exact alignment form `X_ForeignBorderChainXAligned`: every two
 same-side markers of one declaration share one closed `x`-interval. The only

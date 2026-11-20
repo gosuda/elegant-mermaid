@@ -1157,7 +1157,7 @@ theorem XF_routeForwardClearXW_holds (exactIds : List String)
   intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
   have h1 := hstrict execution hcomp hrun
   have h2 := hinDummy execution hcomp hrun
-  have hR := hreal execution hcomp hrun
+  have hR := hreal execution hwf hfp hcomp hrun
   have hF := hforeign execution hwf hfp hcomp hrun
   have hL := hleftover execution hwf hfp hcomp hrun
   have hD := hdummy execution hcomp hrun

@@ -695,6 +695,11 @@ import Elegant.Layered.RegionFallbackStructuralProof
 import Elegant.Layered.NotesRouterEndsProof
 import Elegant.Layered.NotesGeomC68Proof
 import Elegant.Layered.ExactMarkerBracketProof
+import Elegant.Layered.ExactBottomLoopTransportProof
+import Elegant.Layered.ExactGroupMarkerOrderProof
+import Elegant.Layered.ExactLoopMarkerCoreProof
+import Elegant.Layered.ExactLoopMarkerLayerOrderProof
+import Elegant.Layered.ExactLoopMarkerSpanProof
 import Elegant.Layered.ExactStepRecursionPremisesProof
 import Elegant.Layered.ExpandChildParentFrameFlatRecursionProof
 import Elegant.Layered.ExpandChildLabelOwnersProof

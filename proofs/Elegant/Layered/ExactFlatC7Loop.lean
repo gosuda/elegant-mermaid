@@ -394,7 +394,7 @@ theorem x_runLocalLoopSeparation_holds (exactIds : List String)
     (hres : X_RunLocalLoopFootprint exactIds) :
     X_RunLocalLoopSeparation exactIds := by
   unfold X_RunLocalLoopSeparation
-  intro inp o res execution comp candidate run orderOptions cg k e env v
+  intro inp o res execution _hwf _hfp comp candidate run orderOptions cg k e env v
     hcomp hcg hrun hk hloop henv hv hreal hscope₀ hscope₁
   have hslot := componentRunX_slot_nonneg hrun
   have hlab := execution.measured_nonneg

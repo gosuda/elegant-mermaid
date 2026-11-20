@@ -134,6 +134,7 @@ Single horizontal-separation fact; true on every same-rank probe case. -/
 def X_loopEnvSameRank (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -161,6 +162,7 @@ owner (all probe loops are exact border-0), so it holds vacuously there. -/
 def X_loopEnvOtherOwner (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -188,7 +190,7 @@ theorem X_loopEnvelopeMiss_holds (exactIds : List String)
     (hB : X_loopEnvSameRank exactIds)
     (hC : X_loopEnvOtherOwner exactIds) :
     X_LoopEnvelopeMiss exactIds := by
-  intro inp o res execution comp candidate run orderOptions cg k e v
+  intro inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁
   have hrunGen := hrun
   rw [componentRunX_eq_gen] at hrunGen
@@ -291,7 +293,7 @@ theorem X_loopEnvelopeMiss_holds (exactIds : List String)
           exact hly_v
         have hlveq : lv = lt := Option.some.inj (hly_v'.symm.trans hly_t)
         rw [hlveq] at hvin_v
-        exact hB inp o res execution comp candidate run orderOptions cg k e v
+        exact hB inp o res execution hwf hfp comp candidate run orderOptions cg k e v
           hcomp hcg hrun hk hloop hex hbord hv hreal hscope₀ hscope₁
           _ _ hly_t htin_t hvin_v hvte
     · refine hA inp o res execution comp candidate run orderOptions cg k e v
@@ -309,7 +311,7 @@ theorem X_loopEnvelopeMiss_holds (exactIds : List String)
           hnb (fun ntx hnt =>
             Classical.byContradiction (fun hne => hnone ⟨ntx, hnt, hne⟩)))
       · exact Or.inl (Bool.eq_false_of_ne_true hcT)
-    exact hC inp o res execution comp candidate run orderOptions cg k e v
+    exact hC inp o res execution hwf hfp comp candidate run orderOptions cg k e v
       hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁ hdisj
 
 /-- Same-rank direction from the finished parts: layer membership gives the
@@ -319,13 +321,13 @@ theorem X_loopEnvSameRank_of_parts (exactIds : List String)
     (hleft : XLEM_LeftMiss exactIds)
     (hgroup : XLEM_GroupOwnerMiss exactIds) :
     X_loopEnvSameRank exactIds := by
-  intro inp o res execution comp candidate run orderOptions cg k e v
+  intro inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hex hbord hv hreal hscope₀ hscope₁ r l hly htin hvin hvte
   have hmem : l ∈ run.layers := List.mem_of_getElem? hly
   obtain ⟨pu, hpu⟩ := List.mem_iff_getElem?.mp htin
   obtain ⟨pv, hpv⟩ := List.mem_iff_getElem?.mp hvin
   exact XLEM_sameRankMiss_holds exactIds hright hleft hgroup
-    inp o res execution comp candidate run orderOptions cg k e v
+    inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁ hmem hpu hpv
 
 /-- Other-rank direction from the finished other-rank miss: layer indices give

@@ -492,35 +492,43 @@ private theorem resid_selfBottom_ne {boxes : List ModelBox} {a b k : Nat}
                 rw [eb, ea] at hbound
                 exact absurd hbound (Nat.lt_irrefl k)
 
-/-- Local copy of the private bottom-loop emptiness: a bottom index owns no
-self-loops in an executed component candidate. -/
-private theorem resid_bottomLoopEmpty {inp : Input} {o : Options} {res : FamilyResult}
-    (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat) (v : Nat)
-    (hcomp : comp ∈ components e.graph) (hv : v < comp.length)
+/-- Bottom-loop emptiness generalized from `SceneExecution` to any graph
+whose edges agree with a successfully measured graph `graph0`: a bottom
+index owns no self-loops in a component candidate. The `labels` list comes
+from the reservation existential, so the conclusion is label-
+independent. -/
+theorem resid_bottomLoopEmpty {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {graph0 graph : Graph}
+    (hg0 : measuredGraph P inp o lines = .ok graph0)
+    (hedges : graph.edges = graph0.edges)
+    (comp : List Nat) (candidate v : Nat)
+    (hcomp : comp ∈ components graph) (hv : v < comp.length)
     (hge : inp.boxes.length ≤ comp.getD v 0) :
-    loopEdges (componentCandidate e.graph comp candidate).edges v = [] := by
+    loopEdges (componentCandidate graph comp candidate).edges v = [] := by
+  obtain ⟨_metric, labels, raw, _hm, _hl, heRaw, _hslot, hprepare,
+    _hreserve⟩ := measuredGraph_loop_reservation_before_prepare hg0
   apply Classical.byContradiction
   intro hne
-  have hn := components_nodup e.graph comp hcomp
-  have hpres := componentCandidate_loopSizes_preserved e.graph comp hn candidate v hv
-    e.measured (componentCandidate e.graph comp candidate).slot
-  have hSizesNe : loopSizes (componentCandidate e.graph comp candidate).edges
-      e.measured v (componentCandidate e.graph comp candidate).slot ≠ [] := by
+  have hn := components_nodup graph comp hcomp
+  have hpres := componentCandidate_loopSizes_preserved graph comp hn candidate v hv
+    labels (componentCandidate graph comp candidate).slot
+  have hSizesNe : loopSizes (componentCandidate graph comp candidate).edges
+      labels v (componentCandidate graph comp candidate).slot ≠ [] := by
     intro he
-    have hempty : loopEdges (componentCandidate e.graph comp candidate).edges v = [] :=
+    have hempty : loopEdges (componentCandidate graph comp candidate).edges v = [] :=
       List.map_eq_nil_iff.mp he
     exact hne hempty
   have hsEq : comp.getD v 0 = comp[v]'hv := by
     simp only [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hv, Option.getD_some]
-  have hLoopGNe : loopEdges e.graph.edges (comp[v]'hv) ≠ [] := by
+  have hLoopGNe : loopEdges graph.edges (comp[v]'hv) ≠ [] := by
     intro he
-    have hSizesG : loopSizes e.graph.edges e.measured (comp[v]'hv) e.graph.slot = [] := by
+    have hSizesG : loopSizes graph.edges labels (comp[v]'hv) graph.slot = [] := by
       simp only [loopSizes, he, List.map_nil]
-    have hEq : loopSizes (componentCandidate e.graph comp candidate).edges e.measured v
-        (componentCandidate e.graph comp candidate).slot =
-        loopSizes e.graph.edges e.measured (comp[v]'hv) e.graph.slot := by
+    have hEq : loopSizes (componentCandidate graph comp candidate).edges labels v
+        (componentCandidate graph comp candidate).slot =
+        loopSizes graph.edges labels (comp[v]'hv) graph.slot := by
       rw [hpres]
-      have hcslot : (componentCandidate e.graph comp candidate).slot = e.graph.slot := by
+      have hcslot : (componentCandidate graph comp candidate).slot = graph.slot := by
         unfold componentCandidate
         dsimp only
         split
@@ -531,28 +539,15 @@ private theorem resid_bottomLoopEmpty {inp : Input} {o : Options} {res : FamilyR
     rw [hEq] at hSizesNe
     rw [hSizesG] at hSizesNe
     exact hSizesNe rfl
-  obtain ⟨metric, labels, raw, hm, hl, heRaw, _hslot, hprepare, _hreserve⟩ :=
-    measuredGraph_loop_reservation_before_prepare e.graph_eq
-  have hemetric : metric = e.metric := Except.ok.inj (hm.symm.trans e.metric_eq)
-  subst hemetric
-  have helabels : labels = e.measured := Except.ok.inj (hl.symm.trans e.measured_eq)
-  subst helabels
-  have hGraphEdges : graphEdges inp = .ok raw.edges := heRaw
-  have hRawBounds := resid_graphEdges_mem_bounds inp inp.routes 0 raw.edges
-    (by simpa only [graphEdges] using hGraphEdges)
-  have hMappedLen : (inp.boxes.map fun box =>
-      if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then { box with role := .node }
-      else box).length = inp.boxes.length := by simp
-  have hLoopGNe2 : loopEdges e.graph.edges (comp[v]'hv) ≠ [] := hLoopGNe
-  have hExists : ∃ eprime ∈ e.graph.edges,
+  have hExists : ∃ eprime ∈ graph.edges,
       (eprime.tail == (comp[v]'hv) && eprime.head == (comp[v]'hv)) = true := by
-    have hne2 : (e.graph.edges.filter fun e =>
-        e.tail == (comp[v]'hv) && e.head == (comp[v]'hv)) ≠ [] := hLoopGNe2
-    cases hfilter : (e.graph.edges.filter fun e =>
+    have hne2 : (graph.edges.filter fun e =>
+        e.tail == (comp[v]'hv) && e.head == (comp[v]'hv)) ≠ [] := hLoopGNe
+    cases hfilter : (graph.edges.filter fun e =>
         e.tail == (comp[v]'hv) && e.head == (comp[v]'hv)) with
     | nil => exact absurd hfilter hne2
     | cons eprime _ =>
-      have hmem : eprime ∈ (e.graph.edges.filter fun e =>
+      have hmem : eprime ∈ (graph.edges.filter fun e =>
           e.tail == (comp[v]'hv) && e.head == (comp[v]'hv)) := by
         rw [hfilter]
         simp
@@ -568,11 +563,18 @@ private theorem resid_bottomLoopEmpty {inp : Input} {o : Options} {res : FamilyR
       (inp.boxes.map fun box =>
         if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then { box with role := .node }
         else box) e = eprime := by
+    rw [hedges] at hmem
     rw [hprepare] at hmem
     dsimp only [Compound.prepare] at hmem
     exact List.mem_map.mp hmem
   obtain ⟨e, hmemRaw, hAlias⟩ := hInRaw
+  have hGraphEdges : graphEdges inp = .ok raw.edges := heRaw
+  have hRawBounds := resid_graphEdges_mem_bounds inp inp.routes 0 raw.edges
+    (by simpa only [graphEdges] using hGraphEdges)
   have hBounds := hRawBounds e hmemRaw
+  have hMappedLen : (inp.boxes.map fun box =>
+      if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then { box with role := .node }
+      else box).length = inp.boxes.length := by simp
   have hTailLt : e.tail < inp.boxes.length := hBounds.1
   have hHeadLt : e.head < inp.boxes.length := hBounds.2
   have hTailLtM : e.tail <
@@ -803,7 +805,7 @@ past the box count, hence own no loops. -/
       rcases border_of_lt_boxes e hraw hrawlen hlines hmlt hmap hgetm with htop | hplain
       · omega
       · omega
-  have hempty := resid_bottomLoopEmpty e comp candidate v hcomp hv hge
+  have hempty := resid_bottomLoopEmpty e.graph_eq rfl comp candidate v hcomp hv hge
   simp only [loopSizes, hempty, List.map_nil]
 
  /-- Candidate instance of the general other-border residual. -/

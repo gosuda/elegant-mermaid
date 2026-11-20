@@ -1373,7 +1373,7 @@ theorem X_loopEnvOtherOwner_of_parts (exactIds : List String)
     (hLeft : XLEM_LeftMiss exactIds)
     (hGrp : XLEM_GroupOwnerMiss exactIds) :
     X_loopEnvOtherOwner exactIds := by
-  intro inp o res execution comp candidate run orderOptions cg k e v
+  intro inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁ _hdisj
   have hrunGen := hrun
   rw [componentRunX_eq_gen] at hrunGen
@@ -1425,7 +1425,7 @@ theorem X_loopEnvOtherOwner_of_parts (exactIds : List String)
           exact XLEM_self_holds exactIds inp o res execution comp candidate run
             orderOptions cg k e v hcomp hcg hrun hk hloop hv hreal hscope₀
             hscope₁ hB0 hmem hpu hpv
-    · exact hGrp inp o res execution comp candidate run orderOptions cg k e v
+    · exact hGrp inp o res execution hwf hfp comp candidate run orderOptions cg k e v
         hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁ hB0 hmem hpu hpv
   · have hne' : (rk run.coordinateProper.rank v).toNat ≠
         (rk run.coordinateProper.rank e.tail).toNat := by

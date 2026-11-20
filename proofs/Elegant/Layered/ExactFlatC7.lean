@@ -36,6 +36,7 @@ mirror the plain proof's documented residuals, one pipeline stage each. -/
 def X_RunLocalLoopSeparation (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge)
     (env : Rect) (v : Nat),
@@ -177,6 +178,7 @@ execution. -/
 def X_RunLocalLabelClearance (exactIds : List String) (inp : Input) (o : Options)
     (res : FamilyResult) : Prop :=
   ∀ (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (edge decl v : Nat)
     (e : Edge) (l : MeasuredLabel),
@@ -757,7 +759,7 @@ theorem X_runLocalLabelClearance_holds {exactIds : List String} {inp : Input}
     (hfwd : X_RunLocalForwardSeparation exactIds)
     (hrev : X_RunLocalReversedSeparation exactIds) :
     X_RunLocalLabelClearance exactIds inp o res := by
-  intro execution comp candidate run orderOptions cg edge decl v e l
+  intro execution hwf hfp comp candidate run orderOptions cg edge decl v e l
     hcomp hcg hrun he hedge hl hlen hreal hscope₀ hscope₁
   have hlab := execution.measured_nonneg
   have hslot := componentRunX_slot_nonneg hrun
@@ -804,7 +806,7 @@ theorem X_runLocalLabelClearance_holds {exactIds : List String} {inp : Input}
     have hsep_loop : e'.tail = e'.head →
         Elegant.Layered.LoopFootprintSeparation execution.params cg run
           execution.measured edge' e' env v :=
-      fun heq => hloop inp o res execution comp candidate run orderOptions cg edge' e' env v
+      fun heq => hloop inp o res execution hwf hfp comp candidate run orderOptions cg edge' e' env v
         hcomp hcg hrun he' heq henv hlen hreal hscope₀ hscope₁
     have hsep_forward : e'.tail ≠ e'.head → e'.reversed = false →
         Elegant.Layered.RectAxisSeparated rect
@@ -1464,7 +1466,7 @@ theorem X_layout_c7 {exactIds : List String} {inp : Input} {o : Options} {res : 
         hcpart, hcshelf, hdpart, hdshelf, hcd, hrlmem, hrmem, hlrect, hbrect⟩ :=
       hseam1.2 execution sl index source measured b hsl hsource hid hmeasured
         hb hex hscope
-    · have hclr := hseam1.1 execution comp candidate run orderOptions cg edge decl v e
+    · have hclr := hseam1.1 execution _hwf _hfp comp candidate run orderOptions cg edge decl v e
         measured hcomp hcg hrun he hedge hmlabel hv hreal hs0 hs1
       have hrect : sl.toLabel.rect = sl.rect := rfl
       rw [hrect, hlreq, hbreq]

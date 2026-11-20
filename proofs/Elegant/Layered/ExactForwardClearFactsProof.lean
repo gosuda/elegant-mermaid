@@ -99,7 +99,7 @@ as in the plain proof. -/
 theorem XFR_routeLabelRealClearX_holds (exactIds : List String)
     (hloopMiss : X_LoopEnvelopeMiss exactIds) :
     XFR_RouteLabelRealClearX exactIds := by
-  intro inp o res execution comp hcomp candidate run orderOptions hrun
+  intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
   intro k rect l₀ edge e hmem hmem0 hidx hedge hdecl v pn hlook hI hsc1 hsc2
   have hnd := measureLabels_index_nodup execution.measured_eq
   obtain ⟨ml, edge', e', env, _rect', hmlmem, hmlidx, hfind, he', henv,
@@ -150,7 +150,7 @@ theorem XFR_routeLabelRealClearX_holds (exactIds : List String)
   have hlab := execution.measured_nonneg
   by_cases hloop : e.tail = e.head
   · have hsep := (X_runLocalLoopSeparation_of_envelopeMiss exactIds
-      hloopMiss) inp o res execution comp candidate run orderOptions
+      hloopMiss) inp o res execution hwf hfp comp candidate run orderOptions
       (componentCandidate execution.graph comp candidate) edge e env v
       hcomp rfl hrun he' hloop henv hv hI hsc1 hsc2
     have hclear := loop_branch_clear he' hloop henv hslot hlab hmemstk hsep

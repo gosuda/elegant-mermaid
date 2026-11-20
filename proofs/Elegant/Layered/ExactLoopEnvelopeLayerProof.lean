@@ -213,6 +213,7 @@ layer. Same binders as `X_LoopEnvelopeMiss` plus the same-layer premise. -/
 def XLEM_SameRankMiss (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -318,6 +319,7 @@ fact, and true on every probe case (group-owner loops in
 def XLEM_GroupOwnerMiss (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -398,7 +400,7 @@ theorem XLEM_sameRankMiss_holds (exactIds : List String)
     (hLeft : XLEM_LeftMiss exactIds)
     (hGrp : XLEM_GroupOwnerMiss exactIds) :
     XLEM_SameRankMiss exactIds := by
-  intro inp o res execution comp candidate run orderOptions cg k e v
+  intro inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hv hreal hscope0 hscope1 layer hlayer pu pv hpu hpv
   by_cases hB0 : (cg.nodes.getD e.tail default).border = 0
   · by_cases hlt : pu < pv
@@ -414,6 +416,6 @@ theorem XLEM_sameRankMiss_holds (exactIds : List String)
         exact XLEM_self_holds exactIds inp o res execution comp candidate run
           orderOptions cg k e v hcomp hcg hrun hk hloop hv hreal hscope0 hscope1
           hB0 hlayer hpu hpv
-  · exact hGrp inp o res execution comp candidate run orderOptions cg k e v
+  · exact hGrp inp o res execution hwf hfp comp candidate run orderOptions cg k e v
       hcomp hcg hrun hk hloop hv hreal hscope0 hscope1 hB0 hlayer
       hpu hpv

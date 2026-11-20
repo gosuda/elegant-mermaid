@@ -50,6 +50,7 @@ node misses every in-scope real box of its run. No reservation conjunct. -/
 def X_LoopEnvelopeMiss (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -88,6 +89,7 @@ theorem X_envelopeMiss_implies_footprintMiss (exactIds : List String)
     (h : X_LoopEnvelopeMiss exactIds)
     (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat)
     (hcomp : comp ∈ components execution.graph)
@@ -103,7 +105,7 @@ theorem X_envelopeMiss_implies_footprintMiss (exactIds : List String)
       ((cg.nodes[e.head]?).map (·.clusterPath)).getD []) :
     ¬ (loopFootprint cg run execution.measured e.tail).meetsInterior
         (RouteImpl.boxRect run.proper run.xs run.ys v) := by
-  have hmiss := h inp o res execution comp candidate run orderOptions cg k e v
+  have hmiss := h inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁
   exact Elegant.Layered.not_meetsInterior_of_contained
     X_loopFootprint_in_ext hmiss
@@ -438,11 +440,11 @@ theorem X_runLocalLoopSeparation_of_envelopeMiss (exactIds : List String)
     (h : X_LoopEnvelopeMiss exactIds) :
     X_RunLocalLoopSeparation exactIds := by
   unfold X_RunLocalLoopSeparation
-  intro inp o res execution comp candidate run orderOptions cg k e env v
+  intro inp o res execution hwf hfp comp candidate run orderOptions cg k e env v
     hcomp hcg hrun hk hloop henv hv hreal hscope₀ hscope₁
   have hslot := componentRunX_slot_nonneg hrun
   have hlab := execution.measured_nonneg
-  have hmiss := h inp o res execution comp candidate run orderOptions cg k e v
+  have hmiss := h inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁
   by_cases htrue : run.exact.contains e.tail = true
   · have henv_eq := XEnvT_exact_envelope_eq hloop htrue henv

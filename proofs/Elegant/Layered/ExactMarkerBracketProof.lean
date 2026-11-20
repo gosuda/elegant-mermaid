@@ -115,6 +115,7 @@ per-top block (four numeric/span conjuncts); true on the probe. -/
 def embLoopMarkerSpanX (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     {comp : List Nat} (_ : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (cg : Graph),
@@ -313,8 +314,9 @@ private theorem emb_side_record {P : Params} {exact : List Nat} {source : Proper
   simp only [List.getElem?_map, List.getElem?_zipIdx, hclear, Option.map_some,
     Nat.zero_add, hdummy, Bool.false_eq_true, ↓reduceIte]
 
-/-- Exact rank pair: a bracketed rank carries the declaration's marker pair. -/
-private theorem emb_rank_pair (P : Params) (exact : List Nat) (source : Proper)
+/-- Each rank between a titled group top and its path-matched bottom has
+the declaration's left and right marker records at that coordinate rank. -/
+theorem emb_rank_pair (P : Params) (exact : List Nat) (source : Proper)
     (haligned : (titleReservations (sizeProperPortsX P exact source)).nodes.length =
       (titleReservations (sizeProperPortsX P exact source)).rank.length)
     {top bottom : ProperNode × Nat}

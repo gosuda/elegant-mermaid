@@ -20,6 +20,7 @@ and the measured/exact graph equations). -/
 def XLEG_GroupMarkerOrderX (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph),
     comp ∈ components execution.graph →
@@ -654,7 +655,7 @@ no loop by the witness), and the marker pair closes the miss. -/
 theorem XLEM_groupOwnerMiss_holds (exactIds : List String)
     (hord : XLEG_GroupMarkerOrderX exactIds) :
     XLEM_GroupOwnerMiss exactIds := by
-  intro inp o res execution comp candidate run orderOptions cg k e v
+  intro inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hv _hreal _hscope0 _hscope1 hBne layer hlayer pu pv hpu hpv
   subst hcg
   have hbd := sceneExecutionX_edges_bounded execution
@@ -678,10 +679,10 @@ theorem XLEM_groupOwnerMiss_holds (exactIds : List String)
       rw [hget]
     omega
   · exact XLEGM_group_top_miss execution.graph0_eq execution.graph_eq hcomp hrun
-      hnt hBm2 (hord inp o res execution comp candidate run orderOptions
+      hnt hBm2 (hord inp o res execution hwf hfp comp candidate run orderOptions
         (componentCandidate execution.graph comp candidate) hcomp rfl hrun)
       hk hloop rfl hv hlayer hpu hpv
-  · obtain ⟨hnoLoop, _⟩ := hord inp o res execution comp candidate run orderOptions
+  · obtain ⟨hnoLoop, _⟩ := hord inp o res execution hwf hfp comp candidate run orderOptions
       (componentCandidate execution.graph comp candidate) hcomp rfl hrun
     exact absurd ⟨e, hmem, rfl, hloop.symm⟩ (hnoLoop e.tail nt hnt hB2)
 

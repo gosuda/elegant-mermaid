@@ -230,6 +230,7 @@ Elegant.Layered.normalize_ok
 Elegant.Layered.Compound.prepare_group_title_record
 Elegant.Layered.Compound.prepare_node_dims_decl
 Elegant.Layered.Compound.prepare_group_title_of_border
+Elegant.Layered.Compound.markNodes_getElem?_prefix_border
 Elegant.Layered.actual_components_sceneOf_route_entry
 Elegant.Layered.PipelineImpl.actual_components_parts_geometry
 Elegant.Layered.PipelineImpl.actual_title_metadata

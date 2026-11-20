@@ -125,6 +125,7 @@ as the `hReal` hypothesis of `route_run_clear_inlined`. -/
 def XFR_RouteLabelRealClearX (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     {comp : List Nat} (_ : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
     componentRunX execution.params (exactDecls exactIds inp)
@@ -317,6 +318,8 @@ theorem XF_routeForwardClearX_holds (exactIds : List String)
     (himp : XFR_SeamsImplyForeignX exactIds) :
     ∀ {inp : Input} {o : Options} {res : FamilyResult}
       (execution : SceneExecutionX exactIds inp o res)
+      (_hwf : WellFormed (inputModel inp o))
+      (_hfp : framedParents inp = true)
       {comp : List Nat} (_ : comp ∈ components execution.graph)
       {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
       componentRunX execution.params (exactDecls exactIds inp)
@@ -335,10 +338,10 @@ theorem XF_routeForwardClearX_holds (exactIds : List String)
         (componentCandidate execution.graph comp candidate) run pos) rect ∨
         (frameRect execution.params
           (componentCandidate execution.graph comp candidate) run pos).StrictInside rect := by
-  intro inp o res execution comp hcomp candidate run orderOptions hrun
+  intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
   have h1 := hstrict execution hcomp hrun
   have h2 := hinDummy execution hcomp hrun
-  have hR := hreal execution hcomp hrun
+  have hR := hreal execution hwf hfp hcomp hrun
   have hF := hforeign execution hcomp hrun
   have hL := hleftover execution hcomp hrun
   have hD := hdummy execution hcomp hrun

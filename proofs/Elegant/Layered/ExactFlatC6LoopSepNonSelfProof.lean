@@ -235,7 +235,7 @@ theorem X6_loopSep_nonSelf_holds (exactIds : List String)
           obtain ⟨hlt', hreal, hscope₀, hscope₁⟩ :=
             hScopeB inp o res execution hwf hfp comp candidate run v b k e
               hcomp hbord hrun hne hk htail hhead key source hkey hsource hexclT
-          have hmiss := hFootMiss inp o res execution comp candidate run
+          have hmiss := hFootMiss inp o res execution hwf hfp comp candidate run
             (candidateOrder candidate)
             (componentCandidate execution.graph comp candidate) k e b
             hcomp rfl hrun hk (htail.trans hhead.symm) hlt' hreal hscope₀ hscope₁
