@@ -1117,6 +1117,7 @@ Elegant.Layered.PipelineImpl.layoutRecursive_child_ports_transport
 Elegant.Grid.Architecture.CellContracts.SceneCellExecution
 Elegant.Grid.Architecture.CellContracts.public_build_native_cells_unique
 Elegant.Grid.Architecture.CellContracts.arch_cells_unique
+Elegant.Grid.Architecture.CellContracts.arch_all_placed
 Elegant.Ishikawa.entry_slot_upper_bound
 Elegant.Ishikawa.generated_bone_temporal_bounds
 Elegant.Ishikawa.nonpositive_interpolation_between
@@ -2210,6 +2211,7 @@ Elegant.Layered.LaneBands.placeRect_other
 Elegant.Layered.LaneBands.routeScope_eq_of_frame
 Elegant.Grid.grid_valid
 Elegant.Tree.tree_valid
+Elegant.Lanes.lanes_valid
 Elegant.Layered.PipelineImpl.componentRunGen_node_band
 Elegant.Layered.PipelineImpl.componentRunGen_node_band_plain
 Elegant.Layered.PipelineImpl.componentRunGen_positions_disjoint
