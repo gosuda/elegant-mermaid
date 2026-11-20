@@ -140,7 +140,8 @@ theorem layoutRecursiveB_valid_of_seams {base : Input → Options → Except Lay
     (S : BaseSeams base) (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
     (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
     (hids : ∀ m ∈ inp.boxes, m.id ≠ "")
-    (hfix : InputFixedFit inp o) (hdisj : BoxRouteIdsDisjoint inp)
+    (hfix : InputFixedFit inp o) (hpos : FixedSizesPositive inp)
+    (hdisj : BoxRouteIdsDisjoint inp)
     (h : layoutRecursiveB base fuel inp o = .ok res) :
     Validator.C1 res.scene.layoutDump ∧ Validator.C2 res.scene.layoutDump ∧
       Validator.C3 res.scene.layoutDump ∧ Validator.C4 res.scene.layoutDump ∧
@@ -156,8 +157,8 @@ theorem layoutRecursiveB_valid_of_seams {base : Input → Options → Except Lay
     hc3,
     layoutRecursiveB_c4 base S.flatC4 fuel inp o res hwf hfp h,
     (layoutRecursiveB_c5_facts S.flatC5 S.subInputB fuel hwf hfp h).2.2,
-    layoutRecursiveB_c6 base S.flatC6 S.frameClear S.subInputB S.stepC6
-      fuel inp o res hwf hfp h,
+    layoutRecursiveB_c6 base S.flatC6 S.canvasMargins S.frameClear S.subInputB S.stepC6
+      fuel inp o res hwf hfp hpos h,
     layoutRecursiveB_c7 base S.flatC7 S.canvasMargins S.partsSep S.labelRuns S.captions
       S.subInputB S.stepC7 fuel inp o res hwf hfp hfix hdisj h,
     layoutRecursiveB_c8a base S.flatC8a S.subInputB S.stepC8a
@@ -172,7 +173,8 @@ theorem layoutFamilyB_valid_of_seams
     {base : Input → Options → Except LayoutError FamilyResult}
     (S : BaseSeams base) {inp : Input} {o : Options} {res : FamilyResult}
     (hids : ∀ m ∈ inp.boxes, m.id ≠ "")
-    (hfix : InputFixedFit inp o) (hdisj : BoxRouteIdsDisjoint inp)
+    (hfix : InputFixedFit inp o) (hpos : FixedSizesPositive inp)
+    (hdisj : BoxRouteIdsDisjoint inp)
     (h : layoutFamilyB base inp o = .ok res) :
     HardConstraints res.scene.layoutDump := by
   obtain ⟨hwf, hrec⟩ := layoutFamilyB_success h
@@ -186,8 +188,8 @@ theorem layoutFamilyB_valid_of_seams
       (inp.boxes.length + 1) inp o res hwf hfp hrec).2,
     layoutRecursiveB_c4 base S.flatC4 (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutFamilyB_c5 S.flatC5 S.subInputB h,
-    layoutRecursiveB_c6 base S.flatC6 S.frameClear S.subInputB S.stepC6
-      (inp.boxes.length + 1) inp o res hwf hfp hrec,
+    layoutRecursiveB_c6 base S.flatC6 S.canvasMargins S.frameClear S.subInputB S.stepC6
+      (inp.boxes.length + 1) inp o res hwf hfp hpos hrec,
     layoutRecursiveB_c7 base S.flatC7 S.canvasMargins S.partsSep S.labelRuns S.captions
       S.subInputB S.stepC7 (inp.boxes.length + 1) inp o res hwf hfp hfix hdisj hrec,
     layoutRecursiveB_c8a base S.flatC8a S.subInputB S.stepC8a
@@ -222,7 +224,20 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
     (flatGroupEndpoints groupTopSubtreeRankProper'
       (groupBottomBoundaryFacts_of_dummy bottomDummyRankLe)
       groupTailPortOnYs groupAnchorSelection)
-  flatC6 := flatC6_closed_nowit (fun inp o res hwf hfp => loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (loopRectTitleCopy_closed inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) (fun inp o res hwf hfp => loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable)
+  flatC6 := fun inp o res hwf hfp _hpos =>
+    flatC6_closed_nowit
+      (fun inp o res hwf hfp =>
+        loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+      (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp)
+      (fun inp o res hwf hfp =>
+        loopRectTitleReal_holds hwf hfp (loopRectTitleCopy_closed inp o res hwf hfp))
+      (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp)
+      (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp)
+      (fun inp o res hwf hfp =>
+        loopFootprintTopSeparation_closed inp o res hwf hfp
+          (foreignBorderChainXAligned' S.foreignBorderDivergeStable)
+          (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp))
+      (beyondProper_closed S.foreignBorderDivergeStable) inp o res hwf hfp
   flatC7 := fun inp o res hwf hfp _hfit hsep hseam1 hseam2 hb =>
     layout_c7 hwf hfp hsep hseam1 hseam2 hb
   flatC8a := flatC8a_of_span_seams

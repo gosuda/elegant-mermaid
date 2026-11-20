@@ -136,6 +136,7 @@ after the execution binder. -/
 def X6_ShelfPositiveW (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
+    (_hfix : FixedSizesPositive inp)
     (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (packed : Pack.State)
     (_hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
@@ -214,6 +215,7 @@ the execution binder. -/
 def X6_ChainCaseW (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
+    (_hfix : FixedSizesPositive inp)
     (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true),
     FrameClearanceSeam inp o res → X6_RouteScopeBridge exactIds inp o res →
     ∀ {r : Route} {b : Box}, r ∈ res.scene.routes → b ∈ res.scene.boxes →
@@ -248,6 +250,7 @@ the execution binder. -/
 def X6_LoopCaseW (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
+    (_hfix : FixedSizesPositive inp)
     (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true),
     FrameClearanceSeam inp o res → X6_RouteScopeBridge exactIds inp o res →
     (∀ (comp : List Nat) (candidate : Nat) (run : Run) (v b : Nat),
@@ -287,8 +290,8 @@ def X6_LoopCaseW (exactIds : List String) : Prop :=
     ¬ Polyline.hitsRect r.points b.rect
 
 /-- Flat clause 6 from W-form premises: replay of `flatC6B_layoutX` over
-the W twins. `FlatC6B` supplies `WellFormed`, `framedParents`, and the
-frame-clearance seam per input; each is threaded into the W leaves. -/
+the W twins. The flat fact carries the local admission and size premises.
+The chain and loop cases consume the fixed-size positivity premise. -/
 theorem flatC6B_layoutXW (exactIds : List String)
     (hdecl : X_ExclusiveRunNodeDecl exactIds)
     (hkeysW : X6_ChainEndpointKeysW exactIds)
@@ -303,22 +306,10 @@ theorem flatC6B_layoutXW (exactIds : List String)
     (hloopW : X6_ShelfPositiveW exactIds → X6_BorderZeroRealW exactIds →
       X6_LoopCaseW exactIds) :
     FlatC6B (layoutX exactIds) := by
-  intro inp o res hwf hfp hclear hlay
-  have hkeys : X6_ChainEndpointKeys exactIds inp o res :=
-    fun execution comp candidate run hcomp hrun i edge native hi horig hedge i₀ i₁ hi₀ hi₁ =>
-      hkeysW execution hwf hfp comp candidate run hcomp hrun i edge native hi horig hedge i₀ i₁ hi₀ hi₁
-  have hpaths : X6_DeclOutsidePaths exactIds inp o res :=
-    fun execution comp candidate run hcomp hrun v key hv hkey i edge native hi hedge i₀ i₁ hi₀ hi₁ =>
-      hpathsW execution hwf hfp comp candidate run hcomp hrun v key hv hkey i edge native hi hedge i₀ i₁ hi₀ hi₁
-  have hpos : X6_ShelfPositive exactIds inp o res :=
-    fun execution packed hpacked c q hsel candidate i edge hedge =>
-      hposW execution hwf hfp packed hpacked hsel hedge
+  intro inp o res hwf hfp hfix hclear hlay
   have hsep : X6_LoopFootprintSeparation exactIds inp o res :=
     fun execution comp candidate run v b hcomp hbord hrun =>
       hsepW execution hwf hfp comp candidate run v b hcomp hbord hrun
-  have hbord : X6_BorderZeroReal exactIds inp o res :=
-    fun execution candidate run packed hpack c q hsel area loops hpart hmem hrun v b hreal hb hex hw hh heq =>
-      hbordW execution hwf hfp candidate run packed hpack hsel hpart hmem hrun hreal hb hex hw hh heq
   have hbridge : X6_RouteScopeBridge exactIds inp o res :=
     fun execution packed hpacked comp candidate run loops area c q hcomp hrun hloops hpart hsel i edge hedge route box hroute hmem hex hscope =>
       hbridgeW execution hwf hfp packed hpacked hcomp hrun hloops hpart hsel hedge hroute hmem hex hscope
@@ -326,10 +317,12 @@ theorem flatC6B_layoutXW (exactIds : List String)
   have hloopWfull : X6_LoopCaseW exactIds := hloopW hposW hbordW
   have hchain : X6_ChainCase exactIds inp o res :=
     fun execution hclearE hbridgeE r b hr hb hex hscope key hk hkey packed c q candidate run loops i edge area hpack hsel hrun hloops hpart hedge hdeclE hfind =>
-      hchainWfull execution hwf hfp hclearE hbridgeE hr hb hex hscope hk hkey area hpack hsel hrun hloops hpart hedge hdeclE hfind
+      hchainWfull execution hfix hwf hfp hclearE hbridgeE hr hb hex hscope
+        hk hkey area hpack hsel hrun hloops hpart hedge hdeclE hfind
   have hloop : X6_LoopCase exactIds inp o res :=
     fun execution hclearE hbridgeE hsepE r b hr hb hex hscope key hk hkey packed c q candidate run loops i edge area hpack hsel hrun hloops hpart hedge hdeclE loop hfind =>
-      hloopWfull execution hwf hfp hclearE hbridgeE hsepE hr hb hex hscope hk hkey area hpack hsel hrun hloops hpart hedge hdeclE hfind
+      hloopWfull execution hfix hwf hfp hclearE hbridgeE hsepE hr hb hex hscope
+        hk hkey area hpack hsel hrun hloops hpart hedge hdeclE hfind
   exact x6_c6 hchain hloop hclear hbridge hsep hlay
 
 end PipelineImpl

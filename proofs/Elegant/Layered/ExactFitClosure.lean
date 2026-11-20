@@ -994,9 +994,9 @@ private theorem X_componentRun_original_frame_minimum_dims {P : Params} {exact :
   rw [hdims.2, hh]
   exact Int.le_refl _
 
-/-- Exact part rects dominate the source graph node dimensions (copy of
+/-- Exact part rects dominate the source graph node dimensions (exact twin of
 `SceneExecution.component_rect_minimum_dims` with the exact part geometry). -/
-private theorem X_component_rect_minimum_dims {exactIds : List String} {inp : Input}
+theorem SceneExecutionX.component_rect_minimum_dims {exactIds : List String} {inp : Input}
     {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
     {part : List Nat × Part} (hpart : part ∈ execution.componentsAcc.parts)
@@ -1111,7 +1111,8 @@ private theorem X_execution_fixed_source {exactIds : List String} {inp : Input}
     | some n =>
       by_cases hb : n.border = 0
       · simp only [hb, ↓reduceIte]
-        exact X_component_rect_minimum_dims execution hpart hkey hlookup hb hget
+        exact SceneExecutionX.component_rect_minimum_dims execution hpart hkey hlookup
+          hb hget
       · simpa only [hb, ↓reduceIte] using hn
   have hminimum := packAcc_rect_minimum_dimensions_of_coverage Xminimum execution.packed_eq
     (fun i r hr => Or.inr (execution.parts_coverage i r hr)) X_hparts key rect hrect

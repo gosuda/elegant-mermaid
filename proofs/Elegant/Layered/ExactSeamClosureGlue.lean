@@ -224,16 +224,10 @@ theorem XG_fitStrictB_of_content (exactIds : List String) :
     parent child res hexpand hframed hctxB hparams frame titleLines' dx dy
     hframe hdx hdy hwrap _ hr
 
-/-- Part-size positivity of executed exact parts (per input, local
-well-formedness). FALSE as stated: a flowchart with two node boxes fixed at
-size 0x0 and named in `exactIds` gives a part of width 0, so
-`0 < q.1.2.width` fails, though `WellFormed`, `framedParents`, and `layoutX`
-success all hold (witness `twoZero` in `ExactFlatC6ShelfBorderProof`).
-Depends on a pending user decision about fixed sizes; kept as an explicit
-residual, not a proved theorem. -/
 def X6_PartPosW (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
+    (_hfix : FixedSizesPositive inp)
     (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (packed : Pack.State)
     (_hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
@@ -253,8 +247,8 @@ def X6_PartPosW (exactIds : List String) : Prop :=
 theorem X6_shelfPositiveW_of_partPosW (exactIds : List String)
     (hpart : X6_PartPosW exactIds) :
     X6_ShelfPositiveW exactIds := by
-  intro inp o res execution hwf hfp packed hpacked c q hsel candidate i edge hedge
-  obtain ⟨hW, hH⟩ := hpart execution hwf hfp packed hpacked hsel hedge
+  intro inp o res execution hfix hwf hfp packed hpacked c q hsel candidate i edge hedge
+  obtain ⟨hW, hH⟩ := hpart execution hfix hwf hfp packed hpacked hsel hedge
   exact X6_shelfPositiveW_of_partPos_holds exactIds execution hwf hfp packed hpacked hsel hedge hW hH
 
 /-- Assembled W caption scope clearance: replay of

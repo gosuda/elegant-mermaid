@@ -224,9 +224,9 @@ theorem notes_flatC6B
       (e : NotesExecution base exactIds fuel inp o res),
       ∀ p ∈ e.fragments, Validator.C6 p.scene.layoutDump) :
     FlatC6B (layoutNotes base exactIds (fuel + 1)) := by
-  intro inp o res hwf hfp hframe hok
+  intro inp o res hwf hfp hpos hframe hok
   obtain hempty | hne := layoutNotes_success_phases hok
-  · exact hFlat inp o res hwf hfp hframe hempty.2
+  · exact hFlat inp o res hwf hfp hpos hframe hempty.2
   · obtain ⟨e⟩ := hne
     exact notes_c6 e (hContract e) (hFrag e) (F e).c6Geom
 

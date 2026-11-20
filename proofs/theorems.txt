@@ -2473,6 +2473,7 @@ Elegant.Layered.PipelineImpl.XLEM_sameRankMiss_holds
 Elegant.Layered.PipelineImpl.XC_selfSidesLeftNarrowX_holds
 Elegant.Layered.PipelineImpl.XC_selfSidesRightNarrowX_holds
 Elegant.Layered.PipelineImpl.XC_selfSidesX_closed
+Elegant.Layered.PipelineImpl.componentRunX_group_frame_dims_pos
 Elegant.Layered.PipelineImpl.X_fallbackGroupStrictCaption_holds
 Elegant.Layered.PipelineImpl.X_sceneBoxesNodupW_holds
 Elegant.Layered.PipelineImpl.X_fallbackOwnerNoDescW_holds
@@ -2744,6 +2745,7 @@ Elegant.Layered.PipelineImpl.XC_ancestorMarkerXWW_holds
 Elegant.Layered.PipelineImpl.XC_ancestorGroupFrameXW_of_linkW
 Elegant.Layered.PipelineImpl.XF_captionRunClearXW_of_linkW
 Elegant.Layered.PipelineImpl.X6_shelfPositiveW_of_partPosW
+Elegant.Layered.PipelineImpl.X6_PartPosW_of_fixedSizesPositive
 Elegant.Layered.PipelineImpl.glue_captionScopeFitW
 Elegant.Layered.PipelineImpl.glue_captionRunClearXW
 Elegant.Layered.PipelineImpl.glue_seamsImplyForeignXW

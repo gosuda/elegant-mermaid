@@ -1,4 +1,5 @@
 import Elegant.Layered.Pipeline
+import Elegant.Layered.InputFixedFit
 import Elegant.Layered.PipelineFacts
 import Elegant.Layered.SizingFacts
 import Elegant.Layered.PlainNodeSizingFacts
@@ -22,15 +23,6 @@ set_option autoImplicit false
 namespace Elegant
 namespace Layered
 namespace PipelineImpl
-
-/-- Every fixed-size override has positive width and height. The open
-`PartFrameWitness` is false without this: two plain boxes with `⟨0,0⟩` fixed
-sizes and a route between them execute successfully with all frames `(1024,0)`
-(`PartFrameWitnessTProbe` / `PartFrameWitnessTFalsify`:
-`doubleFixedZero` has `wit=false` for every candidate while `modelWellFormed`
-and `framedParents` hold and `layout` succeeds). -/
-def FixedSizesPositive (inp : Input) : Prop :=
-  ∀ f ∈ inp.fixedSizes, 0 < f.2.w ∧ 0 < f.2.h
 
 /-- `List.idxOf` inverts membership (copy of the private helper elsewhere). -/
 private theorem comp_idxOf_lookup {comp : List Nat} {x : Nat} (hmem : x ∈ comp) :

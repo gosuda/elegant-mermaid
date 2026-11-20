@@ -39,9 +39,9 @@ theorem layoutFamilyX_valid_of_exactSeams {exactIds : List String}
     (h : Layered.layoutFamilyX exactIds inp o = .ok res) :
     HardConstraints res.scene.layoutDump := by
   simp only [Layered.layoutFamilyX] at h
-  obtain ⟨hids, hdisj, hfix, _⟩ := Layered.layeredAdmissibleB_spec hadm o
+  obtain ⟨hids, hdisj, hfix, hpos⟩ := Layered.layeredAdmissibleB_spec hadm o
   exact Layered.PipelineImpl.layoutFamilyB_valid_of_seams
-    (Usecase.exactBaseSeams exactIds R) hids hfix hdisj h
+    (Usecase.exactBaseSeams exactIds R) hids hfix hpos hdisj h
 
 /-- State family validity from the exact seams: for a model whose family run
 reduces by `state_reduces_exact` (no regions, no notes), the executed

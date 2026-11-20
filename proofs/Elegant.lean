@@ -563,6 +563,7 @@ import Elegant.Layered.ExactNonfwdGroupHullProof
 import Elegant.Layered.LaneEndsPinFacts
 import Elegant.Layered.ExactLoopEnvelopeLayerProof
 import Elegant.Layered.ExactCaptionSelfNarrowProof
+import Elegant.Layered.ExactPartPosGuardProof
 import Elegant.Layered.ExactFallbackCaptionFactsProof
 import Elegant.Layered.LoopResNeighborDisjointProof
 import Elegant.Layered.ExpandChildParentFrameFlatFactsProof

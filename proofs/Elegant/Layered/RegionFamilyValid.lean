@@ -18,7 +18,8 @@ theorem layoutFamilyR_valid_of_seams {exactIds : List String}
     (R : RegionSeams exactIds idSets)
     (hgraph : RegionImpl.graphRegions inp sets = .ok idSets)
     (hids : ∀ m ∈ inp.boxes, m.id ≠ "")
-    (hfix : InputFixedFit inp o) (hdisj : BoxRouteIdsDisjoint inp)
+    (hfix : InputFixedFit inp o) (hpos : FixedSizesPositive inp)
+    (hdisj : BoxRouteIdsDisjoint inp)
     (h : Elegant.Layered.layoutFamilyR exactIds sets inp o = .ok res) :
     HardConstraints res.scene.layoutDump := by
   have hB : layoutFamilyB
@@ -27,7 +28,7 @@ theorem layoutFamilyR_valid_of_seams {exactIds : List String}
     have h2 := h
     simp only [Elegant.Layered.layoutFamilyR, hgraph] at h2
     exact h2
-  exact layoutFamilyB_valid_of_seams (regionBaseSeams R) hids hfix hdisj hB
+  exact layoutFamilyB_valid_of_seams (regionBaseSeams R) hids hfix hpos hdisj hB
 
 end PipelineImpl
 end Layered

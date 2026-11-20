@@ -10,6 +10,13 @@ namespace Elegant
 namespace Layered
 namespace PipelineImpl
 
+def FixedSizesPositive (inp : Input) : Prop :=
+  ∀ entry ∈ inp.fixedSizes, 0 < entry.2.w ∧ 0 < entry.2.h
+
+theorem FixedSizesPositive.childSubInput {inp : Input}
+    (h : FixedSizesPositive inp) (group : ModelBox) :
+    FixedSizesPositive (PipelineImpl.childSubInput inp group) := h
+
 /-- Caption room inside a fixed-size box. A group needs its title block strictly
 inside the frame; a node needs its wrapped lines to fit the frame height. -/
 def FixedSizeFit (P : Params) (role : BoxRole) (lines : List Measure.Line) (size : Size) : Prop :=
@@ -177,6 +184,33 @@ theorem childFrameSize_fixedSizeFit (role : BoxRole) (P : Params) (dir : String)
   | node =>
     simp only [FixedSizeFit]
     exact Int.le_trans hmul (by omega)
+
+theorem FixedSizesPositive.parentSubInput {inp : Input} {o : Options}
+    {group : ModelBox} {P : Params} {titleLines : List Measure.Line} {child : FamilyResult}
+    (h : FixedSizesPositive inp) (hP : checkedParams o.profile inp.kind = .ok P)
+    (hw : 2 * P.canvasMargin ≤ child.scene.canvas.w)
+    (hh : 2 * P.canvasMargin ≤ child.scene.canvas.h) :
+    FixedSizesPositive (PipelineImpl.parentSubInput inp group P titleLines child) := by
+  intro entry he
+  change entry ∈ inp.fixedSizes ++ [(group.id, childFrameSize group.direction P.clusterPad
+    (titleLines.foldl (fun width line => max width line.width) 0)
+    ((max 1 titleLines.length : Int) * P.lineH)
+    ⟨child.scene.canvas.w - 2 * P.canvasMargin,
+      child.scene.canvas.h - 2 * P.canvasMargin⟩)] at he
+  rcases List.mem_append.mp he with hprior | hframe
+  · exact h entry hprior
+  · rw [List.mem_singleton] at hframe
+    subst entry
+    have hpad := checkedParams_clusterPad_pos hP
+    have hline := Int.le_of_lt (checkedParams_lineH_pos hP)
+    have hheight : 0 ≤ (max 1 titleLines.length : Int) * P.lineH :=
+      Int.mul_nonneg (by omega) hline
+    have hfit := childFrameSize_fixedSizeFit .group P group.direction titleLines
+      ⟨child.scene.canvas.w - 2 * P.canvasMargin,
+        child.scene.canvas.h - 2 * P.canvasMargin⟩
+      hpad hline (Int.sub_nonneg.mpr hw) (Int.sub_nonneg.mpr hh)
+    simp only [FixedSizeFit] at hfit
+    exact ⟨Int.lt_of_lt_of_le (by omega) hfit.1, Int.lt_trans (by omega) hfit.2⟩
 
 theorem InputFixedFit.parentSubInput {inp : Input} {o : Options} {group : ModelBox}
     {P : Params} {metric : Measure.Metric} {titleLines : List Measure.Line}

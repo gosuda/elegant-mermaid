@@ -385,6 +385,7 @@ theorem flatC6B_layoutX (exactIds : List String)
       X6_DeclOutsidePaths exactIds inp o res)
     (hpos : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
+      FixedSizesPositive inp →
       X6_ShelfPositive exactIds inp o res)
     (hsep : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
@@ -408,11 +409,11 @@ theorem flatC6B_layoutX (exactIds : List String)
       X6_BorderZeroReal exactIds inp o res →
       X6_LoopCase exactIds inp o res) :
     FlatC6B (layoutX exactIds) := by
-  intro inp o res hwf hframed hclear hlay
+  intro inp o res hwf hframed hfix hclear hlay
   exact x6_c6
     (hchain inp o res hwf hframed hdecl (hkeys inp o res hwf hframed)
-      (hpaths inp o res hwf hframed) (hpos inp o res hwf hframed))
-    (hloop inp o res hwf hframed (hpos inp o res hwf hframed)
+      (hpaths inp o res hwf hframed) (hpos inp o res hwf hframed hfix))
+    (hloop inp o res hwf hframed (hpos inp o res hwf hframed hfix)
       (hbord inp o res hwf hframed))
     hclear
     (hbridge inp o res hwf hframed)

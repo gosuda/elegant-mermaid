@@ -40,8 +40,8 @@ theorem state_valid_of_regionNotesSeams {m : Model} {r : Layered.FamilyResult}
   apply state_valid_of_family h
   intro res hf
   obtain ⟨_, hadm, _, _⟩ := layout_spec h
-  obtain ⟨hids, hdisj, hfix, _⟩ := Layered.layeredAdmissibleB_spec hadm m.options
-  exact Layered.PipelineImpl.layoutFamilyRN_valid_of_seams S hgraph hids hfix hdisj hf
+  obtain ⟨hids, hdisj, hfix, hpos⟩ := Layered.layeredAdmissibleB_spec hadm m.options
+  exact Layered.PipelineImpl.layoutFamilyRN_valid_of_seams S hgraph hids hfix hpos hdisj hf
 
 end State
 end Kinds

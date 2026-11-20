@@ -604,10 +604,11 @@ theorem layoutFamilyRN_valid_of_core {exactIds : List String}
     (C : RegionNotesSeamsCore exactIds idSets)
     (hgraph : RegionImpl.graphRegions inp sets = .ok idSets)
     (hids : ∀ m ∈ inp.boxes, m.id ≠ "")
-    (hfix : InputFixedFit inp o) (hdisj : BoxRouteIdsDisjoint inp)
+    (hfix : InputFixedFit inp o) (hpos : FixedSizesPositive inp)
+    (hdisj : BoxRouteIdsDisjoint inp)
     (h : Elegant.Layered.layoutFamilyRN exactIds sets inp o = .ok res) :
     HardConstraints res.scene.layoutDump :=
-  layoutFamilyRN_valid_of_seams (regionNotesSeams_of_core C) hgraph hids hfix hdisj h
+  layoutFamilyRN_valid_of_seams (regionNotesSeams_of_core C) hgraph hids hfix hpos hdisj h
 
 end PipelineImpl
 

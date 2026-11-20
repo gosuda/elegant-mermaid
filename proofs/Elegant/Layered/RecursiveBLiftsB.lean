@@ -13,12 +13,11 @@ namespace Elegant.Layered.PipelineImpl
 
 open Validator
 
-/-- Base-parametric copy of `FlatC6`: the base layout keeps C6. The
-`FrameClearanceSeam` premise speaks about the plain `SceneExecution`, so it
-is kept as a hypothesis inside the B def rather than re-parameterized. -/
+/-- The base layout keeps C6 for a well-formed input with positive fixed sizes. -/
 abbrev FlatC6B (base : Input → Options → Except LayoutError FamilyResult) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
+    FixedSizesPositive inp →
     FrameClearanceSeam inp o res →
     base inp o = .ok res → Validator.C6 res.scene.layoutDump
 
@@ -65,6 +64,7 @@ followed by `ExpandChildCallParams`. -/
 theorem layoutRecursiveB_c6
     (base : Input → Options → Except LayoutError FamilyResult)
     (hflat : FlatC6B base)
+    (hmargins : CanvasMarginsB base)
     (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
       FrameClearanceSeam inp o res)
@@ -100,25 +100,31 @@ theorem layoutRecursiveB_c6
       ExpandChildC6Step P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
+      FixedSizesPositive inp →
       layoutRecursiveB base fuel inp o = .ok res →
       Validator.C6 res.scene.layoutDump := by
   intro fuel
   induction fuel with
   | zero =>
-    intro inp o res hwf hframed h
+    intro inp o res hwf hframed hpos h
     have hbase : base inp o = .ok res := by simpa [layoutRecursiveB] using h
-    exact hflat inp o res hwf hframed (hclear inp o res hwf hframed) hbase
+    exact hflat inp o res hwf hframed hpos (hclear inp o res hwf hframed) hbase
   | succ fuel ih =>
-    intro inp o res hwf hframed h
+    intro inp o res hwf hframed hpos h
     rcases layoutRecursiveB_succ_sources base h with ⟨_, hbase⟩ |
       ⟨group, P, metric, child, titleLines, parent, hg, hP, hm,
         hchild, hwrap, hparent, hexpand⟩
-    · exact hflat inp o res hwf hframed (hclear inp o res hwf hframed) hbase
+    · exact hflat inp o res hwf hframed hpos (hclear inp o res hwf hframed) hbase
     · obtain ⟨hwfChild, hframedChild, hwfParent, hframedParent⟩ :=
         hsub fuel inp o group P metric titleLines child parent
           hwf hframed hP hm hwrap hchild hparent
-      have hchildC6 := ih _ _ _ hwfChild hframedChild hchild
-      have hparentC6 := ih _ _ _ hwfParent hframedParent hparent
+      have hPchild : checkedParams (childSubOptions o group).profile
+          (childSubInput inp group).kind = .ok P := hP
+      have hmarg := hmargins fuel (childSubInput inp group) (childSubOptions o group)
+        child hchild P hPchild
+      have hchildC6 := ih _ _ _ hwfChild hframedChild (hpos.childSubInput group) hchild
+      have hparentC6 := ih _ _ _ hwfParent hframedParent
+        (hpos.parentSubInput hP hmarg.1 hmarg.2) hparent
       have hparams : ExpandChildCallParams P inp o group titleLines
           ((max 1 titleLines.length : Int) * P.lineH) :=
         ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩

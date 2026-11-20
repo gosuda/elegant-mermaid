@@ -1414,6 +1414,108 @@ theorem XC_selfSidesX_closed (exactIds : List String) : XC_SelfSidesX exactIds :
   XC_selfSidesX_holds exactIds (XC_selfSidesLeftNarrowX_holds exactIds)
     (XC_selfSidesRightNarrowX_holds exactIds)
 
+theorem componentRunX_group_frame_dims_pos {exactIds : List String} {inp : Input}
+    {o : Options} {res : FamilyResult}
+    (execution : SceneExecutionX exactIds inp o res)
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRunX execution.params (exactDecls exactIds inp)
+      (componentCandidate execution.graph comp candidate) execution.measured
+      orderOptions = .ok run)
+    {index : Nat} {node : Node}
+    (hnode : (componentCandidate execution.graph comp candidate).nodes[index]? = some node)
+    (hgroup : node.border = -2) :
+    0 < (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run index).w ∧
+    0 < (frameRect execution.params
+        (componentCandidate execution.graph comp candidate) run index).h := by
+  have hcbw : 1 ≤ execution.params.clusterBorderW :=
+    checkedParams_clusterBorderW_ge_one execution.checked
+  have hpad : 0 < execution.params.clusterPad :=
+    checkedParams_clusterPad_pos execution.checked
+  obtain ⟨_, hfit⟩ := xcsn_exact_title_fit execution hnode hgroup
+  obtain ⟨v, hcoordC, hproperTitle, _, _, _, _⟩ :=
+    xcsn_group_title_interval_source_X hrun hnode hgroup
+  obtain ⟨_, left, _, hleft, _, _, _⟩ :=
+    xcsn_group_title_borders_X execution hcomp hrun hnode hgroup hcoordC
+    (by rfl) (by rfl)
+  obtain ⟨hleftFinal, _⟩ := xcsn_border_record hrun hleft (Or.inl rfl)
+  obtain ⟨_, _, _, hgraphGet, _⟩ := xcsn_candidate_comp_index hnode hgroup
+  obtain ⟨top0, htop0, hbord0, hpath0, hdecl0⟩ :=
+    xcsn_exactGraph_node_key_rev execution.graph_eq hgraphGet
+  have hbord0' : top0.border = -2 := by omega
+  obtain ⟨_, _, _, _, hpathG⟩ :=
+    measuredGraph_group_origin execution.graph0_eq htop0 hbord0'
+  have howner : node.clusterPath.getLast? = some node.decl := by
+    rw [hpath0, hdecl0, hpathG]
+    simp
+  have hownerMem := List.mem_of_getLast? howner
+  have hleftW : (Labels.rectAt run.proper run.xs run.ys left).w =
+      execution.params.clusterBorderW := by
+    simp only [Labels.rectAt, Labels.labelRect, RouteImpl.nodeW, hleftFinal,
+      OrderImpl.borderLeft]
+  let borders := run.proper.nodes.zipIdx.filterMap fun q =>
+    if (q.1.node.border == -1 || q.1.node.border == 1) &&
+        q.1.node.clusterPath.getLast? == some node.decl then
+      some (Labels.rectAt run.proper run.xs run.ys q.2)
+    else none
+  have hleftMem : Labels.rectAt run.proper run.xs run.ys left ∈ borders := by
+    apply List.mem_filterMap.mpr
+    refine ⟨(_, left), List.mk_mem_zipIdx_iff_getElem?.mpr hleftFinal, ?_⟩
+    simp [OrderImpl.borderLeft, titleF, hgroup, howner]
+  have hlo := boundsOf_minX_le_rect_x borders []
+    (Labels.rectAt run.proper run.xs run.ys left) hleftMem
+  have hhi := rect_right_le_boundsOf_right borders []
+    (Labels.rectAt run.proper run.xs run.ys left) hleftMem
+  have htitleH : (Labels.rectAt run.proper run.xs run.ys v).h = node.h := by
+    simp only [Labels.rectAt, Labels.labelRect, RouteImpl.nodeH, hproperTitle, copyF]
+  let members := run.proper.nodes.zipIdx.filterMap fun q =>
+    if q.1.node.clusterPath.contains node.decl then
+      some (Labels.rectAt run.proper run.xs run.ys q.2)
+    else none
+  have htitleMem : Labels.rectAt run.proper run.xs run.ys v ∈ members := by
+    apply List.mem_filterMap.mpr
+    refine ⟨(_, v), List.mk_mem_zipIdx_iff_getElem?.mpr hproperTitle, ?_⟩
+    simp [copyF, hownerMem]
+  have htop := boundsOf_minY_le_rect_y members []
+    (Labels.rectAt run.proper run.xs run.ys v) htitleMem
+  have hbot := rect_bottom_le_boundsOf_bottom members []
+    (Labels.rectAt run.proper run.xs run.ys v) htitleMem
+  let lines := execution.lines.getD (comp.getD index 0) []
+  have hwidth : 0 ≤ lines.foldl (fun w line => max w line.width) 0 := by
+    simpa only [List.foldl_map, Function.comp_def] using
+      CoordsImpl.le_foldl_max (lines.map (·.width)) 0
+  have hheight : 0 ≤ (max 1 (lines.length : Int)) * execution.params.lineH :=
+    Int.mul_nonneg (by omega) (checkedParams_lineH_nonneg execution.checked)
+  have hnodeHpos : 0 < node.h := by
+    change (match o.direction with
+      | .LR | .RL => lines.foldl (fun w line => max w line.width) 0
+      | .TB | .BT => (max 1 (lines.length : Int)) * execution.params.lineH) +
+        execution.params.clusterPad ≤ node.h at hfit
+    cases hd : o.direction <;> rw [hd] at hfit <;>
+      first
+      | exact Int.lt_of_lt_of_le
+          (show 0 < lines.foldl (fun w line => max w line.width) 0 +
+            execution.params.clusterPad by omega) hfit
+      | exact Int.lt_of_lt_of_le
+          (show 0 < (max 1 (lines.length : Int)) * execution.params.lineH +
+            execution.params.clusterPad by omega) hfit
+  refine ⟨?_, ?_⟩
+  · have hframeW :
+        (frameRect execution.params
+          (componentCandidate execution.graph comp candidate) run index).w =
+          (boundsOf borders []).right - (boundsOf borders []).minX :=
+      frameRect_group_width_eq_horizontal_span hnode hgroup
+    rw [hframeW]
+    omega
+  · have hframeH :
+        (frameRect execution.params
+          (componentCandidate execution.graph comp candidate) run index).h =
+          (boundsOf members []).bottom - (boundsOf members []).minY :=
+      frameRect_group_height_eq_vertical_span hnode hgroup
+    rw [hframeH]
+    omega
+
 end PipelineImpl
 end Layered
 end Elegant
