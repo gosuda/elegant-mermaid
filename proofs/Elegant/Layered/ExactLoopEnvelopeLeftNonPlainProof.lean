@@ -105,7 +105,7 @@ private theorem XLEMLN_original_plain_record {P : Params} {exact : List Nat}
   exact hxs
 
 /-- Exact coordinate record from a proper record. -/
-private theorem XLEMLN_proper_coord {P : Params} {exact : List Nat} {cg : Graph}
+theorem XLEM_proper_coord {P : Params} {exact : List Nat} {cg : Graph}
     {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
     (h : componentRunX P exact cg labels orderOptions = .ok run)
     {v : Nat} {nvp : ProperNode} (hrec : run.proper.nodes[v]? = some nvp) :
@@ -212,7 +212,7 @@ private theorem XLEMLN_proxy_proper_h_zero {P : Params} {exact : List Nat} {cg :
     {v : Nat} {nvp : ProperNode} (hrec : run.proper.nodes[v]? = some nvp)
     (hb : nvp.node.border = -2 ∨ nvp.node.border = 2) :
     RouteImpl.nodeH run.proper v = 0 := by
-  obtain ⟨nvc, hcoordV, hbV, hhV⟩ := XLEMLN_proper_coord hrun hrec
+  obtain ⟨nvc, hcoordV, hbV, hhV⟩ := XLEM_proper_coord hrun hrec
   have hbVc : nvc.node.border = -2 ∨ nvc.node.border = 2 := by rw [hbV]; exact hb
   have hcoordV0 := hcoordV
   have hltL : v < labeled.nodes.length := XLEMLN_proxy_labeled_lt hc hcoordV hbVc
@@ -336,7 +336,7 @@ theorem XLEM_leftNonPlain_holds (exactIds : List String) :
     XLEMLN_original_plain_record hrun hnt hnb
   obtain ⟨ndV, hrecV⟩ : ∃ nd, run.proper.nodes[v]? = some nd :=
     ⟨_, List.getElem?_eq_getElem hv⟩
-  obtain ⟨actualV, hcoordV, hbV, _hhV⟩ := XLEMLN_proper_coord hrun hrecV
+  obtain ⟨actualV, hcoordV, hbV, _hhV⟩ := XLEM_proper_coord hrun hrecV
   by_cases hpx : actualV.node.border = -2 ∨ actualV.node.border = 2
   · obtain ⟨_, labeled, _, hc, hkeys, _, _, _, _⟩ :=
       X_cg_run_bundle execution.graph0_eq execution.graph_eq hcomp hrun
@@ -366,6 +366,26 @@ theorem XLEM_leftNonPlain_holds (exactIds : List String) :
           execution.measured e.tail).x := by
       omega
     exact XLEMLN_rect_miss_left hgap
+
+theorem XLEM_plainRightProxyMiss_holds (exactIds : List String) :
+    ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecutionX exactIds inp o res)
+      (comp : List Nat) (candidate : Nat) (run : Run)
+      (orderOptions : OrderOptions) (cg : Graph) (e : Edge) (v : Nat),
+      comp ∈ components execution.graph →
+      cg = componentCandidate execution.graph comp candidate →
+      componentRunX execution.params (exactDecls exactIds inp) cg execution.measured
+        orderOptions = .ok run →
+      ∀ (nvp : ProperNode), run.proper.nodes[v]? = some nvp →
+      nvp.node.border = -2 ∨ nvp.node.border = 2 →
+      ¬ (loopFootprintExt cg run execution.measured e.tail).meetsInterior
+          (RouteImpl.boxRect run.proper run.xs run.ys v) := by
+  intro inp o res execution comp candidate run orderOptions cg e v hcomp hcg hrun
+    nvp hrecV hb
+  subst hcg
+  obtain ⟨_, labeled, _, hc, hkeys, _, _, _, _⟩ :=
+    X_cg_run_bundle execution.graph0_eq execution.graph_eq hcomp hrun
+  exact XLEMLN_proxy_miss hrun hc hkeys hrecV hb
 
 end PipelineImpl
 end Layered

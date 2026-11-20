@@ -2,6 +2,7 @@ import Elegant.Layered.ExactLoopEnvelopeLayerProof
 import Elegant.Layered.ExactLoopEnvelopeSidesProof
 import Elegant.Layered.ExactLoopEnvelopeMissProof
 import Elegant.Layered.ExactLoopEnvelopeRankProof
+import Elegant.Layered.ExactLoopEnvelopeLeftNonPlainProof
 
 set_option autoImplicit false
 
@@ -1258,9 +1259,95 @@ private theorem XLEMR_right_gap {exactIds : List String} {inp : Input}
     simp only [Int.fdiv_eq_ediv_of_nonneg _ (show (0 : Int) ≤ 2 by decide)]
       at hadj htail ⊢
     omega
-/-- Plain right miss, proved for original plain later nodes. The single
-narrower residual `XLEM_PlainRightNonPlain` covers a later node that is not
-an original plain node. -/
+
+private theorem XLEMR_rightMiss_core {exactIds : List String} {inp : Input}
+    {o : Options} {res : FamilyResult}
+    (execution : SceneExecutionX exactIds inp o res)
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {cg : Graph}
+    (hcg : cg = componentCandidate execution.graph comp candidate)
+    {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRunX execution.params (exactDecls exactIds inp) cg
+      execution.measured orderOptions = .ok run)
+    {k : Nat} {e : Edge} (hk : cg.edges[k]? = some e)
+    (hB0 : (cg.nodes.getD e.tail default).border = 0)
+    {v : Nat} {nvp : ProperNode} (hrecV : run.proper.nodes[v]? = some nvp)
+    (hpx : ¬ (nvp.node.border = -2 ∨ nvp.node.border = 2))
+    {layer : List Nat} (hlayer : layer ∈ run.layers)
+    {pu pv : Nat} (hpu : layer[pu]? = some e.tail) (hpv : layer[pv]? = some v)
+    (hlt : pu < pv) :
+    ¬ (loopFootprintExt cg run execution.measured e.tail).meetsInterior
+        (RouteImpl.boxRect run.proper run.xs run.ys v) := by
+  subst hcg
+  have hbd := sceneExecutionX_edges_bounded execution
+  have hbnd := candidate_edge_endpoints_bounded_general execution.graph comp
+    candidate hcomp hbd (List.mem_of_getElem? hk)
+  have hltCG : e.tail < (componentCandidate execution.graph comp candidate).nodes.length :=
+    hbnd.1
+  obtain ⟨nt, hnt⟩ : ∃ nt,
+      (componentCandidate execution.graph comp candidate).nodes[e.tail]? =
+        some nt :=
+    ⟨_, List.getElem?_eq_getElem hltCG⟩
+  have hnb : nt.border = 0 := by
+    have hget : (componentCandidate execution.graph comp candidate).nodes.getD
+        e.tail default = nt := by
+      rw [List.getD_eq_getElem?_getD, hnt, Option.getD_some]
+    rw [← hget]
+    exact hB0
+  have htP : e.tail < run.proper.nodes.length :=
+    componentRunX_original_nodes_covered hrun e.tail hltCG
+  have hne2 : ((componentCandidate execution.graph comp candidate).nodes.getD
+      e.tail default).border ≠ -2 := by
+    have hget : (componentCandidate execution.graph comp candidate).nodes.getD
+        e.tail default = nt := by
+      rw [List.getD_eq_getElem?_getD, hnt, Option.getD_some]
+    rw [hget]
+    omega
+  have hFrBox := plain_frame_eq_boxRect default _ run e.tail htP hne2
+  obtain ⟨actualT, hcoordT, hpropT, hb0T, _, _, hxsT⟩ :=
+    XLEMR_original_plain_record hrun hnt hnb
+  obtain ⟨actualV, hcoordV, hbV, _hhV⟩ := XLEM_proper_coord hrun hrecV
+  obtain ⟨hproperV, hxsV⟩ := XLEMR_nonproxy_record hrun hcoordV
+    (by rw [hbV]; exact hpx)
+  have hlen : (componentCandidate execution.graph comp candidate).nodes.length =
+      comp.length := by
+    rw [componentCandidate_nodes]
+    simp only [componentGraph, List.length_map]
+  have hltC : e.tail < comp.length := by omega
+  have hEv := XLEMR_cg_node_extent execution hcomp rfl hrun hltC hnt hB0
+    hcoordT
+  have hfp := XLEMR_fp_of_frame (labels := execution.measured) hFrBox
+  exact XLEMR_rect_miss_right
+    (XLEMR_right_gap execution hrun hcoordT hcoordV hb0T hpropT hproperV hxsT
+      hxsV hfp hEv hlayer hpu hpv hlt)
+
+/-- The extended footprint of a plain loop owner misses every later
+same-layer non-proxy box. -/
+theorem XLEM_plainRightGap_of_nonproxy (exactIds : List String) :
+    ∀ (inp : Input) (o : Options) (res : FamilyResult)
+      (execution : SceneExecutionX exactIds inp o res)
+      (comp : List Nat) (candidate : Nat) (run : Run)
+      (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
+      comp ∈ components execution.graph →
+      cg = componentCandidate execution.graph comp candidate →
+      componentRunX execution.params (exactDecls exactIds inp) cg execution.measured
+        orderOptions = .ok run →
+      cg.edges[k]? = some e →
+      (cg.nodes.getD e.tail default).border = 0 →
+      ∀ (nvp : ProperNode), run.proper.nodes[v]? = some nvp →
+      ¬ (nvp.node.border = -2 ∨ nvp.node.border = 2) →
+      ∀ {layer : List Nat}, layer ∈ run.layers →
+      ∀ {pu pv : Nat}, layer[pu]? = some e.tail → layer[pv]? = some v → pu < pv →
+      ¬ (loopFootprintExt cg run execution.measured e.tail).meetsInterior
+          (RouteImpl.boxRect run.proper run.xs run.ys v) := by
+  intro inp o res execution comp candidate run orderOptions cg k e v hcomp hcg hrun
+    hk hB0 nvp hrecV hpx layer hlayer pu pv hpu hpv hlt
+  exact XLEMR_rightMiss_core execution hcomp hcg hrun hk hB0 hrecV hpx hlayer
+    hpu hpv hlt
+
+/-- Plain right miss, proved for original plain later nodes via the shared
+core. The single narrower residual `XLEM_PlainRightNonPlain` covers a later
+node that is not an original plain node. -/
 theorem XLEM_plainRightMiss_holds (exactIds : List String)
     (hNonPlain : XLEM_PlainRightNonPlain exactIds) :
     XLEM_PlainRightMiss exactIds := by
@@ -1269,45 +1356,10 @@ theorem XLEM_plainRightMiss_holds (exactIds : List String)
     layer hlayer pu pv hpu hpv hlt
   by_cases hOrig : ∃ nv, cg.nodes[v]? = some nv ∧ nv.border = 0
   · obtain ⟨nv, hnv, hbv⟩ := hOrig
-    subst hcg
-    have hbd := sceneExecutionX_edges_bounded execution
-    have hbnd := candidate_edge_endpoints_bounded_general execution.graph comp
-      candidate hcomp hbd (List.mem_of_getElem? hk)
-    obtain ⟨nt, hnt⟩ : ∃ nt,
-        (componentCandidate execution.graph comp candidate).nodes[e.tail]? =
-          some nt :=
-      ⟨_, List.getElem?_eq_getElem hbnd.1⟩
-    have hnb : nt.border = 0 := by
-      have hget : (componentCandidate execution.graph comp candidate).nodes.getD
-          e.tail default = nt := by
-        rw [List.getD_eq_getElem?_getD, hnt, Option.getD_some]
-      rw [← hget]
-      exact hB0
-    have htP : e.tail < run.proper.nodes.length :=
-      componentRunX_original_nodes_covered hrun e.tail hbnd.1
-    have hne2 : ((componentCandidate execution.graph comp candidate).nodes.getD
-        e.tail default).border ≠ -2 := by
-      have hget : (componentCandidate execution.graph comp candidate).nodes.getD
-          e.tail default = nt := by
-        rw [List.getD_eq_getElem?_getD, hnt, Option.getD_some]
-      rw [hget]
-      omega
-    have hFrBox := plain_frame_eq_boxRect default _ run e.tail htP hne2
-    obtain ⟨actualT, hcoordT, hpropT, hb0T, _, _, hxsT⟩ :=
-      XLEMR_original_plain_record hrun hnt hnb
-    obtain ⟨actualV, hcoordV, hpropV, _, _, _, hxsV⟩ :=
+    obtain ⟨actualV, _, hpropV, hb0V, _, _, _⟩ :=
       XLEMR_original_plain_record hrun hnv hbv
-    have hlen : (componentCandidate execution.graph comp candidate).nodes.length =
-        comp.length := by
-      rw [componentCandidate_nodes]
-      simp only [componentGraph, List.length_map]
-    have hltC : e.tail < comp.length := by omega
-    have hEv := XLEMR_cg_node_extent execution hcomp rfl hrun hltC hnt hB0
-      hcoordT
-    have hfp := XLEMR_fp_of_frame (labels := execution.measured) hFrBox
-    have hgap := XLEMR_right_gap execution hrun hcoordT hcoordV hb0T hpropT
-      hpropV hxsT hxsV hfp hEv hlayer hpu hpv hlt
-    exact XLEMR_rect_miss_right hgap
+    exact XLEMR_rightMiss_core execution hcomp hcg hrun hk hB0 hpropV
+      (by rw [hb0V]; decide) hlayer hpu hpv hlt
   · exact hNonPlain inp o res execution comp candidate run orderOptions cg k e v
       hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁ hB0 hOrig hlayer
       hpu hpv hlt
