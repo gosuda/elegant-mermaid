@@ -1,5 +1,6 @@
 import Elegant.Kinds.Swimlane
 import Elegant.Kinds.SwimlaneEndsSplitCutover
+import Elegant.Kinds.SwimlaneBaseFactsProof
 import Elegant.Layered.FamilyAssembly
 import Elegant.Layered.InputFixedFit
 import Elegant.Layered.BoxRouteIdsDisjoint
@@ -41,17 +42,14 @@ no premise quantifies over arbitrary scenes or bands):
   `swimlane_endsOld_of_premise` proves the pin endpoint guarantee from this
   condition. The former same-band-or-kink condition fails on both
   `endsSplitWitnessG2G` and `endsSplitWitnessG2Loose`.
-- `boxNonneg`: OPEN. Executed family scene boxes have nonnegative cross
-  lengths (discharges `hLen` via `pinBands_framesLenNonneg`). No finished
-  fact; base C1 (`Contained` in the canvas) still allows a negative cross
-  size, and `HardConstraints` carries no boundedness premise.
-- `basePos`: OPEN. Exclusive boxes of executed family scenes stay positive
-  (discharges `hPos` via `pinBands_exclusivePositive`). `HardConstraints`
-  does not include it.
-- `orthoAll`: OPEN. Executed family scene routes carry the orthogonal flag
-  (feeds the pin-level C6 through the `swimPin_allOrtho` copy). No finished
-  fact; base C4 is conditional on the flag, so it cannot yield `= true`,
-  and the flag replays the model's (default true but settable).
+- `boxNonneg` / `basePos`: CLOSED by `swimlane_boxNonneg` /
+  `swimlane_basePos` (`SwimlaneBaseFactsProof.lean`): every executed
+  swimlane family scene box is strictly positive in both dimensions, so
+  the cross length is nonnegative and the dump is `ExclusivePositive`.
+- `orthoAll`: OPEN, real restriction. Executed family scene routes carry
+  the model's own `orthogonal` flag verbatim (it is not a layout input),
+  so the fact is false on models that declare a route with
+  `orthogonal := false`; it cannot be derived from the execution alone.
  - `aboveLane`: OPEN, narrow. The single narrow loose-pair residual
    (`PinLooseRouteAboveLaneBox`) on executed runs. The wide victim
    (`PinLooseRouteLaneVictimClear`) is closed by
@@ -85,20 +83,6 @@ run (LOCAL premises only); no field quantifies over arbitrary scenes or
 bands. -/
 structure SwimlanePinSeams (m : Model) where
   endsSplit : SwimlaneEndsPremise m
-  /-- OPEN: executed family scene boxes have nonnegative cross lengths
-  (discharges `hLen` via `pinBands_framesLenNonneg`). No finished fact;
-  base C1 (`Contained` in the canvas) still allows a negative cross size,
-  and `HardConstraints` carries no boundedness premise. -/
-  boxNonneg : ∀ base : Layered.FamilyResult,
-    Layered.layoutFamily (Swimlane.input m) m.options = .ok base →
-    ∀ b ∈ base.scene.boxes,
-      0 ≤ (Axis.ofDirection m.options.direction).length b.rect
-  /-- OPEN: exclusive boxes of executed family scenes stay positive
-  (discharges `hPos` via `pinBands_exclusivePositive`). No finished
-  fact; `HardConstraints` does not include it. -/
-  basePos : ∀ base : Layered.FamilyResult,
-    Layered.layoutFamily (Swimlane.input m) m.options = .ok base →
-    ExclusivePositive base.scene.layoutDump
   /-- OPEN: executed family scene routes carry the orthogonal flag
   (feeds the pin-level C6 through the `swimPin_allOrtho` copy). No
   finished fact; base C4 is conditional on the flag, so it cannot yield
@@ -461,10 +445,10 @@ private theorem swimPin_fit {m : Model} {base : Layered.FamilyResult}
   exact pinBands_framesFit hNoEmpty hBoxesNodup hne hsNodup hpin sp hsp
 
 /-- Nonnegative frame lengths for the executed pin, via the closed length
-transport and the `boxNonneg` seam. -/
+transport over the proved executed-box positivity. -/
 private theorem swimPin_len {m : Model} {base : Layered.FamilyResult}
     {pinned : Scene} {sp : Spacing}
-    (P : SwimlanePinSeams m) (hne : ∀ b ∈ m.boxes, b.id ≠ "")
+    (hne : ∀ b ∈ m.boxes, b.id ≠ "")
     (hfam : Layered.layoutFamily (Swimlane.input m) m.options = .ok base)
     (hsp : spacingOf m.options.profile = .ok sp)
     (hpin : pinBands m.boxes m.options base.scene = .ok pinned) :
@@ -473,14 +457,14 @@ private theorem swimPin_len {m : Model} {base : Layered.FamilyResult}
         (lanesOf m.boxes)) base.scene, 0 ≤ f.length := by
   have hNoEmpty : ∀ b ∈ base.scene.boxes, b.id ≠ "" :=
     fun b hb => swimPin_sceneNe hne hfam hb
-  have hNonneg := P.boxNonneg base hfam
+  have hNonneg := swimlane_boxNonneg hfam
   exact pinBands_framesLenNonneg hNonneg hNoEmpty hpin sp hsp
 
-/-- Pinned exclusive positivity, via the closed positivity transport and
-the `basePos` seam. -/
+/-- Pinned exclusive positivity, via the closed positivity transport over
+the proved executed-box positivity. -/
 private theorem swimPin_pos {m : Model} {base : Layered.FamilyResult}
     {pinned : Scene}
-    (P : SwimlanePinSeams m) (hne : ∀ b ∈ m.boxes, b.id ≠ "")
+    (hne : ∀ b ∈ m.boxes, b.id ≠ "")
     (hwf : WellFormed m)
     (hfam : Layered.layoutFamily (Swimlane.input m) m.options = .ok base)
     (hpin : pinBands m.boxes m.options base.scene = .ok pinned) :
@@ -489,7 +473,7 @@ private theorem swimPin_pos {m : Model} {base : Layered.FamilyResult}
     fun b hb => swimPin_sceneNe hne hfam hb
   have hsNodup := swimPin_sceneNodup hwf hfam
   have hBoxesNodup := Model.boxIds_nodup hwf
-  have hPosS := P.basePos base hfam
+  have hPosS := swimlane_basePos hfam
   exact pinBands_exclusivePositive hPosS hNoEmpty hBoxesNodup hne
     hsNodup hpin
 
@@ -636,13 +620,13 @@ theorem swimlane_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
     fun pinned hpin sp hsp => swimPin_gap hadm hne hwf hfam hbase.2.2.1 hsp hpin
   have hPos : ∀ (pinned : Scene), pinBands m.boxes m.options base.scene = .ok pinned →
       ExclusivePositive pinned.layoutDump :=
-    fun pinned hpin => swimPin_pos P hne hwf hfam hpin
+    fun pinned hpin => swimPin_pos hne hwf hfam hpin
   have hLen : ∀ (pinned : Scene), pinBands m.boxes m.options base.scene = .ok pinned →
       ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
       ∀ f ∈ laneFrames (Axis.ofDirection m.options.direction)
         (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
           (lanesOf m.boxes)) base.scene, 0 ≤ f.length :=
-    fun pinned hpin sp hsp => swimPin_len P hne hfam hsp hpin
+    fun pinned hpin sp hsp => swimPin_len hne hfam hsp hpin
   have hOrthoAll : ∀ rt ∈ base.scene.routes, rt.orthogonal = true :=
     P.orthoAll base hfam
   have hParents : ∀ sp : Spacing, ∀ bands : List Band,
@@ -703,9 +687,9 @@ theorem swimlane_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
         intro rt hrt
         exact hC4mid rt hrt (hAllMid rt hrt)
       have hGapMid := swimPin_gap hadm hne hwf hfam hbase.2.2.1 hsp hpinBands
-      have hPosMid := swimPin_pos P hne hwf hfam hpinBands
+      have hPosMid := swimPin_pos hne hwf hfam hpinBands
       have hFitMid := swimPin_fit hne hwf hfam hsp hpinBands
-      have hLenMid := swimPin_len P hne hfam hsp hpinBands
+      have hLenMid := swimPin_len hne hfam hsp hpinBands
       exact attachLaneEnds_c6 hC6mid hOrtho hGapMid hPosMid hFitMid hLenMid hatt
   have hC7 : Validator.C7 pinned.layoutDump :=
     pinLanes_c7 hpinLanes hbase.2.2.2.2.2.2.1 hclean hshape

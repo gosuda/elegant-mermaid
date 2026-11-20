@@ -663,6 +663,7 @@ import Elegant.Layered.ExpandChildParentRouteAttachedCtxProof
 import Elegant.Layered.ExactStepLeafFactsProof
 import Elegant.Layered.ExactSideMarkerFactsProof
 import Elegant.Layered.ExactCaptionTitleBranchProof
+import Elegant.Kinds.SwimlaneBaseFactsProof
 import Elegant.Kinds.SwimlaneValidSeams
 import Elegant.Layered.ExactForeignRankPairAnchorsProof
 import Elegant.Layered.ExactForwardScopeFreeProof
