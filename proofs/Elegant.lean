@@ -255,7 +255,6 @@ import Elegant.IshikawaEnvSteps
 import Elegant.Layered.ForeignSpansFacts
 import Elegant.Layered.BorderChainPickFacts
 import Elegant.Layered.BorderChainPickExecuted
-import Elegant.Layered.CaptionSizingFacts
 import Elegant.Layered.CaptionOwnerScopeFacts
 import Elegant.Layered.CaptionTitleBranchFacts
 import Elegant.Layered.CaptionDescendantFacts
@@ -281,7 +280,6 @@ import Elegant.Kinds.IshikawaFinal
 import Elegant.Layered.BracketInsideStructuralFacts
 import Elegant.Chart.TreemapC8bKernelFacts
 import Elegant.IshikawaHardBBranch5Facts
-import Elegant.Layered.CaptionSizingGroupFacts
 import Elegant.Layered.FlatC6
 import Elegant.Layered.LabelsC7Bridges
 import Elegant.Kinds.LayeredSeamAdapters

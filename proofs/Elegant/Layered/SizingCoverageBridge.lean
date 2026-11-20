@@ -80,43 +80,6 @@ theorem SceneExecution.packed_rect_exists
   exact ⟨execution.packedAcc.rects[i],
     Array.getElem?_eq_some_iff.mpr ⟨hsize, rfl⟩⟩
 
-theorem SceneExecution.fixed_caption_packed_fit
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res) (hin : CaptionInputs captions inp o)
-    {key : Nat} {box : ModelBox} (hbox : inp.boxes[key]? = some box)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) = some entry) :
-    ∃ rect lines, execution.packedAcc.rects[key]? = some rect ∧
-      execution.lines[key]? = some lines ∧
-      lines.foldl (fun width line => max width line.width) 0 +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).w ∧
-      (max 1 lines.length : Int) * execution.params.lineH +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).h := by
-  obtain ⟨rect, hrect⟩ := execution.packed_rect_exists
-    (List.getElem?_eq_some_iff.mp hbox).1
-  obtain ⟨lines, hline, hw, hh⟩ := execution.fixed_caption_packed_fit_of_coverage
-    hin execution.parts_coverage hbox hfixed hrect
-  exact ⟨rect, lines, hrect, hline, hw, hh⟩
-
-theorem SceneExecution.fixed_box_fallback_sizing
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res) (hin : CaptionInputs captions inp o)
-    {index : Nat} {box : Box} (hbox : res.scene.boxes[index]? = some box)
-    {source : ModelBox} (hsource : inp.boxes[index]? = some source)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == source.id) = some entry) :
-    (((execution.lines.getD index []).length : Int) * execution.params.lineH ≤ box.rect.h) ∧
-      (2 * execution.params.clusterPad ≤ box.rect.w ∧
-       execution.params.clusterPad +
-        (max 1 (execution.lines.getD index []).length : Int) * execution.params.lineH ≤
-          box.rect.h) := by
-  obtain ⟨rect, hrect⟩ := execution.packed_rect_exists
-    (List.getElem?_eq_some_iff.mp hsource).1
-  exact execution.fixed_box_fallback_sizing_of_coverage hin execution.parts_coverage
-    hbox hsource hfixed hrect
-
 theorem SceneExecution.ordinary_node_packed_fit
     {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res)

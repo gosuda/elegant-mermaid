@@ -1,6 +1,5 @@
 import Elegant.Layered.LabelsC7Captions
 import Elegant.Layered.CaptionScopeGeometry
-import Elegant.Layered.CaptionSizingFacts
 import Elegant.Layered.CaptionOwnerScopeFacts
 import Elegant.Layered.CaptionTitleBranchFacts
 import Elegant.Layered.CaptionDescendantFacts

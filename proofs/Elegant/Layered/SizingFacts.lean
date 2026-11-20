@@ -268,36 +268,6 @@ theorem packAcc_rect_minimum_dimensions
     exact (List.of_mem_zip hp).1
   · exact hinit
 
-def CaptionsMatch (inp : Input) (captions : String → String) : Prop :=
-  ∀ i box, inp.boxes[i]? = some box →
-    inp.texts.getD i box.id = captions box.id
-
-theorem CaptionsMatch.selectInput
-    {inp : Input} {captions : String → String}
-    (h : CaptionsMatch inp captions) (keep : ModelBox → Bool) (root : String) :
-    CaptionsMatch (selectInput inp keep root) captions := by
-  intro i box hbox
-  cases hs : (inp.boxes.zipIdx.filter fun q => keep q.1)[i]? with
-  | none =>
-    simp only [PipelineImpl.selectInput, List.getElem?_map, hs, Option.map_none] at hbox
-    cases hbox
-  | some q =>
-    have he : (if q.1.parent == root then { q.1 with parent := "" } else q.1) = box := by
-      simpa only [PipelineImpl.selectInput, List.getElem?_map, hs, Option.map_some,
-        Option.some.injEq] using hbox
-    have hid : box.id = q.1.id := by
-      rw [← he]
-      split <;> rfl
-    have hsource : inp.boxes[q.2]? = some q.1 :=
-      List.mem_zipIdx_iff_getElem?.mp
-        (List.mem_filter.mp (List.mem_of_getElem? hs)).1
-    have ht := selectInput_caption_at inp keep root i q hs
-    have htext : (PipelineImpl.selectInput inp keep root).texts.getD i box.id =
-        inp.texts.getD q.2 q.1.id := by
-      simp only [List.getD_eq_getElem?_getD, ht, Option.getD_some]
-    rw [htext, hid]
-    exact h q.2 q.1 hsource
-
 theorem caption_index_of_unique_ids {inp : Input}
     (hids : (inp.boxes.map (·.id)).Nodup)
     {i : Nat} {box : ModelBox} (hbox : inp.boxes[i]? = some box) :
@@ -314,29 +284,6 @@ theorem caption_index_of_unique_ids {inp : Input}
       simpa only [List.getElem_map, he] using (beq_iff_eq.mp hsame)
     omega
 
-theorem captionsMatch_indexed {inp : Input}
-    (hids : (inp.boxes.map (·.id)).Nodup) :
-    CaptionsMatch inp (fun id =>
-      inp.texts.getD ((inp.boxes.findIdx? (fun box => box.id == id)).getD 0) id) := by
-  intro i box hbox
-  dsimp only
-  rw [caption_index_of_unique_ids hids hbox]
-  rfl
-
-theorem FrameOrigin.caption_source {o : Options} {id : String} {size : Size}
-    (origin : FrameOrigin o id size) {captions : String → String}
-    (hids : (origin.source.boxes.map (·.id)).Nodup)
-    (hcaptions : CaptionsMatch origin.source captions) :
-    origin.source.texts.getD
-      ((origin.source.boxes.findIdx? (fun box => box.id == origin.group.id)).getD 0)
-      origin.group.id = captions id := by
-  obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp
-    (List.mem_of_find?_eq_some origin.group_found)
-  rw [caption_index_of_unique_ids hids hi]
-  simp only [Option.getD_some]
-  rw [hcaptions i origin.group hi]
-  exact congrArg captions origin.id_eq.symm
-
 theorem FrameOrigin.title_fit {o : Options} {id : String} {size : Size}
     (origin : FrameOrigin o id size) :
     origin.titleLines.foldl (fun width line => max width line.width) 0 +
@@ -350,135 +297,6 @@ theorem FrameOrigin.title_fit {o : Options} {id : String} {size : Size}
   have hw := congrArg Size.w origin.size_eq
   have hh := congrArg Size.h origin.size_eq
   exact ⟨hw.symm ▸ fit.1, hh.symm ▸ fit.2⟩
-
-def FrameCaptionFit (kind : String) (profile : Profile) (maxWidth : Int)
-    (captions : String → String) (entry : String × Size) : Prop :=
-  ∃ (params : Params) (metric : Measure.Metric) (lines : List Measure.Line),
-    checkedParams profile kind = .ok params ∧
-    metricOf profile = .ok metric ∧
-    StyledMeasure.wrap metric
-      (Measure.wrapTarget metric.profile params.wrapWidth
-        (if profile == .cell then maxWidth else 0))
-      (captions entry.1).toList = .ok lines ∧
-    lines.foldl (fun width line => max width line.width) 0 +
-      2 * params.clusterPad ≤ entry.2.w ∧
-    (max 1 lines.length : Int) * params.lineH +
-      2 * params.clusterPad ≤ entry.2.h
-
-theorem FrameOrigin.caption_fit {o : Options} {id : String} {size : Size}
-    (origin : FrameOrigin o id size) {captions : String → String}
-    (hids : (origin.source.boxes.map (·.id)).Nodup)
-    (hcaptions : CaptionsMatch origin.source captions) :
-    FrameCaptionFit origin.source.kind o.profile o.maxWidth captions (id, size) := by
-  refine ⟨origin.params, origin.metric, origin.titleLines,
-    origin.checked, origin.metric_eq, ?_, origin.title_fit⟩
-  have ht := origin.title_eq
-  rw [origin.caption_source hids hcaptions] at ht
-  exact ht
-
-def CaptionInputs (captions : String → String) (inp : Input) (o : Options) : Prop :=
-  CaptionsMatch inp captions ∧
-    (inp.boxes.map (·.id)).Nodup ∧
-    ∀ entry ∈ inp.fixedSizes,
-      FrameCaptionFit inp.kind o.profile o.maxWidth captions entry
-
-theorem CaptionInputs.selectInput {captions : String → String}
-    {inp : Input} {o : Options} (h : CaptionInputs captions inp o)
-    (keep : ModelBox → Bool) (root : String) :
-    CaptionInputs captions (selectInput inp keep root) o := by
-  refine ⟨CaptionsMatch.selectInput h.1 keep root, ?_, h.2.2⟩
-  rw [selectInput_box_ids]
-  exact List.Nodup.sublist ((List.filter_sublist).map _) h.2.1
-
-theorem captionInputs_initial {inp : Input} {o : Options}
-    (hids : (inp.boxes.map (·.id)).Nodup)
-    (hframes : inp.fixedSizes = []) :
-    CaptionInputs (fun id =>
-      inp.texts.getD ((inp.boxes.findIdx? (fun box => box.id == id)).getD 0) id)
-      inp o := by
-  refine ⟨captionsMatch_indexed hids, hids, ?_⟩
-  intro entry hentry
-  rw [hframes] at hentry
-  cases hentry
-
-theorem layoutRecursive_caption_trace (fuel : Nat)
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (hin : CaptionInputs captions inp o)
-    (h : layoutRecursive fuel inp o = .ok res) :
-    TraceOf (CaptionInputs captions) fuel inp o := by
-  induction fuel generalizing inp o res with
-  | zero => exact hin
-  | succ fuel ih =>
-    simp only [layoutRecursive] at h
-    simp only [TraceOf]
-    split at h
-    · rename_i hnone
-      exact Or.inl ⟨hnone, hin⟩
-    · rename_i group hgroup
-      obtain ⟨P, hP, h⟩ := bind_ok h
-      obtain ⟨metric, hm, h⟩ := bind_ok h
-      obtain ⟨child, hc, h⟩ := bind_ok h
-      obtain ⟨titleLines, ht, h⟩ := bind_ok h
-      obtain ⟨parent, hp, _⟩ := bind_ok h
-      let size := childFrameSize group.direction P.clusterPad
-        (titleLines.foldl (fun width line => max width line.width) 0)
-        ((max 1 titleLines.length : Int) * P.lineH)
-        ⟨child.scene.canvas.w - 2 * P.canvasMargin,
-          child.scene.canvas.h - 2 * P.canvasMargin⟩
-      let origin : FrameOrigin o group.id size :=
-        ⟨inp, group, fuel, P, metric, child, titleLines,
-          hgroup, rfl, hP, hm, hc, ht, by
-            dsimp only [size]
-            rw [checkedParams_canvasMargin hP]⟩
-      have hchild : CaptionInputs captions
-          (selectInput inp (fun box => Compound.inside inp.boxes group.id box.id) group.id)
-          { o with direction := directionOf group.direction } :=
-        CaptionInputs.selectInput hin _ _
-      have hselected := CaptionInputs.selectInput hin
-        (fun box => !Compound.inside inp.boxes group.id box.id) ""
-      have hparent : CaptionInputs captions
-          { selectInput inp (fun box => !Compound.inside inp.boxes group.id box.id) with
-            fixedSizes := inp.fixedSizes ++ [(group.id, size)]
-            fixedChildren := inp.fixedChildren ++ [(group.id, child.scene)]
-            fixedAreas := inp.fixedAreas ++ [(group.id, child.itemArea)] } o := by
-        refine ⟨hselected.1, hselected.2.1, ?_⟩
-        intro entry hentry
-        rcases List.mem_append.mp hentry with hold | hnew
-        · exact hin.2.2 entry hold
-        · have he := List.mem_singleton.mp hnew
-          subst entry
-          exact origin.caption_fit hin.2.1 hin.1
-      exact Or.inr ⟨group, hgroup, ih hchild hc, _, _, _, ih hparent hp⟩
-
-theorem SceneExecution.fixed_caption_fit
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res)
-    (hin : CaptionInputs captions inp o)
-    {i : Nat} {box : ModelBox} (hbox : inp.boxes[i]? = some box)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) = some entry) :
-    ∃ lines, execution.lines[i]? = some lines ∧
-      lines.foldl (fun width line => max width line.width) 0 +
-        2 * execution.params.clusterPad ≤ entry.2.w ∧
-      (max 1 lines.length : Int) * execution.params.lineH +
-        2 * execution.params.clusterPad ≤ entry.2.h := by
-  obtain ⟨params, metric, lines, hp, hm, ht, hw, hh⟩ :=
-    hin.2.2 entry (List.mem_of_find?_eq_some hfixed)
-  have hparams : params = execution.params := Except.ok.inj (hp.symm.trans execution.checked)
-  subst params
-  have hmetric : metric = execution.metric := Except.ok.inj (hm.symm.trans execution.metric_eq)
-  subst metric
-  have hlines := execution.lines_eq
-  unfold boxLines at hlines
-  obtain ⟨_, hlookup⟩ := mapM_getElem? _ _ _ hlines
-  obtain ⟨measured, hmeasured, hindex⟩ := hlookup i (box, i)
-    (by simp only [List.getElem?_zipIdx, hbox, Option.map_some, Nat.zero_add])
-  dsimp only at hmeasured
-  have hid : entry.1 = box.id := by simpa using List.find?_some hfixed
-  rw [hin.1 i box hbox, ← hid] at hmeasured
-  have he : lines = measured := Except.ok.inj (ht.symm.trans hmeasured)
-  subst measured
-  exact ⟨lines, hindex, hw, hh⟩
 
 theorem measuredGraph_fixed_node_dims
     {P : Params} {inp : Input} {o : Options}
@@ -545,29 +363,6 @@ theorem measuredGraph_fixed_node_dims
         subst after
         cases o.direction <;> simp only [orientNode] at * <;> omega
 
-theorem SceneExecution.fixed_caption_node_fit
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res)
-    (hin : CaptionInputs captions inp o)
-    {i : Nat} {box : ModelBox} (hbox : inp.boxes[i]? = some box)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) = some entry) :
-    ∃ lines node, execution.lines[i]? = some lines ∧
-      execution.graph.nodes[i]? = some node ∧ node.decl = i ∧ node.border = 0 ∧
-      (match o.direction with
-        | .LR | .RL => (max 1 lines.length : Int) * execution.params.lineH
-        | .TB | .BT => lines.foldl (fun width line => max width line.width) 0) +
-          2 * execution.params.clusterPad ≤ node.w ∧
-      (match o.direction with
-        | .LR | .RL => lines.foldl (fun width line => max width line.width) 0
-        | .TB | .BT => (max 1 lines.length : Int) * execution.params.lineH) +
-          2 * execution.params.clusterPad ≤ node.h := by
-  obtain ⟨lines, hline, hw, hh⟩ := execution.fixed_caption_fit hin hbox hfixed
-  obtain ⟨node, hnode, hdecl, hborder, hnw, hnh⟩ :=
-    measuredGraph_fixed_node_dims execution.graph_eq hline hbox hfixed
-  refine ⟨lines, node, hline, hnode, hdecl, hborder, ?_, ?_⟩
-  all_goals cases hd : o.direction <;> simp only [hd] at hnw hnh ⊢ <;> omega
-
 theorem componentRun_original_frame_minimum_dims
     {P : Params} {cg : Graph} {run : Run}
     {labels : List MeasuredLabel} {orderOptions : OrderOptions}
@@ -630,30 +425,6 @@ theorem SceneExecution.component_rect_minimum_dims
   have heq := Option.some.inj hindex
   exact ⟨by rw [Prod.mk.inj heq |>.1]; exact hminimum.1,
     by rw [Prod.mk.inj heq |>.2]; exact hminimum.2⟩
-
-theorem SceneExecution.fixed_caption_component_fit
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res)
-    (hin : CaptionInputs captions inp o)
-    {key : Nat} {box : ModelBox} (hbox : inp.boxes[key]? = some box)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) = some entry)
-    {part : List Nat × Part} (hpart : part ∈ execution.componentsAcc.parts)
-    {i : Nat} (hkey : part.1[i]? = some key)
-    {rect : Rect} (hrect : part.2.rects[i]? = some rect) :
-    ∃ lines, execution.lines[key]? = some lines ∧
-      lines.foldl (fun width line => max width line.width) 0 +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).w ∧
-      (max 1 lines.length : Int) * execution.params.lineH +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).h := by
-  obtain ⟨lines, node, hline, hnode, _, hborder, hw, hh⟩ :=
-    execution.fixed_caption_node_fit hin hbox hfixed
-  have hminimum := execution.component_rect_minimum_dims hpart hkey hnode hborder hrect
-  refine ⟨lines, hline, ?_, ?_⟩
-  all_goals
-    cases hd : o.direction <;> simp only [hd, orientRect] at hw hh ⊢ <;> omega
 
 theorem indexed_rect_minimum_dimensions_pending
     (minimum : Nat → Size) (dx dy : Int) (entries : List (Nat × Rect))
@@ -817,32 +588,6 @@ theorem SceneExecution.packed_rect_minimum_dims_of_coverage
     (fun i r hr => Or.inr (hcoverage i r hr)) hparts key rect hrect
   simpa only [minimum, hnode, hborder, ↓reduceIte] using hfit
 
-theorem SceneExecution.fixed_caption_packed_fit_of_coverage
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res)
-    (hin : CaptionInputs captions inp o)
-    (hcoverage : ∀ i rect, execution.componentsAcc.rects[i]? = some rect →
-      ∃ part ∈ execution.componentsAcc.parts,
-        ∃ entry ∈ part.1.zip part.2.rects, entry.1 = i)
-    {key : Nat} {box : ModelBox} (hbox : inp.boxes[key]? = some box)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) = some entry)
-    {rect : Rect} (hrect : execution.packedAcc.rects[key]? = some rect) :
-    ∃ lines, execution.lines[key]? = some lines ∧
-      lines.foldl (fun width line => max width line.width) 0 +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).w ∧
-      (max 1 lines.length : Int) * execution.params.lineH +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).h := by
-  obtain ⟨lines, node, hline, hnode, _, hborder, hw, hh⟩ :=
-    execution.fixed_caption_node_fit hin hbox hfixed
-  have hminimum :=
-    execution.packed_rect_minimum_dims_of_coverage hcoverage hnode hborder hrect
-  refine ⟨lines, hline, ?_, ?_⟩
-  all_goals
-    cases hd : o.direction <;> simp only [hd, orientRect] at hw hh ⊢ <;> omega
-
 theorem SceneExecution.box_index_origin
     {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res) {index : Nat} {box : Box}
@@ -858,47 +603,5 @@ theorem SceneExecution.box_index_origin
   | some source =>
     refine ⟨source, rfl, ?_⟩
     simpa [hs] using hbox.symm
-
-theorem SceneExecution.fixed_box_fallback_sizing_of_coverage
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res) (hin : CaptionInputs captions inp o)
-    (hcoverage : ∀ i rect, execution.componentsAcc.rects[i]? = some rect →
-      ∃ part ∈ execution.componentsAcc.parts,
-        ∃ entry ∈ part.1.zip part.2.rects, entry.1 = i)
-    {index : Nat} {box : Box} (hbox : res.scene.boxes[index]? = some box)
-    {source : ModelBox} (hsource : inp.boxes[index]? = some source)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == source.id) = some entry)
-    {rect : Rect} (hrect : execution.packedAcc.rects[index]? = some rect) :
-    (((execution.lines.getD index []).length : Int) * execution.params.lineH ≤ box.rect.h) ∧
-      (2 * execution.params.clusterPad ≤ box.rect.w ∧
-       execution.params.clusterPad +
-        (max 1 (execution.lines.getD index []).length : Int) * execution.params.lineH ≤ box.rect.h) := by
-  obtain ⟨actual, hactual, hboxeq⟩ := execution.box_index_origin hbox
-  rw [hsource] at hactual
-  cases Option.some.inj hactual
-  obtain ⟨lines, hline, hw, hh⟩ :=
-    execution.fixed_caption_packed_fit_of_coverage hin hcoverage hsource hfixed hrect
-  have hget : execution.packedAcc.rects.getD index default = rect := by
-    obtain ⟨hi, heq⟩ := Array.getElem?_eq_some_iff.mp hrect
-    simpa [Array.getD, hi] using heq
-  have hlineget : execution.lines.getD index [] = lines := by
-    simp only [List.getD_eq_getElem?_getD, hline, Option.getD_some]
-  have signs := checkedParams_sizing_nonneg execution.checked
-  have width_nonneg : ∀ (ls : List Measure.Line) (start : Int),
-      0 ≤ start → 0 ≤ ls.foldl (fun w line => max w line.width) start := by
-    intro ls
-    induction ls with
-    | nil => intro start hs; exact hs
-    | cons line rest ih =>
-      intro start hs
-      exact ih _ (Int.le_trans hs (Int.le_max_left _ _))
-  have hw0 := width_nonneg lines 0 (by omega)
-  have hheight : (lines.length : Int) * execution.params.lineH ≤
-      (max 1 lines.length : Int) * execution.params.lineH :=
-    Int.mul_le_mul_of_nonneg_right (by omega) signs.1
-  rw [hboxeq, hget, hlineget]
-  dsimp only [shiftRect]
-  exact ⟨by omega, by omega, by omega⟩
 
 end Elegant.Layered.PipelineImpl

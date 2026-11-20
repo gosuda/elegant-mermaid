@@ -1,5 +1,4 @@
 import Elegant.Layered.CaptionsSeamFacts
-import Elegant.Layered.CaptionSizingGroupFacts
 import Elegant.Layered.CaptionDescendantFacts
 import Elegant.Layered.CaptionOwnerScopeFacts
 import Elegant.Layered.CaptionTitleBranchFacts

@@ -535,8 +535,6 @@ Elegant.Layered.PipelineImpl.componentRun_original_node_dims
 Elegant.Kinds.Quadrant.quadrant_valid
 Elegant.Kinds.Cynefin.cynefin_valid
 Elegant.Kinds.Cynefin.c8OverlapWitness_rejected
-Elegant.Layered.PipelineImpl.layoutRecursive_caption_trace
-Elegant.Layered.PipelineImpl.SceneExecution.fixed_caption_fit
 Elegant.Layered.PipelineImpl.measuredGraph_fixed_node_dims
 Elegant.Layered.PipelineImpl.packAcc_rect_minimum_dimensions
 Elegant.Kinds.Timeline.caption_width_nonneg
@@ -564,18 +562,14 @@ Elegant.Chart.Gantt.successful_box_inside_plot
 Elegant.Chart.Gantt.gantt_c1
 Elegant.Chart.Gantt.gantt_c3
 Elegant.Chart.Gantt.gantt_valid
-Elegant.Layered.PipelineImpl.SceneExecution.fixed_caption_node_fit
 Elegant.Layered.PipelineImpl.componentRun_original_frame_minimum_dims
 Elegant.Layered.PipelineImpl.SceneExecution.component_rect_minimum_dims
-Elegant.Layered.PipelineImpl.SceneExecution.fixed_caption_component_fit
 Elegant.Layered.PipelineImpl.indexed_rect_minimum_dimensions_pending
 Elegant.Layered.PipelineImpl.packFold_rect_minimum_dimensions_pending
 Elegant.Layered.PipelineImpl.packAcc_rect_minimum_dimensions_of_coverage
 Elegant.Grid.Architecture.build_scene_C1
 Elegant.Layered.PipelineImpl.SceneExecution.packed_rect_minimum_dims_of_coverage
-Elegant.Layered.PipelineImpl.SceneExecution.fixed_caption_packed_fit_of_coverage
 Elegant.Layered.PipelineImpl.SceneExecution.box_index_origin
-Elegant.Layered.PipelineImpl.SceneExecution.fixed_box_fallback_sizing_of_coverage
 Elegant.Layered.PipelineImpl.measuredGraph_node_border_zero
 Elegant.Layered.PipelineImpl.SceneExecution.ordinary_node_packed_text_fit
 Elegant.Layered.PipelineImpl.SceneExecution.ordinary_box_line_height_of_coverage
@@ -618,8 +612,6 @@ Elegant.Layered.PipelineImpl.componentRun_border_member_gap
 Elegant.Layered.PipelineImpl.componentRun_two_border_member_gaps
 Elegant.Layered.PipelineImpl.SceneExecution.parts_coverage
 Elegant.Layered.PipelineImpl.SceneExecution.packed_rect_exists
-Elegant.Layered.PipelineImpl.SceneExecution.fixed_caption_packed_fit
-Elegant.Layered.PipelineImpl.SceneExecution.fixed_box_fallback_sizing
 Elegant.Layered.PipelineImpl.SceneExecution.ordinary_node_packed_fit
 Elegant.Layered.PipelineImpl.SceneExecution.ordinary_box_line_height
 Elegant.Layered.PipelineImpl.actual_group_self_membership
@@ -1327,7 +1319,6 @@ Elegant.Treemap.C8b.descendant_tile_clear_of_header_label'
 Elegant.Treemap.C8b.kernels_of_label_kernels
 Elegant.Ishikawa.hard_b_branch5_placement_counterexample
 Elegant.Layered.routeLabelDumpBridges
-Elegant.Layered.captionInputs_of_group_facts
 Elegant.Layered.PipelineImpl.expandChild_c8a_structure_wrapped
 Elegant.Layered.PipelineImpl.expandChild_labels_eq_wrapped
 Elegant.Layered.PipelineImpl.expandChild_label_classes_wrapped
