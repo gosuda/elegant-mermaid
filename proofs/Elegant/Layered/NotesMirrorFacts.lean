@@ -654,6 +654,42 @@ theorem notesContractMirror_holds {base : List String → Input → Options → 
   obtain ⟨ib, hib, hid2, hpar2, hexc2⟩ := nmf_contractFold_mem3 _ _ hmb
   exact ⟨ib, hib, hid.trans hid2.symm, hpar.trans hpar2.symm, hexc.trans hexc2.symm⟩
 
+private theorem parentTransfer_of_boxMirror {src : List ModelBox} {dst : List Box}
+    (hnd : (src.map (·.id)).Nodup)
+    (hmirror : ∀ b ∈ dst, ∃ m ∈ src, b.id = m.id ∧ b.parent = m.parent) :
+    IdParentTransferM src dst := by
+  intro id b hb
+  obtain ⟨m, hm, hid, hparent⟩ := hmirror b (List.mem_of_find?_eq_some hb)
+  have htest := List.find?_some hb
+  have hbid : b.id = id := beq_iff_eq.mp htest
+  let mapped := Box.mk m.id m.role.id ⟨0, 0, 0, 0⟩ m.parent m.exclusive
+  refine ⟨mapped, ?_, hid.symm, hparent.symm⟩
+  exact nmf_find?_unique (·.id) (modelBoxesToDump src)
+    (by simpa only [modelBoxesToDump, List.map_map, Function.comp_def] using hnd)
+    mapped (List.mem_map.mpr ⟨m, hm, rfl⟩) id (hid.symm.trans hbid)
+
+theorem contractFold_parentTransfer (inp : Input) (layouts : List BundleLayout)
+    (hnd : (inp.boxes.map (·.id)).Nodup) :
+    IdParentTransferM inp.boxes (modelBoxesToDump (layouts.foldl contractOne inp).boxes) := by
+  apply parentTransfer_of_boxMirror hnd
+  intro b hb
+  obtain ⟨m, hm, rfl⟩ := List.mem_map.mp hb
+  obtain ⟨original, horiginal, hid, hparent, _⟩ := nmf_contractFold_mem3 inp layouts hm
+  exact ⟨original, horiginal, hid.symm, hparent.symm⟩
+
+theorem notesContractedScene_parentTransfer
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res)
+    (hnd : (inp.boxes.map (·.id)).Nodup) (hBase : NotesBaseContract e) :
+    IdParentTransferM e.contractedInput.boxes e.contracted.scene.boxes := by
+  apply parentTransfer_of_boxMirror
+  · rw [e.contractedInput_eq]
+    exact nmf_contractFold_nodup inp e.layouts hnd
+  · intro b hb
+    obtain ⟨m, hm, hid, hparent, _⟩ := hBase.2 b hb
+    exact ⟨m, hm, hid, hparent⟩
+
 /-- Parent alignment through the bundle top: the top and its notes come from
 the input, notes share the top's parent by hypothesis, and the contracted top
 box shares it by base preservation. -/

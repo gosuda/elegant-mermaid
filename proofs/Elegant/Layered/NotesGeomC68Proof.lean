@@ -17,18 +17,13 @@ Proved here:
   well-formedness (`nc68C6Geom_of_bridgeW`). The two exclusivity conjuncts come
   from the box mirrors (`ngfC6BoxExclC/F_holds` via `notesContractMirror_holds` /
   `notesFragMirror_holds`); the other eight are reassembled from the bridge.
-* `NotesC8aGeomT` from the single bridge `Nc68C8aBridgeW` plus local
-  well-formedness (`nc68C8aGeomT_of_bridgeW`). The repaired role conjunct comes
-  from `notesC8aContractRoleT_holds`; the other eleven are reassembled.
+* `NotesC8aGeomT` from `Nc68C8aBridgeW` and local well-formedness
+  (`nc68C8aGeomT_of_bridgeW`). The contraction fold and the base scene mirror
+  establish parent transfer and the contracted length bound.
 * Guarded `notesFragFirstWins` from lookup uniqueness
   (`nc68_fragFirstWins_of_unique` via `notesFirstMatch_holds`).
 
-Open as ONE public named def per clause: `Nc68C6BridgeW` (eight open C6 conjuncts
-plus the three mirror primitives) and `Nc68C8aBridgeW` (eleven open C8aT
-conjuncts plus the contracted-mirrors-folded premise). Both strictly on
-executed `NotesExecution` runs, real geometric content, neither the goal
-renamed nor logically stronger alone (each needs `WellFormed` nodup for its
-derived conjunct).
+The bridges quantify over executed `NotesExecution` runs.
 
 False as stated: unconditional `notesFragFirstWins` over arbitrary fragment
 lists. Witness: `p1` with box `("x", ⟨0,0,1,1⟩)`, `dx/dy = 0/0` and `p2` with the
@@ -57,13 +52,12 @@ def Nc68C6BridgeW {base : List String → Input → Options → Except LayoutErr
     NotesC6KeptFrag e ∧ NotesC6FragContracted e ∧ NotesC6FragOther e ∧
     NotesC6RouterClear e ∧ NotesBaseContract e ∧ NotesBaseFrag e ∧ NotesFragRoots e
 
-/-- C8a bridge: the eleven open C8aT conjuncts plus the contracted-mirrors-folded
-premise that yields the repaired role conjunct with local nodup. -/
+/-- C8a geometry premises beyond the contraction fold and base box mirror. -/
 def Nc68C8aBridgeW {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
-  NotesC8aTopNodup e ∧ NotesC8aFold e ∧ NotesC8aLen e ∧ NotesC8aContractScene e ∧
-    NotesC8aFragRole e ∧ NotesC8aFragFound e ∧ NotesC8aClear e ∧ NotesC8aFragDisj e ∧
+  NotesC8aTopNodup e ∧ NotesBaseContract e ∧ NotesC8aFragRole e ∧
+    NotesC8aFragFound e ∧ NotesC8aClear e ∧ NotesC8aFragDisj e ∧
     NotesC8aSceneAnc e ∧ NotesC8aEnv e ∧ NotesC8aEnvDisj e ∧
     (∀ cg ∈ e.contracted.scene.boxes, ∃ fb ∈ (e.layouts.foldl contractOne inp).boxes,
       fb.id = cg.id ∧ cg.role = fb.role.id)
@@ -77,8 +71,19 @@ theorem nc68C8aGeomT_of_bridgeW
     (hwf : WellFormed (inputModel inp o))
     (hW : Nc68C8aBridgeW e) :
     NotesC8aGeomT e := by
-  obtain ⟨htop, hfold, hlen, hcs, hfr, hff, hclr, hfd, hsa, henv, henvd, hmir⟩ := hW
+  obtain ⟨htop, hbase, hfr, hff, hclr, hfd, hsa, henv, henvd, hmir⟩ := hW
   have hnd : (inp.boxes.map (fun b => b.id)).Nodup := Model.boxIds_nodup hwf
+  have hfold : NotesC8aFold e := contractFold_parentTransfer inp e.layouts hnd
+  have hlen : NotesC8aLen e := by
+    have hids := congrArg List.length hbase.1
+    simp only [List.length_map] at hids
+    unfold NotesC8aLen
+    rw [hids, e.contractedInput_eq]
+    exact fold_length_le inp e.layouts
+  have hcs : NotesC8aContractScene e := by
+    have h := notesContractedScene_parentTransfer e hnd hbase
+    rw [e.contractedInput_eq] at h
+    exact h
   have hcrT := notesC8aContractRoleT_holds e hnd hmir
   exact ⟨htop, hfold, hlen, hcs, hcrT, hfr, hff, hclr, hfd, hsa, henv, henvd⟩
 

@@ -2599,6 +2599,8 @@ Elegant.Layered.PipelineImpl.c8aTL_topLookupDummy_holds
 Elegant.Layered.PipelineImpl.c8aR_topLookup_closed
 Elegant.Layered.PipelineImpl.XSc8a_anchorCover_closed'
 Elegant.Layered.PipelineImpl.notesContractMirror_holds
+Elegant.Layered.PipelineImpl.contractFold_parentTransfer
+Elegant.Layered.PipelineImpl.notesContractedScene_parentTransfer
 Elegant.Layered.PipelineImpl.notesParentAlign_holds
 Elegant.Layered.PipelineImpl.notesFragMirror_holds
 Elegant.Layered.PipelineImpl.notesParentLocal_holds

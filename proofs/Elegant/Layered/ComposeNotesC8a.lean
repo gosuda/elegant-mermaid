@@ -408,7 +408,7 @@ private theorem contractOne_length_le (inp : Input) (l : BundleLayout) :
   simp only [contractOne, List.length_map]
   exact Nat.le_trans (List.length_filter_le _ _) (by simp)
 
-private theorem fold_length_le (inp : Input) (layouts : List BundleLayout) :
+theorem fold_length_le (inp : Input) (layouts : List BundleLayout) :
     (layouts.foldl contractOne inp).boxes.length ≤ inp.boxes.length := by
   induction layouts generalizing inp with
   | nil => simp
