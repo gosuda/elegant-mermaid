@@ -618,6 +618,7 @@ import Elegant.Layered.RegionSeams
 import Elegant.Layered.ExpandChildParentFixedForeignProof
 import Elegant.Layered.ExpandChildParentRouteAttachedClearProof
 import Elegant.Layered.ExpandChildParentFrameTransportFactsProof
+import Elegant.Layered.ExpandChildParentPortStraightMissProof
 import Elegant.Layered.LaneEndsPinEnds
 import Elegant.Layered.LaneEndsPinPhases
 import Elegant.Layered.LaneEndsPinPhaseApply

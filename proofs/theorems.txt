@@ -2985,3 +2985,6 @@ Elegant.Kinds.swimlane_basePos
 Elegant.Kinds.orthoAllWitness
 Elegant.Kinds.orthoAllWitness_gates
 notesC8aTopNodup_holds
+Elegant.Layered.PipelineImpl.componentRunX_directStraight_attached_frame_miss
+Elegant.Layered.PipelineImpl.parent_port_miss_transport
+Elegant.Layered.PipelineImpl.X_chosen_part_directStraight_attached_frame_miss
