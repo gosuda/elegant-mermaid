@@ -92,9 +92,8 @@ def R_NonfixedGroupTitle (exactIds : List String)
     ((sceneTitlesExpr execution.params inp o execution.lines
       execution.packedAcc).find? (fun title => title.1 == obox.id)).isSome = true
 
- /-- R twin of `X_OwnerFrameDisjointX`
- (`ExactFallbackCaptionFactsProof.lean:70`): the C8a instance the owner-frame
- proof needs. Geometric residual, stays open. -/
+ /-- The fallback owner's frame must miss unrelated group frames.
+ The exact-family counterpart is `XFB_OwnerFrameDisjointW`. -/
  def R_OwnerFrameDisjoint (exactIds : List String)
      (idSets : List (String × List String)) : Prop :=
    ∀ {inp : Input} {o : Options} {res : FamilyResult}
