@@ -1,4 +1,5 @@
 import Elegant.Kinds.Swimlane
+import Elegant.Kinds.SwimlaneEndsSplitCutover
 import Elegant.Layered.FamilyAssembly
 import Elegant.Layered.InputFixedFit
 import Elegant.Layered.BoxRouteIdsDisjoint
@@ -35,9 +36,11 @@ per-clause theorems, with C6 discharged executably via
 Remaining seams (each LOCAL to `m` or to an executed `layoutFamily` run;
 no premise quantifies over arbitrary scenes or bands):
 
-- `endsSplit`: OPEN. Same-band-or-kink ends for executed family scenes
-  (discharges the `hEnds` premise of `pinBands_ends_exec_final`). No finished
-  fact gives the disjunction; no base clause speaks about band shifts.
+- `endsSplit`: OPEN. On each successful base layout, every route either
+  crosses distinct bands with at least two points or has equal endpoint shifts.
+  `swimlane_endsOld_of_premise` proves the pin endpoint guarantee from this
+  condition. The former same-band-or-kink condition fails on both
+  `endsSplitWitnessG2G` and `endsSplitWitnessG2Loose`.
 - `boxNonneg`: OPEN. Executed family scene boxes have nonnegative cross
   lengths (discharges `hLen` via `pinBands_framesLenNonneg`). No finished
   fact; base C1 (`Contained` in the canvas) still allows a negative cross
@@ -64,8 +67,8 @@ discharges. Closed by derivation (no seam): `endsBox` by
 `pinBands_c1` + `attachLaneEnds_c1`; C7 by `pinBands_c7` (from
 `swimPin_clean`/`swimPin_shape`); C8b by `pinBands_c8b` +
 `attachLaneEnds_c8b`; `FindRouteOrthoPin` by `findRouteOrthoPin_holds`;
-`FindRouteEndsPin` by `findRouteEndsPin_holds`; the apply-pin phase by
-`lepePhaseApplyPinExec_closed` (inside `pinBands_ends_exec_final`); gap by
+`FindRouteEndsPin` by `findRouteEndsPin_holds`; the pin endpoint guarantee by
+`SwimlaneEndsCutover.swimlane_endsOld_of_premise`; gap by
 `pinBands_gapClear_closed`; fit by `pinBands_framesFit`; lengths by
 `pinBands_framesLenNonneg`; positivity by `pinBands_exclusivePositive`;
 C6 by `pinBands_c6_executed_closed`. -/
@@ -81,20 +84,7 @@ model `m` or about executed runs guarded by a successful `layoutFamily`
 run (LOCAL premises only); no field quantifies over arbitrary scenes or
 bands. -/
 structure SwimlanePinSeams (m : Model) where
-  /-- OPEN: same-band-or-kink ends for executed family scenes (discharges
-  the `hEnds` premise of `pinBands_ends_exec_final`). No finished fact
-  gives the disjunction. -/
-  endsSplit : ∀ base : Layered.FamilyResult,
-    Layered.layoutFamily (Swimlane.input m) m.options = .ok base →
-    ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
-    ∀ rt ∈ base.scene.routes,
-      bandShift (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-        (lanesOf m.boxes)) rt.fromId =
-      bandShift (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-        (lanesOf m.boxes)) rt.toId ∨
-      ((Axis.ofDirection m.options.direction).point (rt.points.head?.getD ⟨0, 0⟩) ≠
-        (Axis.ofDirection m.options.direction).point
-          (rt.points.getLast?.getD ⟨0, 0⟩) ∧ 1 < rt.points.length)
+  endsSplit : SwimlaneEndsPremise m
   /-- OPEN: executed family scene boxes have nonnegative cross lengths
   (discharges `hLen` via `pinBands_framesLenNonneg`). No finished fact;
   base C1 (`Contained` in the canvas) still allows a negative cross size,
@@ -503,8 +493,7 @@ private theorem swimPin_pos {m : Model} {base : Layered.FamilyResult}
   exact pinBands_exclusivePositive hPosS hNoEmpty hBoxesNodup hne
     hsNodup hpin
 
-/-- Old ends for the executed pin, via the closed ends theorem and the
-`endsSplit` seam; the route-search premises are closed. -/
+/-- The pin preserves boundary endpoints under `SwimlaneEndsPremise`. -/
 private theorem swimPin_endsOld {m : Model} {base : Layered.FamilyResult}
     {r : Scene}
     (P : SwimlanePinSeams m) (hne : ∀ b ∈ m.boxes, b.id ≠ "") (hwf : WellFormed m)
@@ -522,11 +511,10 @@ private theorem swimPin_endsOld {m : Model} {base : Layered.FamilyResult}
   have hnodupB := swimPin_sceneNodup hwf hfam
   have hNoEmpty : ∀ b ∈ base.scene.boxes, b.id ≠ "" :=
     fun b hb => swimPin_sceneNe hne hfam hb
-  have hEnds := P.endsSplit base hfam
   have hModelClean : (m.boxes.map fun b => b.id).Nodup ∧ ∀ b ∈ m.boxes, b.id ≠ "" :=
     ⟨Model.boxIds_nodup hwf, hne⟩
-  exact pinBands_ends_exec_final hC5 hlanes hrouteNodup hnodupB hNoEmpty hEnds
-    findRouteEndsPin_holds hModelClean hpin
+  exact SwimlaneEndsCutover.swimlane_endsOld_of_premise hC5 hlanes hrouteNodup
+    hnodupB hNoEmpty (P.endsSplit base hfam) findRouteEndsPin_holds hModelClean hpin
 
  /-- The executed kept-clear bundle for an arbitrary spacing: every
  conjunct follows from the seams and closed wrappers except the narrow

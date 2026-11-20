@@ -348,6 +348,62 @@ private theorem lxe_phaseGrow_holds : lepePhaseGrow := by
     exact htb
   exact ⟨p, q, fb, tb, hp, hq, hfb', htb', hb1, hb2⟩
 
+/-- Shared transport tail: given ends for the routed scene of an executed
+`pinBands` run, restore/relocate/grow carry them to the `pinBands` result.
+Proof-only transport; the reroute phase supplies `hErouted` in the canonical
+literal form. -/
+theorem pinBands_ends_of_routed {boxes : List ModelBox} {o : Options} {s r : Scene}
+    (hlanes : lanesOf boxes ≠ [])
+    (hnodupB : (s.boxes.map (·.id)).Nodup)
+    (h : pinBands boxes o s = .ok r)
+    (hErouted : ∀ (sp : Spacing), spacingOf o.profile = .ok sp →
+      ∀ pinned routed : Scene,
+        applyPin (buildPin (Axis.ofDirection o.direction)
+            (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s)
+          (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s =
+          .ok pinned →
+        rerouteBands (Axis.ofDirection o.direction) sp
+          (LayoutConst.rank_gap.get o.profile)
+          (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes))
+          (buildPin (Axis.ofDirection o.direction)
+            (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s)
+          s.routes pinned = .ok routed →
+        EndsOnOld (Axis.ofDirection o.direction)
+          (laneFrames (Axis.ofDirection o.direction)
+            (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s)
+          routed.layoutDump) :
+    ∀ (sp : Spacing), spacingOf o.profile = .ok sp →
+      EndsOnOld (Axis.ofDirection o.direction)
+        (laneFrames (Axis.ofDirection o.direction)
+          (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s)
+        r.layoutDump := by
+  obtain ⟨sp, axis, bands, pinned, routed, origin, strip, stripScene,
+    hsp, haxis, hbands, happ, hroute, horig, hstrip, hstripEq, hgrow⟩ :=
+    pinBands_spec hlanes h
+  subst haxis
+  subst hbands
+  have hE := hErouted sp hsp pinned routed happ hroute
+  intro sp' hsp'
+  have hspEq : sp' = sp := Except.ok.inj (hsp'.symm.trans hsp)
+  rw [hspEq]
+  obtain ⟨shiftedBoxes, _, _, _, hboxes, _, _, _, hfold⟩ := applyPin_shifted happ
+  have hid1 : shiftedBoxes.map (·.id) = s.boxes.map (·.id) :=
+    (pinShiftBoxes_maps _ _ _ _ hboxes).2.1
+  have hid2 : pinned.boxes.map (·.id) = shiftedBoxes.map (·.id) :=
+    (foldReplaceFrame_all _ _ _ _ hfold).2.1
+  have hrr : routed.boxes = pinned.boxes := (rerouteBands_frame hroute).1
+  have hnodupRouted : (routed.boxes.map (·.id)).Nodup := by
+    rw [hrr, hid2, hid1]
+    exact hnodupB
+  have horigE := lxe_phaseRestore_holds horig hnodupRouted hE
+  have hstripE : EndsOnOld (Axis.ofDirection o.direction)
+      (laneFrames (Axis.ofDirection o.direction)
+        (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s)
+      stripScene.layoutDump := by
+    rw [hstripEq]
+    exact lxe_phaseRelocate_holds horigE
+  exact lxe_phaseGrow_holds hgrow hstripE
+
 /-- After `pinBands`, every route end lies on its end box boundary, or on the
 old frame when the end box is a lane frame: the executed-band form of
 `pinBands_ends`. The two arbitrary-band premises are replaced by the
@@ -375,35 +431,11 @@ theorem pinBands_ends_exec {boxes : List ModelBox} {o : Options} {s r : Scene}
         (laneFrames (Axis.ofDirection o.direction)
           (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s)
         r.layoutDump := by
-  obtain ⟨sp, axis, bands, pinned, routed, origin, strip, stripScene,
-    hsp, haxis, hbands, happ, hroute, horig, hstrip, hstripEq, hgrow⟩ :=
-    pinBands_spec hlanes h
-  subst haxis
-  subst hbands
-  have hEnds' := hEnds sp hsp
-  intro sp' hsp'
-  have hspEq : sp' = sp := Except.ok.inj (hsp'.symm.trans hsp)
-  rw [hspEq]
-  have hpin := hApplyExec sp hsp hC5 hrouteNodup hnodupB hNoEmpty hModelClean hEnds' happ
-  have hrouted := hRerouteExec sp hsp hnodupB hModelClean hEndsPin happ hpin hC5 hroute
-  obtain ⟨shiftedBoxes, _, _, _, hboxes, _, _, _, hfold⟩ := applyPin_shifted happ
-  have hid1 : shiftedBoxes.map (·.id) = s.boxes.map (·.id) :=
-    (pinShiftBoxes_maps _ _ _ _ hboxes).2.1
-  have hid2 : pinned.boxes.map (·.id) = shiftedBoxes.map (·.id) :=
-    (foldReplaceFrame_all _ _ _ _ hfold).2.1
-  have hrr : routed.boxes = pinned.boxes := (rerouteBands_frame hroute).1
-  have hnodupRouted : (routed.boxes.map (·.id)).Nodup := by
-    rw [hrr, hid2, hid1]
-    exact hnodupB
-  have horigE := lxe_phaseRestore_holds horig hnodupRouted hrouted
-  have hstripE : EndsOnOld (Axis.ofDirection o.direction)
-      (laneFrames (Axis.ofDirection o.direction)
-        (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s)
-      stripScene.layoutDump := by
-    rw [hstripEq]
-    exact lxe_phaseRelocate_holds horigE
-  have hfinal := lxe_phaseGrow_holds hgrow hstripE
-  exact hfinal
+  refine pinBands_ends_of_routed hlanes hnodupB h ?_
+  intro sp hsp pinned routed happ hroute
+  have hpin := hApplyExec sp hsp hC5 hrouteNodup hnodupB hNoEmpty hModelClean
+    (hEnds sp hsp) happ
+  exact hRerouteExec sp hsp hnodupB hModelClean hEndsPin happ hpin hC5 hroute
 
 /-- Executed-band ends closed by the two narrow residuals: frame transport
 gives the apply phase and fresh-ends gives the reroute phase. No premise

@@ -2689,6 +2689,7 @@ Elegant.Layered.LaneBands.lepeRerouteFreshEndsExec_holds
 Elegant.Layered.LaneBands.lepePhaseRerouteExec_closed
 Elegant.Layered.LaneBands.pinBands_ends_exec
 Elegant.Layered.LaneBands.pinBands_ends_exec_closed
+Elegant.Layered.LaneBands.pinBands_ends_of_routed
 Elegant.Layered.LaneBands.pinBands_gapClear
 Elegant.Layered.LaneBands.pinBands_shift_cover
 Elegant.Layered.LaneBands.pinBands_gapClear_closed
@@ -2952,6 +2953,11 @@ Elegant.Kinds.endsSplit_disjunction_eq_false
 Elegant.Kinds.endsSplitOn_false_of_route
 Elegant.Kinds.endsSplitWitnessG2G_gates
 Elegant.Kinds.endsSplitWitnessG2Loose_gates
+Elegant.Kinds.SwimlaneEndsCutover.reroutedShapeB_iff
+Elegant.Kinds.SwimlaneEndsCutover.endsShiftB_eq
+Elegant.Kinds.SwimlaneEndsCutover.endsShiftB_premise
+Elegant.Kinds.SwimlaneEndsCutover.swimlane_endsRouted_of_premise
+Elegant.Kinds.SwimlaneEndsCutover.swimlane_endsOld_of_premise
 Elegant.Kinds.aboveLanePin_of_no_lanes
 Elegant.Kinds.aboveLanePin_of_no_loose
 Elegant.Kinds.aboveLane_of_residual
