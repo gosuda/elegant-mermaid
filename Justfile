@@ -10,20 +10,24 @@ gen-check:
 
 # Go checks: gofmt, go vet, golangci-lint, race tests, govulncheck; accepts `just go-check PKG='./x/...'`
 go-check PKG='./...': build
-    {{ if trim_start_match(PKG, 'PKG=') != './...' { "go test -list '.*' " + trim_start_match(PKG, 'PKG=') + " | grep '^Test' >/dev/null" } else { "true" } }}
-    test -z "$(gofmt -l $(go list -f '{{{{.Dir}}' ./...))"
-    go vet {{ trim_start_match(PKG, 'PKG=') }}
-    go tool golangci-lint run
-    EMD_BIN="{{ justfile_directory() }}/bin/emd-go" go test -race {{ trim_start_match(PKG, 'PKG=') }}
-    go tool govulncheck ./...
+    @status=0; \
+    {{ if trim_start_match(PKG, 'PKG=') != './...' { "go test -list '.*' " + trim_start_match(PKG, 'PKG=') + " | grep '^Test' >/dev/null" } else { "true" } }} || status=1; \
+    test -z "$(gofmt -l $(go list -f '{{{{.Dir}}' ./...))" || status=1; \
+    go vet {{ trim_start_match(PKG, 'PKG=') }} || status=1; \
+    go tool golangci-lint run || status=1; \
+    EMD_BIN="{{ justfile_directory() }}/bin/emd-go" go test -race {{ trim_start_match(PKG, 'PKG=') }} || status=1; \
+    go tool govulncheck ./... || status=1; \
+    exit "$status"
 
 # Rust checks: fmt, clippy, nextest, cargo-deny, doc tests; accepts `just rust-check FILTER=name`
 rust-check FILTER='': build
-    cargo fmt --check
-    cargo clippy --all-targets --all-features --locked -- -D warnings
-    EMD_BIN="{{ justfile_directory() }}/bin/emd-rs" cargo nextest run --all-features --locked {{ trim_start_match(FILTER, 'FILTER=') }} {{ if trim_start_match(FILTER, 'FILTER=') == '' { '--no-tests=pass' } else { '--no-tests=fail' } }}
-    cargo deny --locked check
-    cargo test --doc --locked -p elegant-mermaid
+    @status=0; \
+    cargo fmt --check || status=1; \
+    cargo clippy --all-targets --all-features --locked -- -D warnings || status=1; \
+    EMD_BIN="{{ justfile_directory() }}/bin/emd-rs" cargo nextest run --all-features --locked --no-fail-fast {{ trim_start_match(FILTER, 'FILTER=') }} {{ if trim_start_match(FILTER, 'FILTER=') == '' { '--no-tests=pass' } else { '--no-tests=fail' } }} || status=1; \
+    cargo deny --locked check || status=1; \
+    cargo test --doc --locked --no-fail-fast -p elegant-mermaid || status=1; \
+    exit "$status"
 
 # House lint: upstream standard profile, failing on major findings
 slop:
