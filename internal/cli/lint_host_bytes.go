@@ -68,16 +68,8 @@ func alignHostBodies(original, fixed []byte, before, after []source.Span) bool {
 	return hostBodiesOrdered(after, len(fixed))
 }
 
-// A deletion can join a body's CR with a protected LF, or an opener's CR
-// with a body's LF. Only that LF may move across a rescanned body boundary.
 func matchHostGap(original, fixed []byte, gap source.Span, hasBefore, hasAfter bool) (source.Span, bool) {
-	starts, ends := []int{gap.Start}, []int{gap.End}
-	if hasBefore && len(original) > 0 && original[0] == '\n' && afterCRLF(fixed, gap.Start) {
-		starts = append(starts, gap.Start-1)
-	}
-	if hasAfter && len(original) > 0 && original[len(original)-1] == '\r' && afterCRLF(fixed, gap.End) {
-		ends = append(ends, gap.End-1)
-	}
+	starts, ends := hostGapCandidates(original, fixed, gap, hasBefore, hasAfter)
 	repaired, _ := source.RepairUTF8(original)
 	for _, start := range starts {
 		for _, end := range ends {
@@ -87,6 +79,20 @@ func matchHostGap(original, fixed []byte, gap source.Span, hasBefore, hasAfter b
 		}
 	}
 	return source.Span{}, false
+}
+
+// A deletion can join a body's CR with a protected LF, or an opener's CR
+// with a body's LF. Only that LF may move across a rescanned body boundary.
+// Keep the unchanged boundary first; file endpoints have no adjacent body.
+func hostGapCandidates(original, fixed []byte, gap source.Span, hasBefore, hasAfter bool) ([]int, []int) {
+	starts, ends := []int{gap.Start}, []int{gap.End}
+	if hasBefore && len(original) > 0 && original[0] == '\n' && afterCRLF(fixed, gap.Start) {
+		starts = append(starts, gap.Start-1)
+	}
+	if hasAfter && len(original) > 0 && original[len(original)-1] == '\r' && afterCRLF(fixed, gap.End) {
+		ends = append(ends, gap.End-1)
+	}
+	return starts, ends
 }
 
 func afterCRLF(host []byte, at int) bool {
