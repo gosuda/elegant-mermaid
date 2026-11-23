@@ -13,6 +13,7 @@ export interface SharePayload {
 }
 
 const PREFIX = 's=';
+const MAX_PAYLOAD_BYTES = 1 << 20;
 
 function toBase64Url(bytes: Uint8Array): string {
   let binary = '';
@@ -40,12 +41,34 @@ function fromBase64Url(text: string): Uint8Array | null {
   }
 }
 
-async function pipe(
-  bytes: Uint8Array<ArrayBuffer>,
-  stream: CompressionStream | DecompressionStream,
-): Promise<Uint8Array> {
-  const output = new Blob([bytes]).stream().pipeThrough(stream);
+async function deflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
+  const output = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
   return new Uint8Array(await new Response(output).arrayBuffer());
+}
+
+async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array | null> {
+  const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    total += value.byteLength;
+    if (total > MAX_PAYLOAD_BYTES) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const inflated = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    inflated.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return inflated;
 }
 
 export function compressionSupported(): boolean {
@@ -62,7 +85,7 @@ export async function encodeShare(payload: SharePayload): Promise<string> {
       max_width: payload.opt.max_width,
     },
   });
-  const deflated = await pipe(new TextEncoder().encode(json), new CompressionStream('deflate-raw'));
+  const deflated = await deflate(new TextEncoder().encode(json));
   return toBase64Url(deflated);
 }
 
@@ -104,7 +127,10 @@ export async function decodeShare(encoded: string): Promise<SharePayload | null>
   }
   let json: string;
   try {
-    const bytes = await pipe(new Uint8Array(deflated), new DecompressionStream('deflate-raw'));
+    const bytes = await inflate(new Uint8Array(deflated));
+    if (bytes === null) {
+      return null;
+    }
     json = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
     return null;
