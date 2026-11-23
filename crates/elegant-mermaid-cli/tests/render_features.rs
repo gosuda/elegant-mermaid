@@ -91,6 +91,21 @@ fn render_config_file_failures_exit_two() -> TestResult {
             "handDrawnSeed: -3\n",
             "invalid config value -3 for handDrawnSeed",
         ),
+        (
+            "edges.yaml",
+            "maxEdges: -1\n",
+            "invalid config value -1 for maxEdges",
+        ),
+        (
+            "text-size.yaml",
+            "maxTextSize: 2147483648\n",
+            "invalid config value 2147483648 for maxTextSize",
+        ),
+        (
+            "font.yaml",
+            "fontFamily: false\n",
+            "invalid config value false for fontFamily",
+        ),
     ] {
         let path = scratch.file(name, text)?;
         let (code, stdout, stderr) = run(&["render", "-c", &path], DIAGRAM)?;
@@ -101,6 +116,59 @@ fn render_config_file_failures_exit_two() -> TestResult {
             "{name}"
         );
     }
+    Ok(())
+}
+
+#[test]
+fn render_config_file_overrides_source_limits_before_rejection() -> TestResult {
+    let scratch = Scratch::new("config-limits")?;
+    let source = "---\nconfig:\n  maxEdges: 0\n---\nflowchart LR\nA --> B\n";
+    let raised = scratch.file("raised.yaml", "maxEdges: 1\n")?;
+    for format in ["svg", "text"] {
+        let (code, stdout, stderr) = run(&["render", "-e", format], source)?;
+        assert_eq!((code, stdout.as_str()), (1, ""));
+        assert!(
+            stderr.contains("error[limit/max-edges]: diagram has 1 edges; the limit is 0"),
+            "{stderr}"
+        );
+        let (code, stdout, stderr) = run(&["render", "-e", format, "-c", &raised], source)?;
+        assert_eq!((code, stderr.as_str()), (0, ""));
+        assert!(!stdout.is_empty());
+    }
+
+    let lower = scratch.file("lower.yaml", "maxTextSize: 1\n")?;
+    let (code, stdout, stderr) = run(&["render", "-e", "svg", "-c", &lower], DIAGRAM)?;
+    assert_eq!((code, stdout.as_str()), (1, ""));
+    assert!(stderr.contains("error[limit/max-text-size]"), "{stderr}");
+    assert!(stderr.contains("the limit is 1 bytes"), "{stderr}");
+    Ok(())
+}
+
+#[test]
+fn render_config_font_family_reports_the_effective_value_once() -> TestResult {
+    let scratch = Scratch::new("config-font")?;
+    let source = "---\nconfig:\n  fontFamily: Source\n---\nflowchart LR\nA[Alphabet]\n";
+    let configured = scratch.file("font.yaml", "fontFamily: 'Custom & <Font>'\n")?;
+    let (code, svg, stderr) = run(&["render", "-e", "svg", "-c", &configured], source)?;
+    assert_eq!(code, 0, "{stderr}");
+    assert!(
+        svg.contains("font-family='Custom &amp; &lt;Font&gt;'"),
+        "{svg}"
+    );
+    assert_eq!(
+        stderr
+            .matches("info[config/font-metrics-approximate]")
+            .count(),
+        1,
+        "{stderr}"
+    );
+    assert!(stderr.contains("fontFamily is Custom & <Font>"), "{stderr}");
+    assert!(!stderr.contains("fontFamily is Source"), "{stderr}");
+
+    let clear = scratch.file("clear.yaml", "fontFamily: ''\n")?;
+    let (code, svg, stderr) = run(&["render", "-e", "svg", "-c", &clear], source)?;
+    assert_eq!((code, stderr.as_str()), (0, ""));
+    assert!(!svg.contains("font-family='Source'"));
     Ok(())
 }
 
