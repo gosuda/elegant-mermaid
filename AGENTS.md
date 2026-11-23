@@ -32,6 +32,8 @@ Failures in one independent gate MUST NOT suppress the other gate results.
 `just verify` remains the complete local entry point. Both workflows MUST
 pass before the repository is described as fully verified.
 
+`pages.yml` runs `playground-wasm`.
+
 ## Lean proofs
 
 `just proofs` rejects `sorry`, `axiom`, `native_decide`, `partial def`, `unsafe`, `implemented_by`, and `extern` in every `.lean` file below `proofs/Elegant/` and `proofs/ElegantGeometry/`. The scan includes files that git does not track.
