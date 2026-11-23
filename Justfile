@@ -233,8 +233,11 @@ quality *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     jobs="$(just _jobs {{ ARGS }})"
-    EMD_BIN=bin/emd-go node tools/upstream-oracle/baseline.mjs corpus/quality-corpus.txt "$jobs"
-    go run ./tools/quality -emd bin/emd-go -kinds flowchart -jobs "$jobs"
+    fixtures="$(mktemp)"
+    trap 'rm -f -- "$fixtures"' EXIT
+    go run ./tools/quality -list > "$fixtures"
+    EMD_BIN=bin/emd-go node tools/upstream-oracle/baseline.mjs "$fixtures" "$jobs"
+    go run ./tools/quality -emd bin/emd-go -jobs "$jobs"
 
 # Format check on the staged content of Go and Rust files; the pre-commit hook runs it
 staged-format:

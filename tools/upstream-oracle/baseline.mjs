@@ -1,5 +1,6 @@
-import { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs';
+import { closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs';
 import { execFile } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -404,14 +405,14 @@ function elkEdgePoint(point, offset) {
   return finalPoint({ x: point.x + offset.x, y: point.y + offset.y });
 }
 
-function elkChildren(dump, parentId, byId) {
+function elkChildren(dump, parentId, layoutOptions) {
   const children = [];
   for (const box of dump.boxes) {
     if (box.parent !== parentId) continue;
-    const nested = elkChildren(dump, box.id, byId);
+    const nested = elkChildren(dump, box.id, layoutOptions);
     const node = { id: box.id, width: pxOf(box.w), height: pxOf(box.h) };
     if (nested.length > 0) {
-      node.layoutOptions = { 'elk.padding': zeroPadding };
+      node.layoutOptions = { ...layoutOptions };
       node.children = nested;
     } else {
       node.width = pxOf(box.w);
@@ -435,7 +436,7 @@ function elkGraph(dump) {
   const graph = {
     id: '__emd_root__',
     layoutOptions,
-    children: elkChildren(dump, '', byId),
+    children: elkChildren(dump, '', layoutOptions),
     edges: [],
   };
   graph.edges = dump.routes.map((route) => elkEdge(dump, route, byId));
@@ -541,8 +542,13 @@ function elkLabel(label, labelIndex) {
 function writeDumpFile(target, text) {
   mkdirSync(path.dirname(target), { recursive: true });
   const temporary = `${target}.${process.pid}.tmp`;
+  const descriptor = openSync(temporary, 'wx');
   try {
-    writeFileSync(temporary, text, { flag: 'wx' });
+    try {
+      writeFileSync(descriptor, text);
+    } finally {
+      closeSync(descriptor);
+    }
     renameSync(temporary, target);
   } finally {
     rmSync(temporary, { force: true });
@@ -606,7 +612,56 @@ function testDagreGroups(dump) {
   if (result.routes[0].from !== 'G1' || result.routes[0].to !== 'G2') fail('dagre relation preservation assertion failed');
 }
 
+async function testElkNestedOptions() {
+  for (const direction of ['TB', 'LR']) {
+    const dump = {
+      kind: 'flowchart',
+      options: { profile: 'vector', thoroughness: 3, max_width: 0, direction, limits: {} },
+      direction,
+      boxes: [
+        { id: 'Outer', role: 'group', x: 0, y: 0, w: 0, h: 0, parent: '', exclusive: false },
+        { id: 'Inner', role: 'group', x: 0, y: 0, w: 0, h: 0, parent: 'Outer', exclusive: false },
+        { id: 'A', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: 'Inner', exclusive: true },
+        { id: 'B', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: 'Inner', exclusive: true },
+      ],
+      routes: [{ id: 'e0', from: 'A', to: 'B', orthogonal: true, points: [] }],
+      labels: [],
+    };
+    const result = await elkDump(dump);
+    const source = result.dump.boxes.find((box) => box.id === 'A');
+    const target = result.dump.boxes.find((box) => box.id === 'B');
+    const gap = direction === 'TB' ? target.y - source.y - source.h : target.x - source.x - source.w;
+    const expected = unitsOf(dagreSpacing.ranksep);
+    if (gap !== expected) {
+      fail(`nested ${direction} rank gap is ${gap} units; expected ${expected}`);
+    }
+  }
+}
+
+function testTemporaryOwnership() {
+  const directory = mkdtempSync(path.join(tmpdir(), 'emd-baseline-'));
+  const target = path.join(directory, 'layout.json');
+  const temporary = `${target}.${process.pid}.tmp`;
+  try {
+    writeFileSync(target, 'original');
+    writeFileSync(temporary, 'occupied');
+    let refused = false;
+    try {
+      writeDumpFile(target, 'replacement');
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      refused = true;
+    }
+    if (!refused || readFileSync(target, 'utf8') !== 'original' || readFileSync(temporary, 'utf8') !== 'occupied') {
+      fail('baseline output changed a file it did not own');
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 async function selfTest() {
+  testTemporaryOwnership();
   const dump = {
     kind: 'flowchart',
     options: { profile: 'vector', thoroughness: 3, max_width: 0, direction: 'TB', limits: {} },
@@ -621,6 +676,7 @@ async function selfTest() {
     labels: [],
   };
   testDagreGroups(dump);
+  await testElkNestedOptions();
   const elk = await elkDump(dump);
   const boxOf = (id) => elk.dump.boxes.find((box) => box.id === id);
   const groupRaw = elk.raw.get('G2');
