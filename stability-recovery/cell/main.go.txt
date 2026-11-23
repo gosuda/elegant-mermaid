@@ -1,0 +1,205 @@
+package main
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"slices"
+	"strings"
+
+	"github.com/gosuda/elegant-mermaid/internal/cells"
+	"github.com/gosuda/elegant-mermaid/internal/diag"
+	"github.com/gosuda/elegant-mermaid/internal/geom"
+	"github.com/gosuda/elegant-mermaid/internal/layout"
+	"github.com/gosuda/elegant-mermaid/internal/scene"
+)
+
+type routePatch struct {
+	Before [][2]int32 `json:"before"`
+	After  [][2]int32 `json:"after"`
+}
+
+type refusedLabel struct {
+	Owner   string    `json:"owner"`
+	Text    string    `json:"text"`
+	Rect    geom.Rect `json:"rect"`
+	Refused int       `json:"refused"`
+}
+
+type report struct {
+	Path            string          `json:"path"`
+	Error           string          `json:"error,omitempty"`
+	Valid           bool            `json:"valid"`
+	Clause          string          `json:"clause,omitempty"`
+	RefusedClusters int             `json:"refused_clusters"`
+	RouteConflicts  int             `json:"route_conflicts"`
+	RefusedLabels   []refusedLabel   `json:"refused_labels,omitempty"`
+	Dump            json.RawMessage `json:"dump,omitempty"`
+	Text            string          `json:"text,omitempty"`
+}
+
+func main() {
+	args := os.Args[1:]
+	var patches map[string]routePatch
+	if len(args) >= 2 && args[0] == "--patch" {
+		data, err := os.ReadFile(args[1])
+		if err != nil {
+			panic(err)
+		}
+		if err := json.Unmarshal(data, &patches); err != nil {
+			panic(err)
+		}
+		args = args[2:]
+	}
+	enc := json.NewEncoder(os.Stdout)
+	for _, path := range args {
+		r, err := inspect(path, patches)
+		if err != nil {
+			r = report{Path: path, Error: err.Error()}
+		}
+		if err := enc.Encode(r); err != nil {
+			panic(err)
+		}
+	}
+}
+
+func inspect(path string, patches map[string]routePatch) (report, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return report{}, err
+	}
+	d := layout.ParseDiagram(data)
+	for _, diagnostic := range d.Diagnostics {
+		if diagnostic.Severity == diag.SeverityError {
+			return report{}, fmt.Errorf("parse %s: %s", diagnostic.Code, diagnostic.Message)
+		}
+	}
+	in, err := d.Input(scene.ProfileCell, scene.Options{})
+	if err != nil {
+		return report{}, err
+	}
+	var s scene.Scene
+	for _, family := range layout.Families {
+		if family.Kind == in.Kind {
+			s, _, err = family.Layout(in)
+			break
+		}
+	}
+	if err != nil {
+		return report{}, err
+	}
+	if err := apply(&s, patches); err != nil {
+		return report{}, err
+	}
+	clause, valid, err := s.Dump.Validate()
+	if err != nil {
+		return report{}, err
+	}
+	scene.ProjectCellAttachments(&s)
+	rendered, err := cells.Render(s, cells.Options{})
+	if err != nil {
+		return report{}, err
+	}
+	r := report{
+		Path: path, Valid: valid, RefusedClusters: rendered.RefusedClusters,
+		RouteConflicts: rendered.RouteConflicts, Dump: s.AppendJSON(nil), Text: string(rendered.Text),
+	}
+	if !valid {
+		r.Clause = clause.ID
+	}
+	if rendered.RefusedClusters != 0 {
+		r.RefusedLabels, err = diagnoseLabels(s)
+	}
+	return r, err
+}
+
+func points(values [][2]int32) []geom.Point {
+	result := make([]geom.Point, len(values))
+	for i, value := range values {
+		result[i] = geom.Point{X: value[0], Y: value[1]}
+	}
+	return result
+}
+
+func apply(s *scene.Scene, patches map[string]routePatch) error {
+	for i := range s.Routes {
+		route := &s.Routes[i]
+		patch, ok := patches[route.ID]
+		if !ok {
+			continue
+		}
+		if !slices.Equal(route.Points, points(patch.Before)) {
+			return fmt.Errorf("%s baseline geometry changed", route.ID)
+		}
+		next := points(patch.After)
+		if len(next) < 2 || next[0] != route.Points[0] || next[len(next)-1] != route.Points[len(route.Points)-1] {
+			return fmt.Errorf("%s changed endpoints", route.ID)
+		}
+		found := false
+		for _, group := range s.Groups {
+			if group.Role != scene.GroupRoleEdge || group.Owner != route.ID {
+				continue
+			}
+			for _, primitive := range group.Items {
+				line, ok := primitive.(*scene.Polyline)
+				if ok && slices.Equal(line.Points, route.Points) {
+					line.Points = slices.Clone(next)
+					found = true
+				}
+			}
+		}
+		if !found {
+			return errors.New("no canonical edge display polyline")
+		}
+		route.Points = next
+	}
+	return nil
+}
+
+func diagnoseLabels(s scene.Scene) ([]refusedLabel, error) {
+	groups := make([]*scene.Group, len(s.Groups))
+	for i, group := range s.Groups {
+		copy := *group
+		copy.Items = nil
+		for _, item := range group.Items {
+			if _, ok := item.(*scene.Text); !ok {
+				copy.Items = append(copy.Items, item)
+			}
+		}
+		groups[i] = &copy
+	}
+	probe := s
+	probe.Groups = groups
+	var result []refusedLabel
+	previous := 0
+	for index, group := range s.Groups {
+		for _, item := range group.Items {
+			label, ok := item.(*scene.Text)
+			if !ok {
+				continue
+			}
+			groups[index].Items = append(groups[index].Items, label)
+			rendered, err := cells.Render(probe, cells.Options{})
+			if err != nil {
+				return nil, err
+			}
+			if rendered.RefusedClusters > previous {
+				var lines []string
+				for _, line := range label.Lines {
+					var text strings.Builder
+					for _, run := range line {
+						text.WriteString(run.Text)
+					}
+					lines = append(lines, text.String())
+				}
+				result = append(result, refusedLabel{
+					Owner: group.Owner, Rect: label.Rect, Text: strings.Join(lines, "\n"),
+					Refused: rendered.RefusedClusters - previous,
+				})
+			}
+			previous = rendered.RefusedClusters
+		}
+	}
+	return result, nil
+}

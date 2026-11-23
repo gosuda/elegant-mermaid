@@ -1,0 +1,11 @@
+flowchart LR
+  subgraph Right
+    B5[B5]
+    B6[B6]
+  end
+  A5 --> B4
+  A6 --> B3
+  A5 --> B5
+  A6 --> B6
+  B3 -.feedback.-> A6
+  B4 -.feedback.-> A5

@@ -1,0 +1,35 @@
+use elegant_mermaid::{LayoutOptions, Profile, cells, layout, parse};
+
+type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+fn render_cells(source: &str) -> Result<cells::RenderResult, Box<dyn std::error::Error>> {
+    let document = parse(source);
+    assert!(!document.has_errors(), "{:?}", document.diagnostics());
+    let scene = layout(
+        &document,
+        &LayoutOptions {
+            profile: Profile::Cell,
+            ..LayoutOptions::default()
+        },
+    )?;
+    assert!(scene.check()?, "{}", scene.dump());
+    Ok(cells::render(&scene, &cells::Options::default())?)
+}
+
+#[test]
+fn unrelated_crossing_edges_do_not_share_a_cell_axis() -> TestResult {
+    let rendered = render_cells("flowchart TB\nA --> C\nA --> D\nB --> C\nB --> D\n")?;
+    assert_eq!(rendered.refused_clusters, 0, "{}", rendered.text);
+    assert_eq!(rendered.route_conflicts, 0, "{}", rendered.text);
+    Ok(())
+}
+
+#[test]
+fn later_feedback_routes_preserve_earlier_labels() -> TestResult {
+    let source = "flowchart LR\nsubgraph Right\nB5[B5]\nB6[B6]\nend\nA5 --> B4\nA6 --> B3\nA5 --> B5\nA6 --> B6\nB3 -.feedback.-> A6\nB4 -.feedback.-> A5\n";
+    let rendered = render_cells(source)?;
+    assert_eq!(rendered.refused_clusters, 0, "{}", rendered.text);
+    assert_eq!(rendered.route_conflicts, 0, "{}", rendered.text);
+    assert_eq!(rendered.text.matches("feedback").count(), 2);
+    Ok(())
+}
