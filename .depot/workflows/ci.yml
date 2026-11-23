@@ -5,6 +5,7 @@ name: "ci"
     branches:
       - "main"
   pull_request:
+  merge_group:
 
 permissions:
   contents: "read"
