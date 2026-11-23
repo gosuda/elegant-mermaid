@@ -15,9 +15,9 @@
 // returns fresh bytes on each call.
 //
 // LayoutOptions.Config accepts a config mapping; empty or whitespace-only
-// input means an empty mapping. Config syntax is validated, but config keys
-// are not yet applied to rendering or layout. Icon packs and SVG text paths
-// are not supported. Rendering currently supports flowcharts only.
+// input means an empty mapping. SVG output applies look and handDrawnSeed;
+// other upstream config keys are accepted but not applied. Rendering supports
+// all registered diagram kinds, icon packs, and SVG text paths.
 //
 // Render errors wrap one exported sentinel for errors.Is, except that a
 // cancelled context returns ctx.Err() unchanged. Cancellation is checked at

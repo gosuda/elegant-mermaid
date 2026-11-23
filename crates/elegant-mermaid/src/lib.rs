@@ -28,9 +28,7 @@
 //!
 //! # Current implementation
 //!
-//! Parsing and rendering implement flowcharts, class diagrams, and state
-//! diagrams. Detection preserves other registered kinds; attempting their
-//! layout returns `RenderError::InvalidConfig`.
+//! Parsing, checking, layout, and rendering cover all registered diagram kinds.
 //! Config text is checked against the shared mapping grammar. The keys `look`
 //! (`classic`, `handDrawn`, `neo`) and `handDrawnSeed` are honoured from the
 //! frontmatter `config` mapping, `%%{init}%%` directives, and
