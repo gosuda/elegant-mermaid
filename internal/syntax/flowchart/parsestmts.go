@@ -93,22 +93,28 @@ func (p *parser) parseSubgraphBody() []Line {
 
 func (p *parser) skipSubgraphBody() {
 	nested := 0
-	for !p.at(TokEOF) {
+	for {
+		p.skipTrivia()
 		switch p.peek().Kind {
+		case TokEOF:
+			return
 		case TokSubgraph:
 			nested++
 			p.next()
 			if _, ok := p.parseSubgraphHeader(); !ok {
 				p.report(unexpectedDiagnostic(p.peek().Span, p.peek().Text, []string{"NODE_STRING", "STR"}))
 			}
-			continue
 		case TokEnd:
 			if nested == 0 {
 				return
 			}
 			nested--
+			p.next()
+		default:
+			// Only subgraph statements recurse; discard each flat statement
+			// after it consumes its ordinary recovery boundary.
+			p.parseStatement()
 		}
-		p.next()
 	}
 }
 

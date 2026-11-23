@@ -159,30 +159,74 @@ Hidden["subgraph end"]
 Hidden -->|end subgraph| Other
 end
 "#,
+            None,
         ),
         (
             "closing keyword in heading",
             "subgraph other end\nOtherNode\nend\n",
+            None,
         ),
         (
             "adjacent bracketed headings",
             "subgraph bracketed[Title] subgraph child[Title]\nSkipped\nend\nend\n",
+            None,
+        ),
+        (
+            "opening keyword after malformed statement",
+            "[junk] subgraph fake\n",
+            Some(("flowchart/unknown-statement", 0, 20)),
+        ),
+        (
+            "closing keyword after malformed statement",
+            "[junk] end\n",
+            Some(("flowchart/unknown-statement", 0, 10)),
+        ),
+        (
+            "opening keyword after vertex",
+            "Node subgraph fake\n",
+            Some(("flowchart/unexpected-token", 5, 13)),
+        ),
+        (
+            "semicolon recovery before subgraph",
+            "[junk] subgraph fake; subgraph nested[Title]\nHidden\nend\n",
+            Some(("flowchart/unknown-statement", 0, 20)),
+        ),
+        (
+            "style directive before subgraph",
+            "style Hidden fill:red subgraph nested[Title]\nHidden\nend\n",
+            None,
         ),
     ];
-    for (name, body) in bodies {
+    for (name, body, extra_diagnostic) in bodies {
         let mut source = String::from("flowchart\n");
         for index in 0..64 {
             source.push_str(&format!("subgraph group{index}\n"));
         }
         source.push_str("subgraph overflow\n");
+        let body_start = source.len();
         source.push_str(body);
         source.push_str("end\nVisible\n");
         source.push_str(&"end\n".repeat(64));
         source.push_str("After\n");
         let document = parse(&source);
         let diagnostics = document.diagnostics();
-        assert_eq!(diagnostics.len(), 1, "{name}: {diagnostics:#?}");
+        assert_eq!(
+            diagnostics.len(),
+            1 + usize::from(extra_diagnostic.is_some()),
+            "{name}: {diagnostics:#?}"
+        );
         assert_eq!(diagnostics[0].code, "limit/nesting-depth", "{name}");
+        if let Some((code, start, end)) = extra_diagnostic {
+            assert_eq!(diagnostics[1].code, code, "{name}");
+            assert_eq!(
+                diagnostics[1].span,
+                Span {
+                    start: body_start + start,
+                    end: body_start + end,
+                },
+                "{name}"
+            );
+        }
         let Some(model::Resolved::Flowchart(model)) = document.resolved() else {
             return Err("flowchart must retain its model after parsing");
         };

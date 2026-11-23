@@ -222,18 +222,23 @@ impl Parser<'_> {
     /// Skip nested bodies without recursion, leaving this group's closing `end`.
     fn skip_subgraph_body(&mut self) {
         let mut nested = 0usize;
-        while !self.at(K::Eof) {
+        loop {
+            self.trivia();
             match self.peek().kind {
+                K::Eof => return,
                 K::Subgraph => {
                     nested += 1;
                     let _ = self.subgraph_heading();
-                    continue;
                 }
                 K::End if nested == 0 => return,
-                K::End => nested -= 1,
-                _ => {}
+                K::End => {
+                    nested -= 1;
+                    self.next();
+                }
+                _ => {
+                    let _ = self.statement();
+                }
             }
-            self.next();
         }
     }
 }
