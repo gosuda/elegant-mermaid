@@ -104,6 +104,13 @@ fn fix_preserves_host_bytes_around_line_deletion() -> io::Result<()> {
     assert_fixed_host_bytes("line-deletion", before, after, true)
 }
 
+#[test]
+fn fix_preserves_host_bytes_when_line_endings_join() -> io::Result<()> {
+    let before = b"Before\xff\n> ```mermaid\n> flowchart LR\r> end\n\nAfter\xfe\n";
+    let after = b"Before\xff\n> ```mermaid\n> flowchart LR\r\nAfter\xfe\n";
+    assert_fixed_host_bytes("joined-line-endings", before, after, true)
+}
+
 fn assert_fixed_host_bytes(
     name: &str,
     before: &[u8],

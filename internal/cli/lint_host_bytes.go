@@ -23,27 +23,85 @@ func preserveHostBytes(original, fixed []byte) ([]byte, error) {
 	if len(before) != len(after) {
 		return nil, errHostFixBoundaries
 	}
+	oldBodies, newBodies := hostBodySpans(original, before), hostBodySpans(fixed, after)
+	if !alignHostBodies(original, fixed, oldBodies, newBodies) {
+		return nil, errHostFixBoundaries
+	}
 	out := make([]byte, 0, len(fixed))
-	oldAt, newAt := 0, 0
-	for i, block := range before {
-		oldBody := hostBodySpan(original, block)
-		newBody := hostBodySpan(fixed, after[i])
-		if !sameRepairedBytes(original[oldAt:oldBody.Start], fixed[newAt:newBody.Start]) {
-			return nil, errHostFixBoundaries
-		}
+	oldAt := 0
+	for i, oldBody := range oldBodies {
+		newBody := newBodies[i]
 		out = append(out, original[oldAt:oldBody.Start]...)
 		out = append(out, fixed[newBody.Start:newBody.End]...)
-		oldAt, newAt = oldBody.End, newBody.End
-	}
-	if !sameRepairedBytes(original[oldAt:], fixed[newAt:]) {
-		return nil, errHostFixBoundaries
+		oldAt = oldBody.End
 	}
 	return append(out, original[oldAt:]...), nil
 }
 
-func sameRepairedBytes(original, fixed []byte) bool {
+func hostBodySpans(host []byte, blocks []markdown.Block) []source.Span {
+	spans := make([]source.Span, len(blocks))
+	for i, block := range blocks {
+		spans[i] = hostBodySpan(host, block)
+	}
+	return spans
+}
+
+func alignHostBodies(original, fixed []byte, before, after []source.Span) bool {
+	oldAt, newAt := 0, 0
+	for i := 0; i <= len(before); i++ {
+		oldEnd, newEnd := len(original), len(fixed)
+		if i < len(before) {
+			oldEnd, newEnd = before[i].Start, after[i].Start
+		}
+		gap, ok := matchHostGap(original[oldAt:oldEnd], fixed, source.Span{Start: newAt, End: newEnd}, i > 0, i < len(after))
+		if !ok {
+			return false
+		}
+		if i > 0 {
+			after[i-1].End = gap.Start
+		}
+		if i < len(before) {
+			after[i].Start = gap.End
+			oldAt, newAt = before[i].End, after[i].End
+		}
+	}
+	return hostBodiesOrdered(after, len(fixed))
+}
+
+// A deletion can join a body's CR with a protected LF, or an opener's CR
+// with a body's LF. Only that LF may move across a rescanned body boundary.
+func matchHostGap(original, fixed []byte, gap source.Span, hasBefore, hasAfter bool) (source.Span, bool) {
+	starts, ends := []int{gap.Start}, []int{gap.End}
+	if hasBefore && len(original) > 0 && original[0] == '\n' && afterCRLF(fixed, gap.Start) {
+		starts = append(starts, gap.Start-1)
+	}
+	if hasAfter && len(original) > 0 && original[len(original)-1] == '\r' && afterCRLF(fixed, gap.End) {
+		ends = append(ends, gap.End-1)
+	}
 	repaired, _ := source.RepairUTF8(original)
-	return bytes.Equal(repaired, fixed)
+	for _, start := range starts {
+		for _, end := range ends {
+			if start <= end && bytes.Equal(repaired, fixed[start:end]) {
+				return source.Span{Start: start, End: end}, true
+			}
+		}
+	}
+	return source.Span{}, false
+}
+
+func afterCRLF(host []byte, at int) bool {
+	return at >= 2 && host[at-2] == '\r' && host[at-1] == '\n'
+}
+
+func hostBodiesOrdered(bodies []source.Span, size int) bool {
+	end := 0
+	for _, body := range bodies {
+		if body.Start < end || body.End < body.Start || body.End > size {
+			return false
+		}
+		end = body.End
+	}
+	return true
 }
 
 func hostBodySpan(host []byte, block markdown.Block) source.Span {

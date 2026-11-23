@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/gosuda/elegant-mermaid/internal/source"
 )
 
 func TestLintFixPreservesMarkdownHostBytes(t *testing.T) {
@@ -32,6 +35,12 @@ func TestLintFixPreservesHostBytesAroundLineDeletion(t *testing.T) {
 	requireFixedHostBytes(t, before, after, "--unsafe-fixes")
 }
 
+func TestLintFixPreservesHostBytesWhenCRJoinsOutsideLF(t *testing.T) {
+	before := "Before\xff\n> ```mermaid\n> flowchart LR\r> end\n\nAfter\xfe\n"
+	after := "Before\xff\n> ```mermaid\n> flowchart LR\r\nAfter\xfe\n"
+	requireFixedHostBytes(t, before, after, "--unsafe-fixes")
+}
+
 func requireFixedHostBytes(t *testing.T, before, after string, flags ...string) {
 	t.Helper()
 	dir := writeLintFiles(t, map[string]string{"document.md": before})
@@ -39,7 +48,7 @@ func requireFixedHostBytes(t *testing.T, before, after string, flags ...string) 
 	args := append([]string{"lint", "--fix", "--no-config", "--color", "never", path}, flags...)
 	out, stderr, code := invoke(t, "", args...)
 	if got := readText(t, path); got != after {
-		t.Fatalf("host bytes changed: %q; want %q", got, after)
+		t.Fatalf("host bytes changed: %q; want %q; exit=%d stdout=%q stderr=%q", got, after, code, out, stderr)
 	}
 	if code != 1 || stderr != "" || !strings.Contains(out, "source/invalid-utf8") {
 		t.Fatalf("unfixed prose must remain diagnosed: exit=%d stdout=%q stderr=%q", code, out, stderr)
@@ -72,5 +81,65 @@ func TestPreserveHostBytesAllowsEmptyBody(t *testing.T) {
 	got, err := preserveHostBytes(original, fixed)
 	if err != nil || string(got) != want {
 		t.Fatalf("empty body: result=%q err=%v; want %q", got, err, want)
+	}
+}
+
+func TestPreserveHostBytesAlignsCRLFBoundaries(t *testing.T) {
+	for _, tc := range []struct{ name, before, after string }{
+		{
+			"leading body LF",
+			"Before\xff\n- ```mermaid\r  end\n\n  flowchart LR\n  ```\nAfter\xfe\n",
+			"Before\xff\n- ```mermaid\r\n  flowchart LR\n  ```\nAfter\xfe\n",
+		},
+		{
+			"empty body",
+			"Before\xff\n> ```mermaid\r> end\n\nAfter\xfe\n",
+			"Before\xff\n> ```mermaid\r\nAfter\xfe\n",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fixed, _ := source.RepairUTF8([]byte(tc.after))
+			got, err := preserveHostBytes([]byte(tc.before), fixed)
+			if err != nil || string(got) != tc.after {
+				t.Fatalf("result=%q err=%v; want %q", got, err, tc.after)
+			}
+			repaired, _ := source.RepairUTF8(got)
+			if !bytes.Equal(repaired, fixed) {
+				t.Fatalf("repaired result=%q; want fixed bytes %q", repaired, fixed)
+			}
+		})
+	}
+}
+
+func TestPreserveHostBytesRejectsCRLFProtectedChanges(t *testing.T) {
+	for _, tc := range []struct{ name, before, fixed string }{
+		{
+			"missing outside LF",
+			"Before\xff\n> ```mermaid\n> flowchart LR\r> end\n\nAfter\xfe\n",
+			"Before\xff\n> ```mermaid\n> flowchart LR\rAfter\xfe\n",
+		},
+		{
+			"changed prose after coalescence",
+			"Before\xff\n> ```mermaid\n> flowchart LR\r> end\n\nAfter\xfe\n",
+			"Before\xff\n> ```mermaid\n> flowchart LR\r\nDifferent\xfe\n",
+		},
+		{
+			"added LF at EOF",
+			"Before\xff\n```mermaid\nflowchart LR\n```\r",
+			"Before\xff\n```mermaid\nflowchart LR\n```\r\n",
+		},
+		{
+			"overlapping empty body boundaries",
+			"Before\xff\n> ```mermaid\r\n\nAfter\xfe\n",
+			"Before\xff\n> ```mermaid\r\nAfter\xfe\n",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fixed, _ := source.RepairUTF8([]byte(tc.fixed))
+			got, err := preserveHostBytes([]byte(tc.before), fixed)
+			if !errors.Is(err, errHostFixBoundaries) || got != nil {
+				t.Fatalf("protected change must fail without output: result=%q err=%v", got, err)
+			}
+		})
 	}
 }
