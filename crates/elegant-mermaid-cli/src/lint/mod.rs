@@ -1,6 +1,8 @@
 mod config;
 mod flags;
 mod rewrite;
+#[cfg(test)]
+mod tests;
 
 use crate::error::CliError;
 use crate::view::Environment;
