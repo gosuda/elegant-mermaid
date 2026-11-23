@@ -19,7 +19,7 @@ describe('share link codec', () => {
   });
 
   it('round-trips multibyte and large sources without padding characters', async () => {
-    const src = `flowchart LR\n  A["héllo 🌍 世界"] --> B\n${'  B --> C\n'.repeat(5000)}`;
+    const src = `flowchart LR\n  A["héllo 🌍 café"] --> B\n${'  B --> C\n'.repeat(5000)}`;
     const value: SharePayload = {
       src,
       opt: { theme: 'elegant-light', background: null, charset: 'unicode', max_width: null },
@@ -69,6 +69,19 @@ describe('share link codec', () => {
     expect(await decodeShare(await encodeRaw('{"src":"x","opt":{"max_width":-1}}'))).toBeNull();
     expect(await decodeShare(await encodeRaw('{"src":"x","opt":{"background":"red"}}'))).toBeNull();
     expect(await decodeShare(await encodeRaw('{"src":"x","opt":{"extra":1}}'))).toBeNull();
+  });
+
+  it('rejects a compressed payload larger than the decoded byte limit', async () => {
+    const json = JSON.stringify({ src: 'x'.repeat(2 * 1024 * 1024), opt: {} });
+    const encoded = await encodeRaw(json);
+    expect(encoded.length).toBeLessThan(4096);
+    expect(await decodeShare(encoded)).toBeNull();
+  });
+
+  it('refuses to encode a payload that cannot be decoded within the limit', async () => {
+    await expect(encodeShare({ ...payload, src: 'x'.repeat(2 * 1024 * 1024) })).rejects.toThrow(
+      'Shared diagrams must fit within 2 MiB of JSON.',
+    );
   });
 
   it('fills absent option keys with defaults', async () => {

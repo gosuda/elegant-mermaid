@@ -97,6 +97,31 @@ describe('EngineClient', () => {
     await expect(answer).rejects.toThrow('boom');
   });
 
+
+  it('handles calls without Promise.withResolvers', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(Promise, 'withResolvers');
+    Object.defineProperty(Promise, 'withResolvers', { configurable: true, value: undefined });
+    const { client, workers } = setup();
+    try {
+      client.start();
+      workers[0]?.emit({ type: 'ready' });
+      const answer = client.call('check', 'source', '{}', 1);
+      const sent = workers[0]?.sent[1];
+      if (sent?.type !== 'call') {
+        throw new Error('expected a call message');
+      }
+      workers[0]?.emit({ type: 'result', id: sent.id, revision: 1, response: 'answer' });
+      await expect(answer).resolves.toBe('answer');
+    } finally {
+      client.dispose();
+      if (descriptor === undefined) {
+        Reflect.deleteProperty(Promise, 'withResolvers');
+      } else {
+        Object.defineProperty(Promise, 'withResolvers', descriptor);
+      }
+    }
+  });
+
   it('refuses calls before the engine is ready', async () => {
     const { client } = setup();
     await expect(client.call('check', 's', '{}', 1)).rejects.toThrow('not ready');

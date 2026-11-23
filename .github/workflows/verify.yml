@@ -175,3 +175,72 @@ jobs:
       - name: "Check the scheduler model"
         if: "!cancelled() && steps.tlc.outcome == 'success'"
         run: "just model"
+
+  playground:
+    runs-on: "depot-ubuntu-24.04-8"
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: "2"
+      BASE_PATH: "/elegant-mermaid"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
+      - name: "Set up Go"
+        uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: "Install the Rust toolchain"
+        run: "rustup toolchain install && rustup target add wasm32-unknown-unknown"
+      - name: "Install gate tools"
+        uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
+        with:
+          tool: "just@1.59.0,wasm-bindgen@0.2.130"
+      - name: "Set up pnpm"
+        uses: "pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115" # v6.1.1
+        with:
+          version: "12.18.0"
+      - name: "Set up Node"
+        uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1" # v7.1.0
+        with:
+          node-version: "26.13.1"
+          cache: "pnpm"
+          cache-dependency-path: "playground/pnpm-lock.yaml"
+      - name: "Install playground packages"
+        id: "packages"
+        run: "pnpm --dir playground install --frozen-lockfile"
+      - name: "Check browser types"
+        if: "!cancelled() && steps.packages.outcome == 'success'"
+        run: "pnpm --dir playground check"
+      - name: "Check browser formatting and lint"
+        if: "!cancelled() && steps.packages.outcome == 'success'"
+        run: "pnpm --dir playground exec biome check ."
+      - name: "Run browser unit tests"
+        if: "!cancelled() && steps.packages.outcome == 'success'"
+        run: "pnpm --dir playground exec vitest run"
+      - name: "Build the native and browser engines"
+        id: "build"
+        if: "!cancelled() && steps.packages.outcome == 'success'"
+        run: "just build playground-build"
+      - name: "Check native and WebAssembly parity"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        run: "just wasm-parity"
+      - name: "Install Chromium"
+        id: "chromium"
+        if: "!cancelled() && steps.packages.outcome == 'success'"
+        run: "pnpm --dir playground exec playwright install --with-deps chromium"
+      - name: "Test the production application"
+        if: "!cancelled() && steps.build.outcome == 'success' && steps.chromium.outcome == 'success'"
+        run: "pnpm --dir playground exec playwright test"
+      - name: "Test the development worker"
+        if: "!cancelled() && steps.build.outcome == 'success' && steps.chromium.outcome == 'success'"
+        run: "PLAYGROUND_SERVER_MODE=dev pnpm --dir playground exec playwright test --grep 'both engines render the default source'"
+      - name: "Upload browser failure traces"
+        if: "failure()"
+        uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
+        with:
+          name: "playground-traces"
+          path: "playground/test-results"
+          if-no-files-found: "ignore"
+          retention-days: 7

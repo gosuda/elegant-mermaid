@@ -135,6 +135,36 @@ test.describe('engines and output', () => {
     await expect(page.getByRole('radio', { name: 'Both' })).toBeEnabled();
   });
 
+  test('a failed engine remains recoverable after selecting the healthy engine', async ({ page }) => {
+    await page.route('**/emd-rs/*.wasm', (route) => route.abort());
+    await page.goto('./');
+    await expect(pane(page, 'go')).toHaveAttribute('data-state', 'ready');
+    await expect(pane(page, 'rust')).toHaveAttribute('data-state', 'error');
+    await page.getByRole('radio', { name: 'Go', exact: true }).check();
+    await expect(pane(page, 'rust')).toHaveCount(0);
+    await page.unroute('**/emd-rs/*.wasm');
+    await page.getByRole('button', { name: 'Retry Rust engine' }).click();
+    await expect(page.getByRole('radio', { name: 'Both' })).toBeEnabled();
+    await page.getByRole('radio', { name: 'Both' }).check();
+    await expect(comparison(page)).toHaveText(IDENTICAL);
+  });
+
+  test('renders when Promise.withResolvers is absent in both realms', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(Promise, 'withResolvers', { configurable: true, value: undefined });
+    });
+    await page.route(/engine(?:[.-])worker.*\.js(?:\?.*)?$/, async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({
+        response,
+        body:
+          "Object.defineProperty(Promise, 'withResolvers', { configurable: true, value: undefined });\n" +
+          (await response.text()),
+      });
+    });
+    await openPlayground(page);
+  });
+
   test('a stalled download shows a native progress element named for its engine', async ({ page }) => {
     await page.route('**/emd-go.wasm', async (route) => {
       const { promise, resolve } = Promise.withResolvers<void>();
@@ -173,6 +203,35 @@ test.describe('share links', () => {
     if (basePath !== '') {
       expect(seen.filter((entry) => new URL(entry).pathname === '/')).toEqual([]);
     }
+  });
+
+  test('loads links changed in the same tab and follows browser history', async ({ page }) => {
+    await openPlayground(page);
+    const links = await page.evaluate(async () => {
+      const encode = async (src: string, theme: string): Promise<string> => {
+        const bytes = new TextEncoder().encode(JSON.stringify({ src, opt: { theme } }));
+        const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+        const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
+        return btoa(String.fromCharCode(...compressed)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      };
+      return [await encode('flowchart LR\n First --> Link', 'nord'), await encode('flowchart TD\n Second --> Link', 'github-dark')];
+    });
+    const [first, second] = links;
+    if (first === undefined || second === undefined) {
+      throw new Error('expected two shared diagrams');
+    }
+    await page.evaluate((encoded) => { location.hash = `s=${encoded}`; }, first);
+    await expect(page.locator('.cm-content')).toContainText('First --> Link');
+    await expect(page.getByLabel('Theme')).toHaveValue('nord');
+    await page.evaluate((encoded) => { location.hash = `s=${encoded}`; }, second);
+    await expect(page.locator('.cm-content')).toContainText('Second --> Link');
+    await expect(page.getByLabel('Theme')).toHaveValue('github-dark');
+    await page.goBack();
+    await expect(page.locator('.cm-content')).toContainText('First --> Link');
+    await expect(page.getByLabel('Theme')).toHaveValue('nord');
+    await page.evaluate(() => { location.hash = 's=bad-link'; });
+    await expect(page.locator('.cm-content')).toContainText(DEFAULT_FIRST_LINE);
+    await expect(page.getByRole('status')).toContainText('This shared link is invalid or incomplete');
   });
 
   test('offers the URL when the clipboard refuses the write', async ({ page }) => {
@@ -515,7 +574,12 @@ test.describe('first paint without scripts', () => {
     await expect(page.getByLabel('Mermaid source')).toContainText(DEFAULT_FIRST_LINE);
     await expect(page.getByRole('radio', { name: 'Both' })).toBeChecked();
     await expect(page.getByRole('tab', { name: 'SVG' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByLabel('Sample output while the engines load')).toBeVisible();
+    const sample = page.getByLabel('Sample output while the engines load');
+    await expect(sample).toBeVisible();
+    await expect(sample).toContainText('Start');
+    await expect(sample).toContainText('Choice');
+    await expect(sample).toContainText('Done');
+    await expect(sample).not.toContainText('Engines are loading.');
     await expect(page.getByRole('status')).toBeEmpty();
     await expect(page.locator('noscript p')).toHaveText(
       'This playground needs JavaScript to render your edits; the sample source and output remain available.',

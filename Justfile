@@ -265,6 +265,34 @@ theme-check: build
     cargo nextest run --locked -p elegant-mermaid --all-features -E 'test(corpus_svg_titles)'
     node tools/upstream-oracle/config-keys.mjs --missing spec/data/config-keys
 
+
+# Build the two browser engines from the pinned native toolchains
+playground-wasm:
+    mkdir -p playground/static/wasm/emd-rs
+    GOOS=js GOARCH=wasm go build -trimpath -o playground/static/wasm/emd-go.wasm ./cmd/emd-wasm
+    cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" playground/static/wasm/wasm_exec.js
+    cargo build --locked --release --target wasm32-unknown-unknown -p elegant-mermaid-wasm
+    wasm-bindgen --target web --out-dir playground/static/wasm/emd-rs --out-name elegant_mermaid_wasm "${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/release/elegant_mermaid_wasm.wasm"
+
+# Browser types, formatting, lint, and unit regressions
+playground-check:
+    pnpm --dir playground check
+    pnpm --dir playground exec biome check .
+    pnpm --dir playground exec vitest run
+
+# Prerender the browser application, including its worker assets
+playground-build: playground-wasm
+    pnpm --dir playground build
+
+# Compare tracked corpus fixtures across native and browser engines
+wasm-parity: build playground-wasm
+    node playground/scripts/wasm-parity.mjs
+
+# Exercise production output and the classic worker served by Vite development mode
+playground-e2e: playground-build
+    pnpm --dir playground exec playwright test
+    PLAYGROUND_SERVER_MODE=dev pnpm --dir playground exec playwright test --grep 'both engines render the default source'
+
 # Run every gate whose subject exists, in order
 verify:
     just gen-check
@@ -282,3 +310,6 @@ verify:
     just lean-parity
     just quality
     just theme-check
+    just playground-check
+    just wasm-parity
+    just playground-e2e
