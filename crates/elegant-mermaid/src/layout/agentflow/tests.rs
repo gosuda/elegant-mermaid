@@ -118,13 +118,13 @@ fn short_nodes_use_exact_kind_minima_and_padding() -> Result<(), &'static str> {
     let cell = input("agentflow-beta\nA\n", Profile::Cell)?;
     let vector = input("agentflow-beta\nA\n", Profile::Vector)?;
     assert_eq!(
-        content("A", None, &cell)
+        content("A", None, "", &cell)
             .map_err(|_| "cell measurement failed")?
             .1,
         Size { w: 15, h: 3 }
     );
     assert_eq!(
-        content("A", None, &vector)
+        content("A", None, "", &vector)
             .map_err(|_| "vector measurement failed")?
             .1,
         Size { w: 7680, h: 2304 }
@@ -364,5 +364,41 @@ fn route_labels_render_styled_and_dump_the_source_text() -> Result<(), &'static 
         &*dump.text, "**go**",
         "the dump must keep the source label text verbatim while its lines render"
     );
+    Ok(())
+}
+
+#[test]
+fn framed_nodes_reserve_the_rules_and_authored_padding() -> Result<(), &'static str> {
+    let text = "abcdefghijklmno";
+    for profile in [Profile::Cell, Profile::Vector] {
+        let input = input("agentflow-beta\nA\n", profile)?;
+        let (width, _) = measured(text, &input).map_err(|_| "measurement failed")?;
+        for shape in ["subroutine", "subprocess", "subproc", "framed-rectangle"] {
+            for padding in [None, Some(0), Some(17)] {
+                let (_, size) =
+                    content(text, padding, shape, &input).map_err(|_| "framed content failed")?;
+                let (pad_x, _) = padding_units(padding, profile).map_err(|_| "padding failed")?;
+                let inset = constant(profile, "padding")
+                    .map_err(|_| "frame inset missing")?
+                    .min(size.w / 3);
+                let text_left = (size.w - width) / 2;
+                assert!(
+                    text_left >= inset + pad_x,
+                    "{profile:?} {shape} {padding:?}: text must clear the left inner rule"
+                );
+                assert!(
+                    text_left + width <= size.w - inset - pad_x,
+                    "{profile:?} {shape} {padding:?}: text must clear the right inner rule"
+                );
+            }
+        }
+        let (_, plain) = content("A", None, "", &input).map_err(|_| "plain content failed")?;
+        let (_, framed) =
+            content("A", None, "subroutine", &input).map_err(|_| "framed content failed")?;
+        assert_eq!(
+            framed, plain,
+            "existing minimum width already clears a short label"
+        );
+    }
     Ok(())
 }

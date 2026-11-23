@@ -5,12 +5,13 @@ set_option autoImplicit false
 
 /-! Agentflow model adapter. Every node, and every collapsed group (a node-role box with the
 `collapsedGroup` shape), is sized from its label wrapped at `agentflow.wrapping_width` plus
-`agentflow.padding` on every side, floored by `agentflow.min_node_width`; a collapsed group adds
+`agentflow.padding` on every side, floored by `agentflow.min_node_width`. Framed shapes reserve
+one further default padding on each horizontal side for their interior rules. A collapsed group adds
 one line and the vertical padding for its summary row. Expanded groups are clusters and carry
 no size. Edges ask for the minimum length the dump gives. Per-kind spacing, wrap width and
 canvas margin come from the family's kind parameters (`agentflow.node_spacing`,
-`agentflow.rank_spacing`, `agentflow.diagram_padding`). The `flowchart.padding` override of
-the Go adapter is not carried by the dump, and no corpus file sets it. -/
+`agentflow.rank_spacing`, `agentflow.diagram_padding`). The optional integer
+`flowchart.padding` model option preserves the authored pixel padding, including zero. -/
 
 namespace Elegant
 namespace Kinds
@@ -30,24 +31,99 @@ def measured (profile : Profile) (text : String) (fontFamily : Bool := false) :
   let height ← Measure.checkedI32 ((lines.length : Int) * lineHeight profile)
   pure (widest lines, height)
 
-def contentSize (profile : Profile) (text : String) (fontFamily : Bool := false) :
+def isFramed (shape : String) : Bool :=
+  shape == "subroutine" || shape == "subprocess" || shape == "subproc" ||
+    shape == "framed-rectangle"
+
+/-- Absence retains the family default; an explicit zero remains an authored override. -/
+def configuredPadding (options : Options) : Except LayoutError (Option Int) :=
+  match options.config.find? (fun entry => entry.1 == "flowchart.padding") with
+  | none => pure none
+  | some (_, .integer value) => do
+    if value < 0 then throw .domain
+    pure (some (← Measure.checkedI32 value))
+  | some _ => throw .domain
+
+def paddingUnits (profile : Profile) (authored : Option Int) :
+    Except LayoutError (Int × Int) := do
+  match authored with
+  | none =>
+    let padding := LayoutConst.agentflow_padding.get profile
+    pure (padding, padding)
+  | some padding =>
+    if padding < 0 then throw .domain
+    let padding ← Measure.checkedI32 padding
+    match profile with
+    | .vector =>
+      let padding ← Measure.checkedI32 (padding * 64)
+      pure (padding, padding)
+    | .cell =>
+      let x ← Measure.checkedI32 (Measure.ceilDiv padding 8)
+      let y ← Measure.checkedI32 (Measure.ceilDiv padding 16)
+      pure (max x 1, max y 1)
+
+def contentSize (profile : Profile) (text : String) (fontFamily : Bool := false)
+    (shape : String := "") (authoredPadding : Option Int := none) :
     Except LayoutError Size := do
   let (width, height) ← measured profile text fontFamily
-  let padding := LayoutConst.agentflow_padding.get profile
-  pure ⟨max (width + 2 * padding) (LayoutConst.agentflow_min_node_width.get profile),
-    height + 2 * padding⟩
+  let (paddingX, paddingY) ← paddingUnits profile authoredPadding
+  let inset := if isFramed shape then LayoutConst.agentflow_padding.get profile else 0
+  let paddingX ← Measure.checkedI32 (paddingX + inset)
+  let width ← Measure.checkedI32 (width + 2 * paddingX)
+  let height ← Measure.checkedI32 (height + 2 * paddingY)
+  pure ⟨max width (LayoutConst.agentflow_min_node_width.get profile), height⟩
 
-def boxSize (profile : Profile) (b : ModelBox) (text : String) (fontFamily : Bool := false) :
+-- Fifteen cell columns previously met the framed node's interior vertical rule.
+#guard (contentSize .cell "abcdefghijklmno" false "").toOption = some ⟨17, 3⟩
+#guard (contentSize .cell "abcdefghijklmno" false "subroutine").toOption = some ⟨19, 3⟩
+#guard ["subroutine", "subprocess", "subproc", "framed-rectangle"].all fun shape =>
+  decide ((contentSize .cell "abcdefghijklmno" false shape).toOption = some ⟨19, 3⟩)
+#guard (configuredPadding {}).toOption = some none
+#guard (configuredPadding { config := [("flowchart.padding", .integer 0)] }).toOption =
+  some (some 0)
+#guard (paddingUnits .vector none).toOption = some (512, 512)
+#guard (paddingUnits .vector (some 0)).toOption = some (0, 0)
+#guard (paddingUnits .cell (some 0)).toOption = some (1, 1)
+#guard (paddingUnits .cell (some 17)).toOption = some (3, 2)
+#guard match paddingUnits .vector (some (-1)) with
+  | .error .domain => true
+  | _ => false
+#guard match paddingUnits .vector (some I32_MAX) with
+  | .error .overflow => true
+  | _ => false
+#guard (contentSize .cell "A" false "" (some 64)).toOption = some ⟨17, 9⟩
+#guard (contentSize .cell "abcdefghijklmno" false "subroutine" (some 64)).toOption = some ⟨33, 9⟩
+
+def boxSize (profile : Profile) (b : ModelBox) (text : String) (fontFamily : Bool := false)
+    (authoredPadding : Option Int := none) :
     Except LayoutError Size := do
-  let size ← contentSize profile text fontFamily
+  let size ← contentSize profile text fontFamily b.shape authoredPadding
   if b.shape == "collapsedGroup" then
-    pure ⟨size.w, size.h + lineHeight profile + LayoutConst.agentflow_padding.get profile⟩
+    let (_, paddingY) ← paddingUnits profile authoredPadding
+    let height ← Measure.checkedI32 (size.h + lineHeight profile)
+    let height ← Measure.checkedI32 (height + paddingY)
+    pure ⟨size.w, height⟩
   else pure size
 
-def sizes (m : Model) : Except LayoutError (List (String × Size)) :=
+def sizes (m : Model) : Except LayoutError (List (String × Size)) := do
+  let padding ← configuredPadding m.options
   (m.boxes.filter fun b => b.role == .node).mapM fun b => do
-    let size ← boxSize m.options.profile b (boxText m b) m.options.fontFamily
+    let size ← boxSize m.options.profile b (boxText m b) m.options.fontFamily padding
     pure (b.id, withFamilyMinimum m.options.profile size)
+
+#guard (sizes {
+    kind := "agentflow"
+    options := { profile := .cell }
+    boxes := [{ id := "A" }] }).toOption = some [("A", ⟨15, 3⟩)]
+#guard (sizes {
+    kind := "agentflow"
+    options := { profile := .cell, config := [("flowchart.padding", .integer 64)] }
+    boxes := [{ id := "A" }] }).toOption = some [("A", ⟨17, 9⟩)]
+#guard match sizes {
+    kind := "agentflow"
+    options := { config := [("flowchart.padding", .integer (-1))] } } with
+  | .error .domain => true
+  | _ => false
 
 def input (m : Model) (fixed : List (String × Size)) : Layered.Input :=
   { kind := m.kind

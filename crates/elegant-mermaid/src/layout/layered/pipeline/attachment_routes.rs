@@ -18,8 +18,10 @@ impl EndpointRouting<'_> {
     pub fn route(&self, edge: &Edge) -> Result<Vec<Point>, LayoutError> {
         let from = self.boxes[edge.tail];
         let to = self.boxes[edge.head];
-        let mut obstacles = self.obstacles(edge);
-        obstacles.extend(self.labels.iter().map(|(_, rect)| *rect));
+        let mut obstacles = self.exclusive_obstacles(edge);
+        for (_, rect) in self.labels {
+            obstacles.push(text_obstacle(*rect, self.input.profile)?);
+        }
         let starts = ports(from)?;
         let ends = ports(to)?;
         let grid = VisibilityGrid::new(&obstacles, &starts, &ends, self.region_frame(edge)?)?;
@@ -33,7 +35,7 @@ impl EndpointRouting<'_> {
         to: Option<crate::layout::input::RouteSide>,
         bound: Rect,
     ) -> Result<Vec<Point>, LayoutError> {
-        let mut obstacles = self.obstacles(edge);
+        let mut obstacles = self.exclusive_obstacles(edge);
         obstacles.extend(self.labels.iter().map(|(_, rect)| *rect));
         let starts = ports(self.boxes[edge.tail])?;
         let ends = ports(self.boxes[edge.head])?;
@@ -106,7 +108,7 @@ impl EndpointRouting<'_> {
         Ok(ancestors)
     }
 
-    fn obstacles(&self, edge: &Edge) -> Vec<Rect> {
+    fn exclusive_obstacles(&self, edge: &Edge) -> Vec<Rect> {
         let mut ancestors =
             super::super::clusters::ancestors(self.input, &self.graph.nodes[edge.tail].id);
         ancestors.extend(super::super::clusters::ancestors(
@@ -124,6 +126,15 @@ impl EndpointRouting<'_> {
             })
             .collect()
     }
+}
+
+fn text_obstacle(rect: Rect, profile: Profile) -> Result<Rect, LayoutError> {
+    if profile != Profile::Cell || rect.w == 0 || rect.h == 0 {
+        return Ok(rect);
+    }
+    // Visibility edges may lie on an obstacle boundary. Keep that boundary
+    // outside the occupied text cells.
+    crate::geom::inflate(rect, 1)
 }
 
 fn forced_port(

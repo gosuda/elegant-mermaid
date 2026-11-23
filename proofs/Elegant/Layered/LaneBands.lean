@@ -358,19 +358,100 @@ def needsRelocation (s : Scene) (l : SceneLabel) : Bool :=
   let ancestors := ownerAncestors s l
   s.boxes.any fun b => overlapsForeignFrame b l.rect || hitsUnrelatedNode b l ancestors
 
-/-- Move every offending label, and every text item that sits on one, to the strip. -/
-def relocateLabels (axis : Axis) (strip : Int) (s : Scene) : Scene :=
-  let moved := (s.labels.filter (needsRelocation s)).map (·.rect)
-  let labels := s.labels.map fun l =>
-    if needsRelocation s l then { l with rect := axis.withStart l.rect strip } else l
+structure LabelRelocation where
+  owner : String
+  before : Rect
+  after : Rect
+  deriving DecidableEq, Repr
+
+/-- One native scan: reserve the greatest checked end of the labels intersecting this candidate. -/
+def bumpedStrip (axis : Axis) (gap : Int) (rect : Rect) :
+    List LabelRelocation → Int → Except LayoutError Int
+  | [], start => pure start
+  | previous :: rest, start => do
+    if meetsInterior rect previous.after then
+      let next ← Measure.checkedI64
+        (axis.start previous.after + axis.length previous.after + gap)
+      bumpedStrip axis gap rect rest (max start next)
+    else bumpedStrip axis gap rect rest start
+
+/-- A touched rectangle lies wholly before the next candidate. Removing it makes the native
+repeat-until-free search structurally terminating without a retry limit. -/
+def vacantStrip (axis : Axis) (gap : Int) (rect : Rect) (remaining : List LabelRelocation) :
+    Except LayoutError Rect :=
+  if _hit : remaining.any (fun previous => meetsInterior rect previous.after) = true then do
+    let next ← bumpedStrip axis gap rect remaining (axis.start rect)
+    let next ← Measure.checkedI32 next
+    vacantStrip axis gap (axis.withStart rect next)
+      (remaining.filter fun previous => !meetsInterior rect previous.after)
+  else pure rect
+termination_by remaining.length
+decreasing_by
+  simp only [List.unattach_filter, List.unattach_attach]
+  apply List.length_filter_lt_length_iff_exists.mpr
+  obtain ⟨previous, member, overlap⟩ := List.any_eq_true.mp _hit
+  exact ⟨previous, member, by simp [overlap]⟩
+
+def vacantLabelStrip (axis : Axis) (strip gap : Int) (rect : Rect)
+    (moved : List LabelRelocation) : Except LayoutError Rect :=
+  if gap < 0 then throw .domain
+  else vacantStrip axis gap (axis.withStart rect strip) moved
+
+def moveOffendingLabels (axis : Axis) (strip gap : Int) (s : Scene) :
+    List SceneLabel → List LabelRelocation →
+      Except LayoutError (List SceneLabel × List LabelRelocation)
+  | [], moved => pure ([], moved)
+  | label :: rest, moved => do
+    if needsRelocation s label then
+      let rect ← vacantLabelStrip axis strip gap label.rect moved
+      let (labels, moved) ← moveOffendingLabels axis strip gap s rest
+        (moved ++ [⟨label.owner, label.rect, rect⟩])
+      pure ({ label with rect := rect } :: labels, moved)
+    else
+      let (labels, moved) ← moveOffendingLabels axis strip gap s rest moved
+      pure (label :: labels, moved)
+
+def moveMatchingText (moved : List LabelRelocation) (owner : String) : Primitive → Primitive
+  | .text text =>
+    match moved.find? (fun change => change.owner == owner && change.before == text.rect) with
+    | some change => .text { text with rect := change.after }
+    | none => .text text
+  | item => item
+
+-- Equal rectangles alone do not identify a label's display-list text.
+#guard
+  let text : SceneText := {
+    rect := ⟨2, 4, 3, 1⟩
+    role := .label
+    size := 1
+    align := .start
+    style := "label"
+    lines := [[{ text := "Yes" }]] }
+  let moved := [LabelRelocation.mk "edge-a" text.rect ⟨20, 4, 3, 1⟩]
+  decide (moveMatchingText moved "edge-a" (.text text) =
+    .text { text with rect := ⟨20, 4, 3, 1⟩ }) &&
+  decide (moveMatchingText moved "edge-b" (.text text) = .text text)
+
+/-- Place offenders in declaration order, preserving their rank positions. Text moves only
+when both its owner and its original rectangle identify the relocated label. -/
+def relocateLabels (axis : Axis) (strip gap : Int) (s : Scene) : Except LayoutError Scene := do
+  let (labels, moved) ← moveOffendingLabels axis strip gap s s.labels []
   let items := s.items.map fun g =>
-    { g with items := g.items.map fun item =>
-        match item with
-        | .text t =>
-          if moved.contains t.rect then .text { t with rect := axis.withStart t.rect strip }
-          else item
-        | _ => item }
-  { s with labels := labels, items := items }
+    { g with items := g.items.map (moveMatchingText moved g.owner) }
+  pure { s with labels := labels, items := items }
+
+#guard (vacantLabelStrip .x 20 1 ⟨0, 4, 2, 1⟩
+    [⟨"a", ⟨0, 0, 0, 0⟩, ⟨20, 4, 3, 1⟩⟩,
+     ⟨"b", ⟨0, 0, 0, 0⟩, ⟨24, 4, 2, 1⟩⟩]).toOption = some ⟨27, 4, 2, 1⟩
+#guard (vacantLabelStrip .y 20 1 ⟨4, 0, 1, 2⟩
+    [⟨"a", ⟨0, 0, 0, 0⟩, ⟨4, 20, 1, 3⟩⟩,
+     ⟨"b", ⟨0, 0, 0, 0⟩, ⟨4, 24, 1, 2⟩⟩]).toOption = some ⟨4, 27, 1, 2⟩
+#guard (vacantLabelStrip .x 20 1 ⟨0, 4, 2, 1⟩
+    [⟨"a", ⟨0, 0, 0, 0⟩, ⟨20, 10, 3, 1⟩⟩]).toOption = some ⟨20, 4, 2, 1⟩
+#guard match vacantLabelStrip .x (I32_MAX - 1) 1 ⟨0, 4, 3, 1⟩
+    [⟨"a", ⟨0, 0, 0, 0⟩, ⟨I32_MAX - 1, 4, 2, 1⟩⟩] with
+  | .error .overflow => true
+  | _ => false
 
 def growCanvas (axis : Axis) (canvas : Size) (s : Scene) : Except LayoutError Scene := do
   let grown ← Measure.checkedI32 (highest axis s)
@@ -382,6 +463,122 @@ def lanesOf (boxes : List ModelBox) : List String :=
 def Axis.other : Axis → Axis
   | .x => .y
   | .y => .x
+
+/-- Every bump preserves the starting lower bound and clears every rectangle touched by
+the current candidate. The checked arithmetic cannot hide a required reservation. -/
+theorem bumpedStrip_bounds {axis : Axis} {gap : Int} {rect : Rect}
+    {moved : List LabelRelocation} {start next : Int}
+    (h : bumpedStrip axis gap rect moved start = .ok next) :
+    start ≤ next ∧ ∀ previous ∈ moved, meetsInterior rect previous.after = true →
+      axis.start previous.after + axis.length previous.after + gap ≤ next := by
+  induction moved generalizing start with
+  | nil =>
+    simp only [bumpedStrip, pure, Except.pure, Except.ok.injEq] at h
+    subst next
+    exact ⟨Int.le_refl _, by simp⟩
+  | cons previous rest ih =>
+    by_cases overlap : meetsInterior rect previous.after = true
+    · simp only [bumpedStrip, overlap, ↓reduceIte] at h
+      cases checked : Measure.checkedI64
+          (axis.start previous.after + axis.length previous.after + gap) with
+      | error error => simp [checked, bind, Except.bind] at h
+      | ok bound =>
+        have value := Measure.checkedI64_ok checked
+        simp only [checked, bind, Except.bind] at h
+        have bounds := ih h
+        refine ⟨Int.le_trans (Int.le_max_left _ _) bounds.1, ?_⟩
+        intro other member touched
+        rcases List.mem_cons.mp member with same | member
+        · subst other
+          rw [← value]
+          exact Int.le_trans (Int.le_max_right _ _) bounds.1
+        · exact bounds.2 other member touched
+    · simp only [bumpedStrip, overlap] at h
+      have bounds := ih h
+      refine ⟨bounds.1, ?_⟩
+      intro other member touched
+      rcases List.mem_cons.mp member with same | member
+      · subst other
+        exact False.elim (overlap touched)
+      · exact bounds.2 other member touched
+
+/-- A successful search moves only forward, keeps the rank interval and dimensions, and
+has no interior overlap with any prior moved label. -/
+theorem vacantStrip_spec {axis : Axis} {gap : Int} {rect result : Rect}
+    {remaining : List LabelRelocation} (hgap : 0 ≤ gap)
+    (h : vacantStrip axis gap rect remaining = .ok result) :
+    axis.start rect ≤ axis.start result ∧
+    axis.other.start result = axis.other.start rect ∧
+    result.w = rect.w ∧ result.h = rect.h ∧
+    ∀ previous ∈ remaining, meetsInterior result previous.after = false := by
+  rw [vacantStrip] at h
+  split at h
+  · rename_i hit
+    cases bumped : bumpedStrip axis gap rect remaining (axis.start rect) with
+    | error error => simp [bumped, bind, Except.bind] at h
+    | ok next =>
+      cases checked : Measure.checkedI32 next with
+      | error error => simp [bumped, checked, bind, Except.bind] at h
+      | ok start =>
+        have value := Measure.checkedI32_ok checked
+        have bounds := bumpedStrip_bounds bumped
+        simp only [bumped, checked, bind, Except.bind] at h
+        have preserved := vacantStrip_spec hgap h
+        have coordinates :
+            axis.start (axis.withStart rect start) = start ∧
+            axis.other.start (axis.withStart rect start) = axis.other.start rect ∧
+            (axis.withStart rect start).w = rect.w ∧
+            (axis.withStart rect start).h = rect.h := by
+          cases axis <;> exact ⟨rfl, rfl, rfl, rfl⟩
+        have forward : start ≤ axis.start result := by
+          simpa only [coordinates.1] using preserved.1
+        refine ⟨by omega, ?_, ?_, ?_, ?_⟩
+        · exact preserved.2.1.trans coordinates.2.1
+        · exact preserved.2.2.1.trans coordinates.2.2.1
+        · exact preserved.2.2.2.1.trans coordinates.2.2.2
+        · intro previous member
+          by_cases touched : meetsInterior rect previous.after = true
+          · have passed := bounds.2 previous member touched
+            have clear : axis.start previous.after + axis.length previous.after ≤
+                axis.start result := by omega
+            cases axis <;> simp only [Axis.start, Axis.length] at clear
+            all_goals
+              simp only [meetsInterior, decide_eq_false_iff_not]
+              omega
+          · apply preserved.2.2.2.2 previous
+            exact List.mem_filter.mpr ⟨member, by simp [touched]⟩
+  · rename_i noHit
+    simp only [pure, Except.pure, Except.ok.injEq] at h
+    subst result
+    refine ⟨Int.le_refl _, rfl, rfl, rfl, ?_⟩
+    intro previous member
+    apply Bool.eq_false_of_ne_true
+    intro touched
+    exact noHit (List.any_eq_true.mpr ⟨previous, member, touched⟩)
+termination_by remaining.length
+decreasing_by
+  apply List.length_filter_lt_length_iff_exists.mpr
+  have hit : remaining.any (fun previous => meetsInterior rect previous.after) = true :=
+    by assumption
+  obtain ⟨previous, member, overlap⟩ := List.any_eq_true.mp hit
+  exact ⟨previous, member, by simp [overlap]⟩
+
+/-- The public strip operation admits only nonnegative gaps and returns an unchanged rank
+interval at or beyond the base strip, clear of every prior relocation. -/
+theorem vacantLabelStrip_preserves_and_clears {axis : Axis} {strip gap : Int}
+    {rect result : Rect} {moved : List LabelRelocation}
+    (h : vacantLabelStrip axis strip gap rect moved = .ok result) :
+    strip ≤ axis.start result ∧
+    axis.other.start result = axis.other.start rect ∧
+    result.w = rect.w ∧ result.h = rect.h ∧
+    ∀ previous ∈ moved, meetsInterior result previous.after = false := by
+  unfold vacantLabelStrip at h
+  split at h
+  · cases h
+  · rename_i nonnegative
+    have resultSpec := vacantStrip_spec (by omega) h
+    cases axis <;>
+      simpa only [Axis.start, Axis.other, Axis.withStart] using resultSpec
 
 structure GridPoint where
   cross : Int
@@ -406,11 +603,42 @@ def obstacleOf (axis : Axis) (r : Rect) : Obstacle :=
   ⟨axis.start r, axis.start r + axis.length r,
     axis.other.start r, axis.other.start r + axis.other.length r⟩
 
+/-- Cell text occupies closed glyph coordinates, so its routing reservation extends one cell
+on every side. These are wide grid coordinates, not narrowed scene coordinates. -/
+def textObstacle (axis : Axis) (rect : Rect) : Obstacle :=
+  let obstacle := obstacleOf axis rect
+  ⟨obstacle.cross0 - 1, obstacle.cross1 + 1, obstacle.rank0 - 1, obstacle.rank1 + 1⟩
+
+theorem textObstacle_contains_closed {axis : Axis} {rect : Rect} {point : GridPoint}
+    (hcross : axis.start rect ≤ point.cross ∧
+      point.cross ≤ axis.start rect + axis.length rect)
+    (hrank : axis.other.start rect ≤ point.rank ∧
+      point.rank ≤ axis.other.start rect + axis.other.length rect) :
+    (textObstacle axis rect).cross0 < point.cross ∧
+    point.cross < (textObstacle axis rect).cross1 ∧
+    (textObstacle axis rect).rank0 < point.rank ∧
+    point.rank < (textObstacle axis rect).rank1 := by
+  simp only [textObstacle, obstacleOf]
+  omega
+
+def textObstacles (axis : Axis) (s : Scene) : List Obstacle :=
+  if s.options.profile == .cell then
+    s.items.flatMap fun group => group.items.filterMap fun item =>
+      match item with
+      | .text text =>
+        if 0 < text.rect.w ∧ 0 < text.rect.h then some (textObstacle axis text.rect) else none
+      | _ => none
+  else []
+
 def Obstacle.hits (o : Obstacle) (a b : GridPoint) : Bool :=
   (a.rank == b.rank && decide (o.rank0 < a.rank ∧ a.rank < o.rank1 ∧
     min a.cross b.cross < o.cross1 ∧ o.cross0 < max a.cross b.cross)) ||
   (a.cross == b.cross && decide (o.cross0 < a.cross ∧ a.cross < o.cross1 ∧
     min a.rank b.rank < o.rank1 ∧ o.rank0 < max a.rank b.rank))
+
+-- The top and left glyph boundaries used to be legal open-interior route lines.
+#guard (textObstacle .x ⟨3, 4, 5, 1⟩).hits ⟨0, 4⟩ ⟨10, 4⟩
+#guard (textObstacle .x ⟨3, 4, 5, 1⟩).hits ⟨3, 0⟩ ⟨3, 8⟩
 
 structure RouteGrid where
   cross : Array Int
@@ -552,7 +780,7 @@ def routePolyline (axis : Axis) (g : RouteGrid) (ends : RouteEnds)
 def clearPolyline (g : RouteGrid) (axis : Axis) (points : List Point) : Bool :=
   (points.zip points.tail).all (fun (a, b) => g.free (axis.grid a) (axis.grid b))
 
-def findRoute (axis : Axis) (ends : RouteEnds) (obs : List Obstacle) (bend : Int) :
+def findRoute (axis : Axis) (ends : RouteEnds) (obs boxes : List Obstacle) (bend : Int) :
     List Int → Except LayoutError (List Point)
   | [] => .error .domain
   | inflate :: rest => do
@@ -563,10 +791,12 @@ def findRoute (axis : Axis) (ends : RouteEnds) (obs : List Obstacle) (bend : Int
       (List.range (g.cross.size * g.rank.size * 4))
       ⟨[⟨start * 4 + ends.startMove, 0, [start]⟩], none⟩
     match found with
-    | none => findRoute axis ends obs bend rest
+    | none => findRoute axis ends obs boxes bend rest
     | some node =>
       let points ← routePolyline axis g ends node.path
-      if clearPolyline g axis points then pure points else findRoute axis ends obs bend rest
+      let boxGrid := { g with obstacles := boxes }
+      if clearPolyline boxGrid axis points then pure points
+      else findRoute axis ends obs boxes bend rest
 
 def replaceRouteItem (old points : List Point) : Primitive → Primitive
   | .polyline _ corner paint => .polyline points corner paint
@@ -586,9 +816,10 @@ def rerouteBands (axis : Axis) (sp : Spacing) (bend : Int) (bands : List Band)
       if fi == ti || old.points.length < 2 then pure r
       else
         let ends ← routeEnds axis sp pin fb tb old.points
-        let obs := (s.boxes.filter (fun b => b.exclusive && b.id != r.fromId &&
+        let boxes := (s.boxes.filter (fun b => b.exclusive && b.id != r.fromId &&
           b.id != r.toId)).map (fun b => obstacleOf axis b.rect)
-        pure { r with points := ← findRoute axis ends obs bend [sp.slot, 0] }
+        let obs := boxes ++ textObstacles axis s
+        pure { r with points := ← findRoute axis ends obs boxes bend [sp.slot, 0] }
     | _, _, _, _ => pure r
   let items := s.items.map fun g =>
     match s.routes.find? (·.id == g.owner), routes.find? (·.id == g.owner) with
@@ -612,7 +843,8 @@ def pinBands (boxes : List ModelBox) (o : Options) (s : Scene) : Except LayoutEr
       (buildPin axis bands s) s.routes pinned
     let origin ← restoreOrigin axis routed
     let strip ← Measure.checkedI32 (highest axis origin + sp.slot)
-    growCanvas axis s.canvas (relocateLabels axis strip origin)
+    let relocated ← relocateLabels axis strip sp.slot origin
+    growCanvas axis s.canvas relocated
 
 /-- Consecutive bands: each starts where the previous one ends, the first at the given start. -/
 def Tiled : Int → List Band → Prop
@@ -696,14 +928,32 @@ theorem pinBands_no_lanes {boxes : List ModelBox} {o : Options} {s : Scene}
   simp [pinBands, h]
   rfl
 
-theorem relocateLabels_boxes (axis : Axis) (strip : Int) (s : Scene) :
-    (relocateLabels axis strip s).boxes = s.boxes := rfl
+theorem relocateLabels_boxes {axis : Axis} {strip gap : Int} {s result : Scene}
+    (h : relocateLabels axis strip gap s = .ok result) : result.boxes = s.boxes := by
+  unfold relocateLabels at h
+  simp only [bind, Except.bind, pure, Except.pure] at h
+  split at h
+  · cases h
+  · cases h
+    rfl
 
-theorem relocateLabels_routes (axis : Axis) (strip : Int) (s : Scene) :
-    (relocateLabels axis strip s).routes = s.routes := rfl
+theorem relocateLabels_routes {axis : Axis} {strip gap : Int} {s result : Scene}
+    (h : relocateLabels axis strip gap s = .ok result) : result.routes = s.routes := by
+  unfold relocateLabels at h
+  simp only [bind, Except.bind, pure, Except.pure] at h
+  split at h
+  · cases h
+  · cases h
+    rfl
 
-theorem relocateLabels_canvas (axis : Axis) (strip : Int) (s : Scene) :
-    (relocateLabels axis strip s).canvas = s.canvas := rfl
+theorem relocateLabels_canvas {axis : Axis} {strip gap : Int} {s result : Scene}
+    (h : relocateLabels axis strip gap s = .ok result) : result.canvas = s.canvas := by
+  unfold relocateLabels at h
+  simp only [bind, Except.bind, pure, Except.pure] at h
+  split at h
+  · cases h
+  · cases h
+    rfl
 
 theorem Move.apply_inI32 {m : Move} {v w : Int} (h : m.apply v = .ok w) : InI32 w := by
   unfold Move.apply Measure.checkedI32 at h
@@ -784,7 +1034,9 @@ theorem pinBands_canvas_grows {boxes : List ModelBox} {o : Options} {s r : Scene
         · cases h
         · split at h
           · cases h
-          · exact (growCanvas_covers h).1
+          · split at h
+            · cases h
+            · exact (growCanvas_covers h).1
 
 end LaneBands
 end Layered

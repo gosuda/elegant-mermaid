@@ -321,6 +321,22 @@ func (r *bandRouter) obstacles(from, to string) []obstacle {
 			out = append(out, newObstacle(r.axis, box.Rect))
 		}
 	}
+	if r.scene.Options.Profile == scene.ProfileCell {
+		for _, group := range r.scene.Groups {
+			for _, item := range group.Items {
+				label, ok := item.(*scene.Text)
+				if !ok || label.Rect.W <= 0 || label.Rect.H <= 0 {
+					continue
+				}
+				bound := newObstacle(r.axis, label.Rect)
+				bound.cross0--
+				bound.cross1++
+				bound.rank0--
+				bound.rank1++
+				out = append(out, bound)
+			}
+		}
+	}
 	return out
 }
 

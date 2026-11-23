@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BinaryHeap};
 use super::LayoutError;
 use super::{Axis, Band, narrow};
 use crate::geom::{Point, Rect};
-use crate::scene::{self, GroupRole, Item};
+use crate::scene::{self, GroupRole, Item, Profile};
 
 #[derive(Clone, Copy)]
 struct GridPoint {
@@ -33,6 +33,7 @@ impl Axis {
     }
 }
 
+#[derive(Clone, Copy)]
 struct Obstacle {
     cross0: i64,
     cross1: i64,
@@ -255,9 +256,15 @@ impl Router {
         })
     }
 
-    fn points(&self, obstacles: &[Obstacle], ends: &Ends) -> Result<Vec<Point>, LayoutError> {
+    fn points(
+        &self,
+        boxes: &[Obstacle],
+        text: &[Obstacle],
+        ends: &Ends,
+    ) -> Result<Vec<Point>, LayoutError> {
+        let obstacles: Vec<_> = boxes.iter().chain(text).copied().collect();
         for inflate in [self.slot, 0] {
-            let grid = Grid::new(obstacles, inflate, ends.entry, ends.exit);
+            let grid = Grid::new(&obstacles, inflate, ends.entry, ends.exit);
             let search = Search {
                 grid: &grid,
                 goal: grid.vertex(ends.exit),
@@ -272,10 +279,11 @@ impl Router {
                 continue;
             };
             let points = polyline(self.axis, &grid, &path, ends)?;
-            if points
-                .windows(2)
-                .all(|pair| grid.free(self.axis.grid(pair[0]), self.axis.grid(pair[1])))
-            {
+            if points.windows(2).all(|pair| {
+                !boxes
+                    .iter()
+                    .any(|obstacle| obstacle.hits(self.axis.grid(pair[0]), self.axis.grid(pair[1])))
+            }) {
                 return Ok(points);
             }
         }
@@ -289,6 +297,11 @@ impl Router {
         input: (&[Band], &[Vec<Point>]),
     ) -> Result<(), LayoutError> {
         let (bands, original) = input;
+        let text: Vec<_> = if dump.options.profile == Profile::Cell {
+            text_obstacles(self.axis, items).collect()
+        } else {
+            Vec::new()
+        };
         for (route, old) in dump.routes.iter_mut().zip(original) {
             let band = |id: &str| {
                 bands
@@ -318,10 +331,30 @@ impl Router {
                 .filter(|b| b.exclusive && b.id != route.from && b.id != route.to)
                 .map(|b| Obstacle::new(self.axis, b.rect))
                 .collect();
-            replace(items, route, self.points(&obstacles, &ends)?);
+            replace(items, route, self.points(&obstacles, &text, &ends)?);
         }
         Ok(())
     }
+}
+
+fn text_obstacles(axis: Axis, items: &[scene::Group]) -> impl Iterator<Item = Obstacle> {
+    items
+        .iter()
+        .flat_map(|group| &group.items)
+        .filter_map(move |item| {
+            let Item::Text(text) = item else {
+                return None;
+            };
+            if text.rect.w <= 0 || text.rect.h <= 0 {
+                return None;
+            }
+            let mut bound = Obstacle::new(axis, text.rect);
+            bound.cross0 -= 1;
+            bound.cross1 += 1;
+            bound.rank0 -= 1;
+            bound.rank1 += 1;
+            Some(bound)
+        })
 }
 
 fn polyline(

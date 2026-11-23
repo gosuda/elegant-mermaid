@@ -870,11 +870,11 @@ func paddingFromFlowchart(flowchart syn.ConfigValue) (int, bool) {
 	}
 	for _, inner := range flowchart.Entries {
 		if inner.Key == "padding" && inner.Value.Kind == syn.ValueInteger {
-			value, err := strconv.Atoi(inner.Value.Text)
+			value, err := strconv.ParseInt(inner.Value.Text, 10, 32)
 			if err != nil {
 				return 0, false
 			}
-			return value, true
+			return int(value), true
 		}
 	}
 	return 0, false

@@ -283,8 +283,29 @@ func regionSeparatorUsable(bounds regionBounds, inset int32, a, b geom.Rect) boo
 	return inset >= 0 && bounds.left <= bounds.right && bounds.top <= bounds.bottom && positiveExtent(a) && positiveExtent(b)
 }
 
+func regionBodyBounds(parent, a, b geom.Rect, inset int32) (regionBounds, error) {
+	outer, err := insetRegionBounds(parent, inset)
+	if err != nil {
+		return regionBounds{}, err
+	}
+	first, err := insetRegionBounds(a, 0)
+	if err != nil {
+		return regionBounds{}, err
+	}
+	second, err := insetRegionBounds(b, 0)
+	if err != nil {
+		return regionBounds{}, err
+	}
+	return regionBounds{
+		left:   max(outer.left, min(first.left, second.left)),
+		top:    max(outer.top, min(first.top, second.top)),
+		right:  min(outer.right, max(first.right, second.right)),
+		bottom: min(outer.bottom, max(first.bottom, second.bottom)),
+	}, nil
+}
+
 func regionSeparator(parent, a, b geom.Rect, inset int32) ([2]geom.Point, error) {
-	bounds, err := insetRegionBounds(parent, inset)
+	bounds, err := regionBodyBounds(parent, a, b, inset)
 	if err != nil {
 		return [2]geom.Point{}, err
 	}
@@ -296,6 +317,9 @@ func regionSeparator(parent, a, b geom.Rect, inset int32) ([2]geom.Point, error)
 		return [2]geom.Point{}, err
 	}
 	if found {
+		if x < bounds.left || x > bounds.right {
+			return [2]geom.Point{}, errStateDomain
+		}
 		return [2]geom.Point{{X: x, Y: bounds.top}, {X: x, Y: bounds.bottom}}, nil
 	}
 	y, found, err := regionGap(a.Y, a.H, b.Y, b.H)
@@ -303,6 +327,9 @@ func regionSeparator(parent, a, b geom.Rect, inset int32) ([2]geom.Point, error)
 		return [2]geom.Point{}, err
 	}
 	if found {
+		if y < bounds.top || y > bounds.bottom {
+			return [2]geom.Point{}, errStateDomain
+		}
 		return [2]geom.Point{{X: bounds.left, Y: y}, {X: bounds.right, Y: y}}, nil
 	}
 	return [2]geom.Point{}, errStateDomain
