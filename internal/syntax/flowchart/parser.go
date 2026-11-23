@@ -57,6 +57,7 @@ type parser struct {
 	src   []byte
 	toks  []Token
 	i     int
+	depth int
 	diags []diag.Diagnostic
 	end   endState
 }
