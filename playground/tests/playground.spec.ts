@@ -54,11 +54,17 @@ test.describe('engines and output', () => {
       expect(await image.getAttribute('src')).toMatch(/^blob:/);
       await expect(page.getByLabel(`${label} engine download`)).toHaveCount(0);
     }
-    const engineUrls = urls.filter((url) => /wasm_exec\.js|\.wasm$|elegant_mermaid_wasm\.js$/.test(url));
-    expect(engineUrls.length).toBeGreaterThanOrEqual(4);
-    for (const url of engineUrls) {
-      expect(new URL(url).pathname.startsWith(`${basePath}/wasm/`)).toBe(true);
-    }
+    const enginePaths = urls
+      .map((url) => new URL(url).pathname)
+      .filter((pathname) => /wasm_exec\.js$|\.wasm$|elegant_mermaid_wasm\.js$/.test(pathname));
+    expect(new Set(enginePaths)).toEqual(
+      new Set([
+        `${basePath}/wasm/wasm_exec.js`,
+        `${basePath}/wasm/emd-go.wasm`,
+        `${basePath}/wasm/emd-rs/elegant_mermaid_wasm.js`,
+        `${basePath}/wasm/emd-rs/elegant_mermaid_wasm_bg.wasm`,
+      ]),
+    );
   });
 
   test('typing a diagram updates both panes and the comparison', async ({ page }) => {
