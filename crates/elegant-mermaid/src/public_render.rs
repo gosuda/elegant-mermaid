@@ -24,10 +24,16 @@ pub fn layout_with_diagnostics(
     if errors != 0 {
         return Err(RenderError::InvalidDocument { errors });
     }
+    let max = i32::MAX.unsigned_abs();
     if !(1..=5).contains(&options.thoroughness)
-        || options.limits.max_nodes == 0
-        || options.limits.max_edges == 0
-        || options.limits.max_text_bytes == 0
+        || options.max_width > max
+        || [
+            options.limits.max_nodes,
+            options.limits.max_edges,
+            options.limits.max_text_bytes,
+        ]
+        .into_iter()
+        .any(|limit| !(1..=max).contains(&limit))
     {
         return Err(RenderError::InvalidConfig { errors: 1 });
     }

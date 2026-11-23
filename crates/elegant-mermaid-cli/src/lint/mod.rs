@@ -1,6 +1,9 @@
 mod config;
 mod flags;
+mod host_bytes;
 mod rewrite;
+#[cfg(test)]
+mod tests;
 
 use crate::error::CliError;
 use crate::view::Environment;
@@ -57,8 +60,16 @@ fn lint_command(args: &[String], environment: &Environment) -> Result<Outcome, C
         let shown = if path == STDIN { "<stdin>" } else { path };
         if flags.fix {
             let outcome = fix_source(shown, &bytes, &config, fix_limit(&flags));
-            store_fixed(path, &outcome, &mut fixed_stdin)?;
-            bytes = outcome.text.into_bytes();
+            if path == STDIN {
+                fixed_stdin = Some(outcome.text.clone());
+            }
+            let fixed = if check::markdown_host(Path::new(shown)) {
+                host_bytes::preserve(path, &bytes, outcome.text)?
+            } else {
+                outcome.text.into_bytes()
+            };
+            store_fixed(path, &bytes, &fixed)?;
+            bytes = fixed;
         }
         files.push(lint_file(shown, &bytes, &config));
     }
@@ -97,17 +108,12 @@ fn fix_limit(flags: &Flags) -> FixSafety {
     }
 }
 
-fn store_fixed(
-    path: &str,
-    outcome: &FixOutcome,
-    fixed_stdin: &mut Option<String>,
-) -> Result<(), CliError> {
+fn store_fixed(path: &str, original: &[u8], fixed: &[u8]) -> Result<(), CliError> {
     if path == STDIN {
-        *fixed_stdin = Some(outcome.text.clone());
         return Ok(());
     }
-    if outcome.applied > 0 {
-        rewrite::rewrite_file(path, outcome.text.as_bytes())?;
+    if original != fixed {
+        rewrite::rewrite_file(path, fixed)?;
     }
     Ok(())
 }
