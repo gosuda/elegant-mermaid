@@ -1,0 +1,153 @@
+:root {
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+  --radius: 8px;
+  --stroke: 1px;
+  --stroke-emphasis: 2px;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: monospace;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --duration: 120ms;
+  --gutter: var(--sp-3);
+  color-scheme: light dark;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --gutter: var(--sp-6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration: 0ms;
+  }
+
+  /* biome-ignore-start lint/complexity/noImportantStyles: third-party widgets such as the CodeMirror cursor animate through their own rules, so the reduced-motion reset must win over them */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+  /* biome-ignore-end lint/complexity/noImportantStyles: end of the reduced-motion reset */
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--emd-bg);
+  color: var(--emd-fg);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+:focus-visible {
+  outline: var(--stroke-emphasis) solid var(--emd-accent);
+  outline-offset: var(--sp-1);
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: var(--emd-fg);
+}
+
+button,
+select {
+  min-height: var(--sp-8);
+  min-width: var(--sp-8);
+  padding: var(--sp-1) var(--sp-3);
+  border: var(--stroke) solid var(--emd-border);
+  border-radius: var(--radius);
+  background: var(--emd-surface);
+  transition:
+    color var(--duration) var(--ease),
+    background-color var(--duration) var(--ease);
+}
+
+button:hover:not(:disabled),
+select:hover:not(:disabled) {
+  background: var(--emd-bg);
+}
+
+button:disabled,
+select:disabled,
+input:disabled {
+  color: var(--emd-muted);
+  border-style: dashed;
+}
+
+input[type="radio"] {
+  width: var(--sp-6);
+  height: var(--sp-6);
+  margin: 0;
+  accent-color: var(--emd-accent);
+}
+
+input[type="text"] {
+  min-height: var(--sp-8);
+  padding: var(--sp-1) var(--sp-3);
+  border: var(--stroke) solid var(--emd-border);
+  border-radius: var(--radius);
+  background: var(--emd-surface);
+}
+
+pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: pre;
+}
+
+progress {
+  accent-color: var(--emd-accent);
+}
