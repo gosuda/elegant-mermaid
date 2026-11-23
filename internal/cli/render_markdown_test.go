@@ -214,11 +214,41 @@ func TestRenderMarkdownLaterLayoutErrorWritesNothing(t *testing.T) {
 		t.Fatalf("standalone overflow: exit=%d stderr=%q", standaloneCode, want)
 	}
 	bad := "```mermaid\n" + markdownFirst + "```\n```mermaid\n" + overflow + "```\n"
-	t.Chdir(writeLintFiles(t, map[string]string{"bad.md": bad, "out-1.svg": "existing asset"}))
-	out, stderr, code := invoke(t, "", "render", "bad.md", "-o", "out.svg")
+	t.Chdir(writeLintFiles(t, map[string]string{"bad.md": bad, "out-1.svg": "existing asset", "out.md": "existing host"}))
+	out, stderr, code := invoke(t, "", "render", "bad.md", "-o", "out.md", "-a", ".")
 	if code != 1 || out != "" || stderr != want {
 		t.Fatalf("later layout error: exit=%d stdout=%q stderr=%q", code, out, stderr)
 	}
 	requireMarkdownText(t, "out-1.svg", "existing asset")
+	requireMarkdownText(t, "out.md", "existing host")
 	requireMarkdownAbsent(t, "out-2.svg")
+}
+
+func TestRenderMarkdownDirectoryOperandsWriteNothing(t *testing.T) {
+	t.Chdir(writeLintFiles(t, map[string]string{"input.md": markdownTwoBlocks()}))
+	if err := os.Mkdir("directory.svg", 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{".", "directory.svg", "missing/", "missing/."} {
+		out, stderr, code := invoke(t, "", "render", "input.md", "-o", path, "-e", "svg")
+		want := "cannot write " + path + ": is a directory\n"
+		if code != 2 || out != "" || stderr != want {
+			t.Errorf("%s: exit=%d stdout=%q stderr=%q", path, code, out, stderr)
+		}
+	}
+	requireMarkdownAbsent(t, "directory-1.svg", "missing")
+}
+
+func TestRenderMarkdownUnwritableHostParentPreservesImages(t *testing.T) {
+	t.Chdir(writeLintFiles(t, map[string]string{
+		"input.md":         markdownTwoBlocks(),
+		"parent":           "existing file",
+		"images/out-1.svg": "existing image",
+	}))
+	out, stderr, code := invoke(t, "", "render", "input.md", "-o", "parent/out.md", "-a", "images")
+	if code != 2 || out != "" || stderr != "cannot write parent/out.md: not a directory\n" {
+		t.Fatalf("host parent: exit=%d stdout=%q stderr=%q", code, out, stderr)
+	}
+	requireMarkdownText(t, "images/out-1.svg", "existing image")
+	requireMarkdownAbsent(t, "images/out-2.svg")
 }

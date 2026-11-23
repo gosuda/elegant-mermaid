@@ -355,3 +355,133 @@ fn markdown_render_applies_config_limits_to_each_block_only() -> TestResult {
     assert!(fixture.0.join("out-1.svg").exists());
     Ok(())
 }
+
+#[test]
+fn markdown_late_layout_failure_keeps_existing_assets_and_host() -> TestResult {
+    let fixture = Fixture::new()?;
+    let overflow = "pie\n\"A\" : 99999999999\n";
+    fixture.write("single.mmd", overflow)?;
+    let single = fixture.run(&["render", "single.mmd", "-e", "svg"])?;
+    assert_eq!(single.status.code(), Some(1));
+    assert_eq!(single.stderr, b"arithmetic overflow\n");
+    fixture.write(
+        "input.md",
+        format!("```mermaid\n{FIRST}```\n```mermaid\n{overflow}```\n"),
+    )?;
+    fixture.write("out-1.svg", b"existing image")?;
+    fixture.write("out.md", b"existing host")?;
+    let output = fixture.run(&["render", "input.md", "-o", "out.md", "-a", "."])?;
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty());
+    assert_eq!(output.stderr, single.stderr);
+    assert_eq!(fixture.read("out-1.svg")?, b"existing image");
+    assert_eq!(fixture.read("out.md")?, b"existing host");
+    assert!(!fixture.0.join("out-2.svg").exists());
+    Ok(())
+}
+
+#[test]
+fn markdown_output_directory_operands_are_not_renamed() -> TestResult {
+    let fixture = Fixture::new()?;
+    fixture.two_blocks()?;
+    std::fs::create_dir(fixture.0.join("directory.svg"))?;
+    for path in [".", "directory.svg", "missing/", "missing/.", "missing/.."] {
+        let output = fixture.run(&["render", "input.md", "-o", path, "-e", "svg"])?;
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert_eq!(
+            output.stderr,
+            format!("cannot write {path}: is a directory\n").as_bytes()
+        );
+    }
+    assert!(!fixture.0.join("directory-1.svg").exists());
+    assert!(!fixture.0.join("missing").exists());
+    Ok(())
+}
+
+#[test]
+fn markdown_write_failures_keep_mapped_diagnostics() -> TestResult {
+    let fixture = Fixture::new()?;
+    fixture.write(
+        "input.md",
+        "```mermaid\n---\nconfig:\n  fontFamily: serif\n---\nflowchart LR\nA --> B\n```\n",
+    )?;
+    fixture.write("blocked", b"not a directory")?;
+    let output = fixture.run(&[
+        "render",
+        "input.md",
+        "-o",
+        "out.md",
+        "-a",
+        "blocked/assets",
+        "--color",
+        "never",
+    ])?;
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    let stderr = String::from_utf8(output.stderr)?;
+    assert!(
+        stderr.contains("input.md:4:3: info[config/font-metrics-approximate]"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.ends_with("cannot write blocked/assets/out-1.svg: not a directory\n"),
+        "{stderr}"
+    );
+    assert!(!fixture.0.join("out.md").exists());
+    assert_eq!(fixture.read("blocked")?, b"not a directory");
+    Ok(())
+}
+
+#[test]
+fn standalone_write_failures_keep_source_diagnostics() -> TestResult {
+    let fixture = Fixture::new()?;
+    fixture.write(
+        "single.mmd",
+        "---\nconfig:\n  fontFamily: serif\n---\nflowchart LR\nA --> B\n",
+    )?;
+    fixture.write("blocked", b"not a directory")?;
+    let output = fixture.run(&[
+        "render",
+        "single.mmd",
+        "-o",
+        "blocked/out.svg",
+        "--color",
+        "never",
+    ])?;
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    let stderr = String::from_utf8(output.stderr)?;
+    assert!(
+        stderr.contains("single.mmd:3:3: info[config/font-metrics-approximate]"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.ends_with("cannot write blocked/out.svg: not a directory\n"),
+        "{stderr}"
+    );
+    assert_eq!(fixture.read("blocked")?, b"not a directory");
+    Ok(())
+}
+
+#[cfg(unix)]
+#[test]
+fn markdown_host_output_replaces_the_named_symlink() -> TestResult {
+    let fixture = Fixture::new()?;
+    fixture.write("input.md", format!("```mermaid\n{FIRST}```\n"))?;
+    std::fs::create_dir(fixture.0.join("directory"))?;
+    std::os::unix::fs::symlink("directory", fixture.0.join("out.md"))?;
+    let output = fixture.run(&["render", "input.md", "-o", "out.md"])?;
+    success(&output);
+    assert_eq!(
+        fixture.read("out.md")?,
+        b"![diagram](out.assets/out-1.svg)\n"
+    );
+    assert!(
+        !std::fs::symlink_metadata(fixture.0.join("out.md"))?
+            .file_type()
+            .is_symlink()
+    );
+    assert!(fixture.0.join("directory").is_dir());
+    Ok(())
+}

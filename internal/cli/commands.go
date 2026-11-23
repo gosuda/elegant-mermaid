@@ -40,6 +40,8 @@ func (l *stringList) Set(value string) error {
 
 type commandOptions struct {
 	input, output, format, theme, background, charset, color, svgText, config string
+	artifacts                                                                 string
+	artifactsSet                                                              bool
 	width, scale                                                              int
 	iconPacks                                                                 stringList
 	site                                                                      syntax.ConfigValue
@@ -57,6 +59,10 @@ func commandFlags(command string, args []string) (commandOptions, []string, erro
 	} else {
 		fs.StringVar(&o.input, "i", "", "")
 		fs.StringVar(&o.output, "o", "", "")
+		fs.Func("a", "", func(value string) error {
+			o.artifacts, o.artifactsSet = value, true
+			return nil
+		})
 		fs.StringVar(&o.format, "e", "", "")
 		fs.StringVar(&o.theme, "t", "", "")
 		fs.StringVar(&o.background, "b", "", "")
@@ -166,6 +172,9 @@ func renderCommand(cfg Config) error {
 	if path == "" {
 		path = "-"
 	}
+	if err = resolveMarkdownOptions(&o, path); err != nil {
+		return err
+	}
 	if err = resolveRenderOptions(&o, cfg); err != nil {
 		return err
 	}
@@ -179,6 +188,9 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	src, err := modelSource(cfg, path)
 	if err != nil {
 		return err
+	}
+	if markdownHost(path) {
+		return renderMarkdown(cfg, o, path, src)
 	}
 	if path == "-" {
 		path = "<stdin>"
@@ -195,9 +207,9 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	if err = rejectInvalidSource(cfg, o, f); err != nil {
 		return err
 	}
-	s, ds, err := layoutDiagram(cfg, o, m, effective)
+	s, ds, err := layoutDiagram(o, m, effective)
 	if err != nil {
-		return err
+		return resultError(cfg, err)
 	}
 	if err = diag.RenderText(cfg.Stderr, path, src, ds, diag.FrameOptions{}); err != nil {
 		return err
@@ -215,19 +227,19 @@ func rejectInvalidSource(cfg Config, o commandOptions, f diag.FileDiagnostics) e
 	return nil
 }
 
-func layoutDiagram(cfg Config, o commandOptions, m *layout.Diagram, effective syntax.EffectiveConfig) (scene.Scene, []diag.Diagnostic, error) {
+func layoutDiagram(o commandOptions, m *layout.Diagram, effective syntax.EffectiveConfig) (scene.Scene, []diag.Diagnostic, error) {
 	profile := scene.ProfileVector
 	if o.format == "text" {
 		profile = scene.ProfileCell
 	}
 	in, err := m.InputConfigured(profile, scene.Options{MaxWidth: int32(o.width)}, effective)
 	if err != nil {
-		return scene.Scene{}, nil, resultError(cfg, err)
+		return scene.Scene{}, nil, err
 	}
 	in.IconPacks = o.packs
 	s, ds, err := layout.Layout(in)
 	if err != nil {
-		return scene.Scene{}, nil, resultError(cfg, err)
+		return scene.Scene{}, nil, err
 	}
 	ds = append(ds, layout.PlaceIcons(&s, m.IconRefs(), o.packs)...)
 	return s, ds, nil
@@ -355,7 +367,7 @@ func resolveRenderOptions(o *commandOptions, cfg Config) error {
 	if err := validateRenderValues(*o); err != nil {
 		return err
 	}
-	if o.format == "png" && o.output == "" && terminalWriter(cfg.Stdout) {
+	if o.format == "png" && o.output == "" && !o.artifactsSet && terminalWriter(cfg.Stdout) {
 		return errors.New("cannot write PNG to a terminal; use -o FILE.png or redirect stdout to a file")
 	}
 	return resolveTheme(o, cfg)
