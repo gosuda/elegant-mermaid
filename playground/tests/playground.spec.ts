@@ -534,7 +534,11 @@ test.describe('first paint without scripts', () => {
     await expect(page.getByLabel('Mermaid source')).toContainText(DEFAULT_FIRST_LINE);
     await expect(page.getByRole('radio', { name: 'Both' })).toBeChecked();
     await expect(page.getByRole('tab', { name: 'SVG' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByLabel('Sample output while the engines load')).toBeVisible();
+    const sample = page.getByLabel('Sample output while the engines load');
+    await expect(sample).toBeVisible();
+    for (const rendered of ['┌', 'Start', 'Choice', 'Done']) {
+      await expect(sample).toContainText(rendered);
+    }
     await expect(page.getByRole('status')).toBeEmpty();
     await expect(page.locator('noscript p')).toHaveText(
       'This playground needs JavaScript to render your edits; the sample source and output remain available.',

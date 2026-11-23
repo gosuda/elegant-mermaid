@@ -49,6 +49,8 @@ jobs:
         run: "pnpm --dir playground install --frozen-lockfile"
       - name: "Build the WebAssembly engines"
         run: "just playground-wasm"
+      - name: "Render the sample output"
+        run: "just playground-sample"
       - name: "Build the site"
         run: "BASE_PATH=/elegant-mermaid pnpm --dir playground build"
       - name: "Configure Pages"

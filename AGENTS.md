@@ -32,7 +32,7 @@ Failures in one independent gate MUST NOT suppress the other gate results.
 `just verify` remains the complete local entry point. Both workflows MUST
 pass before the repository is described as fully verified.
 
-`pages.yml` runs `playground-wasm`.
+`pages.yml` runs `playground-wasm` and `playground-sample`.
 
 ## Lean proofs
 
