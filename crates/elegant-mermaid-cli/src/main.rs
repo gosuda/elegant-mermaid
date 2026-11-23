@@ -7,6 +7,7 @@ mod kernel_eval;
 mod layout;
 mod lint;
 mod options;
+mod output;
 mod paths;
 mod render;
 mod report;

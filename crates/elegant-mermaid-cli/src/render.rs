@@ -89,10 +89,12 @@ fn prepare(
     if o.output.is_empty() {
         return Ok((output, stderr, 0));
     }
-    atomic_output(&o.output, &output).map_err(|source| CliError::Write {
-        path: o.output.clone(),
-        source,
-    })?;
+    crate::output::write_file(std::path::Path::new(&o.output), &output, None).map_err(
+        |source| CliError::Write {
+            path: o.output.clone(),
+            source,
+        },
+    )?;
     Ok((Vec::new(), stderr, 0))
 }
 fn read_config(path: &str) -> Result<Option<String>, CliError> {
@@ -220,27 +222,4 @@ fn text_output(
     )
     .map(|r| r.text)
     .map_err(CliError::from)
-}
-fn atomic_output(path: &str, data: &[u8]) -> std::io::Result<()> {
-    use std::io::Write;
-    let parent = std::path::Path::new(path)
-        .parent()
-        .unwrap_or_else(|| std::path::Path::new("."));
-    let temp = parent.join(format!(".emd-{}", std::process::id()));
-    let result = (|| {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp)?;
-        file.write_all(data)?;
-        drop(file);
-        std::fs::rename(&temp, path)
-    })();
-    let cleanup = std::fs::remove_file(&temp);
-    if let Err(error) = cleanup
-        && error.kind() != std::io::ErrorKind::NotFound
-    {
-        return Err(error);
-    }
-    result
 }
