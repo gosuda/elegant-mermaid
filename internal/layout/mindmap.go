@@ -158,7 +158,7 @@ func (p *mindmapPlan) measure() error {
 	}
 	wrap := max(p.c.maxWidth-2*p.c.padding, 1)
 	for i, box := range p.in.Boxes {
-		lines, err := measure.StyledLines(p.labelText(box), wrap, mindmapMetric(p.in.Profile))
+		lines, err := measure.StyledLines(p.labelText(box), wrap, mindmapMetric(p.in.Profile).WithFontFamily(p.in.Options.FontFamily))
 		if err != nil {
 			return geom.ErrOverflow
 		}

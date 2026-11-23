@@ -37,7 +37,7 @@ pub(crate) fn from_gantt(
 ) -> Result<Input, LayoutError> {
     let payload = payload(model);
     options.profile = profile;
-    options.config = config_of(&payload);
+    options.set_kind_config(config_of(&payload));
     let skeleton = chart::model_skeleton(&payload)?;
     let boxes = skeleton
         .boxes

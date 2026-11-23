@@ -632,7 +632,7 @@ structure SceneExecution (inp : Input) (o : Options) (res : FamilyResult) where
   componentsAcc : Acc
   packedAcc : Acc
   checked : checkedParams o.profile inp.kind = .ok params
-  metric_eq : metricOf o.profile = .ok metric
+  metric_eq : metricOf o.profile o.fontFamily = .ok metric
   lines_eq : boxLines metric
     (Measure.wrapTarget metric.profile params.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
     inp = .ok lines
@@ -847,7 +847,7 @@ structure FrameOrigin (o : Options) (id : String) (size : Size) where
       !source.fixedSizes.any (fun fixed => fixed.1 == box.id)) = some group
   id_eq : id = group.id
   checked : checkedParams o.profile source.kind = .ok params
-  metric_eq : metricOf o.profile = .ok metric
+  metric_eq : metricOf o.profile o.fontFamily = .ok metric
   child_eq : layoutRecursive fuel
     (selectInput source (fun box => Compound.inside source.boxes group.id box.id) group.id)
     { o with direction := directionOf group.direction } = .ok child

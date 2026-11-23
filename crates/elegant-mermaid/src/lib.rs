@@ -44,7 +44,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
-mod config;
+pub mod config;
 mod document;
 mod outlines;
 mod public_render;

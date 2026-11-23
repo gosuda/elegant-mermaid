@@ -166,7 +166,7 @@ theorem measuredGraph_loop_reservation_before_prepare
     {lines : List (List Measure.Line)} {g : Graph}
     (hg : measuredGraph P inp o lines = .ok g) :
     ∃ (metric : Measure.Metric) (labels : List MeasuredLabel) (raw : Graph),
-      metricOf o.profile = .ok metric ∧
+      metricOf o.profile o.fontFamily = .ok metric ∧
       measureLabels P metric
         (Measure.wrapTarget metric.profile P.wrapWidth
           (if o.profile == .cell then o.maxWidth else 0)) inp o.direction = .ok labels ∧
@@ -400,7 +400,7 @@ theorem measuredGraph_ordinary_loop_reservation
     {i : Nat} (hi : i < lines.length)
     {box : ModelBox} (hb : inp.boxes[i]? = some box) (hrole : box.role = .node) :
     ∃ (metric : Measure.Metric) (labels : List MeasuredLabel) (node : Node),
-      metricOf o.profile = .ok metric ∧
+      metricOf o.profile o.fontFamily = .ok metric ∧
       measureLabels P metric
         (Measure.wrapTarget metric.profile P.wrapWidth
           (if o.profile == .cell then o.maxWidth else 0)) inp o.direction = .ok labels ∧
@@ -872,7 +872,7 @@ theorem measuredGraph_fixed_loop_reservation
     (hb : inp.boxes[i]? = some box) {entry : String × Size}
     (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) = some entry) :
     ∃ (metric : Measure.Metric) (labels : List MeasuredLabel) (node : Node),
-      metricOf o.profile = .ok metric ∧
+      metricOf o.profile o.fontFamily = .ok metric ∧
       measureLabels P metric
         (Measure.wrapTarget metric.profile P.wrapWidth
           (if o.profile == .cell then o.maxWidth else 0)) inp o.direction = .ok labels ∧

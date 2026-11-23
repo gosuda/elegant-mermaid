@@ -51,6 +51,17 @@ structure Options where
   config : List (String × ConfigValue) := []
   deriving DecidableEq, Repr, Inhabited
 
+/-- Canonical model options carry the effective, non-empty SVG font family as a string. -/
+def Options.fontFamily (options : Options) : Bool :=
+  match options.config.find? (fun entry => entry.1 == "fontFamily") with
+  | some (_, .string value) => !value.isEmpty
+  | _ => false
+
+#guard !(Options.fontFamily {})
+#guard !(Options.fontFamily { config := [("fontFamily", .string "")] })
+#guard Options.fontFamily { config := [("fontFamily", .string "Example Sans")] }
+#guard !(Options.fontFamily { config := [("theme", .string "Example Sans")] })
+
 inductive Side where
   | none | top | bottom | left | right
   deriving DecidableEq, Repr, Inhabited

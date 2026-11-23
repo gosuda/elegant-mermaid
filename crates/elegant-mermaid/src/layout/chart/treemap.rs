@@ -39,6 +39,7 @@ pub(super) struct Node {
 }
 pub(super) struct Plan {
     pub profile: Profile,
+    pub font_family: bool,
     pub title: String,
     pub nodes: Vec<Node>,
     pub labels: Vec<Label>,
@@ -247,6 +248,7 @@ impl Plan {
         };
         let mut p = Self {
             profile,
+            font_family: crate::scene::has_font_family(&chart.config),
             title: chart.title.clone(),
             nodes,
             labels: Vec::new(),

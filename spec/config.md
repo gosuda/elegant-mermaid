@@ -71,3 +71,14 @@ This file fixes the classification of every upstream config key and the diagnost
 - config-41: A config key MUST reach the implementation through a config document: the frontmatter `config` mapping, or the `Config` text of the layout options. [just go-check]
 - config-42: A config document MUST be one block mapping in the config-value grammar of `spec/preprocessing.md`. [just go-check]
 - config-43: Go and Rust MUST produce the same config diagnostics for the same config document. [just parity]
+
+## Effective values and validation
+
+- config-44: Effective config MUST start with the documented defaults, then apply the frontmatter `config` mapping, merged `init` directives, and the per-call `LayoutOptions.Config` mapping in that order. A later value MUST replace an earlier value for the same key. [just go-check]
+- config-45: `maxTextSize` and `maxEdges` MUST be integers from 0 through 2147483647. Zero MUST be a limit of zero, not a request for the default. A wrong value type, a negative value, or a value above this range MUST be an invalid config value. [just go-check]
+- config-46: `fontFamily` MUST be a string. The empty string MUST keep the Inter metrics, emit no approximation diagnostic, and use the default SVG font family. [just go-check]
+- config-47: The source byte count and source offsets of config limits MUST refer to the repaired Mermaid source exposed by `Document.Source()`. Markdown host prose MUST NOT contribute to a Mermaid block's source byte count. [just go-check]
+- config-48: A per-call config overlay MUST recompute the source and edge limit diagnostics and the font approximation diagnostic from the retained source and complete resolved model. The original document and its diagnostics MUST remain unchanged. Syntax and resolution errors MUST remain errors under every overlay. [just go-check]
+- config-49: A diagnostic about a config key or value that comes only from `LayoutOptions.Config` MUST use the empty Mermaid-source span `[0, 0)`. A diagnostic for a source config key or value MUST retain its source span. Source and edge limit violations MUST always use the source spans of config-31 and config-35, regardless of the limit's origin. [just go-check]
+- config-50: Unknown-key warnings MUST display the authored key path joined with dots, preserving the spelling of each key. Lookup MAY normalize a registered diagram namespace without changing the displayed path. A warning MUST point at the unknown source key, or use the empty source span for per-call config. [just go-check]
+- config-51: Config-key classification MUST recurse only through schema-defined mappings. It MUST NOT interpret the entries of an opaque dictionary such as `themeVariables` as config keys. An unknown key MUST raise one warning; its value MUST NOT be recursively classified. [just go-check]

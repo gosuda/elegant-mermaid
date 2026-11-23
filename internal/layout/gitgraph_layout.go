@@ -89,7 +89,7 @@ func decodeGitgraph(in Input) (decodedGitgraph, error) {
 func (d *decodedGitgraph) attach(in Input, laneAt, commitAt map[string]int) error {
 	commitLabels := configFlag(in.Options.Config, showCommitIDs, true)
 	for _, label := range in.Labels {
-		text, err := measureGitgraphText(in.Profile, label)
+		text, err := measureGitgraphText(in.Profile, label, in.Options.FontFamily)
 		if err != nil {
 			return err
 		}
@@ -114,7 +114,7 @@ func (d *decodedGitgraph) attach(in Input, laneAt, commitAt map[string]int) erro
 	return nil
 }
 
-func measureGitgraphText(profile scene.Profile, label Label) (lanes.Text, error) {
+func measureGitgraphText(profile scene.Profile, label Label, fontFamily string) (lanes.Text, error) {
 	lineHeight, ok := layoutConstant(profile, "line_h")
 	if !ok {
 		return lanes.Text{}, lanes.ErrConstants
@@ -123,7 +123,7 @@ func measureGitgraphText(profile scene.Profile, label Label) (lanes.Text, error)
 	if profile == scene.ProfileVector {
 		metric = measure.ForRole(measureRole(label.Role))
 	}
-	lines, err := measure.StyledLines(label.Text, geom.I32Max, metric)
+	lines, err := measure.StyledLines(label.Text, geom.I32Max, metric.WithFontFamily(fontFamily))
 	if err != nil {
 		return lanes.Text{}, geom.ErrOverflow
 	}

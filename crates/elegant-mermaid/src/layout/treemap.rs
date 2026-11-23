@@ -11,7 +11,7 @@ pub fn from_treemap(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, LayoutError> {
-    options.config.clone_from(&m.config);
+    options.set_kind_config(m.config.clone());
     options.profile = profile;
     let mut sums = m
         .nodes

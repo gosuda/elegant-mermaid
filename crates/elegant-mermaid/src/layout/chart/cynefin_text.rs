@@ -21,6 +21,7 @@ pub(crate) struct TextSpec {
     pub profile: Profile,
     pub role: Role,
     pub size: i32,
+    pub font_family: bool,
 }
 
 pub(crate) fn text_role(role: Role) -> TextRole {
@@ -44,6 +45,7 @@ impl TextSpec {
             profile,
             role,
             size: role.size_px(),
+            font_family: false,
         }
     }
 
@@ -64,7 +66,7 @@ impl TextSpec {
             Metric::Vector {
                 size_px: self.size,
                 weight: self.role.weight(),
-                font_family: false,
+                font_family: self.font_family,
             }
         }
     }

@@ -92,6 +92,7 @@ fn measured<'a>(
     } else {
         Metric::for_role(Role::Label)
     };
+    let metric = crate::scene::configured_metric(metric, &input.options.config);
     let params = Params::for_profile(p.as_str())?.spaced(input.spacing);
     let mut lines = Vec::new();
     let target = measure::wrap_target(
@@ -715,6 +716,7 @@ fn measure_route_labels(input: &Input) -> Result<Vec<Vec<measure::StyledLine<'_>
     } else {
         Metric::for_role(Role::Label)
     };
+    let metric = crate::scene::configured_metric(metric, &input.options.config);
     let width = measure::wrap_target(
         metric,
         kind_wrapping_width(input.profile, input.kind),

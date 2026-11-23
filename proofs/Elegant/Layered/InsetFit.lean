@@ -159,7 +159,7 @@ theorem layoutRecursive_childInset_fits_frame
         Compound.independent inp.boxes inp.routes box &&
           !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) = some group)
     (hP : checkedParams o.profile inp.kind = .ok P)
-    (hm : metricOf o.profile = .ok metric)
+    (hm : metricOf o.profile o.fontFamily = .ok metric)
     (hchild : layoutRecursive fuel
         (selectInput inp (fun box => Compound.inside inp.boxes group.id box.id) group.id)
         { o with direction := directionOf group.direction } = .ok child)
@@ -394,7 +394,7 @@ def ExpandChildFitsInset (P : Params) (inp : Input) (o : Options) (group : Model
     dy = frame.rect.y + (childInset group.direction P.clusterPad
         (titleLines.foldl (fun width line => max width line.width) 0) titleHeight).y -
       P.canvasMargin →
-    (∃ metric : Measure.Metric, metricOf o.profile = .ok metric ∧
+    (∃ metric : Measure.Metric, metricOf o.profile o.fontFamily = .ok metric ∧
       StyledMeasure.wrap metric
         (Measure.wrapTarget metric.profile P.wrapWidth
           (if o.profile == .cell then o.maxWidth else 0))

@@ -267,7 +267,7 @@ func (p *sequencePlanner) measureText() error {
 		}
 		p.actorBoxes = append(p.actorBoxes, index)
 		target := sequenceWrapTarget(p.sharedWrap, boxWrap(box), p.c.actorWidth, p.c.wrapPadding)
-		lines, err := measure.StyledLines(box.Text, target, sequenceMetric(p.profile, measure.RoleLabel))
+		lines, err := measure.StyledLines(box.Text, target, sequenceMetric(p.profile, measure.RoleLabel).WithFontFamily(p.in.Options.FontFamily))
 		if err != nil {
 			return geom.ErrOverflow
 		}
@@ -285,7 +285,7 @@ func (p *sequencePlanner) measureText() error {
 			role = measure.RoleBody
 		}
 		target := sequenceWrapTarget(p.sharedWrap, wrap, p.c.actorWidth, p.c.wrapPadding)
-		lines, err := measure.StyledLines(label.Text, target, sequenceMetric(p.profile, role))
+		lines, err := measure.StyledLines(label.Text, target, sequenceMetric(p.profile, role).WithFontFamily(p.in.Options.FontFamily))
 		if err != nil {
 			return geom.ErrOverflow
 		}

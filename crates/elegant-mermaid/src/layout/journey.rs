@@ -36,7 +36,7 @@ pub(crate) fn from_journey(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = config(&model.config);
+    options.set_kind_config(config(&model.config));
     options.profile = profile;
     let mut input = Input {
         kind: KIND,
@@ -177,6 +177,7 @@ fn measured_role(role: TextRole) -> Role {
 
 struct Meter {
     profile: Profile,
+    font_family: bool,
     task_width: i64,
     column_gap: i64,
     padding: i64,
@@ -188,6 +189,7 @@ impl Meter {
         let profile = input.profile;
         let mut meter = Self {
             profile,
+            font_family: crate::scene::has_font_family(&input.options.config),
             task_width: layout_constant(profile, "journey.task_width")?,
             column_gap: layout_constant(profile, "journey.column_gap")?,
             padding: layout_constant(profile, "node_pad_x")?
@@ -245,6 +247,7 @@ impl Meter {
             let measured = measured_role(role);
             (Metric::for_role(measured), measured.line_height_px() * 64)
         };
+        let metric = if self.font_family { metric.with_font_family() } else { metric };
         let lines =
             measure::styled_lines(text, target, metric).map_err(|_| LayoutError::Overflow)?;
         let widest = lines.iter().map(|line| line.width).max().unwrap_or(0);

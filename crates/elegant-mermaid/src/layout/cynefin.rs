@@ -20,7 +20,7 @@ pub(crate) fn from_cynefin(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, LayoutError> {
-    options.config.clone_from(&model.config);
+    options.set_kind_config(model.config.clone());
     options.profile = profile;
     let frame = cynefin_skeleton(&payload(model));
     Ok(Input {

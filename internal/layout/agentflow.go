@@ -46,7 +46,7 @@ func appendAgentflowNode(in *Input, m *agentflowmodel.Model, index int) error {
 		return nil
 	}
 	node := &m.Nodes[index]
-	text, size, err := agentflowContent(node.Label, m, in.Profile)
+	text, size, err := agentflowContent(node.Label, m, in.Profile, in.Options.FontFamily)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func appendAgentflowGroup(in *Input, m *agentflowmodel.Model, index int) error {
 		return nil
 	}
 	collapsed := agentflowCollapsed(&group.Appearance)
-	text, size, err := agentflowContent(group.Title, m, in.Profile)
+	text, size, err := agentflowContent(group.Title, m, in.Profile, in.Options.FontFamily)
 	if err != nil {
 		return err
 	}
@@ -148,12 +148,12 @@ func agentflowLineHeight(profile scene.Profile) int32 {
 	return measure.RoleLabel.LineHeightPx() * 64
 }
 
-func agentflowMeasured(text string, profile scene.Profile) (int32, int32, error) {
+func agentflowMeasured(text string, profile scene.Profile, fontFamily string) (int32, int32, error) {
 	target, err := agentflowConstant(profile, "wrapping_width")
 	if err != nil {
 		return 0, 0, err
 	}
-	lines, err := measure.StyledLines(text, target, agentflowMetric(profile))
+	lines, err := measure.StyledLines(text, target, agentflowMetric(profile).WithFontFamily(fontFamily))
 	if err != nil {
 		return 0, 0, err
 	}
@@ -168,8 +168,8 @@ func agentflowMeasured(text string, profile scene.Profile) (int32, int32, error)
 	return width, height, nil
 }
 
-func agentflowContent(text string, m *agentflowmodel.Model, profile scene.Profile) (string, geom.Size, error) {
-	width, height, err := agentflowMeasured(text, profile)
+func agentflowContent(text string, m *agentflowmodel.Model, profile scene.Profile, fontFamily string) (string, geom.Size, error) {
+	width, height, err := agentflowMeasured(text, profile, fontFamily)
 	if err != nil {
 		return "", geom.Size{}, err
 	}

@@ -184,7 +184,7 @@ theorem layout_decompose {m : Model} {result : Layered.FamilyResult}
     cases hc : load m with
     | error e => simp [hc, liftGeometry, bind, Except.bind] at h
     | ok c =>
-      cases hmetric : labelMetric m.options.profile with
+      cases hmetric : labelMetric m.options.profile m.options.fontFamily with
       | error e => simp [hc, hmetric, liftGeometry, bind, Except.bind] at h
       | ok metric =>
         cases hmeasured : m.boxes.mapM (measureBox m c metric) with

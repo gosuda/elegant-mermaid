@@ -46,7 +46,7 @@ func (look *Look) apply(entry ConfigEntry, diags []diag.Diagnostic) []diag.Diagn
 	case lookSeedKey:
 		seed, ok := readSeed(entry.Value)
 		if !ok {
-			return append(diags, malformedSeed(entry))
+			return append(diags, malformedConfigValue(entry))
 		}
 		look.Seed, look.HasSeed = seed, true
 	}
@@ -61,7 +61,7 @@ func readSeed(v ConfigValue) (uint32, bool) {
 	return uint32(seed), err == nil
 }
 
-func malformedSeed(entry ConfigEntry) diag.Diagnostic {
+func malformedConfigValue(entry ConfigEntry) diag.Diagnostic {
 	d := configDiagnostic(codeMalformed, "invalid config value "+shownValue(entry.Value)+" for "+entry.Key, entry.KeySpan)
 	for _, row := range gen.Diagnostics {
 		if row.Code == codeMalformed {

@@ -80,8 +80,8 @@ theorem internal_label_header_band_refutes_untouched {m : Model}
   omega
 
 /-- A checked text width is never negative. -/
-private theorem width_nonneg' {cell : Bool} {text : String} {role : Measure.Role}
-    {size x : Int} (h : width cell text role size = .ok x) : 0 ≤ x := by
+private theorem width_nonneg' {fontFamily : Bool} {cell : Bool} {text : String} {role : Measure.Role}
+    {size x : Int} (h : width cell text role size fontFamily = .ok x) : 0 ≤ x := by
   unfold width at h
   obtain ⟨metric, _, hw⟩ := CanvasC1.except_bind_ok h
   exact Measure.textWidth_nonneg hw

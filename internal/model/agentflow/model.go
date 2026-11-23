@@ -64,6 +64,7 @@ type Edge struct {
 	FromSpan      source.Span
 	ToSpan        source.Span
 	Span          source.Span
+	StatementSpan source.Span
 	OperatorSpan  source.Span
 	Label         string
 	LabelKind     synagentflow.TextKind
@@ -545,6 +546,7 @@ func (m *Model) referencedEndpoint(id string, styled *synagentflow.StyledVertex,
 }
 
 func (m *Model) vertices(value *synagentflow.VertexStatement, sc scope) {
+	firstEdge := len(m.Edges)
 	var previous []endpointRef
 	for i := range value.Nodes {
 		set := &value.Nodes[i]
@@ -558,6 +560,9 @@ func (m *Model) vertices(value *synagentflow.VertexStatement, sc scope) {
 			m.product(previous, next, &value.Links[i-1])
 		}
 		previous = next
+	}
+	for i := firstEdge; i < len(m.Edges); i++ {
+		m.Edges[i].StatementSpan = value.Span
 	}
 }
 

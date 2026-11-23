@@ -2,7 +2,7 @@ use crate::error::{CliError, UsageError};
 use crate::{diagnostics, input, options};
 use elegant_mermaid::syntax::config_value::{ConfigValue, parse_config_yaml};
 use elegant_mermaid::{
-    IconPack, IconPackError, LayoutOptions, Look, Profile, RasterError, RenderError, cells,
+    IconPack, IconPackError, LayoutOptions, Profile, RasterError, RenderError, cells,
     parse_icon_pack, raster, scene, svg,
 };
 use std::io::IsTerminal;
@@ -36,14 +36,16 @@ fn prepare(
     let icon_packs = read_icon_packs(&o.icon_packs)?;
     let bytes = input::read(path)?;
     let document = elegant_mermaid::parse_bytes(&bytes);
+    let effective = document.effective_config(config.as_deref())?;
+    let source_diagnostics = document.diagnostics_for(&effective);
     let path = input::label(path);
     let mut stderr = diagnostics::text(
         path,
         document.source(),
-        document.diagnostics(),
+        &source_diagnostics,
         options::colour(&o.color, environment),
     );
-    if diagnostics::has_errors(document.diagnostics()) {
+    if diagnostics::has_errors(&source_diagnostics) {
         return Ok((Vec::new(), stderr, 1));
     }
     let layout_options = LayoutOptions {
@@ -71,8 +73,7 @@ fn prepare(
     };
     stderr.push_str(&diagnostics::text(path, document.source(), &ds, false));
     let rendered = match o.format.as_str() {
-        "svg" => svg_output(&scene, &o, &document, layout_options.config.as_deref())
-            .map(String::into_bytes),
+        "svg" => svg_output(&scene, &o, &document, &effective).map(String::into_bytes),
         "png" => match png_output(&scene, &o) {
             Err(error @ RasterError::InvalidConfig { .. }) => return Err(error.into()),
             other => other.map_err(CliError::from),
@@ -125,10 +126,10 @@ fn site_config_failure(text: &str) -> Option<String> {
     if !matches!(value, ConfigValue::Mapping(_)) {
         return Some("config must be a mapping".to_owned());
     }
-    Look::read(&[&value])
+    elegant_mermaid::config::EffectiveConfig::read(&[&value])
         .1
         .into_iter()
-        .next()
+        .find(|diagnostic| diagnostic.severity == elegant_mermaid::Severity::Error)
         .map(|diagnostic| diagnostic.message)
 }
 fn read_icon_packs(paths: &[String]) -> Result<Vec<IconPack>, CliError> {
@@ -160,15 +161,11 @@ fn svg_output(
     scene: &scene::Scene,
     o: &options::Options,
     document: &elegant_mermaid::Document<'_>,
-    config: Option<&str>,
+    config: &elegant_mermaid::config::EffectiveConfig,
 ) -> Result<String, CliError> {
     let model = document.resolved().ok_or(CliError::UnsupportedKind)?;
     let (title, description, kind) = model.accessibility();
     let links = model.links();
-    let look = match config {
-        Some(text) => document.look().with_config(text),
-        None => Ok(document.look()),
-    }?;
     let paths = o.svg_text == "paths";
     let outlines = paths.then(raster::inter_outlines);
     let mut output = String::new();
@@ -188,7 +185,8 @@ fn svg_output(
             title,
             description,
             links: &links,
-            look,
+            look: config.look(),
+            font_family: config.font_family(),
             ..svg::Options::default()
         },
     )?;

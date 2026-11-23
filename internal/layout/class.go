@@ -102,15 +102,15 @@ func classConstant(profile scene.Profile, name string) int32 {
 }
 
 func ClassSize(rows [][]string, profile scene.Profile) (geom.Size, error) {
-	_, size, err := measuredClassRows(rows, profile)
+	_, size, err := measuredClassRows(rows, profile, "")
 	return size, err
 }
 
-func measuredClassRows(rows [][]string, profile scene.Profile) ([][]measure.StyledLine, geom.Size, error) {
+func measuredClassRows(rows [][]string, profile scene.Profile, fontFamily string) ([][]measure.StyledLine, geom.Size, error) {
 	lines := make([][]measure.StyledLine, len(rows))
 	var width, height int64
 	for i, compartment := range rows {
-		measured, err := measureClassCompartment(compartment, classCompartmentMetric(i, profile))
+		measured, err := measureClassCompartment(compartment, classCompartmentMetric(i, profile).WithFontFamily(fontFamily))
 		if err != nil {
 			return nil, geom.Size{}, err
 		}
@@ -188,7 +188,7 @@ func classFamilyInput(in Input) (layered.Input, [][][]measure.StyledLine, error)
 		if len(rows) == 0 {
 			continue
 		}
-		lines, size, err := measuredClassRows(rows, in.Profile)
+		lines, size, err := measuredClassRows(rows, in.Profile, in.Options.FontFamily)
 		if err != nil {
 			return layered.Input{}, nil, err
 		}

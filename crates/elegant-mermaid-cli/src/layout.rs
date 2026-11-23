@@ -148,12 +148,18 @@ fn render(options: &Arguments, bytes: &[u8]) -> (String, String, i32) {
     let Some(model) = parsed.model.as_ref() else {
         return (String::new(), format!("{}\n", CliError::UnsupportedKind), 2);
     };
-    let input = match model.input(options.profile, scene::DumpOptions::default()) {
+    let mut dump_options = scene::DumpOptions::default();
+    parsed.config.apply_to(&mut dump_options);
+    let input = match model.input(options.profile, dump_options) {
         Ok(input) => input,
         Err(error) => return (String::new(), format!("{error}\n"), 1),
     };
     if options.stage == scene::Stage::Model && !options.metrics {
-        return (layout::modeldump::model_dump(&input), String::new(), 0);
+        return (
+            layout::modeldump::model_dump(&input),
+            crate::diagnostics::text(path, &parsed.source, &parsed.diagnostics, false),
+            0,
+        );
     }
     let (scene, diagnostics) = match layout::families::layout(&input) {
         Ok(result) => result,
@@ -166,7 +172,8 @@ fn render(options: &Arguments, bytes: &[u8]) -> (String, String, i32) {
     };
     match output {
         Ok(output) => {
-            let mut stderr = String::new();
+            let mut stderr =
+                crate::diagnostics::text(path, &parsed.source, &parsed.diagnostics, false);
             diag::text::render_text(
                 &mut stderr,
                 path,

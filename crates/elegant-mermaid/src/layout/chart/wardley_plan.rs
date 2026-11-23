@@ -119,6 +119,7 @@ pub(super) struct Plan<'a> {
     pub w: &'a Wardley,
     pub c: Consts,
     pub cell: bool,
+    font_family: bool,
     pub width: i64,
     pub height: i64,
     pub plot: Area,
@@ -153,6 +154,7 @@ impl<'a> Plan<'a> {
             w,
             c,
             cell: options.profile == Profile::Cell,
+            font_family: crate::scene::has_font_family(&options.config),
             width,
             height,
             plot: Area::new(c.pad_x, c.pad_y, width - 2 * c.pad_x, height - 2 * c.pad_y),
@@ -335,7 +337,7 @@ impl<'a> Plan<'a> {
             Metric::Vector {
                 size_px: size,
                 weight: role.weight(),
-                font_family: false,
+                font_family: self.font_family,
             }
         }
     }

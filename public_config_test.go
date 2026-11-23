@@ -2,6 +2,7 @@ package mermaid_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -102,6 +103,42 @@ func TestPublicConfigFontFamily(t *testing.T) {
 	if err != nil || !bytes.Equal(plain, configured) {
 		t.Fatalf("font family changed cell measurement: %v", err)
 	}
+}
+
+func TestPublicConfigFontWidthFactor(t *testing.T) {
+	document := mermaid.Parse([]byte("flowchart TB\nA -->|Alpha| B\n"))
+	plain, err := mermaid.Layout(t.Context(), document, mermaid.LayoutOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	configured, err := mermaid.Layout(t.Context(), document, mermaid.LayoutOptions{Config: []byte("fontFamily: serif\n")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	width := configLabelWidth(t, plain, "e0.label")
+	if got, want := configLabelWidth(t, configured, "e0.label"), width*108/100; got != want {
+		t.Fatalf("configured width = %d; want floor(%d * 108 / 100) = %d", got, width, want)
+	}
+}
+
+func configLabelWidth(t *testing.T, scene *mermaid.Scene, id string) int {
+	t.Helper()
+	var dump struct {
+		Labels []struct {
+			ID string `json:"id"`
+			W  int    `json:"w"`
+		} `json:"labels"`
+	}
+	if err := json.Unmarshal(scene.Dump(), &dump); err != nil {
+		t.Fatal(err)
+	}
+	for _, label := range dump.Labels {
+		if label.ID == id {
+			return label.W
+		}
+	}
+	t.Fatalf("missing label %s: %s", id, scene.Dump())
+	return 0
 }
 
 func requireConfigDiagnostic(t *testing.T, document *mermaid.Document, code string) mermaid.Diagnostic {

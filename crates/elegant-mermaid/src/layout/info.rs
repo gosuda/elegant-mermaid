@@ -16,7 +16,7 @@ pub(crate) fn from_info(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, LayoutError> {
-    options.config.clear();
+    options.set_kind_config(Default::default());
     options.profile = profile;
     let frame = info_skeleton(&Info {
         text: format!("v{}", model.version),

@@ -92,7 +92,7 @@ impl Plan {
             Metric::Vector {
                 size_px: to_i32(s.size)?,
                 weight: s.role.weight(),
-                font_family: false,
+                font_family: self.font_family,
             }
         };
         Ok(i64::from(metric.width(text)?))

@@ -136,7 +136,7 @@ def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
   match decode m with
   | .error e => .error (.geometry e)
   | .ok inp =>
-    match Chart.XY.layout m.profile inp with
+    match Chart.XY.layout m.profile inp m.options.fontFamily with
     | .error e => .error (.geometry e)
     | .ok r =>
       .ok { scene := (sceneOf m r).projectCellAttachments (routeMarkers m),

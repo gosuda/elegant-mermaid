@@ -229,7 +229,8 @@ impl<'a> Planner<'a> {
         if text.is_empty() {
             return Ok(Measured::default());
         }
-        let lines = measure::styled_lines(text, wrap, metric_of(self.profile))
+        let metric = crate::scene::configured_metric(metric_of(self.profile), &self.input.options.config);
+        let lines = measure::styled_lines(text, wrap, metric)
             .map_err(|_| LayoutError::Overflow)?;
         Ok(Measured::of(&lines))
     }

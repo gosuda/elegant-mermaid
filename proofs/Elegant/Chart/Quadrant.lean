@@ -100,7 +100,7 @@ def style (c : Constants) (l : ModelLabel) : Measure.Role × Int :=
 def measure (m : Model) (c : Constants) (l : ModelLabel) (target : Int) :
     Except LayoutError XY.TextBox := do
   let (role, size) := style c l
-  let metric ← XY.metricOf (m.profile == .cell) role size
+  let metric ← XY.metricOf (fontFamily := m.options.fontFamily) (m.profile == .cell) role size
   let lines ← StyledMeasure.wrap metric (if 0 < target ∧ target < I32_MAX then target else I32_MAX) l.text.toList
   return ⟨lines, lines.foldl (fun w line => max w line.width) 0,
     (lines.length : Int) * XY.lineHeight (m.profile == .cell) role size⟩

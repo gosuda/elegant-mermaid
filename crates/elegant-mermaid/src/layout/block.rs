@@ -28,11 +28,11 @@ pub(crate) fn from_block(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = model
+    options.set_kind_config(model
         .config
         .iter()
         .map(|entry| (entry.key.clone(), DumpValue::Integer(entry.value)))
-        .collect::<BTreeMap<_, _>>();
+        .collect::<BTreeMap<_, _>>());
     options.profile = profile;
     let mut boxes = vec![block_box(&model.root, "")];
     walk(&model.root, &mut boxes);
@@ -336,8 +336,9 @@ pub(crate) fn layout(input: &Input) -> Result<(Scene, bool), LayoutError> {
     Ok((Scene::new(result.canvas, dump, groups), false))
 }
 
-fn measure_text(profile: Profile, text: &str) -> Result<Measured, LayoutError> {
-    let lines = measure::styled_lines(text, i32::MAX, metric_of(profile))
+fn measure_text(input: &Input, text: &str) -> Result<Measured, LayoutError> {
+    let metric = crate::scene::configured_metric(metric_of(input.profile), &input.options.config);
+    let lines = measure::styled_lines(text, i32::MAX, metric)
         .map_err(|_| LayoutError::Overflow)?;
     Ok(Measured::of(&lines))
 }
@@ -370,7 +371,7 @@ impl Planner {
             index.insert(candidate.id.clone(), i);
             let spec = parse_shape(&candidate.shape);
             let measured = if candidate.role == BoxRole::Node && spec.kind != "space" {
-                measure_text(profile, box_text(&input, candidate))?
+                measure_text(&input, box_text(&input, candidate))?
             } else {
                 Measured::default()
             };
@@ -380,7 +381,7 @@ impl Planner {
         let label_texts = input
             .labels
             .iter()
-            .map(|label| measure_text(profile, &label.text))
+            .map(|label| measure_text(&input, &label.text))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
             profile,

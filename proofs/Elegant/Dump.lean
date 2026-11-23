@@ -32,7 +32,9 @@ private def readOptions (j : Lean.Json) : Except String Options := do
   let entries ← j.getObj?
   let extras := entries.toList.filter (fun p =>
     !["profile", "thoroughness", "max_width", "direction", "limits"].contains p.1)
-  let config ← extras.mapM fun (k, v) => return (k, ← configValue v)
+  let config ← extras.mapM fun (k, v) => do
+    if k == "fontFamily" then return (k, .string (← v.getStr?))
+    return (k, ← configValue v)
   return { profile := (← profile (← str j "profile"))
            thoroughness := (← nat j "thoroughness")
            maxWidth := (← nat j "max_width")

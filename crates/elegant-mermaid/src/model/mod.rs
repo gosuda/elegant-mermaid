@@ -7,6 +7,7 @@ pub mod class;
 pub mod cynefin;
 pub mod er;
 pub mod eventmodeling;
+mod edges;
 pub mod flowchart;
 pub mod gantt;
 pub mod gitgraph;

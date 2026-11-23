@@ -299,7 +299,7 @@ theorem layout_lowered_stateFacts (m : Model) (hwf : WellFormed m)
       ParentsPresent ({boxes := scene.boxes, routes := scene.routes} : State) := by
   have hinj := layout_lowered_id_injective m hwf rules scene hl h
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric)
@@ -567,7 +567,7 @@ theorem layout_lowered_frames_clear (m : Model) (hwf : WellFormed m)
   have hanc := scene_ancestors_eq_stateDump scene
     ({boxes := scene.boxes, routes := scene.routes} : State) rfl
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric)

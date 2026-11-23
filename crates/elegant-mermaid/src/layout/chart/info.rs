@@ -70,6 +70,7 @@ pub fn layout_info(info: &Info, options: &DumpOptions) -> Result<(Scene, bool), 
         profile: options.profile,
         role: Role::Title,
         size,
+        font_family: crate::scene::has_font_family(&options.config),
     };
     let text = spec.measure(&info.text)?;
     let mut at = Area::new(

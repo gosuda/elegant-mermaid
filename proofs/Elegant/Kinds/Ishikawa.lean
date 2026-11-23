@@ -42,7 +42,7 @@ def styledLines (profile : Profile) (source : String) (lines : List Measure.Line
   return result
 
 def decode (m : Model) : Except LayoutError Input := do
-  let metric ← labelMetric m.profile
+  let metric ← labelMetric m.profile m.options.fontFamily
   let target := if m.profile == .vector then 12800 else if m.options.maxWidth > 0 then m.options.maxWidth else 32
   let mut input : Input := {}
   let mut path : List Nat := []

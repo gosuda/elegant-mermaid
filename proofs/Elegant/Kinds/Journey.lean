@@ -42,7 +42,7 @@ def isPeople (b : ModelBox) : Bool :=
 def load (m : Model) : Except LayoutError Constants := do
   let mut c := constants m.profile
   if m.profile == .vector then
-    for (key, value) in m.options.config do
+    for (key, value) in m.options.config.filter (fun entry => entry.1 != "fontFamily") do
       let px ← match value with
         | .integer n => pure n
         | .string s => match s.toInt? with
@@ -66,12 +66,12 @@ def decode (m : Model) (c : Constants) : Except LayoutError Input := do
     match shapeKind b with
     | "title" =>
       if b.parent != "" then throw .domain
-      let caption ← Timeline.measureCaption m.profile .title I32_MAX (boxText m b)
+      let caption ← Timeline.measureCaption (fontFamily := m.options.fontFamily) m.profile .title I32_MAX (boxText m b)
       g := { g with title := some { id := b.id, caption } }
     | "section" =>
       if b.parent != "" then throw .domain
       let n := (m.boxes.filter fun t => shapeKind t == "task" && t.parent == b.id).length
-      let caption ← Timeline.measureCaption m.profile .label (target c n) (boxText m b)
+      let caption ← Timeline.measureCaption (fontFamily := m.options.fontFamily) m.profile .label (target c n) (boxText m b)
       g := { g with sections := g.sections ++ [{ id := b.id, caption }] }
     | "task" =>
       let score ← if b.shape == "" then pure 1 else
@@ -83,12 +83,12 @@ def decode (m : Model) (c : Constants) : Except LayoutError Input := do
         match g.sections.findIdx? (·.id == b.parent) with
         | some i => pure (i : Int)
         | none => throw .domain
-      let caption ← Timeline.measureCaption m.profile .label (target c 1) (boxText m b)
+      let caption ← Timeline.measureCaption (fontFamily := m.options.fontFamily) m.profile .label (target c 1) (boxText m b)
       g := { g with tasks := g.tasks ++ [{ id := b.id, caption, band, score }] }
     | "people" =>
       let some t := g.tasks.getLast? | throw .domain
       if t.id != b.parent then throw .domain
-      let cap ← Timeline.measureCaption m.profile .body (target c 1) (boxText m b)
+      let cap ← Timeline.measureCaption (fontFamily := m.options.fontFamily) m.profile .body (target c 1) (boxText m b)
       g := { g with tasks := g.tasks.set (g.tasks.length - 1) { t with people := some cap } }
     | _ => throw .domain
   return g

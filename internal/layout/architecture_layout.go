@@ -162,7 +162,7 @@ func (p *archPlanner) lines(text string, wrap int32) ([]measure.StyledLine, erro
 	if text == "" {
 		return nil, nil
 	}
-	lines, err := measure.StyledLines(text, wrap, sequenceMetric(p.profile, measure.RoleLabel))
+	lines, err := measure.StyledLines(text, wrap, sequenceMetric(p.profile, measure.RoleLabel).WithFontFamily(p.in.Options.FontFamily))
 	if err != nil {
 		return nil, geom.ErrOverflow
 	}

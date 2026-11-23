@@ -66,6 +66,7 @@ pub struct Edge {
     pub from_span: Span,
     pub to_span: Span,
     pub span: Span,
+    pub statement_span: Span,
     pub operator_span: Span,
     pub label: String,
     pub label_kind: TextKind,
@@ -326,12 +327,18 @@ impl Model {
                 .filter_map(|v| self.endpoint(v, scope))
                 .collect::<Vec<_>>();
             if let Some(link) = index.checked_sub(1).and_then(|i| value.links.get(i)) {
-                self.product(&previous, &next, link);
+                self.product(&previous, &next, link, value.span);
             }
             previous = next;
         }
     }
-    fn product(&mut self, from: &[(String, Span)], to: &[(String, Span)], link: &Link<'_>) {
+    fn product(
+        &mut self,
+        from: &[(String, Span)],
+        to: &[(String, Span)],
+        link: &Link<'_>,
+        statement_span: Span,
+    ) {
         for (source_index, source) in from.iter().enumerate() {
             for (target_index, target) in to.iter().enumerate() {
                 let authored = if source_index + 1 == from.len() && target_index == 0 {
@@ -342,7 +349,7 @@ impl Model {
                 } else {
                     ""
                 };
-                self.edge(source, target, link, authored);
+                self.edge(source, target, link, authored, statement_span);
             }
         }
     }
@@ -352,6 +359,7 @@ impl Model {
         to: &(String, Span),
         link: &Link<'_>,
         authored: &str,
+        statement_span: Span,
     ) {
         let id = self.edge_id(authored);
         let operator = link.statement.operator.text.trim();
@@ -376,6 +384,7 @@ impl Model {
             from_span: from.1,
             to_span: to.1,
             span: link.span,
+            statement_span,
             operator_span: link.statement.operator.span,
             label: link.label().map_or_else(String::new, text),
             label_kind: link.label().map_or(TextKind::Plain, |t| t.kind),

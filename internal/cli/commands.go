@@ -187,21 +187,22 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	if err != nil {
 		return err
 	}
+	effective, err := m.EffectiveConfig(o.site)
+	if err != nil {
+		return err
+	}
+	f.Diagnostics = m.DiagnosticsFor(effective)
 	if err = rejectInvalidSource(cfg, o, f); err != nil {
 		return err
 	}
-	s, ds, err := layoutDiagram(cfg, o, m)
+	s, ds, err := layoutDiagram(cfg, o, m, effective)
 	if err != nil {
 		return err
 	}
 	if err = diag.RenderText(cfg.Stderr, path, src, ds, diag.FrameOptions{}); err != nil {
 		return err
 	}
-	svgOptions, err := svgOptionsOf(o, m)
-	if err != nil {
-		return err
-	}
-	return serializeScene(cfg, o, s, svgOptions)
+	return serializeScene(cfg, o, s, svgOptionsOf(o, m, effective))
 }
 
 func rejectInvalidSource(cfg Config, o commandOptions, f diag.FileDiagnostics) error {
@@ -214,12 +215,12 @@ func rejectInvalidSource(cfg Config, o commandOptions, f diag.FileDiagnostics) e
 	return nil
 }
 
-func layoutDiagram(cfg Config, o commandOptions, m *layout.Diagram) (scene.Scene, []diag.Diagnostic, error) {
+func layoutDiagram(cfg Config, o commandOptions, m *layout.Diagram, effective syntax.EffectiveConfig) (scene.Scene, []diag.Diagnostic, error) {
 	profile := scene.ProfileVector
 	if o.format == "text" {
 		profile = scene.ProfileCell
 	}
-	in, err := m.Input(profile, scene.Options{MaxWidth: int32(o.width)})
+	in, err := m.InputConfigured(profile, scene.Options{MaxWidth: int32(o.width)}, effective)
 	if err != nil {
 		return scene.Scene{}, nil, resultError(cfg, err)
 	}
@@ -232,12 +233,8 @@ func layoutDiagram(cfg Config, o commandOptions, m *layout.Diagram) (scene.Scene
 	return s, ds, nil
 }
 
-func svgOptionsOf(o commandOptions, m *layout.Diagram) (svg.Options, error) {
-	look, err := m.Look(o.site)
-	if err != nil {
-		return svg.Options{}, err
-	}
-	return svg.Options{Theme: o.theme, Background: o.background, Text: svgTextMode(o.svgText), Outlines: o.outlines, Kind: m.Kind, Title: m.AccTitle, Description: m.AccDescr, Look: look, Links: m.Links()}, nil
+func svgOptionsOf(o commandOptions, m *layout.Diagram, effective syntax.EffectiveConfig) svg.Options {
+	return svg.Options{Theme: o.theme, Background: o.background, Text: svgTextMode(o.svgText), Outlines: o.outlines, Kind: m.Kind, Title: m.AccTitle, Description: m.AccDescr, Look: layout.SceneLook(effective.Look), FontFamily: effective.FontFamily, Links: m.Links()}
 }
 
 func loadRenderInputs(o *commandOptions) error {

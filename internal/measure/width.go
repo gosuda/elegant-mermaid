@@ -160,6 +160,11 @@ type Metric struct {
 	FontFamily bool
 }
 
+func (m Metric) WithFontFamily(family string) Metric {
+	m.FontFamily = family != "" && m.Profile == ProfileVector
+	return m
+}
+
 func ForRole(r Role) Metric {
 	return Metric{Profile: ProfileVector, SizePx: r.SizePx(), Weight: r.Weight()}
 }

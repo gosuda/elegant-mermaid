@@ -248,11 +248,12 @@ func (p *treeviewPlan) measure() error {
 	if p.in.Profile == scene.ProfileCell {
 		desc = measure.CellMetric()
 	}
+	desc = desc.WithFontFamily(p.in.Options.FontFamily)
 	for i := range p.nodes {
 		node := &p.nodes[i]
 		node.root = parents[i] == tree.NoParent
 		row := tree.ViewRow{Parent: parents[i], HasDesc: node.desc != "", HasIcon: node.icon != ""}
-		if row.LabelWidth, err = node.metric(p.in.Profile).TextWidth(node.shown(p.in.Profile)); err != nil {
+		if row.LabelWidth, err = node.metric(p.in.Profile).WithFontFamily(p.in.Options.FontFamily).TextWidth(node.shown(p.in.Profile)); err != nil {
 			return geom.ErrOverflow
 		}
 		if row.DescWidth, err = desc.TextWidth(flatten(node.desc)); err != nil {

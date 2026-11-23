@@ -13,14 +13,18 @@ pub fn layout_with_diagnostics(
     document: &Document<'_>,
     options: &LayoutOptions,
 ) -> Result<(Scene, Vec<Diagnostic>), RenderError> {
+    let config = effective_config(document, options)?;
+    layout_configured(document, options, &config)
+}
+
+fn effective_config(
+    document: &Document<'_>,
+    options: &LayoutOptions,
+) -> Result<crate::config::EffectiveConfig, RenderError> {
     if options.cancel.is_cancelled() {
         return Err(RenderError::Cancelled);
     }
-    let errors = document
-        .diagnostics()
-        .iter()
-        .filter(|d| d.severity == Severity::Error)
-        .count();
+    let errors = document.base_error_count();
     if errors != 0 {
         return Err(RenderError::InvalidDocument { errors });
     }
@@ -38,12 +42,28 @@ pub fn layout_with_diagnostics(
         return Err(RenderError::InvalidConfig { errors: 1 });
     }
     crate::theme::resolve(&options.theme).map_err(|_| RenderError::InvalidConfig { errors: 1 })?;
-    crate::config::look_with(document.look(), options.config.as_deref())?;
+    let config = document.effective_config(options.config.as_deref())?;
+    let errors = document
+        .diagnostics_for(&config)
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Error)
+        .count();
+    if errors != 0 {
+        return Err(RenderError::InvalidDocument { errors });
+    }
+    Ok(config)
+}
+
+fn layout_configured(
+    document: &Document<'_>,
+    options: &LayoutOptions,
+    config: &crate::config::EffectiveConfig,
+) -> Result<(Scene, Vec<Diagnostic>), RenderError> {
     let profile = match options.profile {
         Profile::Vector => crate::scene::Profile::Vector,
         Profile::Cell => crate::scene::Profile::Cell,
     };
-    let dump = crate::scene::DumpOptions {
+    let mut dump = crate::scene::DumpOptions {
         profile,
         thoroughness: options.thoroughness,
         max_width: if profile == crate::scene::Profile::Cell {
@@ -58,6 +78,7 @@ pub fn layout_with_diagnostics(
         },
         ..crate::scene::DumpOptions::default()
     };
+    config.apply_to(&mut dump);
     let model = document
         .model
         .as_ref()
@@ -91,7 +112,8 @@ pub fn layout_with_diagnostics(
 pub fn render_svg(document: &Document<'_>, options: &SvgOptions) -> Result<String, RenderError> {
     let mut layout_options = options.layout.clone();
     layout_options.profile = Profile::Vector;
-    let scene = layout(document, &layout_options)?;
+    let config = effective_config(document, &layout_options)?;
+    let (scene, _) = layout_configured(document, &layout_options, &config)?;
     let model = document
         .model
         .as_ref()
@@ -115,9 +137,9 @@ pub fn render_svg(document: &Document<'_>, options: &SvgOptions) -> Result<Strin
             title,
             description,
             kind,
-            font_family: "",
+            font_family: config.font_family(),
             links: &links,
-            look: crate::config::look_with(document.look(), options.layout.config.as_deref())?,
+            look: config.look(),
         },
     )
     .map_err(|error| match error {

@@ -11,8 +11,8 @@ theorem bind_ok {α β : Type} {x : Except LayoutError α} {f : α → Except La
   | error e => cases h
   | ok a => exact ⟨a, rfl, h⟩
 
-theorem measure_nonnegative (width : Int) (l : ModelLabel) (it : Item)
-    (h : measure width l = .ok it) : 0 ≤ it.box.w ∧ 0 ≤ it.box.h := by
+theorem measure_nonnegative {fontFamily : Bool} (width : Int) (l : ModelLabel) (it : Item)
+    (h : measure width l fontFamily = .ok it) : 0 ≤ it.box.w ∧ 0 ≤ it.box.h := by
   have hw : ∀ (ls : List Measure.Line) (w : Int), 0 ≤ w →
       0 ≤ ls.foldl (fun w line => max w line.width) w := by
     intro ls
@@ -32,8 +32,8 @@ theorem measure_nonnegative (width : Int) (l : ModelLabel) (it : Item)
       subst it
       exact ⟨hw lines 0 (by decide), by simp only [Measure.Role.lineHeightPx]; omega⟩
 
-theorem mapM_nonnegative (width : Int) (labels : List ModelLabel) (items : List Item)
-    (h : labels.mapM (measure width) = .ok items) :
+theorem mapM_nonnegative {fontFamily : Bool} (width : Int) (labels : List ModelLabel) (items : List Item)
+    (h : labels.mapM (measure (fontFamily := fontFamily) width) = .ok items) :
     ∀ it ∈ items, 0 ≤ it.box.w ∧ 0 ≤ it.box.h := by
   induction labels generalizing items with
   | nil =>
@@ -399,8 +399,8 @@ def ItemSafe (it : Item) : Prop :=
   0 ≤ it.rect.x ∧ 0 ≤ it.rect.y ∧ 0 ≤ it.rect.w ∧ 0 ≤ it.rect.h ∧
     0 ≤ it.box.w ∧ 0 ≤ it.box.h
 
-theorem measure_item_safe (width : Int) (l : ModelLabel) (it : Item)
-    (h : measure width l = .ok it) : ItemSafe it := by
+theorem measure_item_safe {fontFamily : Bool} (width : Int) (l : ModelLabel) (it : Item)
+    (h : measure width l fontFamily = .ok it) : ItemSafe it := by
   have hbox := measure_nonnegative width l it h
   unfold measure at h
   split at h <;>
@@ -414,9 +414,9 @@ theorem measure_item_safe (width : Int) (l : ModelLabel) (it : Item)
       exact ⟨by change (0 : Int) ≤ 0; decide,by change (0 : Int) ≤ 0; decide,
         hbox.1,hbox.2,hbox.1,hbox.2⟩
 
-theorem measured_items_safe (width : Int) (labels : List ModelLabel) (items : List Item)
-    (h : labels.mapM (measure width) = .ok items) : ∀ it ∈ items, ItemSafe it :=
-  mapM_property (measure width) ItemSafe (measure_item_safe width) labels items h
+theorem measured_items_safe {fontFamily : Bool} (width : Int) (labels : List ModelLabel) (items : List Item)
+    (h : labels.mapM (measure (fontFamily := fontFamily) width) = .ok items) : ∀ it ∈ items, ItemSafe it :=
+  mapM_property (measure (fontFamily := fontFamily) width) ItemSafe (measure_item_safe (fontFamily := fontFamily) width) labels items h
 
 structure StackSafe (s : StackState) : Prop where
   out : ∀ it ∈ s.out, ItemSafe it

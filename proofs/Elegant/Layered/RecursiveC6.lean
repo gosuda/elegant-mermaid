@@ -69,7 +69,7 @@ def SubInputWellFormed : Prop :=
     (child parent : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     checkedParams o.profile inp.kind = .ok P →
-    metricOf o.profile = .ok metric →
+    metricOf o.profile o.fontFamily = .ok metric →
     StyledMeasure.wrap metric
       (Measure.wrapTarget metric.profile P.wrapWidth
         (if o.profile == .cell then o.maxWidth else 0))
@@ -118,7 +118,7 @@ theorem expandChild_routes_eq {P : Params} {inp : Input} {o : Options}
     (frame : Box) (metric : Measure.Metric) (titleLines : List Measure.Line)
     (dx dy : Int)
     (hframe : parent.scene.boxes.find? (fun box : Box => box.id == group.id) = some frame)
-    (hmetric : metricOf o.profile = .ok metric)
+    (hmetric : metricOf o.profile o.fontFamily = .ok metric)
     (htitle : StyledMeasure.wrap metric
       (Measure.wrapTarget metric.profile P.wrapWidth
         (if o.profile == .cell then o.maxWidth else 0))
@@ -234,7 +234,7 @@ def ExpandChildC6Step (P : Params) (inp : Input) (o : Options) (group : ModelBox
   ∀ (frame : Box) (metric : Measure.Metric) (titleLines : List Measure.Line)
     (lines : List (List Measure.Line)) (dx dy : Int),
     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
-    metricOf o.profile = .ok metric →
+    metricOf o.profile o.fontFamily = .ok metric →
     StyledMeasure.wrap metric
       (Measure.wrapTarget metric.profile P.wrapWidth
         (if o.profile == .cell then o.maxWidth else 0))
