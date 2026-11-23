@@ -76,6 +76,7 @@ This file defines the hard constraints beyond the validator, the metric formulas
     Dagre 3.1.3 cannot rank an edge that ends at a compound parent. An edge endpoint that is a group MUST be replaced, for dagre only, by the first real node among the group's descendants in declaration order. A group with no real descendant MUST be passed to dagre as an ordinary node with our measured size and no children. The dump keeps the original `from` and `to` ids. A fixture for which an engine still throws fails `just quality`, and the message names the fixture and the engine.
 - quality-metrics-27: The ELK baseline MUST use these Layered options, with edge routing orthogonal and model order on. [just quality]
     Upstream Mermaid defaults `forceNodeModelOrder` to false and `considerModelOrder` to `NODES_AND_EDGES`; here both are on.
+    The table applies at the root. Nested graphs MUST repeat the same options except the two model-order options, which MUST remain root-only. ELK 0.12.1 does not initialize the model-order indices needed when those options are repeated on nested graphs. Spacing, direction, and padding therefore remain identical at every depth without invoking that invalid nested ordering pass.
     |Option|Value|
     |---|---|
     |`elk.algorithm`|`layered`|

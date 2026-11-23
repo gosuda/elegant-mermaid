@@ -433,10 +433,15 @@ function elkGraph(dump) {
   const elkDirection = directionToElk.get(direction === 'TD' ? 'TB' : direction);
   if (!elkDirection) fail(`unknown direction ${direction}`);
   const layoutOptions = { ...elkOptions, 'elk.direction': elkDirection };
+  // ELK 0.12.1 initializes model-order indices at the root. Repeating these
+  // options on a child graph makes its fan-out sorter read missing indices.
+  const nestedOptions = { ...layoutOptions };
+  delete nestedOptions['elk.layered.crossingMinimization.forceNodeModelOrder'];
+  delete nestedOptions['elk.layered.considerModelOrder.strategy'];
   const graph = {
     id: '__emd_root__',
     layoutOptions,
-    children: elkChildren(dump, '', layoutOptions),
+    children: elkChildren(dump, '', nestedOptions),
     edges: [],
   };
   graph.edges = dump.routes.map((route) => elkEdge(dump, route, byId));
@@ -638,6 +643,28 @@ async function testElkNestedOptions() {
   }
 }
 
+async function testElkMixedHierarchy(dump) {
+  const mixed = structuredClone(dump);
+  mixed.boxes.push(
+    { id: 'C', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: 'G1', exclusive: true },
+    { id: 'E', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: 'G1', exclusive: true },
+    { id: 'D', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: '', exclusive: true },
+  );
+  mixed.routes.push(
+    { id: 'e1', from: 'A', to: 'C', orthogonal: true, points: [] },
+    { id: 'e2', from: 'D', to: 'G1', orthogonal: true, points: [] },
+    { id: 'e3', from: 'G1', to: 'G2', orthogonal: true, points: [] },
+    { id: 'e4', from: 'A', to: 'E', orthogonal: true, points: [] },
+  );
+  const result = await elkDump(mixed);
+  if (result.dump.boxes.length !== mixed.boxes.length || result.dump.routes.length !== mixed.routes.length) {
+    fail('ELK lost mixed hierarchy elements');
+  }
+  for (const route of result.dump.routes) {
+    if (route.points.length < 2) fail(`ELK returned no route for ${route.id}`);
+  }
+}
+
 function testTemporaryOwnership() {
   const directory = mkdtempSync(path.join(tmpdir(), 'emd-baseline-'));
   const target = path.join(directory, 'layout.json');
@@ -677,6 +704,7 @@ async function selfTest() {
   };
   testDagreGroups(dump);
   await testElkNestedOptions();
+  await testElkMixedHierarchy(dump);
   const elk = await elkDump(dump);
   const boxOf = (id) => elk.dump.boxes.find((box) => box.id === id);
   const groupRaw = elk.raw.get('G2');
