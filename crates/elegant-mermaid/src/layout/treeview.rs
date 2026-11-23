@@ -180,6 +180,9 @@ impl Metrics {
     }
     fn configure(&mut self, config: &BTreeMap<String, DumpValue>) -> Result<(), GeomError> {
         for (key, value) in config {
+            if key == "fontFamily" {
+                continue;
+            }
             let DumpValue::Integer(value) = value else {
                 return Err(GeomError::Domain);
             };

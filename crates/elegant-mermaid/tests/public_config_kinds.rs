@@ -201,12 +201,14 @@ fn check_font_profile(
         profile,
         ..LayoutOptions::default()
     };
-    let before = layout(document, &base)?;
+    let before = layout(document, &base)
+        .map_err(|error| format!("{kind}/{profile:?} with default font: {error}"))?;
     let options = LayoutOptions {
         config: Some("fontFamily: Example\n".into()),
         ..base
     };
-    let after = layout(document, &options)?;
+    let after = layout(document, &options)
+        .map_err(|error| format!("{kind}/{profile:?} with configured font: {error}"))?;
     assert!(
         matches!(after.dump_part().options.config.get("fontFamily"), Some(scene::DumpValue::String(value)) if value == "Example"),
         "{kind}: {}",

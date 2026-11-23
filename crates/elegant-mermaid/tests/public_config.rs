@@ -249,7 +249,7 @@ fn font_family_is_escaped_announced_and_changes_only_vector_measurements() -> Te
         "{svg}"
     );
 
-    let plain = parse("flowchart\nA[Alphabet]\n");
+    let plain = parse("flowchart\nA -->|Alphabet| B\n");
     for profile in [Profile::Vector, Profile::Cell] {
         let base = LayoutOptions {
             profile,
