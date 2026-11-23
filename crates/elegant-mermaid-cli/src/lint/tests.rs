@@ -46,7 +46,7 @@ fn fix_persists_utf8_repair_without_rule_edits() -> io::Result<()> {
 
 #[test]
 fn fix_preserves_markdown_host_bytes() -> io::Result<()> {
-    let cases: [(&str, &[u8], &[u8]); 9] = [
+    let cases: [(&str, &[u8], &[u8]); 10] = [
         ("prose", b"Caf\xe9\n", b"Caf\xe9\n"),
         (
             "clean",
@@ -83,6 +83,11 @@ fn fix_preserves_markdown_host_bytes() -> io::Result<()> {
             "container-exit",
             b"Before\xff\n> ```mermaid\n> flowchart LR\n> A -> B\nAfter\xe9\n",
             b"Before\xff\n> ```mermaid\n> flowchart LR\n> A --> B\nAfter\xe9\n",
+        ),
+        (
+            "indented-quote",
+            b"Before\xff\n  > ```mermaid\n  > flowchart LR\n  > %% \xe2\x82\n  > A -> B\n  > ```\nAfter\xfe\n",
+            b"Before\xff\n  > ```mermaid\n  > flowchart LR\n  > %% \xef\xbf\xbd\n  > A --> B\n  > ```\nAfter\xfe\n",
         ),
     ];
     for (name, before, after) in cases {

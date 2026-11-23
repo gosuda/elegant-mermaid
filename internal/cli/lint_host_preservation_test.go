@@ -18,6 +18,7 @@ func TestLintFixPreservesMarkdownHostBytes(t *testing.T) {
 		{"foreign", "```text\nCaf\xe9\n```\n", "```text\nCaf\xe9\n```\n"},
 		{"multiple", "Before\xff\n```mermaid\nflowchart LR\nA -> B\n```\nBetween\xe2\x82\n~~~mmd\nflowchart LR\nC -> D\n~~~\nAfter\xfe\n", "Before\xff\n```mermaid\nflowchart LR\nA --> B\n```\nBetween\xe2\x82\n~~~mmd\nflowchart LR\nC --> D\n~~~\nAfter\xfe\n"},
 		{"container-exit", "Before\xff\n> ```mermaid\n> flowchart LR\n> A -> B\nAfter\xe9\n", "Before\xff\n> ```mermaid\n> flowchart LR\n> A --> B\nAfter\xe9\n"},
+		{"indented-quote", "Before\xff\n  > ```mermaid\n  > flowchart LR\n  > %% \xe2\x82\n  > A -> B\n  > ```\nAfter\xfe\n", "Before\xff\n  > ```mermaid\n  > flowchart LR\n  > %% \uFFFD\n  > A --> B\n  > ```\nAfter\xfe\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			requireFixedHostBytes(t, tc.before, tc.after)

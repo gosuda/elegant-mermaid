@@ -249,7 +249,7 @@ fn strip_frames(source: &[u8], line: Line, frames: &[Frame]) -> (usize, usize) {
 
 fn strip_frame(source: &[u8], cursor: usize, end: usize, frame: Frame) -> Option<usize> {
     match frame {
-        Frame::Quote => after_quote(source, cursor),
+        Frame::Quote => quote_marker(source, cursor, end),
         Frame::Colon => Some(cursor),
         Frame::Item { indent } => strip_item(source, cursor, end, indent),
     }
@@ -614,6 +614,35 @@ mod tests {
         let found = blocks(b"```text\n```mermaid\nx\n```\n~~~mermaid\ny\n~~~\n");
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].source.as_ref(), b"y\n");
+    }
+
+    #[test]
+    fn markdown_indented_quote_continuations() {
+        for prefix in ["> ", " > ", "  > ", "   > ", "  >   > "] {
+            let mut host = b"Before\xfe\n".to_vec();
+            for line in [
+                b"```mermaid\n".as_slice(),
+                b"flowchart LR\n",
+                b"%% \xff\n",
+                b"A --> B\n",
+                b"```\n",
+            ] {
+                host.extend_from_slice(prefix.as_bytes());
+                host.extend_from_slice(line);
+            }
+            host.extend_from_slice(b"After\xfd\n");
+            let found = blocks(&host);
+            assert_eq!(found.len(), 1, "prefix {prefix:?}");
+            assert_eq!(
+                found[0].source.as_ref(),
+                b"flowchart LR\n%% \xff\nA --> B\n",
+                "prefix {prefix:?}"
+            );
+            mapping(&host);
+        }
+        let found = blocks(b"> ```mermaid\n    > outside\n> ```\n");
+        assert_eq!(found.len(), 1);
+        assert!(found[0].source.is_empty(), "four spaces must end the quote");
     }
 
     fn mapping(host: &[u8]) {
