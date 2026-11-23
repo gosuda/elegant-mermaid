@@ -134,6 +134,12 @@ impl Parser<'_> {
         })
     }
     pub(super) fn subgraph(&mut self) -> Statement {
+        let mut sg = self.subgraph_heading();
+        self.subgraph_body(&mut sg);
+        Statement::Subgraph(sg)
+    }
+
+    pub(super) fn subgraph_heading(&mut self) -> Subgraph {
         let kw = self.next();
         let mut sg = Subgraph {
             span: kw.span,
@@ -143,12 +149,6 @@ impl Parser<'_> {
             body: Vec::new(),
             end_span: None,
         };
-        self.subgraph_heading(&mut sg);
-        self.subgraph_body(&mut sg);
-        Statement::Subgraph(sg)
-    }
-
-    pub(super) fn subgraph_heading(&mut self, sg: &mut Subgraph) {
         let save = self.i;
         self.skip_spaces();
         let mut tokens = self.take_while(text_no_tags);
@@ -188,6 +188,7 @@ impl Parser<'_> {
         if sg.id.is_none() {
             self.unexpected(&["NODE_STRING", "STR"]);
         }
+        sg
     }
 
     pub(super) fn subgraph_body(&mut self, sg: &mut Subgraph) {
@@ -195,7 +196,8 @@ impl Parser<'_> {
             self.next();
         }
         if self.depth >= 64 {
-            self.recover();
+            self.plain("limit/nesting-depth", sg.keyword);
+            self.skip_subgraph_body();
         } else {
             self.depth += 1;
             loop {
@@ -214,6 +216,29 @@ impl Parser<'_> {
             sg.span.end = end.span.end;
         } else {
             self.token_diag("flowchart/unterminated", sg.span, "subgraph");
+        }
+    }
+
+    /// Skip nested bodies without recursion, leaving this group's closing `end`.
+    fn skip_subgraph_body(&mut self) {
+        let mut nested = 0usize;
+        loop {
+            self.trivia();
+            match self.peek().kind {
+                K::Eof => return,
+                K::Subgraph => {
+                    nested += 1;
+                    let _ = self.subgraph_heading();
+                }
+                K::End if nested == 0 => return,
+                K::End => {
+                    nested -= 1;
+                    self.next();
+                }
+                _ => {
+                    let _ = self.statement();
+                }
+            }
         }
     }
 }

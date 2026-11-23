@@ -1,6 +1,7 @@
 package flowchart
 
 import (
+	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/source"
 )
 
@@ -19,15 +20,25 @@ func (p *parser) parseSubgraph() Stmt {
 	if p.atAny(TokNewline, TokSemi) {
 		p.next()
 	}
-	body := p.parseSubgraphBody()
-	sg.Body = body
+	if p.depth >= 64 {
+		p.report(diag.Diagnostic{
+			Code: "limit/nesting-depth", Severity: diag.SeverityError,
+			Message: "nesting depth exceeds 64", Span: kw.Span,
+			Help: "Reduce the nesting to 64 levels or fewer.",
+		})
+		p.skipSubgraphBody()
+	} else {
+		p.depth++
+		sg.Body = p.parseSubgraphBody()
+		p.depth--
+	}
 	if end, ok := p.accept(TokEnd); ok {
 		sg.End = end
 		sg.Span.End = end.Span.End
 	} else {
 		p.report(tokenDiagnostic(codeUnterminated, sg.Span, "subgraph"))
 	}
-	for _, line := range body {
+	for _, line := range sg.Body {
 		if dir, ok := line.Stmt.(*DirectionStatement); ok {
 			sg.Direction = dir
 		}
@@ -76,6 +87,33 @@ func (p *parser) parseSubgraphBody() []Line {
 		}
 		if stmt, ok := p.parseStatement(); ok {
 			lines = append(lines, Line{Stmt: stmt})
+		}
+	}
+}
+
+func (p *parser) skipSubgraphBody() {
+	nested := 0
+	for {
+		p.skipTrivia()
+		switch p.peek().Kind {
+		case TokEOF:
+			return
+		case TokSubgraph:
+			nested++
+			p.next()
+			if _, ok := p.parseSubgraphHeader(); !ok {
+				p.report(unexpectedDiagnostic(p.peek().Span, p.peek().Text, []string{"NODE_STRING", "STR"}))
+			}
+		case TokEnd:
+			if nested == 0 {
+				return
+			}
+			nested--
+			p.next()
+		default:
+			// Only subgraph statements recurse; discard each flat statement
+			// after it consumes its ordinary recovery boundary.
+			p.parseStatement()
 		}
 	}
 }

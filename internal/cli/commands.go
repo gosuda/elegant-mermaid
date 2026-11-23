@@ -6,10 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -60,8 +62,12 @@ func commandFlags(command string, args []string) (commandOptions, []string, erro
 		fs.StringVar(&o.background, "b", "", "")
 		fs.StringVar(&o.charset, "charset", "unicode", "")
 		fs.StringVar(&o.svgText, "svg-text", "font", "")
-		fs.IntVar(&o.width, "width", 0, "")
-		fs.IntVar(&o.scale, "s", 2, "")
+		fs.Func("width", "", func(value string) error {
+			return setDecimalInt(&o.width, value, 0, math.MaxInt32)
+		})
+		fs.Func("s", "", func(value string) error {
+			return setDecimalInt(&o.scale, value, 1, 8)
+		})
 		fs.StringVar(&o.config, "c", "", "")
 		fs.Var(&o.iconPacks, "icon-pack", "")
 	}
@@ -94,14 +100,26 @@ func commandFlags(command string, args []string) (commandOptions, []string, erro
 	return o, positional, nil
 }
 
+func setDecimalInt(target *int, value string, minimum, maximum int) error {
+	number, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	if number < int64(minimum) || number > int64(maximum) {
+		return strconv.ErrRange
+	}
+	*target = int(number)
+	return nil
+}
+
 func invalidValue(value, name, accepted string) error {
 	return fmt.Errorf("invalid value %s for %s; expected one of: %s", value, name, accepted)
 }
 
 func badNumber(name string, part []string) error {
 	value := part[len(part)-1]
-	if prefix, rest, ok := strings.Cut(value, "="); ok && strings.HasPrefix(prefix, "-") {
-		value = rest
+	if len(part) == 1 {
+		_, value, _ = strings.Cut(part[0], "=")
 	}
 	if name == "s" {
 		return invalidValue(value, "-s", "1..8")
@@ -169,7 +187,7 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	if err != nil {
 		return err
 	}
-	if err = rejectInvalidSource(cfg, o, f, src); err != nil {
+	if err = rejectInvalidSource(cfg, o, f); err != nil {
 		return err
 	}
 	s, ds, err := layoutDiagram(cfg, o, m)
@@ -186,8 +204,8 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	return serializeScene(cfg, o, s, svgOptions)
 }
 
-func rejectInvalidSource(cfg Config, o commandOptions, f diag.FileDiagnostics, src []byte) error {
-	if err := writeDiagnostics(cfg.Stderr, f.Path, src, f.Diagnostics, colourEnabled(o.color, cfg)); err != nil {
+func rejectInvalidSource(cfg Config, o commandOptions, f diag.FileDiagnostics) error {
+	if err := writeDiagnostics(cfg.Stderr, f.Path, f.Source, f.Diagnostics, colourEnabled(o.color, cfg)); err != nil {
 		return err
 	}
 	if hasErrors(f.Diagnostics) {

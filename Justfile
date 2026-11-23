@@ -21,7 +21,7 @@ go-check PKG='./...': build
 rust-check FILTER='': build
     cargo fmt --check
     cargo clippy --all-targets --all-features --locked -- -D warnings
-    EMD_BIN="{{ justfile_directory() }}/bin/emd-rs" cargo nextest run --all-features --locked {{ trim_start_match(FILTER, 'FILTER=') }} {{ if trim_start_match(FILTER, 'FILTER=') == '' { '--no-tests=pass' } else { '--no-tests=fail' } }}
+    EMD_BIN="{{ justfile_directory() }}/bin/emd-rs" cargo nextest run --all-features --locked --no-fail-fast {{ trim_start_match(FILTER, 'FILTER=') }} {{ if trim_start_match(FILTER, 'FILTER=') == '' { '--no-tests=pass' } else { '--no-tests=fail' } }}
     cargo deny --locked check
     cargo test --doc --locked -p elegant-mermaid
 

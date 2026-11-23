@@ -147,6 +147,23 @@ func TestLintFixRewritesFiles(t *testing.T) {
 	expectFixLeavesUnfixableFile(t, filepath.Join(dir, "dup.mmd"))
 }
 
+func TestLintFixPersistsUTF8Repair(t *testing.T) {
+	for _, tc := range []struct{ name, before, after string }{
+		{"diagram.mmd", "flowchart LR\n%% invalid \xff\xfe\nA --> B\n", "flowchart LR\n%% invalid \uFFFD\uFFFD\nA --> B\n"},
+		{"host.md", "# Title\n\n```mermaid\nflowchart LR\n%% invalid \xe2\x82\nA --> B\n```\n", "# Title\n\n```mermaid\nflowchart LR\n%% invalid \uFFFD\nA --> B\n```\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := writeLintFiles(t, map[string]string{tc.name: tc.before})
+			path := filepath.Join(dir, tc.name)
+			expectInvocation(t, "", []string{"lint", "--fix", path}, "", "", 0)
+			if got := readText(t, path); got != tc.after {
+				t.Fatalf("UTF-8 repair was not persisted: %q; want %q", got, tc.after)
+			}
+			expectInvocation(t, "", []string{"check", path}, "", "", 0)
+		})
+	}
+}
+
 func TestLintExitCodes(t *testing.T) {
 	dir := writeLintFiles(t, map[string]string{"beta.mmd": betaSource, "dup.mmd": dupSource})
 	beta, dup := filepath.Join(dir, "beta.mmd"), filepath.Join(dir, "dup.mmd")
