@@ -77,9 +77,9 @@ async function waitForEmdCall(): Promise<EmdCall> {
     if (Date.now() > deadline) {
       throw new Error('emdCall was not registered within 10 seconds');
     }
-    const { promise, resolve } = Promise.withResolvers<void>();
-    setTimeout(resolve, 5);
-    await promise;
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 5);
+    });
   }
 }
 
