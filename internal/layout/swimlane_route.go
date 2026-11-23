@@ -322,19 +322,24 @@ func (r *bandRouter) obstacles(from, to string) []obstacle {
 		}
 	}
 	if r.scene.Options.Profile == scene.ProfileCell {
-		for _, group := range r.scene.Groups {
-			for _, item := range group.Items {
-				label, ok := item.(*scene.Text)
-				if !ok || label.Rect.W <= 0 || label.Rect.H <= 0 {
-					continue
-				}
-				bound := newObstacle(r.axis, label.Rect)
-				bound.cross0--
-				bound.cross1++
-				bound.rank0--
-				bound.rank1++
-				out = append(out, bound)
+		out = r.appendCellTextObstacles(out)
+	}
+	return out
+}
+
+func (r *bandRouter) appendCellTextObstacles(out []obstacle) []obstacle {
+	for _, group := range r.scene.Groups {
+		for _, item := range group.Items {
+			label, ok := item.(*scene.Text)
+			if !ok || label.Rect.W <= 0 || label.Rect.H <= 0 {
+				continue
 			}
+			bound := newObstacle(r.axis, label.Rect)
+			bound.cross0--
+			bound.cross1++
+			bound.rank0--
+			bound.rank1++
+			out = append(out, bound)
 		}
 	}
 	return out

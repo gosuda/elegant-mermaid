@@ -108,7 +108,7 @@ func renderDecoration(t *testing.T, source string) cells.Result {
 		}
 		s, _, err := family.Layout(in)
 		require.NoError(t, err)
-		valid, err := s.Dump.Check()
+		valid, err := s.Check()
 		require.NoError(t, err)
 		require.True(t, valid)
 		scene.ProjectCellAttachments(&s)

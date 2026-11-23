@@ -317,22 +317,30 @@ func regionSeparator(parent, a, b geom.Rect, inset int32) ([2]geom.Point, error)
 		return [2]geom.Point{}, err
 	}
 	if found {
-		if x < bounds.left || x > bounds.right {
-			return [2]geom.Point{}, errStateDomain
-		}
-		return [2]geom.Point{{X: x, Y: bounds.top}, {X: x, Y: bounds.bottom}}, nil
+		return bounds.verticalSeparator(x)
 	}
 	y, found, err := regionGap(a.Y, a.H, b.Y, b.H)
 	if err != nil {
 		return [2]geom.Point{}, err
 	}
 	if found {
-		if y < bounds.top || y > bounds.bottom {
-			return [2]geom.Point{}, errStateDomain
-		}
-		return [2]geom.Point{{X: bounds.left, Y: y}, {X: bounds.right, Y: y}}, nil
+		return bounds.horizontalSeparator(y)
 	}
 	return [2]geom.Point{}, errStateDomain
+}
+
+func (bounds regionBounds) verticalSeparator(x int32) ([2]geom.Point, error) {
+	if x < bounds.left || x > bounds.right {
+		return [2]geom.Point{}, errStateDomain
+	}
+	return [2]geom.Point{{X: x, Y: bounds.top}, {X: x, Y: bounds.bottom}}, nil
+}
+
+func (bounds regionBounds) horizontalSeparator(y int32) ([2]geom.Point, error) {
+	if y < bounds.top || y > bounds.bottom {
+		return [2]geom.Point{}, errStateDomain
+	}
+	return [2]geom.Point{{X: bounds.left, Y: y}, {X: bounds.right, Y: y}}, nil
 }
 
 func regionGap(aStart, aSize, bStart, bSize int32) (int32, bool, error) {
