@@ -1,0 +1,177 @@
+name: "verify"
+
+"on":
+  push:
+    branches:
+      - "main"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: "read"
+
+concurrency:
+  group: "verify-${{ github.ref }}"
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: "bash"
+
+jobs:
+  references:
+    runs-on: "depot-ubuntu-24.04-8"
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: "2"
+      LEAN_NUM_THREADS: "2"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
+      - name: "Set up Go"
+        uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: "Install the Rust toolchain"
+        run: "rustup toolchain install"
+      - name: "Install gate tools"
+        id: "tools"
+        uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
+        with:
+          tool: "just@1.59.0,cargo-nextest@0.9.151,cargo-deny@0.20.2,jaq@3.2.0"
+      - name: "Check generated files"
+        if: "!cancelled() && steps.tools.outcome == 'success'"
+        run: "just gen-check"
+      - name: "Build both engines"
+        id: "build"
+        if: "!cancelled() && steps.tools.outcome == 'success'"
+        run: "just build"
+      - name: "Run the Go gates"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        run: "just go-check"
+      - name: "Run the Rust gates"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        run: "just rust-check"
+      - name: "Install the pinned Lean toolchain"
+        id: "lean"
+        if: "!cancelled() && steps.tools.outcome == 'success'"
+        run: |
+          test "$(cat proofs/lean-toolchain)" = "leanprover/lean4:v4.35.0"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/lean.tar.zst" \
+            "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-linux.tar.zst"
+          echo "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d  $RUNNER_TEMP/lean.tar.zst" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/lean"
+          tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" --strip-components=1 -C "$RUNNER_TEMP/lean"
+          echo "$RUNNER_TEMP/lean/bin" >> "$GITHUB_PATH"
+      - name: "Build and audit every proof"
+        id: "proofs"
+        if: "!cancelled() && steps.lean.outcome == 'success'"
+        run: "just proofs"
+      - name: "Check corpus verdicts"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        run: "just oracle JOBS=4"
+      - name: "Check corpus engine parity"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        run: "just parity JOBS=4"
+      - name: "Check generated layered graphs"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        run: "just layered-random-check JOBS=4"
+      - name: "Compare geometry kernels"
+        if: "!cancelled() && steps.build.outcome == 'success' && steps.proofs.outcome == 'success'"
+        run: "just kernel-diff"
+      - name: "Validate every corpus layout"
+        if: "!cancelled() && steps.build.outcome == 'success' && steps.proofs.outcome == 'success'"
+        run: "just validate JOBS=4"
+      - name: "Compare every layout with Lean"
+        if: "!cancelled() && steps.build.outcome == 'success' && steps.proofs.outcome == 'success'"
+        run: "just lean-parity JOBS=4"
+      - name: "Upload verification binaries"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
+        with:
+          name: "verification-binaries"
+          path: |
+            bin/emd-go
+            bin/emd-rs
+            proofs/.lake/build/bin/geomcheck
+          if-no-files-found: "error"
+          retention-days: 7
+
+  quality:
+    runs-on: "depot-ubuntu-24.04-8"
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
+      - name: "Set up Go"
+        uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: "Install the Rust toolchain"
+        run: "rustup toolchain install"
+      - name: "Install gate tools"
+        uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
+        with:
+          tool: "just@1.59.0,cargo-nextest@0.9.151"
+      - name: "Set up pnpm"
+        uses: "pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115" # v6.1.1
+        with:
+          version: "12.18.0"
+      - name: "Set up Node"
+        uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1" # v7.1.0
+        with:
+          node-version: "26.13.1"
+          cache: "pnpm"
+          cache-dependency-path: "tools/upstream-oracle/pnpm-lock.yaml"
+      - name: "Install oracle packages"
+        run: "pnpm --dir tools/upstream-oracle install --frozen-lockfile"
+      - name: "Build both engines"
+        id: "build"
+        run: "just build"
+      - name: "Check layout quality"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        run: "just quality JOBS=4"
+      - name: "Check themes and config coverage"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        run: "just theme-check"
+
+  house:
+    runs-on: "depot-ubuntu-24.04-8"
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: "2"
+      RAYON_NUM_THREADS: "4"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
+      - name: "Install the Rust toolchain"
+        run: "rustup toolchain install"
+      - name: "Install just"
+        uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
+        with:
+          tool: "just@1.59.0"
+      - name: "Install the pinned house linter"
+        id: "sloplint"
+        run: "cargo install --git https://github.com/gosuda/sloplint --rev 199d5e924cb305e6f2b2945620db046530989d60 --locked sloplint"
+      - name: "Run house lint"
+        if: "!cancelled() && steps.sloplint.outcome == 'success'"
+        run: "just slop"
+      - name: "Install the pinned model checker"
+        id: "tlc"
+        if: "!cancelled()"
+        run: |
+          mkdir -p .tools
+          curl --fail --location --retry 3 --output .tools/tla2tools.jar \
+            "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar"
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  .tools/tla2tools.jar" | sha256sum --check
+      - name: "Check the scheduler model"
+        if: "!cancelled() && steps.tlc.outcome == 'success'"
+        run: "just model"
