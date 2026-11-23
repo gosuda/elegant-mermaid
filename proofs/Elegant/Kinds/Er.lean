@@ -157,8 +157,8 @@ def decorateGroup (m : Model) (s : Scene) (group : Group) : Except LayoutError G
       s.boxes.find? (fun b => b.id == group.owner) with
   | some b, some placed =>
     if isEntity b then do
-      pure { group with items := ← tablePrimitives m.options.profile placed.rect (boxText m b)
-        m.options.fontFamily }
+      let items ← tablePrimitives m.options.profile placed.rect (boxText m b) m.options.fontFamily
+      pure { group with items := items }
     else pure group
   | _, _ => pure group
 

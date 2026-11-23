@@ -24,7 +24,7 @@ func TestErrorPaths(t *testing.T) {
 		"broken.dump":  `{"nope`,
 		"latin1.dump":  "\xff",
 		"model.dump":   `{"version":1,"stage":"model"}`,
-		"big.mmd":      chainDiagram(2001),
+		"big.mmd":      "---\nconfig:\n  maxEdges: 5000\n---\n" + chainDiagram(2001),
 		"wide.mmd":     chainDiagram(400),
 		"broken.yaml":  "not: [valid",
 		"list.yaml":    "- a\n",

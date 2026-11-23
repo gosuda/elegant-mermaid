@@ -185,36 +185,42 @@ fn font_config_survives_every_kind_adapter_and_keeps_cell_geometry() -> TestResu
             document.diagnostics()
         );
         for profile in [Profile::Vector, Profile::Cell] {
-            let base = LayoutOptions {
-                profile,
-                ..LayoutOptions::default()
-            };
-            let before = layout(&document, &base)?;
-            let options = LayoutOptions {
-                config: Some("fontFamily: Example\n".into()),
-                ..base
-            };
-            let after = layout(&document, &options)?;
-            assert!(
-                matches!(
-                    after.dump_part().options.config.get("fontFamily"),
-                    Some(scene::DumpValue::String(value)) if value == "Example",
-                ),
-                "{kind}: {}",
-                after.dump(),
-            );
-            assert_eq!(before.profile(), after.profile(), "{kind}");
-            if after.profile() == scene::Profile::Cell {
-                assert_eq!(before.canvas(), after.canvas(), "{kind}");
-                assert_eq!(before.boxes(), after.boxes(), "{kind}");
-                assert_eq!(before.routes(), after.routes(), "{kind}");
-                assert_eq!(before.labels(), after.labels(), "{kind}");
-            } else if profile == Profile::Cell {
-                // These chart kinds use vector geometry for the braille backend.
-                assert!(matches!(kind, "pie" | "radar" | "sankey" | "venn"));
-            }
+            check_font_profile(kind, &document, profile)?;
         }
     }
     assert_eq!(kinds.len(), 33);
+    Ok(())
+}
+
+fn check_font_profile(
+    kind: &str,
+    document: &elegant_mermaid::Document<'_>,
+    profile: Profile,
+) -> TestResult {
+    let base = LayoutOptions {
+        profile,
+        ..LayoutOptions::default()
+    };
+    let before = layout(document, &base)?;
+    let options = LayoutOptions {
+        config: Some("fontFamily: Example\n".into()),
+        ..base
+    };
+    let after = layout(document, &options)?;
+    assert!(
+        matches!(after.dump_part().options.config.get("fontFamily"), Some(scene::DumpValue::String(value)) if value == "Example"),
+        "{kind}: {}",
+        after.dump(),
+    );
+    assert_eq!(before.profile(), after.profile(), "{kind}");
+    if after.profile() == scene::Profile::Cell {
+        assert_eq!(before.canvas(), after.canvas(), "{kind}");
+        assert_eq!(before.boxes(), after.boxes(), "{kind}");
+        assert_eq!(before.routes(), after.routes(), "{kind}");
+        assert_eq!(before.labels(), after.labels(), "{kind}");
+    } else if profile == Profile::Cell {
+        // These chart kinds use vector geometry for the braille backend.
+        assert!(matches!(kind, "pie" | "radar" | "sankey" | "venn"));
+    }
     Ok(())
 }

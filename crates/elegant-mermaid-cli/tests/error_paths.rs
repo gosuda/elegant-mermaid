@@ -89,7 +89,13 @@ fn write_fixtures(root: &Path) -> io::Result<()> {
     ] {
         fs::write(root.join(name), bytes)?;
     }
-    fs::write(root.join("big.mmd"), chain_diagram(2001))?;
+    fs::write(
+        root.join("big.mmd"),
+        format!(
+            "---\nconfig:\n  maxEdges: 5000\n---\n{}",
+            chain_diagram(2001)
+        ),
+    )?;
     fs::write(root.join("wide.mmd"), chain_diagram(400))?;
     fs::create_dir(root.join("dir"))
 }
