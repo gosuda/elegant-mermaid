@@ -184,6 +184,81 @@ fn layout_stages_and_profiles_print_the_dump() {
 }
 
 #[test]
+fn configured_layout_matches_native_geometry_and_model_options()
+-> Result<(), Box<dyn std::error::Error>> {
+    for body in [
+        "flowchart LR\nA[Alphabetic label] --> B[Another label]\n",
+        "journey\ntitle A journey\nsection Section\nAlphabetic task: 5: Person\n",
+    ] {
+        let source = format!("---\nconfig:\n  fontFamily: Custom Font\n---\n{body}");
+        let document = elegant_mermaid::parse(&source);
+        for (profile_name, profile, dump_profile) in [
+            (
+                "vector",
+                elegant_mermaid::Profile::Vector,
+                elegant_mermaid::scene::Profile::Vector,
+            ),
+            (
+                "cell",
+                elegant_mermaid::Profile::Cell,
+                elegant_mermaid::scene::Profile::Cell,
+            ),
+        ] {
+            let layout = crate::call(
+                "layout",
+                &source,
+                &format!(r#"{{"profile":"{profile_name}"}}"#),
+            );
+            assert!(layout.ok, "{}", layout.diagnostics);
+            let native = elegant_mermaid::layout(
+                &document,
+                &elegant_mermaid::LayoutOptions {
+                    profile,
+                    ..elegant_mermaid::LayoutOptions::default()
+                },
+            )?;
+            assert_eq!(layout.output, native.dump(), "{profile_name}: {body}");
+
+            let model = crate::call(
+                "layout",
+                &source,
+                &format!(r#"{{"profile":"{profile_name}","stage":"model"}}"#),
+            );
+            assert!(model.ok, "{}", model.diagnostics);
+            let mut dump = elegant_mermaid::scene::DumpOptions::default();
+            document.config().apply_to(&mut dump);
+            let input = document
+                .resolved()
+                .ok_or("missing resolved model")?
+                .input(dump_profile, dump)?;
+            assert_eq!(
+                model.output,
+                elegant_mermaid::layout::modeldump::model_dump(&input)
+            );
+            assert!(model.output.contains(r#""fontFamily":"Custom Font""#));
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn configured_svg_matches_native_font_attribute_and_geometry()
+-> Result<(), Box<dyn std::error::Error>> {
+    let source = "---\nconfig:\n  fontFamily: 'Custom & <Font>'\n---\nflowchart LR\nA[Alphabetic label] --> B\n";
+    let response = crate::call("render_svg", source, "");
+    assert!(response.ok, "{}", response.diagnostics);
+    let document = elegant_mermaid::parse(source);
+    let native = elegant_mermaid::render_svg(&document, &elegant_mermaid::SvgOptions::default())?;
+    assert_eq!(response.output, native);
+    assert!(
+        response
+            .output
+            .contains("font-family='Custom &amp; &lt;Font&gt;'")
+    );
+    Ok(())
+}
+
+#[test]
 fn fix_returns_the_source_and_its_remaining_diagnostics() {
     let response = emd_call("fix", DEMO, "");
     assert!(response.starts_with("{\"ok\":true,\"output\":\"flowchart LR\\n"));

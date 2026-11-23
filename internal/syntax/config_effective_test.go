@@ -9,15 +9,22 @@ import (
 
 func TestEffectiveConfigLimitsAndOverlay(t *testing.T) {
 	base, diagnostics := ReadEffectiveConfig(configMapping(t, "maxEdges: 0\nmaxTextSize: 2147483647\nfontFamily: serif\n"))
-	if len(diagnostics) != 0 || base.MaxEdges != 0 || base.MaxTextSize != 2147483647 || base.FontFamily != "serif" {
+	if len(diagnostics) != 0 {
 		t.Fatalf("base: %+v, %+v", base, diagnostics)
 	}
+	assertEffectiveConfigValues(t, base, 0, 2147483647, "serif")
 	config, diagnostics := base.Overlay(configMapping(t, "maxEdges: +5\nmaxTextSize: -0\nfontFamily: ''\n"))
-	if len(diagnostics) != 0 || config.MaxEdges != 5 || config.MaxTextSize != 0 || config.FontFamily != "" {
+	if len(diagnostics) != 0 {
 		t.Fatalf("overlay: %+v, %+v", config, diagnostics)
 	}
-	if base.MaxEdges != 0 || base.MaxTextSize != 2147483647 || base.FontFamily != "serif" {
-		t.Fatal("overlay changed its base")
+	assertEffectiveConfigValues(t, config, 5, 0, "")
+	assertEffectiveConfigValues(t, base, 0, 2147483647, "serif")
+}
+
+func assertEffectiveConfigValues(t *testing.T, config EffectiveConfig, maxEdges, maxTextSize int32, family string) {
+	t.Helper()
+	if config.MaxEdges != maxEdges || config.MaxTextSize != maxTextSize || config.FontFamily != family {
+		t.Fatalf("config = %+v, want maxEdges %d, maxTextSize %d, fontFamily %q", config, maxEdges, maxTextSize, family)
 	}
 }
 

@@ -115,14 +115,16 @@ fn collapsed_flows_hide_descendants_and_redirect_routes() -> Result<(), &'static
 }
 #[test]
 fn short_nodes_use_exact_kind_minima_and_padding() -> Result<(), &'static str> {
+    let cell = input("agentflow-beta\nA\n", Profile::Cell)?;
+    let vector = input("agentflow-beta\nA\n", Profile::Vector)?;
     assert_eq!(
-        content("A", None, Profile::Cell)
+        content("A", None, &cell)
             .map_err(|_| "cell measurement failed")?
             .1,
         Size { w: 15, h: 3 }
     );
     assert_eq!(
-        content("A", None, Profile::Vector)
+        content("A", None, &vector)
             .map_err(|_| "vector measurement failed")?
             .1,
         Size { w: 7680, h: 2304 }

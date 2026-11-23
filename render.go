@@ -30,8 +30,8 @@ func Layout(ctx context.Context, d *Document, o LayoutOptions) (*Scene, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if d == nil || d.diagram == nil || d.diagram.HasSourceErrors() {
-		return nil, fmt.Errorf("%w: document has errors", ErrInvalidDocument)
+	if err := sourceDocumentError(d); err != nil {
+		return nil, err
 	}
 	options, err := layoutOptions(o)
 	if err != nil {
@@ -75,6 +75,13 @@ func documentConfig(d *Document, text []byte) (syntax.EffectiveConfig, error) {
 		}
 	}
 	return config, nil
+}
+
+func sourceDocumentError(d *Document) error {
+	if d == nil || d.diagram == nil || d.diagram.HasSourceErrors() {
+		return fmt.Errorf("%w: document has errors", ErrInvalidDocument)
+	}
+	return nil
 }
 
 func documentLayoutInput(d *Document, options scene.Options, config syntax.EffectiveConfig) (layout.Input, error) {
@@ -191,8 +198,8 @@ func RenderText(ctx context.Context, d *Document, o TextOptions) ([]byte, error)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if d == nil || d.diagram == nil || d.diagram.HasSourceErrors() {
-		return nil, fmt.Errorf("%w: document has errors", ErrInvalidDocument)
+	if err := sourceDocumentError(d); err != nil {
+		return nil, err
 	}
 	if o.Charset > CharsetASCII || o.Color > ColorTruecolor {
 		return nil, fmt.Errorf("%w: invalid text option", ErrBadConfig)
