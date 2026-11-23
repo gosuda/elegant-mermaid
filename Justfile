@@ -41,6 +41,7 @@ build-go:
 
 # Build the Rust CLI only: bin/emd-rs
 build-rs:
+    mkdir -p bin
     cargo build --release --locked -p emd-cli
     cp "${CARGO_TARGET_DIR:-target}/release/emd" bin/emd-rs
 
