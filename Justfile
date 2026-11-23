@@ -27,7 +27,7 @@ rust-check FILTER='': build
 
 # House lint: upstream standard profile, failing on major findings
 slop:
-    sloplint check . --jobs 1 --format agent --strictness standard --mode threshold --fail-on major
+    sloplint check . --format agent --strictness standard --mode threshold --fail-on major
 
 # Build both binaries: bin/emd-go and bin/emd-rs
 build:
