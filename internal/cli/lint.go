@@ -263,10 +263,9 @@ func lintOne(cfg Config, o lintOptions, resolver *configResolver, input string, 
 	path := displayPath(input)
 	if o.fix {
 		fixed, _ := fixSource(path, src, lc, o.fixLimit())
-		if err = storeFixed(input, src, fixed, out); err != nil {
+		if src, err = storeFixed(input, src, fixed, out); err != nil {
 			return err
 		}
-		src = fixed
 	}
 	out.files = append(out.files, lintFile(path, src, lc))
 	return nil
@@ -279,15 +278,22 @@ func displayPath(input string) string {
 	return input
 }
 
-func storeFixed(input string, original, fixed []byte, out *lintOutcome) error {
+func storeFixed(input string, original, fixed []byte, out *lintOutcome) ([]byte, error) {
 	if input == stdinInput {
 		out.stdinFixed, out.fixedStdin = fixed, true
-		return nil
+		return fixed, nil
+	}
+	if markdownHost(input) {
+		var err error
+		fixed, err = preserveHostBytes(original, fixed)
+		if err != nil {
+			return nil, fmt.Errorf("cannot fix %s: %w", input, err)
+		}
 	}
 	if bytes.Equal(original, fixed) {
-		return nil
+		return fixed, nil
 	}
-	return rewriteFile(input, fixed)
+	return fixed, rewriteFile(input, fixed)
 }
 
 func rewriteFile(path string, data []byte) error {
