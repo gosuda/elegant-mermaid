@@ -169,7 +169,7 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	if err != nil {
 		return err
 	}
-	if err = rejectInvalidSource(cfg, o, f, src); err != nil {
+	if err = rejectInvalidSource(cfg, o, f); err != nil {
 		return err
 	}
 	s, ds, err := layoutDiagram(cfg, o, m)
@@ -186,8 +186,8 @@ func renderInput(cfg Config, o commandOptions, path string) error {
 	return serializeScene(cfg, o, s, svgOptions)
 }
 
-func rejectInvalidSource(cfg Config, o commandOptions, f diag.FileDiagnostics, src []byte) error {
-	if err := writeDiagnostics(cfg.Stderr, f.Path, src, f.Diagnostics, colourEnabled(o.color, cfg)); err != nil {
+func rejectInvalidSource(cfg Config, o commandOptions, f diag.FileDiagnostics) error {
+	if err := writeDiagnostics(cfg.Stderr, f.Path, f.Source, f.Diagnostics, colourEnabled(o.color, cfg)); err != nil {
 		return err
 	}
 	if hasErrors(f.Diagnostics) {

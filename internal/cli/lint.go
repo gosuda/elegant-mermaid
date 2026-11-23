@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -261,8 +262,8 @@ func lintOne(cfg Config, o lintOptions, resolver *configResolver, input string, 
 	}
 	path := displayPath(input)
 	if o.fix {
-		fixed, applied := fixSource(path, src, lc, o.fixLimit())
-		if err = storeFixed(input, fixed, applied, out); err != nil {
+		fixed, _ := fixSource(path, src, lc, o.fixLimit())
+		if err = storeFixed(input, src, fixed, out); err != nil {
 			return err
 		}
 		src = fixed
@@ -278,12 +279,12 @@ func displayPath(input string) string {
 	return input
 }
 
-func storeFixed(input string, fixed []byte, applied int, out *lintOutcome) error {
+func storeFixed(input string, original, fixed []byte, out *lintOutcome) error {
 	if input == stdinInput {
 		out.stdinFixed, out.fixedStdin = fixed, true
 		return nil
 	}
-	if applied == 0 {
+	if bytes.Equal(original, fixed) {
 		return nil
 	}
 	return rewriteFile(input, fixed)

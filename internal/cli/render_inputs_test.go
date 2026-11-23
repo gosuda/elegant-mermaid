@@ -110,6 +110,25 @@ func TestRenderRejectsInvalidSource(t *testing.T) {
 	}
 }
 
+func TestRenderDiagnosticsUseRepairedSource(t *testing.T) {
+	for _, source := range []string{
+		"flowchart LR\n%% invalid \xff\xfe\nA -> B\n",
+		"flowchart LR\nA[\xff] -> B\n",
+		"flowchart LR\n%% invalid \xe2\x82\r\nA -> B\r\n",
+	} {
+		checked, checkStderr, checkCode := invoke(t, source, "check", "-", "--color", "never")
+		if checkCode != 1 || checkStderr != "" || !strings.Contains(checked, "error[source/invalid-utf8]") {
+			t.Fatalf("check: exit=%d stdout=%q stderr=%q", checkCode, checked, checkStderr)
+		}
+		for _, format := range []string{"svg", "text", "png"} {
+			out, stderr, code := invoke(t, source, "render", "-e", format, "--color", "never")
+			if code != 1 || out != "" || stderr != checked {
+				t.Errorf("%s: exit=%d stdout=%q stderr=%q; want diagnostics %q", format, code, out, stderr, checked)
+			}
+		}
+	}
+}
+
 func TestRenderHelpListsInputFlags(t *testing.T) {
 	out, _, code := invoke(t, "", "render", "--help")
 	for _, want := range []string{"[--icon-pack FILE]...", "[-c CONFIG]", "icon packs none", "config none"} {

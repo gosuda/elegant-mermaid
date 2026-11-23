@@ -59,7 +59,7 @@ fn lint_command(args: &[String], environment: &Environment) -> Result<Outcome, C
         let shown = if path == STDIN { "<stdin>" } else { path };
         if flags.fix {
             let outcome = fix_source(shown, &bytes, &config, fix_limit(&flags));
-            store_fixed(path, &outcome, &mut fixed_stdin)?;
+            store_fixed(path, &bytes, &outcome, &mut fixed_stdin)?;
             bytes = outcome.text.into_bytes();
         }
         files.push(lint_file(shown, &bytes, &config));
@@ -101,6 +101,7 @@ fn fix_limit(flags: &Flags) -> FixSafety {
 
 fn store_fixed(
     path: &str,
+    original: &[u8],
     outcome: &FixOutcome,
     fixed_stdin: &mut Option<String>,
 ) -> Result<(), CliError> {
@@ -108,7 +109,7 @@ fn store_fixed(
         *fixed_stdin = Some(outcome.text.clone());
         return Ok(());
     }
-    if outcome.applied > 0 {
+    if original != outcome.text.as_bytes() {
         rewrite::rewrite_file(path, outcome.text.as_bytes())?;
     }
     Ok(())
