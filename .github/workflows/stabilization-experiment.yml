@@ -122,6 +122,7 @@ jobs:
             corpus/.cache/quality
           if-no-files-found: "error"
           retention-days: 14
+          include-hidden-files: true
 
   refinement-proof:
     runs-on: "depot-ubuntu-24.04-8"
@@ -149,8 +150,69 @@ jobs:
           cd proofs
           lake build Elegant.Layered.Refinement
 
+  family-cells:
+    runs-on: "depot-ubuntu-24.04-8"
+    timeout-minutes: 30
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: "Set up Go"
+        uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: "Install the Rust toolchain"
+        run: "rustup toolchain install"
+      - name: "Set up Node"
+        uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1" # v7.1.0
+        with:
+          node-version: "26.13.1"
+      - name: "Apply paired family repairs"
+        id: "apply"
+        run: |
+          node stability-recovery/experiment.mjs prepare
+          node stability-recovery/apply-family.mjs
+          mkdir -p tools/cell-repair-probe
+          cp stability-recovery/cell/main.go.txt tools/cell-repair-probe/main.go
+          gofmt -w tools/cell-repair-probe/main.go
+      - name: "Run Go family and layered regressions"
+        if: "!cancelled() && steps.apply.outcome == 'success'"
+        run: "go test -count=1 ./internal/layout ./internal/layout/layered"
+      - name: "Run Rust public cell regressions"
+        if: "!cancelled() && steps.apply.outcome == 'success'"
+        run: "cargo test --locked -p elegant-mermaid --all-features --test cell_masks"
+      - name: "Run Rust family unit regressions"
+        if: "!cancelled() && steps.apply.outcome == 'success'"
+        run: |
+          cargo test --locked -p elegant-mermaid --all-features --lib layout::agentflow::tests
+          cargo test --locked -p elegant-mermaid --all-features --lib layout::state::paint::tests
+      - name: "Build and run the real cell probe"
+        id: "probe"
+        if: "!cancelled() && steps.apply.outcome == 'success'"
+        run: |
+          go build -o "$RUNNER_TEMP/cell-family" ./tools/cell-repair-probe
+          mapfile -t fixtures < recovery-results/cells.txt
+          "$RUNNER_TEMP/cell-family" "${fixtures[@]}" > recovery-results/cell-family.jsonl
+          node stability-recovery/cell/summarize.mjs recovery-results/cell-family.jsonl
+      - name: "Verify the minimal endpoint-preserving detour"
+        if: "!cancelled() && steps.probe.outcome == 'success'"
+        run: |
+          "$RUNNER_TEMP/cell-family" --patch stability-recovery/cell/bipartite-patch.json stability-recovery/cell/complete-bipartite.mmd > recovery-results/cell-detour.jsonl
+          node stability-recovery/cell/summarize.mjs recovery-results/cell-detour.jsonl
+          node -e 'const r = require("./recovery-results/cell-detour.jsonl.summary.json"); if (r.totals.errors || r.totals.dump_failures || r.totals.cell_failures) throw new Error("detour failed actual renderer validation");'
+      - name: "Upload family repair evidence"
+        if: "!cancelled()"
+        uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
+        with:
+          name: "stabilization-family"
+          path: "recovery-results"
+          if-no-files-found: "error"
+          retention-days: 14
+
   readable-evidence:
-    needs: "geometry"
+    needs: ["geometry", "family-cells"]
     if: "!cancelled()"
     runs-on: "depot-ubuntu-24.04-8"
     timeout-minutes: 15
@@ -171,6 +233,11 @@ jobs:
         with:
           name: "stabilization-geometry"
           path: "evidence"
+      - name: "Download family repair evidence"
+        uses: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" # v8
+        with:
+          name: "stabilization-family"
+          path: "evidence/family"
       - name: "Preserve readable evidence without ref updates"
         env:
           GH_TOKEN: "${{ github.token }}"
