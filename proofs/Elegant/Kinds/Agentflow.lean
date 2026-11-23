@@ -23,27 +23,30 @@ def lineHeight : Profile → Int
   | .cell => 1
 
 /-- Widest wrapped line and the height of all wrapped lines; an empty text has height zero. -/
-def measured (profile : Profile) (text : String) : Except LayoutError (Int × Int) := do
-  let metric ← labelMetric profile
+def measured (profile : Profile) (text : String) (fontFamily : Bool := false) :
+    Except LayoutError (Int × Int) := do
+  let metric ← labelMetric profile fontFamily
   let lines ← StyledMeasure.wrap metric (LayoutConst.agentflow_wrapping_width.get profile) text.toList
   let height ← Measure.checkedI32 ((lines.length : Int) * lineHeight profile)
   pure (widest lines, height)
 
-def contentSize (profile : Profile) (text : String) : Except LayoutError Size := do
-  let (width, height) ← measured profile text
+def contentSize (profile : Profile) (text : String) (fontFamily : Bool := false) :
+    Except LayoutError Size := do
+  let (width, height) ← measured profile text fontFamily
   let padding := LayoutConst.agentflow_padding.get profile
   pure ⟨max (width + 2 * padding) (LayoutConst.agentflow_min_node_width.get profile),
     height + 2 * padding⟩
 
-def boxSize (profile : Profile) (b : ModelBox) (text : String) : Except LayoutError Size := do
-  let size ← contentSize profile text
+def boxSize (profile : Profile) (b : ModelBox) (text : String) (fontFamily : Bool := false) :
+    Except LayoutError Size := do
+  let size ← contentSize profile text fontFamily
   if b.shape == "collapsedGroup" then
     pure ⟨size.w, size.h + lineHeight profile + LayoutConst.agentflow_padding.get profile⟩
   else pure size
 
 def sizes (m : Model) : Except LayoutError (List (String × Size)) :=
   (m.boxes.filter fun b => b.role == .node).mapM fun b => do
-    let size ← boxSize m.options.profile b (boxText m b)
+    let size ← boxSize m.options.profile b (boxText m b) m.options.fontFamily
     pure (b.id, withFamilyMinimum m.options.profile size)
 
 def input (m : Model) (fixed : List (String × Size)) : Layered.Input :=

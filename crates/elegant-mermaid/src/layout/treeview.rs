@@ -16,7 +16,7 @@ pub fn from_treeview(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config.clear();
+    options.set_kind_config(Default::default());
     for (key, value) in [
         ("lineThickness", model.config.line_thickness),
         ("paddingX", model.config.padding_x),
@@ -256,14 +256,17 @@ impl<'a> Plan<'a> {
                 self.nodes[i].depth = self.nodes[parent].depth + 1;
             }
             let n = &mut self.nodes[i];
-            n.label_width = n
-                .metric(self.input.profile)
-                .width(&n.shown(self.input.profile))?;
+            n.label_width = crate::scene::configured_metric(
+                n.metric(self.input.profile),
+                &self.input.options.config,
+            )
+            .width(&n.shown(self.input.profile))?;
             let metric = if self.input.profile == Profile::Cell {
                 Metric::Cell
             } else {
                 Metric::for_role(Role::Body)
             };
+            let metric = crate::scene::configured_metric(metric, &self.input.options.config);
             n.desc_width = metric.width(&n.desc.replace('\n', " "))?;
         }
         Ok(())

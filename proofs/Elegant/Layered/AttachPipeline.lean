@@ -262,7 +262,7 @@ def layoutNotes (base : List String → Input → Options → Except LayoutError
     if bundles.isEmpty then base exactIds inp o
     else
       let P ← checkedParams o.profile inp.kind
-      let metric ← metricOf o.profile
+      let metric ← metricOf o.profile o.fontFamily
       let margin := P.canvasMargin
       let layouts ← bundles.mapM
         (bundleLayout (layoutNotes base exactIds fuel) (base exactIds) inp o margin (2 * P.slot + 2))

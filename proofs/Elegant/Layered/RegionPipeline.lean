@@ -32,7 +32,7 @@ def layoutComponentR (P : Params) (exactIds : List String) (spec : Option Region
   let result ← placePart comp chosen.value.1 chosen.value.2 P acc labels (@placeComponentExact) true
   let childArea := inp.fixedAreas.foldl (fun total child =>
     if chosen.scene.boxes.any (fun box => box.id == child.1) then total + child.2 else total) 0
-  let metric ← metricOf o.profile
+  let metric ← metricOf o.profile o.fontFamily
   let titleAreas ← (inp.boxes.zipIdx.filter fun q =>
     q.1.role == .group && chosen.scene.boxes.any (fun box => box.id == q.1.id)).mapM fun q => do
       let lines ← StyledMeasure.wrap metric
@@ -49,7 +49,7 @@ def layoutComponentR (P : Params) (exactIds : List String) (spec : Option Region
 def layoutRIds (exactIds : List String) (idSets : List (String × List String))
     (inp : Input) (o : Options) : Except LayoutError FamilyResult := do
   let P ← checkedParams o.profile inp.kind
-  let m ← metricOf o.profile
+  let m ← metricOf o.profile o.fontFamily
   let lines ← boxLines m
     (Measure.wrapTarget m.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) inp
   let measured ← measureLabels P m

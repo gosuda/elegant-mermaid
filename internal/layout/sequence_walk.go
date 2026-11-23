@@ -398,7 +398,7 @@ func (w *sequenceWalk) closeFragment(run fragmentRun) {
 	width := natural
 	plain := run.kind == fragmentKindCode("rect")
 	if !plain {
-		titleLines, err := measure.StyledLines("["+pl.in.Boxes[run.boxIndex].Text+"]", geom.I32Max, sequenceMetric(pl.profile, measure.RoleLabel))
+		titleLines, err := measure.StyledLines("["+pl.in.Boxes[run.boxIndex].Text+"]", geom.I32Max, sequenceMetric(pl.profile, measure.RoleLabel).WithFontFamily(pl.in.Options.FontFamily))
 		if err != nil {
 			w.err = geom.ErrOverflow
 		}

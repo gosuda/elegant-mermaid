@@ -80,6 +80,7 @@ type point struct{ x, y int64 }
 type radarPlan struct {
 	m          *chartmodel.Chart
 	r          *chartmodel.Radar
+	fontFamily string
 	c          radarConsts
 	radius     int64
 	extent     int64
@@ -243,7 +244,7 @@ func (p *radarPlan) measureAll() error {
 	p.texts = make([]textBox, len(p.labels))
 	for i, l := range p.labels {
 		role, size := radarRole(l)
-		lines, err := measure.StyledLines(l.text, geom.I32Max, measure.Metric{Profile: measure.ProfileVector, SizePx: size, Weight: role.Weight()})
+		lines, err := measure.StyledLines(l.text, geom.I32Max, measure.Metric{Profile: measure.ProfileVector, SizePx: size, Weight: role.Weight(), FontFamily: p.fontFamily != ""})
 		if err != nil {
 			return err
 		}
@@ -262,6 +263,7 @@ func layoutRadar(m *chartmodel.Chart, o scene.Options) (scene.Scene, []diag.Diag
 	if err != nil {
 		return scene.Scene{}, nil, err
 	}
+	p.fontFamily = o.FontFamily
 	if err = p.measureAll(); err != nil {
 		return scene.Scene{}, nil, err
 	}

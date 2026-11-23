@@ -101,7 +101,9 @@ func (r *resolver) vertexStatement(s *syn.VertexStatement) {
 	prev := r.nodeGroup(s.Groups[0])
 	for i := range s.Links {
 		next := r.nodeGroup(s.Groups[i+1])
-		r.model.Edges = append(r.model.Edges, buildEdge(s.Links[i], prev[len(prev)-1], next[0]))
+		edge := buildEdge(s.Links[i], prev[len(prev)-1], next[0])
+		edge.StatementSpan = s.Bounds()
+		r.model.Edges = append(r.model.Edges, edge)
 		prev = next
 	}
 }

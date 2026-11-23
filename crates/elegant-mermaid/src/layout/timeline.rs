@@ -36,7 +36,7 @@ pub(crate) fn from_timeline(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = BTreeMap::new();
+    options.set_kind_config(BTreeMap::new());
     options.profile = profile;
     let direction = if model.vertical() {
         Direction::Tb
@@ -145,6 +145,7 @@ fn section_of(shape: &str) -> Result<Option<usize>, LayoutError> {
 
 struct Meter {
     profile: Profile,
+    font_family: bool,
     card_width: i32,
     column_gap: i32,
     card_padding: i32,
@@ -168,9 +169,11 @@ fn measured_role(role: TextRole) -> Role {
 }
 
 impl Meter {
-    fn new(profile: Profile) -> Result<Self, LayoutError> {
+    fn new(input: &Input) -> Result<Self, LayoutError> {
+        let profile = input.profile;
         Ok(Self {
             profile,
+            font_family: crate::scene::has_font_family(&input.options.config),
             card_width: layout_constant(profile, "timeline.card_width")?,
             column_gap: layout_constant(profile, "timeline.column_gap")?,
             card_padding: layout_constant(profile, "timeline.card_padding")?,
@@ -194,6 +197,11 @@ impl Meter {
                 Metric::for_role(measured),
                 measured.line_height_px() * UNITS_PER_PX,
             )
+        };
+        let metric = if self.font_family {
+            metric.with_font_family()
+        } else {
+            metric
         };
         let lines =
             measure::styled_lines(text, target, metric).map_err(|_| LayoutError::Overflow)?;
@@ -233,7 +241,7 @@ struct Decoder {
 
 fn decode(input: &Input) -> Result<TimelineInput, LayoutError> {
     let mut decoder = Decoder {
-        meter: Meter::new(input.profile)?,
+        meter: Meter::new(input)?,
         graph: TimelineInput {
             direction: input.direction,
             title: None,

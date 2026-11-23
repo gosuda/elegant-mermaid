@@ -43,6 +43,7 @@ pub fn from_class(
 }
 
 fn append_classes(input: &mut Input, model: &Model, profile: Profile) -> Result<(), GeomError> {
+    let font_family = crate::scene::has_font_family(&input.options.config);
     for class in &model.classes {
         let rows = class.rows();
         let text = rows
@@ -58,7 +59,11 @@ fn append_classes(input: &mut Input, model: &Model, profile: Profile) -> Result<
             .join("\n\n");
         input
             .sizes
-            .push(SizeRule::Content(compartment_size(&rows, profile)?));
+            .push(SizeRule::Content(compartment_size_with_font_family(
+                &rows,
+                profile,
+                font_family,
+            )?));
         input.boxes.push(Box {
             id: class.id.clone(),
             role: BoxRole::Node,
@@ -179,6 +184,14 @@ fn constant(profile: Profile, name: &str) -> Result<i32, GeomError> {
 }
 
 pub fn compartment_size(compartments: &[Vec<String>], profile: Profile) -> Result<Size, GeomError> {
+    compartment_size_with_font_family(compartments, profile, false)
+}
+
+fn compartment_size_with_font_family(
+    compartments: &[Vec<String>],
+    profile: Profile,
+    font_family: bool,
+) -> Result<Size, GeomError> {
     let padding = i64::from(constant(profile, "padding")?);
     let separator = i64::from(constant(profile, "separator")?);
     let mut width = 0i64;
@@ -186,7 +199,7 @@ pub fn compartment_size(compartments: &[Vec<String>], profile: Profile) -> Resul
     for (index, compartment) in compartments.iter().enumerate() {
         let mut compartment_rows = 0i64;
         for row in compartment {
-            let lines = piece_lines(row, profile, compartment_role(index))?;
+            let lines = piece_lines(row, profile, compartment_role(index), font_family)?;
             compartment_rows = compartment_rows
                 .checked_add(i64::try_from(lines.len().max(1)).map_err(|_| GeomError::Overflow)?)
                 .ok_or(GeomError::Overflow)?;
@@ -226,11 +239,20 @@ fn compartment_role(index: usize) -> crate::measure::Role {
     }
 }
 
-fn metric(profile: Profile, role: crate::measure::Role) -> crate::measure::Metric {
-    if profile == Profile::Cell {
+fn metric(
+    profile: Profile,
+    role: crate::measure::Role,
+    font_family: bool,
+) -> crate::measure::Metric {
+    let metric = if profile == Profile::Cell {
         crate::measure::Metric::Cell
     } else {
         crate::measure::Metric::for_role(role)
+    };
+    if font_family {
+        metric.with_font_family()
+    } else {
+        metric
     }
 }
 
@@ -243,8 +265,9 @@ fn piece_lines<'a>(
     piece: &'a str,
     profile: Profile,
     role: crate::measure::Role,
+    font_family: bool,
 ) -> Result<Vec<crate::measure::StyledLine<'a>>, GeomError> {
-    crate::measure::styled_lines(piece, i32::MAX, metric(profile, role))
+    crate::measure::styled_lines(piece, i32::MAX, metric(profile, role, font_family))
 }
 
 /// The scene runs of one structural text piece: one line per styled line,
@@ -254,8 +277,9 @@ fn run_lines(
     piece: &str,
     profile: Profile,
     role: crate::measure::Role,
+    font_family: bool,
 ) -> Result<Vec<Vec<crate::scene::Run>>, GeomError> {
-    let lines = piece_lines(piece, profile, role)?;
+    let lines = piece_lines(piece, profile, role, font_family)?;
     let mapped = lines
         .iter()
         .map(|line| {
@@ -332,7 +356,12 @@ fn table_scene(
         let Some(bounds) = scene.boxes().iter().find(|bounds| bounds.id == group.owner) else {
             continue;
         };
-        group.items = table_items(&node.text, bounds.rect, input.profile)?;
+        group.items = table_items(
+            &node.text,
+            bounds.rect,
+            input.profile,
+            crate::scene::has_font_family(&input.options.config),
+        )?;
     }
     Ok(crate::scene::Scene::new(
         scene.canvas(),
@@ -345,6 +374,7 @@ fn table_items(
     text: &str,
     rect: crate::geom::Rect,
     profile: Profile,
+    font_family: bool,
 ) -> Result<Vec<crate::scene::Item>, super::layered::LayoutError> {
     use crate::scene::*;
     struct TableItems {
@@ -352,6 +382,7 @@ fn table_items(
         texts: Vec<Item>,
         cell: bool,
         profile: Profile,
+        font_family: bool,
         line_height: i32,
         separator: i32,
         padding: i32,
@@ -394,7 +425,10 @@ fn table_items(
             } else {
                 let mut lines = Vec::new();
                 for piece in compartment.split('\n') {
-                    lines.extend(run_lines(piece, self.profile, role).map_err(layout_error)?);
+                    lines.extend(
+                        run_lines(piece, self.profile, role, self.font_family)
+                            .map_err(layout_error)?,
+                    );
                 }
                 lines
             };
@@ -454,6 +488,7 @@ fn table_items(
         texts,
         cell,
         profile,
+        font_family,
         line_height,
         separator,
         padding,
@@ -539,6 +574,7 @@ mod tests {
                 h: 4000,
             },
             Profile::Vector,
+            false,
         )
         .unwrap();
         let text = items
@@ -566,7 +602,7 @@ mod tests {
             h: 8000,
         };
         let first_text = |text: &str| {
-            table_items(text, rect, Profile::Vector)
+            table_items(text, rect, Profile::Vector, false)
                 .unwrap()
                 .iter()
                 .filter_map(|item| match item {
@@ -676,6 +712,7 @@ mod tests {
                 h: 4000,
             },
             Profile::Cell,
+            false,
         )
         .unwrap();
         let text = items

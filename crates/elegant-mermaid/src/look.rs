@@ -76,7 +76,7 @@ fn seed(value: &ConfigValue) -> Option<u32> {
         .and_then(|value| u32::try_from(value).ok())
 }
 
-fn malformed(entry: &Entry) -> Diagnostic {
+pub(crate) fn malformed(entry: &Entry) -> Diagnostic {
     let shown = match &entry.value {
         ConfigValue::Null => "null".to_owned(),
         ConfigValue::Bool(value) => value.to_string(),

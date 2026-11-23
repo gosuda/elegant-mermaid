@@ -61,21 +61,22 @@ structure Caption where
   align : Align := .middle
   shown : Bool := false
 
-def measureCaption (id text : String) (kind index : Nat) : Except LayoutError Caption := do
-  let metric ← if kind = 0 then Measure.Role.title.metric else Measure.Role.label.metric
+def measureCaption (id text : String) (kind index : Nat) (fontFamily : Bool := false) :
+    Except LayoutError Caption := do
+  let metric ← if kind = 0 then Measure.Role.title.metric fontFamily else Measure.Role.label.metric fontFamily
   let lines ← Kinds.Common.unwrapped metric text
   return {
     id, kind, index, text, lines
     width := Kinds.Common.widest lines
     height := (lines.length : Int) * (if kind = 0 then 1536 else 1280) }
 
-def captions (inp : Input) : Except LayoutError (List Caption) := do
+def captions (inp : Input) (fontFamily : Bool := false) : Except LayoutError (List Caption) := do
   let title ← if inp.title == "" then pure [] else do
-    let t ← measureCaption "title" inp.title 0 0
+    let t ← measureCaption "title" inp.title 0 0 fontFamily
     pure [t]
-  let axes ← inp.axes.zipIdx.mapM fun (text, i) => measureCaption ("axis." ++ toString i) text 1 i
+  let axes ← inp.axes.zipIdx.mapM fun (text, i) => measureCaption ("axis." ++ toString i) text 1 i fontFamily
   let legend ← inp.curves.zipIdx.mapM fun (curve, i) =>
-    measureCaption ("legend." ++ toString i) curve.label 2 i
+    measureCaption ("legend." ++ toString i) curve.label 2 i fontFamily
   return title ++ axes ++ legend
 
 def vertices (count : Nat) (radius : Int) : List Point :=
@@ -239,7 +240,7 @@ def layout (m : Model) (inp : Input) : Except LayoutError Scene := do
   let hi := inp.maximum.getD ((values.foldl (fun acc v => some (max (acc.getD v) v)) none).getD inp.minimum)
   checkRange (inp.minimum :: hi :: values)
   if I32_MAX < hi - inp.minimum then throw .overflow
-  let texts ← captions inp
+  let texts ← captions inp m.options.fontFamily
   let p := plan c inp hi texts
   let scene := p.scene m
   checkRange (p.enclosing.w :: p.enclosing.h :: (scene.boxes.flatMap fun b =>

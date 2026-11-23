@@ -348,8 +348,8 @@ where
       else go (b :: r :: ' ' :: '/' :: '>' :: rest) ('<' :: current) parts
     | c :: rest, current, parts => go rest (c :: current) parts
 
-def measureLabel (text : String) : Except LayoutError XY.TextBox := do
-  let metric ← XY.metricOf false .label 14
+def measureLabel (text : String) (fontFamily : Bool := false) : Except LayoutError XY.TextBox := do
+  let metric ← XY.metricOf false .label 14 fontFamily
   let mut lines := []
   let parts := splitForced text.toList
   for (part, i) in parts.zipIdx do
@@ -364,7 +364,7 @@ def measureLabels (m : Model) (rects : Array Rect) (width height gap : Int) :
     let i := nodeIndex m label.owner
     if i ≥ rects.size then throw .domain
     let node := rects[i]!
-    let box ← measureLabel label.text
+    let box ← measureLabel label.text m.options.fontFamily
     let mut cells := 0
     for line in box.lines do
       let w : Int := Measure.cellWidth line.text

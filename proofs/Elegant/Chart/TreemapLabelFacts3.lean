@@ -84,7 +84,7 @@ value rectangles are contained in the node's tile. -/
 theorem leaf_body_rects_contained (m : Model) (nodes : List Node) (n : Node)
     (before : List PlacedLabel) (j : Nat) (ns : Int) (shown : String) (nw vw : Int)
     (lh pair rows top : Int) (room showValue : Bool)
-    (hfit : fit (m.profile == .cell) (((before[j]?).map (·.source.text)).getD "")
+    (hfit : fit (fontFamily := m.options.fontFamily) (m.profile == .cell) (((before[j]?).map (·.source.text)).getD "")
         ((tileRect n.rect).w - 2 * (denseConstants m nodes).pad) .label ns =
       .ok (some (shown, nw)))
     (hlh : lh = if (m.profile == .cell) then 1 else 1280)
@@ -230,7 +230,7 @@ theorem leaf_body_rects_contained (m : Model) (nodes : List Node) (n : Node)
 contained in the title band `⟨0, 0, c.width, c.titleBand⟩` of the canvas.
 `t` is the title text, `shown` the fitted text and `w` the fitted width. -/
 theorem title_rect_in_band (m : Model) (t shown : String) (w : Int)
-    (h : fit (m.profile == .cell) t (constants m).width .title 16 =
+    (h : fit (fontFamily := m.options.fontFamily) (m.profile == .cell) t (constants m).width .title 16 =
       .ok (some (shown, w))) :
     Rect.Contained
       ⟨0, 0, (constants m).width, (constants m).titleBand⟩
@@ -398,7 +398,7 @@ written name rectangle is contained in the node's tile, and so is the written
 value rectangle when the value is shown. -/
 theorem header_body_rects_contained (m : Model) (c : Consts) (n : Node)
     (text shown : String) (ns w vw lh top ni vi reserve avail : Int) (showValue : Bool)
-    (hfit : fit (m.profile == .cell) text avail .label ns = .ok (some (shown, w)))
+    (hfit : fit (fontFamily := m.options.fontFamily) (m.profile == .cell) text avail .label ns = .ok (some (shown, w)))
     (hlh : lh = if (m.profile == .cell) then 1 else 1280)
     (hni : ni = LayoutConst.treemap_header_label_inset.get m.profile)
     (hvi : vi = LayoutConst.treemap_header_value_inset.get m.profile)
@@ -484,7 +484,7 @@ keeps a positive distance from every side of the node's tile, and so does the
 written value rectangle when the value is shown. -/
 theorem header_body_rects_strict (m : Model) (c : Consts) (n : Node)
     (text shown : String) (ns w vw lh top ni vi reserve avail : Int) (showValue : Bool)
-    (hfit : fit (m.profile == .cell) text avail .label ns = .ok (some (shown, w)))
+    (hfit : fit (fontFamily := m.options.fontFamily) (m.profile == .cell) text avail .label ns = .ok (some (shown, w)))
     (hlh : lh = if (m.profile == .cell) then 1 else 1280)
     (hni : ni = LayoutConst.treemap_header_label_inset.get m.profile)
     (hvi : vi = LayoutConst.treemap_header_value_inset.get m.profile)

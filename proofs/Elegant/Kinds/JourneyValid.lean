@@ -35,8 +35,8 @@ theorem constants_pos (p : Profile) :
       LayoutConst.canvas_margin, LayoutConst.Pair.get] <;> constructor <;> omega
 
 /-- Every successful caption measurement has a positive height. -/
-theorem caption_h_pos {profile : Profile} {role : TextRole} {target : Int} {text : String}
-    {caption : Lanes.Caption} (h : Timeline.measureCaption profile role target text = .ok caption) :
+theorem caption_h_pos {fontFamily : Bool} {profile : Profile} {role : TextRole} {target : Int} {text : String}
+    {caption : Lanes.Caption} (h : Timeline.measureCaption profile role target text fontFamily = .ok caption) :
     0 < caption.h := Timeline.measureCaption_height_positive h
 
 theorem foldl_max_width_nonneg : ∀ (l : List Measure.Line) (z : Int),
@@ -50,8 +50,8 @@ theorem foldl_max_width_nonneg : ∀ (l : List Measure.Line) (z : Int),
     exact Int.le_trans h1 (ih (max z a.width))
 
 /-- Every successful caption measurement has a non-negative width. -/
-theorem caption_w_nonneg {profile : Profile} {role : TextRole} {target : Int} {text : String}
-    {caption : Lanes.Caption} (h : Timeline.measureCaption profile role target text = .ok caption) :
+theorem caption_w_nonneg {fontFamily : Bool} {profile : Profile} {role : TextRole} {target : Int} {text : String}
+    {caption : Lanes.Caption} (h : Timeline.measureCaption profile role target text fontFamily = .ok caption) :
     0 ≤ caption.w := by
   unfold Timeline.measureCaption at h
   dsimp only at h
@@ -68,7 +68,7 @@ theorem caption_w_nonneg {profile : Profile} {role : TextRole} {target : Int} {t
       subst caption
       exact foldl_max_width_nonneg _ 0
   case title.vector =>
-    cases hm : Measure.Role.title.metric with
+    cases hm : Measure.Role.title.metric fontFamily with
     | error e =>
       simp only [hm] at h
       cases h
@@ -83,7 +83,7 @@ theorem caption_w_nonneg {profile : Profile} {role : TextRole} {target : Int} {t
         subst caption
         exact foldl_max_width_nonneg _ 0
   case label.vector =>
-    cases hm : Measure.Role.label.metric with
+    cases hm : Measure.Role.label.metric fontFamily with
     | error e =>
       simp only [hm] at h
       cases h
@@ -98,7 +98,7 @@ theorem caption_w_nonneg {profile : Profile} {role : TextRole} {target : Int} {t
         subst caption
         exact foldl_max_width_nonneg _ 0
   case body.vector =>
-    cases hm : Measure.Role.body.metric with
+    cases hm : Measure.Role.body.metric fontFamily with
     | error e =>
       simp only [hm] at h
       cases h
@@ -184,7 +184,8 @@ theorem load_pos {m : Model} {c : Constants} (h : Journey.load m = .ok c) : Load
   unfold Journey.load at h
   dsimp only at h
   split at h
-  · refine forIn_except_inv m.options.config (constants m.profile) c _ LoadPos
+  · refine forIn_except_inv (m.options.config.filter (fun entry => entry.1 != "fontFamily"))
+      (constants m.profile) c _ LoadPos
       (constants_pos m.profile) ?_ (do_forIn_ok _ _ _ _ h)
     intro kv state next hp hstep
     obtain ⟨key, value⟩ := kv
@@ -321,13 +322,13 @@ private def decodeStep (m : Model) (c : Constants) : ModelBox → Input → Exce
     | "title" =>
       if b.parent != "" then throw .domain
       else do
-        let caption ← Timeline.measureCaption m.profile .title I32_MAX (boxText m b)
+        let caption ← Timeline.measureCaption (fontFamily := m.options.fontFamily) m.profile .title I32_MAX (boxText m b)
         pure { title := some { id := b.id, caption }, sections := g.sections, tasks := g.tasks }
     | "section" =>
       if b.parent != "" then throw .domain
       else do
         let n := (m.boxes.filter fun t => shapeKind t == "task" && t.parent == b.id).length
-        let caption ← Timeline.measureCaption m.profile .label (target c n) (boxText m b)
+        let caption ← Timeline.measureCaption (fontFamily := m.options.fontFamily) m.profile .label (target c n) (boxText m b)
         pure { title := g.title, sections := g.sections ++ [{ id := b.id, caption }], tasks := g.tasks }
     | "task" =>
       (if b.shape == "" then pure 1 else
@@ -339,7 +340,7 @@ private def decodeStep (m : Model) (c : Constants) : ModelBox → Input → Exce
           match g.sections.findIdx? (·.id == b.parent) with
           | some i => pure (i : Int)
           | none => throw .domain : Except LayoutError Int).bind fun band => do
-          let caption ← Timeline.measureCaption m.profile .label (target c 1) (boxText m b)
+          let caption ← Timeline.measureCaption (fontFamily := m.options.fontFamily) m.profile .label (target c 1) (boxText m b)
           pure { title := g.title, sections := g.sections, tasks := g.tasks ++ [{ id := b.id, caption, band, score }] }
     | "people" =>
       match g.tasks.getLast? with
@@ -347,7 +348,7 @@ private def decodeStep (m : Model) (c : Constants) : ModelBox → Input → Exce
       | some t =>
         if t.id != b.parent then throw .domain
         else do
-          let cap ← Timeline.measureCaption m.profile .body (target c 1) (boxText m b)
+          let cap ← Timeline.measureCaption (fontFamily := m.options.fontFamily) m.profile .body (target c 1) (boxText m b)
           pure { title := g.title, sections := g.sections, tasks := g.tasks.set (g.tasks.length - 1) { t with people := some cap } }
     | _ => throw .domain
 

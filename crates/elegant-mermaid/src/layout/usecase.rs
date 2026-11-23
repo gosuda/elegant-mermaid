@@ -83,7 +83,7 @@ fn append_note(
 }
 fn append_node(input: &mut Input, node: &Node) -> Result<(), GeomError> {
     let text = display(node);
-    let size = node_size(node, &lines(&text, input.profile)?, input.profile)?;
+    let size = node_size(node, &lines(&text, input)?, input.profile)?;
     let boundary = node.kind == Kind::Boundary;
     input.boxes.push(Box {
         id: node.id.clone(),
@@ -196,8 +196,9 @@ fn metric(profile: Profile) -> Metric {
         Profile::Vector => Metric::for_role(Role::Label),
     }
 }
-fn lines(text: &str, profile: Profile) -> Result<Vec<StyledLine<'_>>, GeomError> {
-    crate::measure::styled_lines(text, constant(profile, "wrapping_width")?, metric(profile))
+fn lines<'a>(text: &'a str, input: &Input) -> Result<Vec<StyledLine<'a>>, GeomError> {
+    let metric = crate::scene::configured_metric(metric(input.profile), &input.options.config);
+    crate::measure::styled_lines(text, constant(input.profile, "wrapping_width")?, metric)
 }
 fn constant(profile: Profile, name: &str) -> Result<i32, GeomError> {
     profile_constant(profile, &format!("usecase.{name}"))

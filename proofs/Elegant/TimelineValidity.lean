@@ -55,9 +55,9 @@ private theorem bind_ok {α β : Type} {x : Except LayoutError α}
 
 /-! ### Measured captions -/
 
-theorem caption_width_nonneg {profile : Profile} {role : TextRole} {target : Int}
+theorem caption_width_nonneg {fontFamily : Bool} {profile : Profile} {role : TextRole} {target : Int}
     {text : String} {caption : Lanes.Caption}
-    (h : measureCaption profile role target text = .ok caption) : 0 ≤ caption.w := by
+    (h : measureCaption profile role target text fontFamily = .ok caption) : 0 ≤ caption.w := by
   have fold : ∀ (lines : List Measure.Line) (w : Int),
       w ≤ lines.foldl (fun w l => max w l.width) w := by
     intro lines
@@ -89,9 +89,9 @@ structure DecodedSizes (g : Family) : Prop where
   periods : ∀ period ∈ g.periods, 0 < period.caption.h ∧ 0 ≤ period.caption.w ∧
     ∀ e ∈ period.events, 0 < e.caption.h ∧ 0 ≤ e.caption.w
 
-private theorem caption_ok {profile : Profile} {role : TextRole} {target : Int}
+private theorem caption_ok {fontFamily : Bool} {profile : Profile} {role : TextRole} {target : Int}
     {text : String} {caption : Lanes.Caption}
-    (h : measureCaption profile role target text = .ok caption) :
+    (h : measureCaption profile role target text fontFamily = .ok caption) :
     0 < caption.h ∧ 0 ≤ caption.w :=
   ⟨measureCaption_height_positive h, caption_width_nonneg h⟩
 

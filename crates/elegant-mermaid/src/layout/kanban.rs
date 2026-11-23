@@ -29,7 +29,7 @@ pub(crate) fn from_kanban(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = BTreeMap::new();
+    options.set_kind_config(BTreeMap::new());
     if let Some(value) = model.config.padding {
         options
             .config
@@ -219,9 +219,9 @@ fn box_text<'a>(input: &'a Input, item: &'a Box) -> &'a str {
         .map_or(item.text.as_str(), |label| label.text.as_str())
 }
 
-fn wrapped_runs(profile: Profile, text: &str, wrap: i32) -> Result<Vec<Vec<Run>>, GeomError> {
-    let lines =
-        styled_lines(text, wrap.max(1), metric(profile)).map_err(|_| GeomError::Overflow)?;
+fn wrapped_runs(input: &Input, text: &str, wrap: i32) -> Result<Vec<Vec<Run>>, GeomError> {
+    let metric = crate::scene::configured_metric(metric(input.profile), &input.options.config);
+    let lines = styled_lines(text, wrap.max(1), metric).map_err(|_| GeomError::Overflow)?;
     Ok(lines
         .iter()
         .map(|line| {
@@ -273,7 +273,7 @@ impl<'a> Plan<'a> {
         let wrap = self.c.section_width - 2 * self.c.card_pad_x;
         for &index in &self.sections {
             let item = input.boxes.get(index).ok_or(GeomError::Domain)?;
-            let lines = wrapped_runs(input.profile, box_text(input, item), wrap)?;
+            let lines = wrapped_runs(input, box_text(input, item), wrap)?;
             let count = to_i32(i64::try_from(lines.len()).map_err(|_| GeomError::Overflow)?)?;
             let label_height = count
                 .checked_mul(self.c.line_height)
@@ -294,7 +294,7 @@ impl<'a> Plan<'a> {
                 .owner
                 .get(item.parent.as_str())
                 .ok_or(GeomError::Domain)?;
-            let lines = wrapped_runs(input.profile, box_text(input, item), wrap)?;
+            let lines = wrapped_runs(input, box_text(input, item), wrap)?;
             let count = i64::try_from(lines.len().max(1)).map_err(|_| GeomError::Overflow)?;
             let height = count * i64::from(self.c.line_height)
                 + 2 * i64::from(self.c.card_pad_y)

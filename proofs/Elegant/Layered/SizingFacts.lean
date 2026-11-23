@@ -352,10 +352,10 @@ theorem FrameOrigin.title_fit {o : Options} {id : String} {size : Size}
   exact ⟨hw.symm ▸ fit.1, hh.symm ▸ fit.2⟩
 
 def FrameCaptionFit (kind : String) (profile : Profile) (maxWidth : Int)
-    (captions : String → String) (entry : String × Size) : Prop :=
+    (captions : String → String) (entry : String × Size) (fontFamily : Bool := false) : Prop :=
   ∃ (params : Params) (metric : Measure.Metric) (lines : List Measure.Line),
     checkedParams profile kind = .ok params ∧
-    metricOf profile = .ok metric ∧
+    metricOf profile fontFamily = .ok metric ∧
     StyledMeasure.wrap metric
       (Measure.wrapTarget metric.profile params.wrapWidth
         (if profile == .cell then maxWidth else 0))
@@ -369,7 +369,7 @@ theorem FrameOrigin.caption_fit {o : Options} {id : String} {size : Size}
     (origin : FrameOrigin o id size) {captions : String → String}
     (hids : (origin.source.boxes.map (·.id)).Nodup)
     (hcaptions : CaptionsMatch origin.source captions) :
-    FrameCaptionFit origin.source.kind o.profile o.maxWidth captions (id, size) := by
+    FrameCaptionFit origin.source.kind o.profile o.maxWidth captions (id, size) o.fontFamily := by
   refine ⟨origin.params, origin.metric, origin.titleLines,
     origin.checked, origin.metric_eq, ?_, origin.title_fit⟩
   have ht := origin.title_eq
@@ -380,7 +380,7 @@ def CaptionInputs (captions : String → String) (inp : Input) (o : Options) : P
   CaptionsMatch inp captions ∧
     (inp.boxes.map (·.id)).Nodup ∧
     ∀ entry ∈ inp.fixedSizes,
-      FrameCaptionFit inp.kind o.profile o.maxWidth captions entry
+      FrameCaptionFit inp.kind o.profile o.maxWidth captions entry o.fontFamily
 
 theorem CaptionInputs.selectInput {captions : String → String}
     {inp : Input} {o : Options} (h : CaptionInputs captions inp o)

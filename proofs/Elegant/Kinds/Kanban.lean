@@ -124,7 +124,7 @@ def scene (m : Model) : Except LayoutError Scene := do
   let sections := m.boxes.filter isSection
   let cards := m.boxes.filter (fun b => !isSection b)
   if sections.any (fun b => b.parent != "") then throw .domain
-  let metric ← Common.labelMetric p
+  let metric ← Common.labelMetric p m.options.fontFamily
   let titles ← sections.mapM (fun b => StyledMeasure.wrap metric (max 1 (width - 2 * px)) (text m b).toList)
   let texts ← cards.mapM (fun b => StyledMeasure.wrap metric (max 1 (cw - 2 * px)) (text m b).toList)
   let band := titles.foldl (fun h ls => max h (Int.ofNat ls.length * lh + border)) minimum

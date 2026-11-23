@@ -149,7 +149,7 @@ theorem hard_of_frame {d : LayoutDump} {b0 : Box} {tail : List Box} {plot : Rect
 
 theorem layout_decompose {m : Model} {r : Layered.FamilyResult} (hl : layout m = .ok r) :
     ∃ (inp : Input) (res : Chart.XY.Result), decode m = .ok inp ∧
-      Chart.XY.layout m.profile inp = .ok res ∧
+      Chart.XY.layout m.profile inp m.options.fontFamily = .ok res ∧
       r.scene = (sceneOf m res).projectCellAttachments (routeMarkers m) := by
   unfold layout at hl
   cases hd : decode m with
@@ -157,7 +157,7 @@ theorem layout_decompose {m : Model} {r : Layered.FamilyResult} (hl : layout m =
     simp only [hd] at hl
     cases hl
   | ok inp =>
-    cases hr : Chart.XY.layout m.profile inp with
+    cases hr : Chart.XY.layout m.profile inp m.options.fontFamily with
     | error e =>
       simp only [hd, hr] at hl
       cases hl

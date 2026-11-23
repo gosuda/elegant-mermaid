@@ -16,20 +16,22 @@ open Common
 def pieces (text : String) : List String := text.splitOn "\n"
 
 /-- The widest row and the row count of a box text. -/
-def measure (profile : Profile) (text : String) : Except LayoutError (Int × Int) := do
-  let metric ← labelMetric profile
+def measure (profile : Profile) (text : String) (fontFamily : Bool := false) :
+    Except LayoutError (Int × Int) := do
+  let metric ← labelMetric profile fontFamily
   let measured ← (pieces text).mapM (unwrapped metric)
   let rows : Int := (measured.map fun ls => (max 1 ls.length : Int)).foldl (· + ·) 0
   pure (measured.foldl (fun w ls => max w (widest ls)) 0, rows)
 
-def tableSize (profile : Profile) (text : String) : Except LayoutError Size := do
-  let (width, rows) ← measure profile text
+def tableSize (profile : Profile) (text : String) (fontFamily : Bool := false) :
+    Except LayoutError Size := do
+  let (width, rows) ← measure profile text fontFamily
   checkSize (width + LayoutConst.requirement_padding_x.get profile)
     (rows * LayoutConst.line_h.get profile + LayoutConst.requirement_padding_y.get profile)
 
 def sizes (m : Model) : Except LayoutError (List (String × Size)) :=
   m.boxes.mapM fun b => do
-    let size ← tableSize m.options.profile (modelBoxText m b)
+    let size ← tableSize m.options.profile (modelBoxText m b) m.options.fontFamily
     pure (b.id, withFamilyMinimum m.options.profile size)
 
 def input (m : Model) (fixed : List (String × Size)) : Layered.Input :=
@@ -72,9 +74,9 @@ def rowTexts (rect : Rect) (paddingX lineH : Int) (gap : Int) :
 
 /-- The table of one requirement: the frame, a divider under the header rows (vector profile),
 and one text per row. -/
-def tablePrimitives (profile : Profile) (rect : Rect) (text : String) :
+def tablePrimitives (profile : Profile) (rect : Rect) (text : String) (fontFamily : Bool := false) :
     Except LayoutError (List Primitive) := do
-  let metric ← labelMetric profile
+  let metric ← labelMetric profile fontFamily
   let paddingX := LayoutConst.requirement_padding_x.get profile
   let paddingY := LayoutConst.requirement_padding_y.get profile
   let lineH := LayoutConst.line_h.get profile
@@ -96,7 +98,8 @@ def decorateGroup (m : Model) (s : Scene) (group : Group) : Except LayoutError G
       s.boxes.find? (fun b => b.id == group.owner) with
   | some b, some placed =>
     if group.role = .node then do
-      pure { group with items := ← tablePrimitives m.options.profile placed.rect (boxText m b) }
+      pure { group with items := ← tablePrimitives m.options.profile placed.rect (boxText m b)
+        m.options.fontFamily }
     else pure group
   | _, _ => pure group
 

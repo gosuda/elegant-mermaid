@@ -147,7 +147,7 @@ func layoutRailroad(in Input) (scene.Scene, []diag.Diagnostic, error) {
 	if in.Profile == scene.ProfileCell {
 		metric = measure.CellMetric()
 	}
-	s, err := railroad.Layout(rules, railroad.Params{Profile: in.Profile, Options: options, Constants: constants, Metric: metric})
+	s, err := railroad.Layout(rules, railroad.Params{Profile: in.Profile, Options: options, Constants: constants, Metric: metric.WithFontFamily(options.FontFamily)})
 	return s, nil, err
 }
 

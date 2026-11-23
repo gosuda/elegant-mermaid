@@ -193,6 +193,7 @@ func (p *ishikawaPlan) measure() error {
 	if p.in.Profile == scene.ProfileVector {
 		metric, maxWidth = measure.ForRole(measure.RoleLabel), 0
 	}
+	metric = metric.WithFontFamily(p.in.Options.FontFamily)
 	wrap := measure.WrapTarget(metric.Profile, 0, maxWidth)
 	parents, err := p.parents()
 	if err != nil {

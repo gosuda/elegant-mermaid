@@ -16,7 +16,7 @@ only the trailing margin; the empty-rule canvas has no boxes. -/
 theorem layout_canvas (m : Model) (rules : List Rule) (s : Scene)
     (h : layout m rules = .ok s) : Validator.C1 s.layoutDump := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm,bind,Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric) {y := constant m.profile "margin"} with
@@ -873,7 +873,7 @@ theorem placeRule_exclusive_separated (m : Model) (metric : Measure.Metric)
 theorem layout_exclusive_separated (m : Model) (rules : List Rule) (scene : Scene)
     (h : layout m rules = .ok scene) : Validator.C2 scene.layoutDump := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric)
@@ -1028,7 +1028,7 @@ theorem layout_parent_witness (m : Model) (rules : List Rule) (scene : Scene)
       ∃ enclosing ∈ scene.boxes, enclosing.id = box.parent ∧
         enclosing.rect.Contained box.rect := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric)
@@ -1380,7 +1380,7 @@ theorem layout_endpoint_witnesses (m : Model) (rules : List Rule) (scene : Scene
         route.points.getLast? = some last ∧
         Validator.onBoundary first a.rect ∧ Validator.onBoundary last b.rect := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric)
@@ -2493,7 +2493,7 @@ theorem layout_single_rule_id_injective (m : Model) (hwf : WellFormed m)
     (h : layout m [rule] = .ok scene) :
     ∀ a ∈ scene.boxes, ∀ b ∈ scene.boxes, a.id = b.id → a = b := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hp : placeRule m metric {y := constant m.profile "margin"} rule with
@@ -2595,7 +2595,7 @@ theorem layout_lowered_id_injective (m : Model) (hwf : WellFormed m)
     (h : layout m rules = .ok scene) :
     ∀ a ∈ scene.boxes, ∀ b ∈ scene.boxes, a.id = b.id → a = b := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric)
@@ -2872,7 +2872,7 @@ theorem placeRule_labels_clear (m : Model) (metric : Measure.Metric)
 theorem layout_labels_clear (m : Model) (rules : List Rule) (scene : Scene)
     (h : layout m rules = .ok scene) : Validator.C7 scene.layoutDump := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric)
@@ -3010,7 +3010,7 @@ theorem placeRule_frames_labels (m : Model) (metric : Measure.Metric)
 theorem layout_frames_labels (m : Model) (rules : List Rule) (scene : Scene)
     (h : layout m rules = .ok scene) : Validator.C8b scene.layoutDump := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric)

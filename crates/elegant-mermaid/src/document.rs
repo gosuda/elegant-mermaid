@@ -7,8 +7,10 @@ pub struct Document<'src> {
     source: Cow<'src, str>,
     kind: Option<DiagramKind>,
     diagnostics: Vec<Diagnostic>,
+    base_diagnostics: Vec<Diagnostic>,
     starts: Vec<usize>,
-    look: crate::look::Look,
+    config: crate::config::EffectiveConfig,
+    edge_spans: Vec<Span>,
     pub(crate) model: Option<crate::model::Resolved>,
 }
 
@@ -33,8 +35,8 @@ pub fn parse_bytes(bytes: &[u8]) -> Document<'_> {
         .filter_map(|f| f.config.as_ref())
         .chain(prep.init_config.iter())
         .collect();
-    let (look, look_diagnostics) = crate::look::Look::read(&layers);
-    diagnostics.extend(look_diagnostics);
+    let (config, config_diagnostics) = crate::config::EffectiveConfig::read(&layers);
+    diagnostics.extend(config_diagnostics);
     if let Some(start) = bad {
         diagnostics.push(Diagnostic {
             code: "source/invalid-utf8",
@@ -49,14 +51,21 @@ pub fn parse_bytes(bytes: &[u8]) -> Document<'_> {
             fixes: Vec::new(),
         });
     }
+    let base_diagnostics = diagnostics.clone();
+    let edge_spans = model
+        .as_ref()
+        .map_or_else(Vec::new, crate::model::Resolved::edge_spans);
+    diagnostics.extend(config.diagnostics(source.len(), &edge_spans));
     crate::diag::sort(&mut diagnostics);
     let starts = crate::source::line_starts(&source);
     Document {
         source,
         kind: detection.kind,
         diagnostics,
+        base_diagnostics,
         starts,
-        look,
+        config,
+        edge_spans,
         model,
     }
 }
@@ -69,7 +78,31 @@ impl Document<'_> {
         self.model
     }
     pub fn look(&self) -> crate::look::Look {
-        self.look
+        self.config.look()
+    }
+    /// The immutable configuration resolved from source layers and defaults.
+    pub fn config(&self) -> &crate::config::EffectiveConfig {
+        &self.config
+    }
+    /// Resolve per-call configuration without changing this document or its diagnostics.
+    pub fn effective_config(
+        &self,
+        text: Option<&str>,
+    ) -> Result<crate::config::EffectiveConfig, crate::RenderError> {
+        self.config.with_text(text)
+    }
+    /// Diagnostics for one effective configuration, including immutable source errors.
+    pub fn diagnostics_for(&self, config: &crate::config::EffectiveConfig) -> Vec<Diagnostic> {
+        let mut diagnostics = self.base_diagnostics.clone();
+        diagnostics.extend(config.diagnostics(self.source.len(), &self.edge_spans));
+        crate::diag::sort(&mut diagnostics);
+        diagnostics
+    }
+    pub(crate) fn base_error_count(&self) -> usize {
+        self.base_diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.severity == Severity::Error)
+            .count()
     }
     pub fn source(&self) -> &str {
         &self.source

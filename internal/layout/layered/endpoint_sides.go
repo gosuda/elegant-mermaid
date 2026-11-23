@@ -134,7 +134,7 @@ func rerouteGraph(in Input, o scene.Options) (*Graph, error) {
 		return nil, err
 	}
 	g := &Graph{Params: p, Direction: o.Direction}
-	metric := metricFor(o.Profile)
+	metric := metricFor(o.Profile).WithFontFamily(o.FontFamily)
 	target := int32(0)
 	if o.Profile == scene.ProfileCell {
 		target = o.MaxWidth

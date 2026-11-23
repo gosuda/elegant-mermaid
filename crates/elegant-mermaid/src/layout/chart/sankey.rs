@@ -101,12 +101,12 @@ struct Text {
 }
 
 impl Text {
-    fn measure(text: String) -> Result<Self, GeomError> {
+    fn measure(text: String, font_family: bool) -> Result<Self, GeomError> {
         let role = Role::Label;
         let metric = Metric::Vector {
             size_px: role.size_px(),
             weight: role.weight(),
-            font_family: false,
+            font_family,
         };
         let wrapped = measure::wrap(&text, i32::MAX, metric)?;
         let width = wrapped
@@ -205,7 +205,7 @@ impl Plan<'_> {
                 .push(Area::new(x, node.y0, self.node_width, node.y1 - node.y0));
         }
         for (i, label) in labels(self.model)?.into_iter().enumerate() {
-            let text = Text::measure(label)?;
+            let text = Text::measure(label, crate::scene::has_font_family(&self.model.config))?;
             let node = self.nodes[i];
             let centre = (2 * node.y + node.h).div_euclid(2);
             let y =

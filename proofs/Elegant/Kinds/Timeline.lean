@@ -21,7 +21,8 @@ def sectionOf (b : ModelBox) : Except LayoutError Int :=
     | some n => if 0 ≤ n then pure n else throw .domain
     | none => throw .domain
 
-def measureCaption (profile : Profile) (role : TextRole) (target : Int) (text : String) :
+def measureCaption (profile : Profile) (role : TextRole) (target : Int) (text : String)
+    (fontFamily : Bool := false) :
     Except LayoutError Lanes.Caption := do
   let mr := match role with
     | .title => Measure.Role.title
@@ -29,7 +30,7 @@ def measureCaption (profile : Profile) (role : TextRole) (target : Int) (text : 
     | _ => Measure.Role.label
   let metric ← match profile with
     | .cell => pure Measure.Metric.cell
-    | .vector => mr.metric
+    | .vector => mr.metric fontFamily
   let lines ← match StyledMeasure.wrap metric target text.toList with
     | .ok ls => pure ls
     | .error _ => throw .overflow
@@ -49,7 +50,7 @@ def decode (m : Model) : Except LayoutError Family := do
   for b in m.boxes do
     match shapeKind b with
     | "title" =>
-      let caption ← measureCaption m.profile .title I32_MAX (boxText m b)
+      let caption ← measureCaption (fontFamily := m.options.fontFamily) m.profile .title I32_MAX (boxText m b)
       g := { g with title := some { id := b.id, caption } }
     | "section" =>
       let count := (m.boxes.filter fun p =>
@@ -57,12 +58,12 @@ def decode (m : Model) : Except LayoutError Family := do
           | .ok index => index == (g.sections.length : Int)
           | .error _ => false)).length
       let slots := if m.options.direction == .LR then max 1 count else 1
-      let caption ← measureCaption m.profile .label (target c slots) (boxText m b)
+      let caption ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label (target c slots) (boxText m b)
       g := { g with sections := g.sections ++ [{ id := b.id, caption }] }
     | "period" =>
       let sectionIndex ← sectionOf b
       if sectionIndex ≥ (g.sections.length : Int) then throw .domain
-      let caption ← measureCaption m.profile .label (target c 1) (boxText m b)
+      let caption ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label (target c 1) (boxText m b)
       g := { g with periods := g.periods ++ [{ id := b.id, caption, sectionIndex, events := [] }] }
     | "event" =>
       let some previous := g.periods.getLast? | throw .domain
@@ -71,7 +72,7 @@ def decode (m : Model) : Except LayoutError Family := do
         ((previous.events.getLast?).map (·.id)).getD previous.id
         else previous.id
       if route.fromId != expectedSource then throw .domain
-      let caption ← measureCaption m.profile .body (target c 1) (boxText m b)
+      let caption ← measureCaption (fontFamily := m.options.fontFamily) m.profile .body (target c 1) (boxText m b)
       let event : Lanes.Timeline.Event := { id := b.id, caption, link := route.id }
       let updated := { previous with events := previous.events ++ [event] }
       g := { g with periods := g.periods.set (g.periods.length - 1) updated }
@@ -1250,9 +1251,9 @@ theorem verticalRow_route_corridor (g : Family) (c : Lanes.TimelineConsts) (i : 
     (by dsimp; omega) (by dsimp; omega) point hm
   simpa only [hx] using bounds
 
-theorem measureCaption_height_positive {profile : Profile} {role : TextRole}
+theorem measureCaption_height_positive {fontFamily : Bool} {profile : Profile} {role : TextRole}
     {target : Int} {text : String} {caption : Lanes.Caption}
-    (h : measureCaption profile role target text = .ok caption) : 0 < caption.h := by
+    (h : measureCaption profile role target text fontFamily = .ok caption) : 0 < caption.h := by
   have positive (lines : List Measure.Line) (lh : Int) (hlh : 0 < lh) :
       0 < ((max 1 lines.length : Nat) : Int) * lh := by
     have hcount : 0 < ((max 1 lines.length : Nat) : Int) := by omega
@@ -1276,7 +1277,7 @@ theorem measureCaption_height_positive {profile : Profile} {role : TextRole}
       | .title => Measure.Role.title
       | .body => Measure.Role.body
       | _ => Measure.Role.label
-    cases hm : mr.metric with
+    cases hm : mr.metric fontFamily with
     | error e =>
       simp only [mr] at hm
       simp only [hm, Bind.bind, Except.bind] at h

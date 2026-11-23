@@ -2048,7 +2048,7 @@ theorem expandChild_assembly_sources
     ∃ (frame : Box) (metric : Measure.Metric) (titleLines : List Measure.Line)
       (lines : List (List Measure.Line)) (dx dy : Int),
       parent.scene.boxes.find? (fun box => box.id == group.id) = some frame ∧
-      metricOf o.profile = .ok metric ∧
+      metricOf o.profile o.fontFamily = .ok metric ∧
       StyledMeasure.wrap metric
         (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
         (inp.texts.getD
@@ -2177,7 +2177,7 @@ theorem layoutRecursive_embedding_assembly_sources
       (titleLines : List Measure.Line) (parent : FamilyResult) (frame : Box)
       (lines : List (List Measure.Line)) (dx dy : Int),
       checkedParams o.profile inp.kind = .ok P ∧
-      metricOf o.profile = .ok metric ∧
+      metricOf o.profile o.fontFamily = .ok metric ∧
       layoutRecursive fuel
         (selectInput inp (fun box => Compound.inside inp.boxes group.id box.id) group.id)
         { o with direction := directionOf group.direction } = .ok child ∧
@@ -2325,7 +2325,7 @@ theorem layoutRecursive_embedding_box_lookup_sources
     ∃ (P : Params) (metric : Measure.Metric) (child : FamilyResult)
       (titleLines : List Measure.Line) (parent : FamilyResult) (dx dy : Int),
       checkedParams o.profile inp.kind = .ok P ∧
-      metricOf o.profile = .ok metric ∧
+      metricOf o.profile o.fontFamily = .ok metric ∧
       layoutRecursive fuel
         (selectInput inp (fun box => Compound.inside inp.boxes group.id box.id) group.id)
         { o with direction := directionOf group.direction } = .ok child ∧

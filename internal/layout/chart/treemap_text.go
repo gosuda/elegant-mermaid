@@ -81,7 +81,7 @@ func (p *treemapPlan) lineHeight(role measure.Role) int64 {
 func (p *treemapPlan) textWidth(text string, s treemapStyle) (int64, error) {
 	metric := measure.CellMetric()
 	if !p.cell {
-		metric = measure.Metric{Profile: measure.ProfileVector, SizePx: int32(s.size), Weight: s.role.Weight()}
+		metric = measure.Metric{Profile: measure.ProfileVector, SizePx: int32(s.size), Weight: s.role.Weight(), FontFamily: p.fontFamily != ""}
 	}
 	w, err := metric.TextWidth(text)
 	return int64(w), err

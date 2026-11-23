@@ -31,11 +31,11 @@ def actorMetrics : Profile → Int × Int × Int × Int
   | .cell => (7, 5, 1, 1)
 
 /-- The fixed size of a sized node and whether the family must keep it exactly. -/
-def nodeSize (profile : Profile) (shape text : String) :
+def nodeSize (profile : Profile) (shape text : String) (fontFamily : Bool := false) :
     Except LayoutError (Option (Size × Bool)) := do
   if !isSized shape then pure none
   else
-    let metric ← labelMetric profile
+    let metric ← labelMetric profile fontFamily
     let lines ← StyledMeasure.wrap metric (LayoutConst.usecase_wrapping_width.get profile) text.toList
     let width := widest lines
     let height ← Measure.checkedI32 ((max lines.length 1 : Nat) * LayoutConst.line_h.get profile)
@@ -53,7 +53,7 @@ def nodeSize (profile : Profile) (shape text : String) :
 
 def sizes (m : Model) : Except LayoutError (List (String × Size)) :=
   m.boxes.filterMapM fun b => do
-    match ← nodeSize m.options.profile b.shape (boxText m b) with
+    match ← nodeSize m.options.profile b.shape (boxText m b) m.options.fontFamily with
     | none => pure none
     | some (size, exact) =>
       pure (some (b.id, if exact then size else withFamilyMinimum m.options.profile size))

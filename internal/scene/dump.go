@@ -1,7 +1,9 @@
 package scene
 
 import (
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
@@ -59,6 +61,7 @@ type Options struct {
 	Direction    Direction
 	Limits       Limits
 	Config       []Config
+	FontFamily   string
 }
 
 func DefaultOptions() Options {
@@ -134,13 +137,22 @@ func appendOptions(dst []byte, o Options) []byte {
 	dst = diag.AppendString(dst, o.Direction.String())
 	dst = append(dst, tagLimits...)
 	dst = appendLimits(dst, o.Limits)
-	for _, c := range o.Config {
+	for _, c := range dumpConfig(o) {
 		dst = append(dst, ',')
 		dst = diag.AppendString(dst, c.Key)
 		dst = append(dst, ':')
 		dst = append(dst, c.Value...)
 	}
 	return append(dst, '}')
+}
+
+func dumpConfig(options Options) []Config {
+	if options.FontFamily == "" {
+		return options.Config
+	}
+	config := append(slices.Clone(options.Config), ConfigString("fontFamily", options.FontFamily))
+	slices.SortFunc(config, func(a, b Config) int { return strings.Compare(a.Key, b.Key) })
+	return config
 }
 
 func appendLimits(dst []byte, l Limits) []byte {

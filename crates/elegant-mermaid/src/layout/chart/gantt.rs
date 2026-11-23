@@ -141,6 +141,7 @@ pub(crate) struct GanttPlan<'a> {
     pub g: &'a Gantt,
     pub c: Consts,
     pub cell: bool,
+    font_family: bool,
     pub boxes: Vec<GanttBox>,
     pub labels: Vec<GanttLabel>,
     pub d0: i64,
@@ -174,6 +175,7 @@ impl<'a> GanttPlan<'a> {
             g,
             c,
             cell: profile == Profile::Cell,
+            font_family: crate::scene::has_font_family(&chart.config),
             boxes: Vec::new(),
             labels: Vec::new(),
             d0: 0,
@@ -424,7 +426,7 @@ impl<'a> GanttPlan<'a> {
             Metric::Vector {
                 size_px: size,
                 weight: role.weight(),
-                font_family: false,
+                font_family: self.font_family,
             }
         }
     }

@@ -88,6 +88,7 @@ pub struct Frame {
     pub data: String,
     pub data_type: String,
     pub span: Span,
+    pub statement_span: Span,
     pub sources: Vec<Reference>,
 }
 
@@ -182,6 +183,7 @@ impl Resolver<'_> {
                 .as_ref()
                 .map_or_else(String::new, |value| value.text.clone()),
             span: fields.name.span,
+            statement_span: fields.span,
         }
     }
 

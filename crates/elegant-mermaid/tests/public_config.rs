@@ -302,3 +302,132 @@ fn site_font_family_overrides_source_and_empty_clears_it() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn unknown_keys_preserve_authored_paths_and_leave_opaque_mappings_alone() -> TestResult {
+    let source = "---\nconfig:\n  typo: {nested: true}\n  xyChart:\n    xAxis:\n      typo: true\n    yAxis:\n      showLabel: true\n  themeVariables: {arbitrary: value}\n---\nflowchart\nA\n";
+    let document = parse(source);
+    let original = document.diagnostics().to_vec();
+    let warnings = document
+        .diagnostics()
+        .iter()
+        .filter(|diagnostic| diagnostic.code == "config/unknown-key")
+        .collect::<Vec<_>>();
+    assert_eq!(warnings.len(), 2, "{warnings:?}");
+    for (diagnostic, message) in warnings.iter().zip([
+        "unknown config key typo",
+        "unknown config key xyChart.xAxis.typo",
+    ]) {
+        assert_eq!(diagnostic.severity, Severity::Warning);
+        assert_eq!(diagnostic.message, message);
+        assert_eq!(&source[diagnostic.span.start..diagnostic.span.end], "typo");
+        assert_eq!(
+            diagnostic.help,
+            "Check the spelling of the key, or remove it."
+        );
+    }
+    let config_text = "fontFamily: Site\nxyChart:\n  xAxis:\n    misspelled: true\n";
+    let effective = document.effective_config(Some(config_text))?;
+    let diagnostics = document.diagnostics_for(&effective);
+    let site_warning = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.message == "unknown config key xyChart.xAxis.misspelled")
+        .ok_or("missing site warning")?;
+    assert_eq!(site_warning.severity, Severity::Warning);
+    assert_eq!(site_warning.span, Span { start: 0, end: 0 });
+    let font = one_diagnostic(&diagnostics, "config/font-metrics-approximate")?;
+    assert_eq!(font.span, Span { start: 0, end: 0 });
+    assert_eq!(
+        font.message,
+        "text width is measured with Inter; fontFamily is Site"
+    );
+    layout(
+        &document,
+        &LayoutOptions {
+            config: Some(config_text.into()),
+            ..LayoutOptions::default()
+        },
+    )?;
+    assert_eq!(document.diagnostics(), original);
+    Ok(())
+}
+
+#[test]
+fn configured_font_reaches_pre_measured_table_bodies() -> TestResult {
+    for source in [
+        "classDiagram\nclass A {\n+longAlphabeticalMemberNameUsedForMeasurement\n}\n",
+        "erDiagram\nA {\nstring longAlphabeticalAttributeNameUsedForMeasurement\n}\n",
+        "requirementDiagram\nrequirement R {\ntext: long alphabetical field text used for measurement\n}\n",
+    ] {
+        let document = parse(source);
+        assert!(
+            !document.has_errors(),
+            "{source}: {:?}",
+            document.diagnostics()
+        );
+        for profile in [Profile::Vector, Profile::Cell] {
+            let options = LayoutOptions {
+                profile,
+                ..LayoutOptions::default()
+            };
+            let before = layout(&document, &options)?;
+            let configured = LayoutOptions {
+                config: Some("fontFamily: Other\n".into()),
+                ..options
+            };
+            let after = layout(&document, &configured)?;
+            let old = before.boxes().first().ok_or("missing table box")?;
+            let new = after
+                .boxes()
+                .first()
+                .ok_or("missing configured table box")?;
+            if profile == Profile::Vector {
+                assert!(new.rect.w > old.rect.w, "{source}: {old:?} -> {new:?}");
+                assert_eq!(new.rect.h, old.rect.h, "{source}");
+            } else {
+                assert_eq!(before.canvas(), after.canvas(), "{source}");
+                assert_eq!(before.boxes(), after.boxes(), "{source}");
+                assert_eq!(before.labels(), after.labels(), "{source}");
+                assert_eq!(before.routes(), after.routes(), "{source}");
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn effective_error_counts_keep_source_failures_and_recompute_caps() -> TestResult {
+    let source = "---\nconfig:\n  maxTextSize: 0\n  maxEdges: -1\n---\nflowchart\nA\n";
+    let document = parse(source);
+    assert!(matches!(
+        layout(&document, &LayoutOptions::default()),
+        Err(RenderError::InvalidDocument { errors: 2 })
+    ));
+    let raised = LayoutOptions {
+        config: Some("maxTextSize: 2147483647\nmaxEdges: 2147483647\n".into()),
+        ..LayoutOptions::default()
+    };
+    assert!(matches!(
+        layout(&document, &raised),
+        Err(RenderError::InvalidDocument { errors: 1 })
+    ));
+    let malformed = LayoutOptions {
+        config: Some("maxTextSize: -1\n".into()),
+        ..LayoutOptions::default()
+    };
+    assert!(matches!(
+        layout(&document, &malformed),
+        Err(RenderError::InvalidDocument { errors: 2 })
+    ));
+    let valid = parse("flowchart\nA\n");
+    layout(&valid, &raised)?;
+    let zero = LayoutOptions {
+        config: Some("maxTextSize: -0\nmaxEdges: +0\n".into()),
+        ..LayoutOptions::default()
+    };
+    assert!(matches!(
+        layout(&valid, &zero),
+        Err(RenderError::InvalidDocument { errors: 1 })
+    ));
+    Ok(())
+}

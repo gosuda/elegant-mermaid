@@ -131,7 +131,7 @@ theorem scene_phase_invariants {m : Model} {value : Scene}
   rw [hw, hp] at h
   dsimp only [Bind.bind, Except.bind] at h
   rw [ite_eq_right hcwNot, ite_eq_right hgroups] at h
-  cases hm : Kinds.Common.labelMetric m.profile with
+  cases hm : Kinds.Common.labelMetric m.profile m.options.fontFamily with
   | error error => rw [hm] at h; cases h
   | ok metric =>
     rw [hm] at h
