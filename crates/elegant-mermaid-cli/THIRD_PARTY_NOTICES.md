@@ -357,6 +357,11 @@ Licence: ISC
 
 Licence: MIT
 
+The Mermaid notice also applies to `spec/data/upstream/mermaid-config.schema.yaml`,
+copied from Mermaid 12.3.0 at commit
+`2086904e76c692331e34a45d7cc3bc30860d040e`. Its source URL and SHA-256
+are recorded in `spec/data/SOURCES.json`.
+
 Notice text (`LICENSE` at the root of `mermaid`):
 
 ```text
