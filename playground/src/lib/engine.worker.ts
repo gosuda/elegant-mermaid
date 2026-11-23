@@ -1,4 +1,5 @@
-import type { FromWorker, ToWorker } from './protocol';
+type FromWorker = import('./protocol').FromWorker;
+type ToWorker = import('./protocol').ToWorker;
 
 type EmdCall = (op: string, source: string, optionsJson: string) => string | Promise<string>;
 
