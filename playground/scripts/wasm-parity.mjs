@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative, sep } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 
@@ -28,7 +28,6 @@ const PAIRS = [
 ];
 
 const MAX_REPORTED = 20;
-const SKIPPED_DIRECTORIES = new Set(['_out-of-scope', 'termgfx']);
 
 function fail(message) {
   process.stderr.write(`wasm-parity: ${message}\n`);
@@ -47,23 +46,19 @@ function parseEvery(argv) {
   return value;
 }
 
-function corpusFiles() {
-  const found = [];
-  const walk = (directory) => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      if (entry.name.startsWith('.') || SKIPPED_DIRECTORIES.has(entry.name)) {
-        continue;
-      }
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) {
-        walk(path);
-      } else if (entry.isFile() && entry.name.endsWith('.mmd')) {
-        found.push(relative(root, path).split(sep).join('/'));
-      }
-    }
-  };
-  walk(corpusDir);
-  return found.sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
+export function corpusFiles(repositoryRoot = root) {
+  const result = spawnSync(
+    'git',
+    ['ls-files', '-z', '--', 'corpus/*.mmd', ':!corpus/_out-of-scope/*', ':!corpus/termgfx/*'],
+    { cwd: repositoryRoot, encoding: 'utf8', maxBuffer: 1 << 24 },
+  );
+  if (result.error !== undefined || result.status !== 0) {
+    throw new Error(`cannot list tracked corpus fixtures: ${result.error?.message ?? result.stderr.trim()}`);
+  }
+  return result.stdout
+    .split('\0')
+    .filter((path) => path !== '')
+    .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
 }
 
 function sleep(ms) {
@@ -195,4 +190,6 @@ async function main() {
   process.exit(differences > 0 ? 1 : 0);
 }
 
-main().catch((error) => fail(String(error?.stack ?? error)));
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => fail(String(error?.stack ?? error)));
+}

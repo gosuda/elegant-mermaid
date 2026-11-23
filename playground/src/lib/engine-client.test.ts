@@ -97,7 +97,6 @@ describe('EngineClient', () => {
     await expect(answer).rejects.toThrow('boom');
   });
 
-
   it('handles calls without Promise.withResolvers', async () => {
     const descriptor = Object.getOwnPropertyDescriptor(Promise, 'withResolvers');
     Object.defineProperty(Promise, 'withResolvers', { configurable: true, value: undefined });

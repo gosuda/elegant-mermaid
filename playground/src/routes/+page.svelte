@@ -45,7 +45,7 @@ interface Job extends RenderOptions {
 const guard = new RevisionGuard();
 const clients: Partial<Record<EngineId, EngineClient>> = {};
 const dispatched: Record<EngineId, number> = { go: 0, rust: 0 };
-const sampleText = INITIAL_TEXT !== '' ? INITIAL_TEXT : 'Engines are loading. Output appears here.';
+const sampleText = INITIAL_TEXT;
 
 let source = $state(DEFAULT_SOURCE);
 let theme = $state<string>('elegant-light');
@@ -60,6 +60,7 @@ let message = $state('');
 let sharedUrl = $state<string | null>(null);
 let fixing = $state(false);
 let bootDone = false;
+let hashRevision = 0;
 let snapshots = $state<Record<EngineId, EngineSnapshot>>({ go: IDLE_SNAPSHOT, rust: IDLE_SNAPSHOT });
 let views = $state<Record<EngineId, EngineView>>({ go: emptyView(), rust: emptyView() });
 let svgUrls = $state<Record<EngineId, string | null>>({ go: null, rust: null });
@@ -297,8 +298,8 @@ async function copyLink(): Promise<void> {
       opt: { theme, background, charset, max_width: maxWidth },
     });
     url = shareUrl(window.location.href, encoded);
-  } catch {
-    message = COPY_UNSUPPORTED;
+  } catch (error) {
+    message = error instanceof RangeError ? error.message : COPY_UNSUPPORTED;
     return;
   }
   try {
@@ -310,27 +311,25 @@ async function copyLink(): Promise<void> {
   }
 }
 
-async function boot(): Promise<void> {
+async function loadHash(): Promise<void> {
+  const revision = ++hashRevision;
   const encoded = fragmentPayload(window.location.hash);
-  let note = '';
-  if (encoded !== null) {
-    const payload = compressionSupported() ? await decodeShare(encoded) : null;
-    if (payload === null) {
-      note = INVALID_LINK_MESSAGE;
-    } else {
-      theme = payload.opt.theme;
-      charset = payload.opt.charset;
-      background = payload.opt.background;
-      maxWidth = payload.opt.max_width;
-      editor?.setText(payload.src);
-      source = payload.src;
-    }
+  if (encoded === null && bootDone && window.location.hash !== '') {
+    return;
   }
+  const payload = encoded !== null && compressionSupported() ? await decodeShare(encoded) : null;
+  if (revision !== hashRevision) {
+    return;
+  }
+  theme = payload?.opt.theme ?? 'elegant-light';
+  charset = payload?.opt.charset ?? 'unicode';
+  background = payload?.opt.background ?? null;
+  maxWidth = payload?.opt.max_width ?? null;
+  source = payload?.src ?? DEFAULT_SOURCE;
+  editor?.setText(source);
   bootDone = true;
   issueRevision();
-  if (note !== '') {
-    message = note;
-  }
+  message = encoded !== null && payload === null ? INVALID_LINK_MESSAGE : '';
 }
 
 onMount(() => {
@@ -348,8 +347,12 @@ onMount(() => {
   for (const id of selected) {
     clients[id]?.start();
   }
-  void boot();
+  const onHashChange = () => void loadHash();
+  window.addEventListener('hashchange', onHashChange);
+  void loadHash();
   return () => {
+    ++hashRevision;
+    window.removeEventListener('hashchange', onHashChange);
     schedule.cancel();
     for (const stop of unsubscribe) {
       stop();
@@ -476,6 +479,15 @@ onMount(() => {
           Both
         </label>
       </fieldset>
+
+      {#each ENGINE_IDS as id (id)}
+        {#if snapshots[id].state === 'error' && !selected.includes(id)}
+          <div role="group" aria-label="Recover {ENGINE_NAME[id]} engine">
+            <p>{failureText(ENGINE_NAME[id], snapshots[id].message)}</p>
+            <button type="button" onclick={() => clients[id]?.retry()}>Retry {ENGINE_NAME[id]} engine</button>
+          </div>
+        {/if}
+      {/each}
 
       <div class="tabs" role="tablist" aria-label="Output">
         {#each TABS as spec, index (spec.id)}

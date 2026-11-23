@@ -281,11 +281,13 @@ playground-check:
     pnpm --dir playground exec vitest run
 
 # Prerender the browser application, including its worker assets
-playground-build: playground-wasm
+playground-build: build playground-wasm
+    node playground/scripts/initial-text.mjs
     pnpm --dir playground build
 
 # Compare tracked corpus fixtures across native and browser engines
 wasm-parity: build playground-wasm
+    node --test playground/scripts/wasm-parity.test.mjs
     node playground/scripts/wasm-parity.mjs
 
 # Exercise production output and the classic worker served by Vite development mode

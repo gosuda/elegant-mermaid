@@ -1,4 +1,5 @@
-import type { FromWorker, ToWorker } from './protocol';
+type FromWorker = import('./protocol').FromWorker;
+type ToWorker = import('./protocol').ToWorker;
 
 type EmdCall = (op: string, source: string, optionsJson: string) => string | Promise<string>;
 
@@ -77,9 +78,7 @@ async function waitForEmdCall(): Promise<EmdCall> {
     if (Date.now() > deadline) {
       throw new Error('emdCall was not registered within 10 seconds');
     }
-    const { promise, resolve } = Promise.withResolvers<void>();
-    setTimeout(resolve, 5);
-    await promise;
+    await new Promise<void>((resolve) => setTimeout(resolve, 5));
   }
 }
 

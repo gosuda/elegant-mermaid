@@ -153,16 +153,23 @@ test.describe('engines and output', () => {
     await page.addInitScript(() => {
       Object.defineProperty(Promise, 'withResolvers', { configurable: true, value: undefined });
     });
+    let workerRequests = 0;
     await page.route(/engine(?:[.-])worker.*\.js(?:\?.*)?$/, async (route) => {
+      workerRequests += 1;
       const response = await route.fetch();
+      const prefix = [
+        "Object.defineProperty(Promise, 'withResolvers', { configurable: true, value: undefined });",
+        "Object.defineProperty(globalThis, 'emdCall', { configurable: true, set(value) {",
+        "  setTimeout(() => Object.defineProperty(globalThis, 'emdCall', { configurable: true, writable: true, value }), 25);",
+        '} });',
+      ].join('\n');
       await route.fulfill({
         response,
-        body:
-          "Object.defineProperty(Promise, 'withResolvers', { configurable: true, value: undefined });\n" +
-          (await response.text()),
+        body: `${prefix}\n${await response.text()}`,
       });
     });
     await openPlayground(page);
+    expect(workerRequests).toBe(2);
   });
 
   test('a stalled download shows a native progress element named for its engine', async ({ page }) => {
@@ -212,24 +219,36 @@ test.describe('share links', () => {
         const bytes = new TextEncoder().encode(JSON.stringify({ src, opt: { theme } }));
         const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
         const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
-        return btoa(String.fromCharCode(...compressed)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        return btoa(String.fromCharCode(...compressed))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
       };
-      return [await encode('flowchart LR\n First --> Link', 'nord'), await encode('flowchart TD\n Second --> Link', 'github-dark')];
+      return [
+        await encode('flowchart LR\n First --> Link', 'nord'),
+        await encode('flowchart TD\n Second --> Link', 'github-dark'),
+      ];
     });
     const [first, second] = links;
     if (first === undefined || second === undefined) {
       throw new Error('expected two shared diagrams');
     }
-    await page.evaluate((encoded) => { location.hash = `s=${encoded}`; }, first);
+    await page.evaluate((encoded) => {
+      location.hash = `s=${encoded}`;
+    }, first);
     await expect(page.locator('.cm-content')).toContainText('First --> Link');
     await expect(page.getByLabel('Theme')).toHaveValue('nord');
-    await page.evaluate((encoded) => { location.hash = `s=${encoded}`; }, second);
+    await page.evaluate((encoded) => {
+      location.hash = `s=${encoded}`;
+    }, second);
     await expect(page.locator('.cm-content')).toContainText('Second --> Link');
     await expect(page.getByLabel('Theme')).toHaveValue('github-dark');
     await page.goBack();
     await expect(page.locator('.cm-content')).toContainText('First --> Link');
     await expect(page.getByLabel('Theme')).toHaveValue('nord');
-    await page.evaluate(() => { location.hash = 's=bad-link'; });
+    await page.evaluate(() => {
+      location.hash = 's=bad-link';
+    });
     await expect(page.locator('.cm-content')).toContainText(DEFAULT_FIRST_LINE);
     await expect(page.getByRole('status')).toContainText('This shared link is invalid or incomplete');
   });
