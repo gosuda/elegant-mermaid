@@ -1,0 +1,137 @@
+name: "stabilization experiment"
+
+"on":
+  push:
+    branches:
+      - "wip/stabilization-recovery"
+  workflow_dispatch:
+
+permissions:
+  contents: "read"
+
+concurrency:
+  group: "stabilization-experiment-${{ github.ref }}"
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: "bash"
+
+jobs:
+  geometry:
+    runs-on: "depot-ubuntu-24.04-8"
+    timeout-minutes: 60
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: "Set up Go"
+        uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
+        with:
+          go-version-file: "go.mod"
+      - name: "Set up pnpm"
+        uses: "pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115" # v6.1.1
+        with:
+          version: "12.18.0"
+      - name: "Set up Node"
+        uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1" # v7.1.0
+        with:
+          node-version: "26.13.1"
+      - name: "Prepare immutable baseline and probes"
+        id: "baseline"
+        run: |
+          node --check stability-recovery/experiment.mjs
+          node stability-recovery/experiment.mjs prepare
+          git diff --exit-code 4f18d67db8d2e7434cfbf6eed0627d6bb182923d -- internal crates
+          mkdir -p tools/cell-repair-probe
+          cp stability-recovery/cell/main.go.txt tools/cell-repair-probe/main.go
+          gofmt -w tools/cell-repair-probe/main.go
+          go build -o "$RUNNER_TEMP/emd-baseline" ./cmd/emd
+          go build -o "$RUNNER_TEMP/cell-baseline" ./tools/cell-repair-probe
+      - name: "Inspect baseline cell failures"
+        if: "!cancelled() && steps.baseline.outcome == 'success'"
+        run: |
+          mapfile -t fixtures < recovery-results/cells.txt
+          "$RUNNER_TEMP/cell-baseline" "${fixtures[@]}" > recovery-results/cell-baseline.jsonl
+          node stability-recovery/cell/summarize.mjs recovery-results/cell-baseline.jsonl
+      - name: "Install oracle packages"
+        id: "packages"
+        if: "!cancelled() && steps.baseline.outcome == 'success'"
+        run: "pnpm --dir tools/upstream-oracle install --frozen-lockfile"
+      - name: "Generate complete comparison inputs"
+        id: "comparisons"
+        if: "!cancelled() && steps.packages.outcome == 'success'"
+        run: "EMD_BIN=\"$RUNNER_TEMP/emd-baseline\" node tools/upstream-oracle/baseline.mjs recovery-results/fixtures.txt 4"
+      - name: "Record baseline scores and geometry"
+        id: "baseline_scores"
+        if: "!cancelled() && steps.comparisons.outcome == 'success'"
+        run: "node stability-recovery/experiment.mjs collect baseline \"$RUNNER_TEMP/emd-baseline\""
+      - name: "Apply isolated geometry prototype"
+        id: "overlay"
+        if: "!cancelled() && steps.baseline.outcome == 'success'"
+        run: "node stability-recovery/experiment.mjs apply"
+      - name: "Run geometry regressions"
+        if: "!cancelled() && steps.overlay.outcome == 'success'"
+        run: "go test -count=1 ./internal/layout/layered"
+      - name: "Build immutable prototype and probe"
+        id: "trial"
+        if: "!cancelled() && steps.overlay.outcome == 'success'"
+        run: |
+          go build -o "$RUNNER_TEMP/emd-trial" ./cmd/emd
+          go build -o "$RUNNER_TEMP/cell-trial" ./tools/cell-repair-probe
+      - name: "Inspect prototype cell failures"
+        if: "!cancelled() && steps.trial.outcome == 'success'"
+        run: |
+          mapfile -t fixtures < recovery-results/cells.txt
+          "$RUNNER_TEMP/cell-trial" "${fixtures[@]}" > recovery-results/cell-trial.jsonl
+          node stability-recovery/cell/summarize.mjs recovery-results/cell-trial.jsonl
+      - name: "Record prototype scores and geometry"
+        id: "trial_scores"
+        if: "!cancelled() && steps.trial.outcome == 'success' && steps.comparisons.outcome == 'success'"
+        run: "node stability-recovery/experiment.mjs collect trial \"$RUNNER_TEMP/emd-trial\""
+      - name: "Check the unchanged official quality gate"
+        if: "!cancelled() && steps.trial.outcome == 'success' && steps.comparisons.outcome == 'success'"
+        run: "go run ./tools/quality -emd \"$RUNNER_TEMP/emd-trial\" -jobs 4 > recovery-results/official-quality.log 2>&1"
+      - name: "Show official gate conclusions"
+        if: "!cancelled() && steps.trial.outcome == 'success' && steps.comparisons.outcome == 'success'"
+        run: "tail -n 8 recovery-results/official-quality.log"
+      - name: "Upload reproducible experiment evidence"
+        if: "!cancelled()"
+        uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
+        with:
+          name: "stabilization-geometry"
+          path: |
+            recovery-results
+            corpus/.cache/quality
+            ${{ runner.temp }}/emd-baseline
+            ${{ runner.temp }}/emd-trial
+          if-no-files-found: "error"
+          retention-days: 14
+
+  refinement-proof:
+    runs-on: "depot-ubuntu-24.04-8"
+    timeout-minutes: 30
+    env:
+      LEAN_NUM_THREADS: "2"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
+      - name: "Install the pinned Lean toolchain"
+        run: |
+          test "$(cat proofs/lean-toolchain)" = "leanprover/lean4:v4.35.0"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/lean.tar.zst" \
+            "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-linux.tar.zst"
+          echo "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d  $RUNNER_TEMP/lean.tar.zst" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/lean"
+          tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" --strip-components=1 -C "$RUNNER_TEMP/lean"
+          echo "$RUNNER_TEMP/lean/bin" >> "$GITHUB_PATH"
+      - name: "Compile the unregistered refinement drafts"
+        run: |
+          cp stability-recovery/proofs/RefinementMeaning.lean.txt proofs/Elegant/Layered/RefinementMeaning.lean
+          cp stability-recovery/proofs/Refinement.lean.txt proofs/Elegant/Layered/Refinement.lean
+          cd proofs
+          lake build Elegant.Layered.Refinement

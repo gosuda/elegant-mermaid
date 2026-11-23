@@ -1,0 +1,180 @@
+import Elegant.Layered.Portfolio
+import Elegant.Layered.RefinementMeaning
+
+set_option autoImplicit false
+
+namespace Elegant.Layered.Refinement
+
+open Portfolio (Candidate Scored SameSelection)
+
+/-- Admission checks the complete assembled scene. The additional cell predicate
+is explicit: the geometry clauses do not establish absence of raster refusals. -/
+def admissible (cellOK : Scene → Bool) (original scene : Scene) : Bool :=
+  sameMeaning original scene && (Validator.check scene.layoutDump && cellOK scene)
+
+theorem admissible_meaning {cellOK : Scene → Bool} {original scene : Scene}
+    (h : admissible cellOK original scene = true) : meaning scene = meaning original :=
+  (sameMeaning_iff original scene).mp (Bool.and_eq_true.mp h).1
+
+theorem admissible_hardConstraints {cellOK : Scene → Bool} {original scene : Scene}
+    (h : admissible cellOK original scene = true) : HardConstraints scene.layoutDump :=
+  (Validator.check_iff scene.layoutDump).mp (Bool.and_eq_true.mp (Bool.and_eq_true.mp h).2).1
+
+theorem admissible_cell_ok {cellOK : Scene → Bool} {original scene : Scene}
+    (h : admissible cellOK original scene = true) : cellOK scene = true :=
+  (Bool.and_eq_true.mp (Bool.and_eq_true.mp h).2).2
+
+/-- Reject a geometrically inadmissible trial before computing its cost. A valid
+trial uses the same full-scene cost and checked improvement threshold as the
+portfolio. Both branches retain budget exhaustion reported by either candidate. -/
+def consider {α : Type} (cellOK : Scene → Bool) (incumbent : Scored α)
+    (trial : Candidate α) : Except LayoutError (Scored α) :=
+  if admissible cellOK incumbent.candidate.scene trial.scene then
+    match Portfolio.score trial with
+    | .error error => .error error
+    | .ok scored => Portfolio.consider incumbent scored
+  else
+    .ok { incumbent with candidate := { incumbent.candidate with
+      budgetExhausted := incumbent.candidate.budgetExhausted || trial.budgetExhausted } }
+
+private theorem score_candidate {α : Type} {candidate : Candidate α} {scored : Scored α}
+    (h : Portfolio.score candidate = .ok scored) : scored.candidate = candidate := by
+  unfold Portfolio.score at h
+  split at h
+  · cases h
+  · cases h
+    rfl
+
+theorem consider_cost_le {α : Type} {cellOK : Scene → Bool} {incumbent out : Scored α}
+    {trial : Candidate α} (h : consider cellOK incumbent trial = .ok out) :
+    out.cost ≤ incumbent.cost := by
+  unfold consider at h
+  split at h
+  · cases hs : Portfolio.score trial with
+    | error error => simp only [hs, reduceCtorEq] at h
+    | ok scored =>
+      rw [hs] at h
+      exact Portfolio.consider_cost_le h
+  · cases h
+    exact Int.le_refl _
+
+theorem consider_selected {α : Type} {cellOK : Scene → Bool} {incumbent out : Scored α}
+    {trial : Candidate α} (h : consider cellOK incumbent trial = .ok out) :
+    SameSelection out.candidate incumbent.candidate ∨
+      (SameSelection out.candidate trial ∧
+        admissible cellOK incumbent.candidate.scene trial.scene = true) := by
+  unfold consider at h
+  split at h
+  · rename_i hadmit
+    cases hs : Portfolio.score trial with
+    | error error => simp only [hs, reduceCtorEq] at h
+    | ok scored =>
+      rw [hs] at h
+      rcases Portfolio.consider_selected h with old | fresh
+      · exact Or.inl old
+      · have same : SameSelection out.candidate trial := by
+          simpa only [score_candidate hs] using fresh
+        exact Or.inr ⟨same, hadmit⟩
+  · cases h
+    exact Or.inl ⟨rfl, rfl⟩
+
+/-- Run one complete-scene optimizer and certify its result. The optimizer may
+perform any bounded search; callback failures and cost overflows propagate. The
+original remains the incumbent, with its complete scene and exact initial cost. -/
+def select {α : Type} (cellOK : Scene → Bool) (original : Candidate α)
+    (trial : Candidate α → Except LayoutError (Candidate α)) :
+    Except LayoutError (Candidate α) := do
+  let initial ← Portfolio.score original
+  let candidate ← trial original
+  let selected ← consider cellOK initial candidate
+  pure selected.candidate
+
+private theorem select_success {α : Type} {cellOK : Scene → Bool}
+    {original out : Candidate α} {trial : Candidate α → Except LayoutError (Candidate α)}
+    (h : select cellOK original trial = .ok out) :
+    ∃ initial candidate selected,
+      Portfolio.score original = .ok initial ∧ trial original = .ok candidate ∧
+      consider cellOK initial candidate = .ok selected ∧ out = selected.candidate := by
+  unfold select at h
+  cases hi : Portfolio.score original with
+  | error error => simp [hi] at h
+  | ok initial =>
+    simp only [hi, bind, Except.bind] at h
+    cases ht : trial original with
+    | error error => simp [ht] at h
+    | ok candidate =>
+      simp only [ht, bind, Except.bind] at h
+      cases hs : consider cellOK initial candidate with
+      | error error => simp [hs] at h
+      | ok selected =>
+        simp only [hs, bind, Except.bind, pure, Except.pure, Except.ok.injEq] at h
+        exact ⟨initial, candidate, selected, hi, ht, hs, h.symm⟩
+
+theorem select_selected {α : Type} {cellOK : Scene → Bool} {original out : Candidate α}
+    {trial : Candidate α → Except LayoutError (Candidate α)}
+    (h : select cellOK original trial = .ok out) :
+    SameSelection out original ∨
+      ∃ candidate, trial original = .ok candidate ∧ SameSelection out candidate ∧
+        admissible cellOK original.scene candidate.scene = true := by
+  obtain ⟨initial, candidate, selected, hi, ht, hs, rfl⟩ := select_success h
+  rcases consider_selected hs with old | fresh
+  · exact Or.inl (by simpa only [score_candidate hi] using old)
+  · refine Or.inr ⟨candidate, ht, fresh.1, ?_⟩
+    simpa only [score_candidate hi] using fresh.2
+
+/-- Selection preserves the ordered inventory, styles, text, and shape signature.
+This does not establish primitive placement relative to model owners; that
+requires the integrated optimizer's scene assembly invariants. -/
+theorem select_meaning {α : Type} {cellOK : Scene → Bool} {original out : Candidate α}
+    {trial : Candidate α → Except LayoutError (Candidate α)}
+    (h : select cellOK original trial = .ok out) : meaning out.scene = meaning original.scene := by
+  rcases select_selected h with old | ⟨candidate, _, fresh, hadmit⟩
+  · rw [old.2]
+  · rw [fresh.2]
+    exact admissible_meaning hadmit
+
+theorem select_cost_le_original {α : Type} {cellOK : Scene → Bool}
+    {original out : Candidate α} {trial : Candidate α → Except LayoutError (Candidate α)}
+    (h : select cellOK original trial = .ok out) :
+    ∃ initial final,
+      softCost original.scene = .ok initial ∧ softCost out.scene = .ok final ∧
+        final ≤ initial := by
+  obtain ⟨initial, candidate, selected, hi, _, hs, rfl⟩ := select_success h
+  have cost : softCost original.scene = .ok initial.cost := by
+    simpa only [score_candidate hi] using initial.cost_eq
+  exact ⟨initial.cost, selected.cost, cost, selected.cost_eq, consider_cost_le hs⟩
+
+theorem select_hardConstraints {α : Type} {cellOK : Scene → Bool}
+    {original out : Candidate α} {trial : Candidate α → Except LayoutError (Candidate α)}
+    (horiginal : HardConstraints original.scene.layoutDump)
+    (h : select cellOK original trial = .ok out) : HardConstraints out.scene.layoutDump := by
+  rcases select_selected h with old | ⟨candidate, _, fresh, hadmit⟩
+  · rw [old.2]
+    exact horiginal
+  · rw [fresh.2]
+    exact admissible_hardConstraints hadmit
+
+/-- Cell acceptance is preserved when it already holds for the original. This
+does not assert that the original renderer has no refusals for every input. -/
+theorem select_cell_ok {α : Type} {cellOK : Scene → Bool} {original out : Candidate α}
+    {trial : Candidate α → Except LayoutError (Candidate α)}
+    (horiginal : cellOK original.scene = true)
+    (h : select cellOK original trial = .ok out) : cellOK out.scene = true := by
+  rcases select_selected h with old | ⟨candidate, _, fresh, hadmit⟩
+  · rw [old.2]
+    exact horiginal
+  · rw [fresh.2]
+    exact admissible_cell_ok hadmit
+
+/-- A changed scene always passed both admission checks, even if the original
+failed the cell predicate. An unchanged result makes no such new assertion. -/
+theorem select_changed_admissible {α : Type} {cellOK : Scene → Bool}
+    {original out : Candidate α} {trial : Candidate α → Except LayoutError (Candidate α)}
+    (h : select cellOK original trial = .ok out) (changed : out.scene ≠ original.scene) :
+    admissible cellOK original.scene out.scene = true := by
+  rcases select_selected h with old | ⟨candidate, _, fresh, hadmit⟩
+  · exact False.elim (changed old.2)
+  · rw [fresh.2]
+    exact hadmit
+
+end Elegant.Layered.Refinement

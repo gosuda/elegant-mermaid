@@ -121,3 +121,39 @@ cell_routing.rs.proposed contains two real-renderer regressions, ready to copy i
 crates/elegant-mermaid/tests/cell_routing.rs. They were not compiled. Public API
 names were checked against the published source. Their native repro sources were
 observed red, so no additional failure discovery is needed before implementation.
+
+
+## Additional static findings after the executor outage
+
+These are source-derived diagnoses, not new runtime results.
+
+### Agentflow framed tool label
+
+agent-tool-mask.mmd selects tool -> subroutine. The 15-cell title produces
+content width17 and height3 (padding1 each side, no extra framed inset).
+The shared text placer starts the title at x+floor((17-15)/2)=x+1.
+agentflow::framed draws its left inner rule at x+padding=x+1.
+Thus the first character and the inner rule share a cell. The node size adapter
+currently sizes all agent shapes as plain padded rectangles before specialized
+paint is substituted. Diamond, connector ellipse, and lean-right shapes need
+separate actual-mask probes as well; do not presume the framed fix covers them.
+
+### State concurrent-region title
+
+state::paint_regions calls separator(), whose vertical partition starts at
+parent.y+cluster_pad and spans the full inner parent height. The parent's title
+also occupies that leading title band. A centered partition can cross its text.
+state-region-title-mask.mmd is the proposed tiny actual-renderer repro.
+A body-only separator extent or explicit exclusion of the parent title band is
+the likely correction; the prefix-label probe should first identify exact owner
+and cells. Nested notes can fail for other reasons and need independent reports.
+
+### Swimlane caption relocation
+
+swimlane::relocate_labels computes one strip coordinate and assigns every
+offending label that same cross-axis start. It does not pack the captions apart
+or check their new positions against route ink. Equal or overlapping rank-axis
+positions can collapse distinct captions onto one another. The swimlane router
+also has no same-axis route reservation. Classify actual failures before choosing
+between caption packing and route detours. The newer swimlanes~0013 failure is
+available in the ordinary corpus and must not be removed or exempted.

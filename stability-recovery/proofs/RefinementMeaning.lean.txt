@@ -1,0 +1,130 @@
+import Elegant.Scene
+
+set_option autoImplicit false
+
+namespace Elegant.Layered.Refinement
+
+private def rectMeaning (resizable : Bool) (rect : Rect) : Rect :=
+  ⟨0, 0, if resizable then 0 else rect.w, if resizable then 0 else rect.h⟩
+
+private def relativePoint (origin point : Point) : Point :=
+  ⟨point.x - origin.x, point.y - origin.y⟩
+
+private def relativePoints (points : List Point) : List Point :=
+  let origin := points.head?.getD ⟨0, 0⟩
+  points.map (relativePoint origin)
+
+private def commandPoint : PathCommand → Option Point
+  | .M point | .L point => some point
+  | .C first _ _ => some first
+  | .A center _ _ _ => some center
+  | .Z => none
+
+private def relativeCommand (origin : Point) : PathCommand → PathCommand
+  | .M point => .M (relativePoint origin point)
+  | .L point => .L (relativePoint origin point)
+  | .C first second point =>
+    .C (relativePoint origin first) (relativePoint origin second) (relativePoint origin point)
+  | .A center radius start sweep => .A (relativePoint origin center) radius start sweep
+  | .Z => .Z
+
+private def relativeCommands (commands : List PathCommand) : List PathCommand :=
+  let origin := (commands.findSome? commandPoint).getD ⟨0, 0⟩
+  commands.map (relativeCommand origin)
+
+/-- Preserve each primitive's kind and styling. Node shapes retain their geometry
+up to translation. Edge paths and marker directions may change with routing;
+group frame sizes may change with packing. Every text payload and size is fixed. -/
+def primitiveMeaning (role : GroupRole) : Primitive → Primitive
+  | .rect rect paint => .rect (rectMeaning (decide (role = .group)) rect) paint
+  | .roundRect rect corner paint =>
+    .roundRect (rectMeaning (decide (role = .group)) rect) corner paint
+  | .ellipse _ _ rx ry paint =>
+    .ellipse 0 0 (if role = .group then 0 else rx) (if role = .group then 0 else ry) paint
+  | .polygon points paint =>
+    .polygon (if role = .edge then [] else relativePoints points) paint
+  | .polyline points corner paint =>
+    .polyline (if role = .edge then [] else relativePoints points) corner paint
+  | .path commands paint =>
+    .path (if role = .edge then [] else relativeCommands commands) paint
+  | .text value => .text { value with rect := rectMeaning false value.rect }
+  | .markerRef marker _ axis =>
+    .markerRef marker ⟨0, 0⟩ (if role = .edge then .positiveX else axis)
+  | .symbolRef symbol _ style => .symbolRef symbol ⟨0, 0⟩ style
+
+/-- The ordered semantic signature of a complete scene, represented using the
+scene types themselves. Only geometry that refinement is allowed to change is
+erased. Rendered groups and primitives remain in the signature, including text
+that is absent from the metric labels. Nonrectangular group decoration retains
+its translated shape, so an unrecognized resize is conservatively rejected.
+
+This signature preserves inventory, styles, text, and per-primitive shapes. It
+does not relate primitive positions to their model owners: each primitive is
+normalized independently. The geometry validator checks only `layoutDump`.
+An integrated optimizer must separately preserve the scene assembly
+correspondence or check owner-relative placement and bounds. -/
+def meaning (scene : Scene) : Scene :=
+  { scene with
+    canvas := ⟨0, 0⟩
+    boxes := scene.boxes.map fun box =>
+      { box with rect := rectMeaning (decide (box.role = "group")) box.rect }
+    routes := scene.routes.map fun route => { route with points := [] }
+    labels := scene.labels.map fun label => { label with rect := rectMeaning false label.rect }
+    items := scene.items.map fun group =>
+      { group with items := group.items.map (primitiveMeaning group.role) } }
+
+def sameMeaning (original trial : Scene) : Bool :=
+  decide (meaning trial = meaning original)
+
+theorem sameMeaning_iff (original trial : Scene) :
+    sameMeaning original trial = true ↔ meaning trial = meaning original := by
+  simp only [sameMeaning, decide_eq_true_eq]
+
+theorem sameMeaning_refl (scene : Scene) : sameMeaning scene scene = true :=
+  (sameMeaning_iff scene scene).mpr rfl
+
+/-- In particular, admission cannot omit a model object or a rendered primitive.
+The last equality retains the primitive count of each ordered rendered group. -/
+theorem sameMeaning_counts {original trial : Scene}
+    (h : sameMeaning original trial = true) :
+    trial.boxes.length = original.boxes.length ∧
+    trial.routes.length = original.routes.length ∧
+    trial.labels.length = original.labels.length ∧
+    trial.items.length = original.items.length ∧
+    trial.items.map (fun group => group.items.length) =
+      original.items.map (fun group => group.items.length) := by
+  have same := (sameMeaning_iff original trial).mp h
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · simpa [meaning] using congrArg (fun scene => scene.boxes.length) same
+  · simpa [meaning] using congrArg (fun scene => scene.routes.length) same
+  · simpa [meaning] using congrArg (fun scene => scene.labels.length) same
+  · simpa [meaning] using congrArg (fun scene => scene.items.length) same
+  · simpa [meaning] using
+      congrArg (fun scene => scene.items.map (fun group => group.items.length)) same
+
+private def signatureProbe : Scene := {
+  kind := "flowchart", canvas := ⟨10, 10⟩
+  boxes := [⟨"A", "node", ⟨1, 1, 4, 3⟩, "", true⟩]
+  items := [{ role := .node, owner := "A", items := [
+    .rect ⟨1, 1, 4, 3⟩ { style := "node" },
+    .text { rect := ⟨2, 2, 2, 1⟩, role := .title, size := 1, align := .start,
+      style := "node", lines := [[{ text := "A" }]] }] }] }
+
+#guard sameMeaning signatureProbe { signatureProbe with
+  canvas := ⟨20, 20⟩
+  boxes := [⟨"A", "node", ⟨5, 5, 4, 3⟩, "", true⟩]
+  items := [{ role := .node, owner := "A", items := [
+    .rect ⟨5, 5, 4, 3⟩ { style := "node" },
+    .text { rect := ⟨6, 6, 2, 1⟩, role := .title, size := 1, align := .start,
+      style := "node", lines := [[{ text := "A" }]] }] }] }
+
+#guard !sameMeaning signatureProbe { signatureProbe with boxes := [] }
+#guard !sameMeaning signatureProbe { signatureProbe with items := [] }
+#guard !sameMeaning signatureProbe { signatureProbe with
+  items := [{ role := .node, owner := "A", items := [.rect ⟨1, 1, 4, 3⟩ { style := "node" }] }] }
+#guard !sameMeaning signatureProbe { signatureProbe with
+  boxes := [⟨"A", "node", ⟨1, 1, 5, 3⟩, "", true⟩] }
+#guard !sameMeaning signatureProbe { signatureProbe with
+  options := { config := [("fontFamily", .string "Changed Font")] } }
+
+end Elegant.Layered.Refinement
