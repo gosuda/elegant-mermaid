@@ -5,6 +5,51 @@ import (
 	"testing"
 )
 
+func TestRenderNumericFlagsUseDecimal(t *testing.T) {
+	for _, value := range []string{"8", "08", "008", "+8"} {
+		out, stderr, code := invoke(t, cleanSource, "render", "-e", "text", "-s", value)
+		if code != 0 || out == "" || stderr != "" {
+			t.Errorf("-s %s: exit=%d stdout=%q stderr=%q", value, code, out, stderr)
+		}
+	}
+	for _, tc := range []struct{ flag, value, accepted string }{
+		{"-s", "010", "1..8"},
+		{"-s", "+9", "1..8"},
+		{"-s", "09", "1..8"},
+		{"-s", "-00", "1..8"},
+		{"-s", "-0=invalid", "1..8"},
+		{"-s", "0x2", "1..8"},
+		{"-s", "0b10", "1..8"},
+		{"-s", "0o2", "1..8"},
+		{"--width", "0x10", "non-negative integers"},
+		{"--width", "0b10", "non-negative integers"},
+		{"--width", "0o10", "non-negative integers"},
+		{"--width", "1_0", "non-negative integers"},
+		{"--width", "-01", "non-negative integers"},
+		{"--width", "+2147483648", "non-negative integers"},
+		{"--width", "-0=invalid", "non-negative integers"},
+	} {
+		want := "invalid value " + tc.value + " for " + tc.flag + "; expected one of: " + tc.accepted + "\n"
+		expectInvocation(t, cleanSource, []string{"render", "-e", "text", tc.flag, tc.value}, "", want, 2)
+		expectInvocation(t, cleanSource, []string{"render", "-e", "text", tc.flag, tc.value, tc.flag, "2"}, "", want, 2)
+	}
+	for _, value := range []string{"010", "0010", "+10"} {
+		options, _, err := commandFlags("render", []string{"--width=" + value})
+		if err != nil || options.width != 10 {
+			t.Errorf("--width=%s: width=%d err=%v", value, options.width, err)
+		}
+	}
+}
+
+func TestRenderNumericFlagDefaultsAndZero(t *testing.T) {
+	for _, args := range [][]string{nil, {"--width", "-0"}, {"--width=-00"}} {
+		options, _, err := commandFlags("render", args)
+		if err != nil || options.width != 0 || options.scale != 2 {
+			t.Fatalf("%q: width=%d scale=%d err=%v", args, options.width, options.scale, err)
+		}
+	}
+}
+
 var flagSpellings = [][][]string{
 	{
 		{"view", "good.mmd", "--script", "ok.script", "-t", "elegant-dark", "--color", "never", "--graphics", "cells"},
