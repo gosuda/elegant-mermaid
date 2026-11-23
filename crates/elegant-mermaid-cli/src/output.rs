@@ -26,7 +26,10 @@ fn create_temp(target: &Path) -> io::Result<(PathBuf, File)> {
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    let target_name = target.file_name().and_then(|name| name.to_str());
+    let target_name = target
+        .file_name()
+        .and_then(|name| name.to_str())
+        .map(|name| name.trim_end_matches(['.', ' ']));
     for attempt in 0..64u32 {
         let name = format!(".emd-{}-{attempt}", std::process::id());
         if target_name.is_some_and(|target| target.eq_ignore_ascii_case(&name)) {
@@ -86,6 +89,32 @@ mod tests {
                 !target.exists(),
                 "the destination must stay absent until rename"
             );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn temporary_file_avoids_trailing_dot_and_space_aliases() -> io::Result<()> {
+        let dir = TestDir::new("output-destination-aliases")?;
+        let name = format!(".emd-{}-0", std::process::id());
+        let alias = dir.0.join(&name);
+        for target_name in [
+            format!("{name}."),
+            format!("{name} "),
+            format!("{}. .", name.to_ascii_uppercase()),
+        ] {
+            let target = dir.0.join(target_name);
+            let (temp, file) = create_temp(&target)?;
+            drop(file);
+            assert_ne!(
+                temp, alias,
+                "the temporary name must avoid destination aliases"
+            );
+            assert!(
+                !target.exists(),
+                "the destination must stay absent until rename"
+            );
+            std::fs::remove_file(temp)?;
         }
         Ok(())
     }
