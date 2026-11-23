@@ -91,12 +91,27 @@ jobs:
         id: "trial_scores"
         if: "!cancelled() && steps.trial.outcome == 'success' && steps.comparisons.outcome == 'success'"
         run: "node stability-recovery/experiment.mjs collect trial \"$RUNNER_TEMP/emd-trial\""
+      - name: "Audit literal compound layout bounds"
+        if: "!cancelled() && steps.baseline_scores.outcome == 'success' && steps.trial_scores.outcome == 'success'"
+        run: |
+          node stability-recovery/compound-lower-bound.mjs --self-test
+          node stability-recovery/compound-lower-bound.mjs --repo . --metrics recovery-results/baseline-metrics.json --dumps recovery-results/baseline > recovery-results/compound-baseline.json
+          node stability-recovery/compound-lower-bound.mjs --repo . --metrics recovery-results/trial-metrics.json --dumps recovery-results/trial > recovery-results/compound-trial.json
+          node -e 'for (const stage of ["baseline", "trial"]) { const r = require("./recovery-results/compound-" + stage + ".json"); console.log(JSON.stringify({stage, fixtures:r.fixture_count, supported:r.supported_count, containment:r.containment_width_unavoidable_count, literal:r.literal_border_width_unavoidable_count, budget:r.allowed_quality_exceptions, exceeds:r.supported_subset_exceeds_exception_budget, contractViolations:r.observed_below_literal_contract.length, skipped:r.skip_counts})); }'
+      - name: "Compare cell failure inventories"
+        if: "!cancelled() && steps.trial.outcome == 'success'"
+        run: "node stability-recovery/cell/summarize.mjs compare recovery-results/cell-baseline.jsonl.summary.json recovery-results/cell-trial.jsonl.summary.json"
       - name: "Check the unchanged official quality gate"
         if: "!cancelled() && steps.trial.outcome == 'success' && steps.comparisons.outcome == 'success'"
         run: "go run ./tools/quality -emd \"$RUNNER_TEMP/emd-trial\" -jobs 4 > recovery-results/official-quality.log 2>&1"
       - name: "Show official gate conclusions"
         if: "!cancelled() && steps.trial.outcome == 'success' && steps.comparisons.outcome == 'success'"
         run: "tail -n 8 recovery-results/official-quality.log"
+      - name: "Preserve experiment binaries"
+        if: "!cancelled() && steps.trial.outcome == 'success'"
+        run: |
+          mkdir -p recovery-results/bin
+          cp "$RUNNER_TEMP/emd-baseline" "$RUNNER_TEMP/emd-trial" recovery-results/bin/
       - name: "Upload reproducible experiment evidence"
         if: "!cancelled()"
         uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
@@ -105,8 +120,6 @@ jobs:
           path: |
             recovery-results
             corpus/.cache/quality
-            ${{ runner.temp }}/emd-baseline
-            ${{ runner.temp }}/emd-trial
           if-no-files-found: "error"
           retention-days: 14
 
@@ -135,3 +148,30 @@ jobs:
           cp stability-recovery/proofs/Refinement.lean.txt proofs/Elegant/Layered/Refinement.lean
           cd proofs
           lake build Elegant.Layered.Refinement
+
+  readable-evidence:
+    needs: "geometry"
+    if: "!cancelled()"
+    runs-on: "depot-ubuntu-24.04-8"
+    timeout-minutes: 15
+    permissions:
+      actions: "read"
+      contents: "write"
+    steps:
+      - name: "Checkout evidence publisher"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
+      - name: "Set up Node"
+        uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1" # v7.1.0
+        with:
+          node-version: "26.13.1"
+      - name: "Download immutable experiment evidence"
+        uses: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" # v8
+        with:
+          name: "stabilization-geometry"
+          path: "evidence"
+      - name: "Preserve readable evidence without ref updates"
+        env:
+          GH_TOKEN: "${{ github.token }}"
+        run: "node stability-recovery/publish-evidence.mjs evidence"

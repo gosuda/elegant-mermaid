@@ -92,7 +92,7 @@ func inspect(path string, patches map[string]routePatch) (report, error) {
 	if err := apply(&s, patches); err != nil {
 		return report{}, err
 	}
-	clause, valid, err := s.Dump.Validate()
+	clause, failed, err := s.Dump.Validate()
 	if err != nil {
 		return report{}, err
 	}
@@ -102,10 +102,10 @@ func inspect(path string, patches map[string]routePatch) (report, error) {
 		return report{}, err
 	}
 	r := report{
-		Path: path, Valid: valid, RefusedClusters: rendered.RefusedClusters,
+		Path: path, Valid: !failed, RefusedClusters: rendered.RefusedClusters,
 		RouteConflicts: rendered.RouteConflicts, Dump: s.AppendJSON(nil), Text: string(rendered.Text),
 	}
-	if !valid {
+	if failed {
 		r.Clause = clause.ID
 	}
 	if rendered.RefusedClusters != 0 {

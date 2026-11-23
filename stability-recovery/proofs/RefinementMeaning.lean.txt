@@ -99,7 +99,7 @@ theorem sameMeaning_counts {original trial : Scene}
   · simpa [meaning] using congrArg (fun scene => scene.routes.length) same
   · simpa [meaning] using congrArg (fun scene => scene.labels.length) same
   · simpa [meaning] using congrArg (fun scene => scene.items.length) same
-  · simpa [meaning] using
+  · simpa [meaning, Function.comp_def] using
       congrArg (fun scene => scene.items.map (fun group => group.items.length)) same
 
 private def signatureProbe : Scene := {
@@ -107,16 +107,14 @@ private def signatureProbe : Scene := {
   boxes := [⟨"A", "node", ⟨1, 1, 4, 3⟩, "", true⟩]
   items := [{ role := .node, owner := "A", items := [
     .rect ⟨1, 1, 4, 3⟩ { style := "node" },
-    .text { rect := ⟨2, 2, 2, 1⟩, role := .title, size := 1, align := .start,
-      style := "node", lines := [[{ text := "A" }]] }] }] }
+    .text { rect := ⟨2, 2, 2, 1⟩, role := .title, size := 1, align := .start, style := "node", lines := [[{ text := "A" }]] }] }] }
 
 #guard sameMeaning signatureProbe { signatureProbe with
   canvas := ⟨20, 20⟩
   boxes := [⟨"A", "node", ⟨5, 5, 4, 3⟩, "", true⟩]
   items := [{ role := .node, owner := "A", items := [
     .rect ⟨5, 5, 4, 3⟩ { style := "node" },
-    .text { rect := ⟨6, 6, 2, 1⟩, role := .title, size := 1, align := .start,
-      style := "node", lines := [[{ text := "A" }]] }] }] }
+    .text { rect := ⟨6, 6, 2, 1⟩, role := .title, size := 1, align := .start, style := "node", lines := [[{ text := "A" }]] }] }] }
 
 #guard !sameMeaning signatureProbe { signatureProbe with boxes := [] }
 #guard !sameMeaning signatureProbe { signatureProbe with items := [] }

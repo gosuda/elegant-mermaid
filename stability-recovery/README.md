@@ -15,7 +15,7 @@ The last local executable combined whole-rank port alignment, port-aware differe
 | Crossings | 526 | 837 | 742 |
 | Soft cost | 49,014,663 | 49,007,735 | 49,020,480 |
 
-There were 643 exceptions, above the allowed 103. There were 46 hard failures: 45 were already present at the baseline and one was newly introduced (swimlanes~0013). A fresh CI run records the exact original failure inventory. Three focused geometry tests passed locally. The source is exploratory, not formally verified or ported to Rust.
+There were 643 exceptions, above the allowed 103. There were 46 hard failures: 45 were already present at the baseline and one was newly introduced (swimlanes~0013). CI run 45272140634 confirmed 60 original hard failures: 15 were repaired and one was introduced. The complete reconstructed prototype produced exactly the recorded scores. Three focused geometry tests passed locally. The source is exploratory, not formally verified or ported to Rust.
 
 The compound benchmark also has a documented input asymmetry: mandatory renderer title/padding geometry is omitted from its zero-padding baselines. A two-node grouped chain has a conservative valid minimum score of 5 versus an ELK score of 2. The extent of this contradiction is still being measured. Do not infer that every remaining exception is unavoidable.
 
