@@ -1,5 +1,5 @@
 use super::Encoded;
-use super::links::{alt_text, clean_path, relative_url};
+use super::links::{alt_text, relative_url};
 use crate::error::CliError;
 use crate::options::Options;
 use elegant_mermaid::markdown::Block;
@@ -45,8 +45,11 @@ pub(super) fn write(
 impl Plan {
     fn new(input: &str, options: &Options, count: usize) -> Result<Self, CliError> {
         let output = Path::new(&options.output);
-        validate_output(output)?;
         let host = crate::check::markdown_host(output).then(|| output.to_path_buf());
+        validate_output_name(output)?;
+        if host.is_some() || options.artefact_dir.is_none() {
+            validate_output_target(output)?;
+        }
         let (stem, extension, default_dir) = if host.is_some() {
             let stem = file_stem(output)?;
             let mut assets = stem.to_os_string();
@@ -83,7 +86,7 @@ impl Plan {
                 let mut name = stem.to_os_string();
                 name.push(format!("-{index}"));
                 name.push(&extension);
-                clean_path(&directory.join(name))
+                directory.join(name)
             })
             .collect();
         Ok(Self { images, host })
@@ -98,7 +101,7 @@ fn format_extension(options: &Options) -> OsString {
     }
 }
 
-fn validate_output(path: &Path) -> Result<(), CliError> {
+fn validate_output_name(path: &Path) -> Result<(), CliError> {
     if path.as_os_str().is_empty() {
         return Ok(());
     }
@@ -112,6 +115,13 @@ fn validate_output(path: &Path) -> Result<(), CliError> {
             path,
             io::Error::from(io::ErrorKind::IsADirectory),
         ));
+    }
+    Ok(())
+}
+
+fn validate_output_target(path: &Path) -> Result<(), CliError> {
+    if path.as_os_str().is_empty() {
+        return Ok(());
     }
     match std::fs::symlink_metadata(path) {
         Ok(metadata) if metadata.is_dir() => Err(write_error(
