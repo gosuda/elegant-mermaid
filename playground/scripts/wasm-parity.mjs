@@ -35,6 +35,7 @@ const CONFIG_FIXTURES = [
 }));
 CONFIG_FIXTURES.push({
   file: 'configured-aliases',
+  warnings: ['unknown config key quadrantChart.typo', 'unknown config key wardley-beta.typo'],
   text: '---\nconfig:\n  quadrantChart: {typo: true}\n  wardley-beta: {typo: true}\n---\nflowchart\nA\n',
   ops: OPS,
   accepted: true,
@@ -155,6 +156,20 @@ function fixtureErrors(fixture, operation, results) {
     if (fixture.accepted && (result.error !== undefined || !result.ok)) {
       errors.push(`${engine}: expected accepted configured diagram`);
       continue;
+    }
+    if (fixture.warnings !== undefined && operation === 'check') {
+      try {
+        const diagnostics = JSON.parse(result.output.toString('utf8')).files[0].diagnostics;
+        const warnings = diagnostics.filter((diagnostic) => diagnostic.code === 'config/unknown-key');
+        if (
+          warnings.length !== fixture.warnings.length ||
+          warnings.some((warning, index) => warning.severity !== 'warning' || warning.message !== fixture.warnings[index])
+        ) {
+          errors.push(`${engine}: missing or incorrect authored config warnings`);
+        }
+      } catch (error) {
+        errors.push(`${engine}: invalid configured check report: ${String(error)}`);
+      }
     }
     if (fixture.font !== undefined && operation === 'layout') {
       try {

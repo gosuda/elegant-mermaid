@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"io/fs"
 	"maps"
 	"os"
@@ -47,18 +49,18 @@ func run(args []string) error {
 			return fmt.Errorf("%s: %w", fixture.name, err)
 		}
 	}
-	fmt.Printf("markdown-parity: %d cases, identical status, diagnostics, files, and links\n", len(fixtures))
+	fmt.Printf("markdown-parity: %d cases, matching status, diagnostics, paths, text assets, and PNG dimensions\n", len(fixtures))
 	return nil
 }
 
 func compare(fixture testCase, binaries []string) error {
 	left, err := execute(fixture, binaries[0])
 	if err != nil {
-		return fmt.Errorf("Go: %w", err)
+		return fmt.Errorf("go: %w", err)
 	}
 	right, err := execute(fixture, binaries[1])
 	if err != nil {
-		return fmt.Errorf("Rust: %w", err)
+		return fmt.Errorf("rust: %w", err)
 	}
 	if left.code != right.code || left.stdout != right.stdout || left.stderr != right.stderr {
 		return fmt.Errorf("process differs: Go=(%d, %q, %q) Rust=(%d, %q, %q)", left.code, left.stdout, left.stderr, right.code, right.stdout, right.stderr)
@@ -92,14 +94,22 @@ func execute(fixture testCase, binary string) (_ result, err error) {
 	if code != fixture.code || stdout.Len() != 0 {
 		return result{}, fmt.Errorf("exit=%d, stdout=%q, stderr=%q; expected exit=%d and empty stdout", code, stdout.String(), stderr.String(), fixture.code)
 	}
-	entries, err := snapshot(directory)
+	entries, err := fixture.collectEntries(directory)
 	if err != nil {
 		return result{}, err
 	}
-	if err := fixture.check(entries); err != nil {
-		return result{}, err
-	}
 	return result{code: code, stdout: stdout.String(), stderr: stderr.String(), entries: entries}, nil
+}
+
+func (fixture testCase) collectEntries(directory string) (map[string]string, error) {
+	entries, err := snapshot(directory)
+	if err != nil {
+		return nil, err
+	}
+	if err := fixture.check(entries); err != nil {
+		return nil, err
+	}
+	return fixture.comparableEntries(entries)
 }
 
 func snapshot(root string) (map[string]string, error) {
@@ -183,4 +193,42 @@ func (fixture testCase) checkArtifacts(entries map[string]string) error {
 		}
 	}
 	return nil
+}
+
+// PNG encoders may differ under render-raster-04. The raster suites check the
+// specified geometry oracle; this export gate checks decoding, size and content.
+func (fixture testCase) comparableEntries(entries map[string]string) (map[string]string, error) {
+	if fixture.format != "png" {
+		return entries, nil
+	}
+	comparison := maps.Clone(entries)
+	for path := range fixture.images {
+		picture, err := png.Decode(strings.NewReader(strings.TrimPrefix(entries[path], "file:")))
+		if err != nil {
+			return nil, fmt.Errorf("%s: invalid PNG: %w", path, err)
+		}
+		if !hasMultipleColors(picture) {
+			return nil, fmt.Errorf("%s: PNG is empty or a single color", path)
+		}
+		bounds := picture.Bounds()
+		comparison[path] = fmt.Sprintf("png:%d:%d", bounds.Dx(), bounds.Dy())
+	}
+	return comparison, nil
+}
+
+func hasMultipleColors(picture image.Image) bool {
+	bounds := picture.Bounds()
+	if bounds.Empty() {
+		return false
+	}
+	r0, g0, b0, a0 := picture.At(bounds.Min.X, bounds.Min.Y).RGBA()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, a := picture.At(x, y).RGBA()
+			if r != r0 || g != g0 || b != b0 || a != a0 {
+				return true
+			}
+		}
+	}
+	return false
 }

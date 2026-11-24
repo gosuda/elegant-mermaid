@@ -99,5 +99,16 @@ func missingOutputDirectory(path string, notExist error) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(resolved, name), nil
+	return inspectResolvedDirectory(filepath.Join(resolved, name))
+}
+
+// A missing prefix may have been cancelled by .., exposing an existing link or
+// file. Inspect that component again before resolving the next one.
+func inspectResolvedDirectory(path string) (string, error) {
+	if _, err := os.Lstat(path); errors.Is(err, os.ErrNotExist) {
+		return path, nil
+	} else if err != nil {
+		return "", err
+	}
+	return resolveOutputDirectory(path)
 }

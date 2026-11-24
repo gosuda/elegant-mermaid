@@ -492,7 +492,12 @@ fn markdown_artefact_directory_does_not_probe_the_unused_output_parent() -> Test
     fixture.two_blocks()?;
     fixture.write("report", b"unrelated file")?;
     let output = fixture.run(&[
-        "render", "input.md", "-o", "report/diagram.svg", "-a", "assets",
+        "render",
+        "input.md",
+        "-o",
+        "report/diagram.svg",
+        "-a",
+        "assets",
     ])?;
     success(&output);
     assert_eq!(fixture.read("report")?, b"unrelated file");
@@ -543,10 +548,19 @@ fn markdown_asset_directory_resolves_symlinks_before_parent_components() -> Test
     std::fs::create_dir_all(fixture.0.join("physical/nested"))?;
     std::os::unix::fs::symlink("physical/nested", fixture.0.join("alias"))?;
     let output = fixture.run(&[
-        "render", "input.md", "-o", "docs/out.md", "-a", "alias/../images",
+        "render",
+        "input.md",
+        "-o",
+        "docs/out.md",
+        "-a",
+        "alias/../images",
     ])?;
     success(&output);
-    assert!(fixture.read("physical/images/out-1.svg")?.starts_with(b"<svg"));
+    assert!(
+        fixture
+            .read("physical/images/out-1.svg")?
+            .starts_with(b"<svg")
+    );
     assert!(!fixture.0.join("images").exists());
     assert_eq!(
         fixture.read("docs/out.md")?,
@@ -563,7 +577,12 @@ fn markdown_host_directory_resolves_symlinks_before_parent_components() -> TestR
     std::fs::create_dir_all(fixture.0.join("physical/nested"))?;
     std::os::unix::fs::symlink("physical/nested", fixture.0.join("alias"))?;
     let output = fixture.run(&[
-        "render", "input.md", "-o", "alias/../reports/out.md", "-a", "assets",
+        "render",
+        "input.md",
+        "-o",
+        "alias/../reports/out.md",
+        "-a",
+        "assets",
     ])?;
     success(&output);
     assert_eq!(
@@ -582,9 +601,7 @@ fn markdown_links_use_the_physical_host_directory_without_parent_components() ->
     fixture.write("input.md", format!("```mermaid\n{FIRST}```\n"))?;
     std::fs::create_dir_all(fixture.0.join("physical/nested"))?;
     std::os::unix::fs::symlink("physical/nested", fixture.0.join("alias"))?;
-    let output = fixture.run(&[
-        "render", "input.md", "-o", "alias/out.md", "-a", "assets",
-    ])?;
+    let output = fixture.run(&["render", "input.md", "-o", "alias/out.md", "-a", "assets"])?;
     success(&output);
     assert_eq!(
         fixture.read("physical/nested/out.md")?,
@@ -598,7 +615,11 @@ fn markdown_links_allow_prospective_parent_components() -> TestResult {
     let fixture = Fixture::new()?;
     fixture.write("input.md", format!("```mermaid\n{FIRST}```\n"))?;
     let output = fixture.run(&[
-        "render", "input.md", "-o", "reports/missing/../out.md", "-a",
+        "render",
+        "input.md",
+        "-o",
+        "reports/missing/../out.md",
+        "-a",
         "assets/missing/../images",
     ])?;
     success(&output);
@@ -606,7 +627,11 @@ fn markdown_links_allow_prospective_parent_components() -> TestResult {
         fixture.read("reports/out.md")?,
         b"![diagram](../assets/images/out-1.svg)\n"
     );
-    assert!(fixture.read("assets/images/out-1.svg")?.starts_with(b"<svg"));
+    assert!(
+        fixture
+            .read("assets/images/out-1.svg")?
+            .starts_with(b"<svg")
+    );
     Ok(())
 }
 
@@ -616,7 +641,12 @@ fn markdown_links_reject_file_parent_traversal_before_writing() -> TestResult {
     fixture.write("input.md", format!("```mermaid\n{FIRST}```\n"))?;
     fixture.write("blocked", b"unrelated file")?;
     let output = fixture.run(&[
-        "render", "input.md", "-o", "out.md", "-a", "blocked/../images",
+        "render",
+        "input.md",
+        "-o",
+        "out.md",
+        "-a",
+        "blocked/../images",
     ])?;
     assert_eq!(output.status.code(), Some(2));
     assert_eq!(output.stderr, b"cannot write out.md: not a directory\n");
@@ -633,10 +663,18 @@ fn markdown_links_reject_dangling_directory_links_before_writing() -> TestResult
     fixture.write("input.md", format!("```mermaid\n{FIRST}```\n"))?;
     std::os::unix::fs::symlink("missing", fixture.0.join("dangling"))?;
     let output = fixture.run(&[
-        "render", "input.md", "-o", "out.md", "-a", "dangling/../images",
+        "render",
+        "input.md",
+        "-o",
+        "out.md",
+        "-a",
+        "dangling/../images",
     ])?;
     assert_eq!(output.status.code(), Some(2));
-    assert_eq!(output.stderr, b"cannot write out.md: no such file or directory\n");
+    assert_eq!(
+        output.stderr,
+        b"cannot write out.md: no such file or directory\n"
+    );
     assert!(!fixture.0.join("out.md").exists());
     assert!(!fixture.0.join("images").exists());
     Ok(())
@@ -653,7 +691,10 @@ fn markdown_asset_output_replaces_the_named_symlink() -> TestResult {
     let output = fixture.run(&["render", "input.md", "-o", "out.md"])?;
     success(&output);
     assert_eq!(fixture.read("sentinel")?, b"unrelated file");
-    assert_eq!(fixture.read("out.md")?, b"![diagram](out.assets/out-1.svg)\n");
+    assert_eq!(
+        fixture.read("out.md")?,
+        b"![diagram](out.assets/out-1.svg)\n"
+    );
     assert!(fixture.read("out.assets/out-1.svg")?.starts_with(b"<svg"));
     assert!(
         !std::fs::symlink_metadata(fixture.0.join("out.assets/out-1.svg"))?

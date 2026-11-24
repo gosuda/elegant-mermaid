@@ -2,6 +2,7 @@ package main
 
 type testCase struct {
 	name                 string
+	format               string
 	args                 []string
 	code                 int
 	files, links, images map[string]string
@@ -24,12 +25,14 @@ func imageCases() []testCase {
 	} {
 		fixtures = append(fixtures, testCase{
 			name:   "images-" + format.extension,
+			format: format.extension,
 			args:   []string{"-o", "output." + format.extension},
 			files:  map[string]string{"input.md": first + second},
 			images: map[string]string{"output-1." + format.extension: format.prefix, "output-2." + format.extension: format.prefix},
 			absent: []string{"output." + format.extension},
 		}, testCase{
 			name:   "dotfile-" + format.extension,
+			format: format.extension,
 			args:   []string{"-o", "." + format.extension},
 			files:  map[string]string{"input.md": first},
 			images: map[string]string{"." + format.extension + "-1": format.prefix},
@@ -85,12 +88,25 @@ func hostCases() []testCase {
 			hosts:  map[string]string{"docs/out.md": "![diagram](../assets/out-1.svg)\n"},
 		},
 	}
-	for _, directory := range []string{"file/..", "dangling/.."} {
+	fixtures = append(fixtures, testCase{
+		name: "missing-prefix-before-symlink", args: []string{"-o", "missing/../current/../out.md", "-a", "assets"},
+		files:  map[string]string{"input.md": first, "releases/v1/keep": "release"},
+		links:  map[string]string{"current": "releases/v1"},
+		images: map[string]string{"assets/out-1.svg": "<svg"},
+		hosts:  map[string]string{"releases/out.md": "![diagram](../assets/out-1.svg)\n"},
+	}, testCase{
+		name: "missing-asset-prefix-before-symlink", args: []string{"-o", "docs/out.md", "-a", "missing/../current/../assets"},
+		files:  map[string]string{"input.md": first, "releases/v1/keep": "release", "assets/out-1.svg": "unrelated asset"},
+		links:  map[string]string{"current": "releases/v1"},
+		images: map[string]string{"releases/assets/out-1.svg": "<svg"},
+		hosts:  map[string]string{"docs/out.md": "![diagram](../releases/assets/out-1.svg)\n"},
+	})
+	for _, directory := range []string{"file/..", "dangling/..", "missing/../file/images"} {
 		fixtures = append(fixtures, testCase{
 			name: "invalid-directory-" + directory, args: []string{"-o", "out.md", "-a", directory}, code: 2,
 			files:  map[string]string{"input.md": first, "file": "regular file", "out.md": "existing host"},
 			links:  map[string]string{"dangling": "absent"},
-			absent: []string{"out-1.svg", "absent"},
+			absent: []string{"out-1.svg", "absent", "missing"},
 		})
 	}
 	return fixtures

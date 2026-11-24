@@ -359,14 +359,20 @@ fn aliased_config_blocks_validate_nested_keys_with_authored_paths() -> TestResul
         let document = parse(&source);
         let diagnostic = one_diagnostic(document.diagnostics(), "config/unknown-key")?;
         assert_eq!(diagnostic.severity, Severity::Warning);
-        assert_eq!(diagnostic.message, format!("unknown config key {block}.typo"));
+        assert_eq!(
+            diagnostic.message,
+            format!("unknown config key {block}.typo")
+        );
         assert_eq!(&source[diagnostic.span.start..diagnostic.span.end], "typo");
 
         let document = parse("flowchart\nA\n");
         let effective = document.effective_config(Some(&format!("{block}: {{typo: true}}\n")))?;
         let diagnostics = document.diagnostics_for(&effective);
         let diagnostic = one_diagnostic(&diagnostics, "config/unknown-key")?;
-        assert_eq!(diagnostic.message, format!("unknown config key {block}.typo"));
+        assert_eq!(
+            diagnostic.message,
+            format!("unknown config key {block}.typo")
+        );
         assert_eq!(diagnostic.span, Span { start: 0, end: 0 });
     }
     Ok(())

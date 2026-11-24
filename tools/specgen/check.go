@@ -18,7 +18,7 @@ var allowedRecipes = []string{
 	"gen-check", "go-check", "rust-check", "build", "proofs", "model",
 	"oracle", "parity", "kernel-diff", "validate", "lean-parity", "quality",
 	"theme-check", "d3-check", "fuzz-smoke", "playground-check",
-	"playground-e2e", "wasm-parity", "markdown-parity",
+	"playground-e2e", "wasm-parity", "markdown-parity", "markdown-paths",
 }
 
 var upstreamDetectorIDs = []string{

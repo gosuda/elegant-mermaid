@@ -125,3 +125,32 @@ func TestRenderMarkdownInvalidDirectoryComponentsPreserveOutputs(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderMarkdownMissingPrefixStillResolvesLaterSymlinks(t *testing.T) {
+	t.Chdir(writeLintFiles(t, map[string]string{
+		"input.md":         "```mermaid\n" + markdownFirst + "```\n",
+		"releases/v1/keep": "existing release",
+	}))
+	markdownSymlink(t, "releases/v1", "current")
+	requireMarkdownSuccess(t, "render", "input.md", "-o", "missing/../current/../out.md", "-a", "assets")
+	requireMarkdownText(t, "releases/out.md", "![diagram](../assets/out-1.svg)\n")
+	requireMarkdownSuccess(t, "render", "input.md", "-o", "docs/out.md", "-a", "another/../current/../pictures")
+	requireMarkdownText(t, "docs/out.md", "![diagram](../releases/pictures/out-1.svg)\n")
+	if !strings.HasPrefix(readText(t, "releases/pictures/out-1.svg"), "<svg") {
+		t.Fatal("asset path did not resolve the later symlink")
+	}
+}
+
+func TestRenderMarkdownMissingPrefixStillRejectsLaterFile(t *testing.T) {
+	t.Chdir(writeLintFiles(t, map[string]string{
+		"input.md": "```mermaid\n" + markdownFirst + "```\n",
+		"file":     "regular file",
+		"out.md":   "existing host",
+	}))
+	out, stderr, code := invoke(t, "", "render", "input.md", "-o", "out.md", "-a", "missing/../file/images")
+	if code != 2 || out != "" || stderr != "cannot write out.md: not a directory\n" {
+		t.Fatalf("later file: exit=%d stdout=%q stderr=%q", code, out, stderr)
+	}
+	requireMarkdownText(t, "out.md", "existing host")
+	requireMarkdownAbsent(t, "missing")
+}

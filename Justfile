@@ -170,6 +170,15 @@ parity *ARGS:
 markdown-parity: build
     go run ./tools/markdown-parity
 
+# Exercise platform path rules directly in the actual Markdown URL module
+markdown-paths:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir="$(mktemp -d)"
+    trap 'rm -rf "$dir"' EXIT
+    rustc --edition=2024 --test crates/elegant-mermaid-cli/src/render/markdown/links.rs -o "$dir/markdown-links-tests.exe"
+    "$dir/markdown-links-tests.exe"
+
 _accept-one FILE:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -308,6 +317,7 @@ verify:
     just gen-check
     just go-check
     just rust-check
+    just markdown-paths
     just slop
     just build
     just proofs

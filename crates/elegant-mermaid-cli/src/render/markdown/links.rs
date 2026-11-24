@@ -75,7 +75,10 @@ fn resolved_directory(path: &Path) -> io::Result<PathBuf> {
                     directory = std::path::absolute(directory)?.canonicalize()?;
                 }
             }
-            Component::RootDir => directory.push(component.as_os_str()),
+            Component::RootDir => {
+                directory.push(component.as_os_str());
+                directory = directory.canonicalize()?;
+            }
             Component::CurDir => {}
             Component::ParentDir => {
                 directory.pop();
@@ -194,8 +197,7 @@ mod tests {
     }
 
     #[test]
-    fn directory_resolution_allows_missing_directories_but_rejects_files()
-    -> std::io::Result<()> {
+    fn directory_resolution_allows_missing_directories_but_rejects_files() -> std::io::Result<()> {
         let directory = TestDir::new()?;
         assert_eq!(
             resolved_directory(&directory.0.join("missing/../images"))?,
@@ -204,8 +206,7 @@ mod tests {
         assert!(!directory.0.join("missing").exists());
         std::fs::write(directory.0.join("file"), b"sentinel")?;
         assert_eq!(
-            resolved_directory(&directory.0.join("file/../images"))
-                .map_err(|error| error.kind()),
+            resolved_directory(&directory.0.join("file/../images")).map_err(|error| error.kind()),
             Err(std::io::ErrorKind::NotADirectory)
         );
         Ok(())
@@ -213,8 +214,8 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn directory_links_resolve_before_parents_and_final_links_stay_literal()
-    -> std::io::Result<()> {
+    fn directory_links_resolve_before_parents_and_final_links_stay_literal() -> std::io::Result<()>
+    {
         let directory = TestDir::new()?;
         std::fs::create_dir_all(directory.0.join("physical/nested"))?;
         std::os::unix::fs::symlink("physical/nested", directory.0.join("alias"))?;
@@ -234,6 +235,44 @@ mod tests {
             relative_url(&directory.0.join("image.svg"), &directory.0.join("host.md"))?,
             "image.svg"
         );
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn relative_and_absolute_urls_share_the_same_windows_volume() -> std::io::Result<()> {
+        let canonical = std::env::current_dir()?.canonicalize()?;
+        let mut components = canonical.components();
+        let Some(std::path::Component::Prefix(prefix)) = components.next() else {
+            return Err(std::io::ErrorKind::InvalidInput.into());
+        };
+        let mut ordinary = match prefix.kind() {
+            std::path::Prefix::VerbatimDisk(drive) => {
+                PathBuf::from(format!("{}:", char::from(drive)))
+            }
+            std::path::Prefix::VerbatimUNC(server, share) => {
+                let mut prefix = std::ffi::OsString::from(r"\\");
+                prefix.push(server);
+                prefix.push("\\");
+                prefix.push(share);
+                PathBuf::from(prefix)
+            }
+            _ => PathBuf::from(prefix.as_os_str()),
+        };
+        for component in components {
+            ordinary.push(component.as_os_str());
+        }
+        let missing = PathBuf::from(format!(
+            "emd-markdown-volume-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        for parent in [PathBuf::new(), missing] {
+            let host = parent.join("out.md");
+            let image = parent.join("image.svg");
+            assert_eq!(relative_url(&ordinary.join(&image), &host)?, "image.svg");
+            assert_eq!(relative_url(&image, &ordinary.join(&host))?, "image.svg");
+        }
         Ok(())
     }
 }
