@@ -1,0 +1,213 @@
+//! Conservative cell-route refinement after layered-family drawing is complete.
+//!
+//! A candidate changes one orthogonal run. The initial scene and every admitted
+//! candidate pass the canonical constraints and the actual projected renderer.
+//! Refused glyphs and ambiguous route cells never increase; at least one count
+//! strictly decreases. A private sequence is published only when every glyph
+//! survives, so incomplete repairs cannot trade one lost label for another.
+
+mod candidates;
+mod contacts;
+mod invariants;
+
+use candidates::{Axis, Coordinates};
+use invariants::RouteGuard;
+
+use crate::{
+    cells,
+    geom::{Point, Size},
+    scene::{self, GroupRole, Item, Profile, Scene, ShapeStyle},
+};
+
+const MAX_RASTER_CELLS: i64 = 1_048_576;
+const LAYERED_KINDS: [&str; 9] = [
+    "flowchart",
+    "class",
+    "state",
+    "er",
+    "requirement",
+    "usecase",
+    "c4",
+    "agentflow",
+    "swimlane",
+];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Score {
+    refused: usize,
+    conflicts: usize,
+}
+
+impl Score {
+    fn improves(self, previous: Self) -> bool {
+        self.refused <= previous.refused
+            && self.conflicts <= previous.conflicts
+            && (self.refused < previous.refused || self.conflicts < previous.conflicts)
+    }
+}
+
+fn within_raster_budget(size: Size) -> bool {
+    size.w >= 0 && size.h >= 0 && i64::from(size.w) * i64::from(size.h) <= MAX_RASTER_CELLS
+}
+
+pub(crate) fn repair(scene: &mut Scene) {
+    if scene.profile() != Profile::Cell
+        || !LAYERED_KINDS.contains(&scene.dump_part().kind)
+        || !within_raster_budget(scene.canvas())
+        || candidates::witnesses(scene, true).is_empty()
+        || scene.check() != Ok(true)
+    {
+        return;
+    }
+    let Some(mut score) = rendered_score(scene) else {
+        return;
+    };
+    if score.refused == 0 && score.conflicts == 0 {
+        return;
+    }
+    let guards: Vec<_> = scene
+        .routes()
+        .iter()
+        .map(|route| RouteGuard::new(scene, route))
+        .collect();
+    let coordinates = Coordinates::new(scene);
+    let mut working = scene.clone();
+    while score.refused != 0 || score.conflicts != 0 {
+        let Some((next, count)) = improvement(&working, &guards, &coordinates, score) else {
+            break;
+        };
+        working = next;
+        score = count;
+    }
+    if score.refused == 0 {
+        *scene = working;
+    }
+}
+
+fn improvement(
+    scene: &Scene,
+    guards: &[Option<RouteGuard>],
+    coordinates: &Coordinates,
+    score: Score,
+) -> Option<(Scene, Score)> {
+    for (route_index, at) in candidates::witnesses(scene, score.refused != 0) {
+        let Some(guard) = &guards[route_index] else {
+            continue;
+        };
+        let route = &scene.routes()[route_index];
+        let Some(axis) = Axis::of(route.points[at], route.points[at + 1]) else {
+            continue;
+        };
+        for coordinate in coordinates.ordered(axis, axis.across(route.points[at])) {
+            let Some(points) = candidates::shift(&route.points, at, coordinate) else {
+                continue;
+            };
+            if !guard.permits(&points, scene.canvas()) {
+                continue;
+            }
+            if let Some(result) = admitted(scene, route_index, points, score) {
+                return Some(result);
+            }
+        }
+        if let Some(result) = partial_improvement(scene, route_index, at, guard, coordinates, score)
+        {
+            return Some(result);
+        }
+    }
+    None
+}
+
+fn partial_improvement(
+    scene: &Scene,
+    index: usize,
+    at: usize,
+    guard: &RouteGuard,
+    coordinates: &Coordinates,
+    score: Score,
+) -> Option<(Scene, Score)> {
+    let route = &scene.routes()[index];
+    let axis = Axis::of(route.points[at], route.points[at + 1])?;
+    for window in candidates::windows(scene, index, at, score.refused != 0) {
+        for coordinate in coordinates.ordered(axis, axis.across(route.points[at])) {
+            let Some(points) = candidates::shift_window(&route.points, at, coordinate, window)
+            else {
+                continue;
+            };
+            if !guard.permits(&points, scene.canvas()) {
+                continue;
+            }
+            if let Some(result) = admitted(scene, index, points, score) {
+                return Some(result);
+            }
+        }
+    }
+    None
+}
+
+fn admitted(
+    scene: &Scene,
+    index: usize,
+    points: Vec<Point>,
+    score: Score,
+) -> Option<(Scene, Score)> {
+    let candidate = replace_route(scene, index, points)?;
+    let conflicts = cells::render::route_conflicts(&candidate);
+    if conflicts > score.conflicts
+        || (conflicts == score.conflicts && score.refused == 0)
+        || candidate.check() != Ok(true)
+    {
+        return None;
+    }
+    let next = rendered_score(&candidate)?;
+    next.improves(score).then_some((candidate, next))
+}
+
+fn rendered_score(scene: &Scene) -> Option<Score> {
+    let mut projected = scene.clone();
+    scene::project_cell_attachments(&mut projected);
+    match cells::render(&projected, &cells::Options::default()) {
+        Ok(rendered) => Some(Score {
+            refused: rendered.refused_clusters,
+            conflicts: rendered.route_conflicts,
+        }),
+        // A failed render cannot certify an optional refinement. The caller
+        // retains the input scene and its existing output/error behavior.
+        Err(
+            cells::RenderError::Geometry(_)
+            | cells::RenderError::Profile(_)
+            | cells::RenderError::Theme(_),
+        ) => None,
+    }
+}
+
+/// Change canonical and drawn route points together, retaining every primitive.
+fn replace_route(scene: &Scene, index: usize, points: Vec<Point>) -> Option<Scene> {
+    let route = &scene.routes()[index];
+    let mut items = scene.items().to_vec();
+    let mut changed = false;
+    for group in items
+        .iter_mut()
+        .filter(|group| group.role == GroupRole::Edge && group.owner == route.id)
+    {
+        for item in &mut group.items {
+            match item {
+                Item::Polyline(line) if line.points == route.points => {
+                    line.points.clone_from(&points);
+                    changed = true;
+                }
+                Item::Polyline(line) if line.shape.style == ShapeStyle::Edge => return None,
+                Item::Path(path) if path.shape.style == ShapeStyle::Edge => return None,
+                _ => {}
+            }
+        }
+    }
+    if !changed {
+        return None;
+    }
+    let mut dump = scene.dump_part().clone();
+    dump.routes[index].points = points;
+    Some(Scene::new(scene.canvas(), dump, items))
+}
+
+#[cfg(test)]
+mod tests;
