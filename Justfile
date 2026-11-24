@@ -11,6 +11,7 @@ gen-check:
 # Go checks: gofmt, go vet, golangci-lint, race tests, govulncheck; accepts `just go-check PKG='./x/...'`
 go-check PKG='./...': build
     {{ if trim_start_match(PKG, 'PKG=') != './...' { "go test -list '.*' " + trim_start_match(PKG, 'PKG=') + " | grep '^Test' >/dev/null" } else { "true" } }}
+    gofmt -d $(go list -f '{{{{.Dir}}' ./...)
     test -z "$(gofmt -l $(go list -f '{{{{.Dir}}' ./...))"
     go vet {{ trim_start_match(PKG, 'PKG=') }}
     go tool golangci-lint run

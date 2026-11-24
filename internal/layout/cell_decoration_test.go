@@ -62,7 +62,7 @@ func TestStateNoteRoutingPreservesTransitionLabel(t *testing.T) {
 		t.Run(direction, func(t *testing.T) {
 			source := "stateDiagram-v2\ndirection " + direction + "\nstate Auth {\n[*] --> Login\nLogin --> MFA : code\nMFA --> Success\n}\n[*] --> Auth\nAuth --> [*]\nNote right of Auth: Handles user auth\nNote right of MFA: One-time code\n"
 			text := renderDecorationCells(t, source)
-			require.Contains(t, text, "code")
+			require.Equal(t, 2, strings.Count(text, "code"))
 			require.Contains(t, text, "Handles user auth")
 			require.Contains(t, text, "One-time code")
 		})
