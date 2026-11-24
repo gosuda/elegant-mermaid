@@ -55,9 +55,10 @@ def TitleExclusiveFrameDisjoint {inp : Input} {o : Options} {res : FamilyResult}
           h := (titleCaptionSize execution.params o
             (execution.lines.getD key [])).h }
 
-/-- The installed-title branch of the caption scope clearance, from the
-executed C8b seam bundle (`LayeredSeams.frameLabels` shape) and the
-disjoint-form exclusive-frame clearance. -/
+ /-- The installed-title branch of the caption scope clearance, from the
+ executed C8b seam bundle (`frameLabels_executed` over
+ `LayeredSeams.executedPartFrameCores`) and the disjoint-form exclusive-frame
+ clearance. -/
 theorem captionTitleBranchClear_of_frames {inp : Input} {o : Options}
     {res : FamilyResult}
     (hframes : ∀ (execution : SceneExecution inp o res),

@@ -1,4 +1,5 @@
 import Elegant.Kinds.Common
+import Elegant.Layered.LayeredAdmission
 import Elegant.Layered.StatePipeline
 import Elegant.Kinds.StateRegions
 
@@ -9,8 +10,9 @@ state constants (a fork turns with the direction of its scope) and an empty text
 state is an ordinary node box and a composite is a group. After layout the drawing of every
 pseudo-state is replaced by its symbol, a note keeps only its frame and text, and the
 concurrent regions of a composite lose their frames and gain their dividers, as the Go adapter
-paints them. -/
-
+paints them. The region-and-note family call runs under `Layered.admit` on the built input:
+a model with an empty box id, a box id equal to a route id, a non-exclusive fixed-size box,
+or a non-positive fixed size is answered `.error (.geometry .domain)`. -/
 namespace Elegant
 namespace Kinds
 namespace State
@@ -146,7 +148,9 @@ def decorate (m : Model) (s : Scene) : Except LayoutError Scene :=
   | .ok items => .ok { s with items := items }
 
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
-  match Layered.layoutFamilyRN ((sizes m).map (·.1)) m.regionSets (input m (sizes m)) m.options with
+  match Layered.admit (input m (sizes m))
+      (Layered.layoutFamilyRN ((sizes m).map (·.1)) m.regionSets (input m (sizes m))
+        m.options) with
   | .error e => .error e
   | .ok result =>
     match decorate m (result.scene.projectCellAttachments (routeMarkers m)) with

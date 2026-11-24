@@ -52,8 +52,8 @@ done
 
 while IFS= read -r report; do
   [[ -z "$report" ]] && continue
-  list="${report#*\[}"
-  list="${list%\]}"
+  list="${report#*'['}"
+  list="${list%']'}"
   IFS=',' read -r -a axs <<< "$list"
   for a in "${axs[@]}"; do
     a="${a// /}"
@@ -66,9 +66,16 @@ while IFS= read -r report; do
         ;;
     esac
   done
-done < <(grep -oE "'[^']+' depends on axioms: \[[^]]*\]" <<< "$flat" || true)
+done < <(grep -oE "'[^ ]+' depends on axioms: \[[^]]*\]" <<< "$flat" || true)
 
-pattern='sorry|partial def|\bunsafe\b|implemented_by|\bextern\b|native_decide|^axiom'
+expected_reports="$( (grep -oE 'depends on axioms: \[' <<< "$flat" || true) | wc -l)"
+parsed_reports="$( (grep -oE "'[^ ]+' depends on axioms: \[[^]]*\]" <<< "$flat" || true) | wc -l)"
+if [[ "$expected_reports" -ne "$parsed_reports" ]]; then
+  printf '%s\n' "audit: parsed $parsed_reports of $expected_reports axiom reports; a report was not checked" >&2
+  failed=1
+fi
+
+pattern='sorry|partial[[:space:]]+def|\bunsafe\b|implemented_by|\bextern\b|native_decide|ofReduceBool|trustCompiler|^[[:space:]]*((private|protected|noncomputable)[[:space:]]+)*axiom[[:space:]]'
 forbidden=0
 while IFS= read -r f; do
   case "$f" in

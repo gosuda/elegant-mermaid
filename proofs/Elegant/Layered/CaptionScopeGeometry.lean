@@ -19,8 +19,8 @@ rect.  The caption clearance therefore splits on descendant status:
   caption/frame clearance plus descendant frame containment);
 * `OwnerScopeExclusiveClear` - `b` is not a descendant: the owner scene box
   rect misses the interior of that foreign exclusive box;
-* `OwnerCaptionContain` - the `ownedTextRect` fallback caption lies inside the
-  owner scene box rect;
+* `OwnerCaptionContainFallback` - the `ownedTextRect` fallback caption lies inside the
+  owner scene box rect when the owner has no installed title;
 * `CaptionTitleBranchClear` - the installed-title branch of the caption rect.
 
 The fallback branch of the non-descendant case is then pure monotonicity: a
@@ -69,147 +69,25 @@ theorem ownedTextRect_group_eq {P : PipelineImpl.Params} {box : Box}
       PipelineImpl.titleRect P box.rect lines := by
   simp [PipelineImpl.ownedTextRect, hrole]
 
-/-- The `ownedTextRect` fallback caption of the owner box lies inside the
-owner scene box rect: the `titleRect` insets for group owners (with the
-caption-sizing reservations) and the centered node-size inset otherwise. -/
-def OwnerCaptionContain (inp : Input) (o : Options)
-    (res : FamilyResult) : Prop :=
-  ∀ (execution : PipelineImpl.SceneExecution inp o res) (ownerIndex : Nat),
-    let ownerBox : Box :=
-      (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).getD
-        ownerIndex ⟨"", "", default, "", false⟩
-    ownerBox.rect.Contained
-      (PipelineImpl.ownedTextRect execution.params ownerBox
-        (execution.lines.getD ownerIndex []))
-
-/-- Scene sizing facts behind the caption fallback containment: every executed
-scene carries nonnegative `clusterPad`, aligns the measured label lines with
-the model boxes, and gives every real scene box the fit facts that
-`ownedTextRect` containment needs (label height fits a node box; the caption
-reservation fits a group box). -/
-def SceneCaptionSizing (inp : Input) (o : Options)
-    (res : FamilyResult) : Prop :=
-  ∀ (execution : PipelineImpl.SceneExecution inp o res),
-    0 ≤ execution.params.clusterPad ∧
-    execution.lines.length = inp.boxes.length ∧
-    ∀ (i : Nat) (box : Box),
-      (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc)[i]? =
-        some box →
-      (box.role = "node" →
-          ((execution.lines.getD i []).length : Int) * execution.params.lineH ≤
-            box.rect.h) ∧
-      (box.role = "group" →
-          2 * execution.params.clusterPad ≤ box.rect.w ∧
-          execution.params.clusterPad +
-              (max 1 (execution.lines.getD i []).length : Int) *
-              execution.params.lineH ≤
-            box.rect.h)
-
-/-- Discharge of the fallback-containment seam from scene sizing: the
-`ownedTextRect` caption of the owner box lies inside the owner box rect — the
-`titleRect` inset for group owners, the centered text inset for nodes, and
-the trivial zero inset for indexes beyond the box list. -/
-theorem ownerCaptionContain {inp : Input} {o : Options} {res : FamilyResult}
-    (hsizing : SceneCaptionSizing inp o res) :
-    OwnerCaptionContain inp o res := by
-  intro execution ownerIndex
-  show ((PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).getD
-      ownerIndex ⟨"", "", default, "", false⟩).rect.Contained
-    (PipelineImpl.ownedTextRect execution.params
-      ((PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).getD
-        ownerIndex ⟨"", "", default, "", false⟩)
-      (execution.lines.getD ownerIndex []))
-  obtain ⟨hpad, hlines, hfit⟩ := hsizing execution
-  have hbl : (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).length
-      = inp.boxes.length := by
-    simp [PipelineImpl.sceneBoxesExpr]
-  by_cases hi : ownerIndex <
-      (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).length
-  · obtain ⟨box, hbox⟩ : ∃ box : Box,
-        (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc)[ownerIndex]? =
-          some box := ⟨_, List.getElem?_eq_getElem hi⟩
-    have hgetD : (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).getD
-        ownerIndex ⟨"", "", default, "", false⟩ = box := by
-      rw [List.getD_eq_getElem?_getD, hbox]
-      rfl
-    rw [hgetD]
-    have hs := hfit ownerIndex box hbox
-    by_cases hg : box.role = "group"
-    · rw [ownedTextRect_group_eq hg]
-      obtain ⟨hgw, hgh⟩ := hs.2 hg
-      exact titleRect_contained hpad hgw hgh
-    · unfold PipelineImpl.ownedTextRect
-      rw [ite_eq_right (by simp [hg] : ¬((box.role == "group") = true))]
-      have hnode : box.role = "node" := by
-        simp only [PipelineImpl.sceneBoxesExpr, List.getElem?_map] at hbox
-        cases hq : (inp.boxes.zipIdx)[ownerIndex]? with
-        | none => rw [hq] at hbox; simp at hbox
-        | some qy =>
-          rw [hq] at hbox
-          simp only [Option.map_some] at hbox
-          obtain ⟨mb, mi⟩ := qy
-          have hmk : Box.mk mb.id mb.role.id
-              (PipelineImpl.shiftRect execution.params.canvasMargin
-                execution.params.canvasMargin
-                (PipelineImpl.orientRect o.direction execution.packedAcc.canvasH
-                  (execution.packedAcc.rects.getD mi default)))
-              mb.parent mb.exclusive = box := Option.some.inj hbox
-          cases hroles : mb.role with
-          | node => rw [← hmk]; simp only [hroles]; rfl
-          | group => rw [← hmk] at hg; simp only [hroles, BoxRole.id] at hg; simp at hg
-      have hf := hs.1 hnode
-      have hpos : 0 ≤ execution.params.lineH := execution.parameter_signs.1
-      have hprod : 0 ≤ ((execution.lines.getD ownerIndex []).length : Int) *
-          execution.params.lineH :=
-        Int.mul_nonneg (Int.natCast_nonneg _) hpos
-      have hdiff : 0 ≤ box.rect.h -
-          ((execution.lines.getD ownerIndex []).length : Int) *
-            execution.params.lineH := by
-        simpa using hf
-      have hfeq : Int.fdiv (box.rect.h -
-          ((execution.lines.getD ownerIndex []).length : Int) *
-            execution.params.lineH) 2 =
-          (box.rect.h -
-            ((execution.lines.getD ownerIndex []).length : Int) *
-              execution.params.lineH) / 2 :=
-        Int.fdiv_eq_ediv_of_nonneg _ (by omega)
-      have hhalf_nonneg : 0 ≤ (box.rect.h -
-          ((execution.lines.getD ownerIndex []).length : Int) *
-            execution.params.lineH) / 2 :=
-        Int.ediv_nonneg hdiff (by decide)
-      have hhalf_le : (box.rect.h -
-          ((execution.lines.getD ownerIndex []).length : Int) *
-            execution.params.lineH) / 2 ≤ box.rect.h -
-          ((execution.lines.getD ownerIndex []).length : Int) *
-            execution.params.lineH :=
-        Int.ediv_le_self 2 hdiff
-      dsimp only
-      rw [hfeq]
-      show box.rect.x ≤ box.rect.x ∧
-        box.rect.x + box.rect.w ≤ box.rect.x + box.rect.w ∧
-        box.rect.y ≤ box.rect.y + (box.rect.h - ((execution.lines.getD ownerIndex []).length : Int) * execution.params.lineH) / 2 ∧
-        box.rect.y + (box.rect.h - ((execution.lines.getD ownerIndex []).length : Int) * execution.params.lineH) / 2 + ((execution.lines.getD ownerIndex []).length : Int) * execution.params.lineH ≤ box.rect.y + box.rect.h
-      refine ⟨?_, ?_, ?_, ?_⟩ <;> omega
-  · have hlen : execution.lines.length ≤ ownerIndex := by omega
-    have hge : (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).length
-        ≤ ownerIndex := by omega
-    have hll : execution.lines.getD ownerIndex [] = [] := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hlen]
-      rfl
-    have hgetD : (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).getD
-        ownerIndex ⟨"", "", default, "", false⟩ = (default : Box) := by
-      rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none hge]
-      rfl
-    have hzero : (default : Box).rect = ⟨0, 0, 0, 0⟩ := rfl
-    rw [hgetD, hll, hzero]
-    show (⟨0, 0, 0, 0⟩ : Rect).Contained
-      (PipelineImpl.ownedTextRect execution.params
-        (Box.mk "" "" ⟨0, 0, 0, 0⟩ "" false) [])
-    unfold PipelineImpl.ownedTextRect
-    rw [ite_eq_right (by decide : ¬((("" : String) == "group") = true))]
-    dsimp only
-    simp only [List.length_nil, Int.ofNat_zero, Int.zero_mul]
-    decide
+ /-- The `ownedTextRect` fallback caption of the owner box lies inside the
+ owner scene box rect, pinned to the executed fallback run: the owner input box
+ at `ownerIndex` carries no installed title. The owner is non-exclusive and owns
+ a label, matching the `sceneOf` fallback emission. -/
+def OwnerCaptionContainFallback (inp : Input) (o : Options)
+     (res : FamilyResult) : Prop :=
+   ∀ (execution : PipelineImpl.SceneExecution inp o res) (ownerIndex : Nat)
+     (obox : ModelBox),
+     inp.boxes[ownerIndex]? = some obox →
+     (PipelineImpl.sceneTitlesExpr execution.params inp o execution.lines
+         execution.packedAcc).find? (fun title => title.1 == obox.id) = none →
+     obox.exclusive = false →
+     (∃ l ∈ inp.labels, l.owner = obox.id) →
+     let ownerBox : Box :=
+       (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).getD
+         ownerIndex ⟨"", "", default, "", false⟩
+     ownerBox.rect.Contained
+       (PipelineImpl.ownedTextRect execution.params ownerBox
+         (execution.lines.getD ownerIndex []))
 
 /-- The descendant case of the caption clearance: an exclusive box that is a
 proper descendant of the caption owner lies under the owner rect (Clause 3
@@ -248,6 +126,8 @@ def OwnerScopeExclusiveClear (inp : Input) (o : Options)
     b.id ∉ res.scene.layoutDump.labelOwnerAnc
       (captionLabel inp o res execution ownerIndex source lines) →
     source.owner ∉ res.scene.layoutDump.ancestors b.id →
+    (PipelineImpl.sceneTitlesExpr execution.params inp o execution.lines
+        execution.packedAcc).find? (fun title => title.1 == source.owner) = none →
     ¬ b.rect.meetsInterior
       ((PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc).getD
         ownerIndex ⟨"", "", default, "", false⟩).rect
@@ -277,15 +157,37 @@ def CaptionTitleBranchClear (inp : Input) (o : Options)
     ¬ (PipelineImpl.sceneCaptionRect execution.params inp o execution.lines
         execution.packedAcc ownerIndex source.owner).meetsInterior b.rect
 
+/-- A `findIdx?` hit exposes the box at that index and its predicate value
+(local copy of the private `CaptionOwnerScopeFacts` helper). -/
+private theorem captionScope_findIdx_lookup {α : Type} {p : α → Bool} {l : List α}
+    {n : Nat} (h : l.findIdx? p = some n) :
+    n < l.length ∧ ∃ a, l[n]? = some a ∧ p a = true := by
+  induction l generalizing n with
+  | nil =>
+    rw [List.findIdx?_nil] at h
+    exact absurd h (by simp)
+  | cons a as ih =>
+    rw [List.findIdx?_cons] at h
+    by_cases hp : p a = true
+    · rw [ite_eq_left hp] at h
+      have hn : n = 0 := (Option.some.inj h).symm
+      subst hn
+      exact ⟨Nat.zero_lt_succ _, a, rfl, hp⟩
+    · rw [ite_eq_right hp] at h
+      obtain ⟨m, hmfind, hmn⟩ := Option.map_eq_some_iff.mp h
+      obtain ⟨hmlen, x, hxget, hpx⟩ := ih hmfind
+      rw [← hmn]
+      exact ⟨Nat.succ_lt_succ hmlen, x, (List.getElem?_cons_succ).trans hxget, hpx⟩
+
 /-- The caption seam of flat clause 7: the caption rect of the non-exclusive
 owner box misses the interior of every foreign exclusive dump box.  The
 descendant case is `CaptionDescendantClear`; the non-descendant case follows
-from `OwnerCaptionContain` and `OwnerScopeExclusiveClear` by monotonicity for
+from `OwnerCaptionContainFallback` and `OwnerScopeExclusiveClear` by monotonicity for
 the fallback caption, and is `CaptionTitleBranchClear` for an installed
 title. -/
 theorem captionScopeClearance {inp : Input} {o : Options} {res : FamilyResult}
     (hdesc : CaptionDescendantClear inp o res)
-    (hcontain : OwnerCaptionContain inp o res)
+    (hcontain : OwnerCaptionContainFallback inp o res)
     (howners : OwnerScopeExclusiveClear inp o res)
     (htitle : CaptionTitleBranchClear inp o res) :
     CaptionScopeClearance inp o res := by
@@ -293,14 +195,27 @@ theorem captionScopeClearance {inp : Input} {o : Options} {res : FamilyResult}
   by_cases hd : source.owner ∈ res.scene.layoutDump.ancestors b.id
   · exact hdesc execution index ownerIndex source lines b hsrc hmeas hfindIdx
       hmem hex hscope hd
-  · have hclr := howners execution index ownerIndex source lines b hsrc hmeas
-      hfindIdx hmem hex hscope hd
-    simp only [PipelineImpl.sceneCaptionRect]
+  · simp only [PipelineImpl.sceneCaptionRect]
     cases hopt : (PipelineImpl.sceneTitlesExpr execution.params inp o execution.lines
         execution.packedAcc).find? (fun title => title.1 == source.owner) with
     | none =>
       simp only [Option.map_none, Option.getD_none]
-      have hc := hcontain execution ownerIndex
+      have hclr := howners execution index ownerIndex source lines b hsrc hmeas
+        hfindIdx hmem hex hscope hd hopt
+      obtain ⟨_, obox, hobox, hpobox⟩ := captionScope_findIdx_lookup hfindIdx
+      have heq : obox.id = source.owner := by
+        simp only [Bool.and_eq_true, beq_iff_eq] at hpobox
+        exact hpobox.1
+      have hnone : (PipelineImpl.sceneTitlesExpr execution.params inp o execution.lines
+          execution.packedAcc).find? (fun title => title.1 == obox.id) = none := by
+        rw [heq]
+        exact hopt
+      have hexcl : obox.exclusive = false := by
+        simp only [Bool.and_eq_true, beq_iff_eq] at hpobox
+        simpa using hpobox.2
+      have hown : ∃ l ∈ inp.labels, l.owner = obox.id :=
+        ⟨source, List.mem_of_getElem? hsrc, heq.symm⟩
+      have hc := hcontain execution ownerIndex obox hobox hnone hexcl hown
       exact fun hmeet =>
         hclr (rect_meetsInterior_comm (contained_meetsInterior_mono hc hmeet))
     | some t =>

@@ -1,4 +1,5 @@
 import Elegant.Kinds.Common
+import Elegant.Layered.LayeredAdmission
 
 set_option autoImplicit false
 
@@ -253,11 +254,14 @@ def decorate (m : Model) (s : Scene) : Except LayoutError Scene :=
 def routeMarkers (m : Model) : List RouteMarkers :=
   m.routes.map fun r => ⟨r.id, sceneMarker r.markerStart, sceneMarker r.markerEnd⟩
 
+/-- Adapter entrypoint: the family runs only on an admissible input (nonempty box
+ids, no box id naming a route id, exclusive fixed-size boxes, positive fixed sizes);
+otherwise `.error (.geometry .domain)`. -/
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
   match classSizes m with
   | .error e => .error (.geometry e)
   | .ok sizes =>
-    match Layered.layoutFamily (input m sizes) m.options with
+    match Layered.admit (input m sizes) (Layered.layoutFamily (input m sizes) m.options) with
     | .error e => .error e
     | .ok result =>
       match decorate m (result.scene.projectCellAttachments (routeMarkers m)) with

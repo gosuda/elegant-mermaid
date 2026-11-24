@@ -637,15 +637,16 @@ func edgeItems(route scene.Route, options EdgeOptions, profile scene.Profile) []
 	}
 	end := len(route.Points) - 1
 	if options.MarkerStart != "" {
-		items = append(items, &scene.MarkerRef{Marker: options.MarkerStart, At: route.Points[0], Axis: markerAxis(route.Points[1], route.Points[0])})
+		items = append(items, &scene.MarkerRef{Marker: options.MarkerStart, At: route.Points[0], Axis: MarkerAxis(route.Points[1], route.Points[0])})
 	}
 	if options.MarkerEnd != "" {
-		items = append(items, &scene.MarkerRef{Marker: options.MarkerEnd, At: route.Points[end], Axis: markerAxis(route.Points[end-1], route.Points[end])})
+		items = append(items, &scene.MarkerRef{Marker: options.MarkerEnd, At: route.Points[end], Axis: MarkerAxis(route.Points[end-1], route.Points[end])})
 	}
 	return items
 }
 
-func markerAxis(a, b geom.Point) scene.Axis {
+// MarkerAxis reports the dominant axis from a to b, breaking ties toward x.
+func MarkerAxis(a, b geom.Point) scene.Axis {
 	dx, dy := int64(b.X)-int64(a.X), int64(b.Y)-int64(a.Y)
 	if abs64(dx) >= abs64(dy) {
 		if dx < 0 {

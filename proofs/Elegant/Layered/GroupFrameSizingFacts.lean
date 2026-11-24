@@ -380,6 +380,41 @@ theorem SceneExecution.component_group_caption_oriented_fit
     hpart hkey hnode hborder hbox hrect
   cases hd : o.direction <;> simp only [hd, orientRect] at hfit ⊢ <;> exact hfit
 
+theorem SceneExecution.packed_key_rect_minimum_dims
+    {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecution inp o res)
+    {key : Nat} (hkey : key < inp.boxes.length) (floor : Size)
+    (hfit : ∀ {part : List Nat × Part}, part ∈ execution.componentsAcc.parts →
+      ∀ {i : Nat} {rect : Rect}, part.1[i]? = some key → part.2.rects[i]? = some rect →
+        floor.w ≤ rect.w ∧ floor.h ≤ rect.h) :
+    ∃ rect, execution.packedAcc.rects[key]? = some rect ∧
+      floor.w ≤ rect.w ∧ floor.h ≤ rect.h := by
+  let minimum : Nat → Size := fun i => if i = key then floor else ⟨0, 0⟩
+  have hparts : ∀ part ∈ execution.componentsAcc.parts,
+      ∀ entry ∈ part.1.zip part.2.rects,
+      (minimum entry.1).w ≤ entry.2.w ∧
+        (minimum entry.1).h ≤ entry.2.h := by
+    intro part hpart entry hentry
+    obtain ⟨i, hi, heq⟩ := List.mem_iff_getElem.mp hentry
+    simp only [List.length_zip] at hi
+    have hil : i < part.1.length := Nat.lt_of_lt_of_le hi (Nat.min_le_left _ _)
+    have hir : i < part.2.rects.length := Nat.lt_of_lt_of_le hi (Nat.min_le_right _ _)
+    have hpair : (part.1[i], part.2.rects[i]) = entry := by
+      simpa only [List.getElem_zip] using heq
+    have hkey : part.1[i]? = some entry.1 := by
+      rw [List.getElem?_eq_getElem hil, ← hpair]
+    have hrect : part.2.rects[i]? = some entry.2 := by
+      rw [List.getElem?_eq_getElem hir, ← hpair]
+    have hb := execution.components_parts_bounded part hpart
+    have hn := hb.2.2.1 entry.2 (List.of_mem_zip hentry).2
+    by_cases he : entry.1 = key
+    · simpa only [minimum, he, ↓reduceIte] using hfit hpart (he ▸ hkey) hrect
+    · simpa only [minimum, he, ↓reduceIte] using hn.2.2.2.2
+  obtain ⟨rect, hrect⟩ := execution.packed_rect_exists hkey
+  have hpacked := packAcc_rect_minimum_dimensions_of_coverage minimum execution.packed_eq
+    (fun i r hr => Or.inr (execution.parts_coverage i r hr)) hparts key rect hrect
+  exact ⟨rect, hrect, by simpa only [minimum, ↓reduceIte] using hpacked⟩
+
 theorem SceneExecution.group_caption_packed_rank_fit
     {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res)
@@ -401,35 +436,13 @@ theorem SceneExecution.group_caption_packed_rank_fit
       | .TB | .BT =>
         (max 1 (execution.lines.getD key []).length : Int) * execution.params.lineH) +
       execution.params.clusterPad
-  let minimum : Nat → Size := fun i => ⟨0, if i = key then caption else 0⟩
-  have hparts : ∀ part ∈ execution.componentsAcc.parts,
-      ∀ entry ∈ part.1.zip part.2.rects,
-      (minimum entry.1).w ≤ entry.2.w ∧
-        (minimum entry.1).h ≤ entry.2.h := by
-    intro part hpart entry hentry
-    obtain ⟨i, hi, heq⟩ := List.mem_iff_getElem.mp hentry
-    simp only [List.length_zip] at hi
-    have hil : i < part.1.length := Nat.lt_of_lt_of_le hi (Nat.min_le_left _ _)
-    have hir : i < part.2.rects.length := Nat.lt_of_lt_of_le hi (Nat.min_le_right _ _)
-    have hpair : (part.1[i], part.2.rects[i]) = entry := by
-      simpa only [List.getElem_zip] using heq
-    have hkey : part.1[i]? = some entry.1 := by
-      rw [List.getElem?_eq_getElem hil, ← hpair]
-    have hrect : part.2.rects[i]? = some entry.2 := by
-      rw [List.getElem?_eq_getElem hir, ← hpair]
-    have hb := execution.components_parts_bounded part hpart
-    have hn := hb.2.2.1 entry.2 (List.of_mem_zip hentry).2
-    refine ⟨hn.2.2.2.2.1, ?_⟩
-    by_cases he : entry.1 = key
-    · have hfit := execution.component_group_caption_rank_fit
-        (hpart := hpart) (hkey := he ▸ hkey) hnode hborder hsource hrect
-      simpa only [minimum, he, ↓reduceIte, caption] using hfit
-    · simpa only [minimum, he, ↓reduceIte] using hn.2.2.2.2.2
-  obtain ⟨rect, hrect⟩ := execution.packed_rect_exists
-    (List.getElem?_eq_some_iff.mp hsource).1
-  have hfit := packAcc_rect_minimum_dimensions_of_coverage minimum execution.packed_eq
-    (fun i r hr => Or.inr (execution.parts_coverage i r hr)) hparts key rect hrect
-  exact ⟨rect, hrect, by simpa only [minimum, ↓reduceIte, caption] using hfit.2⟩
+  obtain ⟨rect, hrect, _, hheight⟩ := execution.packed_key_rect_minimum_dims
+    (List.getElem?_eq_some_iff.mp hsource).1 ⟨0, caption⟩ (by
+      intro part hpart _ rect hkey hrect
+      exact ⟨((execution.components_parts_bounded part hpart).2.2.1 rect
+          (List.mem_of_getElem? hrect)).2.2.2.2.1,
+        execution.component_group_caption_rank_fit hpart hkey hnode hborder hsource hrect⟩)
+  exact ⟨rect, hrect, hheight⟩
 
 theorem SceneExecution.group_caption_output_rank_fit
     {inp : Input} {o : Options} {res : FamilyResult}

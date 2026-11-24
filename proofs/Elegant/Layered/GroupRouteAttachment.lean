@@ -23,11 +23,9 @@ transported `boxRect`, and transports both through
 
 namespace Elegant.Layered.PipelineImpl
 
-/-- The per-endpoint facts for a `border = -2` group top proxy.  The first six
-conjuncts are the premises of `componentRun_group_frame_boundary` in their
-executed forms; the last two state that the endpoint's port form is the frame
-top (`frameKind = -2`, proxy height zero), which collapses both stored port
-forms of `route_endpoints_on_ports` to `⟨px, run.ys.getD v 0⟩`. -/
+/-- The executed facts for a `border = -2` group top proxy. The marker kind
+selects the semantic top port in either route direction. Zero proxy height is
+a separate fact of the flat execution. -/
 def GroupTopEndpointData (cg : Graph) (run : Run) (v : Nat) : Prop :=
   (cg.nodes.getD v default).border = -2 ∧
     run.coordinateProper.nodes[v]? = some (run.coordinateProper.nodes.getD v default) ∧
@@ -133,7 +131,7 @@ theorem group_top_port_eq_ys
     (RouteImpl.boxRect run.proper run.xs run.ys v).y = run.ys.getD v 0 := by
   simp only [RouteImpl.boxRect, RouteImpl.yAt]
 
-/-- The frame-top port form coincides with the frame's vertical top. -/
+/-- A flat top proxy's physical bottom coincides with its top. -/
 theorem group_top_frame_y_eq_ys
     {cg : Graph} {run : Run} {v : Nat} (hdata : GroupTopEndpointData cg run v) :
     (RouteImpl.boxRect run.proper run.xs run.ys v).y +
@@ -195,57 +193,26 @@ theorem componentRun_group_route_attachment_of_facts
   have hl := hedge last (RouteImpl.mem_edgesOf (List.mem_of_getLast? hlast))
   have hsh := (hdims _ hf.1).2
   have hth := (hdims _ hl.2.1).2
-  -- plain box-rectangle boundaries at both ends
-  have hsPlain : Validator.onBoundary
-      ⟨px, (RouteImpl.boxRect run.proper run.xs run.ys
-        (RouteImpl.edgeAt run.proper first).tail).y +
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).h⟩
-      (RouteImpl.boxRect run.proper run.xs run.ys (RouteImpl.edgeAt run.proper first).tail) := by
-    simp only [Validator.onBoundary, RouteImpl.boxRect]
-    exact ⟨hpx0, hpx1, by omega, by omega, Or.inr (Or.inr (Or.inr True.intro))⟩
   have htPlain : Validator.onBoundary
       ⟨qx, (RouteImpl.boxRect run.proper run.xs run.ys
         (RouteImpl.edgeAt run.proper last).head).y⟩
       (RouteImpl.boxRect run.proper run.xs run.ys (RouteImpl.edgeAt run.proper last).head) := by
     simp only [Validator.onBoundary, RouteImpl.boxRect]
     exact ⟨hqx0, hqx1, by omega, by omega, Or.inr (Or.inr (Or.inl True.intro))⟩
-  -- non-reversed head point on the source frame
   have hsb : Validator.onBoundary
-      ⟨px, if RouteImpl.frameKind run.proper (RouteImpl.edgeAt run.proper first).tail = -2 then
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).y else
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).y +
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).h⟩
+      ⟨px, RouteImpl.tailPortY run.proper run.ys (RouteImpl.edgeAt run.proper first).tail⟩
       (frameRect P cg run (RouteImpl.edgeAt run.proper first).tail) := by
     by_cases hg : (cg.nodes.getD (RouteImpl.edgeAt run.proper first).tail default).border = -2
     · obtain ⟨-, -, -, -, -, -, -, hfk, -⟩ := hsrc hg
-      simp only [hfk, ↓reduceIte]
-      simpa only [RouteImpl.boxRect, RouteImpl.yAt] using
-        group_top_boundary hrun (hsrc hg) px ⟨hpx0, hpx1⟩
+      rw [RouteImpl.tailPortY, ite_eq_left hfk]
+      exact group_top_boundary hrun (hsrc hg) px ⟨hpx0, hpx1⟩
     · rw [plain_frame_eq_boxRect' P cg run _ hf.1 hg]
       by_cases hfk : RouteImpl.frameKind run.proper
           (RouteImpl.edgeAt run.proper first).tail = -2
-      · simp only [hfk, ↓reduceIte, Validator.onBoundary, RouteImpl.boxRect]
+      · simp only [RouteImpl.tailPortY, hfk, ↓reduceIte, Validator.onBoundary, RouteImpl.boxRect]
         exact ⟨hpx0, hpx1, by omega, by omega, Or.inr (Or.inr (Or.inl True.intro))⟩
-      · simp only [hfk, ↓reduceIte]
-        exact hsPlain
-  -- reversed last point on the source frame
-  have hsbRev : Validator.onBoundary
-      ⟨px, (RouteImpl.boxRect run.proper run.xs run.ys
-        (RouteImpl.edgeAt run.proper first).tail).y +
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).h⟩
-      (frameRect P cg run (RouteImpl.edgeAt run.proper first).tail) := by
-    by_cases hg : (cg.nodes.getD (RouteImpl.edgeAt run.proper first).tail default).border = -2
-    · have hdata := hsrc hg
-      have hy := group_top_frame_y_eq_ys (cg := cg) (run := run) hdata
-      rw [hy]
-      exact group_top_boundary hrun hdata px ⟨hpx0, hpx1⟩
-    · rw [plain_frame_eq_boxRect' P cg run _ hf.1 hg]
-      exact hsPlain
+      · simp only [RouteImpl.tailPortY, hfk, ↓reduceIte, Validator.onBoundary, RouteImpl.boxRect]
+        exact ⟨hpx0, hpx1, by omega, by omega, Or.inr (Or.inr (Or.inr True.intro))⟩
   -- head point on the target frame
   have htb : Validator.onBoundary
       ⟨qx, (RouteImpl.boxRect run.proper run.xs run.ys
@@ -275,7 +242,7 @@ theorem componentRun_group_route_attachment_of_facts
       exact (onBoundary_shift _ _ _ _).mpr htb
     · apply (onBoundary_shift _ _ _ _).mpr
       apply (onBoundary_orient _ _ _ _).mpr
-      exact (onBoundary_shift _ _ _ _).mpr hsbRev
+      exact (onBoundary_shift _ _ _ _).mpr hsb
   · rename_i hrev
     obtain ⟨hhead, htail⟩ := hend
     refine ⟨rt, _, _, hrt, horiginal, hplaced, hhead, htail, ?_⟩

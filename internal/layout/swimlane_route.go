@@ -372,6 +372,10 @@ func (r *bandRouter) polyline(grid *routeGrid, vertices []int, ends routeEnds) (
 		raw = append(raw, r.axis.at(cross, rank))
 	}
 	raw = append(raw, ends.target)
+	return simplifyPolyline(raw), nil
+}
+
+func simplifyPolyline(raw []geom.Point) []geom.Point {
 	var points []geom.Point
 	for _, p := range raw {
 		if len(points) > 0 && points[len(points)-1] == p {
@@ -382,7 +386,7 @@ func (r *bandRouter) polyline(grid *routeGrid, vertices []int, ends routeEnds) (
 		}
 		points = append(points, p)
 	}
-	return points, nil
+	return points
 }
 
 func collinear(a, b, c geom.Point) bool {

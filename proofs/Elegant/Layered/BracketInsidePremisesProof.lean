@@ -37,7 +37,7 @@ namespace Elegant.Layered.PipelineImpl
 `l` is itself a member of `S`: the infix is one contiguous block
 `s ++ S ++ t`, nodup makes the three segments value-disjoint, and the
 positional bounds force the middle index into the `S` segment. -/
-private theorem mem_of_between_infix {α : Type} {l S : List α} {a b c : α}
+theorem mem_of_between_infix {α : Type} {l S : List α} {a b c : α}
     {li vi ri : Nat}
     (hnd : l.Nodup) (h : S.IsInfix l)
     (ha : a ∈ S) (hb : b ∈ S)

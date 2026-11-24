@@ -7,7 +7,7 @@ This file fixes line endings, frontmatter, directives, comments, entity decoding
 - preprocessing-001: The config-value reader MUST parse three inputs: the frontmatter body, the body of a directive, and the `Config` text of the layout options. [just go-check]
 - preprocessing-002: The reader MUST be recursive-descent, MUST NOT backtrack, and MUST fail at the first byte that the current rule does not accept. [just go-check]
 - preprocessing-003: Go MUST expose `syntax.ParseConfigYAML(src, start, end)` and `syntax.ParseConfigJSON(src, start, end)`. [just go-check]
-- preprocessing-004: Rust MUST expose `parse_config_yaml` and `parse_config_json` in the `syntax` module, file `config_value.rs`, with the same arguments. [just rust-check]
+- preprocessing-004: Rust MUST expose `parse_config_yaml` and `parse_config_json` in the `syntax` module, file `crates/elegant-mermaid/src/syntax/config_value.rs`, with the same arguments. [just rust-check]
 - preprocessing-005: Each call MUST return one `ConfigValue` and an ordered list of diagnostics. [just go-check]
 - preprocessing-006: `start` and `end` MUST be byte offsets into `src`, and every span MUST be a byte offset into `src`. [just go-check]
 

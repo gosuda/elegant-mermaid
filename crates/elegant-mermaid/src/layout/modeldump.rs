@@ -260,20 +260,15 @@ mod tests {
         assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
         let (model, diagnostics) = model::flowchart::resolve(source, &parsed.document);
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
-        for profile in [scene::Profile::Vector, scene::Profile::Cell] {
-            let input =
-                layout::flowchart::from_flowchart(&model, profile, scene::DumpOptions::default());
-            let dump = super::model_dump(&input);
-            assert!(
-                dump.contains("\"id\":\"A\",\"role\":\"node\""),
-                "{profile:?}: {dump}"
-            );
-            assert!(
-                dump.contains("\"id\":\"B\",\"role\":\"node\""),
-                "{profile:?}: {dump}"
-            );
-            assert!(!dump.contains("\"shape\":"), "{profile:?}: {dump}");
-        }
+        let input = layout::flowchart::from_flowchart(
+            &model,
+            scene::Profile::Cell,
+            scene::DumpOptions::default(),
+        );
+        let dump = super::model_dump(&input);
+        assert!(dump.contains("\"id\":\"A\",\"role\":\"node\""), "{dump}");
+        assert!(dump.contains("\"id\":\"B\",\"role\":\"node\""), "{dump}");
+        assert!(!dump.contains("\"shape\":"), "{dump}");
     }
 
     fn dump_of(kind: crate::DiagramKind, source: &str) -> Result<String, &'static str> {

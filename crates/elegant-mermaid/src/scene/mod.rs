@@ -318,7 +318,7 @@ impl Scene {
         &self.dump.labels
     }
 
-    /// The dump part.
+    /// The relation section that `spec/layout-dump.md` serializes, without the draw groups.
     pub fn dump_part(&self) -> &Dump {
         &self.dump
     }

@@ -37,10 +37,12 @@ def GroupAnchorSelection : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
     (∀ {v : Nat} {n : Node}, graph.nodes[v]? = some n → n.border = 2 →
       v = Compound.bottomIndex (preparedBoxes inp) n.decl) ∧
     ∀ {j : Nat} {src : ModelBox},
       inp.boxes[j]? = some src → src.role = .group →
+      inp.fixedSizes.any (fun fixed => fixed.1 == src.id) = false →
       ∃ (top : Node) (comp : List Nat) (_ : comp ∈ components graph),
         graph.nodes[j]? = some top ∧ top.border = -2 ∧ top.decl = j ∧
           j ∈ comp ∧ Compound.bottomIndex (preparedBoxes inp) j ∈ comp
@@ -534,6 +536,8 @@ private theorem bottom_dump_box_boundary {inp : Input} {o : Options} {res : Fami
     (execution : SceneExecution inp o res)
     (hids : (inp.boxes.map (·.id)).Nodup)
     (hanchor : GroupAnchorSelection) (hbottom : GroupBottomBoundaryFacts)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     {q : (List Nat × Part) × Rect}
     (hcompIn : q.1.1 ∈ components execution.graph)
     (packed : Pack.State)
@@ -568,11 +572,31 @@ private theorem bottom_dump_box_boundary {inp : Input} {o : Options} {res : Fami
         (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate)
           run execution.measured loops).minY
         ⟨px, run.ys.getD pos 0⟩) b.rect := by
-  have hanchorRes := hanchor execution.graph_eq
+  have hlines : execution.lines.length = inp.boxes.length := by
+    have hle := execution.lines_eq
+    unfold boxLines at hle
+    have hlen := (mapM_getElem? _ _ _ hle).1
+    simpa [List.length_zipIdx] using hlen
+  have hanchorRes := hanchor execution.graph_eq hlines
   have hposW : w = Compound.bottomIndex (preparedBoxes inp) n.decl :=
     hanchorRes.1 hn hb2
+  have hfixed : inp.fixedSizes.any (fun fixed => fixed.1 == s.id) = false := by
+    obtain ⟨pbox, hpb, hpg, _, _, _⟩ :=
+      measuredGraph_bottom_origin execution.graph_eq (List.mem_of_getElem? hn) hb2
+    have hlook := preparedBoxes_lookup hs
+    have hpb' : (preparedBoxes inp)[n.decl]? = some pbox := by
+      simpa [preparedBoxes] using hpb
+    rw [hlook] at hpb'
+    cases hf : inp.fixedSizes.any (fun fixed => fixed.1 == s.id) with
+    | true =>
+      simp only [hf, ↓reduceIte] at hpb'
+      have hcon : ({ s with role := .node } : ModelBox) = pbox :=
+        Option.some.inj hpb'
+      rw [← hcon] at hpg
+      simp at hpg
+    | false => rfl
   obtain ⟨top, comp, hmem, hntop, htopB, htopDecl, hjIn, hbotIn⟩ :=
-    hanchorRes.2 hs hgrp
+    hanchorRes.2 hs hgrp hfixed
   have hwIn : w ∈ q.1.1 := List.mem_of_getElem? hpos
   have hbotIn' : w ∈ comp := by rw [hposW]; exact hbotIn
   have hcompEq : comp = q.1.1 :=
@@ -594,7 +618,8 @@ private theorem bottom_dump_box_boundary {inp : Input} {o : Options} {res : Fami
     rw [hntop]
     rfl
   have hbound :=
-    hbottom hrun (v := pos) (t := q.1.1.idxOf n.decl) (px := px)
+    hbottom execution.graph_eq hlines hwf hfp hcompIn hrun (v := pos)
+      (t := q.1.1.idxOf n.decl) (px := px)
       (by rw [hcgNode]; exact hb2)
       (by rw [hcgTop]; exact htopB)
       (by rw [hcgNode, hcgTop]; exact htopDecl.symm)
@@ -800,7 +825,8 @@ theorem SceneExecution.chosen_part_group_c5_alias
         have hstartF : start = ⟨pxF,
             run.ys.getD edge.tail 0⟩ := Option.some.inj (hstart.symm.trans hheadF')
         obtain ⟨bF, hbFlookup, hbFbound⟩ :=
-          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hcomp packed hpacked
+          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hwf hfp hcomp
+            packed hpacked
             (c := c) hselected (candidate := candidate) (run := run)
             (labels := execution.measured) (orderOptions := candidateOrder candidate) hrun
             (loops := loops) (area := area) hpart hposF (n := nF) hnF hb2F (s := sF) hsF
@@ -834,7 +860,8 @@ theorem SceneExecution.chosen_part_group_c5_alias
         have hfinishT : finish = ⟨qxT,
             run.ys.getD edge.head 0⟩ := Option.some.inj (hfinish.symm.trans hlastT')
         obtain ⟨bT, hbTlookup, hbTbound⟩ :=
-          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hcomp packed hpacked
+          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hwf hfp hcomp
+            packed hpacked
             (c := c) hselected (candidate := candidate) (run := run)
             (labels := execution.measured) (orderOptions := candidateOrder candidate) hrun
             (loops := loops) (area := area) hpart hposTt (n := nT) hnT hb2T (s := sT) hsT
@@ -887,7 +914,8 @@ theorem SceneExecution.chosen_part_group_c5_alias
         have hstartF : start = ⟨qxT,
             run.ys.getD edge.head 0⟩ := Option.some.inj (hstart.symm.trans hheadT')
         obtain ⟨bF, hbFlookup, hbFbound⟩ :=
-          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hcomp packed hpacked
+          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hwf hfp hcomp
+            packed hpacked
             (c := c) hselected (candidate := candidate) (run := run)
             (labels := execution.measured) (orderOptions := candidateOrder candidate) hrun
             (loops := loops) (area := area) hpart hposF (n := nF) hnF hb2F (s := sF) hsF
@@ -930,7 +958,8 @@ theorem SceneExecution.chosen_part_group_c5_alias
         have hfinishT : finish = ⟨pxF,
             run.ys.getD edge.tail 0⟩ := Option.some.inj (hfinish.symm.trans hlastF')
         obtain ⟨bT, hbTlookup, hbTbound⟩ :=
-          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hcomp packed hpacked
+          bottom_dump_box_boundary (q := q) execution hids hanchor hbottom hwf hfp hcomp
+            packed hpacked
             (c := c) hselected (candidate := candidate) (run := run)
             (labels := execution.measured) (orderOptions := candidateOrder candidate) hrun
             (loops := loops) (area := area) hpart hposTt (n := nT) hnT hb2T (s := sT) hsT

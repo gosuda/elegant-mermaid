@@ -133,7 +133,7 @@ fn append_boxes(
     }
     Ok(())
 }
-fn marker_axis(a: Point, b: Point) -> MarkerAxis {
+pub(crate) fn marker_axis(a: Point, b: Point) -> MarkerAxis {
     let dx = i64::from(b.x) - i64::from(a.x);
     let dy = i64::from(b.y) - i64::from(a.y);
     match (dx.abs() >= dy.abs(), dx < 0, dy < 0) {

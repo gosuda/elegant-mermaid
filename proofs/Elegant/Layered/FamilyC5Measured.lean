@@ -23,28 +23,42 @@ def GroupEndpointInvariantMeasured (inp : Input) (scene : Scene) : Prop :=
         Validator.onBoundary start fromBox.rect ∧
         Validator.onBoundary finish toBox.rect
 
-/-- The remaining bottom-proxy frame fact, stated exactly as
-`componentRun_group_frame_boundary` states it for `border = -2` top proxies:
-a route port of a `border = 2` bottom marker lies on the frame of its paired
-`border = -2` top marker.  `componentRun_proxy_interval` covers both border
-classes for the horizontal port span; the vertical half is the mirror of the
-top-proxy member routing bound (`rk top + 1 ≤ rk bottom` from
-`componentRun_group_top_lt_bottom`, transferred through `rankAxis_node_in_band`
-and `top_mono`), with the bottom proxy itself supplying the frame's bottom
-edge because `frameRect`'s rectangle list contains every node whose cluster
-path contains the declaration, the proxy included. -/
+/-- The remaining bottom-proxy frame fact, over the executed pipeline: for a
+`measuredGraph` success with `lines.length = inp.boxes.length`, a well-formed
+framed-parents input, a reported component `comp`, and a successful
+`componentRun` on `componentCandidate graph comp candidate`, a route port of a
+`border = 2` bottom marker lies on the frame of its paired `border = -2` top
+marker.  The executed premises rule out hand-built graphs (e.g. an extra
+`border = 1` node with cluster path `[decl]` below `v`, which would extend the
+frame of `t` past the port point): such a node cannot appear in a measured
+component.  The vertical half is the mirror of the top-proxy member routing
+bound (`rk top + 1 ≤ rk bottom` from `componentRun_group_top_lt_bottom`,
+transferred through `rankAxis_node_in_band` and `top_mono`), with the bottom
+proxy itself supplying the frame's bottom edge because `frameRect`'s rectangle
+list contains every node whose cluster path contains the declaration, the proxy
+included. -/
 def GroupBottomBoundaryFacts : Prop :=
-  ∀ {P : Params} {cg : Graph} {run : Run}
-    {labels : List MeasuredLabel} {orderOptions : OrderOptions},
-    componentRun P cg labels orderOptions = .ok run →
+  ∀ {P : Params} {inp : Input} {o : Options}
+    {lines : List (List Measure.Line)} {graph : Graph},
+    measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
+    ∀ {comp : List Nat}, comp ∈ components graph →
+    ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
+      {orderOptions : OrderOptions},
+    componentRun P (componentCandidate graph comp candidate) labels
+      orderOptions = .ok run →
     ∀ {v t : Nat} {px : Int},
-    (cg.nodes.getD v default).border = 2 →
-    (cg.nodes.getD t default).border = -2 →
-    (cg.nodes.getD v default).decl = (cg.nodes.getD t default).decl →
+    ((componentCandidate graph comp candidate).nodes.getD v default).border = 2 →
+    ((componentCandidate graph comp candidate).nodes.getD t default).border = -2 →
+    ((componentCandidate graph comp candidate).nodes.getD v default).decl =
+      ((componentCandidate graph comp candidate).nodes.getD t default).decl →
     (RouteImpl.boxRect run.proper run.xs run.ys v).x ≤ px ∧
       px ≤ (RouteImpl.boxRect run.proper run.xs run.ys v).x +
         (RouteImpl.boxRect run.proper run.xs run.ys v).w →
-    Validator.onBoundary ⟨px, run.ys.getD v 0⟩ (frameRect P cg run t)
+    Validator.onBoundary ⟨px, run.ys.getD v 0⟩
+      (frameRect P (componentCandidate graph comp candidate) run t)
 
 /-! ### Carried-over private helpers (renamed `_measured`) -/
 
