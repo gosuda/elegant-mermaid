@@ -413,8 +413,11 @@ fn content_extent(
         }
     }
     for route in routes {
-        let inside =
-            lane_of(input, &route.from) == Some(lane) && lane_of(input, &route.to) == Some(lane);
+        let inside = if lane.is_empty() {
+            band.members.contains(&route.from) && band.members.contains(&route.to)
+        } else {
+            lane_of(input, &route.from) == Some(lane) && lane_of(input, &route.to) == Some(lane)
+        };
         if inside {
             for point in &route.points {
                 extend(i64::from(axis.value(*point)));

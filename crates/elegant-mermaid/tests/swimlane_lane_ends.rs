@@ -33,12 +33,35 @@ fn swimlane_scene(
     );
     let input = layout::swimlane::from_swimlane(&resolved, profile, DumpOptions::default());
     let (scene, _) = layout::families::layout(&input)?;
-    assert!(
-        scene.check()?,
+    assert_eq!(
+        scene.validate()?,
+        None,
         "scene violates a hard clause for {source:?} {profile:?}: {}",
         scene.dump()
     );
     Ok(scene)
+}
+
+#[test]
+fn loose_route_stays_clear_of_named_lane_node() -> TestResult {
+    let label = "Y".repeat(256);
+    let src = format!("swimlane-beta LR\n  subgraph A\n    a1\n  end\n  o1 -->|{label}| o2\n");
+    let scene = swimlane_scene(&src, Profile::Vector)?;
+    assert!(
+        scene
+            .routes()
+            .iter()
+            .any(|r| r.from == "o1" && r.to == "o2"),
+        "missing loose route o1 -> o2"
+    );
+    assert!(
+        scene
+            .boxes()
+            .iter()
+            .any(|b| b.id == "a1" && b.parent == "A" && b.exclusive),
+        "missing exclusive node a1 in lane A"
+    );
+    Ok(())
 }
 
 fn lane_sources() -> Vec<(String, String)> {

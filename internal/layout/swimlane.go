@@ -1,6 +1,8 @@
 package layout
 
 import (
+	"slices"
+
 	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/gen"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
@@ -293,7 +295,13 @@ func contentExtent(in Input, s *scene.Scene, band *laneBand, axis laneAxis) lane
 	}
 	for i := range s.Routes {
 		route := &s.Routes[i]
-		if !inLane(in, route.From, band.id) || !inLane(in, route.To, band.id) {
+		var withinBand bool
+		if band.id == "" {
+			withinBand = slices.Contains(band.members, route.From) && slices.Contains(band.members, route.To)
+		} else {
+			withinBand = inLane(in, route.From, band.id) && inLane(in, route.To, band.id)
+		}
+		if !withinBand {
 			continue
 		}
 		for j := range route.Points {

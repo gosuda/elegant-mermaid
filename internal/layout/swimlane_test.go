@@ -210,6 +210,13 @@ func TestSwimlaneRoutesBetweenBandsStayClearOfOtherNodes(t *testing.T) {
 	}
 }
 
+func TestSwimlaneLooseRouteStaysClearOfLaneNodes(t *testing.T) {
+	const src = "swimlane-beta LR\n  subgraph A\n    a1\n  end\n  o1 -->|"
+	for _, labelLength := range []int{128, 256} {
+		swimlaneScene(t, src+strings.Repeat("Y", labelLength)+"| o2\n", scene.ProfileVector)
+	}
+}
+
 func TestSwimlaneRebuiltRouteIsWhatTheEdgeGroupDraws(t *testing.T) {
 	s := swimlaneScene(t, forwardCrossBand, scene.ProfileVector)
 	for _, group := range s.Groups {
