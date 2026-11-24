@@ -1,0 +1,77 @@
+use std::{fs, path::PathBuf, time::Instant};
+
+use elegant_mermaid::{LayoutOptions, Profile, cells, layout, parse_bytes, scene};
+
+type Error = Box<dyn std::error::Error>;
+
+fn probe(path: &str, output: Option<&PathBuf>, index: usize) -> Result<(), Error> {
+    let source = fs::read(path)?;
+    let document = parse_bytes(&source);
+    if document.has_errors() {
+        return Err(format!("{:?}", document.diagnostics()).into());
+    }
+    let mut options = scene::DumpOptions {
+        profile: scene::Profile::Cell,
+        ..scene::DumpOptions::default()
+    };
+    document.config().apply_to(&mut options);
+    let input = document
+        .resolved()
+        .ok_or("missing model")?
+        .input(scene::Profile::Cell, options)?;
+    let family = layout::families::FAMILIES
+        .iter()
+        .find(|family| family.kind == input.kind)
+        .ok_or("missing family")?;
+    let before = (family.layout)(&input)?.0;
+    if std::env::var_os("CELL_REPAIR_RAW_ONLY").is_some() {
+        for group in before.items() {
+            for item in &group.items {
+                if let scene::Item::Text(text) = item {
+                    println!("{}\t{}\t{}\t{}\t{}", group.owner, text.rect.x, text.rect.y, text.rect.w, text.rect.h);
+                }
+            }
+        }
+        return Ok(());
+    }
+    let before_count = cells::render(&before, &cells::Options::default())?.route_conflicts;
+    let started = Instant::now();
+    let after = layout(
+        &document,
+        &LayoutOptions {
+            profile: Profile::Cell,
+            ..LayoutOptions::default()
+        },
+    )?;
+    let elapsed = started.elapsed();
+    let rendered = cells::render(&after, &cells::Options::default())?;
+    println!(
+        "{path}\t{}\t{}\t{before_count}\t{}\t{}",
+        after.check()?,
+        rendered.refused_clusters,
+        rendered.route_conflicts,
+        elapsed.as_millis()
+    );
+    if let Some(output) = output {
+        fs::write(
+            output.join(format!("{index:04}-before.json")),
+            before.dump(),
+        )?;
+        fs::write(output.join(format!("{index:04}-after.json")), after.dump())?;
+        fs::write(output.join(format!("{index:04}.txt")), rendered.text)?;
+    }
+    Ok(())
+}
+
+fn main() -> Result<(), Error> {
+    let output = std::env::var_os("CELL_REPAIR_AUDIT_DIR").map(PathBuf::from);
+    if let Some(path) = &output {
+        fs::create_dir_all(path)?;
+    }
+    for (index, path) in std::env::args().skip(1).enumerate() {
+        if let Err(error) = probe(&path, output.as_ref(), index) {
+            println!("{path}\terror\t{error}");
+        }
+    }
+    Ok(())
+}
