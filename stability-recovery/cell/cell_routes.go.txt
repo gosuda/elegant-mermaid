@@ -1,0 +1,185 @@
+package layout
+
+import (
+	"slices"
+
+	"github.com/gosuda/elegant-mermaid/internal/cells"
+	"github.com/gosuda/elegant-mermaid/internal/geom"
+	"github.com/gosuda/elegant-mermaid/internal/scene"
+)
+
+const cellRouteRasterBudget int64 = 1 << 20
+
+type cellRouteScore struct{ refused, conflicts int }
+
+func (score cellRouteScore) improves(previous cellRouteScore) bool {
+	return score.refused <= previous.refused && score.conflicts <= previous.conflicts && (score.refused < previous.refused || score.conflicts < previous.conflicts)
+}
+
+func cellRouteWithinBudget(size geom.Size) bool {
+	return size.W >= 0 && size.H >= 0 && int64(size.W)*int64(size.H) <= cellRouteRasterBudget
+}
+
+// repairCellRoutes runs after family drawing and before attachment projection.
+// Every step preserves canonical constraints and decreases refused glyphs or
+// ambiguous route cells without increasing either count. Incomplete glyph
+// repairs remain private; the finite coordinate grid is fixed at entry.
+func repairCellRoutes(s *scene.Scene) {
+	if !cellRouteRepairable(s) {
+		return
+	}
+	score, certified := renderedCellRouteScore(s)
+	if !certified {
+		return
+	}
+	guards := make([]*cellRouteGuard, len(s.Routes))
+	for i := range s.Routes {
+		guards[i] = newCellRouteGuard(s, s.Routes[i])
+	}
+	coordinates := newCellRouteCoordinates(s)
+	working := *s
+	for score.refused != 0 || score.conflicts != 0 {
+		next, count, found := improveCellRoutes(&working, guards, coordinates, score)
+		if !found {
+			break
+		}
+		working, score = next, count
+	}
+	if score.refused == 0 {
+		*s = working
+	}
+}
+
+func cellRouteRepairable(s *scene.Scene) bool {
+	if !cellRouteKind(s.Kind) || s.Options.Profile != scene.ProfileCell || !cellRouteWithinBudget(s.Canvas) || len(cellRouteWitnesses(s, true)) == 0 {
+		return false
+	}
+	valid, err := s.Check()
+	return err == nil && valid
+}
+
+func cellRouteKind(kind string) bool {
+	switch kind {
+	case "flowchart", "class", "state", "er", "requirement", "usecase", "c4", "agentflow", "swimlane":
+		return true
+	default:
+		return false
+	}
+}
+
+func improveCellRoutes(s *scene.Scene, guards []*cellRouteGuard, coordinates cellRouteCoordinates, score cellRouteScore) (scene.Scene, cellRouteScore, bool) {
+	for _, witness := range cellRouteWitnesses(s, score.refused != 0) {
+		guard := guards[witness.route]
+		if guard == nil {
+			continue
+		}
+		if candidate, count, admitted := improveCellRouteWitness(s, witness, guard, coordinates, score); admitted {
+			return candidate, count, true
+		}
+	}
+	return scene.Scene{}, cellRouteScore{}, false
+}
+
+func improveCellRouteWitness(s *scene.Scene, witness cellRouteWitness, guard *cellRouteGuard, coordinates cellRouteCoordinates, score cellRouteScore) (scene.Scene, cellRouteScore, bool) {
+	route := s.Routes[witness.route]
+	axis, ok := cellRouteAxisOf(route.Points[witness.at], route.Points[witness.at+1])
+	if !ok {
+		return scene.Scene{}, cellRouteScore{}, false
+	}
+	for _, coordinate := range coordinates.ordered(axis, axis.across(route.Points[witness.at])) {
+		points, ok := shiftCellRoute(route.Points, witness.at, coordinate)
+		if !ok || !guard.permits(points, s.Canvas) {
+			continue
+		}
+		if candidate, count, admitted := admitCellRoute(s, witness.route, points, score); admitted {
+			return candidate, count, true
+		}
+	}
+	return improveCellRouteWindow(s, witness, guard, coordinates, score)
+}
+
+func improveCellRouteWindow(s *scene.Scene, witness cellRouteWitness, guard *cellRouteGuard, coordinates cellRouteCoordinates, score cellRouteScore) (scene.Scene, cellRouteScore, bool) {
+	route := s.Routes[witness.route]
+	axis, ok := cellRouteAxisOf(route.Points[witness.at], route.Points[witness.at+1])
+	if !ok {
+		return scene.Scene{}, cellRouteScore{}, false
+	}
+	for _, window := range cellRouteWindows(s, witness, score.refused != 0) {
+		for _, coordinate := range coordinates.ordered(axis, axis.across(route.Points[witness.at])) {
+			points, ok := shiftCellRouteWindow(route.Points, witness.at, coordinate, window)
+			if !ok || !guard.permits(points, s.Canvas) {
+				continue
+			}
+			if candidate, count, admitted := admitCellRoute(s, witness.route, points, score); admitted {
+				return candidate, count, true
+			}
+		}
+	}
+	return scene.Scene{}, cellRouteScore{}, false
+}
+
+func admitCellRoute(s *scene.Scene, index int, points []geom.Point, score cellRouteScore) (scene.Scene, cellRouteScore, bool) {
+	candidate, ok := replaceCellRoute(s, index, points)
+	if !ok {
+		return scene.Scene{}, cellRouteScore{}, false
+	}
+	conflicts := cells.RouteConflicts(candidate.Routes, candidate.Canvas)
+	if conflicts > score.conflicts || (conflicts == score.conflicts && score.refused == 0) {
+		return scene.Scene{}, cellRouteScore{}, false
+	}
+	if valid, err := candidate.Check(); err != nil || !valid {
+		return scene.Scene{}, cellRouteScore{}, false
+	}
+	next, certified := renderedCellRouteScore(&candidate)
+	return candidate, next, certified && next.improves(score)
+}
+
+func renderedCellRouteScore(s *scene.Scene) (cellRouteScore, bool) {
+	projected := *s
+	projected.Routes = slices.Clone(s.Routes)
+	detachGeometry(&projected)
+	scene.ProjectCellAttachments(&projected)
+	rendered, err := cells.Render(projected, cells.Options{})
+	// An optional refinement cannot certify an unsuccessful render. Retaining
+	// the original leaves its existing output and error behavior intact.
+	return cellRouteScore{refused: rendered.RefusedClusters, conflicts: rendered.RouteConflicts}, err == nil
+}
+
+func replaceCellRoute(s *scene.Scene, index int, points []geom.Point) (scene.Scene, bool) {
+	route := s.Routes[index]
+	result := *s
+	result.Routes = slices.Clone(s.Routes)
+	detachGeometry(&result)
+	changed := false
+	for _, group := range result.Groups {
+		if group.Role != scene.GroupRoleEdge || group.Owner != route.ID {
+			continue
+		}
+		for _, item := range group.Items {
+			replaced, valid := replaceCellRoutePrimitive(item, route.Points, points)
+			if !valid {
+				return scene.Scene{}, false
+			}
+			changed = changed || replaced
+		}
+	}
+	if !changed {
+		return scene.Scene{}, false
+	}
+	result.Routes[index].Points = points
+	return result, true
+}
+
+func replaceCellRoutePrimitive(item scene.Primitive, before, after []geom.Point) (bool, bool) {
+	switch line := item.(type) {
+	case *scene.Polyline:
+		if slices.Equal(line.Points, before) {
+			line.Points = slices.Clone(after)
+			return true, true
+		}
+		return false, line.Style != "edge"
+	case *scene.Path:
+		return false, line.Style != "edge"
+	}
+	return false, true
+}
