@@ -280,7 +280,7 @@ impl Router {
             };
             let points = polyline(self.axis, &grid, &path, ends)?;
             if points.windows(2).all(|pair| {
-                !boxes
+                !obstacles
                     .iter()
                     .any(|obstacle| obstacle.hits(self.axis.grid(pair[0]), self.axis.grid(pair[1])))
             }) {
@@ -298,7 +298,7 @@ impl Router {
     ) -> Result<(), LayoutError> {
         let (bands, original) = input;
         let text: Vec<_> = if dump.options.profile == Profile::Cell {
-            text_obstacles(self.axis, items).collect()
+            text_obstacles(self.axis, items)?
         } else {
             Vec::new()
         };
@@ -337,24 +337,30 @@ impl Router {
     }
 }
 
-fn text_obstacles(axis: Axis, items: &[scene::Group]) -> impl Iterator<Item = Obstacle> {
-    items
+fn text_obstacles(axis: Axis, items: &[scene::Group]) -> Result<Vec<Obstacle>, LayoutError> {
+    let labels = items
         .iter()
         .flat_map(|group| &group.items)
-        .filter_map(move |item| {
-            let Item::Text(text) = item else {
-                return None;
-            };
-            if text.rect.w <= 0 || text.rect.h <= 0 {
-                return None;
+        .filter_map(|item| match item {
+            Item::Text(text) => Some(text),
+            _ => None,
+        });
+    let mut obstacles = Vec::new();
+    for label in labels {
+        for line in crate::cells::place::positioned_lines(label) {
+            let line = line?;
+            if line.rect.w == 0 {
+                continue;
             }
-            let mut bound = Obstacle::new(axis, text.rect);
+            let mut bound = Obstacle::new(axis, line.rect);
             bound.cross0 -= 1;
             bound.cross1 += 1;
             bound.rank0 -= 1;
             bound.rank1 += 1;
-            Some(bound)
-        })
+            obstacles.push(bound);
+        }
+    }
+    Ok(obstacles)
 }
 
 fn polyline(
@@ -414,3 +420,6 @@ fn replace(items: &mut [scene::Group], route: &mut scene::SceneRoute, points: Ve
     }
     route.points = points;
 }
+
+#[cfg(test)]
+mod tests;

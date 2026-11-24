@@ -142,3 +142,18 @@ fn c4_directional_ports_keep_their_existing_text_clearance() -> TestResult {
     }
     Ok(())
 }
+
+#[test]
+fn swimlane_side_ports_preserve_centered_node_text() -> TestResult {
+    for direction in ["LR", "RL"] {
+        let source = format!(
+            "swimlane-beta {direction}\nsubgraph Left[Left]\nA[Alpha]\nend\nsubgraph Right[Right]\nB[Beta]\nend\nA --> B\n"
+        );
+        let rendered = render_cells(&source)?;
+        assert_eq!(rendered.refused_clusters, 0, "{}", rendered.text);
+        assert_eq!(rendered.route_conflicts, 0, "{}", rendered.text);
+        assert!(rendered.text.contains("Alpha"), "{}", rendered.text);
+        assert!(rendered.text.contains("Beta"), "{}", rendered.text);
+    }
+    Ok(())
+}
