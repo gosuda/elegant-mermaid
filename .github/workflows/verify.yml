@@ -162,7 +162,7 @@ jobs:
           tool: "just@1.59.0"
       - name: "Install the pinned house linter"
         id: "sloplint"
-        run: "cargo install --git https://github.com/gosuda/sloplint --rev 199d5e924cb305e6f2b2945620db046530989d60 --locked sloplint"
+        run: "cargo install --git https://github.com/gosuda/sloplint --rev 72f29bae0ba1187da854e080c998b8a21f1e4640 --locked sloplint"
       - name: "Run house lint"
         if: "!cancelled() && steps.sloplint.outcome == 'success'"
         run: "just slop"
