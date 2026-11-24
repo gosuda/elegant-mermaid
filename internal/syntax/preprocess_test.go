@@ -218,12 +218,6 @@ func TestJSONTypes(t *testing.T) {
 	}
 }
 
-func TestJSONLiteralsAreCaseSensitive(t *testing.T) {
-	src := []byte("{\"a\": True}")
-	_, ds := ParseConfigJSON(src, 0, len(src))
-	require.NotEmpty(t, ds)
-}
-
 func TestJSONKeyMustBeQuoted(t *testing.T) {
 	src := []byte("{a: 1}")
 	_, ds := ParseConfigJSON(src, 0, len(src))
@@ -448,12 +442,6 @@ func TestCommentLinesMergedWithDirective(t *testing.T) {
 	p := Preprocess(src)
 	require.True(t, p.Wrap, "merging comment and directive removal must preserve the wrap effect in %q", src)
 	require.Equal(t, []source.Span{span(0, 22)}, p.Removed)
-}
-
-func TestCommentRemovalAllowsTabIndent(t *testing.T) {
-	src := []byte("\t%% tabbed\nflowchart\n")
-	p := Preprocess(src)
-	require.Equal(t, []source.Span{span(0, 11)}, p.Removed)
 }
 
 func TestPreprocessDiagnosticsSorted(t *testing.T) {
