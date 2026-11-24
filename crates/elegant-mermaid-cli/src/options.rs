@@ -209,10 +209,12 @@ fn infer(output: &str) -> Result<String, UsageError> {
         }
         .into());
     }
-    match std::path::Path::new(output)
-        .extension()
-        .and_then(|s| s.to_str())
-    {
+    let suffix = output
+        .rsplit(std::path::is_separator)
+        .next()
+        .and_then(|name| name.rsplit_once('.'))
+        .map(|(_, suffix)| suffix);
+    match suffix {
         Some("svg") => Ok("svg".into()),
         Some("txt") => Ok("text".into()),
         Some("png") => Ok("png".into()),

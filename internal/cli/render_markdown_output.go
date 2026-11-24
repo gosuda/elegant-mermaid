@@ -19,7 +19,7 @@ type markdownOutput struct {
 }
 
 func writeMarkdownOutputs(input string, raw []byte, blocks []markdown.Block, artifacts []markdownArtifact, o commandOptions) error {
-	if err := validateMarkdownOutputPath(o.output); err != nil {
+	if err := validateMarkdownOutputPath(o.output, !o.artifactsSet || markdownHost(o.output)); err != nil {
 		return err
 	}
 	paths := markdownArtifactPaths(input, o, len(artifacts))
@@ -37,13 +37,15 @@ func writeMarkdownOutputs(input string, raw []byte, blocks []markdown.Block, art
 	return commitMarkdownOutputs(outputs)
 }
 
-func validateMarkdownOutputPath(path string) error {
+func validateMarkdownOutputPath(path string, inspect bool) error {
 	if path == "" {
 		return nil
 	}
-	base := filepath.Base(path)
-	if base == "." || base == ".." || os.IsPathSeparator(path[len(path)-1]) {
-		return fileerr.Write(path, syscall.EISDIR)
+	if err := validateMarkdownOutputName(path); err != nil {
+		return err
+	}
+	if !inspect {
+		return nil
 	}
 	info, err := os.Lstat(path)
 	if err == nil && info.IsDir() {
@@ -55,25 +57,34 @@ func validateMarkdownOutputPath(path string) error {
 	return nil
 }
 
+// The caller has excluded the empty, unspecified output operand.
+func validateMarkdownOutputName(path string) error {
+	base := filepath.Base(path)
+	if base == "." || base == ".." || os.IsPathSeparator(path[len(path)-1]) {
+		return fileerr.Write(path, syscall.EISDIR)
+	}
+	return nil
+}
+
 func markdownArtifactPaths(input string, o commandOptions, count int) []string {
 	name := o.output
 	if name == "" {
 		name = input
 	}
 	stem, ext := markdownStem(filepath.Base(name))
-	directory := filepath.Dir(o.output)
+	directory := outputDirectory(o.output)
 	if o.output == "" || markdownHost(o.output) {
 		ext = "." + markdownFormatExtension(o.format)
 	}
 	if markdownHost(o.output) {
-		directory = filepath.Join(filepath.Dir(o.output), stem+".assets")
+		directory = joinOutputPath(outputDirectory(o.output), stem+".assets")
 	}
 	if o.artifactsSet {
 		directory = o.artifacts
 	}
 	paths := make([]string, count)
 	for i := range paths {
-		paths[i] = filepath.Join(directory, stem+"-"+strconv.Itoa(i+1)+ext)
+		paths[i] = joinOutputPath(directory, stem+"-"+strconv.Itoa(i+1)+ext)
 	}
 	return paths
 }
@@ -95,7 +106,7 @@ func markdownFormatExtension(format string) string {
 
 func commitMarkdownOutputs(outputs []markdownOutput) error {
 	for _, output := range outputs {
-		if err := os.MkdirAll(filepath.Dir(output.path), 0o755); err != nil {
+		if err := os.MkdirAll(outputDirectory(output.path), 0o755); err != nil {
 			return fileerr.Write(output.path, err)
 		}
 	}
@@ -115,7 +126,7 @@ func rewriteMarkdown(raw []byte, blocks []markdown.Block, artifacts []markdownAr
 	for i, block := range blocks {
 		link, err := markdownRelativeLink(output, paths[i])
 		if err != nil {
-			return nil, err
+			return nil, fileerr.Write(output, err)
 		}
 		text = append(text, raw[previous:block.Span.Start]...)
 		text = append(text, markdownOpenerPrefix(raw, block)...)
@@ -178,15 +189,15 @@ func markdownAltText(title string) string {
 }
 
 func markdownRelativeLink(host, artifact string) (string, error) {
-	directory, err := filepath.Abs(filepath.Dir(host))
+	directory, err := resolvedOutputDirectory(outputDirectory(host))
 	if err != nil {
 		return "", err
 	}
-	path, err := filepath.Abs(artifact)
+	parent, err := resolvedOutputDirectory(outputDirectory(artifact))
 	if err != nil {
 		return "", err
 	}
-	relative, err := filepath.Rel(directory, path)
+	relative, err := filepath.Rel(directory, filepath.Join(parent, filepath.Base(artifact)))
 	if err != nil {
 		return "", err
 	}

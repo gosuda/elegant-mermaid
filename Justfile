@@ -165,6 +165,10 @@ parity *ARGS:
     go_version="$(bin/emd-go --version)"; rs_version="$(bin/emd-rs --version)"; test "$go_version" = "$rs_version"
     just _each _parity-one {{ ARGS }}
 
+# Compare actual Markdown assets, rewritten hosts, diagnostics, and path handling
+markdown-parity: build
+    go run ./tools/markdown-parity
+
 _accept-one FILE:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -309,6 +313,7 @@ verify:
     just model
     just oracle
     just parity
+    just markdown-parity
     just layered-random-check
     just kernel-diff
     just validate

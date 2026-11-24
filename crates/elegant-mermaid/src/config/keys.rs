@@ -43,7 +43,11 @@ fn check(
             ));
         }
         if kind.is_empty() {
-            let child_kind = key.to_ascii_lowercase();
+            let child_kind = match key.as_str() {
+                "quadrantChart" => "quadrant".to_owned(),
+                "wardley-beta" => "wardley".to_owned(),
+                _ => key.to_ascii_lowercase(),
+            };
             if CONFIG_KEYS.iter().any(|row| row.kind == child_kind) {
                 check(&entry.value, &child_kind, "", &shown, diagnostics);
             }

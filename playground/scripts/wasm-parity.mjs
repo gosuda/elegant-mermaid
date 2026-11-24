@@ -20,6 +20,26 @@ const OPS = [
   { name: 'layout', args: ['layout', '--profile', 'vector', '--stage', 'layout'] },
 ];
 
+const CONFIG_OPS = [...OPS, { name: 'render_svg', args: ['render', '-e', 'svg', '-t', 'elegant-light'] }];
+const CONFIG_FIXTURES = [
+  ['flowchart', 'flowchart LR\nA[Alphabetic label] --> B\n'],
+  ['class', 'classDiagram\nclass A {\n+longAlphabeticalMemberNameUsedForMeasurement\n}\n'],
+  ['er', 'erDiagram\nA {\nstring longAlphabeticalAttributeNameUsedForMeasurement\n}\n'],
+  ['requirement', 'requirementDiagram\nrequirement R {\ntext: long alphabetical field text used for measurement\n}\n'],
+].map(([kind, body]) => ({
+  file: `configured-font/${kind}`,
+  text: `---\nconfig:\n  fontFamily: 'Custom & <Font>'\n---\n${body}`,
+  font: 'Custom & <Font>',
+  ops: CONFIG_OPS,
+  accepted: true,
+}));
+CONFIG_FIXTURES.push({
+  file: 'configured-aliases',
+  text: '---\nconfig:\n  quadrantChart: {typo: true}\n  wardley-beta: {typo: true}\n---\nflowchart\nA\n',
+  ops: OPS,
+  accepted: true,
+});
+
 const PAIRS = [
   ['go-wasm', 'emd-go'],
   ['rust-wasm', 'emd-rs'],
@@ -129,6 +149,26 @@ function describeResult(result) {
   return `ok=${result.ok} ${result.output.length} bytes ${JSON.stringify(text.slice(0, 80))}`;
 }
 
+function fixtureErrors(fixture, operation, results) {
+  const errors = [];
+  for (const [engine, result] of Object.entries(results)) {
+    if (fixture.accepted && (result.error !== undefined || !result.ok)) {
+      errors.push(`${engine}: expected accepted configured diagram`);
+      continue;
+    }
+    if (fixture.font !== undefined && operation === 'layout') {
+      try {
+        if (JSON.parse(result.output.toString('utf8')).options?.fontFamily !== fixture.font) {
+          errors.push(`${engine}: configured font is absent from the layout`);
+        }
+      } catch (error) {
+        errors.push(`${engine}: invalid configured layout: ${String(error)}`);
+      }
+    }
+  }
+  return errors;
+}
+
 async function main() {
   const every = parseEvery(process.argv.slice(2));
   for (const [name, path] of Object.entries(binaries)) {
@@ -153,14 +193,18 @@ async function main() {
   const goCall = await loadGo();
   const rustCall = await loadRust();
   const files = corpusFiles().filter((_, index) => index % every === 0);
+  const fixtures = [
+    ...files.map((file) => ({ file, text: new TextDecoder().decode(readFileSync(join(root, file))), ops: OPS })),
+    ...CONFIG_FIXTURES,
+  ];
   const scratch = mkdtempSync(join(tmpdir(), 'emd-wasm-parity-'));
   let differences = 0;
   let reported = 0;
   try {
-    for (const file of files) {
-      const text = new TextDecoder().decode(readFileSync(join(root, file)));
+    for (const fixture of fixtures) {
+      const { file, text } = fixture;
       const input = Buffer.from(text, 'utf8');
-      for (const { name, args } of OPS) {
+      for (const { name, args } of fixture.ops) {
         const results = {
           'go-wasm': runWasm(goCall, name, text),
           'rust-wasm': runWasm(rustCall, name, text),
@@ -168,13 +212,17 @@ async function main() {
           'emd-rs': runNative(binaries['emd-rs'], args, input, scratch),
         };
         const broken = PAIRS.filter(([a, b]) => !samePair(results[a], results[b]));
-        if (broken.length === 0) {
+        const errors = fixtureErrors(fixture, name, results);
+        if (broken.length === 0 && errors.length === 0) {
           continue;
         }
         differences += 1;
         if (reported < MAX_REPORTED) {
           reported += 1;
           process.stderr.write(`difference: ${file} ${name}\n`);
+          for (const error of errors) {
+            process.stderr.write(`  ${error}\n`);
+          }
           for (const [a, b] of broken) {
             process.stderr.write(
               `  ${a} vs ${b}\n    ${a}: ${describeResult(results[a])}\n    ${b}: ${describeResult(results[b])}\n`,
@@ -186,7 +234,7 @@ async function main() {
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
-  process.stdout.write(`compared ${files.length}, differences ${differences}\n`);
+  process.stdout.write(`compared ${fixtures.length}, differences ${differences}\n`);
   process.exit(differences > 0 ? 1 : 0);
 }
 

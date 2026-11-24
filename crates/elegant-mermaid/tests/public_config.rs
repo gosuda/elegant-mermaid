@@ -353,6 +353,26 @@ fn unknown_keys_preserve_authored_paths_and_leave_opaque_mappings_alone() -> Tes
 }
 
 #[test]
+fn aliased_config_blocks_validate_nested_keys_with_authored_paths() -> TestResult {
+    for block in ["quadrantChart", "wardley-beta"] {
+        let source = format!("---\nconfig:\n  {block}: {{typo: true}}\n---\nflowchart\nA\n");
+        let document = parse(&source);
+        let diagnostic = one_diagnostic(document.diagnostics(), "config/unknown-key")?;
+        assert_eq!(diagnostic.severity, Severity::Warning);
+        assert_eq!(diagnostic.message, format!("unknown config key {block}.typo"));
+        assert_eq!(&source[diagnostic.span.start..diagnostic.span.end], "typo");
+
+        let document = parse("flowchart\nA\n");
+        let effective = document.effective_config(Some(&format!("{block}: {{typo: true}}\n")))?;
+        let diagnostics = document.diagnostics_for(&effective);
+        let diagnostic = one_diagnostic(&diagnostics, "config/unknown-key")?;
+        assert_eq!(diagnostic.message, format!("unknown config key {block}.typo"));
+        assert_eq!(diagnostic.span, Span { start: 0, end: 0 });
+    }
+    Ok(())
+}
+
+#[test]
 fn configured_font_reaches_pre_measured_table_bodies() -> TestResult {
     for source in [
         "classDiagram\nclass A {\n+longAlphabeticalMemberNameUsedForMeasurement\n}\n",

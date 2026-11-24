@@ -408,7 +408,7 @@ func atomicOutput(path string, data []byte) (err error) {
 	if info, statErr := os.Lstat(path); statErr == nil && info.IsDir() {
 		return syscall.EISDIR
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".emd-*")
+	f, err := os.CreateTemp(outputDirectory(path), ".emd-*")
 	if err != nil {
 		return err
 	}

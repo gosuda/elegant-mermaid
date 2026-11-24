@@ -235,6 +235,12 @@ mod tests {
             })
         );
         assert!(look_with(base, Some("handDrawnSeed: -3\n")).is_err());
+        for config in ["fontFamily: 1\n", "maxEdges: -1\n", "maxTextSize: false\n"] {
+            assert!(matches!(
+                base.with_config(config),
+                Err(crate::error::RenderError::InvalidConfig { errors: 1 })
+            ));
+        }
         assert!(parse_text("- a\n").is_err());
         assert!(parse_text("").is_ok());
         assert!(parse_text("null").is_err());

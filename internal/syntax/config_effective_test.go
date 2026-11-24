@@ -66,6 +66,20 @@ func TestEffectiveConfigUnknownKeyPaths(t *testing.T) {
 	}
 }
 
+func TestEffectiveConfigAliasedBlockKeys(t *testing.T) {
+	for _, block := range []string{"quadrantChart", "wardley-beta"} {
+		text := block + ": {typo: true}\n"
+		_, diagnostics := ReadEffectiveConfig(configMapping(t, text))
+		if len(diagnostics) != 1 {
+			t.Fatalf("%s: expected one warning, got %+v", block, diagnostics)
+		}
+		diagnostic := diagnostics[0]
+		if diagnostic.Code != "config/unknown-key" || diagnostic.Severity != diag.SeverityWarning || diagnostic.Message != "unknown config key "+block+".typo" || text[diagnostic.Span.Start:diagnostic.Span.End] != "typo" {
+			t.Fatalf("%s: wrong authored path or source span: %+v", block, diagnostic)
+		}
+	}
+}
+
 func configMapping(t *testing.T, text string) ConfigValue {
 	t.Helper()
 	value, diagnostics := ParseConfigYAML([]byte(text), 0, len(text))

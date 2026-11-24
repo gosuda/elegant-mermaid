@@ -30,6 +30,10 @@ pub struct Look {
 }
 
 impl Look {
+    /// Overlay look fields from a complete configuration document.
+    ///
+    /// Every supported field is validated at this boundary, including font and
+    /// resource-limit fields. Malformed configuration returns `InvalidConfig`.
     pub fn with_config(self, text: &str) -> Result<Look, crate::error::RenderError> {
         crate::config::look_with(self, Some(text))
     }
