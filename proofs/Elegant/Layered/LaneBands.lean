@@ -107,16 +107,36 @@ structure Band where
   thickness : Int
   deriving Repr
 
-/-- Cross-axis coordinates of the members' boxes and of the routes inside the lane. -/
+/-- Cross-axis coordinates of member boxes and of routes with both endpoints in the band. -/
 def contentValues (boxes : List ModelBox) (s : Scene) (axis : Axis) (lane : String)
     (members : List String) : List Int :=
+  let loose := lane == ""
   members.flatMap (fun id =>
     match s.boxes.find? (fun b => b.id == id) with
     | none => []
     | some b => [axis.start b.rect, axis.start b.rect + axis.length b.rect]) ++
   s.routes.flatMap (fun r =>
-    if inLane boxes r.fromId lane && inLane boxes r.toId lane then r.points.map axis.point
-    else [])
+    let inside :=
+      if loose then members.contains r.fromId && members.contains r.toId
+      else inLane boxes r.fromId lane && inLane boxes r.toId lane
+    if inside then r.points.map axis.point else [])
+
+theorem contentValues_mem_loose_route_point {boxes : List ModelBox} {s : Scene}
+    {axis : Axis} {members : List String} {r : Route} {p : Point}
+    (hr : r ∈ s.routes) (hp : p ∈ r.points)
+    (hfrom : r.fromId ∈ members) (hto : r.toId ∈ members) :
+    axis.point p ∈ contentValues boxes s axis "" members := by
+  unfold contentValues
+  apply List.mem_append.mpr
+  right
+  apply List.mem_flatMap.mpr
+  refine ⟨r, hr, ?_⟩
+  have hf : members.contains r.fromId = true := List.contains_iff_mem.mpr hfrom
+  have ht : members.contains r.toId = true := List.contains_iff_mem.mpr hto
+  simpa [hf, ht] using
+    (show (r.fromId ∈ members ∧ r.toId ∈ members) ∧
+        axis.point p ∈ r.points.map axis.point from
+      ⟨⟨hfrom, hto⟩, List.mem_map.mpr ⟨p, hp, rfl⟩⟩)
 
 def laneBand (boxes : List ModelBox) (s : Scene) (axis : Axis) (sp : Spacing) (lane : String)
     (start : Int) : Band :=

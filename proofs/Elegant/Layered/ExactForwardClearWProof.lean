@@ -1,4 +1,5 @@
 import Elegant.Layered.ExactForwardClearFactsProof
+import Elegant.Layered.ExactStrictDummySidesProof
 
 set_option autoImplicit false
 
@@ -22,14 +23,16 @@ Seam premise classification (each kept premise is a public named def):
 - already-W (local `WellFormed`/`framedParents` after graph binders):
   `XN_BracketMarkersAtRank`, `XN_ForeignNonGroupSpansClear`,
   `XB_ForeignClusterRankSpans`, `XB_ForeignBorderSpansSeparated`.
+- strict dummy linkage with local admission after the execution binder:
+  `XFR_StrictDummyLinkedXW`.
 - pure per-run geometric facts, true without well-formedness:
   `XN_PlainClearOfSideMarker`, `XN_SideMarkerSpanAligned`,
   `XB_ForeignBorderLayerOrder`, `XB_ForeignBorderChainXAligned`,
   `X_ForeignBorderChainXAligned`, `ForeignBorderChainXAligned`,
   `X_LoopEnvelopeMiss`, `XFR_ForwardScopeFreeX`,
-  `XFR_StrictDummyLinkedX`, `XFR_RouteLabelInDummyX`,
-  `XFR_RouteLabelRealClearX`, `XFR_DummyExLabeledX`, and the inline
-  `RouteNonforwardLabelClear` residual.
+  `XFR_RouteLabelInDummyX`, `XFR_RouteLabelRealClearX`, `XFR_DummyExLabeledX`.
+- the inline `RouteNonforwardLabelClear` callback uses local admission after
+  the execution binder.
 -/
 
 /-- Exact seam discharge, W form: mirror of `XFR_SeamsImplyForeignX`
@@ -836,7 +839,8 @@ private theorem xfrfw_dummyCell (exactIds : List String)
       have hborderROr : nR.node.border = -1 ∨ nR.node.border = 1 :=
         Or.inr hborderR
       have hcross :=
-        (halignN execution.graph0_eq execution.graph_eq hcomp hrun hmarkRunL hborderLOr hlastL
+        (halignN execution.graph0_eq execution.graph_eq hlines hwf hfp hcomp hrun
+          hmarkRunL hborderLOr hlastL
           hmarkRunR hborderROr hlastR).2.2 ⟨hborderL, hborderR, hrankLR⟩
       have hall : ∀ r ∈ groupBorderRects (componentCandidate execution.graph comp candidate) run
           gn.decl,
@@ -847,14 +851,16 @@ private theorem xfrfw_dummyCell (exactIds : List String)
         obtain ⟨q, nd, hq, hbq, hlastq, hrq⟩ := groupBorderRects_inv hr
         rcases hbq with hbqL | hbqR
         · obtain ⟨heq1, heq2⟩ :=
-            (halignN execution.graph0_eq execution.graph_eq hcomp hrun hmarkRunL hborderLOr hlastL
+            (halignN execution.graph0_eq execution.graph_eq hlines hwf hfp hcomp hrun
+              hmarkRunL hborderLOr hlastL
               hq (Or.inl hbqL) hlastq).1 (by rw [hborderL, hbqL])
           rw [hrq, rectAt_eq]
           dsimp only
           rw [heq1, ← heq2]
           exact ⟨Int.le_refl _, hcross.2⟩
         · obtain ⟨heq1, heq2⟩ :=
-            (halignN execution.graph0_eq execution.graph_eq hcomp hrun hmarkRunR hborderROr hlastR
+            (halignN execution.graph0_eq execution.graph_eq hlines hwf hfp hcomp hrun
+              hmarkRunR hborderROr hlastR
               hq (Or.inr hbqR) hlastq).1 (by rw [hborderR, hbqR])
           rw [hrq, rectAt_eq]
           dsimp only
@@ -862,7 +868,8 @@ private theorem xfrfw_dummyCell (exactIds : List String)
           · rw [← heq1]; exact hcross.1
           · omega
       have hnonnegR :=
-        (halignN execution.graph0_eq execution.graph_eq hcomp hrun hmarkRunR hborderROr hlastR
+        (halignN execution.graph0_eq execution.graph_eq hlines hwf hfp hcomp hrun
+          hmarkRunR hborderROr hlastR
           hmarkRunR hborderROr hlastR).2.1
       have hminX := boundsOf_minX_ge_of_all hneRects (fun r hr => (hall r hr).1)
       have hright := boundsOf_right_le_of_all hnonnegR
@@ -1032,10 +1039,11 @@ theorem XFR_routeLabelForeignClearXW_holds (exactIds : List String)
   omega
 
 theorem XFR_routeLabelLeftoverPairXW_holds (exactIds : List String)
-    (hstrict : XFR_StrictDummyLinkedX exactIds)
+    (hstrict : XFR_StrictDummyLinkedXW exactIds)
     (hforeign : XFR_RouteLabelForeignClearXW exactIds)
     (hloop : ∀ {inp : Input} {o : Options} {res : FamilyResult}
       (execution : SceneExecutionX exactIds inp o res)
+      (_ : WellFormed (inputModel inp o)) (_ : framedParents inp = true)
       {comp : List Nat} (_ : comp ∈ components execution.graph)
       {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
       componentRunX execution.params (exactDecls exactIds inp)
@@ -1104,8 +1112,8 @@ theorem XFR_routeLabelLeftoverPairXW_holds (exactIds : List String)
   have hbr : BracketMarkersAtRank := bracketMarkersAtRank'
   have hrk : ForeignClusterRankSpans := foreignClusterRankSpans'
   by_cases hfw : e.tail = e.head ∨ e.reversed = true
-  · exact hloop execution hcomp hrun k rect l₀ edge e hmem hmem0 hidx hedge hdecl
-      hfw pos hpos
+  · exact hloop execution hwf hfp hcomp hrun k rect l₀ edge e hmem hmem0 hidx
+      hedge hdecl hfw pos hpos
   · have hne' : e.tail ≠ e.head := fun h => hfw (Or.inl h)
     have hnr : e.reversed = false := by
       cases hr : e.reversed with
@@ -1117,7 +1125,7 @@ theorem XFR_routeLabelLeftoverPairXW_holds (exactIds : List String)
       by_cases hpc : nd.decl ∈ ndd.node.clusterPath
       · have h2 := xfrfw_inDummy exactIds execution hcomp hrun
         have hS := case_group_inside hmem hmem0 hidx hedge hdecl hne' hnr hnd
-          hgrp hddummy hdfind hpc (hstrict execution hcomp hrun) h2
+          hgrp hddummy hdfind hpc (hstrict execution hwf hfp hcomp hrun) h2
         exact Or.inr hS
       · have hI := himp execution hwf hfp hcomp hrun
         have hD := hforeign execution hwf hfp hcomp hrun hbr hrk hxalign hI k rect l₀
@@ -1145,7 +1153,7 @@ theorem XFR_routeLabelLeftoverPairXW_holds (exactIds : List String)
         rw [Rect.meetsInterior_comm]
         exact hdis
 theorem XF_routeForwardClearXW_holds (exactIds : List String)
-    (hstrict : XFR_StrictDummyLinkedX exactIds)
+    (hstrict : XFR_StrictDummyLinkedXW exactIds)
     (hinDummy : XFR_RouteLabelInDummyX exactIds)
     (hreal : XFR_RouteLabelRealClearX exactIds)
     (hforeign : XFR_RouteLabelForeignClearXW exactIds)
@@ -1155,7 +1163,7 @@ theorem XF_routeForwardClearXW_holds (exactIds : List String)
     (himp : XFR_SeamsImplyForeignXW exactIds) :
     XF_RouteForwardClearXW exactIds := by
   intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
-  have h1 := hstrict execution hcomp hrun
+  have h1 := hstrict execution hwf hfp hcomp hrun
   have h2 := hinDummy execution hcomp hrun
   have hR := hreal execution hwf hfp hcomp hrun
   have hF := hforeign execution hwf hfp hcomp hrun

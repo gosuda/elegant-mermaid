@@ -283,7 +283,7 @@ def notesRouterEnds (inp : Input) (atts : List Attach) (frame : Frame)
 of each kept input route. A single fact about the base result. -/
 def notesFlagsKept (inp : Input) (layouts : List BundleLayout)
     (contracted : FamilyResult) : Prop :=
-  ∀ r : ModelRoute, notesKept inp layouts r →
+  ∀ r ∈ inp.routes, notesKept inp layouts r →
     ∀ cr ∈ contracted.scene.routes, cr.id = r.id →
       cr.orthogonal = r.orthogonal ∧ cr.fromId = r.fromId ∧ cr.toId = r.toId
 
@@ -291,7 +291,7 @@ def notesFlagsKept (inp : Input) (layouts : List BundleLayout)
 of each same-bundle input route. A single fact about the fragment results. -/
 def notesFlagsFragment (inp : Input) (layouts : List BundleLayout)
     (fragments : List Placed) : Prop :=
-  ∀ r : ModelRoute, ∀ a : Nat, notesSameBundleAt inp layouts a r →
+  ∀ r ∈ inp.routes, ∀ a : Nat, notesSameBundleAt inp layouts a r →
     ∀ p ∈ fragments, ∀ fr ∈ p.scene.routes, fr.id = r.id →
       fr.orthogonal = r.orthogonal ∧ fr.fromId = r.fromId ∧ fr.toId = r.toId
 
@@ -545,13 +545,13 @@ theorem notes_c4
     notes_route_cases e hrt
   rcases hcases with ⟨hkept, cr, hcr, hcrid, hpts⟩ | ⟨a, hsame, p, hp, fr, hfrmem, hfrid, hpts⟩ | ⟨_, pts, hpts, hroute⟩
   · intro hortho
-    obtain ⟨hortho_eq, _, _⟩ := hfk x hkept cr hcr hcrid
+    obtain ⟨hortho_eq, _, _⟩ := hfk x hx hkept cr hcr hcrid
     have hflag : cr.orthogonal = true := hortho_eq.trans (hort.symm.trans hortho)
     have horth := hC4b cr hcr hflag
     rw [hpts]
     exact horth
   · intro hortho
-    obtain ⟨hortho_eq, _, _⟩ := hff x a hsame p hp fr hfrmem hfrid
+    obtain ⟨hortho_eq, _, _⟩ := hff x hx a hsame p hp fr hfrmem hfrid
     have hflag : fr.orthogonal = true := hortho_eq.trans (hort.symm.trans hortho)
     have horth := hC4f p hp fr hfrmem hflag
     rw [hpts, notesShiftPoint_orthogonal]
@@ -614,7 +614,7 @@ theorem notes_c5
     have hbe := List.find?_some hboxt
     simpa [beq_iff_eq] using hbe
   rcases hcases with ⟨hkept, cr, hcr, hcrid, hpts⟩ | ⟨a, hsame, p, hp, fr, hfrmem, hfrid, hpts⟩ | ⟨_, pts, hpts, hroute⟩
-  · obtain ⟨hortho_eq, hfrom_eq, hto_eq⟩ := hfk x hkept cr hcr hcrid
+  · obtain ⟨hortho_eq, hfrom_eq, hto_eq⟩ := hfk x hx hkept cr hcr hcrid
     obtain ⟨pf, qf, fb, tb, hhead, hlast, hbfb, hbtb, hbp, hbq⟩ := hC5b cr hcr
     rw [hfrom_eq] at hbfb
     rw [hto_eq] at hbtb
@@ -646,7 +646,7 @@ theorem notes_c5
     · rw [hto]; simp only [LayoutDump.box?]; exact hboxt
     · rw [← hrecteq]; exact hbp
     · rw [← htrecteq]; exact hbq
-  · obtain ⟨_, hfrom_eq, hto_eq⟩ := hff x a hsame p hp fr hfrmem hfrid
+  · obtain ⟨_, hfrom_eq, hto_eq⟩ := hff x hx a hsame p hp fr hfrmem hfrid
     obtain ⟨p0, q0, fb0, tb0, hhead, hlast, hbfb0, hbtb0, hbp0, hbq0⟩ :=
       hC5f p hp fr hfrmem
     rw [hfrom_eq] at hbfb0

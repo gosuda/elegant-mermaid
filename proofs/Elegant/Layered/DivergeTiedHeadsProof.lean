@@ -6,61 +6,22 @@ set_option autoImplicit false
 namespace Elegant.Layered.PipelineImpl
 
 /-!
-# Tied divergent heads keep their order, modulo one sweep fact.
+# Conditional stability for tied divergent heads
 
-`ForeignBorderDivergeStable` (in `ForeignBorderEdgesNoncrossingProof`) asks that
-two side-border markers with divergent cluster paths keep one relative order on
-every layer pair. `foreignBorderDivergeStableSeparated_holds` (in
-`ForeignBorderDivergeStableProof`) settles the separated case: both divergent
-heads lie in `Sibling.clusterIds` with equal `Sibling.parentOf`.
+`foreignBorderDivergeStableSeparated_holds` handles divergent heads in the same
+`Sibling.clusterIds` sibling group. Heads absent from the same sibling order
+list instead receive equal sibling numbers. The stable `siblingLayer` sort
+preserves their pre-layer order on each layer; agreement across layers would
+have to come from the sweeps.
 
-The exact complement, per pair, is the negation of that premise: for the
-divergent decomposition `path_a = Pa ++ A :: r1`, `path_b = Pa ++ B :: r2`
-with `A ≠ B`, at least one of `A ∈ clusterIds`, `B ∈ clusterIds`,
-`parentOf A = parentOf B` fails. Equivalently the open case is the tied case:
-the two heads receive EQUAL sibling numbers, so `normalise_pair_stable`
-(which needs `num A ≠ num B`) does not apply.
-
-Mechanism (all in `Order.lean`): `siblingNumber p orders c` is
-`((lookup (parentOf p c) orders).getD []).idxOf c` (line 726); absent heads
-with equal parents miss the same order list and tie
-(`siblingNumber_tie_of_absent` in `DivergeHeadsSeparatedProof`). The final
-`order` output is one `siblingNormalise` map
-(`order_siblingForm` in `ForeignBorderDivergeStableProof`, lines 220-237):
-every layer is `siblingLayer num` of a pre-layer, with one global `num`.
-`siblingLayer` sorts block items with `decide (num a ≤ num b)` by a stable
-`mergeSort` (`sibSorted`, lines 738-740) and reinstalls them with `place`
-(lines 731-736), so tied blocks keep their pre-layer relative order; the
-divergent pair is then ordered by the pre-layer (`Y`) order on each layer.
-Cross-layer stability of tied pairs is therefore produced by the sweep stage
-(`sweepLayers`/`transpose`/`runKey`, lines 951-1003): the pre-layers already
-agree on the tied pair.
-
-Probe evidence (`wip/Probe/DivergeTiedTProbe.lean`, two-level nesting with
-demoted middle groups `A`,`B`, 6 node boxes, 3 candidates): 0 flips over 512
-divergent quads per run with 128 number ties and 0 separated pairs; heads
-`(1,5)` both absent from `clusterIds` (`[0,2,6]`) with `parentOf = none` on
-both sides, `num = 1 = 1`. The same census on the replayed pre-layers `Y`
-also shows 0 flips over 512 quads, and the diagnosed quad has `Y` order equal
-to output order. No flip was found in 162 runs across four earlier probe
- families either (see the `ForeignBorderDivergeStableProof` header). Hence
-the proved result below: `foreignBorderDivergeStable_tied` for the
-absent-heads mechanism, and `foreignBorderDivergeStable_closed` from one named
-sweep residual.
-
-Residual elided: the per-layer preservation plus cross-layer `Y` agreement
-for tied pairs, i.e. exactly `DivergeTiedSweepStable`.
+`foreignBorderDivergeStable_closed` is conditional on that extra sweep
+assumption. The framed proof in `ForeignBorderDivergeFramedProof` does not
+need it.
 -/
 
-/-- Ordering-stage residual for the tied case: in an executed run, two side
-markers whose cluster paths are divergent keep the same relative order on
-every pair of layers they share, provided their divergent heads tie under
-`siblingNumber` at some position function. This is strictly narrower than
-`ForeignBorderDivergeStable` (tied divergent pairs only: one numeric
-equality, no layers or positions beyond the goal's own). Probe evidence:
-`wip/Probe/DivergeTiedTProbe.lean` reports 0 flips over 512 divergent quads
-per run, all tied with absent heads, and 0 flips on the replayed pre-layers.
--/
+/-- Conditional ordering premise for tied divergent heads: the relative
+order agrees on any two shared layers when the heads tie under
+`siblingNumber` at some position function. -/
 def DivergeTiedSweepStable : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
@@ -144,12 +105,11 @@ theorem foreignBorderDivergeStable_tied (hres : DivergeTiedSweepStable)
     hpathA hpathB hA hB hAB (pos := fun _ => 0)
     (siblingNumber_tie_of_absent hmem.1 hmem.2.1 hmem.2.2) hi1 hj1 hi2 hj2
 
-/-- The full ordering-stage stability, closed modulo the tied sweep residual:
-either every divergent decomposition is separated (apply the separated
-theorem), or the divergent heads tie or differ at the executed numbers. -/
+/-- Ordering stability for framed inputs, conditional on the tied-sweep
+premise when the executed sibling numbers agree. -/
 theorem foreignBorderDivergeStable_closed (hres : DivergeTiedSweepStable) :
     ForeignBorderDivergeStable := by
-  intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions hrun
+  intro P inp o lines graph hgraph _hlines _hwf _hframed comp hcomp candidate run labels orderOptions hrun
     l1 l2 hmem1 hmem2 a b a' b' na nb na' nb' hna hnb hb1 hb2
     hna' hnb' hb1' hb2' hpathA hpathB hdiv i j i' j' hi1 hj1 hi2 hj2
   have hwf := componentRun_coordinate_bordersWellFormed hgraph hcomp hrun

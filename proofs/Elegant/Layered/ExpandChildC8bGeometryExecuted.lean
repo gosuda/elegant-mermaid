@@ -20,11 +20,10 @@ namespace Elegant.Layered.PipelineImpl
 geometric remainder `ExpandChildC8bGeometry` of `ExpandChildC8bStep`, but its
 whole-canvas hypotheses are false as stated (`ExpandChildC7GeometryProof.lean`
 shows the canvas starts one margin before the inset the shift was reserved
-for).  This module proves the corrected inset form bottom-up:
+for). This module assembles the corrected inset form bottom-up:
 
 * the caption rect lies strictly inside the located frame
-  (`frame_strictInside_caption`, from the frame reservation, positive pad,
-  and nonnegative inset content);
+  (`frame_strictInside_caption` from `ExpandChildTitleBandProof`);
 * the inset glue (`expandChild_c8b_geometry_inset`, the same case analysis as
   `expandChild_c8b_geometry` over the shifted inset canvas, the strict
   caption, and the parent-frame facts);
@@ -75,126 +74,6 @@ private theorem parent_scene_box_ids_nodup
     (fun box => !Compound.inside inp.boxes group.id box.id)).map
       (·.id))).Nodup
   exact hboxIds.sublist (List.Sublist.map _ List.filter_sublist)
-
-/-- Canvas of a flat `layout` result covers the margin border on every side:
-the scene canvas is the oriented packed extents plus twice the margin.
-(Copy of the private lemma in `ExpandChildTitleBandProof.lean`.) -/
-private theorem layout_canvas_ge_margins {inp : Input} {o : Options}
-    {res : FamilyResult} (h : layout inp o = .ok res) (Q : Params)
-    (hQ : checkedParams o.profile inp.kind = .ok Q) :
-    0 ≤ res.scene.canvas.w - 2 * Q.canvasMargin ∧
-      0 ≤ res.scene.canvas.h - 2 * Q.canvasMargin := by
-  have exec := Classical.choice (layout_sceneExecution h)
-  have hacc := exec.packedAcc_bounded exec.components_parts_bounded
-  obtain ⟨hcwA, hchA, _, _, _, _⟩ := hacc
-  have hQm : exec.params = Q := Except.ok.inj (exec.checked.symm.trans hQ)
-  subst hQm
-  have hcan : (sceneOf exec.params inp o exec.lines exec.packedAcc
-      exec.measured).canvas =
-      orientCanvas o.direction
-        (exec.packedAcc.canvasW + 2 * exec.params.canvasMargin)
-        (exec.packedAcc.canvasH + 2 * exec.params.canvasMargin) := rfl
-  rw [exec.scene_eq, hcan]
-  unfold orientCanvas
-  generalize o.direction = d
-  cases d <;> dsimp only <;> omega
-
-/-- Canvas of a successful recursion covers the margin border on every side.
-(Copy of the private lemma in `ExpandChildTitleBandProof.lean`.) -/
-private theorem layoutRecursive_canvas_ge_margins (fuel : Nat) :
-    ∀ (inp : Input) (o : Options) (res : FamilyResult),
-      layoutRecursive fuel inp o = .ok res → ∀ Q : Params,
-      checkedParams o.profile inp.kind = .ok Q →
-      0 ≤ res.scene.canvas.w - 2 * Q.canvasMargin ∧
-        0 ≤ res.scene.canvas.h - 2 * Q.canvasMargin := by
-  induction fuel with
-  | zero =>
-    intro inp o res h Q hQ
-    exact layout_canvas_ge_margins h Q hQ
-  | succ fuel ih =>
-    intro inp o res h Q hQ
-    rcases layoutRecursive_succ_sources h with ⟨_, hlayout⟩ |
-      ⟨_, Pm, _, _, _, parent, _, hPm, _, _, _, hp, hexpand⟩
-    · exact layout_canvas_ge_margins hlayout Q hQ
-    · have hQPm : Q = Pm := Except.ok.inj (hQ.symm.trans hPm)
-      rw [hQPm]
-      obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, hcanvas, _⟩ :=
-        expandChild_sources hexpand
-      have hcanv : res.scene.canvas = parent.scene.canvas := hcanvas
-      obtain ⟨hpw, hph⟩ := ih _ _ _ hp Pm hPm
-      rw [hcanv]
-      exact ⟨hpw, hph⟩
-/-- Nonnegativity of the folded title width. -/
-private theorem titleWidth_nonneg (ls : List Measure.Line) :
-    0 ≤ ls.foldl (fun width line => max width line.width) 0 := by
-  suffices key : ∀ (xs : List Measure.Line) (acc : Int), 0 ≤ acc →
-      0 ≤ xs.foldl (fun width line => max width line.width) acc by
-    exact key ls 0 (by omega)
-  intro xs acc hac
-  induction xs generalizing acc with
-  | nil => simpa using hac
-  | cons _ _ ih => exact ih _ (Int.le_trans hac (Int.le_max_left _ _))
-
-/-- Pure geometry behind the strict caption containment: the title rect lies
-strictly inside any frame whose width and height dominate the
-`childFrameSize` reservation, given a positive pad and nonnegative inset
-content.  The centering-axis strictness needs two inset units of slack, which
-the doubled pad supplies; the title-axis strictness is the pad itself. -/
-private theorem titleRect_strictInside_aux {direction : String}
-    {pad tw th conw conh fx fy fw fh : Int}
-    (hpad : 0 < pad)
-    (hconw : 0 ≤ conw) (hconh : 0 ≤ conh)
-    (hfw : (childFrameSize direction pad tw th ⟨conw, conh⟩).w ≤ fw)
-    (hfh : (childFrameSize direction pad tw th ⟨conw, conh⟩).h ≤ fh) :
-    (⟨fx, fy, fw, fh⟩ : Rect).StrictInside
-      (childTitleRect direction pad tw th ⟨fx, fy, fw, fh⟩) := by
-  have hW : tw + 2 * pad ≤ fw := by
-    unfold childFrameSize at hfw
-    split at hfw <;> dsimp only at hfw <;> omega
-  have hH : th + 2 * pad ≤ fh := by
-    unfold childFrameSize at hfh
-    split at hfh <;> dsimp only at hfh <;> omega
-  unfold childTitleRect
-  split <;> unfold Rect.StrictInside <;> dsimp only <;>
-    simp only [Int.fdiv_eq_ediv_of_nonneg _ (show (0 : Int) ≤ 2 by decide)] <;> omega
-
-/-- The caption rect of an executed `expandChild` lies strictly inside the
-located group frame.  The frame reservation
-(`expandChild_frame_size_bounds`), the positive cluster pad, and the child
-canvas margin cover (`layoutRecursive_canvas_ge_margins`) supply the strict
-auxiliary above. -/
-theorem frame_strictInside_caption
-    (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-    (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-    (parent child res : FamilyResult)
-    (_hexpand : expandChild P inp o group titleHeight parent child = .ok res)
-    (_hframed : framedParents inp = true)
-    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
-      parent child res)
-    (hparams : ExpandChildCallParams P inp o group titleLines titleHeight) :
-    ∀ (frame : Box) (titleLines' : List Measure.Line) (dx dy : Int),
-    parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
-    dx = frame.rect.x + (childInset group.direction P.clusterPad
-        (titleLines'.foldl (fun width line => max width line.width) 0) titleHeight).x -
-      P.canvasMargin →
-    dy = frame.rect.y + (childInset group.direction P.clusterPad
-        (titleLines'.foldl (fun width line => max width line.width) 0) titleHeight).y -
-      P.canvasMargin →
-    ExpandChildTitleWrapped P inp o group titleLines' →
-    frame.rect.StrictInside
-      (groupTitleRectC8 group P titleLines' titleHeight frame) := by
-  intro frame titleLines' _dx _dy hframe _hdx _hdy hwrap'
-  obtain ⟨hw, hh⟩ := expandChild_frame_size_bounds fuel P inp o group titleLines
-    titleHeight parent child res _hexpand _hframed hctx hparams frame titleLines'
-    hframe hwrap'
-  obtain ⟨hP, _hheightEq, _hwrapCtx⟩ := hparams
-  have hpad : 0 < P.clusterPad := callParams_clusterPad_pos hP
-  obtain ⟨_hwf, _hgroup, _hpboxes, hchild, _hparent, _hexpand'⟩ := hctx
-  have hQchild : checkedParams (childSubOptions o group).profile
-      (childSubInput inp group).kind = .ok P := hP
-  obtain ⟨hconw, hconh⟩ :=
-    layoutRecursive_canvas_ge_margins fuel _ _ _ hchild P hQchild
-  exact titleRect_strictInside_aux hpad hconw hconh hw hh
 
 /-- The corrected inset C8b geometry of one `expandChild` call.  Same case
 analysis as `expandChild_c8b_geometry`, with the shifted child canvas

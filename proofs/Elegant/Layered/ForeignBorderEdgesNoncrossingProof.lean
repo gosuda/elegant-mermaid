@@ -10,11 +10,10 @@ set_option autoImplicit false
 namespace Elegant.Layered.PipelineImpl
 
 /-!
-# Border-chain edges never strictly interleave.
+# Border-chain edges never strictly interleave in framed runs.
 
-Target: `foreignBorderEdgesNoncrossing_executed` below — the border-border
-non-crossing residual of `ForeignSideMarkingCrossedProof`. Two border chain
-edges over one layer pair never strictly interleave in an executed run.
+Two border chain edges over one layer pair never strictly interleave in a
+successful component run of a measured, well-formed, framed input.
 
 Proof idea: both edges join same-side, same-path marker pairs on consecutive
 pass ranks, so the lower endpoints share one run layer and the upper endpoints
@@ -24,19 +23,8 @@ are either prefix-comparable or divergent (`list_prefix_trichotomy`). In the
 comparable case the outer marker's side forces the run order on both layers
 (`OrderImpl.order_border_ends`), and exactly one layer contradicts the
 interleave pattern whichever the parity. In the divergent case the relative
-order is the same on both layers by the ordering-stage residual
-`ForeignBorderDivergeStable`, which directly contradicts the pattern.
-
-Probe evidence (`wip/Probe/BorderNoncrossingTProbe.lean`): the target census
-(strict interleave of border-chain pairs over a shared layer pair) is zero on
-all 9 executed samples (nested groups, three-level nesting, sibling groups
-with crossing member edges, diamond through a group, LR, three sibling groups
-with crossings, nested groups with two-way crossings, sibling crossings in LR,
-nested-plus-disjoint groups) times every component candidate and every
-ordering pass `k < 4` (180/180 zero). The residual census (divergent-path
-marker pairs keeping order across every layer pair) is zero on all of them,
-non-vacuous on the multi-group samples (288/128/1088/416 checked
-configurations, TB and LR).
+order is the same on both layers by `ForeignBorderDivergeStable`, which
+contradicts the pattern.
 -/
 
 /-- Two cluster paths are divergent: they share a (possibly empty) prefix and
@@ -92,20 +80,18 @@ theorem dummy_false_of_border {p : Proper} (hwf : OrderImpl.BordersWellFormed p)
     have h0 := hwf.2.2 v n hn hd
     rcases hb with h1 | h1 <;> omega
 
-/-! ## Ordering-stage residual: divergent blocks keep their order. -/
+/-! ## Ordering-stage stability for framed inputs -/
 
-/-- Ordering-stage residual: in an executed run, two side markers whose cluster
-paths are divergent keep the same relative order on every pair of layers they
-share. This is the cross-layer stability of sibling-block order consumed from
-the ordering phase (`OrderImpl.order` output `run.layers`); it is strictly
-narrower than the target (layer order only: no pass context, edges, or
-positions). Probe evidence: `wip/Probe/BorderNoncrossingTProbe.lean` census B
-is zero on every executed sample, non-vacuous on all multi-group samples in
-both TB and LR. -/
+/-- Divergent side markers retain their relative order across layers of a
+successful framed run. The framing scope excludes the successful component run
+in `wip/Probe/DivergeUnframedReturnedCounterexample.lean`, which reverses it. -/
 def ForeignBorderDivergeStable : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -130,12 +116,14 @@ def ForeignBorderDivergeStable : Prop :=
 
 /-! ## The executed non-crossing theorem. -/
 
-/-- Border-border non-crossing for an executed run: two border chain edges over
-one layer pair never strictly interleave. The only open content is the
-ordering-stage stability of divergent blocks. -/
+/-- Two border chain edges over one layer pair never strictly interleave in
+a successful component run of a measured, well-formed, framed input. -/
 theorem foreignBorderEdgesNoncrossing_executed {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
     {orderOptions : OrderOptions}
@@ -319,15 +307,15 @@ theorem foreignBorderEdgesNoncrossing_executed {P : Params} {inp : Input} {o : O
   obtain ⟨sf, Cf, na, nb, hna, hnb, hsf_or, hsfa, hsfb, hpfa, hpfb⟩ := hFRec
   have hna' : run.coordinateProper.nodes[a]? = some na := hna
   have hnb' : run.coordinateProper.nodes[b]? = some nb := hnb
-  have hwf := componentRun_coordinate_bordersWellFormed hgraph hcomp hrun
+  have hbwf := componentRun_coordinate_bordersWellFormed hgraph hcomp hrun
   have hdnw : nw.dummy = false :=
-    dummy_false_of_border hwf hnw' (by rw [hsew]; exact hse_or)
+    dummy_false_of_border hbwf hnw' (by rw [hsew]; exact hse_or)
   have hdnx : nx.dummy = false :=
-    dummy_false_of_border hwf hnx' (by rw [hsex]; exact hse_or)
+    dummy_false_of_border hbwf hnx' (by rw [hsex]; exact hse_or)
   have hdna : na.dummy = false :=
-    dummy_false_of_border hwf hna' (by rw [hsfa]; exact hsf_or)
+    dummy_false_of_border hbwf hna' (by rw [hsfa]; exact hsf_or)
   have hdnb : nb.dummy = false :=
-    dummy_false_of_border hwf hnb' (by rw [hsfb]; exact hsf_or)
+    dummy_false_of_border hbwf hnb' (by rw [hsfb]; exact hsf_or)
   obtain ⟨_, _, _, _, _, _, _, ⟨ord, horder, hlayers⟩, _, _, _, _, _, _, _, _⟩ :=
     componentRun_spec hrun
   have horder' : OrderImpl.order run.coordinateProper orderOptions = .ok run.layers := by
@@ -351,9 +339,9 @@ theorem foreignBorderEdgesNoncrossing_executed {P : Params} {inp : Input} {o : O
     have hpreU' : nx.node.clusterPath <+: nb.node.clusterPath := by
       rw [hpex, hpfb]; exact hpre
     have oeLo := OrderImpl.order_border_ends run.coordinateProper orderOptions
-      run.layers horder' hwf lw hmem_lo jw ja w a nw na hjw hja hnw' hna' hwa hdnw hdna hpre'
+      run.layers horder' hbwf lw hmem_lo jw ja w a nw na hjw hja hnw' hna' hwa hdnw hdna hpre'
     have oeHi := OrderImpl.order_border_ends run.coordinateProper orderOptions
-      run.layers horder' hwf lx hmem_hi jx jb x b nx nb hjx hjb hnx' hnb' hxb hdnx hdnb hpreU'
+      run.layers horder' hbwf lx hmem_hi jx jb x b nx nb hjx hjb hnx' hnb' hxb hdnx hdnb hpreU'
     rcases hse_or with hse | hse
     · by_cases hkodd : k % 2 = 1
       · have gHi : jx < jb := oeHi.1 (by rw [hsex, hse])
@@ -376,9 +364,9 @@ theorem foreignBorderEdgesNoncrossing_executed {P : Params} {inp : Input} {o : O
     have hpreU' : nb.node.clusterPath <+: nx.node.clusterPath := by
       rw [hpfb, hpex]; exact hpre
     have oeLo := OrderImpl.order_border_ends run.coordinateProper orderOptions
-      run.layers horder' hwf lw hmem_lo ja jw a w na nw hja hjw hna' hnw' haw hdna hdnw hpre'
+      run.layers horder' hbwf lw hmem_lo ja jw a w na nw hja hjw hna' hnw' haw hdna hdnw hpre'
     have oeHi := OrderImpl.order_border_ends run.coordinateProper orderOptions
-      run.layers horder' hwf lx hmem_hi jb jx b x nb nx hjb hjx hnb' hnx' hbx' hdnb hdnx hpreU'
+      run.layers horder' hbwf lx hmem_hi jb jx b x nb nx hjb hjx hnb' hnx' hbx' hdnb hdnx hpreU'
     rcases hsf_or with hsf | hsf
     · by_cases hkodd : k % 2 = 1
       · have gLo : ja < jw := oeLo.1 (by rw [hsfa, hsf])
@@ -396,7 +384,7 @@ theorem foreignBorderEdgesNoncrossing_executed {P : Params} {inp : Input} {o : O
         omega
   · have hdiv' : Divergent nw.node.clusterPath na.node.clusterPath := by
       rw [hpew, hpfa]; exact hdiv
-    have hiff := hstab hgraph hcomp hrun hmem_lo hmem_hi
+    have hiff := hstab hgraph hlines hwf hframed hcomp hrun hmem_lo hmem_hi
       hnw' hna' (by rw [hsew]; exact hse_or) (by rw [hsfa]; exact hsf_or)
       hnx' hnb' (by rw [hsex]; exact hse_or) (by rw [hsfb]; exact hsf_or)
       (hpew.trans hpex.symm) (hpfa.trans hpfb.symm) hdiv' hjw hja hjx hjb

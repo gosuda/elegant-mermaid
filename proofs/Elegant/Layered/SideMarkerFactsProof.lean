@@ -292,9 +292,9 @@ theorem bracketMarkersAtRank (hgrp : SideMarkerAnchorCover) : BracketMarkersAtRa
  ordered by the executed border ends, lifted through pairwise separation. -/
 theorem sideMarkerSpanAligned (halign : ForeignBorderChainXAligned)
      (hsame : SideMarkerSamePath) : SideMarkerSpanAligned := by
-  intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions
-    hrun decl m m' marker marker' hmem hborder hgetLast hmem' hborder'
-    hgetLast'
+  intro P inp o lines graph hgraph hlines hwf hframed comp hcomp candidate run
+    labels orderOptions hrun decl m m' marker marker' hmem hborder hgetLast
+    hmem' hborder' hgetLast'
   have hns : marker.node.border ≠ -2 ∧ marker.node.border ≠ 2 := by
     rcases hborder with h | h <;> constructor <;> intro hc <;> omega
   have hns' : marker'.node.border ≠ -2 ∧ marker'.node.border ≠ 2 := by
@@ -307,7 +307,8 @@ theorem sideMarkerSpanAligned (halign : ForeignBorderChainXAligned)
     have hlast : marker.node.clusterPath.getLast? =
         marker'.node.clusterPath.getLast? := by
       rw [hgetLast, hgetLast']
-    exact halign hgraph hcomp hrun hcp hcp' hborder hborder' hsameSide hlast
+    exact halign hgraph hlines hwf hframed hcomp hrun
+      hcp hcp' hborder hborder' hsameSide hlast
   · have hxs := coordinateXs_of_proper_marker hrun hmem hborder
     have hcenter : 0 ≤ run.coordinateXs.getD m 0 :=
       fbs_coordinate_centers_nonneg hrun m
@@ -357,18 +358,18 @@ theorem sideMarkerSpanAligned (halign : ForeignBorderChainXAligned)
     have horder' : OrderImpl.order run.coordinateProper orderOptions =
         .ok run.layers := by
       simp [OrderImpl.order, horder, hlayers]
-    have hwf := componentRun_coordinate_bordersWellFormed hgraph hcomp hrun
+    have hwfBorders := componentRun_coordinate_bordersWellFormed hgraph hcomp hrun
     have hdm : marker.dummy = false := by
       cases hd : marker.dummy with
       | false => rfl
       | true =>
-        have h0 := hwf.2.2 m marker hcp hd
+        have h0 := hwfBorders.2.2 m marker hcp hd
         omega
     have hdm' : marker'.dummy = false := by
       cases hd : marker'.dummy with
       | false => rfl
       | true =>
-        have h0 := hwf.2.2 m' marker' hcp' hd
+        have h0 := hwfBorders.2.2 m' marker' hcp' hd
         omega
     have hne : m ≠ m' := by
       intro heq
@@ -378,7 +379,7 @@ theorem sideMarkerSpanAligned (halign : ForeignBorderChainXAligned)
       omega
     have hltij : i < j :=
        (OrderImpl.order_border_ends run.coordinateProper orderOptions run.layers
-         horder' hwf (run.layers.getD (OrderImpl.lay run.coordinateProper m) []) hlayer
+         horder' hwfBorders (run.layers.getD (OrderImpl.lay run.coordinateProper m) []) hlayer
          i j m m' marker marker' hi hj hcp hcp' hne hdm hdm' hpre).1 hbL
     have hsep := componentRun_nonproxy_ordered_intervals hgraph hcomp hrun hlayer
       hltij hi hj hcp hcp'

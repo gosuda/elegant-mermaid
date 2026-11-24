@@ -852,7 +852,9 @@ marker: every border marker shares its side's placed span (`SideMarkerSpanAligne
 from `hx`), and the same-rank pair orders the left span below the right span. -/
 private theorem tsep_hull_eq_of_pair (hx : ForeignBorderChainXAligned)
     {inp : Input} {o : Options} {res : FamilyResult}
-    (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
+    (e : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
+    (comp : List Nat) (candidate : Nat)
     (run : Run) (oo : OrderOptions) (v : Nat) (nodeV : Node)
     (hcomp : comp ∈ components e.graph)
     (hnodeV : (componentCandidate e.graph comp candidate).nodes[v]? = some nodeV)
@@ -878,22 +880,24 @@ private theorem tsep_hull_eq_of_pair (hx : ForeignBorderChainXAligned)
     intro r hr
     obtain ⟨q, nd, hq, hbq, hlastq, hrq⟩ := groupBorderRects_inv hr
     rcases hbq with hbqL | hbqR
-    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq hcomp hrun hq (Or.inl hbqL)
-        hlastq hL (Or.inl hbL) hlL).1 (by rw [hbL, hbqL])
-      have hcross := (halign e.graph_eq hcomp hrun hL (Or.inl hbL) hlL
-        hR (Or.inr hbR) hlR).2.2 ⟨hbL, hbR, hrank⟩
+    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq (tsep_lines_len e) hwf hfp
+        hcomp hrun hq (Or.inl hbqL) hlastq hL (Or.inl hbL) hlL).1
+        (by rw [hbL, hbqL])
+      have hcross := (halign e.graph_eq (tsep_lines_len e) hwf hfp hcomp hrun
+        hL (Or.inl hbL) hlL hR (Or.inr hbR) hlR).2.2 ⟨hbL, hbR, hrank⟩
       rw [hrq, rectAt_eq run.proper run.xs run.ys q,
         rectAt_eq run.proper run.xs run.ys mR]
       dsimp only
       omega
-    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq hcomp hrun hq (Or.inr hbqR)
-        hlastq hR (Or.inr hbR) hlR).1 (by rw [hbR, hbqR])
+    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq (tsep_lines_len e) hwf hfp
+        hcomp hrun hq (Or.inr hbqR) hlastq hR (Or.inr hbR) hlR).1
+        (by rw [hbR, hbqR])
       rw [hrq, rectAt_eq run.proper run.xs run.ys q,
         rectAt_eq run.proper run.xs run.ys mR]
       dsimp only
       omega
-  have hnonnegR := (halign e.graph_eq hcomp hrun hR (Or.inr hbR) hlR
-    hR (Or.inr hbR) hlR).2.1
+  have hnonnegR := (halign e.graph_eq (tsep_lines_len e) hwf hfp hcomp hrun
+    hR (Or.inr hbR) hlR hR (Or.inr hbR) hlR).2.1
   have hmemR : Labels.rectAt run.proper run.xs run.ys mR ∈
       groupBorderRects (componentCandidate e.graph comp candidate) run
         nodeV.decl :=
@@ -949,7 +953,9 @@ theorem loopFootprintTopSeparation_holds (hx : ForeignBorderChainXAligned)
     (hbeyond : ∀ (inp : Input) (o : Options) (res : FamilyResult),
       LoopFootprintBeyondProper inp o res)
     (hright : ∀ (inp : Input) (o : Options) (res : FamilyResult)
-      (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
+      (e : SceneExecution inp o res),
+      WellFormed (inputModel inp o) → framedParents inp = true →
+      ∀ (comp : List Nat) (candidate : Nat)
       (run : Run) (oo : OrderOptions) (v b : Nat) (nodeV nodeB : Node)
       (actualB : ProperNode) (mR : Nat) (nR : ProperNode),
       comp ∈ components e.graph →
@@ -1061,9 +1067,9 @@ theorem loopFootprintTopSeparation_holds (hx : ForeignBorderChainXAligned)
           subst hbm
           have heq2 := Option.some.inj (hpropB.symm.trans hmarkRunR)
           rw [heq2] at hbB0; omega
-        · exact rect_disjoint_of_x (Or.inl (hright inp o res e comp candidate
-            run oo v b nodeV nodeB actualB mR nR hcomp hnodeV hvtop' hnodeB
-            hb0' hbB0 hrun hpropB hcoordB hcpmR hborderR hlastR halign
+        · exact rect_disjoint_of_x (Or.inl (hright inp o res e hwf hfp comp
+            candidate run oo v b nodeV nodeB actualB mR nR hcomp hnodeV hvtop'
+            hnodeB hb0' hbB0 hrun hpropB hcoordB hcpmR hborderR hlastR halign
             (hext_all inp o res e comp candidate run oo v mR nodeV nR hcomp
             hnodeV hvtop' hrun hcpmR hborderR hlastR) lB hlayerMem iv j hiv hj
             hgt))
@@ -1105,12 +1111,12 @@ theorem loopFootprintTopSeparation_holds (hx : ForeignBorderChainXAligned)
               subst hbm
               have heq2 := Option.some.inj (hpropB.symm.trans hmarkRunR)
               rw [heq2] at hbB0; omega
-            · exact rect_disjoint_of_x (Or.inl (hright inp o res e comp candidate
-                run oo v b nodeV nodeB actualB mR nR hcomp hnodeV hvtop' hnodeB
-                hb0' hbB0 hrun hpropB hcoordB hcpmR hborderR hlastR halign
-                (hext_all inp o res e comp candidate run oo v mR nodeV nR
-                hcomp hnodeV hvtop' hrun hcpmR hborderR hlastR) lB hlayerMem
-                iv j hiv hj hgt))
+            · exact rect_disjoint_of_x (Or.inl (hright inp o res e hwf hfp comp
+                candidate run oo v b nodeV nodeB actualB mR nR hcomp hnodeV
+                hvtop' hnodeB hb0' hbB0 hrun hpropB hcoordB hcpmR hborderR
+                hlastR halign (hext_all inp o res e comp candidate run oo v mR
+                nodeV nR hcomp hnodeV hvtop' hrun hcpmR hborderR hlastR)
+                lB hlayerMem iv j hiv hj hgt))
         · have hbelowFacts : ∀ (q : Nat) (nd : ProperNode),
               run.proper.nodes[q]? = some nd →
               nd.node.clusterPath.contains nodeV.decl = true →

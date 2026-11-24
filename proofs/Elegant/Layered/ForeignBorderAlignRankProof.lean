@@ -70,12 +70,11 @@ private theorem addClusterBorders_side_width (source : Proper) (width : Int)
             rcases hnew with rfl | rfl <;> rfl
   exact hP node (List.mem_of_getElem? hnode) hside
 
-/-- Cross-coordinate placement: two same-side border markers of one
-declaration share one closed `x`-interval. Proved outright from the
-alignment-phase residual. -/
+/-- In a successful framed run, two same-side border markers of one
+declaration share one closed `x`-interval by their alignment pointers. -/
 theorem foreignBorderChainXAligned (hups : ForeignBorderSideUps) :
     ForeignBorderChainXAligned := by
-  intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions hrun
+  intro P inp o lines graph hgraph hlines hwf hframed comp hcomp candidate run labels orderOptions hrun
     a b na nb ha hb hsideA hsideB hborder howner
   obtain ⟨hproperA, hxsA⟩ := componentRun_border_record hrun ha hsideA
   obtain ⟨hproperB, hxsB⟩ := componentRun_border_record hrun hb hsideB
@@ -122,7 +121,7 @@ theorem foreignBorderChainXAligned (hups : ForeignBorderSideUps) :
         intro k hk x hx
         obtain ⟨chain, hiff, hblock⟩ :=
           foreignBorderSideBlocked (decl := decl) (side := na.node.border)
-            hups hgraph hcomp hrun hsideA hk hcl
+            hups hgraph hlines hwf hframed hcomp hrun hsideA hk hcl
             ((Elegant.Layered.clusterCtx_facts (ng := P.nodeGap) (cp := P.clusterPad)
               (p := CoordsImpl.borderAlignment run.coordinateProper run.layers)
               (layers := run.layers)

@@ -11,7 +11,7 @@ set_option autoImplicit false
 
 For every executed `expandChild` call the recursion performs, the group
 caption rect (`groupTitleRect`, the `childTitleRect` at the located frame)
-lies inside the frame, and it misses the shifted child *inset* canvas: the
+lies strictly inside the frame, and it misses the shifted child *inset* canvas: the
 canvas with the margin border removed (`insetRect`), which is exactly the
 region the expansion offsets line back up with the frame reservation.
 
@@ -224,6 +224,67 @@ theorem expandChild_title_band
     exact titleRect_contained_aux hpad hconw hconh hfw hfh
   · unfold groupTitleRect
     exact titleInset_disjoint_aux htw hth hfw hfh hdx hdy
+
+/-- Pure geometry behind the strict caption containment: the title rect lies
+strictly inside any frame whose width and height dominate the
+`childFrameSize` reservation, given a positive pad and nonnegative inset
+content.  The centering-axis strictness needs two inset units of slack, which
+the doubled pad supplies; the title-axis strictness is the pad itself. -/
+private theorem titleRect_strictInside_aux {direction : String}
+    {pad tw th conw conh fx fy fw fh : Int}
+    (hpad : 0 < pad)
+    (hconw : 0 ≤ conw) (hconh : 0 ≤ conh)
+    (hfw : (childFrameSize direction pad tw th ⟨conw, conh⟩).w ≤ fw)
+    (hfh : (childFrameSize direction pad tw th ⟨conw, conh⟩).h ≤ fh) :
+    (⟨fx, fy, fw, fh⟩ : Rect).StrictInside
+      (childTitleRect direction pad tw th ⟨fx, fy, fw, fh⟩) := by
+  have hW : tw + 2 * pad ≤ fw := by
+    unfold childFrameSize at hfw
+    split at hfw <;> dsimp only at hfw <;> omega
+  have hH : th + 2 * pad ≤ fh := by
+    unfold childFrameSize at hfh
+    split at hfh <;> dsimp only at hfh <;> omega
+  unfold childTitleRect
+  split <;> unfold Rect.StrictInside <;> dsimp only <;>
+    simp only [Int.fdiv_eq_ediv_of_nonneg _ (show (0 : Int) ≤ 2 by decide)] <;> omega
+
+/-- The caption rect of an executed `expandChild` lies strictly inside the
+located group frame.  The frame reservation
+(`expandChild_frame_size_bounds`), the positive cluster pad, and the child
+canvas margin cover (`layoutRecursive_canvas_ge_margins`) supply the strict
+auxiliary above. -/
+theorem frame_strictInside_caption
+    (fuel : Nat) (P : Params) (inp : Input) (o : Options)
+    (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+    (parent child res : FamilyResult)
+    (_hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (_hframed : framedParents inp = true)
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+      parent child res)
+    (hparams : ExpandChildCallParams P inp o group titleLines titleHeight) :
+    ∀ (frame : Box) (titleLines' : List Measure.Line) (dx dy : Int),
+    parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
+    dx = frame.rect.x + (childInset group.direction P.clusterPad
+        (titleLines'.foldl (fun width line => max width line.width) 0) titleHeight).x -
+      P.canvasMargin →
+    dy = frame.rect.y + (childInset group.direction P.clusterPad
+        (titleLines'.foldl (fun width line => max width line.width) 0) titleHeight).y -
+      P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group titleLines' →
+    frame.rect.StrictInside
+      (groupTitleRectC8 group P titleLines' titleHeight frame) := by
+  intro frame titleLines' _dx _dy hframe _hdx _hdy hwrap'
+  obtain ⟨hw, hh⟩ := expandChild_frame_size_bounds fuel P inp o group titleLines
+    titleHeight parent child res _hexpand _hframed hctx hparams frame titleLines'
+    hframe hwrap'
+  obtain ⟨hP, _hheightEq, _hwrapCtx⟩ := hparams
+  have hpad : 0 < P.clusterPad := callParams_clusterPad_pos hP
+  obtain ⟨_hwf, _hgroup, _hpboxes, hchild, _hparent, _hexpand'⟩ := hctx
+  have hQchild : checkedParams (childSubOptions o group).profile
+      (childSubInput inp group).kind = .ok P := hP
+  obtain ⟨hconw, hconh⟩ :=
+    layoutRecursive_canvas_ge_margins fuel _ _ _ hchild P hQchild
+  exact titleRect_strictInside_aux hpad hconw hconh hw hh
 
 /-- Witness: whole-canvas disjointness is false with the title above the
 content (`TB`). The frame-size bounds and the exact shift equations hold

@@ -306,10 +306,9 @@ private theorem X_tailBottomFacts
       omega
 
 /-- The executed tail port of a `border = 2` bottom-marker endpoint is the
-flat port `⟨px, run.ys v⟩`: both stored tail port forms of
-`route_endpoints_on_ports` place the tail-side point at
-`boxRect.y + boxRect.h`, and the executed exact node has zero height with
-`boxRect.y = run.ys v` (exact counterpart of `groupTailPortOnYs`). -/
+flat port `⟨px, run.ys v⟩`. The marker is non-top, so the semantic tail
+ordinate in either route direction is its physical bottom, and the
+executed exact marker has zero height. -/
 theorem x_tailPort_holds (exactIds : List String) : X_TailPort exactIds := by
   unfold X_TailPort
   intro P inp cg run labels orderOptions hrun i hi first hfirst hb
@@ -330,28 +329,16 @@ theorem x_tailPort_holds (exactIds : List String) : X_TailPort exactIds := by
   obtain ⟨px, _, _, _, hpx0, hpx1, _, _, hend⟩ :=
     route_endpoints_on_ports hrouting hroutes rt hm first last hfirst' hlast'
   rw [horiginal] at hend
-  have hhEq : (RouteImpl.boxRect run.proper run.xs run.ys
-      (RouteImpl.edgeAt run.proper first).tail).y +
-      (RouteImpl.boxRect run.proper run.xs run.ys
-        (RouteImpl.edgeAt run.proper first).tail).h =
-      run.ys.getD (RouteImpl.edgeAt run.proper first).tail 0 := by
-    simp only [RouteImpl.boxRect, RouteImpl.yAt]
-    rw [hnh]
-    exact Int.add_zero _
+  simp only [hfk, ↓reduceIte, RouteImpl.boxRect, RouteImpl.yAt, hnh, Int.add_zero] at hend
   refine ⟨rt, px, hrt, hpx0, hpx1, ?_, ?_⟩
   · intro hrev
     rw [ite_eq_left hrev] at hend
-    obtain ⟨-, htail⟩ := hend
-    rw [hhEq] at htail
-    exact htail
+    exact hend.2
   · intro hcon
     have hnc : ¬((cg.edges.map (·.reversed)).getD i false = true) := by
       rw [hcon]; decide
     rw [ite_eq_right hnc] at hend
-    obtain ⟨hhead, -⟩ := hend
-    rw [ite_eq_right hfk] at hhead
-    rw [hhEq] at hhead
-    exact hhead
+    exact hend.1
 
 end PipelineImpl
 end Layered

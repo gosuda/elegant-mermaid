@@ -1,5 +1,6 @@
 import Elegant.Kinds.Swimlane
 import Elegant.Kinds.SwimlaneEndsSplitCutover
+import Elegant.Kinds.SwimlaneEndsExecutedProof
 import Elegant.Kinds.SwimlaneBaseFactsProof
 import Elegant.Layered.FamilyAssembly
 import Elegant.Layered.InputFixedFit
@@ -19,93 +20,30 @@ import Elegant.Layered.LaneBandsFrameClause
 import Elegant.Layered.LaneBandsFindRouteFactsProof
 import Elegant.Layered.LaneBandsKeptClearExecutedProof
 import Elegant.Layered.LaneBandsFrameClauseExecuted
- import Elegant.Layered.LaneBandsLooseLowerProof
+import Elegant.Layered.LaneBandsLooseRouteBoundProof
 import Elegant.Layered.LaneBandsRouteClausesProof
 import Elegant.Layered.SceneParentsProof
+import Elegant.Layered.OrthogonalityFacts
+import Elegant.Layered.SwimlanePinPointOrthogonalityProof
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
 
-/-! Validity of the swimlane adapter from the layered seams plus pin facts.
+/-! The swimlane adapter transports layered family validity through
+`Layered.LaneBands.pinLanes`. A successful layout supplies lane nesting and
+layered admission, from which `swimlane_endsPremise_of_admitted` derives the
+executed route-end disjunction needed by `swimlane_endsOld_of_premise`.
+The former same-band-or-kink condition fails on `endsSplitWitnessG2G` and
+`endsSplitWitnessG2Loose`: both have a two-point route with equal cross-axis
+endpoint coordinates but different band shifts.
 
-The swimlane kind lays out through the layered family and then pins lanes
-with `Layered.LaneBands.pinLanes`. The base scene is valid by
-`layoutFamily_valid_of_seams`; the pin transport goes through the tracked
-per-clause theorems, with C6 discharged executably via
-`pinBands_c6_executed_closed` (no false universal kept-clear premise).
-
-Remaining seams (each LOCAL to `m` or to an executed `layoutFamily` run;
-no premise quantifies over arbitrary scenes or bands):
-
-- `endsSplit`: OPEN. On each successful base layout, every route either
-  crosses distinct bands with at least two points or has equal endpoint shifts.
-  `swimlane_endsOld_of_premise` proves the pin endpoint guarantee from this
-  condition. The former same-band-or-kink condition fails on both
-  `endsSplitWitnessG2G` and `endsSplitWitnessG2Loose`.
-- `boxNonneg` / `basePos`: CLOSED by `swimlane_boxNonneg` /
-  `swimlane_basePos` (`SwimlaneBaseFactsProof.lean`): every executed
-  swimlane family scene box is strictly positive in both dimensions, so
-  the cross length is nonnegative and the dump is `ExclusivePositive`.
-- `orthoAll`: OPEN, real restriction. Executed family scene routes carry
-  the model's own `orthogonal` flag verbatim (it is not a layout input),
-  so the fact is false on models that declare a route with
-  `orthogonal := false`; it cannot be derived from the execution alone.
- - `aboveLane`: OPEN, narrow. The single narrow loose-pair residual
-   (`PinLooseRouteAboveLaneBox`) on executed runs. The wide victim
-   (`PinLooseRouteLaneVictimClear`) is closed by
-   `pinLooseRouteLaneVictimClear_of_above`, so only `aboveLane` travels
-   (lower bound refuted: see `LaneBandsLooseLowerProof`).
-
-Closed by derivation (no seam): `modelNe`, `disj`, and `InputFixedFit` from
-`layeredAdmissibleB_spec` via `Swimlane.layout_admissible`, which the guarded
-`Swimlane.layout` (`Layered.admit`) discharges; `admit` (`NestedInLane`) from
-`nestedInLaneB_spec` via `Swimlane.layout_nested`, which the guarded layout
-discharges. Closed by derivation (no seam): `endsBox` by
-`swimPin_endsBox_of_c5` from base C5. Closed by name (no seam): C1 by
-`pinBands_c1` + `attachLaneEnds_c1`; C7 by `pinBands_c7` (from
-`swimPin_clean`/`swimPin_shape`); C8b by `pinBands_c8b` +
-`attachLaneEnds_c8b`; `FindRouteOrthoPin` by `findRouteOrthoPin_holds`;
-`FindRouteEndsPin` by `findRouteEndsPin_holds`; the pin endpoint guarantee by
-`SwimlaneEndsCutover.swimlane_endsOld_of_premise`; gap by
-`pinBands_gapClear_closed`; fit by `pinBands_framesFit`; lengths by
-`pinBands_framesLenNonneg`; positivity by `pinBands_exclusivePositive`;
-C6 by `pinBands_c6_executed_closed`. -/
+Layered admission and base C5 also give the loose-route above-box bound,
+which supplies victim clearance for `pinBands_c6_executed_closed`. -/
 namespace Elegant
 namespace Kinds
 
 open Elegant.Layered.LaneBands
 open Elegant.Layered
-
-/-- Open pin-lane seams for the swimlane adapter: every transport premise
-that no finished theorem discharges yet. Each field is about the input
-model `m` or about executed runs guarded by a successful `layoutFamily`
-run (LOCAL premises only); no field quantifies over arbitrary scenes or
-bands. -/
-structure SwimlanePinSeams (m : Model) where
-  endsSplit : SwimlaneEndsPremise m
-  /-- OPEN: executed family scene routes carry the orthogonal flag
-  (feeds the pin-level C6 through the `swimPin_allOrtho` copy). No
-  finished fact; base C4 is conditional on the flag, so it cannot yield
-  `= true`, and the flag replays the model's (default true but settable). -/
-  orthoAll : ∀ base : Layered.FamilyResult,
-    Layered.layoutFamily (Swimlane.input m) m.options = .ok base →
-    ∀ rt ∈ base.scene.routes, rt.orthogonal = true
-   /-- OPEN, narrow: the single loose-pair residual on executed runs,
-   in its corrected per-pair above-box form (`PinLooseRouteAboveLaneBox`).
-   The wide victim is closed by `pinLooseRouteLaneVictimClear_of_above`,
-   so only `aboveLane` travels as a seam. -/
-   aboveLane : ∀ base : Layered.FamilyResult,
-     Layered.layoutFamily (Swimlane.input m) m.options = .ok base →
-     ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
-     ∀ (s1 : Scene),
-       applyPin (buildPin (Axis.ofDirection m.options.direction)
-         (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-           (lanesOf m.boxes)) base.scene)
-         (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-           (lanesOf m.boxes)) base.scene = .ok s1 →
-       PinLooseRouteAboveLaneBox (Axis.ofDirection m.options.direction)
-         (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-           (lanesOf m.boxes)) base.scene
 
 /-- Lane admission soundness: the executable `Swimlane.nestedInLaneB` check
 implies `NestedInLane`. The guarded `Swimlane.layout` discharges the check,
@@ -123,107 +61,6 @@ theorem nestedInLaneB_spec {boxes : List ModelBox}
     exact absurd heq hpar
   · obtain ⟨lane, hlm, hin⟩ := List.any_eq_true.mp hlane
     exact ⟨lane, hlm, hin⟩
-
-/-- Prefixed copy of the private `bindOk` splitter used by the pin
-orthogonality transport. -/
-private theorem swimPin_bindOk {α β : Type} {x : Except LayoutError α}
-    {f : α → Except LayoutError β} {y : β} (h : x >>= f = .ok y) :
-    ∃ a, x = .ok a ∧ f a = .ok y := by
-  cases x with
-  | error e => simp [Bind.bind, Except.bind] at h
-  | ok a => exact ⟨a, rfl, h⟩
-
-/-- Prefixed copy of the private uniform-shift orthogonality helper: a
-uniform shift keeps every route orthogonal flag. -/
-private theorem swimPin_shiftAll_ortho {axis : Elegant.Layered.LaneBands.Axis} {delta : Int} {s s' : Scene}
-    (hAll : ∀ rt ∈ s.routes, rt.orthogonal = true)
-    (h : shiftAll axis delta s = .ok s') :
-    ∀ r ∈ s'.routes, r.orthogonal = true := by
-  unfold shiftAll at h
-  obtain ⟨_boxes, _hboxes, h⟩ := swimPin_bindOk h
-  obtain ⟨_labels, _hlabels, h⟩ := swimPin_bindOk h
-  obtain ⟨routes, hroutes, h⟩ := swimPin_bindOk h
-  obtain ⟨_items, _hitems, h⟩ := swimPin_bindOk h
-  simp only [Pure.pure, Except.pure, Except.ok.injEq] at h
-  subst h
-  show ∀ r ∈ routes, r.orthogonal = true
-  have hspec := mapM_except_spec
-    (fun r : Route => (do pure { r with points := ← r.points.mapM ((Move.constant delta).point axis) } : Except LayoutError Route))
-    s.routes routes hroutes
-  have hlen : routes.length = s.routes.length := hspec.1
-  intro r hr
-  obtain ⟨k, hk⟩ := List.mem_iff_getElem?.mp hr
-  have hkR : k < routes.length := (List.getElem?_eq_some_iff.mp hk).1
-  have hkS : k < s.routes.length := by omega
-  obtain ⟨a, b, ha, hb, hfab⟩ := hspec.2 k hkS hkR
-  have hbeq : b = r := Option.some.inj (by rw [← hb]; exact hk)
-  have hamem : a ∈ s.routes := List.mem_of_getElem? ha
-  have hflag : a.orthogonal = true := hAll a hamem
-  cases hinner : a.points.mapM ((Move.constant delta).point axis) with
-  | error e =>
-    simp only [hinner, Bind.bind, Except.bind] at hfab
-    exact absurd hfab (by simp)
-  | ok pts =>
-    simp only [hinner, Bind.bind, Except.bind, Pure.pure, Except.pure,
-      Except.ok.injEq] at hfab
-    subst hbeq
-    rw [← hfab]
-    exact hflag
-
-/-- Prefixed copy of the private `pinBands` orthogonality transport:
-`pinBands` keeps every route orthogonal flag. -/
-private theorem swimPin_allOrtho {boxes : List ModelBox} {o : Options} {s pinned : Scene}
-    (hAll : ∀ rt ∈ s.routes, rt.orthogonal = true)
-    (hpin : pinBands boxes o s = .ok pinned) :
-    ∀ r ∈ pinned.routes, r.orthogonal = true := by
-  by_cases hlanes : lanesOf boxes = []
-  · have hno : pinBands boxes o s = .ok s := pinBands_no_lanes hlanes
-    have heq : pinned = s := Except.ok.inj (hpin.symm.trans hno)
-    subst heq
-    exact hAll
-  · obtain ⟨_sp, axis, bands, p0, routed, origin, _strip, stripScene, _hsp, _haxis,
-        _hbands, happ, hroute, horig, _hstrip, hrelocEq, hgrow⟩ :=
-      pinBands_spec hlanes hpin
-    obtain ⟨_shiftedBoxes, _shiftedLabels, shiftedRoutes, _shiftedItems,
-        _hboxes, _hlabels, hroutes, _hitems, hfold⟩ := applyPin_shifted happ
-    have hlenS : shiftedRoutes.length = s.routes.length :=
-      (mapM_except_spec _ s.routes shiftedRoutes hroutes).1
-    have hrr : p0.routes = shiftedRoutes :=
-      (foldReplaceFrame_all bands (buildPin axis bands s).axis _ p0 hfold).2.2.2.2.2.2.1
-    have hlenP : p0.routes.length = s.routes.length := by rw [hrr, hlenS]
-    have h0 : ∀ r ∈ p0.routes, r.orthogonal = true := by
-      intro rP hrP
-      obtain ⟨k, hk⟩ := List.mem_iff_getElem?.mp hrP
-      have hkP : k < p0.routes.length := (List.getElem?_eq_some_iff.mp hk).1
-      have hkS : k < s.routes.length := by omega
-      have hkO : s.routes[k]? = some s.routes[k] :=
-        List.getElem?_eq_some_iff.mpr ⟨hkS, rfl⟩
-      have hkSh : k < shiftedRoutes.length := by omega
-      obtain ⟨_a, _b, _ha, _hb, _hfab⟩ := (mapM_except_spec _ s.routes shiftedRoutes hroutes).2 k hkS hkSh
-      obtain ⟨_hid, _hfrom, _hto, horth, _hmap⟩ :=
-        applyPin_c4_map happ hkP hkS hk hkO
-      have hmem : s.routes[k] ∈ s.routes := List.mem_of_getElem? hkO
-      have hflag : (s.routes[k]).orthogonal = true := hAll _ hmem
-      rw [horth]
-      exact hflag
-    have h1 : ∀ r ∈ routed.routes, r.orthogonal = true := by
-      intro r' hr'
-      obtain ⟨r, hr, _old, _hold, _hpair, _hid, _hfrom, _hto, horthEq, _hcase⟩ :=
-        c4c5_reroute_mem _ _ _ _ _ _ _ _ hroute r' hr'
-      rw [horthEq]
-      exact h0 r hr
-    have h2 : ∀ r ∈ origin.routes, r.orthogonal = true := by
-      rcases restoreOrigin_cases horig with heq | ⟨delta, _hpos, hshift⟩
-      · subst heq
-        exact h1
-      · exact swimPin_shiftAll_ortho h1 hshift
-    have hstripR : stripScene.routes = origin.routes := by
-      rw [hrelocEq]
-      exact relocateLabels_routes axis _ origin
-    have hgrowR : pinned.routes = stripScene.routes := (growCanvas_frame hgrow).2.1
-    intro r hr
-    rw [hgrowR, hstripR] at hr
-    exact h2 r hr
 
 /-- Executed scene ids match the model box ids (from `layoutFamily_ids`;
 the swimlane input carries model boxes verbatim). -/
@@ -244,7 +81,7 @@ private theorem swimPin_routesEq {m : Model} {base : Layered.FamilyResult}
   rw [heq] at h2
   exact h2
 
-/-- Executed scene boxes have nonempty ids (from the `modelNe` seam). -/
+/-- Executed scene boxes have nonempty ids by layered admission. -/
 private theorem swimPin_sceneNe {m : Model} {base : Layered.FamilyResult}
     (hne : ∀ b ∈ m.boxes, b.id ≠ "")
     (hfam : Layered.layoutFamily (Swimlane.input m) m.options = .ok base)
@@ -477,10 +314,12 @@ private theorem swimPin_pos {m : Model} {base : Layered.FamilyResult}
   exact pinBands_exclusivePositive hPosS hNoEmpty hBoxesNodup hne
     hsNodup hpin
 
-/-- The pin preserves boundary endpoints under `SwimlaneEndsPremise`. -/
+/-- The pin preserves boundary endpoints on admitted swimlane runs. -/
 private theorem swimPin_endsOld {m : Model} {base : Layered.FamilyResult}
     {r : Scene}
-    (P : SwimlanePinSeams m) (hne : ∀ b ∈ m.boxes, b.id ≠ "") (hwf : WellFormed m)
+    (hadm : NestedInLane m.boxes)
+    (hadmitted : Layered.layeredAdmissibleB (Swimlane.input m) = true)
+    (hne : ∀ b ∈ m.boxes, b.id ≠ "") (hwf : WellFormed m)
     (hfam : Layered.layoutFamily (Swimlane.input m) m.options = .ok base)
     (hC5 : Validator.C5 base.scene.layoutDump)
     (hlanes : lanesOf m.boxes ≠ [])
@@ -497,12 +336,11 @@ private theorem swimPin_endsOld {m : Model} {base : Layered.FamilyResult}
     fun b hb => swimPin_sceneNe hne hfam hb
   have hModelClean : (m.boxes.map fun b => b.id).Nodup ∧ ∀ b ∈ m.boxes, b.id ≠ "" :=
     ⟨Model.boxIds_nodup hwf, hne⟩
+  have hEnds := SwimlaneEndsExecuted.swimlane_endsPremise_of_admitted hadm hadmitted
   exact SwimlaneEndsCutover.swimlane_endsOld_of_premise hC5 hlanes hrouteNodup
-    hnodupB hNoEmpty (P.endsSplit base hfam) findRouteEndsPin_holds hModelClean hpin
+    hnodupB hNoEmpty (hEnds base hfam) findRouteEndsPin_holds hModelClean hpin
 
- /-- The executed kept-clear bundle for an arbitrary spacing: every
- conjunct follows from the seams and closed wrappers except the narrow
- `aboveLane` residual, which travels as a seam. -/
+/-- The executed kept-clear bundle follows from the base validity and pin setup. -/
 private theorem swimPin_kept {m : Model} {base : Layered.FamilyResult}
     (hadm : NestedInLane m.boxes) (hne : ∀ b ∈ m.boxes, b.id ≠ "")
     (hwf : WellFormed m)
@@ -529,11 +367,10 @@ private theorem swimPin_kept {m : Model} {base : Layered.FamilyResult}
   exact ⟨rfl, happ, hbase, hcover, hends, hsetup, hParents, hrouteNodup,
     hsNodup, hBoxesNodup, hne, hnn⟩
 
- /-- Closed C6 after the executed pin, via the executed bundle plus the
- narrow `aboveLane` seam. -/
+/-- C6 after the executed pin, using the loose-route above-box bound. -/
 private theorem swimPin_c6mid {m : Model} {base : Layered.FamilyResult}
     {pinned : Scene}
-    (P : SwimlanePinSeams m) (hadm : NestedInLane m.boxes)
+    (hadm : NestedInLane m.boxes)
     (hne : ∀ b ∈ m.boxes, b.id ≠ "") (hwf : WellFormed m)
     (hfam : Layered.layoutFamily (Swimlane.input m) m.options = .ok base)
     (hbase : HardConstraints base.scene.layoutDump)
@@ -550,28 +387,13 @@ private theorem swimPin_c6mid {m : Model} {base : Layered.FamilyResult}
           (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
             (lanesOf m.boxes)) base.scene s1 m.boxes sp :=
     fun sp hsp s1 happ => swimPin_kept hadm hne hwf hfam hbase sp hsp s1 happ
-  have habove : ∀ (sp : Spacing), spacingOf m.options.profile = .ok sp →
-      ∀ (s1 : Scene),
-        applyPin (buildPin (Axis.ofDirection m.options.direction)
-          (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-            (lanesOf m.boxes)) base.scene)
-          (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-            (lanesOf m.boxes)) base.scene = .ok s1 →
-        PinLooseRouteAboveLaneBox (Axis.ofDirection m.options.direction)
-          (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
-            (lanesOf m.boxes)) base.scene :=
-    fun sp hsp s1 happ => P.aboveLane base hfam sp hsp s1 happ
-  exact pinBands_c6_executed_closed hfam hpin hbase hkept habove
+  exact pinBands_c6_executed_closed hfam hpin hbase hkept (fun sp hsp _ _ =>
+    swimlane_pinLooseRouteAboveLaneBox (sp := sp) hfam hne hbase.2.2.2.2.1 hsp)
 
-/-- Swimlane validity from the family seams and the pin seams: a successful
-layout of a well-formed model within limits satisfies the hard constraints.
-The family run gives validity of the unpinned dump
-(`layoutFamily_valid_of_seams`); the pin pass carries it clause by clause
-(C1 to C8) through the closed pin facts, with C6 discharged executably. -/
-theorem swimlane_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
+/-- A successful swimlane layout satisfies the hard constraints. -/
+theorem swimlane_valid
     {m : Model} {result : Layered.FamilyResult}
     (hwf : WellFormed m) (_hlim : WithinLimits m)
-    (P : SwimlanePinSeams m)
     (h : Swimlane.layout m = .ok result) :
     HardConstraints result.scene.layoutDump := by
   obtain ⟨base, pinned, hfam, hpinLanes, hdump⟩ := Swimlane.layout_dump h
@@ -582,7 +404,7 @@ theorem swimlane_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
   obtain ⟨hids, hdisj, hfix, -⟩ := hspec
   have hne : ∀ b ∈ m.boxes, b.id ≠ "" := hids
   have hbase : HardConstraints base.scene.layoutDump :=
-    Layered.PipelineImpl.layoutFamily_valid_of_seams S hids hfix hdisj hfam
+    Layered.PipelineImpl.layoutFamily_valid_of_seams hids hfix hdisj hfam
   have hclean := swimPin_clean hne hdisj hfam
   have hshape := swimPin_shape hwf hfam hne
   have hBoxesNodup := Model.boxIds_nodup hwf
@@ -627,8 +449,6 @@ theorem swimlane_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
         (layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
           (lanesOf m.boxes)) base.scene, 0 ≤ f.length :=
     fun pinned hpin sp hsp => swimPin_len hne hfam hsp hpin
-  have hOrthoAll : ∀ rt ∈ base.scene.routes, rt.orthogonal = true :=
-    P.orthoAll base hfam
   have hParents : ∀ sp : Spacing, ∀ bands : List Band,
       spacingOf m.options.profile = .ok sp →
       bands = layBands m.boxes base.scene (Axis.ofDirection m.options.direction) sp
@@ -663,7 +483,7 @@ theorem swimlane_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
                 (lanesOf m.boxes)) base.scene)
             pinned.layoutDump :=
         fun pinned hpin sp hsp =>
-          swimPin_endsOld P hne hwf hfam hbase.2.2.2.2.1 hlanes hpin sp hsp
+          swimPin_endsOld hadm ha hne hwf hfam hbase.2.2.2.2.1 hlanes hpin sp hsp
       exact pinLanes_c5 hbase.2.2.2.2.1 hEndsOld hFit hpinLanes
   have hC6 : Validator.C6 pinned.layoutDump := by
     by_cases hlanes : lanesOf m.boxes = []
@@ -673,19 +493,16 @@ theorem swimlane_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
       subst heq
       exact hbase.2.2.2.2.2.1
     · obtain ⟨sp, mid, hsp, hpinBands, hatt⟩ := pinLanes_spec hlanes hpinLanes
-      have hC6mid := swimPin_c6mid P hadm hne hwf hfam hbase hpinBands
-      have hC4mid : Validator.C4 mid.layoutDump :=
-        pinBands_c4 hbase.2.2.2.1 hlanes hrouteNodup hcov hEndsBox
-          findRouteOrthoPin_holds hpinBands
-      have hAllMid : ∀ rt ∈ mid.routes, rt.orthogonal = true :=
-        swimPin_allOrtho (P.orthoAll base hfam) hpinBands
+      have hC6mid := swimPin_c6mid hadm hne hwf hfam hbase hpinBands
+      have hBaseOrtho : ∀ rt ∈ base.scene.routes,
+          Polyline.isOrthogonal rt.points = true :=
+        Layered.PipelineImpl.layoutRecursive_routes_orthogonal
+          ((Swimlane.input m).boxes.length + 1) (Swimlane.input m) m.options base
+          (Layered.layoutFamily_geometry_ok hfam)
       have hOrtho : ∀ rt ∈ mid.layoutDump.routes,
           Polyline.isOrthogonal rt.points = true := by
-        have hdeq : mid.layoutDump.routes = mid.routes :=
-          (pinBands_layoutDump).2.1
-        rw [hdeq]
-        intro rt hrt
-        exact hC4mid rt hrt (hAllMid rt hrt)
+        rw [(pinBands_layoutDump (r := mid)).2.1]
+        exact pinBands_points_orthogonal hBaseOrtho hpinBands
       have hGapMid := swimPin_gap hadm hne hwf hfam hbase.2.2.1 hsp hpinBands
       have hPosMid := swimPin_pos hne hwf hfam hpinBands
       have hFitMid := swimPin_fit hne hwf hfam hsp hpinBands

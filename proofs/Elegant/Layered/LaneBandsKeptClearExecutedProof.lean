@@ -752,15 +752,32 @@ private theorem pkce_content_route_mem {boxes : List ModelBox} {s : Scene}
     (hto : inLane boxes r.toId lane = true) :
     axis.point p ∈ contentValues boxes s axis lane
       ((boxes.filter fun b => inLane boxes b.id lane).map (·.id)) := by
+  let members := (boxes.filter fun b => inLane boxes b.id lane).map (·.id)
+  have hmember (id : String) (hin : inLane boxes id lane = true) :
+      id ∈ members := by
+    cases hfind : boxes.find? (fun b => b.id == id) with
+    | none => simp [inLane, laneOf, laneOfAux, hfind] at hin
+    | some b =>
+      have hid : b.id = id :=
+        beq_iff_eq.mp (List.find?_some (p := fun b : ModelBox => b.id == id) hfind)
+      have hfiltered : b ∈ boxes.filter (fun b => inLane boxes b.id lane) := by
+        refine List.mem_filter.mpr ⟨List.mem_of_find?_eq_some hfind, ?_⟩
+        rwa [hid]
+      exact List.mem_map.mpr ⟨b, hfiltered, hid⟩
+  have hinside :
+      (if lane == "" then members.contains r.fromId && members.contains r.toId
+        else inLane boxes r.fromId lane && inLane boxes r.toId lane) = true := by
+    split
+    · simp only [Bool.and_eq_true, List.contains_iff_mem]
+      exact ⟨hmember _ hfrom, hmember _ hto⟩
+    · simp [hfrom, hto]
+  change axis.point p ∈ contentValues boxes s axis lane members
   unfold contentValues
   apply List.mem_append.mpr
   right
   apply List.mem_flatMap.mpr
   refine ⟨r, hr, ?_⟩
-  have hcond : (if inLane boxes r.fromId lane && inLane boxes r.toId lane then
-      r.points.map axis.point else []) = r.points.map axis.point := by
-    simp [hfrom, hto]
-  rw [hcond]
+  simp only [hinside, ↓reduceIte]
   exact List.mem_map.mpr ⟨p, hp, rfl⟩
 
 private theorem pkce_boxvals_mem {s : Scene} {axis : Axis} {b : Box}

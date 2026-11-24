@@ -32,18 +32,12 @@ divergent pair, no cross-layer conclusion). Both-rewritten layers chain two
 preservations through old-row self-agreement; one-sided cases chain one
 preservation through the old row's agreement with the untouched layer.
 
-What stays open (ONE public residual): `DivergeSweepSortPreserve`, i.e. one
-`sweepStep` keeps the relative order of divergent markers of the rewritten
-row. True on every probe iterate (see above); the sort-key analysis
-(`constrainedLayer` block keys from executed neighbour positions) is not done
-here.
+`DivergeSweepSortPreserve` is not an invariant of every executed sweep.
+`wip/Probe/DivergeLayeredSweepCounterexample.lean` evaluates a first sweep
+that reverses divergent markers while the returned layers agree.
 -/
 
-/-- Single-row preservation residual for the rewritten-row fact: in an executed
-run, one `sweepStep` keeps the relative order of divergent markers inside the
-rewritten row (sorted row vs old row). Strictly narrower than
-`DivergeSweepStepSortAgree` (one row and one divergent pair; no layer pairs,
-no cross-layer conclusion). True on every probe iterate (see header). -/
+/-- Single-row preservation assumption. An executed sweep can violate it. -/
 def DivergeSweepSortPreserve : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},

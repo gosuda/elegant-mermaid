@@ -21,15 +21,15 @@ Premise classification (each kept premise is a public named def over runs):
 - `XF_CaptionRunClearXW` (Packet 2, imported) and `XF_RouteRunClearXW`
   (below) feed `X_executedPartFrameCoresW_holds`; each is run-level,
   strictly narrower than the part-level goal.
-- `XF_RouteForwardClearXW` (Packet 1, imported) and the pure per-run fact
-  `RouteNonforwardLabelClear` feed `XF_routeRunClearXW_holds`; both are
-  strictly narrower than `XF_RouteRunClearXW` (forward-only / nonforward-only).
+- `XF_RouteForwardClearXW` (Packet 1, imported) and the per-run
+  `RouteNonforwardLabelClear` callback feed `XF_routeRunClearXW_holds`.
+  Both use local admission premises and cover complementary edge cases.
 
 Probe evidence: `proofs/wip/Probe/ExactPartFrameCoresTProbe.lean` evaluates the
 non-W cores and both run premises on executed inputs (flat, nested, sane
-fixed, wider-than-slot fixed, degenerate fixed); the W forms add only unused
-admission premises, so truth transfers. No statement here takes a global
-admission premise. -/
+fixed, wider-than-slot fixed, degenerate fixed). The probe samples those
+inputs; the W nonforward callback is scoped to admitted executions. No
+statement here takes a global admission premise. -/
 
 /-- Exact mirror of the run-level route residual `RouteRunClear`, W form: the
 `XF_RouteRunClearX` conclusion (`ExactPartFrameCoresProof.lean:92`) with local
@@ -56,16 +56,14 @@ def X_ExecutedPartFrameCoresB8W (exactIds : List String) : Prop :=
     ∀ part ∈ execution.componentsAcc.parts,
       PartRouteLabelFrameClear inp part ∧
       PartCaptionFrameClear execution.params inp o execution.lines part
-/-- Exact route-run clearance, W form: replay of `XF_routeRunClearX_holds`
-(`ExactRouteRunClearProof.lean:69`) over the W forward clearance
-(`XF_RouteForwardClearXW`, Packet 1) and the pure nonforward residual
-(`RouteNonforwardLabelClear`, true without admission: self-loop and reversed
-labels; probe `ExactPartFrameCoresTProbe` observes the route premise on flat,
-nested, sane fixed, and wider-than-slot fixed inputs). -/
+/-- Exact route-run clearance combines W forward clearance with the self-loop
+and reversed-label cases of `RouteNonforwardLabelClear` for the same admitted
+execution. -/
 theorem XF_routeRunClearXW_holds (exactIds : List String)
     (hFwdW : XF_RouteForwardClearXW exactIds)
     (hRrNonfwdX : ∀ {inp : Input} {o : Options} {res : FamilyResult}
       (execution : SceneExecutionX exactIds inp o res)
+      (_ : WellFormed (inputModel inp o)) (_ : framedParents inp = true)
       {comp : List Nat} (_ : comp ∈ components execution.graph)
       {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
       componentRunX execution.params (exactDecls exactIds inp)
@@ -77,7 +75,7 @@ theorem XF_routeRunClearXW_holds (exactIds : List String)
     XF_RouteRunClearXW exactIds := by
   intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
   have hfwd := hFwdW execution hwf hfp hcomp hrun
-  have hnon := hRrNonfwdX execution hcomp hrun
+  have hnon := hRrNonfwdX execution hwf hfp hcomp hrun
   have hinlined : RouteRunClearInlined execution.params
       (componentCandidate execution.graph comp candidate) run
       execution.measured := by

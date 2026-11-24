@@ -21,9 +21,9 @@ namespace PipelineImpl
 
 /-! # Exact nonforward route-label clearance (`XF_routeNonforwardClearX_holds`)
 
-Target: `hRrNonfwdX` of `XF_routeRunClearX_holds` (`ExactRouteRunClearProof.lean:97`),
-the nonforward case of `XF_RouteRunClearX` over `componentRunX`: every placed
-label of a self-loop or reversed edge clears every frame position.
+The W nonforward callback for `XF_routeRunClearXW_holds` and
+`XFR_routeLabelLeftoverPairXW_holds` covers placed labels of self-loops and
+reversed edges in a well-formed, framed `componentRunX` execution.
 
 Plain path replayed (`routeNonforwardLabelClear_of_run`,
 `RouteNonforwardLabelClearProof.lean:226`, as closed by `routeRunClear_closed`,
@@ -79,23 +79,14 @@ Plain path replayed (`routeNonforwardLabelClear_of_run`,
   (band 1536 against heights 100, 10, 0 in the probe), so the tracked
   `X_RunLocalLoopFootprint` (`ExactFlatC7Loop.lean:36`) is false and unused.
 
-Residuals below are single geometric facts over exact runs, strictly narrower
-than the goal. Plain originals named in each doc. Probe:
-`proofs/wip/Probe/ExactRouteNonfwdClearProbe.lean` (nonforward clearance true
-on self-loop fixed 200x100, 10x10, 0x0 alone, with sibling, inside titled
-group, reversed into group, and wider-than-slot fixed; `layoutX` validator
-`none` throughout),
-`proofs/wip/Probe/ExactRouteNonfwdClearMiss2Probe.lean` (extended footprint
-misses every box, no violations),
-`proofs/wip/Probe/ExactRouteNonfwdClearHullProbe.lean` (extended footprint
-vs group frames, no violations). -/
+For self-loops the proof uses the extended footprint and two geometry
+facts scoped to well-formed inputs with framed parents. The unscoped
+predicates are retained for the legacy residual decompositions; unframed
+intermediate runs can violate them and are rejected by `layoutFamilyX`. -/
 
-/-- Exact extended-footprint miss (scope-free): the extended loop footprint of
-a self-loop owner misses every box. Plain original: the separation half of
-`RunLocalLoopFootprint` (`RunLocalSeparationsProof.lean:966`), as replaced by
-`X_LoopEnvelopeMiss` (`ExactLoopEnvelopeSeparationProof.lean:40`); the plain
-scope premises are unused for the x/y separation (as in the reversed lane
-argument), so the exact twin drops them. -/
+/-- Unscoped extended-footprint miss, retained for the legacy residual
+decomposition. The nonforward clearance assembler uses `XNonfwd_ExtMissW`
+instead. -/
 def XNonfwd_ExtMiss (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
@@ -111,13 +102,49 @@ def XNonfwd_ExtMiss (exactIds : List String) : Prop :=
     ¬ (loopFootprintExt cg run execution.measured e.tail).meetsInterior
         (RouteImpl.boxRect run.proper run.xs run.ys v)
 
-/-- Exact extended group-hull clearance: the extended footprint of a self-loop
-owner is disjoint from, or strictly contains, every group frame (frame point
-of view). Plain original: `LoopFootprintGroupHullClear`
-(`RouteNonforwardLabelClearProof.lean:74`). -/
+/-- Full proper-node clearance, scoped only to the well-formed, framed exact
+execution already available to the C8b assembler. No scene-box, positivity,
+rank, or ancestry hypothesis is imposed on the target index. -/
+def XNonfwd_ExtMissW (exactIds : List String) : Prop :=
+  ∀ (inp : Input) (o : Options) (res : FamilyResult)
+    (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
+    (comp : List Nat) (candidate : Nat) (run : Run)
+    (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
+    comp ∈ components execution.graph →
+    cg = componentCandidate execution.graph comp candidate →
+    componentRunX execution.params (exactDecls exactIds inp) cg execution.measured
+      orderOptions = .ok run →
+    cg.edges[k]? = some e → e.tail = e.head → v < run.proper.nodes.length →
+    ¬ (loopFootprintExt cg run execution.measured e.tail).meetsInterior
+      (RouteImpl.boxRect run.proper run.xs run.ys v)
+
+/-- Unscoped extended group-hull clearance, retained for the legacy residual
+decomposition. The nonforward clearance assembler uses
+`XNonfwd_GroupHullExtW` instead. -/
 def XNonfwd_GroupHullExt (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (comp : List Nat) (candidate : Nat) (run : Run)
+    (orderOptions : OrderOptions) (cg : Graph) (t pos : Nat),
+    comp ∈ components execution.graph →
+    cg = componentCandidate execution.graph comp candidate →
+    componentRunX execution.params (exactDecls exactIds inp) cg execution.measured
+      orderOptions = .ok run →
+    (∃ e ∈ cg.edges, e.tail = t ∧ e.head = t) →
+    pos < cg.nodes.length →
+    ∀ (gn : Node), cg.nodes[pos]? = some gn → gn.border = -2 →
+      Disjoint (frameRect execution.params cg run pos)
+        (loopFootprintExt cg run execution.measured t) ∨
+        (frameRect execution.params cg run pos).StrictInside
+          (loopFootprintExt cg run execution.measured t)
+
+/-- W twin of `XNonfwd_GroupHullExt`: full clearance over the actual executed
+run. -/
+def XNonfwd_GroupHullExtW (exactIds : List String) : Prop :=
+  ∀ (inp : Input) (o : Options) (res : FamilyResult)
+    (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (t pos : Nat),
     comp ∈ components execution.graph →
@@ -189,12 +216,13 @@ reversed lanes clear every in-bounds frame. Replay of
 `routeNonforwardLabelClear_of_run`
 (`RouteNonforwardLabelClearProof.lean:226`) over `componentRunX`. The
 reversed branch is proved outright (lane bounds via `componentRunX_spec`);
-the self-loop branch uses the two narrow exact residuals above. -/
+the self-loop branch uses the local admission facts for the W predicates. -/
 theorem XF_routeNonforwardClearX_holds (exactIds : List String)
-    (hMiss : XNonfwd_ExtMiss exactIds)
-    (hHull : XNonfwd_GroupHullExt exactIds) :
+    (hMiss : XNonfwd_ExtMissW exactIds)
+    (hHull : XNonfwd_GroupHullExtW exactIds) :
     ∀ {inp : Input} {o : Options} {res : FamilyResult}
       (execution : SceneExecutionX exactIds inp o res)
+      (_ : WellFormed (inputModel inp o)) (_ : framedParents inp = true)
       {comp : List Nat} (_ : comp ∈ components execution.graph)
       {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
       componentRunX execution.params (exactDecls exactIds inp)
@@ -203,7 +231,7 @@ theorem XF_routeNonforwardClearX_holds (exactIds : List String)
       RouteNonforwardLabelClear execution.params
         (componentCandidate execution.graph comp candidate) run
         execution.measured := by
-  intro inp o res execution comp hcomp candidate run orderOptions hrun
+  intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
   intro k rect l₀ edge e hmem hmem0 hidx hedge hdecl hfw pos hpos
   have hnd := measureLabels_index_nodup execution.measured_eq
   obtain ⟨ml, edge', e', env, _rect', hmlmem, hmlidx, hfind, he', henv, hfindstk, hrfl⟩ :=
@@ -283,7 +311,9 @@ theorem XF_routeNonforwardClearX_holds (exactIds : List String)
         List.mem_of_getElem? he'
       have hwit : ∃ e_1 ∈ (componentCandidate execution.graph comp candidate).edges, e_1.tail = e'.tail ∧ e_1.head = e'.tail :=
         ⟨e', hmemE, rfl, hloop'.symm⟩
-      rcases hHull inp o res execution comp candidate run orderOptions (componentCandidate execution.graph comp candidate) e'.tail pos hcomp hcg hrun hwit hpos gn hg hgrp with hD | hS
+      rcases hHull inp o res execution hwf hfp comp candidate run orderOptions
+        (componentCandidate execution.graph comp candidate) e'.tail pos hcomp hcg
+        hrun hwit hpos gn hg hgrp with hD | hS
       · have hD' : ¬ (loopFootprintExt (componentCandidate execution.graph comp candidate) run execution.measured e'.tail).meetsInterior (frameRect execution.params (componentCandidate execution.graph comp candidate) run pos) := fun hm => hD ((Rect.meetsInterior_comm _ _).mpr hm)
         have hclear : ¬ rect.meetsInterior (frameRect execution.params (componentCandidate execution.graph comp candidate) run pos) :=
           _root_.Elegant.Layered.not_meetsInterior_of_contained hcont hD'
@@ -295,7 +325,9 @@ theorem XF_routeNonforwardClearX_holds (exactIds : List String)
         rw [List.getD_eq_getElem?_getD, hg, Option.getD_some]
       have hfrP : frameRect execution.params (componentCandidate execution.graph comp candidate) run pos = RouteImpl.boxRect run.proper run.xs run.ys pos :=
         plain_frame_eq_boxRect _ _ _ _ hplen (by rw [hget]; exact hgrp)
-      have hmiss := hMiss inp o res execution comp candidate run orderOptions (componentCandidate execution.graph comp candidate) edge e' pos hcomp hcg hrun he' hloop' hplen
+      have hmiss := hMiss inp o res execution hwf hfp comp candidate run orderOptions
+        (componentCandidate execution.graph comp candidate) edge e' pos hcomp hcg
+        hrun he' hloop' hplen
       have hclear : ¬ rect.meetsInterior (RouteImpl.boxRect run.proper run.xs run.ys pos) :=
         _root_.Elegant.Layered.not_meetsInterior_of_contained hcont hmiss
       rw [← hfrP] at hclear

@@ -46,9 +46,9 @@ binder. Failing rows:
   (`ill-unframed`, `ill-nodeparent` `nodesc=false`); the `W` form is proved
   below by replaying `owner_not_in_ancestors_of_framed`.
 
-True on every probed row, ill-formed included, and kept premise-free:
-`X_NonfixedGroupTitleX` (non-fixed groups record titles), plus the imported
-`X_FixedOwnerFitX` and `X_OwnerCaptionContainFallbackFit`. The `W`
+`X_NonfixedGroupTitleX` (non-fixed groups record titles) and the imported
+`X_FixedOwnerFitX` do not take well-formedness premises. Fallback caption
+containment uses `X_OwnerCaptionContainFallbackFitW` for the current input. The `W`
 owner-frame disjointness `XFB_OwnerFrameDisjointW` below is closed by
 `XFB_ownerFrameDisjointW_of_chain` (`ExactOwnerFrameDisjointProof.lean`)
 from the `c8aChain` seam through the executed flat C8a clause.
@@ -477,13 +477,12 @@ theorem X_fallbackOwnerFrameClearXW_holds (exactIds : List String)
         rw [hgetD] at hd
         exact Or.inl hd
 
-/-- The `W` fallback-caption clearance from the premises that remain:
-`X_OwnerCaptionContainFallbackFit` (owned by another worker) plus the open
-facts above; scene nodup and no-descendants discharged by the proved `W`
-theorems. Replay of the body of `X_fallbackCaptionClearB8_holds`
+/-- The `W` fallback-caption clearance uses `X_OwnerCaptionContainFallbackFitW`
+for the current well-formed execution. The proved `W` theorems discharge scene
+nodup and no-descendants. Replay of the body of `X_fallbackCaptionClearB8_holds`
 (`ExactFallbackCaptionClearProof.lean`) for the `W` conclusion. -/
 theorem X_fallbackCaptionClearBW_closed (exactIds : List String)
-    (hcontain : X_OwnerCaptionContainFallbackFit exactIds)
+    (hcontain : X_OwnerCaptionContainFallbackFitW exactIds)
     (hfix : X_FixedOwnerFitX exactIds)
     (htitle : X_NonfixedGroupTitleX exactIds)
     (hdisj : XFB_OwnerFrameDisjointW exactIds)
@@ -536,7 +535,7 @@ theorem X_fallbackCaptionClearBW_closed (exactIds : List String)
   have hroleEq : obv.role = obox.role.id := by rw [hboxeq, hact]
   have hcontFull : obv.rect.Contained (ownedTextRect execution.params obv
       (execution.lines.getD ownerIndex [])) := by
-    have h := hcontain inp o res execution hfit ownerIndex obox hobox hnone' hex hown
+    have h := hcontain inp o res execution hwf hfit ownerIndex obox hobox hnone' hex hown
     rw [hgetD] at h
     exact h
   rw [hgetD]

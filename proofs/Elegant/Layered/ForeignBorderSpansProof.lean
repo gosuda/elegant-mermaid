@@ -22,8 +22,8 @@ phase:
   left and a right border marker at every integer rank of the interval.
 * `ForeignBorderLayerOrder` (the layer order feeding cluster separation): on
   each layer, the border markers of two distinct declarations do not interleave.
-* `ForeignBorderChainXAligned` (cross-coordinate placement): the same-side
-  markers of one declaration share one closed `x`-interval.
+* `ForeignBorderChainXAligned` (cross-coordinate placement): in framed runs,
+  the same-side markers of one declaration share one closed `x`-interval.
 
 The nonnegativity ingredients are proved outright: every rank-axis band top
 and every cross-coordinate centre of an executed run is nonnegative
@@ -131,8 +131,8 @@ def ForeignBorderLayerOrder : Prop :=
         nb.node.clusterPath.getLast? = some wNode.decl →
         j < i)
 
-/-- Cross-coordinate-placement residual: in an executed run, two border
-markers of one declaration and one side share the same closed `x`-interval.
+/-- In a successful framed run, two border markers of one declaration and one
+side share the same closed `x`-interval.
 This is the executed Brandes-Köpf border-chain alignment (`BorderChainUps` is
 the named executed-pipeline premise that `borderChainBlock_of_ups` reduces
 `BorderChainBlock` to); the statement is only about the final `x`-coordinates
@@ -141,6 +141,9 @@ def ForeignBorderChainXAligned : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -669,6 +672,9 @@ nonnegative `x` (the `boundsOf` right edge is zero-initialized). -/
 theorem fbs_x_hull_bound {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
     (hrun : componentRun P (componentCandidate graph comp candidate) labels orderOptions =
@@ -717,23 +723,15 @@ theorem fbs_x_hull_bound {P : Params} {inp : Input} {o : Options}
       rcases hcon with h | h <;> rw [h] at hbca <;> omega
     rcases hb with hb | hb
     · exact ⟨pL, npL, Or.inl rfl,
-        (halign hgraph hcomp hrun (a := a) (b := pL) (na := nca) (nb := npL) hcadr hrecpL
-          (Or.inl (hbca.trans hb)) (Or.inl hbpL)
+        halign hgraph hlines hwf hframed hcomp hrun (a := a) (b := pL) (na := nca) (nb := npL)
+          hcadr hrecpL (Or.inl (hbca.trans hb)) (Or.inl hbpL)
           (hbca.trans (hb.trans hbpL.symm))
-          (by rw [hcp']; exact ho.trans hopL.symm)).1,
-        (halign hgraph hcomp hrun (a := a) (b := pL) (na := nca) (nb := npL) hcadr hrecpL
-          (Or.inl (hbca.trans hb)) (Or.inl hbpL)
-          (hbca.trans (hb.trans hbpL.symm))
-          (by rw [hcp']; exact ho.trans hopL.symm)).2⟩
+          (by rw [hcp']; exact ho.trans hopL.symm)⟩
     · exact ⟨pR, npR, Or.inr rfl,
-        (halign hgraph hcomp hrun (a := a) (b := pR) (na := nca) (nb := npR) hcadr hrecpR
-          (Or.inr (hbca.trans hb)) (Or.inr hbpR)
+        halign hgraph hlines hwf hframed hcomp hrun (a := a) (b := pR) (na := nca) (nb := npR)
+          hcadr hrecpR (Or.inr (hbca.trans hb)) (Or.inr hbpR)
           (hbca.trans (hb.trans hbpR.symm))
-          (by rw [hcp']; exact ho.trans hopR.symm)).1,
-        (halign hgraph hcomp hrun (a := a) (b := pR) (na := nca) (nb := npR) hcadr hrecpR
-          (Or.inr (hbca.trans hb)) (Or.inr hbpR)
-          (hbca.trans (hb.trans hbpR.symm))
-          (by rw [hcp']; exact ho.trans hopR.symm)).2⟩
+          (by rw [hcp']; exact ho.trans hopR.symm)⟩
   have hrepR : ∀ (b : Nat) (nb : ProperNode),
       run.proper.nodes[b]? = some nb → (nb.node.border = -1 ∨ nb.node.border = 1) →
       nb.node.clusterPath.getLast? = some dr →
@@ -749,23 +747,15 @@ theorem fbs_x_hull_bound {P : Params} {inp : Input} {o : Options}
       rcases hcon with h | h <;> rw [h] at hbcb <;> omega
     rcases hb with hb | hb
     · exact ⟨qL, nqL, Or.inl rfl,
-        (halign hgraph hcomp hrun (a := b) (b := qL) (na := ncb) (nb := nqL) hcbdr hrecqL
-          (Or.inl (hbcb.trans hb)) (Or.inl hbqL)
+        halign hgraph hlines hwf hframed hcomp hrun (a := b) (b := qL) (na := ncb) (nb := nqL)
+          hcbdr hrecqL (Or.inl (hbcb.trans hb)) (Or.inl hbqL)
           (hbcb.trans (hb.trans hbqL.symm))
-          (by rw [hcp']; exact ho.trans hopqL.symm)).1,
-        (halign hgraph hcomp hrun (a := b) (b := qL) (na := ncb) (nb := nqL) hcbdr hrecqL
-          (Or.inl (hbcb.trans hb)) (Or.inl hbqL)
-          (hbcb.trans (hb.trans hbqL.symm))
-          (by rw [hcp']; exact ho.trans hopqL.symm)).2⟩
+          (by rw [hcp']; exact ho.trans hopqL.symm)⟩
     · exact ⟨qR, nqR, Or.inr rfl,
-        (halign hgraph hcomp hrun (a := b) (b := qR) (na := ncb) (nb := nqR) hcbdr hrecqR
-          (Or.inr (hbcb.trans hb)) (Or.inr hbqR)
+        halign hgraph hlines hwf hframed hcomp hrun (a := b) (b := qR) (na := ncb) (nb := nqR)
+          hcbdr hrecqR (Or.inr (hbcb.trans hb)) (Or.inr hbqR)
           (hbcb.trans (hb.trans hbqR.symm))
-          (by rw [hcp']; exact ho.trans hopqR.symm)).1,
-        (halign hgraph hcomp hrun (a := b) (b := qR) (na := ncb) (nb := nqR) hcbdr hrecqR
-          (Or.inr (hbcb.trans hb)) (Or.inr hbqR)
-          (hbcb.trans (hb.trans hbqR.symm))
-          (by rw [hcp']; exact ho.trans hopqR.symm)).2⟩
+          (by rw [hcp']; exact ho.trans hopqR.symm)⟩
   -- nonnegative left edges of the right declaration's markers
   have hzero : 0 ≤
       (boundsOf (groupBorderRects (componentCandidate graph comp candidate) run dr) []).minX
@@ -812,6 +802,9 @@ pairs, and `fbs_x_hull_bound` transports the separation to the hulls. -/
 theorem fbs_border_hulls_x_separated {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
     (hrun : componentRun P (componentCandidate graph comp candidate) labels orderOptions =
@@ -888,8 +881,8 @@ theorem fbs_border_hulls_x_separated {P : Params} {inp : Input} {o : Options}
     exact hin
   rcases horder hgraph hcomp hrun hu hw hgroupU hgroupW hneDecl hpathW hpathU hlayerMem
     with huFirst | hwFirst
-  · refine Or.inl (fbs_x_hull_bound hgraph hcomp hrun halign hUL hbUL hoUL hUR hbUR hoUR
-      hWL hbWL hoWL hWR hbWR hoWR ?_)
+  · refine Or.inl (fbs_x_hull_bound hgraph hlines hwf hframed hcomp hrun halign
+      hUL hbUL hoUL hUR hbUR hoUR hWL hbWL hoWL hWR hbWR hoWR ?_)
     intro p hp q hq
     obtain ⟨np, hprec, hbp, hop⟩ : ∃ np : ProperNode,
         run.coordinateProper.nodes[p]? = some np ∧
@@ -917,8 +910,8 @@ theorem fbs_border_hulls_x_separated {P : Params} {inp : Input} {o : Options}
       (huFirst ip iq p q np nq hip hiq hprec hqrec hbp hop hbq hoq) hip hiq hprec hqrec
       (by intro hcon; rcases hcon with h | h <;> omega)
       (by intro hcon; rcases hcon with h | h <;> omega)
-  · refine Or.inr (fbs_x_hull_bound hgraph hcomp hrun halign hWL hbWL hoWL hWR hbWR hoWR
-      hUL hbUL hoUL hUR hbUR hoUR ?_)
+  · refine Or.inr (fbs_x_hull_bound hgraph hlines hwf hframed hcomp hrun halign
+      hWL hbWL hoWL hWR hbWR hoWR hUL hbUL hoUL hUR hbUR hoUR ?_)
     intro p hp q hq
     obtain ⟨np, hprec, hbp, hop⟩ : ∃ np : ProperNode,
         run.coordinateProper.nodes[p]? = some np ∧
@@ -1007,7 +1000,7 @@ theorem foreignBorderSpansSeparated
           hUmark tW hlt hov1
         obtain ⟨mWL, mWR, nWL, nWR, hrecWL, hbWL, hoWL, hrkWL, hrecWR, hbWR, hoWR, hrkWR⟩ :=
           hWmark tW (Int.le_refl tW) hWle
-        rcases fbs_border_hulls_x_separated hgraph hcomp hrun horder halign
+        rcases fbs_border_hulls_x_separated hgraph hlines hwf hfp hcomp hrun horder halign
           hu hw hgroupU hgroupW hpathW hpathU rfl rfl hne
           hrecUL hbUL hoUL hrkUL hrecUR hbUR hoUR hrkUR
           hrecWL hbWL hoWL hrkWL hrecWR hbWR hoWR hrkWR with h | h
@@ -1017,7 +1010,7 @@ theorem foreignBorderSpansSeparated
           hUmark tU (Int.le_refl tU) hUle
         obtain ⟨mWL, mWR, nWL, nWR, hrecWL, hbWL, hoWL, hrkWL, hrecWR, hbWR, hoWR, hrkWR⟩ :=
           hWmark tU (by omega) hov2
-        rcases fbs_border_hulls_x_separated hgraph hcomp hrun horder halign
+        rcases fbs_border_hulls_x_separated hgraph hlines hwf hfp hcomp hrun horder halign
           hu hw hgroupU hgroupW hpathW hpathU rfl rfl hne
           hrecUL hbUL hoUL hrkUL hrecUR hbUR hoUR hrkUR
           hrecWL hbWL hoWL hrkWL hrecWR hbWR hoWR hrkWR with h | h

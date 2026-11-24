@@ -42,25 +42,21 @@ field by field, with `SceneExecution` replaced by `SceneExecutionX` and
   carrying per-execution `LabelFramePackedClear ∧ FallbackCaptionClear` and
   `TitleExclusiveFrameDisjoint` (discharged in the plain pipeline by
   `CaptionResidualsProof`).
-
-The plain caption facts reduce to the single open family seam
-`ForeignBorderChainXAligned` (field `LayeredSeams.foreignBorderChainXAligned`,
-`FamilyAssembly.lean:123`; def at `ForeignBorderSpansProof.lean:140`), plus
-proved narrow facts. Its X mirror is `X_ForeignBorderChainXAligned` below,
-stated field by field over `exactGraph` and `componentRunX`.
 -/
 
-/-- X mirror of `ForeignBorderChainXAligned` (`ForeignBorderSpansProof.lean`):
-in an exact run, two border markers of one declaration and one side share the
-same closed `x`-interval. Mirrors the plain def field by field, with the
-`measuredGraph`-then-`exactGraph` pipeline and `componentRunX` over
-`exactDecls exactIds inp`. -/
+/-- In a successful exact run on a well-formed framed input with one measured
+line list per box, two border markers of the same declaration and side share
+the same closed `x`-interval. This is the scoped exact counterpart of
+`ForeignBorderChainXAligned`. -/
 def X_ForeignBorderChainXAligned (exactIds : List String) : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {measured : List MeasuredLabel}
     {graph0 graph : Graph},
     measuredGraph P inp o lines = .ok graph0 →
     exactGraph P exactIds inp o measured graph0 = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},

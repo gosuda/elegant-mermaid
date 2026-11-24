@@ -34,13 +34,14 @@ namespace Elegant.Layered.RouteImpl
   simp only [Option.getD_some, numberLaneGap]
   exact getD_map_range _ _ _ hj _
 
- theorem lane_mid_bounds_of_retained {slot gap : Int} {rankGap : Nat → Int} {p : Proper}
-    {layers : List (List Nat)} {x y top : List Int} {base : Routing}
+theorem lane_mid_bounds_of_retained {slot rankGap : Int} {p : Proper}
+    {layers : List (List Nat)} {top : List Int} {base : Routing}
     {reversed : List Bool} {runs : List ReversedLane} {i : Nat}
     (hi : i < p.edges.length) (hg : gapOf p i < base.gaps.length)
-    (hk : gapOf p i + 1 < layers.length)
-    (hF : CoordFacts p layers x y top (assembleLaneRouting p base reversed runs).routing
-      gap rankGap slot)
+    (hslot : 1 ≤ slot) (hhalf : Int.fdiv slot 2 ≤ rankGap)
+    (hstep : top.getD (gapOf p i) 0 + (layers.map (layerHeight p)).getD (gapOf p i) 0 +
+      rankGap + slot * ((assembleLaneRouting p base reversed runs).routing.gaps.getD
+        (gapOf p i) default).slots ≤ top.getD (gapOf p i + 1) 0)
     (hm : ∃ s ∈ laneGapSegments p base reversed runs (gapOf p i), i ∈ s.edges)
     (hs : segStraight ((laneGapSegments p base reversed runs (gapOf p i)).getD
       (((laneGapSegments p base reversed runs (gapOf p i)).findIdx?
@@ -55,17 +56,12 @@ namespace Elegant.Layered.RouteImpl
   have hgap : (assembleLaneRouting p base reversed runs).routing.gaps.getD (gapOf p i) default =
       numberLaneGap (laneGapSegments p base reversed runs (gapOf p i)) :=
     getD_map_range _ _ _ hg _
-  obtain ⟨l, hl⟩ : ∃ l, layers[gapOf p i]? = some l :=
-    ⟨layers[gapOf p i]'(by omega), List.getElem?_eq_getElem _⟩
-  have step := hF.band_step (gapOf p i) l hl hk
-  have heights := heights_getD (p := p) hl
   have key := reverseRunMid_bounds (top := top) (heights := layers.map (layerHeight p))
     (r := (assembleLaneRouting p base reversed runs).routing) (gap := gapOf p i)
     (index := (assembleLaneRouting p base reversed runs).routing.segment.getD i 0)
-    hF.slot_pos (hF.half_slot_le (gapOf p i))
+    hslot hhalf
     (by rw [he]; exact bounds.1)
-    (by rw [he, hgap]; exact bounds.2)
-    (by rw [heights]; exact step)
+    (by rw [he, hgap]; exact bounds.2) hstep
   exact key
 
 end Elegant.Layered.RouteImpl
@@ -126,13 +122,16 @@ end Elegant.Layered.RouteImpl
 
 namespace Elegant.Layered.RouteImpl
 
-theorem forward_mid_bounds {slot gap : Int} {rankGap : Nat → Int} {p : Proper}
-    {layers : List (List Nat)} {x y top : List Int} {rev : List Bool}
+theorem forward_mid_bounds {slot rankGap : Int} {p : Proper}
+    {layers : List (List Nat)} {x top : List Int} {rev : List Bool}
     {widths : List Int} {lr : LaneRouting}
     (hr : routeWithLanes slot p layers x rev widths = .ok lr)
-    (hF : CoordFacts p layers x y top lr.routing gap rankGap slot) {i : Nat}
+    (hslot : 1 ≤ slot) (hhalf : Int.fdiv slot 2 ≤ rankGap) {i : Nat}
     (hi : i < p.edges.length) (hrev : rev.getD (edgeAt p i).original false = false)
-    (hne : runOf lr.routing i ≠ lr.routing.targetX.getD i 0) :
+    (hne : runOf lr.routing i ≠ lr.routing.targetX.getD i 0)
+    (hstep : top.getD (gapOf p i) 0 + (layers.map (layerHeight p)).getD (gapOf p i) 0 +
+      rankGap + slot * (lr.routing.gaps.getD (gapOf p i) default).slots ≤
+      top.getD (gapOf p i + 1) 0) :
     top.getD (gapOf p i) 0 + (layers.map (layerHeight p)).getD (gapOf p i) 0 ≤
       midOf p slot top (layers.map (layerHeight p)) lr.routing i ∧
     midOf p slot top (layers.map (layerHeight p)) lr.routing i ≤
@@ -145,7 +144,7 @@ theorem forward_mid_bounds {slot gap : Int} {rankGap : Nat → Int} {p : Proper}
     omega
   have hm := forward_retained (base := base)
     (runs := plannedLanes slot p base x rev widths) hi hrev
-  apply lane_mid_bounds_of_retained hi hg hk hF hm
+  apply lane_mid_bounds_of_retained hi hg hslot hhalf hstep hm
   let raw := laneGapSegments p base rev (plannedLanes slot p base x rev widths) (gapOf p i)
   have hex : ∃ s ∈ raw, s.edges.contains i = true := by
     obtain ⟨s, hs, he⟩ := hm
@@ -210,9 +209,17 @@ theorem forward_piece_pairs {slot gap : Int} {rankGap : Nat → Int} {p : Proper
     (tx := lr.routing.targetX.getD i 0) ⟨pr.1, pr.2.1⟩ hrun ⟨pr.2.2.1, pr.2.2.2⟩
   rcases hc with ⟨h1, h2⟩ | ⟨h1, h2⟩
   · exact Or.inl ⟨h1, h2⟩
-  · exact Or.inr ⟨midOf p slot top (layers.map (layerHeight p)) lr.routing i,
-      (forward_mid_bounds hr hF hi hrev h2).1,
-      (forward_mid_bounds hr hF hi hrev h2).2, h1⟩
+  · have hk := (route_segment_facts hb hi).1
+    obtain ⟨l, hl'⟩ : ∃ l, layers[gapOf p i]? = some l :=
+      ⟨layers[gapOf p i]'(by omega), List.getElem?_eq_getElem _⟩
+    have hstep : top.getD (gapOf p i) 0 + (layers.map (layerHeight p)).getD (gapOf p i) 0 +
+        rankGap (gapOf p i) + slot * (lr.routing.gaps.getD (gapOf p i) default).slots ≤
+        top.getD (gapOf p i + 1) 0 := by
+      have hband := hF.band_step (gapOf p i) l hl' hk
+      rw [heights_getD hl']
+      omega
+    have hm := forward_mid_bounds hr hF.slot_pos (hF.half_slot_le _) hi hrev h2 hstep
+    exact Or.inr ⟨midOf p slot top (layers.map (layerHeight p)) lr.routing i, hm.1, hm.2, h1⟩
 
 end Elegant.Layered.RouteImpl
 

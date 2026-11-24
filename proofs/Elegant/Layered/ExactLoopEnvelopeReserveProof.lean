@@ -42,8 +42,7 @@ Probe truth (`proofs/wip/Probe/ExactLoopEnvelopeReserveTProbe.lean`,
   (exact group id, `exactIds = ["g"]`): `prep error LayoutError.domain`
   (`exactGraph` needs a fixed size for exact nodes, so an exact non-fixed
   group top has no execution and the residual holds vacuously there).
-- `illformed-dup-id`: `prep error LayoutError.domain` (no execution, so the
-  universals hold vacuously; no extra `WellFormed` premise needed).
+- `illformed-dup-id`: `prep error LayoutError.domain` (no execution).
 
 Plain route: the measured-graph sizing already stores
 `requiredHeight <= node.h` for every non-exact node box (ordinary reservation
@@ -560,6 +559,7 @@ vertical-overlap premise); true on every group probe in
 def XLEM_GroupOverlapMiss (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -590,8 +590,8 @@ def XLEM_GroupOverlapMiss (exactIds : List String) : Prop :=
 miss outright; the y-overlapping half stays as the residual. -/
 theorem XLEM_groupOtherRank_holds (exactIds : List String)
     (hov : XLEM_GroupOverlapMiss exactIds) : XLEM_GroupOwnerOtherRank exactIds := by
-  intro inp o res execution comp candidate run orderOptions cg k e v hcomp hcg hrun hedge hself hv hreal
-    hscope0 hscope1 hrank hbdr
+  intro inp o res execution hwf hfp comp candidate run orderOptions cg k e v
+    hcomp hcg hrun hedge hself hv hreal hscope0 hscope1 hrank hbdr
   subst hcg
   by_cases hy : max (loopFootprintExt (componentCandidate execution.graph comp candidate) run
         execution.measured e.tail).y (RouteImpl.boxRect run.proper run.xs run.ys v).y <
@@ -601,7 +601,7 @@ theorem XLEM_groupOtherRank_holds (exactIds : List String)
           execution.measured e.tail).h)
         ((RouteImpl.boxRect run.proper run.xs run.ys v).y +
           (RouteImpl.boxRect run.proper run.xs run.ys v).h)
-  · exact hov inp o res execution comp candidate run orderOptions
+  · exact hov inp o res execution hwf hfp comp candidate run orderOptions
       (componentCandidate execution.graph comp candidate) k e v hcomp rfl hrun hedge hself hv hreal
       hscope0 hscope1 hrank hbdr hy
   · unfold Rect.meetsInterior

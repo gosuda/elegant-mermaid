@@ -229,7 +229,8 @@ theorem xlrr_topOutsideDisjointInRangeW_holds (exactIds : List String)
   have hborderROr : nR.node.border = -1 ∨ nR.node.border = 1 :=
     Or.inr hborderR
   have hcross :=
-    (halign execution.graph0_eq execution.graph_eq hcomp hrun hmarkRunL hborderLOr hlastL
+    (halign execution.graph0_eq execution.graph_eq hlinesLen hwf hfp hcomp hrun
+      hmarkRunL hborderLOr hlastL
       hmarkRunR hborderROr hlastR).2.2 ⟨hborderL, hborderR, hrankLR⟩
   have hall : ∀ r ∈ groupBorderRects (componentCandidate execution.graph comp candidate) run node.decl,
       RouteImpl.leftOf run.proper run.xs mL ≤ r.x ∧
@@ -239,14 +240,16 @@ theorem xlrr_topOutsideDisjointInRangeW_holds (exactIds : List String)
     obtain ⟨q, nd, hq, hbq, hlastq, hrq⟩ := groupBorderRects_inv hr
     rcases hbq with hbqL | hbqR
     · obtain ⟨heq1, heq2⟩ :=
-        (halign execution.graph0_eq execution.graph_eq hcomp hrun hmarkRunL hborderLOr hlastL
+        (halign execution.graph0_eq execution.graph_eq hlinesLen hwf hfp hcomp hrun
+          hmarkRunL hborderLOr hlastL
           hq (Or.inl hbqL) hlastq).1 (by rw [hborderL, hbqL])
       rw [hrq, rectAt_eq]
       dsimp only
       rw [heq1, ← heq2]
       exact ⟨Int.le_refl _, hcross.2⟩
     · obtain ⟨heq1, heq2⟩ :=
-        (halign execution.graph0_eq execution.graph_eq hcomp hrun hmarkRunR hborderROr hlastR
+        (halign execution.graph0_eq execution.graph_eq hlinesLen hwf hfp hcomp hrun
+          hmarkRunR hborderROr hlastR
           hq (Or.inr hbqR) hlastq).1 (by rw [hborderR, hbqR])
       rw [hrq, rectAt_eq]
       dsimp only
@@ -255,7 +258,8 @@ theorem xlrr_topOutsideDisjointInRangeW_holds (exactIds : List String)
         exact hcross.1
       · omega
   have hnonnegR :=
-    (halign execution.graph0_eq execution.graph_eq hcomp hrun hmarkRunR hborderROr hlastR
+    (halign execution.graph0_eq execution.graph_eq hlinesLen hwf hfp hcomp hrun
+      hmarkRunR hborderROr hlastR
       hmarkRunR hborderROr hlastR).2.1
   have hminX := boundsOf_minX_ge_of_all hneRects (fun r hr => (hall r hr).1)
   have hright := boundsOf_right_le_of_all hnonnegR

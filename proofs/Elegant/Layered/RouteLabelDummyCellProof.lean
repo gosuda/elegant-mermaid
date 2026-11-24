@@ -167,7 +167,7 @@ theorem routeLabelDummyCellForeignClear_of_run {inp : Input} {o : Options}
       have hborderROr : nR.node.border = -1 ∨ nR.node.border = 1 :=
         Or.inr hborderR
       have hcross :=
-        (halign hgraph hcomp hrun hmarkRunL hborderLOr hlastL
+        (halign hgraph hlines hwf hframed hcomp hrun hmarkRunL hborderLOr hlastL
           hmarkRunR hborderROr hlastR).2.2 ⟨hborderL, hborderR, hrankLR⟩
       have hall : ∀ r ∈ groupBorderRects (componentCandidate execution.graph comp candidate) run
           gn.decl,
@@ -178,14 +178,14 @@ theorem routeLabelDummyCellForeignClear_of_run {inp : Input} {o : Options}
         obtain ⟨q, nd, hq, hbq, hlastq, hrq⟩ := groupBorderRects_inv hr
         rcases hbq with hbqL | hbqR
         · obtain ⟨heq1, heq2⟩ :=
-            (halign hgraph hcomp hrun hmarkRunL hborderLOr hlastL
+            (halign hgraph hlines hwf hframed hcomp hrun hmarkRunL hborderLOr hlastL
               hq (Or.inl hbqL) hlastq).1 (by rw [hborderL, hbqL])
           rw [hrq, rectAt_eq]
           dsimp only
           rw [heq1, ← heq2]
           exact ⟨Int.le_refl _, hcross.2⟩
         · obtain ⟨heq1, heq2⟩ :=
-            (halign hgraph hcomp hrun hmarkRunR hborderROr hlastR
+            (halign hgraph hlines hwf hframed hcomp hrun hmarkRunR hborderROr hlastR
               hq (Or.inr hbqR) hlastq).1 (by rw [hborderR, hbqR])
           rw [hrq, rectAt_eq]
           dsimp only
@@ -193,7 +193,7 @@ theorem routeLabelDummyCellForeignClear_of_run {inp : Input} {o : Options}
           · rw [← heq1]; exact hcross.1
           · omega
       have hnonnegR :=
-        (halign hgraph hcomp hrun hmarkRunR hborderROr hlastR
+        (halign hgraph hlines hwf hframed hcomp hrun hmarkRunR hborderROr hlastR
           hmarkRunR hborderROr hlastR).2.1
       have hminX := boundsOf_minX_ge_of_all hneRects (fun r hr => (hall r hr).1)
       have hright := boundsOf_right_le_of_all hnonnegR

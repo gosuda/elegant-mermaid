@@ -42,22 +42,13 @@ pair by the same global sibling numbers (`siblingNumber_ne` plus
 `siblingLayer_pair_general`), independent of the pre-layer order.
 Non-vacuous on probes: the groups-only nesting reports 32 agreeing pairs
 with zero tied blocks, i.e. all separated.
-The tied-heads half (heads absent from `clusterIds` or with different
-parents) needs the seed analogues of conjuncts (3, 4) and stays open;
-it is the same mechanism as the final layers and is not closed here
-(one public residual only, spent on the reorder step).
-
-(2) is reduced to the single-`sweepStep` residual `DivergeSweepStepAgree`
-(true on every probe iterate: the per-step `steps` checks report zero
-mismatches); `divergeStepAgree_holds` lifts it to full sweeps by fold
-induction over the row ranges.
+The tied-heads case remains open outside framed inputs.
+`DivergeSweepStepAgree` can fail during an actual sweep, as shown by
+`wip/Probe/DivergeLayeredSweepCounterexample.lean`.
+`divergeStepAgree_holds` lifts that assumption to full sweeps.
 -/
 
-/-- Single-step residual for conjunct (2): in an executed run, one
-`sweepStep` (downward with `aboveOf`, upward with `belowOf`, under the
-executed key) preserves the per-iterate invariant. Strictly narrower
-than conjunct (2) (one row, not a full sweep); true on every probe
-iterate (`steps` checks in `DivergeSweepSeedStepTProbe`). -/
+/-- Single-step preservation assumption. An executed sweep can violate it. -/
 def DivergeSweepStepAgree : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},

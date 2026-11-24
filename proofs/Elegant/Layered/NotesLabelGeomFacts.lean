@@ -1,4 +1,5 @@
 import Elegant.Layered.NotesFlatLabelClauses
+import Elegant.Layered.NotesMirrorFacts
 import Elegant.Layered.NotesPlacementFacts
 
 set_option autoImplicit false
@@ -111,18 +112,17 @@ theorem ngfC8aEnv_holds {base : List String → Input → Options → Except Lay
 
 /-! ### C8b roles and C6/C7 exclusivity from the box mirrors -/
 
-/-- Every placed fragment box mirrors an input box role: existence from
-`NotesFragMirror`, the role equation from the narrow role premise (`frole`
-is `true` on every executed probe). -/
+/-- Fragment roles follow from input ID provenance and the separate role
+preservation premise. -/
 theorem ngfC8bFragRole_holds {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
-    (hMirror : NotesFragMirror e)
+    (hFragIdExcl : NotesFragIdExcl e)
     (hRole : ∀ l ∈ e.layouts, ∀ p ∈ placedOf' e.margin e.contracted.scene l,
       ∀ sb ∈ p.scene.boxes, ∀ ib ∈ inp.boxes, sb.id = ib.id → sb.role = ib.role.id) :
     NotesC8bFragRole e := by
   intro l hl p hpl sb hsb
-  obtain ⟨ib, hib, hid, _, _, _⟩ := hMirror l hl p hpl sb hsb
+  obtain ⟨ib, hib, hid, _⟩ := hFragIdExcl l hl p hpl sb hsb
   exact ⟨ib, hib, hid, hRole l hl p hpl sb hsb ib hib hid⟩
 
 /-- An unclaimed contracted box mirrors its input box role: the unclaimed
@@ -153,16 +153,16 @@ theorem ngfC6BoxExclC_holds {base : List String → Input → Options → Except
   rw [heq] at hexc
   exact hexc
 
-/-- Placed fragment boxes mirror input exclusivity, by the same
-uniqueness argument through `NotesFragMirror`. -/
+/-- Input ID uniqueness extends the exclusivity witness to every matching
+input box. -/
 theorem ngfC6BoxExclF_holds {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
-    (hMirror : NotesFragMirror e)
+    (hFragIdExcl : NotesFragIdExcl e)
     (hnd : (inp.boxes.map (·.id)).Nodup) :
     NotesC6BoxExclF e := by
   intro l hl p hpl sb hsb ib hib hid
-  obtain ⟨jb, hjb, hidj, _, hexc, _⟩ := hMirror l hl p hpl sb hsb
+  obtain ⟨jb, hjb, hidj, hexc⟩ := hFragIdExcl l hl p hpl sb hsb
   have hjb2 : jb.id = ib.id := hidj.symm.trans hid
   have heq : jb = ib := ngf_nodup_id_inj inp.boxes hnd hjb hib hjb2
   rw [heq] at hexc
@@ -286,7 +286,7 @@ theorem ngfC8bGeom_holds {base : List String → Input → Options → Except La
       p.rect sb.id = some (shiftRect p.dx p.dy sb.rect))
     (hCross : ∀ p ∈ e.fragments, ∀ q ∈ e.fragments, p ≠ q →
       ∀ sb ∈ p.scene.boxes, q.rect sb.id = none)
-    (hFragMirror : NotesFragMirror e)
+    (hFragIdExcl : NotesFragIdExcl e)
     (hRoleF : ∀ l ∈ e.layouts, ∀ p ∈ placedOf' e.margin e.contracted.scene l,
       ∀ sb ∈ p.scene.boxes, ∀ ib ∈ inp.boxes, sb.id = ib.id → sb.role = ib.role.id)
     (hRoleC : ∀ cb ∈ e.contracted.scene.boxes, ∀ ib ∈ inp.boxes,
@@ -308,7 +308,7 @@ theorem ngfC8bGeom_holds {base : List String → Input → Options → Except La
     NotesC8bGeom e := by
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact ngfC8bFirst_holds e hSelf hCross
-  · exact ngfC8bFragRole_holds e hFragMirror hRoleF
+  · exact ngfC8bFragRole_holds e hFragIdExcl hRoleF
   · exact ngfC8bContractRole_holds e hRoleC
   · exact ngfC8bMixedGL_holds e hEnvFit hLabC hBaseC2 hApplGL
   · exact ngfC8bMixedLG_holds e hLabF hEnvFit hBaseC2 hApplLG
@@ -585,7 +585,7 @@ theorem ngfC7Geom_holds {base : List String → Input → Options → Except Lay
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
     (hMirrorC : NotesContractMirror e)
-    (hMirrorF : NotesFragMirror e)
+    (hFragIdExcl : NotesFragIdExcl e)
     (hnd : (inp.boxes.map (·.id)).Nodup)
     (hLabNodup : ∀ p ∈ e.fragments, ∀ q ∈ e.fragments, ∀ fl ∈ p.scene.labels,
       ∀ gl ∈ q.scene.labels, fl.id = gl.id → fl = gl)
@@ -613,7 +613,7 @@ theorem ngfC7Geom_holds {base : List String → Input → Options → Except Lay
     NotesC7Geom e := by
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact ngfC6BoxExclC_holds e hMirrorC hnd
-  · exact ngfC6BoxExclF_holds e hMirrorF hnd
+  · exact ngfC6BoxExclF_holds e hFragIdExcl hnd
   · exact ngfC7OwnF_holds e hLabNodup
   · exact ngfC7BridgeF_holds e hAncF hNoRouteF hNoRouteR
   · exact ngfC7BridgeC_holds e hAncC hNoRouteC hNoRouteR
@@ -623,18 +623,17 @@ theorem ngfC7Geom_holds {base : List String → Input → Options → Except Lay
 
 /-! ### C8a: the conjuncts that close from the same facts -/
 
-/-- Every placed fragment box has an input box with its id and role
-(C8a shape): existence from `NotesFragMirror`, roles from the narrow
-premise. -/
+/-- Fragment roles in C8a use input ID provenance and the separate role
+preservation premise. -/
 theorem ngfC8aFragRole_holds {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
-    (hMirror : NotesFragMirror e)
+    (hFragIdExcl : NotesFragIdExcl e)
     (hRole : ∀ l ∈ e.layouts, ∀ p ∈ placedOf' e.margin e.contracted.scene l,
       ∀ sb ∈ p.scene.boxes, ∀ ib ∈ inp.boxes, sb.id = ib.id → sb.role = ib.role.id) :
     NotesC8aFragRole e := by
   intro l hl p hpl sb hsb
-  obtain ⟨ib, hib, hid, _, _, _⟩ := hMirror l hl p hpl sb hsb
+  obtain ⟨ib, hib, hid, _⟩ := hFragIdExcl l hl p hpl sb hsb
   exact ⟨ib, hib, hid.symm, (hRole l hl p hpl sb hsb ib hib hid).symm⟩
 
 /-- Every contracted box has an input box with its id and role (C8a

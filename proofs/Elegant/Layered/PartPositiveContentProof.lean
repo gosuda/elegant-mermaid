@@ -1009,29 +1009,7 @@ private theorem partContent_rk_step {inp : Input} {o : Options} {res : FamilyRes
   rw [hgetD] at hrk
   exact ⟨((edge.tail :: rest).length - 1 : Nat), by omega, hrk⟩
 
-/-- The forward route start sits at or below the tail band top: either the
-tail row itself or the tail row plus the (nonnegative) node height. -/
-private theorem partContent_pieceStart_le {run : Run} {first : Nat} {edge : Edge}
-    (htail : (RouteImpl.edgeAt run.proper first).tail = edge.tail)
-    (hnodeH : 0 ≤ RouteImpl.nodeH run.proper edge.tail) :
-    (RouteImpl.pieceStart run.proper run.ys run.lanes.routing first).y ≤
-      run.ys.getD edge.tail 0 + RouteImpl.nodeH run.proper edge.tail := by
-  have hps : (RouteImpl.pieceStart run.proper run.ys run.lanes.routing first).y =
-      (if RouteImpl.frameKind run.proper (RouteImpl.edgeAt run.proper first).tail = -2
-       then RouteImpl.yAt run.ys (RouteImpl.edgeAt run.proper first).tail
-       else RouteImpl.yAt run.ys (RouteImpl.edgeAt run.proper first).tail +
-         RouteImpl.nodeH run.proper (RouteImpl.edgeAt run.proper first).tail) := rfl
-  rw [hps, htail]
-  have hy : RouteImpl.yAt run.ys edge.tail = run.ys.getD edge.tail 0 := rfl
-  rw [hy]
-  by_cases hfk : RouteImpl.frameKind run.proper edge.tail = -2
-  · rw [ite_eq_left hfk]
-    omega
-  · rw [ite_eq_right hfk]
-    exact Int.le_refl _
-
-/-- Native route points span two y-values across a rank gap: the lane
-endpoints sit at the tail/head node rows, strictly ordered by the band gap. -/
+/-- The executed rank bands strictly separate the semantic port ordinates. -/
 private theorem partContent_rt_points_span {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res)
     {part : List Nat × Part} {index : Nat} {run : Run}
@@ -1053,7 +1031,9 @@ private theorem partContent_rt_points_span {inp : Input} {o : Options} {res : Fa
   have hmem : rt ∈ run.routes := List.mem_of_getElem? hrt
   rw [← horig] at hfirst hlast
   have hends := RouteImpl.laneSemantic_endpoints hr hroutes rt hmem first last hfirst hlast
-  have hband := partContent_band_strict execution hrun htB hhB hk hrk
+  have hband : RouteImpl.yAt run.ys edge.tail + RouteImpl.nodeH run.proper edge.tail <
+      RouteImpl.yAt run.ys edge.head :=
+    partContent_band_strict execution hrun htB hhB hk hrk
   have htn : run.proper.nodes[edge.tail]? = some (run.proper.nodes[edge.tail]'htB) :=
     List.getElem?_eq_getElem htB
   have hnn := (componentRun_dims_nonneg hrun _ _ htn).2
@@ -1061,51 +1041,21 @@ private theorem partContent_rt_points_span {inp : Input} {o : Options} {res : Fa
     unfold RouteImpl.nodeH
     rw [htn]
     exact hnn
-  have hyAt : ∀ (y : List Int) (v : Nat), RouteImpl.yAt y v = y.getD v 0 := fun y v => rfl
+  have hportSep :
+      RouteImpl.tailPortY run.proper run.ys (RouteImpl.edgeAt run.proper first).tail <
+        RouteImpl.yAt run.ys (RouteImpl.edgeAt run.proper last).head := by
+    rw [htail, hhead]
+    exact Int.lt_of_le_of_lt (RouteImpl.tailPortY_le_bottom hnodeH) hband
   by_cases hrev : ((componentCandidate execution.graph part.1 index).edges.map
       (·.reversed)).getD rt.original false = true
   · rw [ite_eq_left hrev] at hends
-    obtain ⟨hheadPt, hlastPt⟩ := hends
-    rw [hhead, hyAt] at hheadPt
-    rw [htail, hyAt] at hlastPt
-    have yH : ∀ (p : Point), rt.points.head? = some p →
-        p.y = run.ys.getD edge.head 0 := by
-      intro p hp
-      rw [hheadPt] at hp
-      replace hp := Option.some.inj hp
-      rw [← hp]
-    have yL : ∀ (p : Point), rt.points.getLast? = some p →
-        p.y = run.ys.getD edge.tail 0 + RouteImpl.nodeH run.proper edge.tail := by
-      intro p hp
-      rw [hlastPt] at hp
-      replace hp := Option.some.inj hp
-      rw [← hp]
-    exact ⟨_, _, List.mem_of_getLast? hlastPt, List.mem_of_head? hheadPt,
-      by rw [yL _ hlastPt, yH _ hheadPt]; omega⟩
+    exact ⟨_, _, List.mem_of_getLast? hends.2, List.mem_of_head? hends.1,
+      Int.ne_of_lt hportSep⟩
   · rw [ite_eq_right hrev] at hends
-    obtain ⟨hheadPt, hlastPt⟩ := hends
-    have hsY := partContent_pieceStart_le htail hnodeH
-    have hpe : (RouteImpl.pieceEnd run.proper run.ys run.lanes.routing last).y =
-        RouteImpl.yAt run.ys (RouteImpl.edgeAt run.proper last).head := rfl
-    have heY : (RouteImpl.pieceEnd run.proper run.ys run.lanes.routing last).y =
-        run.ys.getD edge.head 0 := by
-      rw [hpe, hhead, hyAt]
-    have yH : ∀ (p : Point), rt.points.head? = some p →
-        p.y ≤ run.ys.getD edge.tail 0 + RouteImpl.nodeH run.proper edge.tail := by
-      intro p hp
-      rw [hheadPt] at hp
-      replace hp := Option.some.inj hp
-      rw [← hp]
-      exact hsY
-    have yL : ∀ (p : Point), rt.points.getLast? = some p →
-        p.y = run.ys.getD edge.head 0 := by
-      intro p hp
-      rw [hlastPt] at hp
-      replace hp := Option.some.inj hp
-      rw [← hp]
-      exact heY
-    exact ⟨_, _, List.mem_of_head? hheadPt, List.mem_of_getLast? hlastPt,
-      by have g1 := yH _ hheadPt; have g2 := yL _ hlastPt; omega⟩
+    refine ⟨_, _, List.mem_of_head? hends.1, List.mem_of_getLast? hends.2, ?_⟩
+    change RouteImpl.tailPortY run.proper run.ys (RouteImpl.edgeAt run.proper first).tail ≠
+      RouteImpl.yAt run.ys (RouteImpl.edgeAt run.proper last).head
+    exact Int.ne_of_lt hportSep
 
 /-- A part whose content is a non-self-loop route has a positive vertical
 span: the placed route inherits the native y-distinctness through the shift. -/

@@ -31,10 +31,9 @@ import Elegant.Layered.LoopRectTitleCopySepProof
 set_option autoImplicit false
 namespace Elegant.Layered.PipelineImpl
 
-/-- Every hypothesis the base-parametric family validity theorem takes: one
-field per hypothesis the `layoutRecursiveB` lifts consume.  The flat facts
-(`flatInset`, `flatC3`, `flatC2`, `flatC4`, `flatC5`, `flatC6`, `flatC7`,
-`flatC8a`, `flatC8b`) are the `Flat*B base` copies; the four seam fields
+/-- Shared inputs to the base-parametric family validity proof. Bases with
+different C8a preconditions supply that clause separately. The flat facts
+are the `Flat*B base` copies; the four seam fields
 (`frameClear`, `partsSep`, `labelRuns`, `captions`) discharge the side
 premises the flat facts and lifts take (`FrameClearanceSeam`,
 `PartsSeparated`, `LabelRunsClearExclusiveBoxes`,
@@ -47,11 +46,11 @@ C1/C3, and C2 lifts (`layoutRecursiveB_inset`, `layoutRecursiveB_c1_c3`,
 `layoutRecursiveB_c2`) consume, while `subInputB` is the base-parametric
 `SubInputWellFormedB base` the C6, C7, C8a, C8b, and C5 lifts consume.
 `fitClosed` is the per-call fit/closure fact the inset and C1/C3 lifts need,
-and the five `step` fields are the per-call step facts in the shape the
+and the `step` fields are the per-call step facts in the shape the
 lifts take (`ExpandChildCallContextB base ... → ExpandChildCallParams ...
 → Step`), with `stepC7` also taking the route-id disjointness premise
 `BoxRouteIdsDisjoint inp`. -/
-structure BaseSeams (base : Input → Options → Except LayoutError FamilyResult) : Prop where
+structure BaseSeamsCore (base : Input → Options → Except LayoutError FamilyResult) : Prop where
   flatInset : FlatInsetB base
   flatC3 : FlatC3B base
   flatC2 : FlatC2B base
@@ -59,7 +58,6 @@ structure BaseSeams (base : Input → Options → Except LayoutError FamilyResul
   flatC5 : FlatC5B base
   flatC6 : FlatC6B base
   flatC7 : FlatC7B base
-  flatC8a : FlatC8aB base
   flatC8b : FlatC8bB base
   canvasMargins : CanvasMarginsB base
   frameClear :
@@ -111,16 +109,6 @@ structure BaseSeams (base : Input → Options → Except LayoutError FamilyResul
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC7Step P inp o group titleHeight parent child res
-  stepC8a :
-    ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-      (parent child res : FamilyResult),
-      expandChild P inp o group titleHeight parent child = .ok res →
-      framedParents inp = true →
-      ExpandChildCallContextB base fuel P inp o group titleLines titleHeight
-        parent child res →
-      ExpandChildCallParams P inp o group titleLines titleHeight →
-      ExpandChildC8aStep P inp o group titleHeight parent child res
   stepC8b :
     ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -132,6 +120,21 @@ structure BaseSeams (base : Input → Options → Except LayoutError FamilyResul
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC8bStep P inp o group titleHeight parent child res
+
+/-- Seams for bases whose flat C8a holds without attachment alignment. -/
+structure BaseSeams (base : Input → Options → Except LayoutError FamilyResult) : Prop
+    extends BaseSeamsCore base where
+  flatC8a : FlatC8aB base
+  stepC8a :
+    ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
+      (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
+      (parent child res : FamilyResult),
+      expandChild P inp o group titleHeight parent child = .ok res →
+      framedParents inp = true →
+      ExpandChildCallContextB base fuel P inp o group titleLines titleHeight
+        parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
+      ExpandChildC8aStep P inp o group titleHeight parent child res
 
 /-- Base-parametric recursion validity at any fuel, modulo `BaseSeams`: the
 conjunction the lifts give.  The C5 slot carries the recursive group-endpoint
@@ -166,16 +169,16 @@ theorem layoutRecursiveB_valid_of_seams {base : Input → Options → Except Lay
     layoutRecursiveB_c8b base S.flatC8b S.canvasMargins S.subInputB S.stepC8b
       fuel inp o res hwf hfp hfix h⟩
 
-/-- Base-parametric family validity, mirroring `layoutFamily_valid_of_seams`:
-the family guards supply `WellFormed` (`layoutFamilyB_success`) and
-`framedParents` (`layoutFamilyB_framed_parents`). -/
-theorem layoutFamilyB_valid_of_seams
+/-- Assemble the clauses over one successful family run. C8a is supplied
+for that result, not as a flat fact on inputs the family never admits. -/
+theorem layoutFamilyB_valid_of_core_and_c8a
     {base : Input → Options → Except LayoutError FamilyResult}
-    (S : BaseSeams base) {inp : Input} {o : Options} {res : FamilyResult}
+    (S : BaseSeamsCore base) {inp : Input} {o : Options} {res : FamilyResult}
     (hids : ∀ m ∈ inp.boxes, m.id ≠ "")
     (hfix : InputFixedFit inp o) (hpos : FixedSizesPositive inp)
     (hdisj : BoxRouteIdsDisjoint inp)
-    (h : layoutFamilyB base inp o = .ok res) :
+    (h : layoutFamilyB base inp o = .ok res)
+    (hc8a : Validator.C8a res.scene.layoutDump) :
     HardConstraints res.scene.layoutDump := by
   obtain ⟨hwf, hrec⟩ := layoutFamilyB_success h
   have hfp := layoutFamilyB_framed_parents h
@@ -192,13 +195,26 @@ theorem layoutFamilyB_valid_of_seams
       (inp.boxes.length + 1) inp o res hwf hfp hpos hrec,
     layoutRecursiveB_c7 base S.flatC7 S.canvasMargins S.partsSep S.labelRuns S.captions
       S.subInputB S.stepC7 (inp.boxes.length + 1) inp o res hwf hfp hfix hdisj hrec,
-    layoutRecursiveB_c8a base S.flatC8a S.subInputB S.stepC8a
-      (inp.boxes.length + 1) inp o res hwf hfp hrec,
+    hc8a,
     layoutRecursiveB_c8b base S.flatC8b S.canvasMargins S.subInputB S.stepC8b
       (inp.boxes.length + 1) inp o res hwf hfp hfix hrec⟩
 
-/-- Every `BaseSeams layout` field follows from `LayeredSeams` by the same
-discharges `layoutFamily_valid_of_seams` uses: the `flat*B_of_flat`
+/-- An unrestricted flat C8a fact discharges the family C8a clause. -/
+theorem layoutFamilyB_valid_of_seams
+    {base : Input → Options → Except LayoutError FamilyResult}
+    (S : BaseSeams base) {inp : Input} {o : Options} {res : FamilyResult}
+    (hids : ∀ m ∈ inp.boxes, m.id ≠ "")
+    (hfix : InputFixedFit inp o) (hpos : FixedSizesPositive inp)
+    (hdisj : BoxRouteIdsDisjoint inp)
+    (h : layoutFamilyB base inp o = .ok res) :
+    HardConstraints res.scene.layoutDump := by
+  obtain ⟨hwf, hrec⟩ := layoutFamilyB_success h
+  exact layoutFamilyB_valid_of_core_and_c8a S.toBaseSeamsCore hids hfix hpos hdisj h
+    (layoutRecursiveB_c8a base S.flatC8a S.subInputB S.stepC8a
+      (inp.boxes.length + 1) inp o res hwf (layoutFamilyB_framed_parents h) hrec)
+
+/-- Every `BaseSeams layout` field is derived by the same proofs
+`layoutFamily_valid_of_seams` uses: the `flat*B_of_flat`
 sanities, `flatC5B_of_endpoints`, `expandChildCallContext_iff`, the proved
 step and sub-input facts (`subInputWellFormedC2`, `subInputWellFormed`,
 `hgeo_of_recursion`), the executed bracket discharges
@@ -214,7 +230,7 @@ canvas-margin bound (`layoutRecursive_canvas_margins` through
 `ExpandChildFitClosedB layout` from the plain fit
 lemmas (`layoutRecursive_childInset_fits_frame`,
 `layoutRecursive_parent_closed_wellFormed`) through `layoutRecursive_eq_B`. -/
-theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
+theorem baseSeams_of_layered : BaseSeams layout where
   flatInset := flatInsetB_of_flat (fun inp o res h => layout_inset h)
   flatC3 := flatC3B_of_flat (fun inp o res hwf hfp h => layout_c3 h hwf hfp)
   flatC2 := flatC2B_of_flat (fun inp o res hwf h => layout_c2 h hwf)
@@ -227,7 +243,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
   flatC6 := fun inp o res hwf hfp _hpos =>
     flatC6_closed_nowit
       (fun inp o res hwf hfp =>
-        loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+        loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
       (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp)
       (fun inp o res hwf hfp =>
         loopRectTitleReal_holds hwf hfp (loopRectTitleCopy_closed inp o res hwf hfp))
@@ -235,14 +251,14 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
       (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp)
       (fun inp o res hwf hfp =>
         loopFootprintTopSeparation_closed inp o res hwf hfp
-          (foreignBorderChainXAligned' S.foreignBorderDivergeStable)
-          (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp))
-      (beyondProper_closed S.foreignBorderDivergeStable) inp o res hwf hfp
+          (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)
+          (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp))
+      (beyondProper_closed foreignBorderDivergeStable_framed) inp o res hwf hfp
   flatC7 := fun inp o res hwf hfp _hfit hsep hseam1 hseam2 hb =>
     layout_c7 hwf hfp hsep hseam1 hseam2 hb
   flatC8a := flatC8a_of_span_seams
-    (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
-    (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
+    (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
+    (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)))
     (fun inp o res hwf hfp =>
       bracketInsidePremises
         (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
@@ -254,11 +270,11 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
   flatC8b := fun inp o res hwf hfp hfit hb =>
     layout_c8b hb hwf (fun execution => frameLabels_executed execution hwf hfp hfit
-      (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
+      (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp)) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
       (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
         (flatC8a_executed execution hwf hfp
-          (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
-          (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
+          (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
+          (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)))
           (fun inp o res hwf hfp =>
             bracketInsidePremises
               (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
@@ -271,22 +287,22 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
   labelRuns := fun inp o res hwf hfp =>
     ⟨runLocalLabelClearance_holds hwf hfp
         (runLocalLoopSeparation inp o res (runLocalLoopFootprint_executed hwf hfp
-          (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp))
-          (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)))
+          (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp))
+          (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp)))
         (runLocalForwardSeparation inp o res) (runLocalReversedSeparation inp o res),
       routeLabelDumpBridges hwf (labelBelongsToRun hwf routeLabelsPlaced)
         (exclusiveBoxInLabelRun' hwf hfp)⟩
   partsSep := fun _ _ _ => labelsC7_partsSeparated
   captions := fun inp o res hwf hfp hfit =>
     sceneCaptionBoxContainment_of_fit hwf hfp hfit
-      (titleExclusiveSamePart_holds (foreignBorderChainXAligned' S.foreignBorderDivergeStable) inp o res hwf hfp)
+      (titleExclusiveSamePart_holds (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) inp o res hwf hfp)
       (titleExclusiveCrossPart (inp := inp) (o := o) (res := res))
       (fun execution => frameLabels_executed execution hwf hfp hfit
-        (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
+        (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp)) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
         (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
           (flatC8a_executed execution hwf hfp
-            (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
-            (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
+            (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
+            (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)))
             (fun inp o res hwf hfp =>
               bracketInsidePremises
                 (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
@@ -377,7 +393,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         parent child res).mpr hctxB)
   stepC6 := fun fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctxB hparams =>
-     expandChild_c6_step_of_geometry (c6Geometry_of_seams S) stepC6Anchors_holds
+     expandChild_c6_step_of_geometry c6Geometry_of_seams stepC6Anchors_holds
       fuel P inp o group titleLines titleHeight parent child res hexpand hframed
       ((expandChildCallContext_iff fuel P inp o group titleLines titleHeight
         parent child res).mpr hctxB)
@@ -400,7 +416,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
             child res hexpand hframed hctx hparams))
         frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨g1, g2, g3, g4⟩ :=
-      (c7Geometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
+      c7Geometry_of_seams fuel P inp o group titleLines titleHeight parent child res
         hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
     exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
   stepC8a := fun fuel P inp o group titleLines titleHeight parent child res
@@ -425,7 +441,7 @@ theorem baseSeams_of_layered (S : LayeredSeams) : BaseSeams layout where
         parent child res).mpr hctxB
     intro frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨g1, g2, g3, g4⟩ :=
-      (c8bGeometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
+      c8bGeometry_of_seams fuel P inp o group titleLines titleHeight parent child res
         hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
     exact ⟨expandChild_c8b_structure fuel P inp o group titleLines titleHeight parent child
         res hexpand hframed hctx

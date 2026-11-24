@@ -278,14 +278,14 @@ theorem loopResNeighborGap_plainSpan_holds {inp : Input} {o : Options}
     have eQ : (Labels.rectAt run.proper run.xs run.ys q).x =
         RouteImpl.leftOf run.proper run.xs q := by rw [rectAt_eq]
     rcases hbor with hsideL | hsideR
-    · have hal := halign execution.graph_eq hcomp hrun
+    · have hal := halign execution.graph_eq hlines hwf hframed hcomp hrun
         hproperL (Or.inl hborderL) hlastL hrec (Or.inl hsideL) hlast
       have heq := (hal.1 (by rw [hborderL, hsideL])).1
       omega
-    · have halR := halign execution.graph_eq hcomp hrun
+    · have halR := halign execution.graph_eq hlines hwf hframed hcomp hrun
         hproperR (Or.inr hborderR) hlastR hrec (Or.inr hsideR) hlast
       have heqR := (halR.1 (by rw [hborderR, hsideR])).1
-      have halLR := halign execution.graph_eq hcomp hrun
+      have halLR := halign execution.graph_eq hlines hwf hframed hcomp hrun
         hproperL (Or.inl hborderL) hlastL
         hproperR (Or.inr hborderR) hlastR
       have hle := (halLR.2.2 ⟨hborderL, hborderR, hrkL.trans hrkR.symm⟩).1

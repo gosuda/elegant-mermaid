@@ -13,13 +13,10 @@ namespace Elegant.Layered.PipelineImpl
 `GroupTailPortOnYs` is the executed tail-port row of the flat group-endpoint
 seam: for a successful `componentRun` whose chain-tail endpoint is a
 `border = 2` bottom marker, the emitted route's tail-side point is the flat
-port `⟨px, run.ys v⟩` with `px` inside the marker's box span.  Both stored
-tail port forms of `route_endpoints_on_ports` place the tail-side point at
-`boxRect.y + boxRect.h` (the `frameKind = -2` test fails for a `border = 2`
-endpoint on both the reversed and non-reversed paths), and `boxRect.y = yAt`,
-so the claim collapses to `nodeH run.proper v = 0` plus `frameKind ≠ -2`.
-Both follow from the run alone: the labeled prefix record, the coordinate
-classification, and the proxy-width transfer. -/
+port `⟨px, run.ys v⟩` with `px` inside the marker's box span.
+The proper marker is not a top marker, so `tailPortY` selects the physical
+bottom. The labeled prefix, coordinate classification, and proxy-width
+transfer also give zero executed height, so that bottom equals `run.ys v`. -/
 
 /-- Every nonempty list of naturals has a `getLast?` witness. -/
 private theorem edgesOf_getLast (l : List Nat) (hne : l ≠ []) :
@@ -194,11 +191,7 @@ private theorem tailBottomFacts
     · exfalso
       omega
 
-/-- The executed tail port of a `border = 2` bottom-marker endpoint is the
-flat port `⟨px, run.ys v⟩`: both stored tail port forms of
-`route_endpoints_on_ports` place the tail-side point at
-`boxRect.y + boxRect.h`, and the executed node has zero height with
-`boxRect.y = run.ys v`. -/
+/-- The executed bottom-marker tail port is flat in both route directions. -/
 theorem groupTailPortOnYs : GroupTailPortOnYs := by
   unfold GroupTailPortOnYs
   intro _P cg run _labels _orderOptions hrun i hi first hfirst hb
@@ -219,27 +212,25 @@ theorem groupTailPortOnYs : GroupTailPortOnYs := by
   obtain ⟨px, _, _, _, hpx0, hpx1, _, _, hend⟩ :=
     route_endpoints_on_ports hrouting hroutes rt hm first last hfirst' hlast'
   rw [horiginal] at hend
-  have hhEq : (RouteImpl.boxRect run.proper run.xs run.ys
-      (RouteImpl.edgeAt run.proper first).tail).y +
-      (RouteImpl.boxRect run.proper run.xs run.ys
-        (RouteImpl.edgeAt run.proper first).tail).h =
+  have hport : RouteImpl.tailPortY run.proper run.ys (RouteImpl.edgeAt run.proper first).tail =
       run.ys.getD (RouteImpl.edgeAt run.proper first).tail 0 := by
-    simp only [RouteImpl.boxRect, RouteImpl.yAt]
-    rw [hnh]
-    exact Int.add_zero _
+    rw [RouteImpl.tailPortY, ite_eq_right hfk, hnh, Int.add_zero, RouteImpl.yAt]
   refine ⟨rt, px, hrt, hpx0, hpx1, ?_, ?_⟩
   · intro hrev
     rw [ite_eq_left hrev] at hend
     obtain ⟨-, htail⟩ := hend
-    rw [hhEq] at htail
+    change rt.points.getLast? = some
+      ⟨px, RouteImpl.tailPortY run.proper run.ys (RouteImpl.edgeAt run.proper first).tail⟩ at htail
+    rw [hport] at htail
     exact htail
   · intro hcon
     have hnc : ¬((cg.edges.map (·.reversed)).getD i false = true) := by
       rw [hcon]; decide
     rw [ite_eq_right hnc] at hend
     obtain ⟨hhead, -⟩ := hend
-    rw [ite_eq_right hfk] at hhead
-    rw [hhEq] at hhead
+    change rt.points.head? = some
+      ⟨px, RouteImpl.tailPortY run.proper run.ys (RouteImpl.edgeAt run.proper first).tail⟩ at hhead
+    rw [hport] at hhead
     exact hhead
 
 end Elegant.Layered.PipelineImpl

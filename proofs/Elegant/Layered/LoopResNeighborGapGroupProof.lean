@@ -185,6 +185,8 @@ private theorem lngg_frameB_x {P : Params} {cg : Graph} {run : Run}
 marker's placed left edge (same-border sharing plus same-rank left-right). -/
 private theorem lngg_hull_eq_of_left {inp : Input} {o : Options} {res : FamilyResult}
     (e : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components e.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRun e.params (componentCandidate e.graph comp candidate)
@@ -224,18 +226,18 @@ private theorem lngg_hull_eq_of_left {inp : Input} {o : Options} {res : FamilyRe
     have eQ : (Labels.rectAt run.proper run.xs run.ys q).x =
         RouteImpl.leftOf run.proper run.xs q := by rw [rectAt_eq]
     rcases hbor with hsideL | hsideR
-    · have hal := halign e.graph_eq hcomp hrun hproperP (Or.inl hbP) hlastP
-        hrec (Or.inl hsideL) hlast
+    · have hal := halign e.graph_eq (lngg_lines_len e) hwf hfp hcomp hrun
+        hproperP (Or.inl hbP) hlastP hrec (Or.inl hsideL) hlast
       have heq := (hal.1 (by rw [hbP, hsideL])).1
       omega
-    · have halR := halign e.graph_eq hcomp hrun hpropR (Or.inr hbR) hlastR
-        hrec (Or.inr hsideR) hlast
+    · have halR := halign e.graph_eq (lngg_lines_len e) hwf hfp hcomp hrun
+        hpropR (Or.inr hbR) hlastR hrec (Or.inr hsideR) hlast
       have heqR := (halR.1 (by rw [hbR, hsideR])).1
-      have halLR := halign e.graph_eq hcomp hrun hpropL (Or.inl hbL) hlastL
-        hpropR (Or.inr hbR) hlastR
+      have halLR := halign e.graph_eq (lngg_lines_len e) hwf hfp hcomp hrun
+        hpropL (Or.inl hbL) hlastL hpropR (Or.inr hbR) hlastR
       have hle := (halLR.2.2 ⟨hbL, hbR, hrankPair⟩).1
-      have halLL := halign e.graph_eq hcomp hrun hpropL (Or.inl hbL) hlastL
-        hproperP (Or.inl hbP) hlastP
+      have halLL := halign e.graph_eq (lngg_lines_len e) hwf hfp hcomp hrun
+        hpropL (Or.inl hbL) hlastL hproperP (Or.inl hbP) hlastP
       have hRL : RouteImpl.leftOf run.proper run.xs mL =
           RouteImpl.leftOf run.proper run.xs mLp :=
         ((halLL.1 (by rw [hbL, hbP])).1)
@@ -333,7 +335,7 @@ theorem loopResNeighborGapGroupTop_holds {inp : Input} {o : Options}
     rw [hbP]; decide
   have hGb := lngg_no_group_at_b execution hcomp hrun hcoordP hbne
   have hframeB := lngg_frameB_x (P := default) hproperP hGb
-  have hHull := lngg_hull_eq_of_left execution hcomp hrun hnp hgrp
+  have hHull := lngg_hull_eq_of_left execution hwf hfp hcomp hrun hnp hgrp
     hproperP hbP hlastP halign hpropL hbL hlastL hpropR hbR hlastR hrankPair
   have hsame : (frameRect default
       (componentCandidate execution.graph comp candidate) run pos).x =

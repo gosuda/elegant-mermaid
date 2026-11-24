@@ -179,18 +179,13 @@ the run). The stage equations close three conjuncts on *chosen* runs
 (`R_partSizingR_chosenFacts` below: dims, titles, slot, straight from
 `componentRunR_specR` with no well-formedness premise).
 
-What remains is a single residual over executed runs: for every executed part,
-its chosen `(cg, run)` pair (the one `actual_components_parts_geometryR`
-exhibits) satisfies coverage and envelope fit. Coverage must pass through the
-`some`-branch placement because `crossCoordsR` rewrites the proper graph, and
-the envelope replay has no `componentRunR` analogue yet (X twin:
-`componentRunX_envelopeFits`, `ExactPartBounded.lean:307`). Probe evidence:
-`rpsTChosenCovEnvB = Except.ok (true, true)` on the two-region witness.
+The remaining chosen-run coverage and envelope-fit conjuncts are proved in
+`RegionPartSizingClosed.lean`. Coverage passes through the `some`-branch
+placement because `crossCoordsR` rewrites the proper graph.
 -/
 
-/-- The two open conjuncts of `R_PartSizingR`, over the chosen `(cg, run)` pair
-of each executed part. Strictly narrower than the target: drops the three
-closed conjuncts and restricts arbitrary runs to chosen ones. -/
+/-- The coverage and envelope-fit conjuncts of `R_PartSizingR`, restricted to
+the chosen run of each executed part. -/
 def R_PartSizingRResidual (exactIds : List String)
     (idSets : List (String × List String)) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}

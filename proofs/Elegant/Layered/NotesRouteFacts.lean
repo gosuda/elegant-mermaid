@@ -9,44 +9,48 @@ namespace Layered
 namespace PipelineImpl
 
  /-!
- ! # Note-stage router facts and flag/side-condition bridges (OPEN FACTS TRACKED).
+ ! # Note-stage router facts and flag/side-condition bridges.
  !
- ! Status: `notesEndsInBoxes_holds` and `notesFragBoxFirst_holds` are proved.
- ! The other five facts (`notesRouterOrtho`, `notesRouterEnds`, `notesFlagsKept`,
- ! `notesFlagsFragment`, `notesKeptBoxContracted`) stay as their tracked open
- ! defs in `NotesFlatRouteClauses`: the provisional `_holds` theorems that took
- ! their own conclusions as hypotheses were DELETED (no theorem may take its
- ! conclusion as a premise). The designed premise defs no proved theorem
- ! consumes were deleted with them; only `notesFragFirstWins` remains, consumed
- ! by `notesFragBoxFirst_holds`. The private `nrf_*` lemmas below are kept as
- ! proved foundations toward the router proofs. Probe evidence:
- ! `proofs/wip/Probe/NotesRouteFacts2T_probe.lean`.
+ ! Status: `notesEndsInBoxes_holds` and `notesFragBoxFirst_holds` are proved
+ ! here. The router facts are proved elsewhere: `notesRouterOrtho` for arbitrary
+ ! rectangles in `NotesRouterInvariantProof`, and `notesRouterEnds` for actual
+ ! regional note executions by `NotesRoutePortTransport` (unconditional mapped
+ ! port endpoints) plus `RegionNotesDimensions` (nonnegative looked-up dims).
+ ! The private `nrf_*` lemmas below are kept as proved foundations for those
+ ! proofs. The flag and kept-box facts (`notesFlagsKept`, `notesFlagsFragment`,
+ ! `notesKeptBoxContracted`) stay as their tracked defs in
+ ! `NotesFlatRouteClauses`.
+ !
+ ! No theorem may take its conclusion as a premise: the provisional `_holds`
+ ! theorems for the still-open facts were DELETED, and the designed premise defs
+ ! no proved theorem consumes were deleted with them; only `notesFragFirstWins`
+ ! remains, consumed by `notesFragBoxFirst_holds`.
+ !
+ ! Probe evidence: `proofs/wip/Probe/NotesRouteFacts2T_probe.lean`.
  ! -/
 
  /-!
- ! Proof plans for the five open facts (all still valid; none is claimed here).
- ! Each witness shows the unguarded form is false, so each plan names the guard
- ! its future proof must carry.
-
- * `notesRouterOrtho`, `notesRouterEnds`: unconditional facts about `routeAround`
-   (orthogonal output; ends on the looked-up end-rect boundaries). The path comes
-   from `Visibility.Grid.shortest`, i.e. `compress (chain prev ..)` mapped through
-   `Frame.output`. Invariants: every `prev` edge is an axis-aligned cleared
-   neighbour step (`VisibilityClearance.PrevOK` + a dist-decrease invariant, both
-   preserved by `relax`/`run`); the reconstructed chain is hence orthogonal and
-   runs from a seeded start to the found end; `compress` keeps endpoints and
-   orthogonality; `Frame.output` (shift+orient) preserves both; ports of the
-   framed rect map back onto the boundary of the source rect.
- * `notesRouterEnds` additionally needs rect nonnegativity (deleted premise):
-   on-boundary needs nonneg dims. WITNESS (unguarded form is false): `rects =
+ ! Proof record for the router facts and plans for the three open flag/kept-box
+ ! facts. Each witness shows the unguarded form is false, so each open plan
+ ! names the guard its future proof must carry.
+ !
+ * `notesRouterOrtho` (proved in `NotesRouterInvariantProof`): every successful
+   `routeAround` output is orthogonal, unconditionally for arbitrary rects.
+ * `notesRouterEnds` (proved for actual executions): endpoints lie on the
+   looked-up end-rect boundaries. Membership in the mapped ports is
+   unconditional (`routeAround_endpoints_mem`), and the path starts at a
+   supplied seed (`VisibilityShortestSource`); the boundary step additionally
+   needs rect nonnegativity, which regional note executions supply
+   (`RegionNotesDimensions`). WITNESS that the nonnegativity premise cannot be
+   dropped (unguarded form is false): `rects =
    [("a", ⟨0,0,-5,4⟩), ("b", ⟨10,0,5,4⟩)]`, route `a → b`: `routeAround` succeeds
    (grid works on any points) but no point satisfies `onBoundary · ⟨0,0,-5,4⟩`.
  * `notesFlagsKept`, `notesFlagsFragment`: need a base-side premise (deleted:
    box-id list kept, no fabricated route ids, same-id route flags/endpoints
-   kept), plus ambient `WellFormed` (for route-id uniqueness), a guard that
-   classified routes are input routes, and `contractOne`/fuel induction showing
-   kept routes survive contraction with ends unchanged. WITNESS (unguarded form
-   is false): `r = {x with orthogonal := !x.orthogonal}` for a real bundle
+   kept), plus ambient `WellFormed` (for route-id uniqueness) and `contractOne`/
+   fuel induction showing kept routes survive contraction with ends unchanged.
+   The input-route guard excludes this WITNESS (unguarded form is false):
+   `r = {x with orthogonal := !x.orthogonal}` for a real bundle
    route `x` (`r ∉ inp.routes`, same id/ends, flipped flag): same-bundle holds,
    the fragment route keeps `x`'s flags, goal fails.
  * `notesKeptBoxContracted`: kept ends are bundle-external by `bundleOf = none`,
@@ -57,7 +61,7 @@ namespace PipelineImpl
  * `notesFragBoxFirst` (proved): per-end-id first-wins `notesFragFirstWins`
    (strictly narrower than the paired conclusion). WITNESS: two fragments
    claiming one id with different shifts.
-
+ !
  Probes: `proofs/wip/Probe/NotesRouteFacts2T_probe.lean` evaluates Bool images
  of all seven facts on state, group, two, and empty note inputs (all true),
  rejects a note with a self-loop target with `LayoutError.domain`, and shows

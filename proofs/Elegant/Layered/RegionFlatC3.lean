@@ -317,6 +317,27 @@ private theorem rfcRunNodesEq {P : Params} {exact : List Nat} {spec : Option Reg
             have hnodes := rankEquivalentR_nodes_eq hranked
             rw [hfst, hnodes]
 
+def SceneExecutionR.regionSpec {exactIds : List String}
+    {idSets : List (String × List String)} {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecutionR exactIds idSets inp o res) :
+    Option RegionSpec :=
+  if idSets.isEmpty then none
+  else some (RegionSpec.mk idSets (execution.lines.map fun ls =>
+    let width := ls.foldl (fun w line => max w line.width) 0
+    let height := (max 1 ls.length : Int) * execution.params.lineH
+    match o.direction with
+    | .LR | .RL => (height, width)
+    | .TB | .BT => (width, height)))
+
+/-- The successful trial resolves the component before selecting its run spec. -/
+def R_ComponentSpecSelection {exactIds : List String}
+    {idSets : List (String × List String)} {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecutionR exactIds idSets inp o res)
+    (comp : List Nat) (spec' : Option RegionSpec) : Prop :=
+  ∃ regions, newComponentRegions execution.regionSpec execution.params inp
+    (componentGraph execution.graph comp) = .ok regions ∧
+    spec' = if regions.isSome then execution.regionSpec else none
+
 /-- Region packed frames read back through the executed run (replay of
 `part_frame_lookupX`, `ExactFlatFacts.lean:1588`, via
 `actual_components_packed_frame_sourceR`). -/
@@ -334,6 +355,7 @@ private theorem rfcPartFrameLookupR {exactIds : List String}
     (hentry : execution.componentsAcc.parts[k]? = some entry)
     (hbox : packed.boxes[k]? = some box) :
     ∃ index cg run loops area spec',
+      R_ComponentSpecSelection execution entry.1 spec' ∧
       componentRunR execution.params (exactDecls exactIds inp) spec' inp
         (componentCandidateR spec' execution.graph entry.1 index) execution.measured
         (candidateOrder index) = .ok (cg, run) ∧
@@ -347,7 +369,7 @@ private theorem rfcPartFrameLookupR {exactIds : List String}
               (-(placeBoundsX execution.params cg run execution.measured loops).minY)
               (frameRect execution.params cg run i)) := by
   have hmem : entry ∈ execution.componentsAcc.parts := List.mem_of_getElem? hentry
-  obtain ⟨index, chosen, cg, run, loops, area, spec', _, _, _, _, hrun, hloops,
+  obtain ⟨index, chosen, cg, run, loops, area, spec', _, _, _, hselected, hrun, hloops,
     hpartdef⟩ :=
     (actual_components_parts_geometryR (by rfl) execution.components_eq).2 entry hmem
   have hcgLen : cg.nodes.length = entry.1.length := by
@@ -361,7 +383,7 @@ private theorem rfcPartFrameLookupR {exactIds : List String}
       rw [rfcPlacedRectsLengthR]
       exact hcgLen
     simpa using hl
-  refine ⟨index, cg, run, loops, area, spec', hrun, hloops, hpartdef, ?_⟩
+  refine ⟨index, cg, run, loops, area, spec', hselected, hrun, hloops, hpartdef, ?_⟩
   intro i key hkey hkeyBound
   have hi : i < entry.1.length := (List.getElem?_eq_some_iff.mp hkey).1
   have hilen : i < entry.2.rects.length := by omega
@@ -393,16 +415,54 @@ private theorem rfcPartFrameLookupR {exactIds : List String}
 
 set_option maxHeartbeats 2000000
 
-/-- Clause C3 for `layoutRIds`, with the placement hypothesis. -/
-theorem layoutRIds_c3 {exactIds : List String}
+/-- Rectangle relation on the two declarations of an emitted direct parent link,
+before the component, shelf, orientation, and canvas transforms. -/
+def R_SelectedDirectFrameRelation {exactIds : List String}
     {idSets : List (String × List String)} {inp : Input} {o : Options}
-    {res : FamilyResult} (h : layoutRIds exactIds idSets inp o = .ok res)
-    (hwf : WellFormed (inputModel inp o))
-    (hframed : framedParents inp = true)
-    (hR : ExactComponentPlacementR exactIds idSets inp o res) :
-    Validator.C3 res.scene.layoutDump := by
-  obtain ⟨execution⟩ := layoutRIds_sceneExecution h
-  have hRexec := hR hwf hframed execution
+    {res : FamilyResult} (execution : SceneExecutionR exactIds idSets inp o res)
+    (rel : Rect → Rect → Prop) : Prop :=
+  ∀ (part : List Nat × Part) (candidate : Nat) (spec' : Option RegionSpec)
+    (cg : Graph) (run : Run) (loops : List (Nat × LoopPlacement)) (area : Int),
+    part ∈ execution.componentsAcc.parts →
+    part.1 ∈ components execution.graph →
+    R_ComponentSpecSelection execution part.1 spec' →
+    componentRunR execution.params (exactDecls exactIds inp) spec' inp
+      (componentCandidateR spec' execution.graph part.1 candidate) execution.measured
+      (candidateOrder candidate) = .ok (cg, run) →
+    componentLoops execution.params cg run execution.measured = .ok loops →
+    part.2 = { placeComponentExact execution.params cg run 0 execution.measured loops
+      with area := area } →
+    ∀ (memberIndex key parentKey parentIndex : Nat) (member : Node),
+      part.1[memberIndex]? = some key → key < inp.boxes.length →
+      (componentCandidateR spec' execution.graph part.1 candidate).nodes[memberIndex]? =
+        some member →
+      ∀ (childBox : ModelBox), inp.boxes[key]? = some childBox →
+      ∀ (parentBox : ModelBox), inp.boxes[parentKey]? = some parentBox →
+      childBox.parent = parentBox.id → childBox.parent ≠ "" →
+      part.1[parentIndex]? = some parentKey →
+      rel (frameRect execution.params cg run parentIndex)
+        (frameRect execution.params cg run memberIndex)
+
+/-- The selected part and shared geometric transforms for one admitted
+emitted parent link. Applies to both inclusive and strict containment. -/
+theorem sceneExecutionR_directFrameRelation {exactIds : List String}
+    {idSets : List (String × List String)} {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecutionR exactIds idSets inp o res)
+    (hwf : WellFormed (inputModel inp o)) (hframed : framedParents inp = true)
+    (hparentInComponent : ∀ (comp : List Nat), comp ∈ components execution.graph →
+      ∀ (key parentKey : Nat), key < inp.boxes.length → key ∈ comp →
+      ∀ (member : Node), execution.graph.nodes[key]? = some member →
+      ∀ (childBox : ModelBox), inp.boxes[key]? = some childBox →
+      ∀ (parentBox : ModelBox), inp.boxes[parentKey]? = some parentBox →
+      childBox.parent = parentBox.id → childBox.parent ≠ "" → parentKey ∈ comp)
+    {rel : Rect → Rect → Prop}
+    (hshift : ∀ (dx dy : Int) {a b : Rect}, rel a b →
+      rel (shiftRect dx dy a) (shiftRect dx dy b))
+    (horient : ∀ (direction : Direction) (h : Int) {a b : Rect}, rel a b →
+      rel (orientRect direction h a) (orientRect direction h b))
+    (hraw : R_SelectedDirectFrameRelation execution rel) :
+    ∀ b ∈ res.scene.layoutDump.boxes, b.parent ≠ "" →
+      ∀ p : Box, res.scene.layoutDump.box? b.parent = some p → rel p.rect b.rect := by
   have hpackedEq := execution.packed_eq
   unfold packAcc at hpackedEq
   obtain ⟨packed, hpack, -⟩ := bind_ok hpackedEq
@@ -417,7 +477,6 @@ theorem layoutRIds_c3 {exactIds : List String}
   obtain ⟨parent, hparentMem, hpid, -, -⟩ :=
     framedParents_parent hframed (List.mem_of_getElem? hchildBoxMem) hparentNe
   obtain ⟨piIdx, hpi⟩ := List.mem_iff_getElem?.mp hparentMem
-  have hpiLen : piIdx < inp.boxes.length := (List.getElem?_eq_some_iff.mp hpi).1
   have hfind : res.scene.layoutDump.boxes.find? (fun x : Box => x.id == b.parent) =
       some p := hpLookup
   have hpMemDump : p ∈ res.scene.layoutDump.boxes := List.mem_of_find?_eq_some hfind
@@ -441,7 +500,7 @@ theorem layoutRIds_c3 {exactIds : List String}
   have hkLen := rfcPartPackedBoxLenR execution packed hpack hk
   have hbox : packed.boxes[k]? = some packed.boxes[k] :=
     List.getElem?_eq_some_iff.mpr ⟨hkLen, rfl⟩
-  obtain ⟨cand, cg, run, loops, area, spec', hrun, _, _, hlookup⟩ :=
+  obtain ⟨cand, cg, run, loops, area, spec', hselected, hrun, hloops, hplaced, hlookup⟩ :=
     rfcPartFrameLookupR execution packed hpack hk hbox
   have hcomp : part.1 ∈ components execution.graph := by
     rw [← hcompMap]
@@ -456,40 +515,52 @@ theorem layoutRIds_c3 {exactIds : List String}
     component_node_lookupR hposB hmemberGraph
   have hkeyIn : bi ∈ part.1 := List.mem_of_getElem? hposB
   have hparentIn : pj ∈ part.1 :=
-    hRexec.2.2 part.1 hcomp bi pj hbiLen hkeyIn
+    hparentInComponent part.1 hcomp bi pj hbiLen hkeyIn
       _ hmemberGraph _ hchildBoxMem _ hpiP hpid.symm hparentNe
   obtain ⟨parentIndex, hpIdx⟩ := List.getElem?_of_mem hparentIn
-  have hcontained :=
-    hRexec.2.1 part.1 cand spec' cg run (candidateOrder cand) hcomp hrun posB bi pj
-      parentIndex _ hposB hbiLen hmemberLookup _ hchildBoxMem _ hpiP hpid.symm
-      hparentNe hpIdx
-
-  have hnodesEq : cg.nodes =
-      (componentCandidateR spec' execution.graph part.1 cand).nodes :=
-    rfcRunNodesEq hrun
-  have hframeEq : ∀ j, frameRect execution.params cg run j =
-      frameRect execution.params
-        (componentCandidateR spec' execution.graph part.1 cand) run j := by
-    intro j
-    simp only [frameRect, nodeRect, hnodesEq]
-  have hcontainedCg : (frameRect execution.params cg run parentIndex).Contained
-      (frameRect execution.params cg run posB) := by
-    rw [hframeEq parentIndex, hframeEq posB]
-    exact hcontained
+  have hframes :=
+    hraw part cand spec' cg run loops area hpart hcomp hselected hrun hloops hplaced
+      posB bi pj parentIndex _ hposB hbiLen hmemberLookup _ hchildBoxMem _ hpiP
+      hpid.symm hparentNe hpIdx
   have hchildRect := hlookup posB bi hposB hbiLen
   have hparentRect := hlookup parentIndex pj hpIdx hjLen
-  have hstep1 := contained_shiftRect_imp
-    (dx := 0 - (placeBoundsX execution.params cg run execution.measured loops).minX)
-    (dy := -(placeBoundsX execution.params cg run execution.measured loops).minY)
-    hcontainedCg
-  have hstep2 := contained_shiftRect_imp
-    (dx := packed.boxes[k].x) (dy := packed.boxes[k].y) hstep1
-  have hstep3 := contained_orientRect (d := o.direction)
-    (h := execution.packedAcc.canvasH) hstep2
-  have htransport := contained_shiftRect_imp
-    (dx := execution.params.canvasMargin) (dy := execution.params.canvasMargin) hstep3
+  let bounds := placeBoundsX execution.params cg run execution.measured loops
+  have hcomponent := hshift (0 - bounds.minX) (-bounds.minY) hframes
+  have hshelf := hshift packed.boxes[k].x packed.boxes[k].y hcomponent
+  have horiented := horient o.direction execution.packedAcc.canvasH hshelf
+  have hmargins := hshift execution.params.canvasMargin execution.params.canvasMargin horiented
   rw [hprect, hbrect, hchildRect, hparentRect]
-  exact htransport
+  exact hmargins
+
+/-- Clause C3 for `layoutRIds`, with the placement hypothesis. -/
+theorem layoutRIds_c3 {exactIds : List String}
+    {idSets : List (String × List String)} {inp : Input} {o : Options}
+    {res : FamilyResult} (h : layoutRIds exactIds idSets inp o = .ok res)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
+    (hR : ExactComponentPlacementR exactIds idSets inp o res) :
+    Validator.C3 res.scene.layoutDump := by
+  obtain ⟨execution⟩ := layoutRIds_sceneExecution h
+  have hRexec := hR hwf hframed execution
+  apply sceneExecutionR_directFrameRelation execution hwf hframed hRexec.2.2
+    (rel := Rect.Contained)
+    (by
+      intro dx dy parent child hrect
+      exact contained_shiftRect_imp (dx := dx) (dy := dy) hrect)
+    (by
+      intro direction height parent child hrect
+      exact contained_orientRect (d := direction) (h := height) hrect)
+  intro part cand spec' cg run loops area _ hcomp _ hrun _ _
+    memberIndex key parentKey parentIndex member hkey hkeyLen hnode child hchild
+    parent hparent href hne hparentIndex
+  have hframe (j : Nat) : frameRect execution.params cg run j =
+      frameRect execution.params
+        (componentCandidateR spec' execution.graph part.1 cand) run j := by
+    simp only [frameRect, nodeRect, rfcRunNodesEq hrun]
+  rw [hframe parentIndex, hframe memberIndex]
+  exact hRexec.2.1 part.1 cand spec' cg run (candidateOrder cand) hcomp hrun
+    memberIndex key parentKey parentIndex member hkey hkeyLen hnode child hchild
+    parent hparent href hne hparentIndex
 
 /-- Clause C3 for `layoutRIds`, with no placement hypothesis. -/
 theorem layoutRIds_c3' {exactIds : List String}

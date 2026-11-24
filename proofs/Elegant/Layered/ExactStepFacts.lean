@@ -1296,7 +1296,7 @@ private theorem XB_label_mem (exactIds : List String) :
 /-- The label-owner invariant of one exact `expandChild` call: labels of
 both exact recursive sub-scenes carry the owner of the input label with the
 same id.  Copies `expandChild_label_owners` with `XB_label_mem`. -/
-private theorem XB_label_owners (exactIds : List String)
+theorem XB_label_owners (exactIds : List String)
     (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleLines : List Measure.Line) (titleHeight : Int)
     (parent child res : FamilyResult)
@@ -1358,6 +1358,7 @@ private theorem XB_c8b_step_of_geometry (exactIds : List String)
       ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
+      InputFixedFit inp o →
       ExpandChildC8bGeometry P inp o group titleHeight parent child res)
     (hstructC8b : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -1376,12 +1377,14 @@ private theorem XB_c8b_step_of_geometry (exactIds : List String)
       ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
+      InputFixedFit inp o →
       ExpandChildC8bStep P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams
+    hfix
   intro frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨g1, g2, g3, g4⟩ :=
     hgeoC8b fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctx hparams frame tl dx dy hframe hdx hdy hwrap
+      hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
   exact ⟨hstructC8b fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctx hparams frame tl dx dy hframe hdx hdy hwrap, g1, g2, g3, g4⟩
 
@@ -1389,7 +1392,10 @@ private theorem XB_c8b_step_of_geometry (exactIds : List String)
 `expandChild` call the exact recursion performs satisfies `ExpandChildC8bStep`.
 The binders match `FamilyAssemblyB.lean` `stepC8b` lines 115-124. -/
 theorem stepC8b_layoutX (exactIds : List String)
-    (hgeoC8bB : RecursiveStepFactsB (layoutX exactIds) ExpandChildC8bGeometry) :
+    (hgeoC8bB : RecursiveStepFactsB (layoutX exactIds)
+      (fun P inp o group titleHeight parent child res =>
+        InputFixedFit inp o →
+          ExpandChildC8bGeometry P inp o group titleHeight parent child res)) :
     ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -1401,7 +1407,7 @@ theorem stepC8b_layoutX (exactIds : List String)
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC8bStep P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
-    _hfix hctxB hparams
+    hfix hctxB hparams
   exact XB_c8b_step_of_geometry exactIds hgeoC8bB
     (fun fuel P inp o group titleLines titleHeight parent child res hexpand hframed
       hctxB hparams =>
@@ -1409,7 +1415,7 @@ theorem stepC8b_layoutX (exactIds : List String)
         hexpand hframed hctxB
         (XB_label_owners exactIds fuel P inp o group titleLines titleHeight parent child
           res hexpand hframed hctxB hparams))
-    fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctxB hparams
+    fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctxB hparams hfix
 
 
 
@@ -2694,7 +2700,10 @@ private theorem XB_c7structure (exactIds : List String)
 The binders match `FamilyAssemblyB.lean` `stepC7` lines 95-104, including the
 `BoxRouteIdsDisjoint` premise.  Assembled inline like `baseSeams_of_layered`. -/
 theorem stepC7_layoutX (exactIds : List String)
-    (hgeoC7B : RecursiveStepFactsB (layoutX exactIds) ExpandChildC7Geometry)
+    (hgeoC7B : RecursiveStepFactsB (layoutX exactIds)
+      (fun P inp o group titleHeight parent child res =>
+        InputFixedFit inp o →
+          ExpandChildC7Geometry P inp o group titleHeight parent child res))
     (hancC8aB : RecursiveStepFactsB (layoutX exactIds)
       (fun _ _ _ group _ parent child res => ExpandChildC8aAncestry group parent child res)) :
     ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
@@ -2708,7 +2717,7 @@ theorem stepC7_layoutX (exactIds : List String)
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC7Step P inp o group titleHeight parent child res := by
   intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed
-    hdisjoint _hfix hctxB hparams
+    hdisjoint hfix hctxB hparams
   intro frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨s1, s2, s3, s4, s5, s6, s7, s8⟩ :=
     XB_c7structure exactIds fuel P inp o group titleLines titleHeight parent child res
@@ -2722,7 +2731,7 @@ theorem stepC7_layoutX (exactIds : List String)
       frame tl dx dy hframe hdx hdy hwrap
   obtain ⟨g1, g2, g3, g4⟩ :=
     hgeoC7B fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctxB hparams frame tl dx dy hframe hdx hdy hwrap
+      hexpand hframed hctxB hparams hfix frame tl dx dy hframe hdx hdy hwrap
   exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
 
 end Elegant.Layered.PipelineImpl

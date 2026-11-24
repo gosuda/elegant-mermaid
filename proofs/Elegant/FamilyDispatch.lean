@@ -180,7 +180,7 @@ theorem lanes_valid_of_members
       Option.some.inj ((kindLayout_journey hk).symm.trans h)
     exact journey_valid hwf hlim hl
 
-theorem layered_valid_of_members
+theorem layered_valid_of_nonstate_members
     (flowchart_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
       Kinds.Flowchart.layout m = .ok r → HardConstraints r.scene.layoutDump)
     (class_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
@@ -197,15 +197,13 @@ theorem layered_valid_of_members
       Kinds.Agentflow.layout m = .ok r → HardConstraints r.scene.layoutDump)
     (swimlane_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
       Kinds.Swimlane.layout m = .ok r → HardConstraints r.scene.layoutDump)
-    (state_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
-      Kinds.State.layout m = .ok r → HardConstraints r.scene.layoutDump)
     {m : Model} {result : Layered.FamilyResult}
     (hwf : WellFormed m) (hlim : WithinLimits m)
-    (hmem : m.kind ∈ ["flowchart", "class", "requirement", "er", "c4", "usecase", "agentflow", "swimlane", "state"])
+    (hmem : m.kind ∈ ["flowchart", "class", "requirement", "er", "c4", "usecase", "agentflow", "swimlane"])
     (h : kindLayout m = some (.ok result)) :
     HardConstraints result.scene.layoutDump := by
   simp at hmem
-  rcases hmem with hk | hk | hk | hk | hk | hk | hk | hk | hk
+  rcases hmem with hk | hk | hk | hk | hk | hk | hk | hk
   · have hl : Kinds.Flowchart.layout m = .ok result :=
       Option.some.inj ((kindLayout_flowchart hk).symm.trans h)
     exact flowchart_valid hwf hlim hl
@@ -230,8 +228,39 @@ theorem layered_valid_of_members
   · have hl : Kinds.Swimlane.layout m = .ok result :=
       Option.some.inj ((kindLayout_swimlane hk).symm.trans h)
     exact swimlane_valid hwf hlim hl
+
+theorem layered_valid_of_members
+    (flowchart_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
+      Kinds.Flowchart.layout m = .ok r → HardConstraints r.scene.layoutDump)
+    (class_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
+      Kinds.Class.layout m = .ok r → HardConstraints r.scene.layoutDump)
+    (requirement_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
+      Kinds.Requirement.layout m = .ok r → HardConstraints r.scene.layoutDump)
+    (er_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
+      Kinds.Er.layout m = .ok r → HardConstraints r.scene.layoutDump)
+    (c4_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
+      Kinds.C4.layout m = .ok r → HardConstraints r.scene.layoutDump)
+    (usecase_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
+      Kinds.Usecase.layout m = .ok r → HardConstraints r.scene.layoutDump)
+    (agentflow_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
+      Kinds.Agentflow.layout m = .ok r → HardConstraints r.scene.layoutDump)
+    (swimlane_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
+      Kinds.Swimlane.layout m = .ok r → HardConstraints r.scene.layoutDump)
+    (state_valid : ∀ {m : Model} {r : Layered.FamilyResult}, WellFormed m → WithinLimits m →
+      Kinds.State.layout m = .ok r → HardConstraints r.scene.layoutDump)
+    {m : Model} {result : Layered.FamilyResult}
+    (hwf : WellFormed m) (hlim : WithinLimits m)
+    (hmem : m.kind ∈ ["flowchart", "class", "requirement", "er", "c4", "usecase", "agentflow", "swimlane", "state"])
+    (h : kindLayout m = some (.ok result)) :
+    HardConstraints result.scene.layoutDump := by
+  by_cases hs : m.kind = "state"
   · have hl : Kinds.State.layout m = .ok result :=
-      Option.some.inj ((kindLayout_state hk).symm.trans h)
+      Option.some.inj ((kindLayout_state hs).symm.trans h)
     exact state_valid hwf hlim hl
+  · refine layered_valid_of_nonstate_members flowchart_valid class_valid requirement_valid
+      er_valid c4_valid usecase_valid agentflow_valid swimlane_valid hwf hlim ?_ h
+    simp at hmem ⊢
+    rcases hmem with hk | hk | hk | hk | hk | hk | hk | hk | hk <;>
+      first | exact absurd hk hs | simp [hk]
 
 end Elegant

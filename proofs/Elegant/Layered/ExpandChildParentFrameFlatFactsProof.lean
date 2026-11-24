@@ -42,10 +42,8 @@ inputs, each under vector/cell profiles and TB/BT/LR/RL directions.
 The narrow box form keeps the fragment but adds the title-style
 non-descendant premise (`G.id` not among `ancestors pl.owner`), which the
 witness violates and every other probed case satisfies. It serves the
-consumer: `parentFrameStrict_of_recursion` derives exactly this premise
-for the parent scene from `PfpReachedNoDescLabels` (`hndLabels`), so the
-narrow box fact plus that premise discharges the consumer's box case
-(`pfpFlatBoxCase_of_narrow` below).
+consumer: `parentFrameStrict_of_recursion` derives this premise for the parent
+scene from `expandChild_group_ancestor_absent`.
 
 Each residual below is therefore discharged from one per-run seam
 hypothesis: a single fact quantified over executed runs only, true on all
@@ -62,10 +60,9 @@ missing fact, `PfpFlatRoutePlaced` (endpoint-premise disjointness plus the
 degenerate case), also probe-true.
 -/
 
-/-- Narrow box fragment: a label owned by a non-group scene box outside the
-strict descendants of `G` never strictly contains the frame of `G`. Bridge
-language matching the repaired `PfpFlatBoxClear` fragment, stated with
-public vocabulary. -/
+/-- Narrow box fragment: the frame of `G` does not strictly contain a label
+owned by a non-group scene box outside the strict descendants of `G`.
+Bridge language matching `PfpFlatBoxClear`, stated with public vocabulary. -/
 def pfpffBoxFragNarrow (S : FamilyResult) (G : ModelBox) : Prop :=
   ∀ (frame : Box),
     S.scene.boxes.find? (fun box => box.id == G.id) = some frame →
@@ -74,10 +71,8 @@ def pfpffBoxFragNarrow (S : FamilyResult) (G : ModelBox) : Prop :=
       (G.id ∉ S.scene.layoutDump.ancestors pl.owner) →
       ¬ frame.rect.StrictInside pl.rect
 
-/-- Consumer adequacy: the narrow box fact plus the reached-scene
-no-descendant premise (`PfpReachedNoDescLabels` gives `hnd` for the parent
-scene in `parentFrameStrict_of_recursion`) discharges the consumer's box
-case, which is `pfp_boxFrag` at the parent scene. -/
+/-- Consumer adequacy: the narrow box fact and the non-descendant premise
+discharge the consumer's box case. -/
 theorem pfpFlatBoxCase_of_narrow {S : FamilyResult} {G : ModelBox}
     (hfrag : pfpffBoxFragNarrow S G)
     (hnd : ∀ pl ∈ S.scene.labels, pl.owner ≠ G.id →

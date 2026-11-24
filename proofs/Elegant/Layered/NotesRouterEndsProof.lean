@@ -8,33 +8,36 @@ namespace Layered
 namespace PipelineImpl
 
 /-!
-# Note-stage router ends: endpoint keeping proved, search step residual.
+# Note-stage router ends: endpoint keeping and target membership
 
 Proves the endpoint-keeping halves of `notesRouterEnds` (the C5 router fact
 consumed by `notes_c5`): `Visibility.compress` keeps the first and last
 point (`nrep_compress_endpoints`, by fold induction following the `simplify`
 endpoint pattern in `Elegant.GridSimplify`); `Visibility.Grid.chain` ends at
 its target and its head does not depend on the accumulator
-(`nrep_chain_getLast`, `nrep_chain_head_acc`, so a chain that reaches a seed
-within its fuel runs from that seed to the target); every
-`Visibility.ports` point lies on its rect boundary for nonnegative dims
-(`nrep_ports_mem_boundary`, via `Elegant.Grid.fdiv_fmod_nonneg`); `Frame`
-framing keeps dimensions nonnegative and `Frame.output` maps framed-boundary
-points back onto the source boundary (`nrep_frame_rect_nonneg`,
-`nrep_frame_output_boundary`, combined in `nrep_map_ports_boundary`).
+(`nrep_chain_getLast`, `nrep_chain_head_acc`); every `Visibility.ports` point
+lies on its rect boundary for nonnegative dims (`nrep_ports_mem_boundary`, via
+`Elegant.Grid.fdiv_fmod_nonneg`); `Frame` framing keeps dimensions nonnegative
+and `Frame.output` maps framed-boundary points back onto the source boundary
+(`nrep_frame_rect_nonneg`, `nrep_frame_output_boundary`, combined in
+`nrep_map_ports_boundary`).
 
-Stays open as ONE public named residual: `nriRouterPathExec` (executed
-`layoutNotes` arguments). It states rect nonnegativity and that every
-successful `routeAround` output starts and ends in the mapped port sets. It
-is a lemma on the way to `notesRouterEnds` (membership in the mapped ports,
-not yet boundary), strictly narrower than the tracked open def
-`nriRouterEndsExec`, and true on the probe below. Its future proof carries
-the search-completeness half that is not attempted here: the `Grid.run`
-found-end containment and the dist-decrease fuel-sufficiency theory that lets
-the `nrep_chain_*` lemmas fire on executed runs. The unguarded form is known
-to be false: `NotesRouteFacts` records that the negative-width rect
-`("a", (0, 0, -5, 4))` routes successfully while no point satisfies
-`onBoundary`, so the nonnegativity premise cannot be dropped.
+The port-membership residual `nriRouterPathExec` (executed `layoutNotes`
+arguments) is no longer open: `NotesRoutePortTransport.routeAround_endpoints_mem`
+shows both endpoints of any successful `routeAround` lie in the mapped
+source/target port sets, and `VisibilityShortestSource` shows the reconstructed
+path starts at a supplied seed (`newGrid_shortest_start_mem`). Given those,
+`nriRouterPathExec_of_rects_lookup_nonneg` supplies the residual as soon as the
+looked-up rectangles have nonnegative dimensions. The boundary step genuinely
+needs that nonnegativity: the unguarded claim is false, since `NotesRouteFacts`
+records a negative-width rect `("a", (0, 0, -5, 4))` routing successfully while
+no point satisfies `onBoundary`. Actual region note executions furnish the
+dimensions (`RegionNotesDimensions.region_rects_lookup_nonneg`); general
+arbitrary rectangles still require nonnegative dimensions as an explicit
+premise.
+
+`nriRouterEndsExec` (executed `layoutNotes` arguments, with local `WellFormed`)
+then follows from `nriRouterPathExec` through the proved port/frame bridge.
 
 Probe (`proofs/wip/Probe/NotesRouterEndsT_probe.lean`): residual Bool image
 (nonneg rects; successful outputs start and end in the mapped ports) is true
@@ -42,9 +45,6 @@ for state, group, two-notes, empty-text (no-space), and zero-size-fixed
 inputs via executed `layoutNotes`, and for the synthetic self-loop
 `routeAround` with manual rects; `nested` is rejected by `layoutNotes` with
 `LayoutError.domain` as in the ortho probe.
-
-Assembly: `nriRouterEndsExec_of_parts` derives `nriRouterEndsExec` from the
-residual plus the proved port/frame bridge.
 -/
 
 /-! ### `compress` keeps the first and last point -/
@@ -120,7 +120,7 @@ private theorem nrep_fold_last :
     rw [nrep_step_last]
     cases acc <;> simp
 
-private theorem nrep_compress_endpoints (pts : List Point) :
+theorem nrep_compress_endpoints (pts : List Point) :
     (Visibility.compress pts).head? = pts.head? ∧
       (Visibility.compress pts).getLast? = pts.getLast? := by
   rw [Visibility.compress_eq_foldl]
@@ -174,6 +174,44 @@ private theorem nrep_chain_head_acc (g : Visibility.Grid)
     | none => rfl
     | some parent => exact ih _ _ _
 
+theorem nrep_run_end_mem (g : Visibility.Grid) (ends : List Point) :
+    ∀ (fuel : Nat) (s : Visibility.Search) (last : Visibility.Vertex)
+      (s' : Visibility.Search),
+      g.run ends fuel s = some (last, s') → g.point last ∈ ends := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro s last s' h
+      simp [Visibility.Grid.run] at h
+  | succ f ih =>
+      intro s last s' h
+      unfold Visibility.Grid.run at h
+      split at h
+      · simp at h
+      · dsimp only at h
+        split at h
+        · exact ih _ last s' h
+        · split at h
+          · exact ih _ last s' h
+          · split at h
+            · rename_i hend
+              simp only [Option.some.injEq, Prod.mk.injEq] at h
+              rw [← h.1]
+              exact List.contains_iff_mem.mp hend
+            · exact ih _ last s' h
+
+theorem nrep_shortest_end_mem (g : Visibility.Grid) (starts ends : List Point)
+    (pts : List Point) (h : g.shortest starts ends = some pts) :
+    ∃ p ∈ ends, pts.getLast? = some p := by
+  unfold Visibility.Grid.shortest at h
+  obtain ⟨seeded, _, hrest⟩ := Option.bind_eq_some_iff.mp h
+  obtain ⟨⟨last, s⟩, hrun, hpath⟩ := Option.bind_eq_some_iff.mp hrest
+  have hpts : Visibility.compress (g.chain s.prev (s.prev.size + 1) last []) = pts :=
+    Option.some.inj hpath
+  refine ⟨g.point last, nrep_run_end_mem g ends _ seeded last s hrun, ?_⟩
+  rw [← hpts]
+  exact (nrep_compress_endpoints _).2.trans (nrep_chain_getLast g s.prev _ last [])
+
 private theorem nrep_ports_mem_boundary (r : Rect) (hw : 0 ≤ r.w) (hh : 0 ≤ r.h)
     (p : Point) (hm : p ∈ Visibility.ports r) :
     Validator.onBoundary p r := by
@@ -215,12 +253,14 @@ private theorem nrep_map_ports_boundary (f : Frame) (r : Rect)
   exact nrep_frame_output_boundary f r q
     (nrep_ports_mem_boundary (f.rect r) hnn.1 hnn.2 q hq)
 
-/-! ### The single residual and the assembly -/
+/-! ### The port-membership residual and the assembly -/
 
-/-- Residual for `notesRouterEnds`: executed `layoutNotes` arguments.
-Rect nonnegativity plus mapped-port endpoint membership of every successful
-`routeAround` output. Strictly narrower than `nriRouterEndsExec` (membership,
-not yet boundary); true on the probe inputs. -/
+/-- Port-membership residual for `notesRouterEnds` on executed `layoutNotes`
+arguments: rectangle nonnegativity plus mapped-port endpoint membership of
+every successful `routeAround` output (membership, not yet boundary). Supplied
+for actual executions by `nriRouterPathExec_of_rects_lookup_nonneg`; the
+negative-width witness in `NotesRouteFacts` shows the nonnegativity premise
+cannot be dropped. -/
 def nriRouterPathExec (inp : Input) (o : Options) (res : FamilyResult)
     (contracted : FamilyResult) (fragments : List Placed) (atts : List Attach)
     (margin : Int) : Prop :=

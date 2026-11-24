@@ -1,6 +1,7 @@
 import Elegant.Layered.NotesFlatBoxClauses
 import Elegant.Layered.RecursiveFit
 import Elegant.Layered.SelectFacts
+import Elegant.Layered.NotesFlatLabelClauses
 
 set_option autoImplicit false
 
@@ -80,6 +81,30 @@ def NotesBaseFrag {base : List String → Input → Options → Except LayoutErr
         ∀ sb ∈ q.2.scene.boxes,
           ∃ mb ∈ (subInput inp (fun x => x.id == q.1.id) q.1.id).boxes,
             sb.id = mb.id ∧ sb.parent = mb.parent ∧ sb.exclusive = mb.exclusive)
+
+/-- The placed part selects the bundle top and its descendants; a placed note
+selects only its own input box. Both contain their selected root, whose parent
+is cleared in the fragment. All other part boxes retain their input parent. -/
+def NotesFragMirrorT {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) : Prop :=
+  ∀ l ∈ e.layouts, ∀ p ∈ placedOf' e.margin e.contracted.scene l,
+    (p.scene = l.part.scene ∧ l.top ∈ inp.boxes ∧
+      (∃ root ∈ p.scene.boxes, root.id = l.top.id) ∧
+      ∀ sb ∈ p.scene.boxes, ∃ ib ∈ inp.boxes,
+        sb.id = ib.id ∧ sb.exclusive = ib.exclusive ∧
+        (sb.id = l.top.id ∨ Compound.inside inp.boxes l.top.id sb.id = true) ∧
+        sb.parent = (if sb.id = l.top.id then "" else ib.parent)) ∨
+    ∃ q ∈ l.notes, p.scene = q.2.scene ∧ q.1 ∈ inp.boxes ∧
+      (∃ root ∈ p.scene.boxes, root.id = q.1.id) ∧
+      ∀ sb ∈ p.scene.boxes, sb.id = q.1.id ∧ sb.exclusive = q.1.exclusive ∧ sb.parent = ""
+
+/-- Parent-independent input provenance for placed fragment boxes. -/
+def NotesFragIdExcl {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) : Prop :=
+  ∀ l ∈ e.layouts, ∀ p ∈ placedOf' e.margin e.contracted.scene l,
+    ∀ sb ∈ p.scene.boxes, ∃ ib ∈ inp.boxes, sb.id = ib.id ∧ sb.exclusive = ib.exclusive
 
 /-- Fragment roots: every bundle top and every bundle note box is rootless in
 the input. `subInput` clears the top/note parent, so the executed fragment
@@ -545,6 +570,256 @@ private theorem nmf_layout_mem {base : List String → Input → Options → Exc
     l.top ∈ inp.boxes ∧ ∀ q ∈ l.notes, q.1 ∈ inp.boxes := by
   obtain ⟨b, hbm, hbl⟩ := nmf_mapM_mem _ _ e.layouts_eq l hl
   exact nmf_bundleLayout_mem hbl
+def NotesBoxMirror (inp : Input) (res : FamilyResult) : Prop :=
+  res.scene.boxes.map (·.id) = inp.boxes.map (·.id) ∧
+    ∀ sb ∈ res.scene.boxes, ∃ mb ∈ inp.boxes,
+      sb.id = mb.id ∧ sb.parent = mb.parent ∧ sb.exclusive = mb.exclusive ∧ sb.role = mb.role.id
+
+theorem layoutNotes_boxes_mirror
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    (hbase : ∀ ids inp o res, base ids inp o = .ok res → NotesBoxMirror inp res)
+    (fuel : Nat) {exactIds : List String} {inp : Input} {o : Options} {res : FamilyResult}
+    (h : layoutNotes base exactIds fuel inp o = .ok res) : NotesBoxMirror inp res := by
+  cases fuel with
+  | zero => exact hbase exactIds inp o res h
+  | succ fuel =>
+    rcases layoutNotes_success_phases h with ⟨_, hleaf⟩ | hexecution
+    · exact hbase exactIds inp o res hleaf
+    · obtain ⟨execution⟩ := hexecution
+      constructor
+      · exact execution.boxes_ids
+      · intro sb hsb
+        obtain ⟨mb, hmb, hid, hrole, hparent, hexcl, _⟩ := execution.boxes_mem sb hsb
+        exact ⟨mb, hmb, hid, hparent, hexcl, hrole⟩
+
+private theorem notesFragment_mirror
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {Mirror : Input → FamilyResult → Prop}
+    (hbase : ∀ ids inp o res, base ids inp o = .ok res → Mirror inp res)
+    (hpreserve : ∀ fuel {ids inp o res}, layoutNotes base ids fuel inp o = .ok res → Mirror inp res)
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) :
+    ∀ l ∈ e.layouts,
+      Mirror (subInput inp (fun x => x.id == l.top.id ||
+        Compound.inside inp.boxes l.top.id x.id) l.top.id) l.part ∧
+      ∀ q ∈ l.notes, Mirror (subInput inp (fun x => x.id == q.1.id) q.1.id) q.2 := by
+  intro l hl
+  obtain ⟨b, _, hb⟩ := nmf_mapM_mem _ _ e.layouts_eq l hl
+  unfold bundleLayout at hb
+  cases ht : inp.boxes[b.target]? with
+  | none => simp [ht] at hb
+  | some top =>
+    rw [ht] at hb
+    simp only [bind, Except.bind] at hb
+    obtain ⟨part, hpart, hb⟩ := bind_ok' hb
+    obtain ⟨notes, hnotes, hb⟩ := bind_ok' hb
+    have heq : l = ⟨top, b, part, notes, _⟩ := (Except.ok.inj hb).symm
+    rw [heq]
+    constructor
+    · exact hpreserve fuel hpart
+    · intro q hq
+      obtain ⟨att, _, hq⟩ := nmf_mapM_mem _ _ hnotes q hq
+      cases hbox : inp.boxes[att.note]? with
+      | none => simp [hbox] at hq
+      | some box =>
+        rw [hbox] at hq
+        dsimp only at hq
+        obtain ⟨r, hr, hq⟩ := bind_ok' hq
+        have hqe : q = (box, r) := (Except.ok.inj hq).symm
+        rw [hqe]
+        exact hbase exactIds _ o _ hr
+
+theorem notesBaseFrag_of_box_mirror
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    (hbase : ∀ ids inp o res, base ids inp o = .ok res → NotesBoxMirror inp res)
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) : NotesBaseFrag e := by
+  intro l hl
+  obtain ⟨hp, hq⟩ := notesFragment_mirror hbase (layoutNotes_boxes_mirror hbase) e l hl
+  constructor
+  · refine ⟨hp.1, ?_⟩
+    intro sb hsb
+    obtain ⟨mb, hmb, hid, hpar, hexc, _⟩ := hp.2 sb hsb
+    exact ⟨mb, hmb, hid, hpar, hexc⟩
+  · intro q hqm
+    have h := hq q hqm
+    refine ⟨h.1, ?_⟩
+    intro sb hsb
+    obtain ⟨mb, hmb, hid, hpar, hexc, _⟩ := h.2 sb hsb
+    exact ⟨mb, hmb, hid, hpar, hexc⟩
+
+private theorem notesSubInput_source_role {inp : Input} {keep : ModelBox → Bool} {root : String}
+    {b : ModelBox} (hb : b ∈ (subInput inp keep root).boxes) :
+    ∃ ib ∈ inp.boxes, b.id = ib.id ∧ b.role = ib.role := by
+  unfold subInput at hb
+  simp only [List.mem_map] at hb
+  obtain ⟨sb, hsb, heq⟩ := hb
+  unfold selectInput at hsb
+  simp only [List.mem_map, List.mem_filter] at hsb
+  obtain ⟨entry, ⟨hentry, _⟩, hsource⟩ := hsb
+  have hsid : sb.id = entry.1.id := by rw [← hsource]; split <;> rfl
+  have hsrole : sb.role = entry.1.role := by rw [← hsource]; split <;> rfl
+  have hbid : b.id = sb.id := by rw [← heq]; split <;> rfl
+  have hbrole : b.role = sb.role := by rw [← heq]; split <;> rfl
+  exact ⟨entry.1, List.fst_mem_of_mem_zipIdx hentry, hbid.trans hsid, hbrole.trans hsrole⟩
+
+theorem notesC8aFragRole_of_box_mirror
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    (hbase : ∀ ids inp o res, base ids inp o = .ok res → NotesBoxMirror inp res)
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) : NotesC8aFragRole e := by
+  intro l hl p hp sb hsb
+  obtain ⟨hpart, hnotes⟩ := notesFragment_mirror hbase (layoutNotes_boxes_mirror hbase) e l hl
+  rcases placedOf_scene hp with hs | ⟨q, hq, hs⟩
+  · rw [hs] at hsb
+    obtain ⟨mb, hmb, hid, _, _, hrole⟩ := hpart.2 sb hsb
+    obtain ⟨ib, hib, hid', hrole'⟩ := notesSubInput_source_role hmb
+    exact ⟨ib, hib, hid'.symm.trans hid.symm, by rw [hrole, hrole']⟩
+  · rw [hs] at hsb
+    obtain ⟨mb, hmb, hid, _, _, hrole⟩ := (hnotes q hq).2 sb hsb
+    obtain ⟨ib, hib, hid', hrole'⟩ := notesSubInput_source_role hmb
+    exact ⟨ib, hib, hid'.symm.trans hid.symm, by rw [hrole, hrole']⟩
+
+private theorem notesLayout_footprint_note_count {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) {l : BundleLayout} (hl : l ∈ e.layouts) :
+    l.footprint.notes.length = l.notes.length := by
+  obtain ⟨b, _, hb⟩ := nmf_mapM_mem _ _ e.layouts_eq l hl
+  unfold bundleLayout at hb
+  cases ht : inp.boxes[b.target]? with
+  | none => simp [ht] at hb
+  | some top =>
+    rw [ht] at hb
+    simp only [bind, Except.bind] at hb
+    obtain ⟨part, hpart, hb⟩ := bind_ok' hb
+    obtain ⟨notes, hnotes, hb⟩ := bind_ok' hb
+    have heq : l = ⟨top, b, part, notes, _⟩ := (Except.ok.inj hb).symm
+    have hlen := (mapM_getElem? _ _ _ hnotes).1
+    rw [heq]
+    simp only [footprint_notes, List.length_mapIdx, List.length_map, List.length_zip]
+    omega
+
+private theorem notesSubInput_id_mem {inp : Input} {keep : ModelBox → Bool} {root : String}
+    {b : ModelBox} (hb : b ∈ inp.boxes) (hk : keep b = true) :
+    b.id ∈ (subInput inp keep root).boxes.map (·.id) := by
+  have hids : (subInput inp keep root).boxes.map (·.id) =
+      (inp.boxes.filter keep).map (·.id) := by
+    unfold subInput
+    dsimp only
+    rw [List.map_map]
+    simp only [Function.comp_def]
+    have heq : ((selectInput inp keep).boxes.map
+        (fun x => (if x.id == root then { x with parent := "" } else x).id)) =
+        (selectInput inp keep).boxes.map (·.id) := by
+      apply List.map_congr_left
+      intro x _
+      split <;> rfl
+    rw [heq, selectInput_box_ids]
+  rw [hids]
+  exact List.mem_map_of_mem (List.mem_filter.mpr ⟨hb, hk⟩)
+
+private theorem notesLayout_placed_scenes
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) {l : BundleLayout} (hl : l ∈ e.layouts) :
+    (∃ p ∈ placedOf' e.margin e.contracted.scene l, p.scene = l.part.scene) ∧
+      ∀ q ∈ l.notes, ∃ p ∈ placedOf' e.margin e.contracted.scene l, p.scene = q.2.scene := by
+  obtain ⟨ps, hps⟩ := nmf_mapM_ok_of_mem e.placed_eq hl
+  cases hf : e.contracted.scene.boxes.find? (fun b => b.id == l.top.id) with
+  | none =>
+    simp [placedFragments, hf] at hps
+  | some box =>
+    let place := fun (r : Rect) (s : Scene) =>
+      (⟨s, box.rect.x + r.x - e.margin, box.rect.y + r.y - e.margin⟩ : Placed)
+    have hplaced : placedOf' e.margin e.contracted.scene l =
+        place l.footprint.target l.part.scene ::
+          (l.notes.zip l.footprint.notes).map (fun q => place q.2 q.1.2.scene) := by
+      simp [placedOf', placedFragments, hf, place, pure, Except.pure]
+    constructor
+    · rw [hplaced]
+      exact ⟨_, List.mem_cons_self, rfl⟩
+    · intro q hq
+      have hlen : l.notes.length ≤ l.footprint.notes.length := by
+        rw [notesLayout_footprint_note_count e hl]
+        exact Nat.le_refl _
+      have hqmap : q ∈ (l.notes.zip l.footprint.notes).map Prod.fst := by
+        rw [List.map_fst_zip hlen]
+        exact hq
+      obtain ⟨pair, hp, heq⟩ := List.mem_map.mp hqmap
+      obtain ⟨note, rect⟩ := pair
+      dsimp only at heq
+      subst note
+      rw [hplaced]
+      refine ⟨place rect q.2.scene, ?_, rfl⟩
+      apply List.mem_cons_of_mem
+      exact List.mem_map_of_mem hp
+
+theorem notesC8aFragFound_of_base
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) (hbase : NotesBaseFrag e) :
+    NotesC8aFragFound e := by
+  intro l hl id hfrag
+  have hplaces := notesLayout_placed_scenes e hl
+  have hinput := nmf_layout_mem e hl
+  have finish : ∀ p ∈ placedOf' e.margin e.contracted.scene l,
+      id ∈ p.scene.boxes.map (·.id) →
+      (placedOf' e.margin e.contracted.scene l).any
+        (fun p => p.scene.boxes.any (fun b => b.id == id)) = true := by
+    intro p hp hm
+    obtain ⟨sb, hsb, hid⟩ := List.mem_map.mp hm
+    apply List.any_eq_true.mpr
+    refine ⟨p, hp, List.any_eq_true.mpr ⟨sb, hsb, ?_⟩⟩
+    exact beq_iff_eq.mpr hid
+  have htop : (id == l.top.id || Compound.inside inp.boxes l.top.id id) = true ∨
+      (l.notes.map (·.1.id)).contains id = true := by
+    simpa only [fragmentIdOf, Bool.or_eq_true] using hfrag
+  rcases htop with htop | hnote
+  · have hex : ∃ b ∈ inp.boxes, b.id = id ∧
+        (b.id == l.top.id || Compound.inside inp.boxes l.top.id b.id) = true := by
+      cases hself : id == l.top.id with
+      | true =>
+        have heq : id = l.top.id := beq_iff_eq.mp hself
+        refine ⟨l.top, hinput.1, heq.symm, ?_⟩
+        simp
+      | false =>
+        have hins : Compound.inside inp.boxes l.top.id id = true := by simpa [hself] using htop
+        have hins' := hins
+        unfold Compound.inside at hins'
+        cases hfind : inp.boxes.find? (fun b => b.id == id) with
+        | none => simp [hfind] at hins'
+        | some b =>
+          have hid : b.id = id := by
+            simpa only [beq_iff_eq] using List.find?_some hfind
+          refine ⟨b, List.mem_of_find?_eq_some hfind, hid, ?_⟩
+          rw [hid]
+          simp [hins]
+    obtain ⟨b, hb, hid, hkeep⟩ := hex
+    have hsub := notesSubInput_id_mem
+      (keep := fun x => x.id == l.top.id || Compound.inside inp.boxes l.top.id x.id)
+      (root := l.top.id) hb hkeep
+    have hscene : id ∈ l.part.scene.boxes.map (·.id) := by
+      rw [(hbase l hl).1.1, ← hid]
+      exact hsub
+    obtain ⟨p, hp, hpEq⟩ := hplaces.1
+    apply finish p hp
+    rw [hpEq]
+    exact hscene
+  · have hnoteMem : id ∈ (l.notes.map (·.1.id)) := by
+      simpa only [List.contains_eq_mem, decide_eq_true_eq] using hnote
+    obtain ⟨q, hq, hqid⟩ := List.mem_map.mp hnoteMem
+    have hqmem := hinput.2 q hq
+    have hkeep : (q.1.id == q.1.id) = true := by simp
+    have hsub := notesSubInput_id_mem (keep := fun x => x.id == q.1.id)
+      (root := q.1.id) hqmem hkeep
+    have hscene : id ∈ q.2.scene.boxes.map (·.id) := by
+      rw [((hbase l hl).2 q hq).1, ← hqid]
+      exact hsub
+    obtain ⟨p, hp, hpEq⟩ := hplaces.2 q hq
+    apply finish p hp
+    rw [hpEq]
+    exact hscene
+
 
 
 /-- The ancestor walk is empty when the id is absent from the boxes. -/
@@ -764,6 +1039,82 @@ theorem notesFragMirror_holds {base : List String → Input → Options → Exce
       · exact hparp
     · exact Or.inr (Or.inr ⟨q, hqm, hid.trans hmbq⟩)
 
+/-- Trace a placed scene to its executed part or note run and transport its box
+fields through the corresponding `subInput` selection. -/
+theorem notesFragMirrorT_holds
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res)
+    (hFrag : NotesBaseFrag e) (hnd : (inp.boxes.map (·.id)).Nodup) : NotesFragMirrorT e := by
+  intro l hl p hp
+  obtain ⟨htop, hnotes⟩ := nmf_layout_mem e hl
+  rcases placedOf_scene hp with hps | ⟨q, hq, hps⟩
+  · obtain ⟨hids, hboxes⟩ := (hFrag l hl).1
+    have hroot := notesSubInput_id_mem
+      (keep := fun x => x.id == l.top.id || Compound.inside inp.boxes l.top.id x.id)
+      (root := l.top.id) htop (by simp)
+    rw [← hids, ← hps] at hroot
+    refine Or.inl ⟨hps, htop, List.mem_map.mp hroot, ?_⟩
+    intro sb hsb
+    rw [hps] at hsb
+    obtain ⟨mb, hmb, hid, hpar, hexc⟩ := hboxes sb hsb
+    obtain ⟨ib, hib, hkeep, hmbId, hmbExcl, hmbParent⟩ := nmf_subInput_mem hmb
+    have hsbId := hid.trans hmbId.symm
+    refine ⟨ib, hib, hsbId, hexc.trans hmbExcl, ?_, ?_⟩
+    · rw [hsbId]
+      simpa only [Bool.or_eq_true, beq_iff_eq] using hkeep
+    · rcases hmbParent with ⟨hrootId, hrootParent⟩ | ⟨hnotRoot, hkeptParent⟩
+      · have heq := hid.trans hrootId
+        simpa only [ite_eq_left heq] using hpar.trans hrootParent
+      · have hne : sb.id ≠ l.top.id := fun heq => hnotRoot (hid.symm.trans heq)
+        simpa only [ite_eq_right hne] using hpar.trans hkeptParent
+  · obtain ⟨hids, hboxes⟩ := (hFrag l hl).2 q hq
+    have hqInput := hnotes q hq
+    have hroot := notesSubInput_id_mem (keep := fun x => x.id == q.1.id)
+      (root := q.1.id) hqInput (by simp)
+    rw [← hids, ← hps] at hroot
+    refine Or.inr ⟨q, hq, hps, hqInput, List.mem_map.mp hroot, ?_⟩
+    intro sb hsb
+    rw [hps] at hsb
+    obtain ⟨mb, hmb, hid, hpar, hexc⟩ := hboxes sb hsb
+    obtain ⟨ib, hib, hkeep, hmbId, hmbExcl, hmbParent⟩ := nmf_subInput_mem hmb
+    have hibId : ib.id = q.1.id := beq_iff_eq.mp hkeep
+    have hmbRoot := hmbId.symm.trans hibId
+    have hibNote : ib = q.1 := nmf_nodup_id_inj _ hnd hib hqInput hibId
+    rw [hibNote] at hmbExcl
+    refine ⟨hid.trans hmbRoot, hexc.trans hmbExcl, ?_⟩
+    rcases hmbParent with ⟨_, hrootParent⟩ | ⟨hnotRoot, _⟩
+    · exact hpar.trans hrootParent
+    · exact (hnotRoot hmbRoot).elim
+
+theorem notesFragIdExcl_holds
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res)
+    (hFrag : NotesBaseFrag e) (hnd : (inp.boxes.map (·.id)).Nodup) : NotesFragIdExcl e := by
+  intro l hl p hp sb hsb
+  rcases notesFragMirrorT_holds e hFrag hnd l hl p hp with
+    ⟨_, _, _, hpart⟩ | ⟨q, _, _, hqInput, _, hnote⟩
+  · obtain ⟨ib, hib, hid, hexc, _, _⟩ := hpart sb hsb
+    exact ⟨ib, hib, hid, hexc⟩
+  · obtain ⟨hid, hexc, _⟩ := hnote sb hsb
+    exact ⟨q.1, hqInput, hid, hexc⟩
+
+/-- The role witness is the same input box as any id-matching provenance
+witness. Role preservation comes from the base box mirror, not `NotesBaseFrag`. -/
+theorem notesFragRole_eq_of_id
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res)
+    (hRole : NotesC8aFragRole e) (hnd : (inp.boxes.map (·.id)).Nodup) :
+    ∀ l ∈ e.layouts, ∀ p ∈ placedOf' e.margin e.contracted.scene l,
+      ∀ sb ∈ p.scene.boxes, ∀ ib ∈ inp.boxes, sb.id = ib.id → sb.role = ib.role.id := by
+  intro l hl p hp sb hsb ib hib hid
+  obtain ⟨rb, hrb, hrid, hrole⟩ := hRole l hl p hp sb hsb
+  have heq : rb = ib := nmf_nodup_id_inj _ hnd hrb hib (hrid.trans hid)
+  rw [← heq]
+  exact hrole.symm
+
 /-- Parent locality inside one placed scene: a fragment box is rootless, has a
 same-scene parent witness, or its parent lives in no fragment and the box is
 its layout's note or top. -/
@@ -889,6 +1240,172 @@ theorem notesFragBoxEq_holds {base : List String → Input → Options → Excep
       exact nmf_subInput_nodup _ _ _ hnd
     show p.scene.boxes.find? (fun b => b.id == sb.parent) = some sp
     exact nmf_find?_unique _ _ hnodup _ hspm _ hspid
+
+private def ParentTruncation (src dst : List Box) : Prop :=
+  ∀ id b, dst.find? (fun b => b.id == id) = some b →
+    ∃ a, src.find? (fun b => b.id == id) = some a ∧ (b.parent = "" ∨ b.parent = a.parent)
+
+private theorem parentTruncation_ancestors {src dst : LayoutDump}
+    (htransfer : ParentTruncation src.boxes dst.boxes) :
+    ∀ (k k' : Nat), k ≤ k' → ∀ (id x : String),
+      x ∈ LayoutDump.ancestors.go dst k id → x ∈ LayoutDump.ancestors.go src k' id := by
+  intro k
+  induction k with
+  | zero => intro k' _ _ _ hx; cases hx
+  | succ k ih =>
+    intro k' hk id x hx
+    cases k' with
+    | zero => omega
+    | succ k' =>
+      have hkk : k ≤ k' := Nat.le_of_succ_le_succ hk
+      simp only [LayoutDump.ancestors.go, LayoutDump.box?] at hx ⊢
+      cases hd : dst.boxes.find? (fun b => b.id == id) with
+      | none => rw [hd] at hx; cases hx
+      | some db =>
+        rw [hd] at hx
+        obtain ⟨sb, hsb, hpar⟩ := htransfer id db hd
+        rw [hsb]
+        dsimp only at hx ⊢
+        rcases hpar with hzero | hpar
+        · simp [hzero] at hx
+        · rw [hpar] at hx
+          by_cases hp : sb.parent = ""
+          · simp [hp] at hx
+          · simp only [hp, ↓reduceIte] at hx ⊢
+            rcases List.mem_cons.mp hx with rfl | hx'
+            · exact List.mem_cons_self
+            · exact List.mem_cons_of_mem _ (ih k' hkk sb.parent x hx')
+
+private theorem notesSubInput_length_le (inp : Input) (keep : ModelBox → Bool) (root : String) :
+    (subInput inp keep root).boxes.length ≤ inp.boxes.length := by
+  simp only [subInput, selectInput, List.length_map]
+  simpa only [List.length_zipIdx] using List.length_filter_le (fun q => keep q.1) inp.boxes.zipIdx
+
+private theorem notesSubInput_ancestors
+    {inp : Input} {keep : ModelBox → Bool} {root : String} {scene : Scene}
+    (hnd : (inp.boxes.map (·.id)).Nodup)
+    (hids : scene.boxes.map (·.id) = (subInput inp keep root).boxes.map (·.id))
+    (hboxes : ∀ sb ∈ scene.boxes, ∃ mb ∈ (subInput inp keep root).boxes,
+      sb.id = mb.id ∧ sb.parent = mb.parent ∧ sb.exclusive = mb.exclusive) :
+    ∀ id x, x ∈ scene.layoutDump.ancestors id → x ∈ (inpDumpOf inp).ancestors id := by
+  have htransfer : ParentTruncation (inpDumpOf inp).boxes scene.layoutDump.boxes := by
+    intro id sb hsb
+    obtain ⟨mb, hmb, hid, hpar, _⟩ := hboxes sb (List.mem_of_find?_eq_some hsb)
+    obtain ⟨ib, hib, _, hid', _, hp⟩ := nmf_subInput_mem hmb
+    have htest := List.find?_some hsb
+    have hsbid : sb.id = id := beq_iff_eq.mp htest
+    let mapped := Box.mk ib.id ib.role.id ⟨0, 0, 0, 0⟩ ib.parent ib.exclusive
+    refine ⟨mapped, ?_, ?_⟩
+    · exact nmf_find?_unique (·.id) (modelBoxesToDump inp.boxes)
+        (by simpa only [modelBoxesToDump, List.map_map, Function.comp_def] using hnd)
+        mapped (List.mem_map.mpr ⟨ib, hib, rfl⟩) id (hid'.trans (hid.symm.trans hsbid))
+    · rcases hp with ⟨_, hz⟩ | ⟨_, hp⟩
+      · exact Or.inl (hpar.trans hz)
+      · exact Or.inr (hpar.trans hp)
+  have hlen := congrArg List.length hids
+  simp only [List.length_map] at hlen
+  have hbound : scene.layoutDump.boxes.length ≤ (inpDumpOf inp).boxes.length := by
+    change scene.boxes.length ≤ (modelBoxesToDump inp.boxes).length
+    rw [hlen]
+    simpa only [modelBoxesToDump, List.length_map] using notesSubInput_length_le inp keep root
+  intro id x hx
+  unfold LayoutDump.ancestors at hx ⊢
+  exact parentTruncation_ancestors htransfer _ _ hbound id x hx
+
+theorem notesC8aSceneAnc_of_base
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res)
+    (hnd : (inp.boxes.map (·.id)).Nodup) (hbase : NotesBaseFrag e) :
+    NotesC8aSceneAnc e := by
+  intro l hl p hp id x hx
+  rcases placedOf_scene hp with hs | ⟨q, hq, hs⟩
+  · rw [hs] at hx
+    exact notesSubInput_ancestors hnd (hbase l hl).1.1 (hbase l hl).1.2 id x hx
+  · rw [hs] at hx
+    exact notesSubInput_ancestors hnd ((hbase l hl).2 q hq).1
+      ((hbase l hl).2 q hq).2 id x hx
+
+theorem notesC6AncF_of_sceneAnc
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) (h : NotesC8aSceneAnc e) :
+    NotesC6AncF e := by
+  intro p hp id x hx
+  rw [e.fragments_eq] at hp
+  obtain ⟨l, hl, hp⟩ := placedFlatten_mem e.placed_eq hp
+  exact h l hl p hp id x hx
+
+theorem notesC6AncC_of_base
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res)
+    (hnd : (inp.boxes.map (·.id)).Nodup) (hbase : NotesBaseContract e) :
+    NotesC6AncC e := by
+  have hcontract := notesContractedScene_parentTransfer e hnd hbase
+  rw [e.contractedInput_eq] at hcontract
+  have htransfer := (contractFold_parentTransfer inp e.layouts hnd).trans hcontract
+  have htrunc : ParentTruncation (inpDumpOf inp).boxes e.contracted.scene.layoutDump.boxes := by
+    intro id b hb
+    obtain ⟨a, ha, _, hp⟩ := htransfer id b hb
+    exact ⟨a, ha, Or.inr hp.symm⟩
+  have hlen := congrArg List.length hbase.1
+  simp only [List.length_map] at hlen
+  have hbound : e.contracted.scene.layoutDump.boxes.length ≤ (inpDumpOf inp).boxes.length := by
+    change e.contracted.scene.boxes.length ≤ (modelBoxesToDump inp.boxes).length
+    rw [hlen, e.contractedInput_eq]
+    simpa only [modelBoxesToDump, List.length_map] using fold_length_le inp e.layouts
+  intro id x hx
+  unfold LayoutDump.ancestors at hx ⊢
+  exact parentTruncation_ancestors htrunc _ _ hbound id x hx
+
+def NotesRouteMirror (inp : Input) (res : FamilyResult) : Prop :=
+  ∀ rt ∈ res.scene.routes, ∃ r ∈ inp.routes,
+    rt.id = r.id ∧ rt.fromId = r.fromId ∧ rt.toId = r.toId ∧ rt.orthogonal = r.orthogonal
+
+theorem layoutNotes_routes_mirror
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    (hbase : ∀ ids inp o res, base ids inp o = .ok res → NotesRouteMirror inp res)
+    (fuel : Nat) {exactIds : List String} {inp : Input} {o : Options} {res : FamilyResult}
+    (h : layoutNotes base exactIds fuel inp o = .ok res) : NotesRouteMirror inp res := by
+  cases fuel with
+  | zero => exact hbase exactIds inp o res h
+  | succ fuel =>
+    rcases layoutNotes_success_phases h with ⟨_, hleaf⟩ | hexecution
+    · exact hbase exactIds inp o res hleaf
+    · obtain ⟨execution⟩ := hexecution
+      exact execution.routes_mem
+
+theorem notesFlagsFragment_of_route_mirror
+    {base : List String → Input → Options → Except LayoutError FamilyResult}
+    (hbase : ∀ ids inp o res, base ids inp o = .ok res → NotesRouteMirror inp res)
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res)
+    (hnd : (inp.routes.map (·.id)).Nodup) :
+    notesFlagsFragment inp e.layouts e.fragments := by
+  intro r hr a hsame p hp fr hfr hid
+  rw [e.fragments_eq] at hp
+  obtain ⟨l, hl, hp⟩ := placedFlatten_mem e.placed_eq hp
+  obtain ⟨hpart, hnotes⟩ := notesFragment_mirror hbase (layoutNotes_routes_mirror hbase) e l hl
+  have finish : ∀ {keep : ModelBox → Bool} {root : String} {s : FamilyResult},
+      NotesRouteMirror (subInput inp keep root) s → fr ∈ s.scene.routes →
+      fr.orthogonal = r.orthogonal ∧ fr.fromId = r.fromId ∧ fr.toId = r.toId := by
+    intro keep root s hmir hmem
+    obtain ⟨source, hs, hsid, hfrom, hto, hort⟩ := hmir fr hmem
+    have hinput : source ∈ inp.routes := by
+      change source ∈ (selectInput inp keep "").routes at hs
+      exact ((selectInput_route_mem inp keep "" source).mp hs).1
+    have hsource := nmf_find?_unique (fun x : ModelRoute => x.id) inp.routes hnd
+      source hinput r.id (hsid.symm.trans hid)
+    have hroute := nmf_find?_unique (fun x : ModelRoute => x.id) inp.routes hnd r hr r.id rfl
+    have heq : source = r := Option.some.inj (hsource.symm.trans hroute)
+    subst source
+    exact ⟨hort, hfrom, hto⟩
+  rcases placedOf_scene hp with hps | ⟨q, hq, hqs⟩
+  · rw [hps] at hfr
+    exact finish hpart hfr
+  · rw [hqs] at hfr
+    exact finish (hnotes q hq) hfr
 
 end PipelineImpl
 end Layered

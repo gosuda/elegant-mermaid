@@ -460,7 +460,7 @@ private theorem r8b_rect_value_sourceR {exactIds : List String}
 /-- The region component fold preserves the label array size (twin of
 `X_components_fold_labels_size` in `ExactFlatC7.lean`, via
 `layoutComponentR_sizes`). -/
-private theorem r8b_components_fold_labels_sizeR (P : Params) (exactIds : List String)
+theorem r8b_components_fold_labels_sizeR (P : Params) (exactIds : List String)
     (spec : Option RegionSpec) (inp : Input) (o : Options) (g : Graph)
     (measured : List MeasuredLabel) :
     ∀ (comps : List (List Nat)) (start out : Acc),

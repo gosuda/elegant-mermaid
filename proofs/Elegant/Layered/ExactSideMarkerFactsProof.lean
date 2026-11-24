@@ -571,9 +571,9 @@ chain residual plus the proved same-path fact. -/
 theorem XN_sideMarkerSpanAligned_of_chain (exactIds : List String)
     (hchain : X_ForeignBorderChainXAligned exactIds) :
     XN_SideMarkerSpanAligned exactIds := by
-  intro P inp o lines measured graph0 graph h0 hg comp hcomp candidate run labels
-    orderOptions hrun decl m m' marker marker' hmem hborder hgetLast hmem'
-    hborder' hgetLast'
+  intro P inp o lines measured graph0 graph h0 hg hlines hmodelWf hfp comp hcomp
+    candidate run labels orderOptions hrun decl m m' marker marker' hmem
+    hborder hgetLast hmem' hborder' hgetLast'
   have hns : marker.node.border ≠ -2 ∧ marker.node.border ≠ 2 := by
     rcases hborder with h | h <;> constructor <;> intro hc <;> omega
   have hns' : marker'.node.border ≠ -2 ∧ marker'.node.border ≠ 2 := by
@@ -586,7 +586,8 @@ theorem XN_sideMarkerSpanAligned_of_chain (exactIds : List String)
     have hlast : marker.node.clusterPath.getLast? =
         marker'.node.clusterPath.getLast? := by
       rw [hgetLast, hgetLast']
-    exact hchain h0 hg hcomp hrun hcp hcp' hborder hborder' hsameSide hlast
+    exact hchain h0 hg hlines hmodelWf hfp hcomp hrun hcp hcp' hborder hborder'
+      hsameSide hlast
   · have hxs := xsmf_xs_marker hrun hmem hborder
     have hcenter : 0 ≤ run.coordinateXs.getD m 0 :=
       xsmf_centers_nonneg hrun m

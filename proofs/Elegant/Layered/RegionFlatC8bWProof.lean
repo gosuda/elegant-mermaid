@@ -40,12 +40,11 @@ ill-formed duplicate); non-vacuous cores/fallback mirrors live in
 `RegionFlatC8b.lean` (`r8bProbeC8bB`) and `RegionFallbackCaption.lean`
 (`rfbFallbackB`, `rfbOk` on six rows).
 
-Matching `RegionSeams` shape (not edited here): `partFrameCores` becomes
-`∀ sub, R_ExecutedPartFrameCoresB8W exactIds (reindexRegionSets idSets sub)`;
-`fallbackCaption` becomes `∀ sub, R_FallbackCaptionClearBW exactIds
-(reindexRegionSets idSets sub)`; `titleCaptionFit` stays
-`∀ sub, R_ExactTitleCaptionFitB8 exactIds (reindexRegionSets idSets sub)`
-(no admission content, hence no W form). -/
+`RegionSeams` integration note: `RegionSeams` no longer carries a
+`fallbackCaption` field; the integrated fallback theorem
+`R_fallbackCaptionClearB8W_selected_closed` eliminated it, and
+`regionBaseSeams` supplies that theorem directly to its `flatC8b` lift.
+Title caption fit is proved outright by `R_exactTitleCaptionFitB8_holds`. -/
 
 /-- Shared options for the W-probes (vector profile, top-to-bottom). -/
 private def r8wOpts : Options := { profile := .vector, direction := .TB }
@@ -542,6 +541,20 @@ theorem flatC8bB_layoutRIds_W (exactIds : List String)
   obtain ⟨execution⟩ := layoutRIds_sceneExecution h
   have hpack :=
     r8w_labelFramePackedClear_of_boundedW execution (hcoresW execution hwf hfp)
+      (R_packedPartTransportBounded_closed exactIds idSets hres hcap)
+  exact r8w_layout_c8bW execution hpack (hfallW execution hwf hfp hfit) hwf
+
+theorem flatC8bB_layoutRIds_Wf (exactIds : List String)
+    (idSets : List (String × List String))
+    (hcores : R_ExecutedPartFrameCoresB8 exactIds idSets)
+    (hfallW : R_FallbackCaptionClearBW exactIds idSets)
+    (hres : R_PartSizingRResidual exactIds idSets)
+    (hcap : R_ExactTitleCaptionFitB8 exactIds idSets) :
+    FlatC8bB (PipelineImpl.layoutRIds exactIds idSets) := by
+  intro inp o res hwf hfp hfit h
+  obtain ⟨execution⟩ := layoutRIds_sceneExecution h
+  have hpack :=
+    r8w_labelFramePackedClear_of_boundedW execution (hcores execution)
       (R_packedPartTransportBounded_closed exactIds idSets hres hcap)
   exact r8w_layout_c8bW execution hpack (hfallW execution hwf hfp hfit) hwf
 

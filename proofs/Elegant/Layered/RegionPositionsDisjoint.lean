@@ -4,6 +4,7 @@ import Elegant.Layered.RegionRunSpec
 import Elegant.Layered.ExactC8aSpansProof
 import Elegant.Layered.RegionFlatC2
 import Elegant.Layered.RegionActualParts
+import Elegant.Layered.RegionSiblingAllRanks
 
 set_option autoImplicit false
 
@@ -13,29 +14,15 @@ namespace PipelineImpl
 
 open RegionImpl
 
-/-! # Region run positions disjoint.
+/-! # Region position disjointness
 
-Proves `componentRunR_positions_disjointR_fact`
-(`RegionRunTruthProbes.lean:109`) in the execution shape its consumer needs,
-then closes `flatC2B_layoutRIds` over it.
+Packing separates boxes in different parts. Within a part, a `none` region
+spec replays the exact run, and a `some` spec separates plain boxes when
+their source parents agree. Neither geometric argument needs exclusivity.
 
-The context-free fact (arbitrary `exact`/`cg`) is not provable from the exact
-tower: same-layer separation needs title uniqueness, which only the executed
-graph shape supplies. The true narrower form keeps the exact twin's premises
-(`XS_C8a_PositionsDisjoint` in `ExactC8aSpansProof.lean`):
-
-* `none` case (`componentRunR_positions_disjointR_none`): `componentRunR_none`
-  rewrites the run to `componentRunX` with `cg' = cg`; the exact twin applies
-  directly. Fully proved, no residual.
-* `some` case (`componentRunR_positions_disjointR_some_of_order`): from the
-  region stages (`componentRunR_specR`); rank rewriting keeps the nodes
-  (`rankEquivalentR_nodes_eq`); the y-axis replays the exact band argument
-  over the stage equations; the x-order within a layer is the single open
-  residual `rpdCrossCoordsOrderR` about `crossCoordsR` output order.
-* `componentRunR_positions_disjointR_holds`: both cases combined.
-* `flatC2B_layoutRIds_closed`: `FlatC2B (layoutRIds exactIds idSets)` closed
-  by replaying the `flatC2B_layoutRIds` core with `holds` at the same-part
-  step (part membership from `actual_components_parts_geometryR`).
+The broader all-pairs property for border-0 nodes also covers boxes with
+different parents. Its executed form `componentRunR_positions_disjointR_holds`
+still takes `rpdCrossCoordsOrderR` and `rpdSomeDisjointR` for the `some` case.
 -/
 
 /-- A `none`-spec region run is the exact run with the graph unchanged. -/
@@ -83,7 +70,7 @@ theorem componentRunR_positions_disjointR_none {P : Params} {exactIds : List Str
   subst hcg
   exact XS_C8a_PositionsDisjoint_of_run h0 h hcomp hX hnodeU hnodeV hbU hbV hne
 
-/-- The single open residual: same-layer order with `coordSep` gaps for the
+/-- The same-layer order residual for all-pairs separation: `coordSep` gaps for the
 region placement stage outputs. The exact pipeline gets this from
 `cluster_all_pairs_separated` over `crossCoordsClusterWith`; the region
 pipeline allocates frames, lanes, and member ports after crossing, so the
@@ -734,6 +721,7 @@ private theorem rpdCoordRecord_someB {P : Params} {exact : List Nat} {s : Region
      {bi : Nat} {b : Box} (hb : res.scene.boxes[bi]? = some b) :
      ∃ source : ModelBox, inp.boxes[bi]? = some source ∧
        b.id = source.id ∧ b.parent = source.parent ∧ b.exclusive = source.exclusive ∧
+       b.role = source.role.id ∧
        b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
          (orientRect o.direction execution.packedAcc.canvasH
            (execution.packedAcc.rects.getD bi default)) := by
@@ -756,7 +744,7 @@ private theorem rpdCoordRecord_someB {P : Params} {exact : List Nat} {s : Region
            (execution.packedAcc.rects.getD bi default)))
        inp.boxes[bi].parent inp.boxes[bi].exclusive :=
      Option.some.inj (hb.symm.trans hbox)
-   refine ⟨inp.boxes[bi], List.getElem?_eq_getElem hbiLT, ?_, ?_, ?_, ?_⟩ <;>
+   refine ⟨inp.boxes[bi], List.getElem?_eq_getElem hbiLT, ?_, ?_, ?_, ?_, ?_⟩ <;>
      rw [hbeq]
 
  /-- Prefixed copy of `rfc2_partPackedBoxLenR`: a part index below the executed
@@ -932,19 +920,15 @@ private theorem rpdCoordRecord_someB {P : Params} {exact : List Nat} {s : Region
      exact actual_components_packed_rect_valueR hempty execution.components_eq
        execution.packed_eq packed hpack hselected hentry hsize default
 
- /-- Prefixed copy of `rfc2_exclusiveSourceBorderZeroR`: an exclusive source
- box is a border-0 node of the exact graph at the same index. -/
- private theorem rpdExclusiveSourceBorderZeroR {exactIds : List String}
+ /-- A plain source box is a border-0 node of the exact graph at the same index. -/
+ private theorem rpdPlainSourceBorderZeroR {exactIds : List String}
      {idSets : List (String × List String)} {inp : Input} {o : Options}
      {res : FamilyResult}
      (execution : SceneExecutionR exactIds idSets inp o res)
-     (hwf : WellFormed (inputModel inp o))
      (hlinesLen : execution.lines.length = inp.boxes.length)
      {key : Nat} {source : ModelBox} (hsource : inp.boxes[key]? = some source)
-     (hex : source.exclusive = true) :
+     (hrole : source.role ≠ .group) :
      ∃ node, execution.graph.nodes[key]? = some node ∧ node.border = 0 := by
-   have hrole : source.role ≠ .group :=
-     wellFormed_exclusive_not_group hwf (List.mem_of_getElem? hsource) hex
    have hkeyLen : key < execution.lines.length := by
      rw [hlinesLen]
      exact (List.getElem?_eq_some_iff.mp hsource).1
@@ -956,16 +940,16 @@ private theorem rpdCoordRecord_someB {P : Params} {exact : List Nat} {s : Region
    obtain ⟨node, hnode, hborder, _, _⟩ := exactGraph_node_key execution.graph_eq hnode0
    exact ⟨node, hnode, hborder.trans hborder0⟩
 
- /-- Prefixed copy of `rfc2_layoutRIds_c2_core`: clause 2 for one executed
- region scene, using the executed combined disjointness
- (`componentRunR_positions_disjointR_holds`) at the same-part step. -/
- private theorem rpdLayoutRIdsC2Core {exactIds : List String}
+ /-- Distinct sibling nodes of an executed region scene are disjoint, including
+ nonexclusive exact nodes used as note bundle envelopes. -/
+ theorem SceneExecutionR.nodeSiblings_disjoint {exactIds : List String}
      {idSets : List (String × List String)} {inp : Input} {o : Options}
      {res : FamilyResult}
      (execution : SceneExecutionR exactIds idSets inp o res)
-     (hwf : WellFormed (inputModel inp o))
-     (hord : rpdCrossCoordsOrderR) (hband : rpdSomeDisjointR) :
-     Validator.C2 res.scene.layoutDump := by
+     {b c : Box} (hb : b ∈ res.scene.boxes) (hc : c ∈ res.scene.boxes)
+     (hne : b.id ≠ c.id) (hbRole : b.role ≠ "group") (hcRole : c.role ≠ "group")
+     (hpar : b.parent = c.parent) :
+     Disjoint b.rect c.rect := by
    have hpackedEq := execution.packed_eq
    unfold packAcc at hpackedEq
    obtain ⟨packed, hpack, -⟩ := bind_ok hpackedEq
@@ -975,12 +959,11 @@ private theorem rpdCoordRecord_someB {P : Params} {exact : List Nat} {s : Region
      calc execution.lines.length = (inp.boxes.zipIdx).length :=
          rpdMapMOkLen _ _ _ hl
        _ = inp.boxes.length := List.length_zipIdx
-   intro b hb c hc hne hbex hcex _hpar
-   simp only [Scene.layoutDump, List.mem_iff_getElem?] at hb hc
-   obtain ⟨bi, hbi⟩ := hb
-   obtain ⟨ci, hci⟩ := hc
-   obtain ⟨sb, hsb, hbid, -, hbexS, hbrect⟩ := rpdSceneBoxSourceRectR execution hbi
-   obtain ⟨sc, hsc, hcid, -, hcexS, hcrect⟩ := rpdSceneBoxSourceRectR execution hci
+   obtain ⟨bi, hbi⟩ := List.mem_iff_getElem?.mp hb
+   obtain ⟨ci, hci⟩ := List.mem_iff_getElem?.mp hc
+   obtain ⟨sb, hsb, hbid, hbpar, _, hbRoleSrc, hbrect⟩ := rpdSceneBoxSourceRectR execution hbi
+   obtain ⟨sc, hsc, hcid, hcpar, _, hcRoleSrc, hcrect⟩ := rpdSceneBoxSourceRectR execution hci
+   have hparent : sb.parent = sc.parent := hbpar.symm.trans (hpar.trans hcpar)
    have hbiLen : bi < inp.boxes.length := (List.getElem?_eq_some_iff.mp hsb).1
    have hciLen : ci < inp.boxes.length := (List.getElem?_eq_some_iff.mp hsc).1
    have hbiNe : bi ≠ ci := by
@@ -1004,39 +987,37 @@ private theorem rpdCoordRecord_someB {P : Params} {exact : List Nat} {s : Region
        exact hbiNe (Option.some.inj (hposB.symm.trans hposA))
      obtain ⟨candB, specB, cgB, runB, loopsB, hrunB, -, hlookupB⟩ :=
        rpdPartPackedFrameR execution packed hpack hkB hkBlen
-     obtain ⟨nodeB, hnodeBg, hborderB⟩ :=
-       rpdExclusiveSourceBorderZeroR execution hwf hlinesLen hsb
-         (hbexS.symm.trans hbex)
-     obtain ⟨nodeA, hnodeAg, hborderA⟩ :=
-       rpdExclusiveSourceBorderZeroR execution hwf hlinesLen hsc
-         (hcexS.symm.trans hcex)
-     have hnodeBlookup : (componentCandidateR specB execution.graph partB.1 candB).nodes[posB]? =
-         some nodeB := component_node_lookupR hposB hnodeBg
-     have hnodeAlookup : (componentCandidateR specB execution.graph partB.1 candB).nodes[posA]? =
-         some nodeA := component_node_lookupR hposA hnodeAg
-     obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hRank, _, _, _, _, _, _, _, _,
-         _, _, _, _, _, _, _, _, _, _, _⟩ := componentRunR_specR hrunB
-     have hnodes : cgB.nodes =
-         (componentCandidateR specB execution.graph partB.1 candB).nodes := by
-       rcases hRank with ⟨_, _, _, _, heq, _⟩ | ⟨_, _, hranked⟩
-       · rw [heq]
-       · exact rankEquivalentR_nodes_eq hranked
-     have hUB : cgB.nodes[posB]? = some nodeB := by rw [hnodes]; exact hnodeBlookup
-     have hUA : cgB.nodes[posA]? = some nodeA := by rw [hnodes]; exact hnodeAlookup
-     have hempty0 : (⟨0, 0, 0, Array.replicate inp.boxes.length default,
-         Array.replicate inp.routes.length [], Array.replicate inp.labels.length default,
-         false, [], []⟩ : Acc).parts = [] := rfl
-     obtain ⟨hpartsEq, _⟩ := actual_components_parts_geometryR hempty0
-       execution.components_eq
-     have hmemB : partB ∈ execution.componentsAcc.parts := List.mem_of_getElem? hkB
-     have hmapB : partB.1 ∈ execution.componentsAcc.parts.map (·.1) :=
-       List.mem_map.mpr ⟨partB, hmemB, rfl⟩
-     have hcompB : partB.1 ∈ components execution.graph := by
-       rw [hpartsEq] at hmapB
-       exact hmapB
-     have hdisjFrames := componentRunR_positions_disjointR_holds
-       execution.graph0_eq execution.graph_eq hcompB hrunB hUB hUA hborderB hborderA
-       hposNe hord hband
+     obtain ⟨nodeB, hnodeBg, hborderB⟩ := rpdPlainSourceBorderZeroR execution hlinesLen hsb
+       (fun heq => hbRole (by simp [hbRoleSrc, heq, BoxRole.id]))
+     obtain ⟨nodeA, hnodeAg, hborderA⟩ := rpdPlainSourceBorderZeroR execution hlinesLen hsc
+       (fun heq => hcRole (by simp [hcRoleSrc, heq, BoxRole.id]))
+     have hdisjFrames :
+         Disjoint (frameRect execution.params cgB runB posB)
+           (frameRect execution.params cgB runB posA) := by
+       cases specB with
+       | none =>
+         have hcg := (rpdRunNone hrunB).1
+         have hUB : cgB.nodes[posB]? = some nodeB := by
+           rw [hcg]
+           exact component_node_lookupR hposB hnodeBg
+         have hUA : cgB.nodes[posA]? = some nodeA := by
+           rw [hcg]
+           exact component_node_lookupR hposA hnodeAg
+         have hempty0 : (⟨0, 0, 0, Array.replicate inp.boxes.length default,
+             Array.replicate inp.routes.length [], Array.replicate inp.labels.length default,
+             false, [], []⟩ : Acc).parts = [] := rfl
+         obtain ⟨hpartsEq, _⟩ := actual_components_parts_geometryR hempty0
+           execution.components_eq
+         have hmemB : partB ∈ execution.componentsAcc.parts := List.mem_of_getElem? hkB
+         have hmapB : partB.1 ∈ execution.componentsAcc.parts.map (·.1) :=
+           List.mem_map.mpr ⟨partB, hmemB, rfl⟩
+         have hcompB : partB.1 ∈ components execution.graph := hpartsEq ▸ hmapB
+         rw [componentCandidateR_none] at hrunB
+         exact componentRunR_positions_disjointR_none execution.graph0_eq execution.graph_eq
+           hcompB hrunB hUB hUA hborderB hborderA hposNe
+       | some s =>
+         exact componentRunR_region_siblings_disjoint execution.graph0_eq execution.graph_eq
+           hrunB hposNe hposB hposA hnodeBg hnodeAg hsb hsc hborderB hborderA hparent
      rw [hbrect, hcrect, hlookupB posB bi hposB hbiLen, hlookupB posA ci hposA hciLen]
      intro hmeet
      exact hdisjFrames (meetsInterior_of_shiftRect
@@ -1063,13 +1044,33 @@ private theorem rpdCoordRecord_someB {P : Params} {exact : List Nat} {s : Region
      rw [hbrect, hcrect, hlookupB posB bi hposB hbiLen, hlookupA posA ci hposA hciLen]
      exact not_meetsInterior_of_contained hdisjShift hx hy
 
- /-- Closed clause: `FlatC2B (layoutRIds exactIds idSets)` from the two named
- residuals, replaying the `flatC2B_layoutRIds` core with the executed combined
- form at the same-part step. -/
+ private theorem rpdLayoutRIdsC2Core {exactIds : List String}
+     {idSets : List (String × List String)} {inp : Input} {o : Options}
+     {res : FamilyResult}
+     (execution : SceneExecutionR exactIds idSets inp o res)
+     (hwf : WellFormed (inputModel inp o)) :
+     Validator.C2 res.scene.layoutDump := by
+   have noGroup {b : Box} (hb : b ∈ res.scene.boxes) (hex : b.exclusive = true) :
+       b.role ≠ "group" := by
+     obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hb
+     obtain ⟨box, hbox, _, _, hflag, hrole, _⟩ := rpdSceneBoxSourceRectR execution hi
+     have hnode := wellFormed_exclusive_not_group hwf (List.mem_of_getElem? hbox)
+       (hflag.symm.trans hex)
+     have roleIsGroup (r : BoxRole) : r.id = "group" → r = .group := by
+       cases r <;> decide
+     exact fun hbad => hnode (roleIsGroup _ (hrole.symm.trans hbad))
+   intro b hb c hc hne hbex hcex hpar
+   exact execution.nodeSiblings_disjoint hb hc hne (noGroup hb hbex) (noGroup hc hcex) hpar
+
+ /-- Every well-formed, successful region layout satisfies the validator's
+ same-parent exclusive-box separation clause. -/
  theorem flatC2B_layoutRIds_closed (exactIds : List String)
-     (idSets : List (String × List String))
-     (hord : rpdCrossCoordsOrderR) (hband : rpdSomeDisjointR) :
+     (idSets : List (String × List String)) :
      FlatC2B (layoutRIds exactIds idSets) := by
    intro inp o res hwf hok
    obtain ⟨execution⟩ := layoutRIds_sceneExecution hok
-   exact rpdLayoutRIdsC2Core execution hwf hord hband
+   exact rpdLayoutRIdsC2Core execution hwf
+
+end PipelineImpl
+end Layered
+end Elegant

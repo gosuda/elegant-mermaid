@@ -4,6 +4,8 @@ import Elegant.Layered.NotesPlacementFacts
 import Elegant.Layered.NotesLabelGeomFacts
 import Elegant.Layered.NotesC8aRoleRepair
 import Elegant.Layered.NotesRouteFacts
+import Elegant.Layered.ExactFlatC5
+import Elegant.Layered.RegionFoundation
 
 set_option autoImplicit false
 
@@ -13,10 +15,10 @@ open Elegant Layered PipelineImpl
 # Note-stage C6/C8a geometry and fragment first-wins (residuals).
 
 Proved here:
-* `NotesC6Geom` from the single bridge `Nc68C6BridgeW` plus local
-  well-formedness (`nc68C6Geom_of_bridgeW`). The two exclusivity conjuncts come
-  from the box mirrors (`ngfC6BoxExclC/F_holds` via `notesContractMirror_holds` /
-  `notesFragMirror_holds`); the other eight are reassembled from the bridge.
+* `NotesC6Geom` from `Nc68C6BridgeW` and local well-formedness
+  (`nc68C6Geom_of_bridgeW`). The base scenes supply ancestor preservation and
+  exclusivity, using `notesFragIdExcl_holds` for fragment boxes. The bridge
+  retains the four clearance premises.
 * `NotesC8aGeomT` from `Nc68C8aBridgeW` and local well-formedness
   (`nc68C8aGeomT_of_bridgeW`). The contraction fold and the base scene mirror
   establish parent transfer and the contracted length bound.
@@ -333,25 +335,89 @@ theorem notesC8aTopNodup_holds {base : List String → Input → Options → Exc
   apply htu_map_nodup_of_injOn (·.top.id) (htu_layouts_nodup e)
   intro a ha b hb h
   exact htu_layout_eq_of_top_id e hwf ha hb h
+namespace Elegant.Layered.PipelineImpl
 
-/-- C6 bridge: the eight open C6 conjuncts plus the three mirror primitives
+theorem layoutX_boxes_mirror {exactIds : List String} {inp : Input} {o : Options}
+    {res : FamilyResult} (h : layoutX exactIds inp o = .ok res) : NotesBoxMirror inp res := by
+  obtain ⟨execution⟩ := layoutX_sceneExecution h
+  constructor
+  · exact (layoutX_ids h).1
+  · intro sb hsb
+    rw [execution.boxes_eq_mapX] at hsb
+    obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hsb
+    exact ⟨q.1, List.fst_mem_of_mem_zipIdx hq, rfl, rfl, rfl, rfl⟩
+
+theorem layoutRIds_boxes_mirror {exactIds : List String}
+    {idSets : List (String × List String)} {inp : Input} {o : Options}
+    {res : FamilyResult} (h : layoutRIds exactIds idSets inp o = .ok res) :
+    NotesBoxMirror inp res := by
+  obtain ⟨execution⟩ := layoutRIds_sceneExecution h
+  have hmap := execution.boxes_eq_mapR
+  constructor
+  · rw [hmap, List.map_map]
+    exact zipIdx_map_comp (·.id) inp.boxes 0
+  · intro sb hsb
+    rw [hmap] at hsb
+    obtain ⟨q, hq, rfl⟩ := List.mem_map.mp hsb
+    exact ⟨q.1, List.fst_mem_of_mem_zipIdx hq, rfl, rfl, rfl, rfl⟩
+
+private theorem sceneOf_route_mirror (P : Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc : Acc) (measured : List MeasuredLabel) :
+    ∀ rt ∈ (sceneOf P inp o lines acc measured).routes, ∃ r ∈ inp.routes,
+      rt.id = r.id ∧ rt.fromId = r.fromId ∧ rt.toId = r.toId ∧ rt.orthogonal = r.orthogonal := by
+  intro rt hrt
+  obtain ⟨k, hkget⟩ := List.mem_iff_getElem?.mp hrt
+  obtain ⟨hk, _⟩ := List.getElem?_eq_some_iff.mp hkget
+  rw [sceneOf_routes_length] at hk
+  have hrec := sceneOf_routes_getElem? P inp o lines acc measured k hk
+  have heq := Option.some.inj (hkget.symm.trans hrec)
+  refine ⟨inp.routes[k], List.getElem_mem hk, ?_⟩
+  rw [heq]
+  exact ⟨rfl, rfl, rfl, rfl⟩
+
+theorem layoutX_routes_mirror {exactIds : List String} {inp : Input} {o : Options}
+    {res : FamilyResult} (h : layoutX exactIds inp o = .ok res) : NotesRouteMirror inp res := by
+  obtain ⟨execution⟩ := layoutX_sceneExecution h
+  rw [NotesRouteMirror, execution.scene_eq]
+  exact sceneOf_route_mirror _ _ _ _ _ _
+
+theorem layoutRIds_routes_mirror {exactIds : List String} {idSets : List (String × List String)}
+    {inp : Input} {o : Options} {res : FamilyResult}
+    (h : layoutRIds exactIds idSets inp o = .ok res) : NotesRouteMirror inp res := by
+  obtain ⟨execution⟩ := layoutRIds_sceneExecution h
+  rw [NotesRouteMirror, execution.scene_eq]
+  exact sceneOf_route_mirror _ _ _ _ _ _
+
+theorem notesC8aFragFound_layoutR
+    {idSets : List (String × List String)}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution (fun ids sub o' => layoutRIds ids (reindexRegionSets idSets sub) sub o')
+      exactIds fuel inp o res) : NotesC8aFragFound e := by
+  apply notesC8aFragFound_of_base e
+  exact notesBaseFrag_of_box_mirror (fun _ _ _ _ h => layoutRIds_boxes_mirror h) e
+
+theorem notesC8aFragFound_layoutX
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution layoutX exactIds fuel inp o res) : NotesC8aFragFound e := by
+  apply notesC8aFragFound_of_base e
+  exact notesBaseFrag_of_box_mirror (fun _ _ _ _ h => layoutX_boxes_mirror h) e
+
+end Elegant.Layered.PipelineImpl
+
+
+/-- C6 bridge: the open C6 conjuncts plus the mirror primitives
 that yield the two exclusivities with local nodup. -/
 def Nc68C6BridgeW {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
-  NotesC6AncC e ∧ NotesC6AncF e ∧ NotesC6FlagsKept e ∧ NotesC6FlagsFrag e ∧
-    NotesC6KeptFrag e ∧ NotesC6FragContracted e ∧ NotesC6FragOther e ∧
-    NotesC6RouterClear e ∧ NotesBaseContract e ∧ NotesBaseFrag e ∧ NotesFragRoots e
+  NotesC6KeptFrag e ∧ NotesC6FragContracted e ∧ NotesC6FragOther e ∧
+    NotesC6RouterClear e ∧ NotesBaseContract e ∧ NotesBaseFrag e
 
 /-- C8a geometry premises beyond the contraction fold and base box mirror. -/
 def Nc68C8aBridgeW {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
-  NotesBaseContract e ∧ NotesC8aFragRole e ∧
-    NotesC8aFragFound e ∧ NotesC8aClear e ∧ NotesC8aFragDisj e ∧
-    NotesC8aSceneAnc e ∧ NotesC8aEnv e ∧ NotesC8aEnvDisj e ∧
-    (∀ cg ∈ e.contracted.scene.boxes, ∃ fb ∈ (e.layouts.foldl contractOne inp).boxes,
-      fb.id = cg.id ∧ cg.role = fb.role.id)
+  NotesC8aClear e ∧ NotesC8aFragDisj e ∧ NotesC8aEnv e ∧ NotesC8aEnvDisj e
 
 /-- C8a geometry (true role form) from the bridge and local well-formedness. -/
 theorem nc68C8aGeomT_of_bridgeW
@@ -360,24 +426,52 @@ theorem nc68C8aGeomT_of_bridgeW
     {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
     (hwf : WellFormed (inputModel inp o))
+    (hbase : ∀ ids inp o res, base ids inp o = .ok res → NotesBoxMirror inp res)
     (hW : Nc68C8aBridgeW e) :
     NotesC8aGeomT e := by
-  obtain ⟨hbase, hfr, hff, hclr, hfd, hsa, henv, henvd, hmir⟩ := hW
+  obtain ⟨hclr, hfd, henv, henvd⟩ := hW
+  have hcontracted := hbase _ _ _ _ e.contracted_eq
+  have hcontract : NotesBaseContract e := by
+    refine ⟨hcontracted.1, ?_⟩
+    intro cb hcb
+    obtain ⟨mb, hmb, hid, hpar, hexc, _⟩ := hcontracted.2 cb hcb
+    exact ⟨mb, hmb, hid, hpar, hexc⟩
+  have hmir : ∀ cg ∈ e.contracted.scene.boxes,
+      ∃ fb ∈ (e.layouts.foldl contractOne inp).boxes,
+        fb.id = cg.id ∧ cg.role = fb.role.id := by
+    intro cg hcg
+    obtain ⟨mb, hmb, hid, _, _, hrole⟩ := hcontracted.2 cg hcg
+    rw [e.contractedInput_eq] at hmb
+    exact ⟨mb, hmb, hid.symm, hrole⟩
+  have hfr := notesC8aFragRole_of_box_mirror hbase e
+  have hfrag := notesBaseFrag_of_box_mirror hbase e
+  have hff := notesC8aFragFound_of_base e hfrag
   have hnd : (inp.boxes.map (fun b => b.id)).Nodup := Model.boxIds_nodup hwf
+  have hsa := notesC8aSceneAnc_of_base e hnd hfrag
   have hfold : NotesC8aFold e := contractFold_parentTransfer inp e.layouts hnd
   have hlen : NotesC8aLen e := by
-    have hids := congrArg List.length hbase.1
+    have hids := congrArg List.length hcontract.1
     simp only [List.length_map] at hids
     unfold NotesC8aLen
     rw [hids, e.contractedInput_eq]
     exact fold_length_le inp e.layouts
   have hcs : NotesC8aContractScene e := by
-    have h := notesContractedScene_parentTransfer e hnd hbase
+    have h := notesContractedScene_parentTransfer e hnd hcontract
     rw [e.contractedInput_eq] at h
     exact h
   have hcrT := notesC8aContractRoleT_holds e hnd hmir
   have htop := notesC8aTopNodup_holds e hwf
   exact ⟨htop, hfold, hlen, hcs, hcrT, hfr, hff, hclr, hfd, hsa, henv, henvd⟩
+
+theorem nc68C8aGeomT_layoutR
+    {idSets : List (String × List String)} {exactIds : List String} {fuel : Nat}
+    {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution (fun ids sub o' => layoutRIds ids (reindexRegionSets idSets sub) sub o')
+      exactIds fuel inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    (hW : Nc68C8aBridgeW e) : NotesC8aGeomT e := by
+  exact nc68C8aGeomT_of_bridgeW e hwf
+    (fun _ _ _ _ h => layoutRIds_boxes_mirror h) hW
 
 /-- C6 geometry from the bridge and local well-formedness. -/
 theorem nc68C6Geom_of_bridgeW
@@ -388,13 +482,15 @@ theorem nc68C6Geom_of_bridgeW
     (hwf : WellFormed (inputModel inp o))
     (hW : Nc68C6BridgeW e) :
     NotesC6Geom e := by
-  obtain ⟨hAncC, hAncF, hFK, hFF, hKF, hFC, hFO, hRC, hBC, hBF, hRoots⟩ := hW
+  obtain ⟨hKF, hFC, hFO, hRC, hBC, hBF⟩ := hW
   have hnd : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
+  have hAncC := notesC6AncC_of_base e hnd hBC
+  have hAncF := notesC6AncF_of_sceneAnc e (notesC8aSceneAnc_of_base e hnd hBF)
   have hCM := notesContractMirror_holds e hBC
-  have hFRM := notesFragMirror_holds e hBF hRoots hnd
+  have hFragIdExcl := notesFragIdExcl_holds e hBF hnd
   have hExclC := ngfC6BoxExclC_holds e hCM hnd
-  have hExclF := ngfC6BoxExclF_holds e hFRM hnd
-  exact ⟨hAncC, hAncF, hFK, hFF, hExclC, hExclF, hKF, hFC, hFO, hRC⟩
+  have hExclF := ngfC6BoxExclF_holds e hFragIdExcl hnd
+  exact ⟨hAncC, hAncF, hExclC, hExclF, hKF, hFC, hFO, hRC⟩
 
 /-- Guarded first-wins: on executed fragments with holding-rect and cross-absence,
 the fragment lookup for each route-end id returns the holding fragment. This is the

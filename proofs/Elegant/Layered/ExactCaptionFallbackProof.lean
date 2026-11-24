@@ -60,33 +60,6 @@ witnesses live (their fixed sizes violate the group fit
 fitting probes (`fb-fit-5000` `(5000, 5000)` contained `true`;
 `fb-nest-fit` contained `true`; `fb-nofix` fit holds with no fixed entries).
 
-Tracked statements that must gain the fit premise for the family theorems
-(`usecase_family_valid_of_exactSeams`, `state_family_valid_of_exactSeams`,
-both of which already carry `hfix : InputFixedFit ..`) to consume this:
-
-* `X_CaptionScopeClearance` (`ExactFlatC7.lean:160`): add
-  `InputFixedFit inp o` ahead of the execution binder, i.e. adopt
-  `X_CaptionScopeClearanceFit` below;
-* `FlatC7B` (`RecursiveBLiftsB.lean`): same added premise (its exact
-  inhabitant `flatC7B_layoutX` currently takes `hcap` without fit, while the
-  base-parametric C7 lift already threads `InputFixedFit` through the
-  `captions` seam);
-* `ExactSeams.flatC7` (`Kinds/UsecaseValidExact.lean`): point it at the
-  fit-conditioned `FlatC7B` form so `exactBaseSeams` can feed `hfix`.
-
-Deep replay route (left open, inventoried here): proving
-`X_OwnerCaptionContainFallbackFit` outright replays
-`ownerCaptionContainFallback_of_fit` over `SceneExecutionX`. The plain proof
-consumes `SceneExecution.boxes_eq_map`, `box_index_origin`,
-`fixed_owner_fit`, `fallback_owner_cases`, `ordinary_box_line_height`, and
-`parameter_signs`. Of these, only the `boxes_eq_mapX` / `sceneBox_source_rectX`
-transport and the `titleRect_contained` / `node_ownedTextRect_contained`
-rect glue have exact counterparts today; the exact sizing chain
-(`fixed_owner_fit`, `fallback_owner_cases`, `ordinary_box_line_height` over
-`SceneExecutionX`) does not exist yet, exactly the gap the file header of
-`ExactCaptionScopeProof.lean` records. Until that chain lands, the Fit fact
-below stays a hypothesis, in the same way `X_FallbackCaptionClearB8` does.
-
 Residuals kept by `X_captionScopeClearanceFit_holds` (each strictly narrower
 than the goal, one fact each, true on every probe row):
 

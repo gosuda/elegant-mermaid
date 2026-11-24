@@ -1,5 +1,6 @@
 import Elegant.Layered.ExactCaptionAncestorsLocalProof
 import Elegant.Layered.ExactCaptionAncestorLinksProof
+import Elegant.Layered.ExactCaptionMarkerBandProof
 import Elegant.Layered.ExactCaptionMemberFactsProof
 import Elegant.Layered.ExactCaptionMembersProof
 import Elegant.Layered.ExactCaptionSelfProof
@@ -218,16 +219,16 @@ theorem XF_captionRunClearXW_holds (exactIds : List String)
       rw [hframe] at hdisj
       exact Or.inl ((Disjoint.comm _ _).mp (disjoint_of_sub_disjoint hcont hdisj))
 
-/-- Per-execution run-level caption clearance from the W-link residual:
-W-link variant of `XF_captionRunClearXW_holds`, replaying the same
-composition with `XC_ancestorGroupFrameXW_of_linkW`. -/
+/-- Per-execution run-level caption clearance from W-link and W marker-below
+residuals: variant of `XF_captionRunClearXW_holds` using
+`XC_ancestorGroupFrameXW_of_linkW` and `XC_ancestorMarkerXWW_holds`. -/
 theorem XF_captionRunClearXW_of_linkW (exactIds : List String)
     (hsideLeft : XC_SelfSidesLeftNarrowX exactIds)
     (hsideRight : XC_SelfSidesRightNarrowX exactIds)
     (hbotHeight : XC_SelfBottomHeightNarrowX exactIds)
     (hcap : XC_CapBandX exactIds)
     (hlinkW : XCA_GroupLinkXW exactIds)
-    (hbelow : XCA_MarkerBelowX exactIds)
+    (hbelow : XCA_MarkerBelowXW exactIds)
     (himpossible : XCA_PlainAncestorImpossibleX exactIds)
     (hspans : XB_ForeignClusterRankSpans exactIds)
     (horder : XB_ForeignBorderLayerOrder exactIds)
@@ -254,7 +255,7 @@ theorem XF_captionRunClearXW_of_linkW (exactIds : List String)
   have hnestW : XC_AncestorGroupFrameXW exactIds :=
     XC_ancestorGroupFrameXW_of_linkW exactIds hlinkW
   have hmarkAncW : XC_AncestorMarkerXW exactIds :=
-    XC_ancestorMarkerXW_holds exactIds hbelow
+    XC_ancestorMarkerXWW_holds exactIds hbelow
   have hotherAncW : XC_AncestorOtherXW exactIds :=
     XC_ancestorOtherXW_holds exactIds himpossible
   have hclearW : XC_ForeignSpansXW exactIds :=

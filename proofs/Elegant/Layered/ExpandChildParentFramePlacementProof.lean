@@ -9,6 +9,7 @@ import Elegant.Layered.FramedParentsSub
 import Elegant.Layered.SelectFacts
 import Elegant.Layered.ExecutedPortsFacts
 import Elegant.Layered.SceneBounds
+import Elegant.Layered.ExpandChildAncestryProof
 
 set_option autoImplicit false
 
@@ -17,8 +18,8 @@ namespace Elegant.Layered.PipelineImpl
 /-!
 # Parent-frame placement for executed `expandChild` calls
 
-`ExpandChildParentFrameStrict group parent` says no foreign-owned label of the
-parent scene strictly contains the group frame. The three label classes need
+`ExpandChildParentFrameStrict group parent` says the group frame does not
+strictly contain a foreign-owned label in the parent scene. The label classes need
 different placement facts (box labels: anchoring and width; route labels: route
 anchor and route miss; group titles: title band ordering), and every label
 inset fact consumes `InputFixedFit`, which the seam field hypotheses do not
@@ -39,23 +40,20 @@ below are narrowed accordingly:
   descendant of the frame (ancestor and unrelated titles);
 * the route fragment only covers labels on routes with an endpoint outside
   the frame's strict descendants;
-* every transport assumes the assembled call splits a different group;
-* a reached-scene residual states that descendant-owned labels never occur in
-  scenes reached from the call's parent input, and no reached-scene label is
-  owned by a route both of whose endpoints are strict descendants (sub-input
-  label filtering drops excluded boxes together with the labels they own).
+* every transport assumes the assembled call splits a different group.
+  `expandChild_group_ancestor_absent` proves the non-descendant premises for
+  the call's parent scene.
 
 Each residual is a single fact, strictly narrower than the goal. The
 scene-level fuel induction over the parent input's descent and the per-call
 conclusion are proved from them.
 -/
 
-/-- Box-owned fragment: a label owned by a non-group scene box outside the
-strict descendants of `G` never strictly contains the frame of `G`. The
+/-- Box-owned fragment: the frame of `G` does not strictly contain a label
+owned by a non-group scene box outside the strict descendants of `G`. The
 unrestricted form is false: a member caption is strictly inside its outer
 frame on executed runs (see the module docstring); the non-descendant
-premise matches the title fragment and is discharged from
-`PfpReachedNoDescLabels` at each use site. -/
+premise follows from `expandChild_group_ancestor_absent` for the parent scene. -/
 private def pfp_boxFrag (S : FamilyResult) (G : ModelBox) : Prop :=
   ∀ (frame : Box),
     S.scene.boxes.find? (fun box => box.id == G.id) = some frame →
@@ -64,8 +62,8 @@ private def pfp_boxFrag (S : FamilyResult) (G : ModelBox) : Prop :=
       (G.id ∉ S.scene.layoutDump.ancestors pl.owner) →
       ¬ frame.rect.StrictInside pl.rect
 
-/-- Route-owned fragment: a label on a route with an endpoint outside the
-strict descendants of `G` never strictly contains the frame of `G`. -/
+/-- Route-owned fragment: the frame of `G` does not strictly contain a label
+on a route with an endpoint outside the strict descendants of `G`. -/
 private def pfp_routeFrag (S : FamilyResult) (G : ModelBox) : Prop :=
   ∀ (frame : Box),
     S.scene.boxes.find? (fun box => box.id == G.id) = some frame →
@@ -76,8 +74,8 @@ private def pfp_routeFrag (S : FamilyResult) (G : ModelBox) : Prop :=
           G.id ∉ S.scene.layoutDump.ancestors r.toId)) →
       ¬ frame.rect.StrictInside pl.rect
 
-/-- Title fragment: a label owned by a group box that is not a strict
-descendant of `G` never strictly contains the frame of `G`. -/
+/-- Title fragment: the frame of `G` does not strictly contain a label owned
+by a group box that is not a strict descendant of `G`. -/
 private def pfp_titleFrag (S : FamilyResult) (G : ModelBox) : Prop :=
   ∀ (frame : Box),
     S.scene.boxes.find? (fun box => box.id == G.id) = some frame →
@@ -86,9 +84,9 @@ private def pfp_titleFrag (S : FamilyResult) (G : ModelBox) : Prop :=
       (G.id ∉ S.scene.layoutDump.ancestors pl.owner) →
       ¬ frame.rect.StrictInside pl.rect
 
-/-- Box-class flat placement residual: for a flat executed layout with fit, no
-box-owned foreign label outside the strict descendants of a group frame
-strictly contains that frame. -/
+/-- Box-class flat placement residual: in a flat executed layout with fit,
+the group frame does not strictly contain a box-owned foreign label outside
+its strict descendants. -/
 def PfpFlatBoxClear : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
     (_execution : SceneExecution inp o res),
@@ -136,28 +134,6 @@ def PfpTitleLabelTransport : Prop :=
     inner.id ≠ G.id →
     pfp_titleFrag parent G → pfp_titleFrag child G → pfp_titleFrag res G
 
-/-- Reached-scene residual: scenes of inputs reached from the call's parent
-input carry no descendant-owned labels, and no label owned by a route both of
-whose endpoints are strict descendants. The sub-input construction drops
-excluded boxes together with the labels they own, so descendant content never
-reappears below the parent input. -/
-def PfpReachedNoDescLabels : Prop :=
-  ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
-    (titleLines : List Measure.Line) (titleHeight : Int)
-    (parent child res : FamilyResult),
-    expandChild P inp o group titleHeight parent child = .ok res →
-    framedParents inp = true →
-    ExpandChildCallContext fuel P inp o group titleLines titleHeight
-      parent child res →
-    ∀ (fuel' : Nat) (inp' : Input) (o' : Options) (res' : FamilyResult),
-      FitReached (parentSubInput inp group P titleLines child) o inp' o' →
-      layoutRecursive fuel' inp' o' = .ok res' →
-      (∀ pl ∈ res'.scene.labels, pl.owner ≠ group.id →
-        group.id ∉ res'.scene.layoutDump.ancestors pl.owner) ∧
-      (∀ pl ∈ res'.scene.labels, pl.owner ≠ group.id →
-        ∀ r ∈ res'.scene.routes, r.id = pl.owner →
-          (group.id ∉ res'.scene.layoutDump.ancestors r.fromId ∨
-            group.id ∉ res'.scene.layoutDump.ancestors r.toId))
 /-- The parent sub-input is well-formed. -/
 private theorem pfp_parentInput_wellFormed
     {fuel : Nat} {P : Params} {inp : Input} {o : Options} {group : ModelBox}
@@ -275,13 +251,13 @@ private theorem pfp_frags_of_recursive (P0 : Input) (o0 : Options)
 
 /-- `parentFrameStrict`: the parent scene of every executed `expandChild` call
 satisfies `ExpandChildParentFrameStrict`, given the top-level fit threaded to
-the call plus the seven placement residuals. -/
+the call plus the six placement residuals. -/
 theorem parentFrameStrict_of_recursion
     (tin : Input) (to : Options)
     (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleLines : List Measure.Line) (titleHeight : Int)
     (parent child res : FamilyResult)
-    (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (_hexpand : expandChild P inp o group titleHeight parent child = .ok res)
     (hframed : framedParents inp = true)
     (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
       parent child res)
@@ -291,8 +267,7 @@ theorem parentFrameStrict_of_recursion
     (hboxT : PfpBoxLabelTransport) (hrouteT : PfpRouteLabelTransport)
     (htitleT : PfpTitleLabelTransport)
     (hflatB : PfpFlatBoxClear) (hflatR : PfpFlatRouteClear)
-    (hflatT : PfpFlatTitleClear)
-    (hNoDesc : PfpReachedNoDescLabels) :
+    (hflatT : PfpFlatTitleClear) :
     ExpandChildParentFrameStrict group parent := by
   have hctx0 := hctx
   obtain ⟨hwf, _, _, hchild, hparent, _⟩ := hctx0
@@ -328,23 +303,19 @@ theorem parentFrameStrict_of_recursion
     hboxT hrouteT htitleT hflatB hflatR hflatT fuel
     (parentSubInput inp group P titleLines child) o parent group
     hfitP0 FitReached.refl hfixP0 hparent hwfPar hfpPar
-  obtain ⟨hndLabels, hndRoutes⟩ := hNoDesc fuel P inp o group titleLines
-    titleHeight parent child res hexpand hframed hctx fuel
-    (parentSubInput inp group P titleLines child) o parent FitReached.refl
-    hparent
+  have hancestor := expandChild_group_ancestor_absent hctx
   intro frame hframe pl hpl hown
   by_cases hbox : ∃ b ∈ parent.scene.boxes, b.id = pl.owner ∧ b.role ≠ "group"
-  · exact hfrags.1 frame hframe pl hpl hown hbox (hndLabels pl hpl hown)
+  · exact hfrags.1 frame hframe pl hpl hown hbox (hancestor pl.owner)
   · by_cases hgroup : ∃ b ∈ parent.scene.boxes,
       b.id = pl.owner ∧ b.role = "group"
-    · exact hfrags.2.2 frame hframe pl hpl hown hgroup
-        (hndLabels pl hpl hown)
+    · exact hfrags.2.2 frame hframe pl hpl hown hgroup (hancestor pl.owner)
     · have hnoBox : ∀ b ∈ parent.scene.boxes, b.id ≠ pl.owner := by
         intro b hb heq
         by_cases hrole : b.role = "group"
         · exact absurd ⟨b, hb, heq, hrole⟩ hgroup
         · exact absurd ⟨b, hb, heq, hrole⟩ hbox
       exact hfrags.2.1 frame hframe pl hpl hown hnoBox
-        (hndRoutes pl hpl hown)
+        (fun r _ _ => Or.inl (hancestor r.fromId))
 
 end Elegant.Layered.PipelineImpl

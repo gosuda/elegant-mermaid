@@ -10,10 +10,11 @@ namespace PipelineImpl
 /-!
 # Note-stage router invariant (orthogonality discharged).
 
-Discharges exactly one open def from `NotesFlatRouteClauses.lean`:
-`notesRouterOrtho` (router residual C4: every successful `routeAround` output
-is orthogonal). The consumer is `notes_c4`, which applies `notesRouterOrtho`
-to the executed arguments `e.atts`, `notesFrameOf e.contracted o e.margin`,
+Proves `notesRouterOrtho` from `NotesFlatRouteClauses.lean` for arbitrary
+rectangles (router clause C4: every successful `routeAround` output is
+orthogonal), so the flat record `NotesFlatFacts` carries no router field. The
+consumer is `notes_c4`, which applies `notesRouterOrtho_holds` to the executed
+arguments `e.atts`, `notesFrameOf e.contracted o e.margin`,
 `notesRectsOf res.scene.boxes`, `notesLabelsOf`, `notesTitlesOf`.
 
 Router invariant (W form, only local premises): every `prev` edge written by
@@ -34,15 +35,15 @@ foreign parent) are rejected by `layoutNotes` with `LayoutError.domain` (no
 false success); synthetic `routeAround` on the self-loop with manual rects
 succeeds with one point `[{x:=12,y:=2}]` (orthogonal, on the note boundary).
 
-Stays open (ONE named residual per fact, each strictly narrower than its
-tracked open def, each true on the probes above and on
+Status of each remaining fact, all true on the probes above and on
 `NotesRouteFacts2T_probe` which shows all seven Bool images true on
-state/group/two/empty):
-* `notesRouterEnds` (C5 ends on looked-up boundaries): residual
-  `nriRouterEndsExec` (executed args + local `WellFormed`; future proof adds
-  rect nonnegativity, run-found end containment, compress endpoint keeping,
-  ports-on-boundary, and the `Frame.rect`/`Frame.output` roundtrip; the head
-  half additionally needs the dist-decrease fuel-sufficiency theory).
+state/group/two/empty:
+* Router ends are settled for actual executions: `nriRouterPathExec` gets
+  endpoint membership from `NotesRoutePortTransport.routeAround_endpoints_mem`
+  and seed starts from `VisibilityShortestSource`; `nriRouterEndsExec` then
+  needs only nonnegative looked-up dims, which `RegionNotesDimensions` supplies
+  for regional note runs. General arbitrary rectangles still require
+  nonnegative dims (negative-width witness in `NotesRouteFacts`).
 * `notesFlagsKept`: residual `nriFlagsKeptW` (same statement on the executed
   `e.layouts`/`e.contracted` plus local `WellFormed`; future proof needs the
   base-side kept premise plus `contractOne`/fuel induction).
@@ -55,9 +56,10 @@ The proved `notesEndsInBoxes_holds`/`notesFragBoxFirst_holds` are reused, not
 restated.
 -/
 
-/-- Narrowed residual for `notesRouterEnds`: executed router arguments plus
-local `WellFormed`. Strictly narrower than the unconditional tracked def
-(arbitrary frame/rects/labels/titles); true on the probe executed inputs. -/
+/-- Narrowed form of `notesRouterEnds` for executed router arguments: the
+unconditional tracked def instantiated at `notesFrameOf`/`notesRectsOf`/
+`notesLabelsOf`/`notesTitlesOf`, under local `WellFormed`. Proved for regional
+note executions by `RegionNotesRouterEnds.region_router_ends`. -/
 def nriRouterEndsExec (inp : Input) (o : Options) (res : FamilyResult)
     (contracted : FamilyResult) (fragments : List Placed) (atts : List Attach)
     (margin : Int) : Prop :=

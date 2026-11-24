@@ -71,8 +71,8 @@ into `S` once the assembly compiles is mechanical.
 
 /-! ## Residuals: one parent-scene fact each -/
 
-/-- Residual for (labels): no parent label owned elsewhere strictly
-contains the group frame.  True for executed calls: parent labels are
+/-- Residual for labels: the group frame does not strictly contain a parent
+label owned elsewhere. True for executed calls: parent labels are
 measured run rects or title-band rects sized to their own text, while the
 frame reserves the whole child canvas plus pads and the title band; the two
 interactions the statement singles out — a label owned by a route ending

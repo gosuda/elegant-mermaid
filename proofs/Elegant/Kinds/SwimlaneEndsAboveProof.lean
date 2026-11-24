@@ -7,16 +7,16 @@ import ElegantGeometry.Validator
 
 set_option autoImplicit false
 
-/-! Disposition of two `SwimlanePinSeams` fields.
+/-! The former endpoint condition and the above-lane premise.
 
-`endsSplit` is FALSE. Two executed witnesses are given below: a model whose
+The original `endsSplit` condition is false. Two executed witnesses are given below: a model whose
 only route joins two top-level lane groups (`endsSplitWitnessG2G`), and one
 whose route joins a lane group to a loose top-level node
 (`endsSplitWitnessG2Loose`). On both, `layoutFamily` and the full
 `Swimlane.layout` succeed, the model is `WellFormed`, passes
 `layeredAdmissibleB`, and passes `nestedInLaneB`; the executed route has two
 points whose first and last cross-axis coordinates coincide while the two
-endpoint bands have different shifts, so the field's disjunction fails.
+endpoint bands have different shifts, so the original disjunction fails.
 Executed evidence: `proofs/wip/Probe/SwimlaneEndsAboveTProbe.lean`
 (`g2g: endsSplit=FAIL e0 A->B sh=3050/13438 pts=2 f=3797 l=3797`,
 `g2loose: endsSplit=FAIL e0 A->o sh=3072/10448 pts=2 f=3775 l=3775`) and
@@ -37,10 +37,10 @@ same pattern the other seams use). The vacuous configurations are discharged
 outright: `aboveLanePin_of_no_lanes` (no lane band, so no band has
 `id ≠ ""`) and `aboveLanePin_of_no_loose` (no loose band, so no band has
 `id = ""`, using `hadm` for nonempty box ids). `aboveLane_of_residual`
-assembles the field body from the residual plus those lemmas. The residual
-is true on every executed probe (133+ models in
-`proofs/wip/Probe/SwimlaneEndsAboveTProbe.lean`, including a 108-model
-generated sweep); no counterexample and no proof was found. -/
+assembles the premise from the residual plus those lemmas. A later executed
+LR/vector probe with one lane, two loose nodes, and a long route label refutes
+the residual: pinning moves the loose route into an exclusive lane box and
+the resulting scene fails C6. -/
 
 namespace Elegant
 namespace Kinds
@@ -49,8 +49,7 @@ open Elegant.Layered LaneBands
 
 /-! ### `endsSplit`: refuted -/
 
-/-- The per-route conclusion of the `endsSplit` seam field, factored out so
-the refutation can name it. -/
+/-- The per-route conclusion of the former `endsSplit` condition. -/
 def EndsSplitRoute (m : Model) (base : Layered.FamilyResult) (sp : Spacing)
     (rt : Route) : Prop :=
   let axis := LaneBands.Axis.ofDirection m.options.direction
@@ -59,7 +58,7 @@ def EndsSplitRoute (m : Model) (base : Layered.FamilyResult) (sp : Spacing)
     (axis.point (rt.points.head?.getD ⟨0, 0⟩) ≠
       axis.point (rt.points.getLast?.getD ⟨0, 0⟩) ∧ 1 < rt.points.length)
 
-/-- The whole `endsSplit` field body over an executed run. -/
+/-- The former `endsSplit` condition over an executed run. -/
 def EndsSplitOn (m : Model) (base : Layered.FamilyResult) (sp : Spacing) : Prop :=
   ∀ rt ∈ base.scene.routes, EndsSplitRoute m base sp rt
 

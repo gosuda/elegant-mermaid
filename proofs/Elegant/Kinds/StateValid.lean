@@ -19,8 +19,8 @@ built input, so a successful run yields `Layered.layeredAdmissibleB` truth
 `Layered.layeredAdmissibleB_spec`, and no interim premises remain. Projection,
 symbol redraw, and divider painting rewrite the display list only, so they
 preserve the layout dump (proved below); the family run's validity is the
-transfer premise `state_valid_of_family`, discharged for exact inputs by
-`state_valid_of_exactSeams`. -/
+transfer premise of `state_valid_of_family`, discharged for models without
+regions or side notes by `state_valid_no_regions_no_notes`. -/
 
 namespace Elegant
 namespace Kinds
@@ -144,12 +144,10 @@ theorem state_valid_of_family {m : Model} {r : Layered.FamilyResult}
   rw [hd]
   exact hfam res hf
 
-/-- State validity from the exact seams: for a model with no regions and no
-notes, the family premise of `state_valid_of_family` follows from
-`state_family_valid_of_exactSeams`, with the admission guard recovered from the
-successful run by `layout_spec`. -/
-theorem state_valid_of_exactSeams {m : Model} {r : Layered.FamilyResult}
-    (R : Usecase.ExactSeams ((sizes m).map (·.1)))
+/-- For a model with no regions and no side notes, `state_reduces_exact`
+reduces the family run to the exact pipeline. `layout_spec` recovers admission
+from the successful adapter run. -/
+theorem state_valid_no_regions_no_notes {m : Model} {r : Layered.FamilyResult}
     (hwf : WellFormed m) (hlim : WithinLimits m)
     (hreg : Layered.RegionImpl.graphRegions (input m (sizes m)) m.regionSets
       = .ok [])
@@ -160,7 +158,7 @@ theorem state_valid_of_exactSeams {m : Model} {r : Layered.FamilyResult}
   intro res hf
   obtain ⟨_, hadm, _, _⟩ := layout_spec h
   exact (Validator.check_iff _).mp
-    (state_family_valid_of_exactSeams R hadm hwf hlim hf hreg hnotes)
+    (state_family_valid_no_regions_no_notes hadm hwf hlim hf hreg hnotes)
 
 end State
 

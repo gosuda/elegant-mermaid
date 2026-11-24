@@ -11,6 +11,33 @@ namespace Layered
 open CoordsImpl
 namespace PipelineImpl
 
+/-- The shared execution prefix needed by exact component frame proofs. -/
+structure ExactFramePrefix (exactIds : List String) (inp : Input) (o : Options) where
+  params : Params
+  lines : List (List Measure.Line)
+  measured : List MeasuredLabel
+  graph0 : Graph
+  graph : Graph
+  checked : checkedParams o.profile inp.kind = .ok params
+  lines_length : lines.length = inp.boxes.length
+  graph0_eq : measuredGraph params inp o lines = .ok graph0
+  graph_eq : exactGraph params exactIds inp o measured graph0 = .ok graph
+
+def SceneExecutionX.exactFramePrefix {exactIds : List String} {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res) :
+    ExactFramePrefix exactIds inp o where
+  params := execution.params
+  lines := execution.lines
+  measured := execution.measured
+  graph0 := execution.graph0
+  graph := execution.graph
+  checked := execution.checked
+  lines_length := by
+    have h := (mapM_getElem? _ _ _ execution.lines_eq).1
+    simpa only [List.length_zipIdx] using h
+  graph0_eq := execution.graph0_eq
+  graph_eq := execution.graph_eq
+
 /-- W-form (execution, local admission) of the group-link left residual
 `XCA_LinkLeftX`: the direct parent group frame starts strictly left of its
 direct child group frame over one executed exact run. -/
@@ -410,7 +437,7 @@ private theorem xal_coordinate_rank_pair (P : Params) (exact : List Nat)
   · exact hrr
 
 private theorem xal_revKey {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    (execution : ExactFramePrefix exactIds inp o)
     {v : Nat} {nd : Node} (h : execution.graph.nodes[v]? = some nd) :
     ∃ nd0, execution.graph0.nodes[v]? = some nd0 ∧ nd0.decl = nd.decl ∧
       nd0.border = nd.border ∧ nd0.clusterPath = nd.clusterPath := by
@@ -427,7 +454,7 @@ private theorem xal_revKey {exactIds : List String} {inp : Input} {o : Options}
   exact ⟨_, hmem, hd.symm, hb.symm, hc.symm⟩
 
 private theorem xal_groupPath {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    (execution : ExactFramePrefix exactIds inp o)
     {index : Nat} {node : Node} (hnode : execution.graph0.nodes[index]? = some node)
     (hgroup : node.border = -2) :
     ∃ box : ModelBox, inp.boxes[index]? = some box ∧ node.decl = index ∧
@@ -443,7 +470,7 @@ private theorem xal_groupPath {exactIds : List String} {inp : Input} {o : Option
   exact hpath
 
 private theorem xal_cgShape {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res) :
+    (execution : ExactFramePrefix exactIds inp o) :
     CgShape execution.graph := by
   have hshape := measuredGraph_shape execution.graph0_eq
   refine ⟨?_, ?_⟩
@@ -543,8 +570,7 @@ private theorem xal_coordinate_side_rank_bounds {P : Params} {exact : List Nat}
   exact addClusterBorders_side_rank_bounds _ _ hready horiginal hside
 
 private theorem xal_direct_group_path {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     (hwf : WellFormed (inputModel inp o))
     {comp : List Nat} {candidate parentIndex childIndex : Nat} {parent child : Node}
     (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? =
@@ -585,8 +611,7 @@ private theorem xal_direct_group_path {exactIds : List String} {inp : Input}
     _ = parent.clusterPath := hparentPathEq.symm
 
 private theorem xal_group_bottom_bundle {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -623,8 +648,7 @@ private theorem xal_group_bottom_bundle {exactIds : List String} {inp : Input}
   exact ⟨rr, labeled, bottom, hrr, hc, hk, hready, hrecords, hranks, htitled, hbottom⟩
 
 private theorem xal_group_side_rank_bounds {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -710,8 +734,7 @@ private theorem xal_group_side_rank_bounds {exactIds : List String} {inp : Input
     htitled, hbottom, hpath, hnonneg, hlo, hhi⟩
 
 private theorem xal_child_side_parent_borders {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     (hwf : WellFormed (inputModel inp o))
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
@@ -804,8 +827,7 @@ private theorem xal_child_side_parent_borders {exactIds : List String} {inp : In
   exact ⟨left, right, hleft, hright, hleftValue, hrightValue⟩
 
 private theorem xal_child_side_parent_bracket {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     (hwf : WellFormed (inputModel inp o))
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
@@ -898,8 +920,7 @@ private theorem xal_child_side_parent_bracket {exactIds : List String} {inp : In
     rfl rfl rfl hreal rfl hsidePrefix hsidePrefix hleftNe hrightNe
 
 private theorem xal_strict_interval {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     (hwf : WellFormed (inputModel inp o))
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
@@ -992,8 +1013,7 @@ private theorem xal_strict_interval {exactIds : List String} {inp : Input}
     omega
 
 private theorem xal_side_horizontal_strict {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     (hwf : WellFormed (inputModel inp o))
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
@@ -1074,8 +1094,7 @@ private theorem xal_side_horizontal_strict {exactIds : List String} {inp : Input
     omega
 
 private theorem xal_group_final_side {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -1221,8 +1240,7 @@ private theorem xal_centers_nonneg {P : Params} {exact : List Nat} {cg : Graph}
                   rw [List.getD_eq_getElem?_getD, List.getElem?_eq_none (by omega)]
                   exact Int.le_refl 0
 private theorem xal_parent_right_pos {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     (hwf : WellFormed (inputModel inp o))
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
@@ -1297,9 +1315,8 @@ private theorem xal_parent_right_pos {exactIds : List String} {inp : Input}
   omega
 
 
-private theorem xal_strict_horizontal {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+theorem exactGroupFrameStrict_horizontal {exactIds : List String} {inp : Input}
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     (hwf : WellFormed (inputModel inp o))
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
@@ -1397,7 +1414,7 @@ theorem XCA_LinkLeftXW_holds (exactIds : List String) :
   intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
   intro parentIndex childIndex parent child parentBox childBox
   intro hparent hpb hchild hcb hpbox hcbox href hne
-  exact (xal_strict_horizontal execution hwf hcomp hrun hparent hpb
+  exact (exactGroupFrameStrict_horizontal execution.exactFramePrefix hwf hcomp hrun hparent hpb
     hchild hcb hpbox hcbox href hne).1
 
 theorem XCA_LinkRightXW_holds (exactIds : List String) :
@@ -1405,7 +1422,7 @@ theorem XCA_LinkRightXW_holds (exactIds : List String) :
   intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
   intro parentIndex childIndex parent child parentBox childBox
   intro hparent hpb hchild hcb hpbox hcbox href hne
-  exact (xal_strict_horizontal execution hwf hcomp hrun hparent hpb
+  exact (exactGroupFrameStrict_horizontal execution.exactFramePrefix hwf hcomp hrun hparent hpb
     hchild hcb hpbox hcbox href hne).2
 
 end PipelineImpl

@@ -16,6 +16,7 @@ owner rank. Same binders as `X_LoopEnvelopeMiss` plus the rank-differ premise. -
 def XLEM_OtherRankMiss (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -451,8 +452,9 @@ private theorem xlemRank_shift_top_ys (exactIds : List String) (inp : Input)
 /-- Single narrow residual for the other-rank half. Two clauses, each strictly
 narrower than the target: (i) a plain non-exact loop owner carries its frame
 record and its frame covers the loop band stack; (ii) a group-frame loop owner
-misses every other-rank real box. Clause (i) holds on the non-exact probes
-(`sibself`: `resv`, `covTop`, `belowAll`); clause (ii) holds on the group
+misses every other-rank real box given well-formed input and framed parents.
+Clause (i) holds on the non-exact probes (`sibself`: `resv`, `covTop`,
+`belowAll`); clause (ii) holds on the group
 probes (`grpself`: empty `bad`). The plain exact-owner case is proved; the
 group vertical route is falsified by probes (`belowAll=false`), so the group
 case is assumed outright. -/
@@ -477,6 +479,7 @@ def XLEM_OwnerRest (exactIds : List String) : Prop :=
         nd.node.h) ∧
   (∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -793,14 +796,14 @@ theorem XLEM_OtherBand_holds (exactIds : List String) : XLEM_OtherBand exactIds 
 theorem XLEM_otherRankMiss_holds (exactIds : List String)
     (hFoot : XLEM_FootBelow exactIds) (hRest : XLEM_OwnerRest exactIds) :
     XLEM_OtherRankMiss exactIds := by
-  intro inp o res execution comp candidate run orderOptions cg k e v
+  intro inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hedge hself hvlt hreal hdeclT hdeclH hne
   obtain ⟨_, hdisj⟩ := X_ReserveBands_holds exactIds hrun
   obtain ⟨_, hlv, hTopV, hBotV⟩ :=
     XLEM_OtherBand_holds exactIds inp o res execution comp candidate run
       orderOptions cg k e v hcomp hcg hrun hedge hself hvlt hreal hdeclT hdeclH hne
   by_cases hb : (cg.nodes.getD e.tail default).border = -2
-  · exact hRest.2 inp o res execution comp candidate run orderOptions cg k e v
+  · exact hRest.2 inp o res execution hwf hfp comp candidate run orderOptions cg k e v
       hcomp hcg hrun hedge hself hvlt hreal hdeclT hdeclH hne hb
   · obtain ⟨_, hlo, hTopOwn, hBelow⟩ :=
         hFoot inp o res execution comp candidate run orderOptions cg k e

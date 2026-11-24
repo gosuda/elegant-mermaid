@@ -55,8 +55,8 @@ condition and discharged from the fragment hypothesis), hence needs no
 side split at all.
 -/
 
-/-- Box-owned fragment copy: a label owned by a non-group scene box outside the
-strict descendants of `G` never strictly contains the frame of `G`. Same
+/-- Box-owned fragment copy: the frame of `G` does not strictly contain a
+label owned by a non-group scene box outside its strict descendants. Same
 statement as `pfp_boxFrag`; copied because that def is private. -/
 private def pfpCtx_boxFrag (S : FamilyResult) (G : ModelBox) : Prop :=
   ∀ (frame : Box),
@@ -313,7 +313,7 @@ theorem parentFrameStrict_of_recursion_ctx
     (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleLines : List Measure.Line) (titleHeight : Int)
     (parent child res : FamilyResult)
-    (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
+    (_hexpand : expandChild P inp o group titleHeight parent child = .ok res)
     (hframed : framedParents inp = true)
     (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
       parent child res)
@@ -326,7 +326,6 @@ theorem parentFrameStrict_of_recursion_ctx
     (htitleT : PfpTitleLabelTransportCtx)
     (hflatB : PfpFlatBoxClear) (hflatR : PfpFlatRouteClear)
     (hflatT : PfpFlatTitleClear)
-    (hNoDesc : PfpReachedNoDescLabels)
     (hcap : PfpCaptionLabelCase) (hcross : PfpCrossSideClear) :
     ExpandChildParentFrameStrict group parent := by
   have hctx0 := hctx
@@ -363,24 +362,20 @@ theorem parentFrameStrict_of_recursion_ctx
     hboxT hrouteT htitleT hflatB hflatR hflatT hcap hcross fuel
     (parentSubInput inp group P titleLines child) o parent group
     hfitP0 FitReached.refl hfixP0 hparent hwfPar hfpPar hdisjTop
-  obtain ⟨hndLabels, hndRoutes⟩ := hNoDesc fuel P inp o group titleLines
-    titleHeight parent child res hexpand hframed hctx fuel
-    (parentSubInput inp group P titleLines child) o parent FitReached.refl
-    hparent
+  have hancestor := expandChild_group_ancestor_absent hctx
   intro frame hframe pl hpl hown
   by_cases hbox : ∃ b ∈ parent.scene.boxes, b.id = pl.owner ∧ b.role ≠ "group"
-  · exact hfrags.1 frame hframe pl hpl hown hbox (hndLabels pl hpl hown)
+  · exact hfrags.1 frame hframe pl hpl hown hbox (hancestor pl.owner)
   · by_cases hgroup : ∃ b ∈ parent.scene.boxes,
       b.id = pl.owner ∧ b.role = "group"
-    · exact hfrags.2.2 frame hframe pl hpl hown hgroup
-        (hndLabels pl hpl hown)
+    · exact hfrags.2.2 frame hframe pl hpl hown hgroup (hancestor pl.owner)
     · have hnoBox : ∀ b ∈ parent.scene.boxes, b.id ≠ pl.owner := by
         intro b hb heq
         by_cases hrole : b.role = "group"
         · exact absurd ⟨b, hb, heq, hrole⟩ hgroup
         · exact absurd ⟨b, hb, heq, hrole⟩ hbox
       exact hfrags.2.1 frame hframe pl hpl hown hnoBox
-        (hndRoutes pl hpl hown)
+        (fun r _ _ => Or.inl (hancestor r.fromId))
 
 end Elegant.Layered.PipelineImpl
 

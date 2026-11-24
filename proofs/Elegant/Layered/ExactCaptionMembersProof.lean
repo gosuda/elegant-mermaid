@@ -1,6 +1,7 @@
 import Elegant.Layered.ExactCaptionRunClearProof
 import Elegant.Layered.ExactFlatC5Rank
 import Elegant.Layered.ExactFlatFacts
+import Elegant.Layered.ExactTitleRunContext
 import Elegant.Layered.ExactPartBounded
 import Elegant.Layered.ComponentRunGenGeometry
 import Elegant.Layered.GroupWidthFacts
@@ -603,17 +604,30 @@ def XC_ChildTopX (exactIds : List String) : Prop :=
  /-- Plain-member case over exact runs: replay of
  `captionPlainMemberClear_proved`. The member rank lower bound replays through
  the exact rank bundle; bands come from `X_ReserveBands_holds`. -/
- theorem XC_plainMemberX_holds (exactIds : List String)
-     (hcap : XC_CapBandX exactIds) : XC_PlainMemberX exactIds := by
-   intro inp o res execution comp hcomp candidate run orderOptions hrun
-   intro i stored0 tNode hmem hnode hborder pos fNode g0 hfn hne hplain hpath hframe
-   have hlines : execution.lines.length = inp.boxes.length := by
-     have h := (mapM_getElem? _ _ _ execution.lines_eq).1
-     simpa only [List.length_zipIdx] using h
+ theorem componentRunX_title_clear_of_plain_member
+     {exactIds : List String} {inp : Input} {o : Options}
+     (execution : ExactTitleRunContext exactIds inp o)
+     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+     (hrun : componentRunX execution.params (exactDecls exactIds inp)
+       (componentCandidate execution.graph comp candidate)
+       execution.measured orderOptions = .ok run)
+     {i pos : Nat} {stored0 : Rect} {tNode fNode : Node}
+     (hnode : (componentCandidate execution.graph comp candidate).nodes[i]? = some tNode)
+     (hborder : tNode.border = -2)
+     (hfn : (componentCandidate execution.graph comp candidate).nodes[pos]? = some fNode)
+     (hplain : fNode.border = 0) (hpath : fNode.clusterPath.contains tNode.decl = true)
+     (hcap0 : (transportCaption execution.params o execution.lines comp i stored0).y +
+       (transportCaption execution.params o execution.lines comp i stored0).h ≤
+       run.top.getD (rk run.coordinateProper.rank i).toNat 0 +
+         CoordsImpl.layerHeight run.coordinateProper
+           (run.layers.getD (rk run.coordinateProper.rank i).toNat [])) :
+     Disjoint (frameRect execution.params (componentCandidate execution.graph comp candidate)
+       run pos) (transportCaption execution.params o execution.lines comp i stored0) := by
    obtain ⟨rr, _, hrr, hc, _, _, hrecords, hranks, _⟩ :=
      X_cg_run_bundle execution.graph0_eq execution.graph_eq hcomp hrun
    obtain ⟨bottom, hbottom⟩ :=
-     X_componentRun_cg_bottom_find execution.graph0_eq execution.graph_eq hlines
+     X_componentRun_cg_bottom_find execution.graph0_eq execution.graph_eq execution.lines_len
        hcomp hnode hborder
    have hinterv := ranked_compound_member_interval hrr
      (List.mk_mem_zipIdx_iff_getElem?.mpr hnode) hborder hbottom
@@ -668,7 +682,6 @@ def XC_ChildTopX (exactIds : List String) : Prop :=
      have h := Int.toNat_of_nonneg hrkMnn
      exact h.symm
    have hMemBandLo := hRB.1 _ _ _ hlyM hmemM hcoordLenM hrkM
-   have hcap0 := hcap execution hcomp hrun i stored0 tNode hmem hnode hborder
    have hltTget : run.layers.getD (rk run.coordinateProper.rank i).toNat [] = ltT := by
      simp only [List.getD_eq_getElem?_getD, hlyT, Option.getD_some]
    have hmemberGet : (componentCandidate execution.graph comp candidate).nodes.getD pos
@@ -683,12 +696,20 @@ def XC_ChildTopX (exactIds : List String) : Prop :=
      rfl
    have hgy : (nodeRect (componentCandidate execution.graph comp candidate) run pos).y =
        run.ys.getD pos 0 := rfl
-   rw [← hframe, hfr]
+   rw [hfr]
    unfold Disjoint
    intro hcon
    obtain ⟨-, hy⟩ := hcon
    rw [hltTget] at hcap0
    omega
+
+ theorem XC_plainMemberX_holds (exactIds : List String)
+     (hcap : XC_CapBandX exactIds) : XC_PlainMemberX exactIds := by
+   intro inp o res execution comp hcomp candidate run orderOptions hrun
+   intro i stored0 tNode hmem hnode hborder pos fNode g0 hfn _hne hplain hpath hframe
+   rw [← hframe]
+   exact componentRunX_title_clear_of_plain_member execution.exactTitleContext hcomp hrun
+     hnode hborder hfn hplain hpath (hcap execution hcomp hrun i stored0 tNode hmem hnode hborder)
 
  /-- Descendant case over exact runs: replay of
  `captionMemberDescDisjoint_executed`. The rank chain and child-top bound

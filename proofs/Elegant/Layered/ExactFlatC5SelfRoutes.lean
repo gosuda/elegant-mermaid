@@ -1,5 +1,7 @@
 import Elegant.Layered.ExactFlatC5
 import Elegant.Layered.ExactPartBounded
+import Elegant.Layered.ExactFlatC5ChosenPart
+import Elegant.Layered.ExecutedLoopPortsFacts
 
 set_option autoImplicit false
 
@@ -1969,6 +1971,72 @@ theorem x_selfRoutes_holds (exactIds : List String) : X_SelfRoutes exactIds := b
     · apply (onBoundary_shift _ _ _ _).mpr
       apply (onBoundary_orient _ _ _ _).mpr
       exact (onBoundary_shift _ _ _ _).mpr htb
+
+theorem X_chosen_part_loop_attached_frame_miss
+    {exactIds : List String} {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecutionX exactIds inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    (packed : Pack.State)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      execution.params.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (execution.componentsAcc.parts.map fun part =>
+        ⟨part.2.width, part.2.height, part.2.area⟩) = .ok packed)
+    {c : Nat} {q : (List Nat × Part) × Rect}
+    (hselected : (execution.componentsAcc.parts.zip packed.boxes)[c]? = some q)
+    {candidate : Nat} {run : Run} {loops : List (Nat × LoopPlacement)} {area : Int}
+    (hloops : componentLoops execution.params
+      (componentCandidate execution.graph q.1.1 candidate) run execution.measured = .ok loops)
+    (hpart : q.1.2 = { placeComponentExact execution.params
+      (componentCandidate execution.graph q.1.1 candidate) run 0 execution.measured loops
+      with area := area })
+    {i : Nat} {edge : Edge}
+    (hedge : (componentCandidate execution.graph q.1.1 candidate).edges[i]? = some edge)
+    (hself : edge.tail = edge.head)
+    {key : Nat} (hkey : q.1.1[edge.tail]? = some key)
+    {src : ModelBox} (hsrc : inp.boxes[key]? = some src)
+    {pr : Route} (hpr : res.scene.routes[edge.decl]? = some pr)
+    {frame : Box} (hframe : res.scene.layoutDump.box? src.id = some frame) :
+    ¬ Polyline.hitsRect pr.points frame.rect := by
+  let cg := componentCandidate execution.graph q.1.1 candidate
+  have hv : edge.tail < cg.nodes.length := by
+    rw [componentCandidate_nodes]
+    simpa only [componentGraph, List.length_map] using
+      (List.getElem?_eq_some_iff.mp hkey).1
+  obtain ⟨native, hnative, _, hnativeDecl, hemitted⟩ :=
+    X_componentLoops_emitted_self_edgeX hloops hedge hv hself 0
+  have hnd : (cg.edges.map (·.decl)).Nodup :=
+    componentCandidate_decls_nodup execution.graph q.1.1 candidate
+      (exactGraph_decls_nodup execution.graph0_eq execution.graph_eq)
+  obtain ⟨v, _, origin, horigin, horiginDecl, horiginTail, _, hmiss⟩ :=
+    componentLoops_entry_misses_owner hloops hnative
+  have horiginMem : origin ∈ cg.edges := (List.mem_filter.mp horigin).1
+  have horiginEq : origin = edge :=
+    nodup_map_eq_of_mem hnd horiginMem (List.mem_of_getElem? hedge)
+      (horiginDecl.symm.trans hnativeDecl)
+  have hvEq : v = edge.tail := horiginTail.symm.trans (congrArg Edge.tail horiginEq)
+  rw [hvEq] at hmiss
+  have hpartRoutes : q.1.2.routes =
+      (placeComponentExact execution.params cg run 0 execution.measured loops).routes := by
+    rw [hpart]
+  rw [← hpartRoutes] at hemitted
+  have hpartNodup : (q.1.2.routes.map (·.1)).Nodup := by
+    rw [hpartRoutes]
+    exact X_placeComponentExact_routes_decls_nodup execution.params cg run 0 execution.measured loops hnd
+  obtain ⟨index, route, _, _, _, hroute, _, hdeclIdx, _, _, _, _, _⟩ :=
+    X_candidate_model_endpoint_source execution.graph0_eq execution.graph_eq
+      (List.mem_of_getElem? hedge)
+  have hroute' : inp.routes[edge.decl]? = some route := by rw [hdeclIdx]; exact hroute
+  have hscene := X_chosen_part_route_from_points execution packed hpacked hselected
+    hemitted hpartNodup hroute'
+  have hbox := X_DumpLookup_holds exactIds execution hwf packed hpacked
+    hselected hpart hkey hsrc
+  have hrEq := Option.some.inj (hpr.symm.trans hscene)
+  have hbEq := Option.some.inj (hframe.symm.trans hbox)
+  rw [hrEq, hbEq]
+  let bounds := placeBoundsX execution.params cg run execution.measured loops
+  exact parent_port_miss_transport hmiss execution.params.canvasMargin o.direction
+    execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY
 
 end PipelineImpl
 

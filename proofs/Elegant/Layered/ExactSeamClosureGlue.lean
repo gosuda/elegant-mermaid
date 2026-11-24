@@ -76,19 +76,6 @@ def XG_StepC6MissB (exactIds : List String) : Prop :=
     ∀ pr ∈ parent.scene.routes, ∀ (r : Rect), frame.rect.StrictInside r →
       ¬ Polyline.hitsRect pr.points r
 
-/-- Open C7 residual: shifted child boxes and labels lie in the located group
-frame. Verbatim copy of `hchildB` in `stepC7Geometry_layoutX`. -/
-def XG_StepC7ChildB (exactIds : List String) : Prop :=
-  ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-    (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-    (parent child res : FamilyResult),
-    expandChild P inp o group titleHeight parent child = .ok res →
-    framedParents inp = true →
-    ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
-      parent child res →
-    ExpandChildCallParams P inp o group titleLines titleHeight →
-    ExpandChildC7ChildInside P inp o group titleHeight parent child
-
 /-- Open C7 residual: the located group frame is clear of foreign parent boxes
 and parent labels. Verbatim copy of `hparentB` in `stepC7Geometry_layoutX`. -/
 def XG_StepC7ParentB (exactIds : List String) : Prop :=
@@ -100,6 +87,7 @@ def XG_StepC7ParentB (exactIds : List String) : Prop :=
     ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
       parent child res →
     ExpandChildCallParams P inp o group titleLines titleHeight →
+    InputFixedFit inp o →
     ExpandChildC7ParentClear P inp o group titleHeight parent
 
 /-- Open C7 residual: group-owned result labels fit the title band clear of
@@ -115,21 +103,6 @@ def XG_StepC7CaptionB (exactIds : List String) : Prop :=
       parent child res →
     ExpandChildCallParams P inp o group titleLines titleHeight →
     ExpandChildC7CaptionFit P inp o group titleHeight parent child res
-
-/-- Open C8b residual: child labels lie in the margin inset of the child
-canvas. Verbatim copy of `hChildLabelsB` in `stepC8bGeometry_layoutX` (the
-companion box fact is the proved `XG_child_boxes_insetB`). -/
-def XG_StepC8bChildLabelsB (exactIds : List String) : Prop :=
-  ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-    (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-    (parent child res : FamilyResult),
-    expandChild P inp o group titleHeight parent child = .ok res →
-    framedParents inp = true →
-    ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
-      parent child res →
-    ExpandChildCallParams P inp o group titleLines titleHeight →
-    ∀ cl ∈ child.scene.labels,
-      (insetRect child.scene.canvas P.canvasMargin).Contained cl.rect
 
 /-- Open C8b residual: the C8 title rect misses the shifted child margin
 inset. Verbatim copy of `hCapDisjB` in `stepC8bGeometry_layoutX`. -/
@@ -264,13 +237,11 @@ theorem glue_captionScopeFitW (exactIds : List String)
     (x_ownerResNodeBorderZeroX_holds exactIds)
 
 /-- Assembled W caption run clearance: replay of
-`XF_captionRunClearXW_of_linkW` over the nine open leaves; the seven proved
-premises are discharged by the closed narrow holds. The group-link premise
-is the W form `XCA_GroupLinkXW`, closed premise-free by
-`XCA_groupLinkXW_closed`. -/
+`XF_captionRunClearXW_of_linkW` with seven premises discharged by closed
+facts. The group-link and marker-below premises carry local admission. -/
 theorem glue_captionRunClearXW (exactIds : List String)
     (hlinkW : XCA_GroupLinkXW exactIds)
-    (hbelow : XCA_MarkerBelowX exactIds)
+    (hbelow : XCA_MarkerBelowXW exactIds)
     (himpossible : XCA_PlainAncestorImpossibleX exactIds)
     (hspans : XB_ForeignClusterRankSpans exactIds)
     (horder : XB_ForeignBorderLayerOrder exactIds)
@@ -313,13 +284,14 @@ theorem glue_routeLabelForeignClearXW (exactIds : List String)
     XFR_RouteLabelForeignClearXW exactIds :=
   XFR_routeLabelForeignClearXW_holds exactIds hbracket hplain halignN hchain
 
-/-- Assembled nonforward route-label clearance: replay of
-`XF_routeNonforwardClearX_holds` over the two open leaves. -/
+/-- Nonforward route-label clearance from the scoped footprint miss and
+group-hull facts, using local admission after the execution binder. -/
 theorem glue_nonforward (exactIds : List String)
-    (hmiss : XNonfwd_ExtMiss exactIds)
-    (hhull : XNonfwd_GroupHullExt exactIds) :
+    (hmiss : XNonfwd_ExtMissW exactIds)
+    (hhull : XNonfwd_GroupHullExtW exactIds) :
     ∀ {inp : Input} {o : Options} {res : FamilyResult}
       (execution : SceneExecutionX exactIds inp o res)
+      (_ : WellFormed (inputModel inp o)) (_ : framedParents inp = true)
       {comp : List Nat} (_ : comp ∈ components execution.graph)
       {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
       componentRunX execution.params (exactDecls exactIds inp)
@@ -334,10 +306,11 @@ theorem glue_nonforward (exactIds : List String)
 `XFR_routeLabelLeftoverPairXW_holds` over the open leaves; the dummy-label
 premise is the closed `XFR_dummyExLabeledX_holds`. -/
 theorem glue_routeLeftoverPairXW (exactIds : List String)
-    (hstrict : XFR_StrictDummyLinkedX exactIds)
+    (hstrict : XFR_StrictDummyLinkedXW exactIds)
     (hforeign : XFR_RouteLabelForeignClearXW exactIds)
     (hnonfwd : ∀ {inp : Input} {o : Options} {res : FamilyResult}
       (execution : SceneExecutionX exactIds inp o res)
+      (_ : WellFormed (inputModel inp o)) (_ : framedParents inp = true)
       {comp : List Nat} (_ : comp ∈ components execution.graph)
       {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
       componentRunX execution.params (exactDecls exactIds inp)
@@ -354,11 +327,11 @@ theorem glue_routeLeftoverPairXW (exactIds : List String)
     (XFR_dummyExLabeledX_holds exactIds) himp hxalign hscopeFree
 
 /-- Assembled W forward route clearance: replay of
-`XF_routeForwardClearX_holds` over the open leaves; the dummy/in-dummy
+`XF_routeForwardClearXW_holds` over the open leaves; the dummy/in-dummy
 premises are the closed `XFR_dummyExLabeledX_holds` and
 `XFR_routeLabelInDummyX_holds`. -/
 theorem glue_routeForwardClearXW (exactIds : List String)
-    (hstrict : XFR_StrictDummyLinkedX exactIds)
+    (hstrict : XFR_StrictDummyLinkedXW exactIds)
     (hreal : XFR_RouteLabelRealClearX exactIds)
     (hforeign : XFR_RouteLabelForeignClearXW exactIds)
     (hleftover : XFR_RouteLabelLeftoverPairXW exactIds)
@@ -369,12 +342,13 @@ theorem glue_routeForwardClearXW (exactIds : List String)
     (XFR_routeLabelInDummyX_holds exactIds) hreal hforeign hleftover
     (XFR_dummyExLabeledX_holds exactIds) hxalign himp
 
-/-- Assembled W route run clearance: replay of `XF_routeRunClearX_holds`
-over the assembled forward clearance and the nonforward case. -/
+/-- Assembled W route run clearance: combines forward and nonforward
+clearance under the same local admission facts. -/
 theorem glue_routeRunClearXW (exactIds : List String)
     (hfwd : XF_RouteForwardClearXW exactIds)
     (hnonfwd : ∀ {inp : Input} {o : Options} {res : FamilyResult}
       (execution : SceneExecutionX exactIds inp o res)
+      (_ : WellFormed (inputModel inp o)) (_ : framedParents inp = true)
       {comp : List Nat} (_ : comp ∈ components execution.graph)
       {candidate : Nat} {run : Run} {orderOptions : OrderOptions},
       componentRunX execution.params (exactDecls exactIds inp)
@@ -405,14 +379,13 @@ theorem glue_loopEnvelopeMiss (exactIds : List String)
     (XLEM_groupOwnerMiss_holds exactIds hgrpOrd)
     howner
 
-/-- Assembled W executed part-frame cores: replay of
-`X_executedPartFrameCores_holds` over the assembled caption and route run
-residuals. The plain alignment is fed by the caller from the kept
-`foreignBorderDivergeStable` field; the loop miss is the assembled
-`glue_loopEnvelopeMiss`. The group-link premise is the W form. -/
+/-- Assembled W executed part-frame cores from caption and route run
+clearance. The group-link, marker-below, and nonforward clearance facts
+all carry local admission. The caller supplies the plain chain alignment
+and the loop-envelope miss. -/
 theorem glue_partFrameCoresW (exactIds : List String)
     (hlinkW : XCA_GroupLinkXW exactIds)
-    (hbelow : XCA_MarkerBelowX exactIds)
+    (hbelow : XCA_MarkerBelowXW exactIds)
     (himpossible : XCA_PlainAncestorImpossibleX exactIds)
     (hspans : XB_ForeignClusterRankSpans exactIds)
     (horder : XB_ForeignBorderLayerOrder exactIds)
@@ -421,10 +394,10 @@ theorem glue_partFrameCoresW (exactIds : List String)
     (hplainXN : XN_PlainClearOfSideMarker exactIds)
     (halignN : XN_SideMarkerSpanAligned exactIds)
     (hchainX : X_ForeignBorderChainXAligned exactIds)
-    (hstrict : XFR_StrictDummyLinkedX exactIds)
+    (hstrict : XFR_StrictDummyLinkedXW exactIds)
     (hscopeFree : XFR_ForwardScopeFreeX exactIds)
-    (hmissN : XNonfwd_ExtMiss exactIds)
-    (hhullN : XNonfwd_GroupHullExt exactIds)
+    (hmissN : XNonfwd_ExtMissW exactIds)
+    (hhullN : XNonfwd_GroupHullExtW exactIds)
     (hxalign : ForeignBorderChainXAligned)
     (hmiss : X_LoopEnvelopeMiss exactIds) :
     X_ExecutedPartFrameCoresB8W exactIds :=

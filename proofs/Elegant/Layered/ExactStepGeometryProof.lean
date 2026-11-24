@@ -19,6 +19,7 @@ import Elegant.Layered.FamilyC5B
 import Elegant.Layered.FramedParentsSub
 import Elegant.Layered.ExactFlatC5Closed
 import Elegant.Layered.ExactFitClosure
+import Elegant.Layered.InputFixedFit
 import Elegant.Layered.ExactSubInputStepC2
 import Elegant.Layered.SubInputWellFormedFacts
 import Elegant.Layered.ExpandChildCanvasFitProof
@@ -55,15 +56,15 @@ abbrev XG_RecursiveStepFactsB
 
 The exact recursion `layoutRecursiveB (layoutX exactIds)` calls the same
 `expandChild` assembly as the plain `layoutRecursive`, so the plain
-per-expansion geometry replays over `ExpandChildCallContextB`.  This module
-discharges the three `ExactSeams` geometry fields:
+per-expansion geometry replays over `ExpandChildCallContextB`. This module
+assembles the three exact step-geometry facts:
 
 * `stepC6Geometry`: via `stepC6Geometry_holdsB`, with the inset facts proved
   here and the two parent-scene facts as named residuals;
 * `stepC7Geometry`: via the context-free `expandChild_c7_geometry` assembly,
-  with the three mid-level facts as named residuals;
-* `stepC8bGeometry`: via the inset-core conditional, with the per-call
-  inset/caption/ancestry/parent facts as named residuals.
+  using the caller's `InputFixedFit` for child containment;
+* `stepC8bGeometry`: via the inset-core conditional, using the caller's
+  `InputFixedFit` for the child-label inset.
 -/
 
 /-- The exact flat inset as a `FlatInsetB` fact: replay of the `flatInset`
@@ -619,9 +620,8 @@ theorem stepC6Geometry_layoutX (exactIds : List String)
     (XG_child_boxes_insetB exactIds) (XG_child_routes_insetB exactIds)
     hDisjB hMissB (XG_frame_posB exactIds)
 
-/-- `stepC7Geometry` at the exact base, from the three mid-level per-call
-facts.  The assembly `expandChild_c7_geometry` discards the call context,
-so the B version is verbatim. -/
+/-- `stepC7Geometry` at the exact base, using the caller's `InputFixedFit`
+to establish child containment and parent clearance. -/
 theorem stepC7Geometry_layoutX (exactIds : List String)
     (hchildB : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -631,6 +631,7 @@ theorem stepC7Geometry_layoutX (exactIds : List String)
       ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
+      InputFixedFit inp o →
       ExpandChildC7ChildInside P inp o group titleHeight parent child)
     (hparentB : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -640,6 +641,7 @@ theorem stepC7Geometry_layoutX (exactIds : List String)
       ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
+      InputFixedFit inp o →
       ExpandChildC7ParentClear P inp o group titleHeight parent)
     (hcaptionB : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -650,16 +652,19 @@ theorem stepC7Geometry_layoutX (exactIds : List String)
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC7CaptionFit P inp o group titleHeight parent child res) :
-    XG_RecursiveStepFactsB (layoutX exactIds) ExpandChildC7Geometry := by
+    XG_RecursiveStepFactsB (layoutX exactIds)
+      (fun P inp o group titleHeight parent child res =>
+        InputFixedFit inp o →
+          ExpandChildC7Geometry P inp o group titleHeight parent child res) := by
   intro fuel P inp o group titleLines titleHeight parent child res
-    hexpand hframed hctxB hparams
+    hexpand hframed hctxB hparams hfix
   have _hexpandEq := hexpand
   have _hframedEq := hframed
   have _hctxEq := hctxB
   have hchild := hchildB fuel P inp o group titleLines titleHeight parent child res
-    hexpand hframed hctxB hparams
+    hexpand hframed hctxB hparams hfix
   have hparent := hparentB fuel P inp o group titleLines titleHeight parent child res
-    hexpand hframed hctxB hparams
+    hexpand hframed hctxB hparams hfix
   have hcaption := hcaptionB fuel P inp o group titleLines titleHeight parent child res
     hexpand hframed hctxB hparams
   intro frame tl dx dy hframe hdx hdy hwrap
@@ -771,6 +776,7 @@ theorem stepC8bGeometry_layoutX (exactIds : List String)
       ExpandChildCallContextB (layoutX exactIds) fuel P inp o group titleLines titleHeight
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
+      InputFixedFit inp o →
       ∀ cl ∈ child.scene.labels,
         (insetRect child.scene.canvas P.canvasMargin).Contained cl.rect)
     (hFitStrictB : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
@@ -847,15 +853,18 @@ theorem stepC8bGeometry_layoutX (exactIds : List String)
         parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildParentFrame P inp o group titleHeight parent child) :
-    XG_RecursiveStepFactsB (layoutX exactIds) ExpandChildC8bGeometry := by
+    XG_RecursiveStepFactsB (layoutX exactIds)
+      (fun P inp o group titleHeight parent child res =>
+        InputFixedFit inp o →
+          ExpandChildC8bGeometry P inp o group titleHeight parent child res) := by
   intro fuel P inp o group titleLines titleHeight parent child res
-    hexpand hframed hctxB hparams
+    hexpand hframed hctxB hparams hfix
   exact hCore fuel P inp o group titleLines titleHeight parent child res
     hexpand hframed hctxB hparams
     (hChildBoxesB fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctxB hparams)
     (hChildLabelsB fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctxB hparams)
+      hexpand hframed hctxB hparams hfix)
     (hFitStrictB fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctxB hparams)
     (hCapStrictB fuel P inp o group titleLines titleHeight parent child res

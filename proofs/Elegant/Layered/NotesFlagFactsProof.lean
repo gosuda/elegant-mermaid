@@ -8,9 +8,9 @@ namespace Layered
 namespace PipelineImpl
 
 /-!
-# Note-stage flag bridges: narrowed reductions for the three flag/side facts.
+# Note-stage flag bridges and kept-box reduction.
 
-Proved (narrowed, over the executed `NotesExecution` run `e`):
+Proved over the executed `NotesExecution` run `e`:
 * `notesFlagsKept_of_keptBase`: kept input routes keep id, flags, and endpoints in the
   executed contracted scene, from `nffKeptBase` (contracted-input survival plus
   executed-base preservation).
@@ -21,14 +21,9 @@ Proved (narrowed, over the executed `NotesExecution` run `e`):
   (no fragment claims their ends), from `nffKeptOutside` (ends absent from every
   executed source scene).
 
-Each conclusion is strictly narrower than its tracked W form (`nriFlagsKeptW`,
-`nriFlagsFragmentW`, `nriKeptBoxW` in `NotesRouterInvariantProof.lean`): it covers
-input routes only (`r ∈ inp.routes`), and each residual is a lemma on the way
-(contracted-input, base-result, and source-scene vocabulary the target never mentions),
-never a restatement. The three W forms stay open: the unguarded statements are false,
-and the residuals name the exact guard each future proof must discharge
-(`contractOne` and fuel induction for survival, executed-`base` preservation, and
-note-id avoidance).
+The flag conclusions cover exactly the input routes used by the clause proofs.
+The kept-box conclusion is restricted to input routes. The base preservation
+and kept-outside premises remain open.
 
 Witnesses (unguarded forms are false):
 * flags: `r = { x with orthogonal := !x.orthogonal }` for a real bundle route `x`
@@ -46,10 +41,8 @@ executed-run statements hold vacuously there.
 
 /-! ## Kept-route flags via the contracted input. -/
 
-/-- Base-side kept premise over the executed run: every kept input route survives the
-`contractOne` fold with id, flags, and endpoints intact, and the executed `base` run
-keeps the survivor's id, flags, and endpoints. Strictly narrower than `nriFlagsKeptW`
-(executed contracted input plus base behavior, input routes only). -/
+/-- Every kept input route survives the contraction fold, and the base
+scene preserves the survivor's flags and endpoints. -/
 def nffKeptBase {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
@@ -59,25 +52,20 @@ def nffKeptBase {base : List String → Input → Options → Except LayoutError
       ∀ cr ∈ e.contracted.scene.routes, cr.id = rc.id →
         cr.orthogonal = rc.orthogonal ∧ cr.fromId = rc.fromId ∧ cr.toId = rc.toId
 
-/-- Narrowed `notesFlagsKept` (input routes only) from the kept premise. -/
+/-- The executed contracted scene preserves kept input-route flags. -/
 theorem notesFlagsKept_of_keptBase
     {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     {e : NotesExecution base exactIds fuel inp o res}
-    (hbase : nffKeptBase e)
-    {r : ModelRoute} (hmem : r ∈ inp.routes) (hkept : notesKept inp e.layouts r)
-    {cr : Route} (hcr : cr ∈ e.contracted.scene.routes) (hid : cr.id = r.id) :
-    cr.orthogonal = r.orthogonal ∧ cr.fromId = r.fromId ∧ cr.toId = r.toId := by
+    (hbase : nffKeptBase e) : notesFlagsKept inp e.layouts e.contracted := by
+  intro r hmem hkept cr hcr hid
   obtain ⟨rc, _, hidrc, horc, hfromc, htoc, hkeep⟩ := hbase r hmem hkept
   obtain ⟨ho, hf, ht⟩ := hkeep cr hcr (hid.trans hidrc.symm)
   exact ⟨ho.trans horc, hf.trans hfromc, ht.trans htoc⟩
 
 /-! ## Fragment flags via the per-layout source scenes. -/
 
-/-- Fragment-side kept premise over the executed run: every same-bundle input route
-keeps id, flags, and endpoints in each executed source scene (the part scene and every
-note scene of every layout). Strictly narrower than `nriFlagsFragmentW` (source scenes
-rather than placed fragments, input routes only). -/
+/-- Each executed fragment scene preserves same-bundle input-route flags. -/
 def nffFragBase {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
@@ -86,17 +74,13 @@ def nffFragBase {base : List String → Input → Options → Except LayoutError
       ∀ fr ∈ s.scene.routes, fr.id = r.id →
         fr.orthogonal = r.orthogonal ∧ fr.fromId = r.fromId ∧ fr.toId = r.toId
 
-/-- Narrowed `notesFlagsFragment` (input routes only) from the fragment premise. -/
+/-- The placed fragments preserve same-bundle input-route flags. -/
 theorem notesFlagsFragment_of_fragBase
     {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     {e : NotesExecution base exactIds fuel inp o res}
-    (hfrag : nffFragBase e)
-    {r : ModelRoute} (hmem : r ∈ inp.routes) {a : Nat}
-    (hsame : notesSameBundleAt inp e.layouts a r)
-    {p : Placed} (hpmem : p ∈ e.fragments)
-    {fr : Route} (hfr : fr ∈ p.scene.routes) (hid : fr.id = r.id) :
-    fr.orthogonal = r.orthogonal ∧ fr.fromId = r.fromId ∧ fr.toId = r.toId := by
+    (hfrag : nffFragBase e) : notesFlagsFragment inp e.layouts e.fragments := by
+  intro r hmem a hsame p hpmem fr hfr hid
   have hmem' : p ∈ e.placed.flatten := by rw [← e.fragments_eq]; exact hpmem
   obtain ⟨l, hl, hpl⟩ := placedFlatten_mem e.placed_eq hmem'
   rcases placedOf_scene hpl with hps | ⟨qn, hqn, hscene⟩

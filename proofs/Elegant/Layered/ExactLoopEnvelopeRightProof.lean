@@ -825,7 +825,7 @@ private theorem XLEMR_exact_preserved {P : Params} {exactIds : List String}
 
 /-- Owner loop-extent cover: the recorded extent covers the footprint width
 in both sizing branches. -/
-private theorem XLEMR_cg_node_extent {exactIds : List String} {inp : Input}
+theorem XLEMR_cg_node_extent {exactIds : List String} {inp : Input}
     {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
@@ -1431,7 +1431,7 @@ theorem X_loopEnvOtherOwner_of_parts (exactIds : List String)
         (rk run.coordinateProper.rank e.tail).toNat := by
       rw [← hrankEq]
       exact Ne.symm heq
-    exact hOtherRank inp o res execution comp candidate run orderOptions cg k e
+    exact hOtherRank inp o res execution hwf hfp comp candidate run orderOptions cg k e
       v hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁ hne'
 end PipelineImpl
 end Layered

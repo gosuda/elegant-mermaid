@@ -58,6 +58,7 @@ import Elegant.Layered.ExpandChildParentFrameProof
 import Elegant.Layered.ExpandChildFrameLiftResiduals
 import Elegant.Layered.ExpandChildFrameLiftProof
 import Elegant.Layered.ExpandChildParentRouteClearProof
+import Elegant.Layered.ParentAttachedClosedProof
 import Elegant.Layered.ExpandChildParentFixedMissProof
 import Elegant.Layered.ExpandChildCanvasFitProof
 import Elegant.Layered.ExpandChildChildSceneProof
@@ -77,6 +78,7 @@ import Elegant.Layered.ExpandChildStructureFacts
 import Elegant.Layered.LoopRectResidualsProof
 import Elegant.Layered.ExecutedPartFrameCoresClosed
 import Elegant.Layered.ExpandChildParentFrameStrictProof
+import Elegant.Layered.ParentFrameFitClosureProof
 import Elegant.Layered.LoopRectTitleCopySepProof
 import Elegant.Layered.SeamClosureGlue
 import Elegant.Layered.LoopResGroupHullRightAncestorRanksProof
@@ -88,76 +90,10 @@ import Elegant.Layered.LoopResNeighborGapProof
 import Elegant.Layered.LoopResNeighborDisjointProof
 import Elegant.Layered.ExpandChildParentFixedForeignProof
 import Elegant.Layered.FamilyStepFacts
+import Elegant.Layered.ForeignBorderDivergeFramedProof
 set_option autoImplicit false
 
 namespace Elegant.Layered.PipelineImpl
- /-- Every fact the layered family validity theorem still takes as a premise.
- Remaining fields: `foreignBorderDivergeStable`,
- `parentRouteAttachedClear`, `parentFrameStrict`.  Each field is a named
- OPEN statement about the executed pipeline; a field leaves this structure when
-its discharge theorem lands.  The refuted `GroupAttach`, `GroupAnchors`, and
-universal nonempty-id statements were replaced by the four group endpoint
-fields and a premise on the input.  The sub-input well-formedness seams are
-discharged (`SubInputWellFormedFacts.lean`), as are the group-rank,
-route-label, dummy-row, title-copy, border-layer-order, side-marker,
-label-owner, and label-scope seams (`DummyChainRankProof.lean`,
-`BottomSyntheticRankProof.lean`, `RouteLabelsPlacedProof.lean`,
-`DummyNestedMarkerProof.lean`, `TitleCopySpanProof.lean`,
-`ForeignBorderAnchorsProof.lean`, `SideMarkerPathsProof.lean`,
-`ExpandChildLabelFactsProof.lean`, `MergedRouteIdsProof.lean`), the
-forward/reversed run-local separations and the loop separation modulo its
-footprint (`RunLocalSeparationsProof.lean`), the exclusive-box run bridge
-(`ExclusiveKeyOutsideCgPathsProof.lean`), and the cross-part title clearance,
-which the `captions` field now takes narrowed to `titleExclusiveSamePart`
- `CaptionCrossPartProof.lean`).  The old `partFrameWitness` field is deleted:
- `flatC6_closed_nowit` (`SeamClosureGlue.lean`) replays `flatC6_closed`
- (`FlatC6ClosedProof.lean`) with `partPositiveContent_holds`
- (`PartPositiveContentProof.lean`); `routePartShelfPositive_holds` feeds the
- shelf bridge.  The old `loopFootprintTopSeparation` field is deleted:
- `loopFootprintTopSeparation_closed`
- (`LoopFootprintTopSeparationCondProof.lean`) derives it from
- `foreignBorderChainXAligned'` of `foreignBorderDivergeStable` and the closed
- `beyondProper_closed` (`SeamClosureGlue.lean`, from
- `loopFootprintBeyondProper_closed` over `topSliverMarkerReady_of_span` of the
- proved `topSliverSpanCovered_holds`).  The old `loopFootprintBeyondProper`
- field is deleted with it.  The old `flatC6` field is narrowed to its
- eight residuals, closed by `flatC6_closed_nowit`, and
- the old `frameLabels` field is closed outright by
- `executedPartFrameCores_closed` (`ExecutedPartFrameCoresClosed.lean`) via
- `frameLabels_executed` (`FrameLabelsProof.lean`) over the closed loop covers:
- `loopHullRightCover_closed` (`LoopResGroupHullRightProof.lean`) from
- `loopResGroupHullRightWitness_closed'`
- (`LoopResGroupHullRightAncestorRanksProof.lean`), and
- `loopHullRightNeighborCover_Disj_holds`
- (`LoopResNeighborDisjointProof.lean`) fed by
- `neighborCover_of_disjoint_closed` (`SeamClosureGlue.lean`), whose
- `loopResNeighborGapDisj_closed` routes the grouped off-rank case through
- `loopResNeighborGapDisj_groupedOffRank_closed`
- (`LoopResOffRankParentChainProof.lean`) with no chain premise, together with
- the proved `loopResNeighborGapGroupTopDisj_holds`
- (`LoopResNeighborGapDisjCasesProof.lean`, over `foreignBorderChainXAligned'`
- of `foreignBorderDivergeStable` and the closed `foreignBorderLayerOrder'`)
- and the proved `neighborGapBottomOwnerDisj_holds` (`SeamClosureGlue.lean`).
- The `loopNeighborOffRankChain` seam field is deleted: the parent-chain
- residual `LoopResOffRankParentChain` is no longer needed.  The loop covers feed
- `fallbackOwnerFrameClear_executed` (`FallbackOwnerFrameProof.lean`), itself over
- `flatC8a_executed` (`FlatC8aExecutedProof.lean`) and
- `fallbackOwnerStrictStep_executed` (`FallbackOwnerStrictStepProof.lean`).  The
- `bracketMarkersAtRank` field is proved outright by `bracketMarkersAtRank'`
- (`SideMarkerTopInCandidateProof.lean`).  The `foreignClusterRankSpans` field is proved
- outright by `foreignClusterRankSpans'`, composing `foreignRankPairAnchors'`
- and `foreignMemberRankBounds` (`ForeignMemberRankBoundsProof.lean`).  The
- `stepC8aGeometry` field is proved outright by `stepC8aGeometry_holds`
- (`ExpandChildC8aGeometryExecuted.lean`).  The `stepC6Anchors` and `stepC8aAncestry` fields
- are discharged by `stepC6Anchors_holds` and `stepC8aAncestry_holds`
-(`RecursiveStepFacts.lean`).  The `runLocalLoopFootprint` fact is derived
-by `runLocalLoopFootprint_executed` (`RunLocalLoopFootprintProof.lean`) from
-the closed `loopFootprintTopSeparation_closed` and the closed
-`beyondProper_closed`.  The `loopRectTopForeign` field is discharged by `loopRectTopReal_closed` (`LoopRectResidualsProof.lean`).  The old title-copy field is closed by `loopRectTitleCopy_closed` (`LoopRectTitleCopySepProof.lean`).  The old `parentFixedDisjointGroup` field is deleted: its false universal form is replaced by `parentFixedForeign_narrow_holds` (`ExpandChildParentFixedForeignProof.lean`), applied only to fixed `g` with a parent frame via `parentFixedDisjointGroup_of_parentC8a` (`ExpandChildParentFixedMissProof.lean`) over the flat C8a clause and `stepC6_frame_pos`.  The old `parentStrictMissGroup` field is narrowed to `parentRouteAttachedClear`, closed with the frame half from the fuel-sliced frame lift (`sliced_frame_lift`, fed by strict miss below the call fuel) and the attached half verbatim, via `parentStrictMissGroup_of_frame_attached` closed by fuel induction (`strictMiss_restricted_closed`). -/
-structure LayeredSeams : Prop where
-  foreignBorderDivergeStable : ForeignBorderDivergeStable
-  parentRouteAttachedClear : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentRouteAttachedClear group parent
-  parentFrameStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult), expandChild P inp o group titleHeight parent child = .ok res → framedParents inp = true → ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res → ExpandChildCallParams P inp o group titleLines titleHeight → ExpandChildParentFrameStrict group parent
  /-- Local copy of the private lemma in `ExpandChildC6GeometryClosed.lean`:
  the parent sub-input is well-formed. -/
  private theorem parentInput_wellFormed
@@ -651,7 +587,7 @@ private theorem sliced_routeFrame_of_lift
   exact expandChild_parentRouteFrame_of_recursion hrec hscope
 
 /-- Strict miss at one fuel from strict miss below it: the out-of-scope half
-comes from the sliced frame lift, the attached half from the field. -/
+comes from the sliced frame lift, the attached half from the clearance hypothesis. -/
 private theorem strictMiss_of_below
     (hatt : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
@@ -728,7 +664,7 @@ private theorem strictMiss_of_below
     (hatt F_top P inp o group titleLines titleHeight parent child res
       hexpand hframed hctx hparams)
 
-/-- All-fuels strict miss from the attached field, closing the fuel induction:
+/-- All-fuels strict miss from attached-route clearance, closing the fuel induction:
 each level's frame half comes from the sliced lift fed by the levels below. -/
 private theorem strictMiss_restricted_closed
     (hatt : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
@@ -1049,7 +985,7 @@ private theorem strictMiss_restricted_closed
 
 /-- Local copy of the theorem in `ExpandChildC6GeometryClosed.lean`: closed
 C6 geometry from the flat clause, the flat-stage seams, the narrow foreign
-residual, the attached field, and the fuel-closed strict miss. -/
+residual, attached-route clearance, and the fuel-closed strict miss. -/
  private theorem stepC6Geometry_closed
      (hflat8a : FlatC8a)
      (hclear : ∀ (inp : Input) (o : Options) (res : FamilyResult),
@@ -1480,8 +1416,7 @@ private theorem c8aStep_of_below {F n : Nat} (hlt : n < F)
 
 /-- Single-call C7 geometry: the body of `stepC7Geometry_holds` with the
 per-call fit, parent fit, and parent-side residuals as single-call hypotheses.
-The family theorem feeds the threaded fit here through the fit-threaded lift
-copy; the all-inputs wrapper below feeds the seam field. -/
+The recursive wrapper derives parent-frame strictness from the call's fit. -/
 private theorem stepC7Geometry_single
     {fuel : Nat}
     (hflat8a : FlatC8a)
@@ -1572,8 +1507,7 @@ private theorem stepC7Geometry_single
     parent child res hexpand hframed hctx hparams
     hchildBoxes hchildLabels hparentBoxes hparentLabels howners
 
- /-- Local copy of the theorem in `ExpandChildC7GeometryExecuted.lean`: the
- per-expansion C7 geometry holds for every executed call. -/
+ /-- C7 geometry for each executed expansion with fixed-size fit. -/
  private theorem stepC7Geometry_holds
      (hflat8a : FlatC8a)
      (hflat8b : FlatC8b)
@@ -1587,14 +1521,6 @@ private theorem stepC7Geometry_single
        ExpandChildCallParams P inp o group titleLines titleHeight →
        InputFixedFit inp o →
        ExpandChildC8bGeometry P inp o group titleHeight parent child res)
-     (hframeStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-       (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       ExpandChildParentFrameStrict group parent)
      (hstepStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
        (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
        (parent child res : FamilyResult),
@@ -1611,71 +1537,10 @@ private theorem stepC7Geometry_single
     hexpand hframed hctx hparams hfix
   exact stepC7Geometry_single hflat8a hflat8b (hbelow8b fuel)
     hexpand hframed hctx hparams
-    (hframeStrict fuel P inp o group titleLines titleHeight parent child res
-      hexpand hframed hctx hparams)
+    (executedParentFrameStrict_of_fit hframed hctx hparams hfix)
     (hstepStrict fuel P inp o group titleLines titleHeight parent child res
       hexpand hframed hctx hparams)
     hfix
-
- /-- Local copy of the private theorem in `ExpandChildC8bGeometryExecuted.lean`:
- pure geometry behind the strict caption containment. -/
- private theorem titleRect_strictInside_aux {direction : String}
-     {pad tw th conw conh fx fy fw fh : Int}
-     (hpad : 0 < pad)
-     (hconw : 0 ≤ conw) (hconh : 0 ≤ conh)
-     (hfw : (childFrameSize direction pad tw th ⟨conw, conh⟩).w ≤ fw)
-     (hfh : (childFrameSize direction pad tw th ⟨conw, conh⟩).h ≤ fh) :
-     (⟨fx, fy, fw, fh⟩ : Rect).StrictInside
-       (childTitleRect direction pad tw th ⟨fx, fy, fw, fh⟩) := by
-   have hW : tw + 2 * pad ≤ fw := by
-     unfold childFrameSize at hfw
-     split at hfw <;> dsimp only at hfw <;> omega
-   have hH : th + 2 * pad ≤ fh := by
-     unfold childFrameSize at hfh
-     split at hfh <;> dsimp only at hfh <;> omega
-   unfold childTitleRect
-   split <;> unfold Rect.StrictInside <;> dsimp only <;>
-     simp only [Int.fdiv_eq_ediv_of_nonneg _ (show (0 : Int) ≤ 2 by decide)] <;> omega
-
- /-- Local copy of the theorem in `ExpandChildC8bGeometryExecuted.lean`: the
- caption rect of an executed `expandChild` lies strictly inside the located
- group frame. The margin cover comes from `SceneBounds.layoutRecursive_canvas_margins`. -/
- private theorem frame_strictInside_caption
-     (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-     (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-     (parent child res : FamilyResult)
-     (_hexpand : expandChild P inp o group titleHeight parent child = .ok res)
-     (_hframed : framedParents inp = true)
-     (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
-       parent child res)
-     (hparams : ExpandChildCallParams P inp o group titleLines titleHeight) :
-     ∀ (frame : Box) (titleLines' : List Measure.Line) (dx dy : Int),
-     parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
-     dx = frame.rect.x + (childInset group.direction P.clusterPad
-         (titleLines'.foldl (fun width line => max width line.width) 0) titleHeight).x -
-       P.canvasMargin →
-     dy = frame.rect.y + (childInset group.direction P.clusterPad
-         (titleLines'.foldl (fun width line => max width line.width) 0) titleHeight).y -
-       P.canvasMargin →
-     ExpandChildTitleWrapped P inp o group titleLines' →
-     frame.rect.StrictInside
-       (groupTitleRectC8 group P titleLines' titleHeight frame) := by
-   intro frame titleLines' _dx _dy hframe _hdx _hdy hwrap'
-   obtain ⟨hw, hh⟩ := expandChild_frame_size_bounds fuel P inp o group titleLines
-     titleHeight parent child res _hexpand _hframed hctx hparams frame titleLines'
-     hframe hwrap'
-   obtain ⟨hP, _hheightEq, _hwrapCtx⟩ := hparams
-   have hpad : 0 < P.clusterPad := callParams_clusterPad_pos hP
-   obtain ⟨_hwf, _hgroup, _hpb, hchild, _hparent, _hexpand'⟩ := hctx
-   have hQchild : checkedParams (childSubOptions o group).profile
-       (childSubInput inp group).kind = .ok P := hP
-   have hcm := layoutRecursive_canvas_margins fuel hchild
-   have hQm : P.canvasMargin
-       = canvasMarginOf (childSubOptions o group).profile (childSubInput inp group).kind := by
-     rw [checkedParams_canvasMargin hQchild]
-   have hconw : 0 ≤ child.scene.canvas.w - 2 * P.canvasMargin := by omega
-   have hconh : 0 ≤ child.scene.canvas.h - 2 * P.canvasMargin := by omega
-   exact titleRect_strictInside_aux hpad hconw hconh hw hh
 
  /-- Local copy of the theorem in `ExpandChildC8bGeometryExecuted.lean`: the
  corrected inset C8b geometry of one `expandChild` call. -/
@@ -1900,19 +1765,9 @@ private theorem stepC7Geometry_single
      parent child res hctx hAnc hFitStrict hChildBoxes hChildLabels hCapStrict
      hCapDisj hParentFrame
 
- /-- Local copy of the theorem in `ExpandChildC8bGeometryExecuted.lean`:
- executed-call C8b geometry from the flat clauses, the two parent-side
- residuals, and the caller fit in per-call form. -/
+ /-- C8b geometry for each executed expansion with fixed-size fit. -/
  private theorem stepC8bGeometry_holds
      (hflat8a : FlatC8a) (hflat8b : FlatC8b)
-     (hframeStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
-       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-       (parent child res : FamilyResult),
-       expandChild P inp o group titleHeight parent child = .ok res →
-       framedParents inp = true →
-       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
-       ExpandChildCallParams P inp o group titleLines titleHeight →
-       ExpandChildParentFrameStrict group parent)
      (hstepStrict : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
        (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
        (parent child res : FamilyResult),
@@ -1932,23 +1787,21 @@ private theorem stepC7Geometry_single
      (fun f _ P' inp' o' g' tls' th' par' chi' res' hx hf hc hp =>
        stepC8aGeometry_holds f P' inp' o' g' tls' th' par' chi' res' hx hf hc hp)
      below8b hflat8a hflat8b hexpand hframed hctx hparams
-     (hframeStrict fuel P inp o group titleLines titleHeight parent child res
-       hexpand hframed hctx hparams)
+     (executedParentFrameStrict_of_fit hframed hctx hparams hfix)
      (hstepStrict fuel P inp o group titleLines titleHeight parent child res
        hexpand hframed hctx hparams)
      hfix
 
-/-- The old `stepC6Geometry` fact derived from the narrow seams: the flat C8a
-clause from the border-span seams, the flat-stage premises from the closed
-scope/loop reductions, the narrow foreign residual, the attached field, and
-the fuel-closed strict miss. -/
- theorem c6Geometry_of_seams (S : LayeredSeams) :
+/-- Executed C6 geometry from flat C8a, the flat-stage premises from the closed
+scope and loop reductions, the narrow foreign residual, attached-route clearance,
+and the fuel-closed strict miss. -/
+ theorem c6Geometry_of_seams :
      RecursiveStepFacts ExpandChildC6Geometry := by
    have hflat8a : FlatC8a := flatC8a_of_span_seams
      (foreignBorderSpansSeparated foreignClusterRankSpans'
-       foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+      foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
      (foreignNonGroupSpansClear bracketMarkersAtRank'
-       plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
+      plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)))
      (fun inp o res hwf hfp =>
        bracketInsidePremises
          (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
@@ -1997,7 +1850,7 @@ the fuel-closed strict miss. -/
          execution.measured v b :=
     fun inp o res execution hwf hfp comp candidate run v b hcomp hbord hrun =>
       loopFootprintSeparation_executed execution comp candidate run v b hcomp hbord hrun
-        (loopFootprintSeparationResidual (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp))
+        (loopFootprintSeparationResidual (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp)) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp))
    have hstrictAll : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox)
       (titleLines : List Measure.Line) (titleHeight : Int) (parent child res : FamilyResult),
@@ -2006,45 +1859,44 @@ the fuel-closed strict miss. -/
       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
       ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildParentStrictMissGroup group parent :=
-    strictMiss_restricted_closed S.parentRouteAttachedClear hclear hnodeDecl hscoped
+    strictMiss_restricted_closed parentRouteAttachedClear_closed hclear hnodeDecl hscoped
       hpos hloopRes hloopSep hflat8a parentFixedForeign_narrow_holds
    exact stepC6Geometry_closed hflat8a hclear hnodeDecl hscoped hpos hloopRes hloopSep
-     parentFixedForeign_narrow_holds S.parentRouteAttachedClear hstrictAll
+     parentFixedForeign_narrow_holds parentRouteAttachedClear_closed hstrictAll
 
- /-- The old `stepC8bGeometry` fact derived from the narrow seams: the flat
- clauses from the border-span and label seams, the two parent-side residuals
- and the per-call fit from the fields. -/
-theorem c8bGeometry_of_seams (S : LayeredSeams) :
+ /-- Executed C8b geometry from the flat clauses, the strict step derived from
+ recursion, and the caller's fixed-size fit. -/
+theorem c8bGeometry_of_seams :
     RecursiveStepFacts (fun P inp o group titleHeight parent child res =>
       InputFixedFit inp o → ExpandChildC8bGeometry P inp o group titleHeight
         parent child res) := by
    have hflat8a : FlatC8a := flatC8a_of_span_seams
      (foreignBorderSpansSeparated foreignClusterRankSpans'
-       foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+      foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
      (foreignNonGroupSpansClear bracketMarkersAtRank'
-       plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
+      plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)))
      (fun inp o res hwf hfp =>
        bracketInsidePremises
          (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
          (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
    have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
      layout_c8b h hwf (fun execution => frameLabels_executed execution hwf hfp hfit
-       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
+      (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp)) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
        (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
          (flatC8a_executed execution hwf hfp
            (foreignBorderSpansSeparated foreignClusterRankSpans'
-             foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+            foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
            (foreignNonGroupSpansClear bracketMarkersAtRank'
-             plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
+            plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)))
            (fun inp o res hwf hfp =>
              bracketInsidePremises
                (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
                (fun execution => titleCopySpanClearStrict_executed hwf hfp execution)))
          (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
-   exact stepC8bGeometry_holds hflat8a hflat8b S.parentFrameStrict parentStrictStep_of_recursion
+   exact stepC8bGeometry_holds hflat8a hflat8b parentStrictStep_of_recursion
 
- /-- The below-fuel C8b geometry from the seams, for the C7 derivation. -/
- theorem below8b_of_seams (S : LayeredSeams) (fuel : Nat) :
+ /-- Below-fuel C8b geometry for the C7 derivation. -/
+ theorem below8b_of_seams (fuel : Nat) :
      ∀ (fuel' : Nat), fuel' < fuel → ∀ (P : Params) (inp : Input) (o : Options)
        (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
        (parent child res : FamilyResult),
@@ -2055,47 +1907,45 @@ theorem c8bGeometry_of_seams (S : LayeredSeams) :
        InputFixedFit inp o →
        ExpandChildC8bGeometry P inp o group titleHeight parent child res :=
    fun fuel' _ P inp o group tls th par chi res hx hf hc hp hfix =>
-     c8bGeometry_of_seams S fuel' P inp o group tls th par chi res hx hf hc hp hfix
+     c8bGeometry_of_seams fuel' P inp o group tls th par chi res hx hf hc hp hfix
 
- /-- The old `stepC7Geometry` fact derived from the narrow seams: the flat
- clauses and below-fuel geometry as above, the two parent-side residuals and
- both fits from the fields. -/
-theorem c7Geometry_of_seams (S : LayeredSeams) :
+ /-- Executed C7 geometry from the flat clauses, below-fuel C8b geometry, the
+ strict step derived from recursion, and the caller's fixed-size fit. -/
+theorem c7Geometry_of_seams :
     RecursiveStepFacts (fun P inp o group titleHeight parent child res =>
       InputFixedFit inp o → ExpandChildC7Geometry P inp o group titleHeight
         parent child res) := by
    have hflat8a : FlatC8a := flatC8a_of_span_seams
      (foreignBorderSpansSeparated foreignClusterRankSpans'
-       foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+      foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
      (foreignNonGroupSpansClear bracketMarkersAtRank'
-       plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
+      plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)))
      (fun inp o res hwf hfp =>
        bracketInsidePremises
          (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
          (fun execution => titleCopySpanClearStrict_executed hwf hfp execution))
    have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
      layout_c8b h hwf (fun execution => frameLabels_executed execution hwf hfp hfit
-       (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
+      (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp)) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
        (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
          (flatC8a_executed execution hwf hfp
            (foreignBorderSpansSeparated foreignClusterRankSpans'
-             foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
+            foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
            (foreignNonGroupSpansClear bracketMarkersAtRank'
-             plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
+            plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)))
            (fun inp o res hwf hfp =>
              bracketInsidePremises
                (fun execution => dummyInsideProxyRowClear_executed' execution hwf hfp)
                (fun execution => titleCopySpanClearStrict_executed hwf hfp execution)))
          (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp)))
-   exact stepC7Geometry_holds hflat8a hflat8b (below8b_of_seams S) S.parentFrameStrict
-     parentStrictStep_of_recursion
+   exact stepC7Geometry_holds hflat8a hflat8b below8b_of_seams parentStrictStep_of_recursion
 
  /-- Layered family validity for an input with nonempty box ids, fixed-size room
- for labeled boxes, and disjoint box route ids, modulo exactly the fields of
-`LayeredSeams`.  `hids` is a premise on the input: `modelWellFormed` accepts an
-empty box id, and the C2 merge of the recursion needs nonempty ids.  `layoutFamily`
-runs the recursion on the same input, so `hfix` and `hdisj` carry over directly. -/
-theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Options}
+ for labeled boxes, and disjoint box and route ids. The C2 merge requires
+ nonempty box ids, which `modelWellFormed` alone does not guarantee.
+ `layoutFamily` runs the recursion on the same input, so `hfix` and `hdisj`
+ carry over directly. -/
+theorem layoutFamily_valid_of_seams {inp : Input} {o : Options}
     {res : FamilyResult} (hids : ∀ m ∈ inp.boxes, m.id ≠ "")
     (hfix : InputFixedFit inp o) (hdisj : BoxRouteIdsDisjoint inp)
     (h : layoutFamily inp o = .ok res) :
@@ -2119,14 +1969,14 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
           FallbackCaptionClear execution :=
      fun inp o res hwf hfp hfit execution =>
        frameLabels_executed execution hwf hfp hfit
-         (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
+        (executedPartFrameCores_closed execution hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp)) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp) (fun comp hcomp candidate run orderOptions hrun => hullCover_of_witness hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResGroupHullRightWitness_closed' hwf hfp execution hcomp hrun)) (fun comp hcomp candidate run orderOptions hrun => neighborCover_of_disjoint_closed hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) execution hcomp hrun (loopResNeighborGapGroupTopDisj_holds hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) foreignBorderLayerOrder' execution hcomp hrun) (neighborGapBottomOwnerDisj_holds execution hcomp hrun)))
          (Elegant.Layered.fallbackOwnerFrameClear_executed execution hwf hfp
            (flatC8a_executed execution hwf hfp
-            (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))
-            (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)))
+            (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))
+            (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)))
              hbracket)
            (Elegant.Layered.fallbackOwnerStrictStep_executed execution hwf hfp))
-  have hflat6 : FlatC6 := flatC6_closed_nowit (fun inp o res hwf hfp => loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (loopRectTitleCopy_closed inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) (fun inp o res hwf hfp => loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)) (beyondProper_closed S.foreignBorderDivergeStable)
+  have hflat6 : FlatC6 := flatC6_closed_nowit (fun inp o res hwf hfp => loopRectTopReal_closed hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)) (fun inp o res hwf hfp => loopRectFixedReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectTitleReal_holds hwf hfp (loopRectTitleCopy_closed inp o res hwf hfp)) (fun inp o res hwf hfp => loopRectBottomReal_holds hwf hfp) (fun inp o res hwf hfp => loopRectRangeDegReal_holds hwf hfp) (fun inp o res hwf hfp => loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp)) (beyondProper_closed foreignBorderDivergeStable_framed)
   have hflat8b : FlatC8b := fun inp o res hwf hfp hfit h =>
     layout_c8b h hwf (hframeLabels inp o res hwf hfp hfit)
   have hlabelRuns : ∀ (inp : Input) (o : Options) (res : FamilyResult),
@@ -2134,14 +1984,14 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       LabelRunsClearExclusiveBoxes inp o res := fun inp o res hwf hfp =>
     ⟨runLocalLabelClearance_holds hwf hfp
         (runLocalLoopSeparation inp o res (runLocalLoopFootprint_executed hwf hfp
-          (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' S.foreignBorderDivergeStable) (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp))
-          (beyondProper_closed S.foreignBorderDivergeStable inp o res hwf hfp)))
+          (loopFootprintTopSeparation_closed inp o res hwf hfp (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp))
+          (beyondProper_closed foreignBorderDivergeStable_framed inp o res hwf hfp)))
         (runLocalForwardSeparation inp o res) (runLocalReversedSeparation inp o res),
       routeLabelDumpBridges hwf (labelBelongsToRun hwf routeLabelsPlaced)
         (exclusiveBoxInLabelRun' hwf hfp)⟩
-  have hcaptions : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → InputFixedFit inp o → SceneCaptionBoxContainment inp o res := fun inp o res hwf hfp hfit => sceneCaptionBoxContainment_of_fit hwf hfp hfit (titleExclusiveSamePart_holds (foreignBorderChainXAligned' S.foreignBorderDivergeStable) inp o res hwf hfp) (titleExclusiveCrossPart (inp := inp) (o := o) (res := res)) (hframeLabels inp o res hwf hfp hfit)
+  have hcaptions : ∀ (inp : Input) (o : Options) (res : FamilyResult), WellFormed (inputModel inp o) → framedParents inp = true → InputFixedFit inp o → SceneCaptionBoxContainment inp o res := fun inp o res hwf hfp hfit => sceneCaptionBoxContainment_of_fit hwf hfp hfit (titleExclusiveSamePart_holds (foreignBorderChainXAligned' foreignBorderDivergeStable_framed) inp o res hwf hfp) (titleExclusiveCrossPart (inp := inp) (o := o) (res := res)) (hframeLabels inp o res hwf hfp hfit)
   have hstepC6 : RecursiveStepFacts ExpandChildC6Step :=
-    expandChild_c6_step_of_geometry (c6Geometry_of_seams S) stepC6Anchors_holds
+    expandChild_c6_step_of_geometry c6Geometry_of_seams stepC6Anchors_holds
   have hstepC7 : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
       (parent child res : FamilyResult),
@@ -2165,7 +2015,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
             hexpand hframed hctx hparams))
         frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨g1, g2, g3, g4⟩ :=
-      (c7Geometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
+      c7Geometry_of_seams fuel P inp o group titleLines titleHeight parent child res
         hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
     exact ⟨s1, s2, s3, s4, s5, s6, s7, s8, g1, g2, g3, g4⟩
   have hstepC8a : RecursiveStepFacts ExpandChildC8aStep :=
@@ -2189,7 +2039,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
       hfix hctx hparams
     intro frame tl dx dy hframe hdx hdy hwrap
     obtain ⟨g1, g2, g3, g4⟩ :=
-      (c8bGeometry_of_seams S) fuel P inp o group titleLines titleHeight parent child res
+      c8bGeometry_of_seams fuel P inp o group titleLines titleHeight parent child res
         hexpand hframed hctx hparams hfix frame tl dx dy hframe hdx hdy hwrap
     exact ⟨expandChild_c8b_structure fuel P inp o group titleLines titleHeight parent child
         res hexpand hframed hctx
@@ -2219,7 +2069,7 @@ theorem layoutFamily_valid_of_seams (S : LayeredSeams) {inp : Input} {o : Option
     layoutRecursive_c7_of_flat_fit hflat7 (fun _ _ _ => labelsC7_partsSeparated) hlabelRuns
       hcaptions subInputWellFormed hstepC7
       (inp.boxes.length + 1) inp o res hwf hfp hfix hdisj hrec,
-    layoutRecursive_c8a_of_flat (flatC8a_of_span_seams (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' S.foreignBorderDivergeStable)) (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' S.foreignBorderDivergeStable))) hbracket)
+    layoutRecursive_c8a_of_flat (flatC8a_of_span_seams (foreignBorderSpansSeparated foreignClusterRankSpans' foreignBorderLayerOrder' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed)) (foreignNonGroupSpansClear bracketMarkersAtRank' plainClearOfSideMarker' (sideMarkerSpanAligned' (foreignBorderChainXAligned' foreignBorderDivergeStable_framed))) hbracket)
       subInputsWellFormed hstepC8a
       (inp.boxes.length + 1) inp o res hwf hfp hrec,
     layoutRecursive_c8b_of_flat_fit hflat8b subInputsWellFormed hstepC8b

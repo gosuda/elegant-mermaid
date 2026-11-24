@@ -6,7 +6,7 @@ import Elegant.Layered.BoxRouteIdsDisjoint
 import ElegantGeometry.Validator
 
 set_option autoImplicit false
-/-! Flowchart validity from the layered family seams.
+/-! Flowchart validity from the layered family proof.
 
 The adapter feeds the model boxes and routes verbatim to `Layered.layoutFamily` under the
 shared `Layered.admit` guard (empty box id, box id equal to a route id, non-exclusive
@@ -40,18 +40,18 @@ theorem flowchart_layout_spec {m : Model} {r : Layered.FamilyResult}
       (Flowchart.placeIcons_layoutDump _ _).trans
         (Scene.projectCellAttachments_layoutDump _ _)⟩
 
-/-- Flowchart validity from the family seams: the adapter projects cell attachments
+/-- The flowchart adapter projects cell attachments
 and draws icons, both display-only, so a successful guarded layout satisfies the hard
 constraints. The guard supplies nonempty box ids and route-id disjointness; fixed-size
 room holds because the adapter builds no fixed sizes. -/
-theorem flowchart_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
+theorem flowchart_valid_of_seams
     {m : Model} {r : Layered.FamilyResult}
     (h : Flowchart.layout m = .ok r) :
     HardConstraints r.scene.layoutDump := by
   obtain ⟨res, hadm, hf, hd⟩ := flowchart_layout_spec h
   rw [hd]
   obtain ⟨hids, hdisj, _, _⟩ := Layered.layeredAdmissibleB_spec hadm m.options
-  exact Layered.PipelineImpl.layoutFamily_valid_of_seams S hids
+  exact Layered.PipelineImpl.layoutFamily_valid_of_seams hids
     (Layered.PipelineImpl.inputFixedFit_of_nil (inp := Flowchart.input m) rfl)
     hdisj hf
 end Kinds

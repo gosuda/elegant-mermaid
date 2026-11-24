@@ -1,6 +1,7 @@
 import Elegant.Layered.ExactCaptionTitleBranchProof
 import Elegant.Layered.ExactCaptionSamePartProof
 import Elegant.Layered.ExactCaptionFitFactsProof
+import Elegant.Layered.ExactRunTitleBandClosedProof
 import Elegant.Layered.ExactFlatFacts
 import Elegant.Layered.ExactFlatC7
 import Elegant.Layered.ExactPipeline
@@ -77,13 +78,13 @@ What closes here:
   classification) by the vacuity argument of
   `descendantFallbackClear_vacuous` (`xcb_descendantFallbackBandXW_holds`).
 * `X_TitleSamePartBandXW`: the W form of the title band, proved from the
-  strictly narrower run-level band `X_RunTitleBandClearX` by replaying
-  `titleSamePartBand_of_runBand` over `SceneExecutionX`
-  (`xcb_titleSamePartBandXW_of_runX`).
-What stays open: exactly one public named def, `X_RunTitleBandClearX`
-(run-level title-band separation over `componentRunX`, pinned by
-`SceneExecutionX`), true on every probe row above (`rb-*` all `run-band
-ok`, including the witness). The unconditional part bands are deleted
+  narrower `X_RunTitleBandClearXW` by replaying `titleSamePartBand_of_runBand`
+  over the same `SceneExecutionX` and admission premises
+  (`xcb_titleSamePartBandXW_of_runX`). The run-level band is proved by
+  `x_runTitleBandClearXW_holds` in `ExactRunTitleBandClosedProof.lean`.
+
+The bridge does not require the unconditional `X_RunTitleBandClearX`.
+The unconditional part bands are deleted
 (the title band was false as stated; the fallback band had no proof
 without the admission premises); their W twins are defined in
 `ExactCaptionFitFactsProof.lean` and proved here from the strictly
@@ -341,9 +342,9 @@ rects and the shift preserves the band disjointness. Replays
 `titleSamePartBand_of_runBand` (`CaptionSamePartProof.lean`) over
 `SceneExecutionX`. -/
 theorem xcb_titleSamePartBandXW_of_runX (exactIds : List String)
-    (hrun : X_RunTitleBandClearX exactIds) :
+    (hrun : X_RunTitleBandClearXW exactIds) :
     X_TitleSamePartBandXW exactIds := by
-  intro inp o res execution hwf _hfp _c part hpart title htitle posB k rect hpos
+  intro inp o res execution hwf hfp _c part hpart title htitle posB k rect hpos
     hrect fBox hbox hex
   have hpartmem : part ∈ execution.componentsAcc.parts :=
     List.mem_of_getElem? hpart
@@ -400,7 +401,7 @@ theorem xcb_titleSamePartBandXW_of_runX (exactIds : List String)
     rw [hgetD] at heq2
     exact heq2
   have hnodeW0 : nodeW.border = 0 := by rw [hnodeWg]; exact hb0
-  have hband := hrun execution hcomp hrunEx htopnode htopborder raw hraw htopidx
+  have hband := hrun execution hwf hfp hcomp hrunEx htopnode htopborder raw hraw htopidx
     hnodeW hnodeW0 hpos hbox hex
   rw [htitle1] at hband
   have hframeEq : (placeComponentExact execution.params

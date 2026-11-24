@@ -545,6 +545,32 @@ theorem componentRunX_positions_disjoint
     exact hrun
   exact componentRunGen_positions_disjoint (runHooksShift_exact P exactIds inp cg labels) hrunGen hnodeU hnodeV hbU hbV hne hcovered hrecU hrecV hSep
 
+theorem reserveShift_prefix_pairwise (es : List Int) (hpos : ∀ e ∈ es, 0 ≤ e)
+    (s : Int) (out : List Int)
+    (hm : out.Pairwise (· ≤ ·)) (hle : ∀ x ∈ out, x ≤ s) :
+    ((es.foldl (fun acc e => (acc.1 + e, acc.2 ++ [acc.1])) (s, out)).2).Pairwise
+      (· ≤ ·) := by
+  induction es generalizing s out with
+  | nil => simpa
+  | cons e es ih =>
+    have he : 0 ≤ e := hpos e List.mem_cons_self
+    simp only [List.foldl_cons]
+    apply ih
+    · intro e' he'
+      exact hpos e' (List.mem_cons_of_mem e he')
+    · apply List.pairwise_append.mpr
+      refine ⟨hm, by simp, ?_⟩
+      intro x hx y hy
+      simp only [List.mem_singleton] at hy
+      rw [hy]
+      exact hle x hx
+    · intro x hx
+      simp only [List.mem_append, List.mem_singleton] at hx
+      rcases hx with hx | rfl
+      · have := hle x hx
+        omega
+      · omega
+
 theorem componentRunGen_shift_values
     {P : Params} {cg : Graph} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions} {exactOut : List Nat}
     {sizeHook : Proper → Proper} {reserveHook : Proper → List (List Nat) → List Int → List Int → Except LayoutError (List Int × List Int)}
@@ -560,6 +586,68 @@ theorem componentRunGen_shift_values
   obtain ⟨ranks, p0, labeled, q0, _, top_pre, ys_pre, hn, hl, hcoord, hord, hcross, hproxy, hdrop, hroute, hr2, hry, hyspre, hres, hcy, hroutes, hexact⟩ := componentRunGen_spec hrun
   obtain ⟨extra, shifts, hlen, hnn, hpref, hlenS, htop, hys⟩ := hshift.shifts run.coordinateProper run.layers ys_pre top_pre run.ys run.top hres
   exact ⟨top_pre, ys_pre, extra, shifts, hres, hlen, hnn, hpref, hlenS, htop, hys⟩
+
+theorem componentRunGen_rank_step_lower
+    {P : Params} {cg : Graph} {run : Run} {labels : List MeasuredLabel}
+    {orderOptions : OrderOptions} {exactOut : List Nat}
+    {sizeHook : Proper → Proper}
+    {reserveHook : Proper → List (List Nat) → List Int → List Int → Except LayoutError (List Int × List Int)}
+    (hshift : RunHooksShift P sizeHook reserveHook exactOut cg labels)
+    (hrun : componentRunGen P sizeHook reserveHook exactOut cg labels orderOptions = .ok run)
+    {k : Nat} (hk : k + 1 < run.layers.length) :
+    run.top.getD k 0 + (run.layers.map (RouteImpl.layerHeight run.proper)).getD k 0 +
+      CoordsImpl.rankGapAt P.rankGap run.proper run.layers k +
+      P.slot * (run.lanes.routing.gaps.getD k default).slots ≤ run.top.getD (k + 1) 0 := by
+  obtain ⟨ranks, p0, labeled, q0, y_pre, top_pre, ys_pre, hn, hl, hcoord, hord, hcross,
+    hproxy, hdrop, hroute, hrouting, hry, hyspre, hres, hcy, hroutes, hexact⟩ :=
+    componentRunGen_spec hrun
+  obtain ⟨extra, shifts, hlen, hnn, hpref, hlenS, htop, hys⟩ :=
+    hshift.shifts run.coordinateProper run.layers ys_pre top_pre run.ys run.top hres
+  have htopLen : top_pre.length = run.layers.length := (CoordsImpl.rankCoordsWith_length hry).2
+  obtain ⟨_, _, hslotsLen, _, _, htopPre, _⟩ := CoordsImpl.rankCoordsWith_spec hry
+  obtain ⟨_, _, _, _, hgl, _, _⟩ := RouteImpl.routeWithLanes_geometry hroute
+  have hgap : k < run.lanes.routing.gaps.length := by omega
+  have hslot : (run.lanes.routing.gaps.map (·.slots)).getD k 0 =
+      (run.lanes.routing.gaps.getD k default).slots := by
+    simp [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hgap]
+  have hss : (run.routing.gaps.map (·.slots)).length + 1 = run.layers.length := by
+    simp only [List.length_map] at hslotsLen ⊢
+    omega
+  have hshiftPair : shifts.Pairwise (· ≤ ·) := by
+    rw [hpref]
+    exact reserveShift_prefix_pairwise extra hnn 0 [] (by simp) (by simp)
+  have hshiftNext : shifts.getD k 0 ≤ shifts.getD (k + 1) 0 := by
+    have hi : k < shifts.length := by omega
+    have hj : k + 1 < shifts.length := by omega
+    rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD,
+      List.getElem?_eq_getElem hi, List.getElem?_eq_getElem hj]
+    simp only [Option.getD_some]
+    exact hshiftPair.rel_getElem_of_lt hi hj (by omega)
+  have hpreStep := rankSteps_topsFrom_step P.rankGap P.slot run.coordinateProper run.layers
+      (run.routing.gaps.map (·.slots)) 0 k hss hk
+  rw [← htopPre, ← hrouting, hslot] at hpreStep
+  have hnodeH : ∀ v, RouteImpl.nodeH run.proper v = RouteImpl.nodeH run.coordinateProper v := by
+    intro v
+    have hn : run.proper.nodes = q0.nodes := by rw [← hdrop, OrderImpl.dropSynthetic_nodes]
+    have heq : RouteImpl.nodeH run.proper v = RouteImpl.nodeH q0 v := by
+      unfold RouteImpl.nodeH
+      rw [hn]
+    exact heq.trans (nodeH_proxy hproxy v)
+  have hLH : ∀ l, RouteImpl.layerHeight run.proper l =
+      CoordsImpl.layerHeight run.coordinateProper l := by
+    intro l
+    have hf : RouteImpl.nodeH run.proper = RouteImpl.nodeH run.coordinateProper := funext hnodeH
+    simp only [RouteImpl.layerHeight, hf]
+    rfl
+  have hmap : run.layers.map (RouteImpl.layerHeight run.proper) =
+      run.layers.map (CoordsImpl.layerHeight run.coordinateProper) := by
+    exact List.map_congr_left (fun l _ => hLH l)
+  have hRG : CoordsImpl.rankGapAt P.rankGap run.proper run.layers k =
+      CoordsImpl.rankGapAt P.rankGap run.coordinateProper run.layers k := by
+    rw [← hdrop]
+    exact rankGapAt_proxy hproxy _ _ _
+  rw [hmap, hRG, htop k (by omega), htop (k + 1) (by omega)]
+  omega
 
 theorem componentRunGen_node_band
     {P : Params} {cg : Graph} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions} {exactOut : List Nat}
@@ -638,6 +726,79 @@ theorem componentRunX_node_band
     rw [← componentRunX_eq_gen]
     exact hrun
   exact componentRunGen_node_band (runHooksShift_exact P exactIds inp cg labels) hrunGen hq hrec
+
+theorem componentRunX_node_rank_band
+    {P : Params} {exactIds : List String} {inp : Input} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (hrun : componentRunX P (exactDecls exactIds inp) cg labels orderOptions = .ok run)
+    {u : Nat} (hu : u < run.proper.nodes.length) :
+    ∃ l, run.layers[(rk run.proper.rank u).toNat]? = some l ∧
+      0 ≤ rk run.proper.rank u ∧
+      run.top.getD (rk run.proper.rank u).toNat 0 ≤ run.ys.getD u 0 ∧
+      run.ys.getD u 0 + RouteImpl.nodeH run.proper u ≤
+        run.top.getD (rk run.proper.rank u).toNat 0 + CoordsImpl.layerHeight run.coordinateProper l := by
+  have hrunG : componentRunGen P (sizeProperPortsX P (exactDecls exactIds inp))
+      (reserveExactRanks cg (exactDecls exactIds inp) labels)
+      (cg.nodes.zipIdx.filterMap fun q => if (exactDecls exactIds inp).contains q.1.decl then some q.2 else none)
+      cg labels orderOptions = .ok run := by
+    rw [← componentRunX_eq_gen]
+    exact hrun
+  obtain ⟨_, _, _, q0, _, _, _, _, _, hproxy, hdrop, hr, _, _⟩ := componentRunX_spec hrun
+  obtain ⟨_, hrank, hlen, _, hlookup, _⟩ := proxyWidths_rel hproxy
+  have hranks : run.proper.rank = run.coordinateProper.rank := by rw [← hdrop]; exact hrank
+  have hnodes : run.proper.nodes = q0.nodes := by rw [← hdrop, OrderImpl.dropSynthetic_nodes]
+  obtain ⟨_, _, _, hcovered, _⟩ := RouteImpl.layersOk_spec (RouteImpl.routeWithLanes_geometry hr).1
+  obtain ⟨_, _, _, hnn⟩ := hcovered u hu
+  have hc : u < run.coordinateProper.nodes.length := by rw [← hlen, ← hnodes]; exact hu
+  obtain ⟨coord, hcoord⟩ : ∃ nd, run.coordinateProper.nodes[u]? = some nd :=
+    ⟨_, List.getElem?_eq_getElem hc⟩
+  obtain ⟨routed, hrouted, _, hb, hh⟩ := hlookup u coord hcoord
+  have hn : run.proper.nodes[u]? = some routed := by rw [hnodes]; exact hrouted
+  obtain ⟨l, hl, hlo, hhi⟩ := componentRunGen_node_band
+    (runHooksShift_exact P exactIds inp cg labels) hrunG hn ⟨coord, hcoord, hb.symm, hh.symm⟩
+  rw [← hranks] at hl hlo hhi
+  exact ⟨l, hl, hnn, hlo, hhi⟩
+
+theorem componentRunX_edge_rank_gap
+    {P : Params} {exactIds : List String} {inp : Input} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (hrun : componentRunX P (exactDecls exactIds inp) cg labels orderOptions = .ok run)
+    {i : Nat} (hi : i < run.proper.edges.length) :
+    run.ys.getD (RouteImpl.edgeAt run.proper i).tail 0 +
+        RouteImpl.nodeH run.proper (RouteImpl.edgeAt run.proper i).tail ≤
+      run.top.getD (RouteImpl.gapOf run.proper i) 0 +
+        (run.layers.map (RouteImpl.layerHeight run.proper)).getD (RouteImpl.gapOf run.proper i) 0 ∧
+    run.top.getD (RouteImpl.gapOf run.proper i) 0 +
+        (run.layers.map (RouteImpl.layerHeight run.proper)).getD (RouteImpl.gapOf run.proper i) 0 ≤
+      run.top.getD (RouteImpl.gapOf run.proper i + 1) 0 ∧
+    run.top.getD (RouteImpl.gapOf run.proper i + 1) 0 ≤
+      run.ys.getD (RouteImpl.edgeAt run.proper i).head 0 := by
+  obtain ⟨_, _, _, q0, _, _, _, _, _, hproxy, hdrop, hr, _, _⟩ := componentRunX_spec hrun
+  have hnodes : run.proper.nodes = q0.nodes := by rw [← hdrop, OrderImpl.dropSynthetic_nodes]
+  obtain ⟨_, _, _, _, hedges⟩ := RouteImpl.layersOk_spec (RouteImpl.routeWithLanes_geometry hr).1
+  let tail := (RouteImpl.edgeAt run.proper i).tail
+  let head := (RouteImpl.edgeAt run.proper i).head
+  have htail : tail < run.proper.nodes.length := (hedges i hi).1
+  have hhead : head < run.proper.nodes.length := (hedges i hi).2.1
+  have hstep : rk run.proper.rank head = rk run.proper.rank tail + 1 := (hedges i hi).2.2
+  obtain ⟨tl, htl, htailNN, _, htailBottom⟩ := componentRunX_node_rank_band hrun htail
+  obtain ⟨hl, hhl, _, hheadTop, _⟩ := componentRunX_node_rank_band hrun hhead
+  obtain ⟨_, hdisjBands⟩ := X_ReserveBands_holds exactIds hrun
+  have horders := hdisjBands _ _ tl hl (by omega) htl hhl
+  have hLH : RouteImpl.layerHeight run.proper tl = CoordsImpl.layerHeight run.coordinateProper tl := by
+    have heq : RouteImpl.layerHeight run.proper tl = RouteImpl.layerHeight q0 tl := by
+      simp only [RouteImpl.layerHeight, RouteImpl.nodeH, hnodes]
+    exact heq.trans (layerHeight_proxy hproxy tl)
+  have hheight : (run.layers.map (RouteImpl.layerHeight run.proper)).getD
+      (RouteImpl.gapOf run.proper i) 0 = CoordsImpl.layerHeight run.coordinateProper tl := by
+    change (run.layers.map (RouteImpl.layerHeight run.proper)).getD (rk run.proper.rank tail).toNat 0 = _
+    simp only [List.getD_eq_getElem?_getD, List.getElem?_map, htl, Option.map_some,
+      Option.getD_some, hLH]
+  have hnext : (rk run.proper.rank head).toNat = RouteImpl.gapOf run.proper i + 1 := by
+    change (rk run.proper.rank head).toNat = (rk run.proper.rank tail).toNat + 1
+    omega
+  rw [hheight, ← hnext]
+  exact ⟨htailBottom, horders, hheadTop⟩
 
 end PipelineImpl
 end Layered

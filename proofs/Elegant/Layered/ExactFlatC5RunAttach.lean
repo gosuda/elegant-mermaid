@@ -596,16 +596,6 @@ private theorem Xra_group_top_port_eq_ys
     (RouteImpl.boxRect run.proper run.xs run.ys v).y = run.ys.getD v 0 := by
   simp only [RouteImpl.boxRect, RouteImpl.yAt]
 
-/-- The frame-top port form coincides with the frame's vertical top. -/
-private theorem Xra_group_frame_y_eq_ys
-    {cg : Graph} {run : Run} {v : Nat} (hdata : GroupTopEndpointData cg run v) :
-    (RouteImpl.boxRect run.proper run.xs run.ys v).y +
-        (RouteImpl.boxRect run.proper run.xs run.ys v).h = run.ys.getD v 0 := by
-  obtain ⟨-, -, -, -, -, -, -, -, hnh⟩ := hdata
-  simp only [RouteImpl.boxRect, RouteImpl.yAt]
-  rw [hnh]
-  exact Int.add_zero _
-
 /-- Non-proxy exact coordinate nodes transfer to the proper run unchanged. -/
 private theorem Xra_nonproxy_record {P : Params} {exact : List Nat}
     {cg : Graph} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
@@ -853,19 +843,6 @@ private theorem Xra_route_attachment_of_facts
         exact ⟨hpx0, hpx1, by omega, by omega, Or.inr (Or.inr (Or.inl True.intro))⟩
       · simp only [hfk, ↓reduceIte]
         exact hsPlain
-  have hsbRev : Validator.onBoundary
-      ⟨px, (RouteImpl.boxRect run.proper run.xs run.ys
-        (RouteImpl.edgeAt run.proper first).tail).y +
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).h⟩
-      (frameRect P cg run (RouteImpl.edgeAt run.proper first).tail) := by
-    by_cases hg : (cg.nodes.getD (RouteImpl.edgeAt run.proper first).tail default).border = -2
-    · have hdata := hsrc hg
-      have hy := Xra_group_frame_y_eq_ys (cg := cg) (run := run) hdata
-      rw [hy]
-      exact Xra_group_top_boundary hrun hdata px ⟨hpx0, hpx1⟩
-    · rw [plain_frame_eq_boxRect' P cg run _ hf.1 hg]
-      exact hsPlain
   have htb : Validator.onBoundary
       ⟨qx, (RouteImpl.boxRect run.proper run.xs run.ys
         (RouteImpl.edgeAt run.proper last).head).y⟩
@@ -894,7 +871,7 @@ private theorem Xra_route_attachment_of_facts
       exact (onBoundary_shift _ _ _ _).mpr htb
     · apply (onBoundary_shift _ _ _ _).mpr
       apply (onBoundary_orient _ _ _ _).mpr
-      exact (onBoundary_shift _ _ _ _).mpr hsbRev
+      exact (onBoundary_shift _ _ _ _).mpr hsb
   · rename_i hrev
     obtain ⟨hhead, htail⟩ := hend
     refine ⟨rt, _, _, hrt, horiginal, hplaced, hhead, htail, ?_⟩

@@ -12,9 +12,8 @@ namespace PipelineImpl
 
 /-! # Region-and-note clause glue.
 
-`RegionNotesFamilyValid.lean` defines `RegionNotesSeams` (33 fields) and
-proves `layoutFamilyRN_valid_of_seams`. Twenty-four of its fields are
-per-execution clause premises about the contracted scene and the fragment
+`RegionNotesFamilyValid.lean` defines `RegionNotesSeams` and proves
+`layoutFamilyRN_valid_of_seams`. Its per-execution clause premises cover
 scenes of a note execution: each says a validator clause holds on
 `e.contracted.scene` or on a note scene of `e.layouts`, for a
 `NotesExecution (rnNotesBase idSets) exactIds fuel inp o res`. Those scenes
@@ -27,10 +26,8 @@ from the region seams instead of assuming them:
 - `insetContracted`, `c1Contracted`, `orthoContracted`, `c4Contracted`,
 - `insetFragments`, `c1Fragments`, `orthoFragments`, `c4Fragments`,
 
-and forwards the remaining sixteen well-formedness-needing fields
-(`c2*`, `c3*`, `c5*`, `groupEndpoints`, `c6*`, `c7*`, `c8a*`, `c8b*`) as
-explicitly marked residuals, each naming its missing lemma. The seven
-open base clauses and the note facts are forwarded unchanged.
+The region lifts supply those fields. Family C8a is proved separately under
+the existing framed and attachment-parent alignment checks.
 
 Executed evidence (`proofs/wip/Probe/RegionNotesClauseGlueT_probe.lean`,
 11 `#eval`s, all `Except.ok`): the region-base note wrapper runs on six
@@ -41,20 +38,10 @@ both note inputs satisfy the C1 and orthogonality Bool mirrors
 `(true, true, true, true)`; `contractOne` and `subInput` preserve `kind`
 (`true`); `reindexRegionSets` filters to `[("S1", ["S2"])]`.
 
-Design: `RegionNotesSeamsCore` keeps the region seams (universally over
-id-list extensions, since the contracted run uses `exactIds ++ tops`),
-the note facts, the seven open base clauses, one sub-input
-well-formedness residual, and the sixteen clause residuals.
-`regionNotesSeams_of_core` assembles `RegionNotesSeams`; the eight
-derived fields come from the region flats at the matching ids
-(contracted/notes directly, fragment parts by fuel induction through the
-nine note lifts), and `layoutFamilyRN_valid_of_core` closes validity.
-
-Missing lemmas for the residuals: unconditional `WellFormed` (plus
-`framedParents`) of the contracted, part, and note sub-inputs
-(`NotesSubInputsWellFormed` states the true conditional-local form), and
-a joint fuel induction for the fragment-part instances of the
-well-formedness-needing families.
+`RegionNotesSeamsCore` keeps the region seams at every id-list extension
+because the contracted run uses `exactIds ++ tops`.
+`regionNotesSeams_of_core` uses region flats for the inset and orthogonality
+towers. Other contracted and fragment clauses below remain separate.
 -/
 
 /-- The note-wrapped region base (local copy: `rnNotesBase` is private to
@@ -63,30 +50,6 @@ definitionally equal). -/
 abbrev rngNotesBase (idSets : List (String × List String)) :
     List String → Input → Options → Except LayoutError FamilyResult :=
   fun ids sub o => layoutRIds ids (reindexRegionSets idSets sub) sub o
-
-/-- Well-formedness of the note-stage sub-inputs, conditional-local form:
-over an executed run on a well-formed input, the contracted input, every
-fragment part sub-input, and every fragment note sub-input are
-well-formed with framed parents. This is the single lemma-on-the-way
-residual: the well-formedness-needing clause fields would follow from it
-if the seams stated them conditionally. -/
-def NotesSubInputsWellFormed (exactIds : List String)
-    (idSets : List (String × List String)) : Prop :=
-  ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
-    (e : NotesExecution (rngNotesBase idSets) exactIds fuel inp o res),
-    WellFormed (inputModel inp o) →
-      WellFormed (inputModel e.contractedInput o) ∧
-        framedParents e.contractedInput = true ∧
-      (∀ l ∈ e.layouts,
-        WellFormed (inputModel (subInput inp
-          (fun x => x.id == l.top.id || Compound.inside inp.boxes l.top.id x.id)
-          l.top.id) o) ∧
-        framedParents (subInput inp
-          (fun x => x.id == l.top.id || Compound.inside inp.boxes l.top.id x.id)
-          l.top.id) = true ∧
-        ∀ q ∈ l.notes,
-          WellFormed (inputModel (subInput inp (fun x => x.id == q.1.id) q.1.id) o) ∧
-          framedParents (subInput inp (fun x => x.id == q.1.id) q.1.id) = true)
 
 /-- Region-and-note seams core: everything `RegionNotesSeams` needs that
 is not derived below. `regionAll` quantifies over id-list extensions
@@ -101,12 +64,6 @@ structure RegionNotesSeamsCore (exactIds : List String)
   notesFacts : ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution (rngNotesBase idSets) exactIds fuel inp o res),
     NotesFlatFacts e
-  /-- OPEN CLAUSE: no finished notes module; the `canvasMargins` clause itself. -/
-  canvasMarginsN : ∀ (outerFuel : Nat),
-    CanvasMarginsB (layoutNotes (rngNotesBase idSets) exactIds outerFuel)
-  /-- OPEN CLAUSE: no finished notes module; the `fitClosed` clause itself. -/
-  fitClosedN : ∀ (outerFuel : Nat),
-    ExpandChildFitClosedB (layoutNotes (rngNotesBase idSets) exactIds outerFuel)
   /-- OPEN CLAUSE: no finished notes module; the `stepC2` clause itself. -/
   stepC2N : ∀ (outerFuel fuel : Nat) (P : Params) (inp : Input) (o : Options)
     (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -137,16 +94,6 @@ structure RegionNotesSeamsCore (exactIds : List String)
       fuel P inp o group titleLines titleHeight parent child res →
     ExpandChildCallParams P inp o group titleLines titleHeight →
     ExpandChildC7Step P inp o group titleHeight parent child res
-  /-- OPEN CLAUSE: no finished notes module; the `stepC8a` clause itself. -/
-  stepC8aN : ∀ (outerFuel fuel : Nat) (P : Params) (inp : Input) (o : Options)
-    (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
-    (parent child res : FamilyResult),
-    expandChild P inp o group titleHeight parent child = .ok res →
-    framedParents inp = true →
-    ExpandChildCallContextB (layoutNotes (rngNotesBase idSets) exactIds outerFuel)
-      fuel P inp o group titleLines titleHeight parent child res →
-    ExpandChildCallParams P inp o group titleLines titleHeight →
-    ExpandChildC8aStep P inp o group titleHeight parent child res
   /-- OPEN CLAUSE: no finished notes module; the `stepC8b` clause itself. -/
   stepC8bN : ∀ (outerFuel fuel : Nat) (P : Params) (inp : Input) (o : Options)
     (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -157,8 +104,6 @@ structure RegionNotesSeamsCore (exactIds : List String)
       fuel P inp o group titleLines titleHeight parent child res →
     ExpandChildCallParams P inp o group titleLines titleHeight →
     ExpandChildC8bStep P inp o group titleHeight parent child res
-  /-- The single sub-input well-formedness residual. -/
-  subInputs : NotesSubInputsWellFormed exactIds idSets
   /-- OPEN CLAUSE (residual): contracted C2. Missing: unconditional
   `WellFormed` of `e.contractedInput` for `flatC2B_layoutRIds`. -/
   residC2Contracted : ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
@@ -218,21 +163,6 @@ structure RegionNotesSeamsCore (exactIds : List String)
   residC7Fragments : ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution (rngNotesBase idSets) exactIds fuel inp o res),
     ∀ p ∈ e.fragments, Validator.C7 p.scene.layoutDump
-  /-- OPEN CLAUSE (residual): contracted C8a. Missing: unconditional
-  `WellFormed` of `e.contractedInput`. -/
-  residC8aContracted : ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
-    (e : NotesExecution (rngNotesBase idSets) exactIds fuel inp o res),
-    Validator.C8a e.contracted.scene.layoutDump
-  /-- OPEN CLAUSE (residual): fragment-part C8a. Missing: unconditional
-  `WellFormed` of part sub-inputs, plus induction. -/
-  residC8aFragParts : ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
-    (e : NotesExecution (rngNotesBase idSets) exactIds fuel inp o res),
-    ∀ l ∈ e.layouts, Validator.C8a l.part.scene.layoutDump
-  /-- OPEN CLAUSE (residual): fragment-note C8a. Missing: unconditional
-  `WellFormed` of note sub-inputs. -/
-  residC8aFragNotes : ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
-    (e : NotesExecution (rngNotesBase idSets) exactIds fuel inp o res),
-    ∀ l ∈ e.layouts, ∀ q ∈ l.notes, Validator.C8a q.2.scene.layoutDump
   /-- OPEN CLAUSE (residual): contracted C8b. Missing: unconditional
   `WellFormed` of `e.contractedInput`. -/
   residC8bContracted : ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
@@ -505,10 +435,7 @@ private theorem rng_ortho_frags {idSets : List (String × List String)}
 orthogonality at every fuel level. -/
 private theorem rng_tower_ortho {idSets : List (String × List String)}
     {exactIds : List String}
-    (R : ∀ ext : List String, RegionSeams (exactIds ++ ext) idSets)
-    (F : ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
-      (e : NotesExecution (rngNotesBase idSets) exactIds fuel inp o res),
-      NotesFlatFacts e) :
+    (R : ∀ ext : List String, RegionSeams (exactIds ++ ext) idSets) :
     ∀ (fuel : Nat) {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution (rngNotesBase idSets) exactIds fuel inp o res),
     (∀ cr ∈ e.contracted.scene.routes, Polyline.isOrthogonal cr.points = true) ∧
@@ -529,14 +456,13 @@ private theorem rng_tower_ortho {idSets : List (String × List String)}
   | succ n ih =>
     intro inp o res e
     have hFlatS : FlatC4B (layoutNotes (rngNotesBase idSets) exactIds (n + 1)) :=
-      notes_flatC4B exactIds n (F n)
+      notes_flatC4B exactIds n
         (regionBaseSeams (rng_regionOrig R)).flatC4
         (fun e' => (ih e').1) (fun e' => (ih e').2.2)
     have hL := rng_ortho_frags R hFlatS e
     exact ⟨rng_contracted_ortho R e, hL, rng_ortho_fragments_of e hL⟩
-/-- Region-and-note seams from the core: the region seams specialize to the
-original ids, the inset/orthogonality/C1/C4 per-execution clauses come
-from the towers, and the remaining fields forward the core residuals. -/
+/-- Assemble region-and-note seams from the core, discharging the inset,
+orthogonality, C1, and C4 fields. -/
 theorem regionNotesSeams_of_core {exactIds : List String}
     {idSets : List (String × List String)}
     (C : RegionNotesSeamsCore exactIds idSets) :
@@ -555,18 +481,15 @@ theorem regionNotesSeams_of_core {exactIds : List String}
   c2Fragments := C.residC2Fragments
   orthoContracted := by
     intro fuel inp o res e
-    exact (rng_tower_ortho C.regionAll C.notesFacts fuel e).1
+    exact (rng_tower_ortho C.regionAll fuel e).1
   orthoFragments := by
     intro fuel inp o res e
-    exact (rng_tower_ortho C.regionAll C.notesFacts fuel e).2.2
+    exact (rng_tower_ortho C.regionAll fuel e).2.2
   groupEndpoints := C.residGroupEndpoints
   c6Contracted := C.residC6Contracted
   c6Fragments := C.residC6Fragments
   c7Contracted := C.residC7Contracted
   c7Fragments := C.residC7Fragments
-  c8aContracted := C.residC8aContracted
-  c8aFragParts := C.residC8aFragParts
-  c8aFragNotes := C.residC8aFragNotes
   c8bContracted := C.residC8bContracted
   c8bFragments := C.residC8bFragments
   c1Contracted := by
@@ -582,18 +505,15 @@ theorem regionNotesSeams_of_core {exactIds : List String}
         (rng_tower_inset C.regionAll C.notesFacts fuel e).2.1⟩
   c4Contracted := by
     intro fuel inp o res e rt hrt _
-    exact (rng_tower_ortho C.regionAll C.notesFacts fuel e).1 rt hrt
+    exact (rng_tower_ortho C.regionAll fuel e).1 rt hrt
   c4Fragments := by
     intro fuel inp o res e p hp fr hfr _
-    exact (rng_tower_ortho C.regionAll C.notesFacts fuel e).2.2 p hp fr hfr
+    exact (rng_tower_ortho C.regionAll fuel e).2.2 p hp fr hfr
   c5Contracted := C.residC5Contracted
   c5Fragments := C.residC5Fragments
-  canvasMarginsN := C.canvasMarginsN
-  fitClosedN := C.fitClosedN
   stepC2N := C.stepC2N
   stepC6N := C.stepC6N
   stepC7N := C.stepC7N
-  stepC8aN := C.stepC8aN
   stepC8bN := C.stepC8bN
 
 /-- Region-and-note family validity from the core: the executed

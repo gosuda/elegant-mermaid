@@ -28,7 +28,7 @@ Probe truth (`proofs/wip/Probe/ExactLoopEnvelopeFootBelowTProbe.lean`,
 - `1loop-nonexact-plain-sibself`: `tops=[0] layers=1 higher=[] belowAll=true covTop=true covBot=true resv=true exactOwn=false` (4 orders).
 - `1loop-group-grpself`: `tops=[0,6144,9316] higher=[1,2] belowAll=false exactOwn=false border=-2` (group fails below-all, so plain premise needed).
 - `2loop-group-grpself`: `belowAll=false` again.
-- `illformed-dup-id`: `prep error LayoutError.domain` (no execution, so universals over `SceneExecutionX` hold vacuously; no extra `WellFormed` premise needed).
+- `illformed-dup-id`: `prep error LayoutError.domain` (no execution).
 
 Exact owners use the prefixed stack copy below plus `X_ReserveBands_holds`;
 plain non-exact owners use the narrow reservation residual plus the same bands.
@@ -667,6 +667,7 @@ group case is assumed outright. Strictly narrower than the target. -/
 def XLEM_GroupOwnerOtherRank (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -1042,10 +1043,9 @@ theorem XLEM_footBelow_holds (exactIds : List String)
       candidate run orderOptions cg k e hcomp hcg hrun hedge hself hbdr hnex
 /-- Closed other-rank miss from the foot-below chain and the two residuals.
 Takes at most the group-owner residual and the plain reservation residual;
-the exact-owner foot-below and the plain frame record are proved. Group
-failure is witnessed by `grpself` probes (`belowAll=false`); ill-formed
-inputs error in `prep` (`LayoutError.domain`), so no extra `WellFormed`
-premise is needed beyond the executed-run binders. -/
+the exact-owner foot-below and the plain frame record are proved. The group
+case requires well-formed input and framed parents; plain reservation does
+not require those admission facts. -/
 theorem XLEM_otherRankMiss_closed (exactIds : List String)
     (hRes : XLEM_PlainReserve exactIds)
     (hGrp : XLEM_GroupOwnerOtherRank exactIds) :

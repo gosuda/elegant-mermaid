@@ -10,25 +10,25 @@ import Elegant.Layered.LayeredAdmission
 import ElegantGeometry.Validator
 set_option autoImplicit false
 
-/-! Seam adapters for the layered family kinds.
+/-! Validity of the layered family kind adapters.
 
 Each kind adapter below answers `.error (.geometry .domain)` unless the layered
 `Input` it builds is admissible (`Layered.layeredAdmissibleB`): every box id is
 nonempty, no box id names a route id, every fixed-size box is exclusive, and every
 fixed size has positive width and height. The guard is parity-neutral on real inputs
 (engine-built models never hit it). `Layered.PipelineImpl.layoutFamily_valid_of_seams`
-proves family validity modulo the `LayeredSeams` record, and `layoutFamily_check_of_seams`
+proves family validity, and `layoutFamily_check_of_seams`
 is its `Validator.check` form. Each `*_valid_of_seams` theorem below derives the admission
 fact (`layeredAdmissibleB _ = true`) from a successful adapter run via `Layered.admit_ok`,
-turns it into the seam premises with `Layered.layeredAdmissibleB_spec`, and converts the
+derives its input premises with `Layered.layeredAdmissibleB_spec`, and converts the
 `Validator.check` conclusion to `HardConstraints` with `check_iff`. -/
 
 namespace Elegant
 namespace Kinds
 
-/-- Family validity in `Validator.check` form, modulo the seams: a successful family run whose
+/-- Family validity in `Validator.check` form: a successful family run whose
 input has nonempty box ids, fixed-size room, and disjoint route ids passes the validator. -/
-theorem layoutFamily_check_of_seams (S : Layered.PipelineImpl.LayeredSeams) :
+theorem layoutFamily_check_of_seams :
     ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
     (∀ b ∈ inp.boxes, b.id ≠ "") →
     Layered.PipelineImpl.InputFixedFit inp o →
@@ -37,12 +37,12 @@ theorem layoutFamily_check_of_seams (S : Layered.PipelineImpl.LayeredSeams) :
     Validator.check res.scene.layoutDump = true :=
   fun _ _ _ hids hfix hdisj h =>
   (Validator.check_iff _).mpr
-    (Layered.PipelineImpl.layoutFamily_valid_of_seams S hids hfix hdisj h)
+    (Layered.PipelineImpl.layoutFamily_valid_of_seams hids hfix hdisj h)
 
-/-- Class validity from the family seams: a successful layout ran the family on an admissible
-input, so `Layered.layeredAdmissibleB_spec` supplies the seam premises and the scene satisfies
+/-- A successful Class layout ran the family on an admissible
+input, so `Layered.layeredAdmissibleB_spec` supplies the family premises and the scene satisfies
 the hard constraints. -/
-theorem class_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
+theorem class_valid_of_seams
     {m : Model} {r : Layered.FamilyResult}
     (h : Class.layout m = .ok r) :
     HardConstraints r.scene.layoutDump := by
@@ -50,12 +50,12 @@ theorem class_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
   obtain ⟨hids, hdisj, hfix, _⟩ := Layered.layeredAdmissibleB_spec hadm m.options
   rw [hd]
   exact (Validator.check_iff _).mp
-    (layoutFamily_check_of_seams S _ _ _ hids hfix hdisj hf)
+    (layoutFamily_check_of_seams _ _ _ hids hfix hdisj hf)
 
-/-- ER validity from the family seams: a successful layout ran the family on an admissible
-input, so `Layered.layeredAdmissibleB_spec` supplies the seam premises and the scene satisfies
+/-- A successful ER layout ran the family on an admissible
+input, so `Layered.layeredAdmissibleB_spec` supplies the family premises and the scene satisfies
 the hard constraints. -/
-theorem er_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
+theorem er_valid_of_seams
     {m : Model} {r : Layered.FamilyResult}
     (h : Er.layout m = .ok r) :
     HardConstraints r.scene.layoutDump := by
@@ -63,13 +63,13 @@ theorem er_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
   obtain ⟨hids, hdisj, hfix, _⟩ := Layered.layeredAdmissibleB_spec hadm m.options
   rw [hd]
   exact (Validator.check_iff _).mp
-    (layoutFamily_check_of_seams S _ _ _ hids hfix hdisj hf)
+    (layoutFamily_check_of_seams _ _ _ hids hfix hdisj hf)
 
-/-- C4 validity from the family seams: the adapter re-routes the pinned relations only when the
+/-- The C4 adapter re-routes the pinned relations only when the
 validator accepts the result, redraws node outlines, and projects cell attachments, and neither
 of the last two touches the layout dump. A successful layout ran the family on an admissible
-input, so `Layered.layeredAdmissibleB_spec` supplies the seam premises. -/
-theorem c4_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
+input, so `Layered.layeredAdmissibleB_spec` supplies the family premises. -/
+theorem c4_valid_of_seams
     {m : Model} {r : Layered.FamilyResult}
     (h : C4.layout m = .ok r) :
     HardConstraints r.scene.layoutDump := by
@@ -90,12 +90,12 @@ theorem c4_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
         show HardConstraints (shaped.projectCellAttachments (Common.routeMarkers m)).layoutDump
         rw [Scene.projectCellAttachments_layoutDump, C4.shapeScene_layoutDump hs]
         exact (Validator.check_iff _).mp (C4.rerouteEndpoints_valid hr
-          (layoutFamily_check_of_seams S _ _ _ hids hfix hdisj hf))
+          (layoutFamily_check_of_seams _ _ _ hids hfix hdisj hf))
 
-/-- Requirement validity from the family seams: a successful layout ran the family on an
-admissible input, so `Layered.layeredAdmissibleB_spec` supplies the seam premises and the
+/-- A successful Requirement layout ran the family on an
+admissible input, so `Layered.layeredAdmissibleB_spec` supplies the family premises and the
 scene satisfies the hard constraints. -/
-theorem requirement_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
+theorem requirement_valid_of_seams
     {m : Model} {r : Layered.FamilyResult}
     (h : Requirement.layout m = .ok r) :
     HardConstraints r.scene.layoutDump := by
@@ -103,13 +103,13 @@ theorem requirement_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
   obtain ⟨hids, hdisj, hfix, _⟩ := Layered.layeredAdmissibleB_spec hadm m.options
   rw [hd]
   exact (Validator.check_iff _).mp
-    (layoutFamily_check_of_seams S _ _ _ hids hfix hdisj hf)
+    (layoutFamily_check_of_seams _ _ _ hids hfix hdisj hf)
 
-/-- Agentflow validity from the family seams: the adapter fixes sizes, projects cell
+/-- The Agentflow adapter fixes sizes, projects cell
 attachments, and redraws node outlines, which keeps the layout dump. A successful layout ran
-the family on an admissible input, so `Layered.layeredAdmissibleB_spec` supplies the seam
+the family on an admissible input, so `Layered.layeredAdmissibleB_spec` supplies the family
 premises. -/
-theorem agentflow_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
+theorem agentflow_valid_of_seams
     {m : Model} {r : Layered.FamilyResult}
     (h : Agentflow.layout m = .ok r) :
     HardConstraints r.scene.layoutDump := by
@@ -131,7 +131,7 @@ theorem agentflow_valid_of_seams (S : Layered.PipelineImpl.LayeredSeams)
         subst h
         show HardConstraints scene.layoutDump
         rw [Agentflow.shapeScene_layoutDump hd, Scene.projectCellAttachments_layoutDump]
-        exact (Validator.check_iff _).mp (layoutFamily_check_of_seams S _ _ _ hids
+        exact (Validator.check_iff _).mp (layoutFamily_check_of_seams _ _ _ hids
           hfix hdisj hf)
 
 end Kinds

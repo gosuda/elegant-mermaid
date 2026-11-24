@@ -155,6 +155,8 @@ private theorem lggt_side_width (source : Proper) (width : Int)
 
 private theorem lggt_hull_eq_of_left {inp : Input} {o : Options} {res : FamilyResult}
     (e : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components e.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRun e.params (componentCandidate e.graph comp candidate)
@@ -194,18 +196,18 @@ private theorem lggt_hull_eq_of_left {inp : Input} {o : Options} {res : FamilyRe
     have eQ : (Labels.rectAt run.proper run.xs run.ys q).x =
         RouteImpl.leftOf run.proper run.xs q := by rw [rectAt_eq]
     rcases hbor with hsideL | hsideR
-    · have hal := halign e.graph_eq hcomp hrun hproperP (Or.inl hbP) hlastP
-        hrec (Or.inl hsideL) hlast
+    · have hal := halign e.graph_eq (lggt_lines_len e) hwf hfp hcomp hrun
+        hproperP (Or.inl hbP) hlastP hrec (Or.inl hsideL) hlast
       have heq := (hal.1 (by rw [hbP, hsideL])).1
       omega
-    · have halR := halign e.graph_eq hcomp hrun hpropR (Or.inr hbR) hlastR
-        hrec (Or.inr hsideR) hlast
+    · have halR := halign e.graph_eq (lggt_lines_len e) hwf hfp hcomp hrun
+        hpropR (Or.inr hbR) hlastR hrec (Or.inr hsideR) hlast
       have heqR := (halR.1 (by rw [hbR, hsideR])).1
-      have halLR := halign e.graph_eq hcomp hrun hpropL (Or.inl hbL) hlastL
-        hpropR (Or.inr hbR) hlastR
+      have halLR := halign e.graph_eq (lggt_lines_len e) hwf hfp hcomp hrun
+        hpropL (Or.inl hbL) hlastL hpropR (Or.inr hbR) hlastR
       have hle := (halLR.2.2 ⟨hbL, hbR, hrankPair⟩).1
-      have halLL := halign e.graph_eq hcomp hrun hpropL (Or.inl hbL) hlastL
-        hproperP (Or.inl hbP) hlastP
+      have halLL := halign e.graph_eq (lggt_lines_len e) hwf hfp hcomp hrun
+        hpropL (Or.inl hbL) hlastL hproperP (Or.inl hbP) hlastP
       have hRL : RouteImpl.leftOf run.proper run.xs mL =
           RouteImpl.leftOf run.proper run.xs mLp :=
         ((halLL.1 (by rw [hbL, hbP])).1)
@@ -217,7 +219,10 @@ private theorem lggt_hull_eq_of_left {inp : Input} {o : Options} {res : FamilyRe
   rw [hullX]; omega
 
 private theorem lggt_hull_right_eq {inp : Input} {o : Options} {res : FamilyResult}
-    (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
+    (e : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
+    (comp : List Nat) (candidate : Nat)
     (run : Run) (oo : OrderOptions) (v : Nat) (nodeV : Node)
     (hcomp : comp ∈ components e.graph)
     (hnodeV : (componentCandidate e.graph comp candidate).nodes[v]? = some nodeV)
@@ -236,16 +241,22 @@ private theorem lggt_hull_right_eq {inp : Input} {o : Options} {res : FamilyResu
     intro r hr
     obtain ⟨q, nd, hq, hbq, hlastq, hrq⟩ := groupBorderRects_inv hr
     rcases hbq with hbqL | hbqR
-    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq hcomp hrun hq (Or.inl hbqL) hlastq hL (Or.inl hbL) hlL).1 (by rw [hbL, hbqL])
-      have hcross := (halign e.graph_eq hcomp hrun hL (Or.inl hbL) hlL hR (Or.inr hbR) hlR).2.2 ⟨hbL, hbR, hrank⟩
+    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq (lggt_lines_len e) hwf hfp
+        hcomp hrun hq (Or.inl hbqL) hlastq hL (Or.inl hbL) hlL).1
+        (by rw [hbL, hbqL])
+      have hcross := (halign e.graph_eq (lggt_lines_len e) hwf hfp hcomp hrun
+        hL (Or.inl hbL) hlL hR (Or.inr hbR) hlR).2.2 ⟨hbL, hbR, hrank⟩
       rw [hrq, rectAt_eq run.proper run.xs run.ys q, rectAt_eq run.proper run.xs run.ys mR]
       dsimp only
       omega
-    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq hcomp hrun hq (Or.inr hbqR) hlastq hR (Or.inr hbR) hlR).1 (by rw [hbR, hbqR])
+    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq (lggt_lines_len e) hwf hfp
+        hcomp hrun hq (Or.inr hbqR) hlastq hR (Or.inr hbR) hlR).1
+        (by rw [hbR, hbqR])
       rw [hrq, rectAt_eq run.proper run.xs run.ys q, rectAt_eq run.proper run.xs run.ys mR]
       dsimp only
       omega
-  have hnonnegR := (halign e.graph_eq hcomp hrun hR (Or.inr hbR) hlR hR (Or.inr hbR) hlR).2.1
+  have hnonnegR := (halign e.graph_eq (lggt_lines_len e) hwf hfp hcomp hrun
+    hR (Or.inr hbR) hlR hR (Or.inr hbR) hlR).2.1
   have hmemR : Labels.rectAt run.proper run.xs run.ys mR ∈ groupBorderRects (componentCandidate e.graph comp candidate) run nodeV.decl := groupBorderRects_mem_of_record hR (Or.inr hbR) hlR
   have hzero : (0 : Int) ≤ (Labels.rectAt run.proper run.xs run.ys mR).x + (Labels.rectAt run.proper run.xs run.ys mR).w := by rw [rectAt_eq]; exact hnonnegR
   have hright := boundsOf_right_le_of_all hzero hall
@@ -365,7 +376,8 @@ theorem loopResNeighborGapGroupTopShared_holds {inp : Input} {o : Options} {res 
   have hbne : ¬ (nLp.node.border = -2 ∨ nLp.node.border = 2) := by rw [hbP]; decide
   have hGb := lggt_no_group_at_b execution hcomp hrun hcoordP hbne
   have hframeB := lggt_frameB_x (P := default) hproperP hGb
-  have hHull := lggt_hull_eq_of_left execution hcomp hrun hnp hgrp hproperP hbP hlastP halign hpropL hbL hlastL hpropR hbR hlastR hrankPair
+  have hHull := lggt_hull_eq_of_left execution hwf hfp hcomp hrun hnp hgrp
+    hproperP hbP hlastP halign hpropL hbL hlastL hpropR hbR hlastR hrankPair
   have hsame : (frameRect default (componentCandidate execution.graph comp candidate) run pos).x = (frameRect execution.params (componentCandidate execution.graph comp candidate) run pos).x := rfl
   omega
 

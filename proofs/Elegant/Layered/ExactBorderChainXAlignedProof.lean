@@ -31,12 +31,11 @@ Replay map (plain `foreignBorderChainXAligned'` in
   `XBC_sideBlocked`, and the final interval transport.
 * ordering fact: `ForeignBorderDivergeStable` quantifies over the plain
   `componentRun`, so it cannot be applied to an exact run; the exact twin
-  `X_ForeignBorderDivergeStable` below is stated as the single named premise
-  instead (the field must be restated, not faked).
+  `X_ForeignBorderDivergeStable` is the premise of the generic transfer.
+  The framed proof instead derives divergence stability for the executed run.
 * shape fact: the executed side-chain shape
-  (`X_ForeignSideChainShapeClosed`) stays as a single named residual:
-  strictly narrower than the goal (ranks/edges/paths only, no `xs`/`proper`)
-  with probe evidence in `wip/Probe/ExactChainAlignedTShapeProbe.lean`.
+  (`X_ForeignSideChainShapeClosed`) concerns only ranks, edges, and paths.
+  `X_foreignSideChainShapeClosed_holds` proves it from execution alone.
 -/
 
 /-- X twin of `ForeignBorderDivergeStable`: divergent sibling blocks keep one
@@ -1329,8 +1328,9 @@ outright from the exact side-ups. -/
 private theorem XBC_chainAligned_of_ups {exactIds : List String}
     (hupX : X_ForeignBorderSideUps exactIds) :
     X_ForeignBorderChainXAligned exactIds := by
-  intro P inp o lines measured graph0 graph hgraph0 hgraphX comp hcomp candidate run labels
-    orderOptions hrunX a b na nb ha hb hsideA hsideB hborder howner
+  intro P inp o lines measured graph0 graph hgraph0 hgraphX _hlines _hwf _hframed
+    comp hcomp candidate run labels orderOptions hrunX a b na nb ha hb hsideA hsideB
+    hborder howner
   exact XBC_chainAligned_run hgraph0 hgraphX hcomp hrunX
     (hupX hgraph0 hgraphX hcomp hrunX) ha hb hsideA hsideB hborder howner
 
@@ -1364,10 +1364,8 @@ theorem X_foreignBorderChainXAligned_of_local_stable {P : Params}
   XBC_chainAligned_run hgraph0 hgraphX hcomp hrunX
     (XBC_sideUps_run hgraph0 hgraphX hcomp hrunX hstabLocal hshapeLocal)
 
-/-- The closed exact alignment form `X_ForeignBorderChainXAligned`: every two
-same-side markers of one declaration share one closed `x`-interval. The only
-open content is the exact twin of the ordering-stage stability of divergent
-blocks plus the executed side-chain shape residual. -/
+/-- Derive scoped exact alignment from global exact divergence stability and
+the executed side-chain shape. -/
 theorem X_foreignBorderChainXAligned_of_stable (exactIds : List String)
     (hstabX : X_ForeignBorderDivergeStable exactIds)
     (hshapeX : X_ForeignSideChainShapeClosed exactIds) :

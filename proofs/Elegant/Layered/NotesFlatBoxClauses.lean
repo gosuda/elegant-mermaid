@@ -1,4 +1,5 @@
 import Elegant.Layered.NotesFoundation
+import Elegant.Layered.NotesRootPartnerSeparation
 import Elegant.Layered.ComposeNotesC8a
 import Elegant.Layered.SceneBounds
 import Elegant.Layered.InsetFit
@@ -145,7 +146,7 @@ def NotesContractMirror {base : List String → Input → Options → Except Lay
 
 /-- Each placed fragment scene mirrors input boxes by id, with parent and
 exclusivity kept; every fragment box is its layout's top, inside that top, or
-one of its notes. This transports fragment C2/C3 to input parents. -/
+one of its notes. This transports fragment C3 to input parents. -/
 def NotesFragMirror {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
@@ -175,13 +176,24 @@ def NotesForeignClear {base : List String → Input → Options → Except Layou
       (∀ q ∈ e.fragments, ∀ r : Rect, q.rect cb.id ≠ some r) →
       Disjoint (shiftRect p.dx p.dy sb.rect) cb.rect
 
-/-- The geometric context for C2: first-match, both mirrors, cross-fragment
-separation, and foreign clearance. Each conjunct is fragment/contracted/input
-geometry, never a claim about `res`. -/
+/-- Box metadata in the executed part and note scenes comes from their
+selected subinputs, with root parents cleared by `subInput`. -/
+def NotesFragBoxSources {base : List String → Input → Options → Except LayoutError FamilyResult}
+    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
+    (e : NotesExecution base exactIds fuel inp o res) : Prop :=
+  ∀ l ∈ e.layouts,
+    NoteSelectionBoxSources inp
+      (fun x => x.id == l.top.id || Compound.inside inp.boxes l.top.id x.id)
+      l.top.id l.part.scene ∧
+    ∀ q ∈ l.notes,
+      NoteSelectionBoxSources inp (fun x => x.id == q.1.id) q.1.id q.2.scene
+
+/-- The geometric context for C2: first-match, contracted metadata, fragment
+selection provenance, cross-fragment separation, and foreign clearance. -/
 def NotesC2Geom {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
-  NotesFirstMatch e ∧ NotesContractMirror e ∧ NotesFragMirror e ∧
+  NotesFirstMatch e ∧ NotesContractMirror e ∧ NotesFragBoxSources e ∧
     NotesPlacedDisjoint e ∧ NotesForeignClear e
 
 /-- Every shifted fragment box lies in its bundle envelope. This chains
@@ -310,21 +322,19 @@ theorem notes_c1 {base : List String → Input → Options → Except LayoutErro
 
 /-! ### Clause C2 -/
 
-/-- C2 for the note stage. Same placed scene pairs use fragment C2 transported
-by `resC2_of_fragment`; contracted pairs use base C2 transported through the
-contracted mirror; distinct placed scenes use the separation residual; mixed
-pairs use the foreign-clearance residual. -/
+/-- C2 for the note stage. Same placed scene pairs use selected part C2;
+a note selection has only one id. Contracted pairs use base C2 through the
+contracted mirror; distinct placed scenes use separation; mixed pairs use
+foreign clearance. -/
 theorem notes_c2 {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
+    (hwf : WellFormed (inputModel inp o))
     (hBase : Validator.C2 e.contracted.scene.layoutDump)
-    (hFrag : ∀ l ∈ e.layouts,
-      Validator.C2 l.part.scene.layoutDump ∧
-        ∀ q ∈ l.notes, Validator.C2 q.2.scene.layoutDump)
-    (hnd : (inp.boxes.map (fun b => b.id)).Nodup)
+    (hFrag : ∀ l ∈ e.layouts, Validator.C2 l.part.scene.layoutDump)
     (hG : NotesC2Geom e) :
     Validator.C2 res.scene.layoutDump := by
-  obtain ⟨hfm, hcm, hfrm, hpd, hfc⟩ := hG
+  obtain ⟨hfm, hcm, hSources, hpd, hfc⟩ := hG
   intro ra hra rb hrb hne hexA hexB hpar
   obtain ⟨ma, hma, hida, _, hpara, hexa, hrcta⟩ := e.boxes_mem ra hra
   obtain ⟨mb, hmb, hidb, _, hparb, hexb, hrctb⟩ := e.boxes_mem rb hrb
@@ -350,24 +360,9 @@ theorem notes_c2 {base : List String → Input → Options → Except LayoutErro
     by_cases hpp : pa = pb
     · subst hpp
       obtain ⟨l, hlm, hpm⟩ := placedFlatten_mem e.placed_eq hpfa
-      obtain ⟨ima, himam, himaid, himapar, himaex, _⟩ := hfrm l hlm pa hpm sa hsam
-      obtain ⟨imb, hmbm, hmbid, hmbpar, himbex, _⟩ := hfrm l hlm pa hpm sb hsbm
-      have hima : ima = ma := nbx_nodup_id_inj _ hnd himam hma (himaid.symm.trans hsaid)
-      have himb : imb = mb := nbx_nodup_id_inj _ hnd hmbm hmb (hmbid.symm.trans hsbid)
-      have hexS1 : sa.exclusive = true := by rw [hima] at himaex; rw [himaex]; exact hmaex
-      have hexS2 : sb.exclusive = true := by rw [himb] at himbex; rw [himbex]; exact hmbex
-      have hparS : sa.parent = sb.parent := by
-        have e1 : sa.parent = ma.parent := by rw [hima] at himapar; exact himapar
-        have e2 : sb.parent = mb.parent := by rw [himb] at hmbpar; exact hmbpar
-        rw [e1, e2]; exact hmpar
-      have hdisjS : Disjoint sa.rect sb.rect := by
-        rcases placedOf_scene hpm with hps | ⟨q, hqm, hqs⟩
-        · have hsa' : sa ∈ l.part.scene.boxes := by rw [← hps]; exact hsam
-          have hsb' : sb ∈ l.part.scene.boxes := by rw [← hps]; exact hsbm
-          exact (hFrag l hlm).1 _ hsa' _ hsb' hneS hexS1 hexS2 hparS
-        · have hsa' : sa ∈ q.2.scene.boxes := by rw [← hqs]; exact hsam
-          have hsb' : sb ∈ q.2.scene.boxes := by rw [← hqs]; exact hsbm
-          exact ((hFrag l hlm).2 q hqm) _ hsa' _ hsb' hneS hexS1 hexS2 hparS
+      obtain ⟨hPart, hNotes⟩ := hSources l hlm
+      have hdisjS := notesPlacedFragmentSiblings_disjoint hwf hpm hPart hNotes
+        (hFrag l hlm) hma hmb hsam hsbm hsaid hsbid hneS hmaex hmbex hmpar
       have hsaR' : ra.id = sa.id := hsaR.trans hsaid.symm
       have hsbR' : rb.id = sb.id := hsbR.trans hsbid.symm
       exact e.resC2_of_fragment hpfaF hsam hsbm hdisjS hra hsaR' hrb hsbR' hfa' hfb'
@@ -395,6 +390,7 @@ theorem notes_c2 {base : List String → Input → Options → Except LayoutErro
     have hneC : ca.id ≠ cb.id := by rw [hcaR, hcbR]; exact hne
     obtain ⟨ica, hicam, hicaid, hicapar, hicaex⟩ := hcm ca hcam
     obtain ⟨icb, hicbm, hicbid, hicbpar, hicbex⟩ := hcm cb hcbm
+    have hnd := Model.boxIds_nodup hwf
     have hica : ica = ma := nbx_nodup_id_inj _ hnd hicam hma (hicaid.symm.trans hcaid)
     have hicb : icb = mb := nbx_nodup_id_inj _ hnd hicbm hmb (hicbid.symm.trans hcbid)
     have hexC1 : ca.exclusive = true := by rw [hica] at hicaex; rw [hicaex]; exact hmaex

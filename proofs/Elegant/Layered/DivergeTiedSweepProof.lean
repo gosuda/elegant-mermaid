@@ -83,16 +83,8 @@ def DivergeChainAgree (p : Proper) (L : List (List Nat)) : Prop :=
           l2[i']? = some a' → l2[j']? = some b' →
           (i < j ↔ i' < j')
 
-/-- Single per-sweep residual for the tied case: in an executed run, the pair
-invariant holds on the seed and is preserved by one reorder step; the
-executed pre-layers satisfy pair agreement; and tied pairs keep their order
-through the executed sibling-normalise step, in both directions. Strictly
-narrower than `DivergeTiedSweepStable`: it constrains only pre-normalise
-iterates, the pre-layers, and one normalise step, never concluding final-layer
-order by itself. True on every executed probe
-(`wip/Probe/DivergeSweep3TProbe.lean`: pair agreement on seed, reorder outputs
-and pre-layers with zero disagreements; tied transfer with zero mismatches on
-384/640 checked quads). -/
+/-- The preimage clauses quantify over arbitrary rows, not only executed rows.
+The executable probes exhibit counterexamples to those clauses. -/
 def DivergeSweepChainAgree : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
@@ -546,7 +538,7 @@ private theorem dts_transposeLoop_agree (p : Proper) :
     · exact ih _ (OrderImpl.transposePass_layering hL) (dts_transposePass_agree hL h)
 
 /-- `transpose` preserves agreement. -/
-private theorem dts_transpose_agree {p : Proper} {L : List (List Nat)}
+theorem divergeChainAgree_transpose {p : Proper} {L : List (List Nat)}
     (hL : OrderImpl.Layering p L) (h : DivergeChainAgree p L) :
     DivergeChainAgree p (OrderImpl.transpose p L) := by
   unfold OrderImpl.transpose
@@ -574,8 +566,7 @@ private theorem dts_empty_runKey_agree (p : Proper) (key : OrderKey)
     intro sweep best score stall hL hb
     have hswL : OrderImpl.Layering p (OrderImpl.sweepLayers p sweep best key) :=
       OrderImpl.sweepLayers_layering (key := key) hL sweep
-    have htr := dts_transpose_agree (p := p) (L := OrderImpl.sweepLayers p sweep best key) hswL
-      (hpres sweep best hb)
+    have htr := divergeChainAgree_transpose hswL (hpres sweep best hb)
     have htrL := OrderImpl.transpose_layering hswL
     have htrial : DivergeChainAgree p (OrderImpl.siblingNormalise p
         (OrderImpl.transpose p (OrderImpl.sweepLayers p sweep best key))) := by

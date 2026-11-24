@@ -11,11 +11,12 @@ namespace PipelineImpl
 /-!
 # Whole-record assembly of the note-stage C2 and C3 geometric contexts.
 
-`NotesC2Geom` (`NotesFlatBoxClauses.lean`) is the conjunction `NotesFirstMatch`,
-`NotesContractMirror`, `NotesFragMirror`, `NotesPlacedDisjoint`,
-`NotesForeignClear`; `NotesC3Geom` adds `NotesEnvFit`, `NotesParentAlign`,
-`NotesParentLocal`, `NotesKeptClosed`, `NotesContractBoxEq`, `NotesFragBoxEq`.
-Each conjunct has a closer theorem (`notesFirstMatch_holds`,
+`NotesC2Geom` (`NotesFlatBoxClauses.lean`) combines first-match, contracted
+metadata, selected subinput provenance, placed separation, and foreign
+clearance. `NotesC3Geom` uses the two mirrors, envelope fit, parent alignment
+and locality, kept closure, and parent lookups.
+Selected subinput provenance is projected from `NotesBaseFrag`; the other
+conjuncts use the placement and mirror lemmas (`notesFirstMatch_holds`,
 `notesContractMirror_holds`, `notesFragMirror_holds`, `notesEnvFit_holds`,
 `notesPlacedDisjoint_holds`, `notesForeignClear_holds`,
 `notesParentAlign_holds`, `notesParentLocal_holds`, `notesKeptClosed_holds`,
@@ -24,13 +25,13 @@ them into the whole records.
 
 Premises are only the executed run `e : NotesExecution`, local well-formedness
 (for input-id nodup), and narrow defs for the still-open conjunct halves:
-`NotesBaseContract`, `NotesBaseFrag`, `NotesFragRoots`, `NotesBundleNoteParent`,
-`NotesKeptParent` (from `NotesMirrorFacts`), the contracted `Validator.C2` base
-clause, and the six `Ngb*` defs below. The holding-rect half of
-`NotesFirstMatch` is not a premise: it follows from the executed placement
-equation, `NotesBaseFrag`, and input-id nodup (`nga_placed_rect_self`), so
-this assembly is strictly weaker than the `Ngc2BridgeW`/`Ngc3BridgeW` bridges,
-which carry that half explicitly.
+`NotesBaseContract` and `NotesBaseFrag` for both clauses, plus
+`NotesFragRoots`, `NotesBundleNoteParent`, and `NotesKeptParent` for C3.
+C2 also takes the contracted `Validator.C2` base clause. Both assemblies use
+the relevant `Ngb*` predicates below. Unlike the `Ngc2BridgeW` and
+`Ngc3BridgeW` bridges, these assemblies derive the holding-rect half of
+`NotesFirstMatch` from executed placement, `NotesBaseFrag`, and input-id
+nodup (`nga_placed_rect_self`).
 -/
 
 /-- Cross-fragment lookup absence: a box id held by one placed fragment is
@@ -201,16 +202,19 @@ theorem notesC2Geom_holds
     (hwf : WellFormed (inputModel inp o))
     (hBase : Validator.C2 e.contracted.scene.layoutDump)
     (hBaseC : NotesBaseContract e) (hBaseF : NotesBaseFrag e)
-    (hRoots : NotesFragRoots e) (hCross : NgbFirstCross e)
+    (hCross : NgbFirstCross e)
     (hPlace : NgbEnvPlace e) (hFragC1 : NgbFragC1 e)
     (hApplTops : NgbTopPairsExclusive e) (hSameEnv : NgbSamePlaceDisjoint e)
     (hApplForeign : NgbForeignExclusive e) :
     NotesC2Geom e := by
   have hnd : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
+  have hSources : NotesFragBoxSources e := by
+    intro l hl
+    exact ⟨(hBaseF l hl).1.2, fun q hq => ((hBaseF l hl).2 q hq).2⟩
   have hEnv : NotesEnvFit e := notesEnvFit_holds e hPlace hFragC1
   exact ⟨nga_firstMatch_of_cross e hBaseF hnd hCross,
     notesContractMirror_holds e hBaseC,
-    notesFragMirror_holds e hBaseF hRoots hnd,
+    hSources,
     notesPlacedDisjoint_holds e hBase hApplTops hEnv hSameEnv,
     notesForeignClear_holds e hBase hApplForeign hEnv⟩
 

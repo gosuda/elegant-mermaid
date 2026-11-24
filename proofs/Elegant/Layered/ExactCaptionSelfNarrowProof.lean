@@ -1,4 +1,5 @@
 import Elegant.Layered.ExactCaptionSelfProof
+import Elegant.Layered.ExactTitleRunContext
 import Elegant.Layered.Pipeline
 import Elegant.Layered.ExactPipeline
 import Elegant.Layered.ExactFlatFacts
@@ -278,8 +279,7 @@ non-fixed (so `exactGraph` leaves it unchanged) and exact membership would
 have thrown. Plain path: `actual_title_caption_fit` transported across
 `exactGraph`. -/
 private theorem xcsn_exact_title_fit {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} {candidate i : Nat} {tNode : Node}
     (hnode : (componentCandidate execution.graph comp candidate).nodes[i]? = some tNode)
     (hborder : tNode.border = -2) :
@@ -749,8 +749,7 @@ private theorem xcsn_coordinateGraph_rank_pair_X (P : Params) (exact : List Nat)
 /-- Copy of `componentRun_requested_group_range` over `componentRunX`: the
 requested group rank covers its bottom marker rank. -/
 private theorem xcsn_requested_group_range_X {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -1005,8 +1004,7 @@ private theorem xcsn_pc_title_unique {cg : Graph} {P : Params} {exact : List Nat
 side borders at the title rank of an exact group. The title copy index comes
 straight from the title reservation (no top-uniqueness indirection needed). -/
 private theorem xcsn_group_title_borders_X {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -1125,8 +1123,7 @@ private theorem xcsn_group_title_borders_X {exactIds : List String} {inp : Input
 /-- Copy of `componentRun_group_title_bracket` over `componentRunX`: the
 title, left, and right markers lie on one layer in order. -/
 private theorem xcsn_group_title_bracket_X {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -1179,8 +1176,7 @@ placement at measured size, and the measured width fit. Replay of
 `measured_component_caption_cross_axis_source` plus the selected-copy step
 and `actual_title_caption_fit`, transported across `exactGraph`. -/
 private theorem xcsn_cross_axis_bundle_X {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -1242,9 +1238,9 @@ private theorem xcsn_cross_axis_bundle_X {exactIds : List String} {inp : Input}
 /-- Exact self-sides core: the transported caption keeps a positive gap from
 the left and right edges of its own frame. Replay of
 `captionSelfSidesStrict_executed` over `componentRunX`. -/
-private theorem xcsn_sides_core_X {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+theorem componentRunX_title_inside_frame_x
+    {exactIds : List String} {inp : Input} {o : Options}
+    (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -1398,7 +1394,8 @@ theorem XC_selfSidesLeftNarrowX_holds (exactIds : List String) :
     XC_SelfSidesLeftNarrowX exactIds := by
   intro inp o res execution comp hcomp candidate run orderOptions hrun
   intro i stored0 tNode hmem hnode hborder
-  exact (xcsn_sides_core_X execution hcomp hrun hmem hnode hborder).1
+  exact (componentRunX_title_inside_frame_x execution.exactTitleContext hcomp hrun
+    hmem hnode hborder).1
 
 /-- Exact self-sides right narrow fact, proved by replaying the plain
 title-copy versus right-marker separation over `componentRunX`. -/
@@ -1406,7 +1403,8 @@ theorem XC_selfSidesRightNarrowX_holds (exactIds : List String) :
     XC_SelfSidesRightNarrowX exactIds := by
   intro inp o res execution comp hcomp candidate run orderOptions hrun
   intro i stored0 tNode hmem hnode hborder
-  exact (xcsn_sides_core_X execution hcomp hrun hmem hnode hborder).2
+  exact (componentRunX_title_inside_frame_x execution.exactTitleContext hcomp hrun
+    hmem hnode hborder).2
 
 /-- Closed exact self-sides: both narrow halves hold, so the combination
 theorem from `ExactCaptionSelfProof` applies. -/
@@ -1433,11 +1431,11 @@ theorem componentRunX_group_frame_dims_pos {exactIds : List String} {inp : Input
     checkedParams_clusterBorderW_ge_one execution.checked
   have hpad : 0 < execution.params.clusterPad :=
     checkedParams_clusterPad_pos execution.checked
-  obtain ⟨_, hfit⟩ := xcsn_exact_title_fit execution hnode hgroup
+  obtain ⟨_, hfit⟩ := xcsn_exact_title_fit execution.exactTitleContext hnode hgroup
   obtain ⟨v, hcoordC, hproperTitle, _, _, _, _⟩ :=
     xcsn_group_title_interval_source_X hrun hnode hgroup
   obtain ⟨_, left, _, hleft, _, _, _⟩ :=
-    xcsn_group_title_borders_X execution hcomp hrun hnode hgroup hcoordC
+    xcsn_group_title_borders_X execution.exactTitleContext hcomp hrun hnode hgroup hcoordC
     (by rfl) (by rfl)
   obtain ⟨hleftFinal, _⟩ := xcsn_border_record hrun hleft (Or.inl rfl)
   obtain ⟨_, _, _, hgraphGet, _⟩ := xcsn_candidate_comp_index hnode hgroup
@@ -1454,6 +1452,7 @@ theorem componentRunX_group_frame_dims_pos {exactIds : List String} {inp : Input
       execution.params.clusterBorderW := by
     simp only [Labels.rectAt, Labels.labelRect, RouteImpl.nodeW, hleftFinal,
       OrderImpl.borderLeft]
+    rfl
   let borders := run.proper.nodes.zipIdx.filterMap fun q =>
     if (q.1.node.border == -1 || q.1.node.border == 1) &&
         q.1.node.clusterPath.getLast? == some node.decl then

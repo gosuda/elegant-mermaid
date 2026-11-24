@@ -26,10 +26,8 @@ contracted-scene form follows with one extra mirror premise (contracted
 roles match folded roles), which holds on both assembly probe inputs and
 follows for `layoutX` from its box-role preservation.
 
-Consumer replacement: in `NotesC8aGeom` (consumed as
-`NotesFlatFacts.c8aGeom`), replace the `NotesC8aContractRole e` conjunct
-with `NotesC8aContractRoleT e` below (that is, adopt `NotesC8aGeomT e`),
-and call `notes_c8a'` instead of `notes_c8a`.
+`NotesC8aGeomT` replaces the `NotesC8aContractRole` conjunct with
+`NotesC8aContractRoleT`; `notes_c8a'` consumes the repaired geometry.
 -/
 
 /-- True contracted-role residual: every contracted box has an input box

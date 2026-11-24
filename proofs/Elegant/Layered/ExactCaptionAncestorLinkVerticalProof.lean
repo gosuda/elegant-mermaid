@@ -63,12 +63,6 @@ private theorem xcv_bind_ok {α β : Type} {x : Except LayoutError α}
   | error e => simp [bind, Except.bind] at h
   | ok a => exact ⟨a, rfl, h⟩
 
-private theorem xcv_lines_len {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res) :
-    execution.lines.length = inp.boxes.length := by
-  have h := (mapM_getElem? _ _ _ execution.lines_eq).1
-  simpa only [List.length_zipIdx] using h
-
 private theorem xcv_le_foldr_max {l : List Nat} {a : Nat} (h : a ∈ l) :
     a ≤ l.foldr max 0 := by
   induction l with
@@ -615,31 +609,6 @@ private theorem xcv_extra_fold (cg : Graph) (exact : List Nat)
         acc.set rank (max (acc.getD rank 0) needed)) top.length hstep
     cg.nodes.zipIdx (List.replicate top.length (0 : Int)) hbase hbasePos
   exact h
-private theorem xcv_prefix_pairwise (es : List Int) (hpos : ∀ e ∈ es, 0 ≤ e)
-    (s : Int) (out : List Int)
-    (hm : out.Pairwise (· ≤ ·)) (hle : ∀ x ∈ out, x ≤ s) :
-    ((es.foldl (fun acc e => (acc.1 + e, acc.2 ++ [acc.1])) (s, out)).2).Pairwise
-      (· ≤ ·) := by
-  induction es generalizing s out with
-  | nil => simpa
-  | cons e es ih =>
-    have he : 0 ≤ e := hpos e List.mem_cons_self
-    simp only [List.foldl_cons]
-    apply ih
-    · intro e' he'
-      exact hpos e' (List.mem_cons_of_mem e he')
-    · apply List.pairwise_append.mpr
-      refine ⟨hm, by simp, ?_⟩
-      intro x hx y hy
-      simp only [List.mem_singleton] at hy
-      rw [hy]
-      exact hle x hx
-    · intro x hx
-      simp only [List.mem_append, List.mem_singleton] at hx
-      rcases hx with hx | rfl
-      · have := hle x hx
-        omega
-      · omega
 
 private theorem xcv_shift_strict_tops {p : Proper} {layers : List (List Nat)}
     {top : List Int} {extra shifts : List Int} {top' : List Int}
@@ -660,7 +629,7 @@ private theorem xcv_shift_strict_tops {p : Proper} {layers : List (List Nat)}
     simp [hextraLen]
   have hpair : shifts.Pairwise (· ≤ ·) := by
     rw [hshifts]
-    exact xcv_prefix_pairwise extra hpos 0 [] (by simp) (by simp)
+    exact reserveShift_prefix_pairwise extra hpos 0 [] (by simp) (by simp)
   have hmono : ∀ i j, i < j → j < shifts.length →
       shifts.getD i 0 ≤ shifts.getD j 0 :=
     fun i j hij hj => xcv_pairwise_getD_le hpair hij hj
@@ -1021,7 +990,7 @@ private theorem xcv_bottom_hull_mem {P : Params} {inp : Input} {o : Options}
   rw [← hgroupGet]
   exact xcv_rect_mem_frame_hull hbprop hpath'
 private theorem xcv_revKey {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    (execution : ExactFramePrefix exactIds inp o)
     {v : Nat} {nd : Node} (h : execution.graph.nodes[v]? = some nd) :
     ∃ nd0, execution.graph0.nodes[v]? = some nd0 ∧ nd0.decl = nd.decl ∧
       nd0.border = nd.border ∧ nd0.clusterPath = nd.clusterPath := by
@@ -1038,7 +1007,7 @@ private theorem xcv_revKey {exactIds : List String} {inp : Input} {o : Options}
   exact ⟨_, hmem, hd.symm, hb.symm, hc.symm⟩
 
 private theorem xcv_groupPath {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    (execution : ExactFramePrefix exactIds inp o)
     {index : Nat} {node : Node} (hnode : execution.graph0.nodes[index]? = some node)
     (hgroup : node.border = -2) :
     ∃ box : ModelBox, inp.boxes[index]? = some box ∧ node.decl = index ∧
@@ -1054,8 +1023,7 @@ private theorem xcv_groupPath {exactIds : List String} {inp : Input} {o : Option
   exact hpath
 
 private theorem xcv_direct_group_path {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
     (hwf : WellFormed (inputModel inp o))
     {comp : List Nat} {candidate parentIndex childIndex : Nat} {parent child : Node}
     (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? =
@@ -1708,14 +1676,25 @@ private theorem xcv_memberBottom {P : Params} {inp : Input} {exactIds : List Str
   rw [hnodeHq]
   exact Int.le_trans hband hle
 
-theorem XCA_LinkTopXW_holds (exactIds : List String) :
-    XCA_LinkTopXW exactIds := by
-  intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
-  intro parentIndex childIndex parent child parentBox childBox
-  intro hparent hpb hchild hcb hpbox hcbox href hne
+private theorem exactGroupFrameStrict_top {exactIds : List String} {inp : Input}
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
+    (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRunX execution.params (exactDecls exactIds inp)
+      (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run)
+    {parentIndex childIndex : Nat} {parent child : Node} {parentBox childBox : ModelBox}
+    (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? = some parent)
+    (hpb : parent.border = -2)
+    (hchild : (componentCandidate execution.graph comp candidate).nodes[childIndex]? = some child)
+    (hcb : child.border = -2)
+    (hpbox : inp.boxes[parent.decl]? = some parentBox)
+    (hcbox : inp.boxes[child.decl]? = some childBox)
+    (href : childBox.parent = parentBox.id) (hne : childBox.parent ≠ "") :
+    (frameRect execution.params (componentCandidate execution.graph comp candidate) run parentIndex).y <
+      (frameRect execution.params (componentCandidate execution.graph comp candidate) run childIndex).y := by
+  have hlines := execution.lines_length
   let cg := componentCandidate execution.graph comp candidate
-  have hlines : execution.lines.length = inp.boxes.length :=
-    xcv_lines_len execution
   obtain ⟨rr, labeled, hrr, hc, hk, hready, hrecords, hranks, haligned⟩ :=
     X_cg_run_bundle execution.graph0_eq execution.graph_eq hcomp hrun
   obtain ⟨parentBottom, hparentBottom⟩ :=
@@ -1782,10 +1761,11 @@ theorem XCA_LinkTopXW_holds (exactIds : List String) :
       q.1.node.clusterPath.contains child.decl = true →
       rk run.proper.rank childIndex ≤ rk run.proper.rank q.2 := by
     intro q hq hcontains
-    have hc' : q.1.node.clusterPath.contains
-        (cg.nodes.getD childIndex default).decl = true := by
-      rw [hgroupGetC]; exact hcontains
-    exact (XC_childTopXW_holds exactIds) execution hwf hfp hcomp hrun hchild hcb q hq hc'
+    have hget := List.mem_zipIdx_iff_getElem?.mp hq
+    have hlen := (List.getElem?_eq_some_iff.mp hget).1
+    exact (x_topRank_holds exactIds) execution.graph0_eq execution.graph_eq hlines hwf hfp
+      hcomp hrun hchild hcb hchildLt hlen (by
+        simp only [List.getD_eq_getElem?_getD, hget, Option.getD_some, hcontains])
   let childRects := run.proper.nodes.zipIdx.filterMap fun entry =>
     if entry.1.node.clusterPath.contains child.decl then
       some (Labels.rectAt run.proper run.xs run.ys entry.2)
@@ -2020,14 +2000,27 @@ private theorem xcv_top_nonneg {P : Params} {inp : Input}
     rw [List.getD_eq_getElem?_getD, hg]
     simp
 
-theorem XCA_LinkBotXW_holds (exactIds : List String) :
-    XCA_LinkBotXW exactIds := by
-  intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
-  intro parentIndex childIndex parent child parentBox childBox
-  intro hparent hpb hchild hcb hpbox hcbox href hne
+private theorem exactGroupFrameStrict_bottom {exactIds : List String} {inp : Input}
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
+    (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRunX execution.params (exactDecls exactIds inp)
+      (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run)
+    {parentIndex childIndex : Nat} {parent child : Node} {parentBox childBox : ModelBox}
+    (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? = some parent)
+    (hpb : parent.border = -2)
+    (hchild : (componentCandidate execution.graph comp candidate).nodes[childIndex]? = some child)
+    (hcb : child.border = -2)
+    (hpbox : inp.boxes[parent.decl]? = some parentBox)
+    (hcbox : inp.boxes[child.decl]? = some childBox)
+    (href : childBox.parent = parentBox.id) (hne : childBox.parent ≠ "") :
+    (frameRect execution.params (componentCandidate execution.graph comp candidate) run childIndex).y +
+      (frameRect execution.params (componentCandidate execution.graph comp candidate) run childIndex).h <
+      (frameRect execution.params (componentCandidate execution.graph comp candidate) run parentIndex).y +
+        (frameRect execution.params (componentCandidate execution.graph comp candidate) run parentIndex).h := by
+  have hlines := execution.lines_length
   let cg := componentCandidate execution.graph comp candidate
-  have hlines : execution.lines.length = inp.boxes.length :=
-    xcv_lines_len execution
   obtain ⟨rr, labeled, hrr, hc, hk, hready, hrecords, hranks, haligned⟩ :=
     X_cg_run_bundle execution.graph0_eq execution.graph_eq hcomp hrun
   obtain ⟨parentBottom, hparentBottom⟩ :=
@@ -2193,6 +2186,42 @@ theorem XCA_LinkBotXW_holds (exactIds : List String) :
         (frameRect execution.params cg run parentIndex).h := by
     omega
   exact hBotDone
+
+theorem XCA_LinkTopXW_holds (exactIds : List String) : XCA_LinkTopXW exactIds := by
+  intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
+    parentIndex childIndex parent child parentBox childBox hparent hpb hchild hcb hpbox hcbox href hne
+  exact exactGroupFrameStrict_top execution.exactFramePrefix hwf hfp hcomp hrun
+    hparent hpb hchild hcb hpbox hcbox href hne
+
+theorem XCA_LinkBotXW_holds (exactIds : List String) : XCA_LinkBotXW exactIds := by
+  intro inp o res execution hwf hfp comp hcomp candidate run orderOptions hrun
+    parentIndex childIndex parent child parentBox childBox hparent hpb hchild hcb hpbox hcbox href hne
+  exact exactGroupFrameStrict_bottom execution.exactFramePrefix hwf hfp hcomp hrun
+    hparent hpb hchild hcb hpbox hcbox href hne
+
+theorem exactGroupFrameStrict {exactIds : List String} {inp : Input}
+    {o : Options} (execution : ExactFramePrefix exactIds inp o)
+    (hwf : WellFormed (inputModel inp o)) (hfp : framedParents inp = true)
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRunX execution.params (exactDecls exactIds inp)
+      (componentCandidate execution.graph comp candidate) execution.measured orderOptions = .ok run)
+    {parentIndex childIndex : Nat} {parent child : Node} {parentBox childBox : ModelBox}
+    (hparent : (componentCandidate execution.graph comp candidate).nodes[parentIndex]? = some parent)
+    (hpb : parent.border = -2)
+    (hchild : (componentCandidate execution.graph comp candidate).nodes[childIndex]? = some child)
+    (hcb : child.border = -2)
+    (hpbox : inp.boxes[parent.decl]? = some parentBox)
+    (hcbox : inp.boxes[child.decl]? = some childBox)
+    (href : childBox.parent = parentBox.id) (hne : childBox.parent ≠ "") :
+    (frameRect execution.params (componentCandidate execution.graph comp candidate) run parentIndex).StrictInside
+      (frameRect execution.params (componentCandidate execution.graph comp candidate) run childIndex) := by
+  obtain ⟨hl, hr⟩ := exactGroupFrameStrict_horizontal execution hwf hcomp hrun
+    hparent hpb hchild hcb hpbox hcbox href hne
+  exact ⟨hl, hr,
+    exactGroupFrameStrict_top execution hwf hfp hcomp hrun hparent hpb hchild hcb hpbox hcbox href hne,
+    exactGroupFrameStrict_bottom execution hwf hfp hcomp hrun hparent hpb hchild hcb hpbox hcbox href hne⟩
+
 theorem XCA_groupLinkXW_closed (exactIds : List String) :
     XCA_GroupLinkXW exactIds :=
   XCA_groupLinkXW_holds exactIds

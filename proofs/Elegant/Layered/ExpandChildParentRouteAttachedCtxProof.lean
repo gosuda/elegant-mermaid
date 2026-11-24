@@ -19,7 +19,7 @@ namespace Elegant.Layered.PipelineImpl
 
 Proved here:
 
-* `pracCtx_hitsRect_of_strictInside` (private) and its private helpers: the
+* `hitsRect_of_strictInside` and its private helpers: the
   `hitsRect` monotonicity chain through strict containment, copied with a
   file-unique prefix from `ExpandChildParentRouteClearProof.lean` (whose
   copies are private to that module and do not resolve here). Hitting a
@@ -259,7 +259,7 @@ private theorem pracCtx_allSegsMiss_of_strictInside {outer inner : Rect}
         exact ⟨pracCtx_segMisses_of_strictInside hSI hw hh hseg, ih htail⟩
 
 /-- Hitting a strictly inner rectangle implies hitting the outer one. -/
-private theorem pracCtx_hitsRect_of_strictInside {outer inner : Rect}
+theorem hitsRect_of_strictInside {outer inner : Rect}
     {pts : List Point}
     (hSI : outer.StrictInside inner) (h : Polyline.hitsRect pts inner) :
     Polyline.hitsRect pts outer := by
@@ -290,7 +290,7 @@ def ParentRouteAttachedCtxPremise (group : ModelBox) (parent : FamilyResult) : P
 endpoint attachment is explicitly supplied misses the group frame rectangle.
 Strictly on the way: the inner-rectangle quantifier of the target is dropped
 (frame rectangle only) and the `C5` attachment tuple is taken as an
-antecedent; the proved `pracCtx_hitsRect_of_strictInside` bridge restores the
+antecedent; the proved `hitsRect_of_strictInside` bridge restores the
 quantifier in `parentRouteAttachedClear_of_recursion_ctx`. The missing
 content is router-level: outward-facing port stubs and middle-segment
 avoidance at the frame. True on every probe call (`frameViols = 0`
@@ -326,7 +326,7 @@ private theorem pracCtx_attached_inner_of_frame
     ¬ Polyline.hitsRect pr.points r := by
   intro hr
   exact hmiss frame hfind pr hmem hatt p q fb tb hp hq hfb htb hbFrom hbTo
-    (pracCtx_hitsRect_of_strictInside hSI hr)
+    (hitsRect_of_strictInside hSI hr)
 
 /-- `parentRouteAttachedClear`: the parent scene of every executed
 `expandChild` call satisfies `ExpandChildParentRouteAttachedClear`, from the

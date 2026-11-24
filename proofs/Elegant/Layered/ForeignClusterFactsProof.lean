@@ -60,16 +60,16 @@ def ForeignBorderAnchorPaths : Prop :=
     (na.node.clusterPath.getLast? = some wNode.decl →
       na.node.clusterPath = wNode.clusterPath)
 
-/-- Alignment-phase residual: for every declaration, side, pass, and checked
-layer table, the side markers form one chain carrying the executed `up`
-behaviour.  The chain is identified by border, width, and owner
-(`borderChainBlock_of_ups` reduces the block to exactly this `BorderChainUps`
-hypothesis); the statement is about alignment pointers only, pinned to the
-same three execution equations. -/
+/-- In a successful framed run, the side markers of a declaration form one
+chain carrying the executed `up` behaviour for each side, pass, and checked
+layer table. Border, width, and owner identify the chain. -/
 def ForeignBorderSideUps : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -409,6 +409,9 @@ theorem foreignBorderSideBlocked (hups : ForeignBorderSideUps)
     {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph}
     (hgraph : measuredGraph P inp o lines = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hframed : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
     {orderOptions : OrderOptions}
@@ -432,7 +435,7 @@ theorem foreignBorderSideBlocked (hups : ForeignBorderSideUps)
         (CoordsImpl.typeOneConflicts
           (CoordsImpl.borderAlignment run.coordinateProper run.layers) pos) k chain) := by
   intro pos hpos hL
-  obtain ⟨chain, ordered, hiff, hupsK⟩ := hups hgraph hcomp hrun hside hk hpos
+  obtain ⟨chain, ordered, hiff, hupsK⟩ := hups hgraph hlines hwf hframed hcomp hrun hside hk hpos
   have hflat : ∀ v ∈ chain, v ∈ run.layers.flatten := by
     intro v hv
     rw [hiff] at hv

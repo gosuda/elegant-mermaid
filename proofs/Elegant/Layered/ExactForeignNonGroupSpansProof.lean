@@ -101,13 +101,15 @@ def XN_PlainClearOfSideMarker (exactIds : List String) : Prop :=
         RouteImpl.leftOf run.proper run.xs mR + RouteImpl.nodeW run.proper mR ≤
           RouteImpl.leftOf run.proper run.xs v
 
-/-- Residual (alignment phase), exact form: copy of `SideMarkerSpanAligned`
-over `componentRunX`. -/
+/-- Side-marker span alignment over exact runs on well-formed framed inputs. -/
 def XN_SideMarkerSpanAligned (exactIds : List String) : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {measured : List MeasuredLabel} {graph0 graph : Graph},
     measuredGraph P inp o lines = .ok graph0 →
     exactGraph P exactIds inp o measured graph0 = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -570,7 +572,7 @@ private theorem XN_plain_frame_disjoint (exactIds : List String)
       have hborderROr : nR.node.border = -1 ∨ nR.node.border = 1 :=
         Or.inr hborderR
       have hcross :=
-        (halign h0 hg hcomp hrun hmarkRunL hborderLOr hlastL
+        (halign h0 hg hlines hwf hfp hcomp hrun hmarkRunL hborderLOr hlastL
           hmarkRunR hborderROr hlastR).2.2 ⟨hborderL, hborderR, hrankLR⟩
       have hall : ∀ r ∈ groupBorderRects (componentCandidate graph comp candidate) run uNode.decl,
           RouteImpl.leftOf run.proper run.xs mL ≤ r.x ∧
@@ -580,14 +582,14 @@ private theorem XN_plain_frame_disjoint (exactIds : List String)
         obtain ⟨q, nd, hq, hbq, hlastq, hrq⟩ := groupBorderRects_inv hr
         rcases hbq with hbqL | hbqR
         · obtain ⟨heq1, heq2⟩ :=
-            (halign h0 hg hcomp hrun hmarkRunL hborderLOr hlastL
+            (halign h0 hg hlines hwf hfp hcomp hrun hmarkRunL hborderLOr hlastL
               hq (Or.inl hbqL) hlastq).1 (by rw [hborderL, hbqL])
           rw [hrq, rectAt_eq]
           dsimp only
           rw [heq1, ← heq2]
           exact ⟨Int.le_refl _, hcross.2⟩
         · obtain ⟨heq1, heq2⟩ :=
-            (halign h0 hg hcomp hrun hmarkRunR hborderROr hlastR
+            (halign h0 hg hlines hwf hfp hcomp hrun hmarkRunR hborderROr hlastR
               hq (Or.inr hbqR) hlastq).1 (by rw [hborderR, hbqR])
           rw [hrq, rectAt_eq]
           dsimp only
@@ -595,7 +597,7 @@ private theorem XN_plain_frame_disjoint (exactIds : List String)
           · rw [← heq1]; exact hcross.1
           · omega
       have hnonnegR :=
-        (halign h0 hg hcomp hrun hmarkRunR hborderROr hlastR
+        (halign h0 hg hlines hwf hfp hcomp hrun hmarkRunR hborderROr hlastR
           hmarkRunR hborderROr hlastR).2.1
       have hminX := boundsOf_minX_ge_of_all hneRects (fun r hr => (hall r hr).1)
       have hright := boundsOf_right_le_of_all hnonnegR

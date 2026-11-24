@@ -46,13 +46,13 @@ Proved here:
   (`R_PartSizingRResidual`, via `r7_partsSeparated_holds`), and the W caption
   clearance (via `r7_sceneCaptionBoxContainmentFitW` into `r7_layout_c7`).
 
-Open (strictly narrower named residuals, consumed by P12 `RegionSeams` or by
-the future belong/box bridges): `R7_RunLocalForwardSeparation`,
-`R7_RunLocalReversedSeparation`, `R7_RouteLabelsPlaced`,
-`R7_ExclusiveRunNodeDecl`, `R7_ExclusiveKeyOutsideCgPaths`,
-`R7_LoopEnvelopeMiss` (implication source only), `R7_OwnerSelfMiss` and
-`R7_PlainReserve` for nonempty sets, `R7_SameRankMiss`, `R7_OtherRankMiss`,
-`R7_OtherOwner`, `R7_CaptionTitleBranch`, `R7_CaptionDescendantClear`.
+Open named residuals include `R7_RunLocalForwardSeparation`,
+`R7_RunLocalReversedSeparation`, `R7_LoopEnvelopeMiss`,
+`R7_OwnerSelfMiss` and `R7_PlainReserve` for nonempty sets,
+`R7_SameRankMiss`, `R7_OtherRankMiss`, `R7_OtherOwner`,
+`R7_CaptionTitleBranch`, and `R7_CaptionDescendantClear`.
+The route-placement and exclusive-node identity leaves are proved in
+`RegionLabelPlacementProof`, `RegionRunNodeIdentity`, and `RegionExclusivePath`.
 
 Truth note (plan section 4 item 4): the `some`-case reserve
 (`R7_PlainReserve` with `titleReservationsR` giving titles their own height)
@@ -68,7 +68,7 @@ the full P3/P5 replay, true on every executed probe row.
 -/
 /-- Region spec fixed by the executed input, exactly as `SceneExecutionR`
 threads it into the components fold. -/
-private def r7Spec (idSets : List (String × List String)) (o : Options)
+def r7Spec (idSets : List (String × List String)) (o : Options)
     (P : Params) (lines : List (List Measure.Line)) : Option RegionSpec :=
   if idSets.isEmpty then none
     else some (RegionSpec.mk idSets (lines.map fun ls =>
@@ -80,7 +80,7 @@ private def r7Spec (idSets : List (String × List String)) (o : Options)
 
 /-- Effective per-component spec, exactly as `componentTrialR` downgrades it:
 a component with no regions runs with `none`. -/
-private def r7Eff (idSets : List (String × List String)) (o : Options)
+def r7Eff (idSets : List (String × List String)) (o : Options)
     (P : Params) (lines : List (List Measure.Line))
     (rs : Option ComponentRegions) : Option RegionSpec :=
   if rs.isSome then r7Spec idSets o P lines else none
@@ -1242,6 +1242,7 @@ theorem flatC7B_layoutRIds_W (exactIds : List String)
     (hfwd : R7_RunLocalForwardSeparation exactIds idSets)
     (hrev : R7_RunLocalReversedSeparation exactIds idSets)
     (hbridges : ∀ (inp : Input) (o : Options) (res : FamilyResult),
+      WellFormed (inputModel inp o) → framedParents inp = true →
       R7_RouteLabelDumpBridges exactIds idSets inp o res)
     (hres : R_PartSizingRResidual exactIds idSets)
     (hcapFitW : R7_CaptionScopeClearanceFitW exactIds idSets) :
@@ -1256,4 +1257,4 @@ theorem flatC7B_layoutRIds_W (exactIds : List String)
   have hcaps : R7_SceneCaptionBoxContainment exactIds idSets inp o res :=
     r7_sceneCaptionBoxContainmentFitW (inp := inp) (o := o) (res := res) hwf
       hfit hcapFitW
-  exact r7_layout_c7 hwf hfp hparts ⟨hrunlocal, hbridges inp o res⟩ hcaps h
+  exact r7_layout_c7 hwf hfp hparts ⟨hrunlocal, hbridges inp o res hwf hfp⟩ hcaps h

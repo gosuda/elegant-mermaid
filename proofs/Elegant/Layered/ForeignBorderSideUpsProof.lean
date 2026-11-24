@@ -255,7 +255,7 @@ theorem foreignBorderSideUps_of
       CoordsImpl.checkLayers (sideBase run) run.layers = .ok pos →
       ForeignSideFoldBound P run side decl pos k) :
     ForeignBorderSideUps := by
-  intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions hrun
+  intro P inp o lines graph hgraph _hlines _hwf _hframed comp hcomp candidate run labels orderOptions hrun
     decl side hside k hk pos hpos
   have hpos' : CoordsImpl.checkLayers (sideBase run) run.layers = .ok pos := hpos
   refine ⟨sideChainNodes P run side decl, sideOrdered P run pos k side decl,
@@ -292,10 +292,8 @@ theorem foreignBorderSideUps_of
     have hord := sideOrdered_ctx P run pos k side decl
     exact borderChainUps_of_pick hL hocc hord hpick
 
-/-- The closed alignment form `ForeignBorderChainXAligned`: every two
-same-side markers of one declaration share one closed `x`-interval. It is
-conditional on the same two residuals as `foreignBorderSideUps_of`, since the
-unconditional `ForeignBorderSideUps` is still open. -/
+/-- In a successful framed run, every two same-side markers of one declaration
+share one closed `x`-interval, given the chain shape and fold bound. -/
 theorem foreignBorderChainXAligned_of
     (hshape : ∀ {P : Params} {run : Run} {side : Int} {decl : Nat} {pos : Array Nat}
       {k : Nat},

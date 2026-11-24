@@ -30,17 +30,11 @@ to pairs with `k1 = r ∨ k2 = r`). Untouched pairs (`k1 ≠ r ∧ k2 ≠ r`) ke
 their layers under `L.set`, so the hypothesis applies directly; the hard
 rewritten-layer case is isolated in the residual.
 
-What stays open (ONE public residual): `DivergeSweepStepSortAgree`, i.e. the
-sorted layer agrees with every other layer and with itself. True on every
-probe iterate; the sort-key analysis (`constrainedLayer` block keys from the
-executed neighbour positions) is not done here.
+`DivergeSweepStepSortAgree` can fail during an actual sweep; see
+`wip/Probe/DivergeLayeredSweepCounterexample.lean`.
 -/
 
-/-- Rewritten-layer residual for the single-step fact: in an executed run,
-one `sweepStep` preserves the per-iterate invariant on every layer pair
-touching the rewritten row (`k1 = r ∨ k2 = r`). Strictly narrower than
-`DivergeSweepStepAgree` (fewer layer pairs; untouched pairs excluded).
-True on every probe iterate (see header). -/
+/-- Rewritten-layer preservation assumption. An executed sweep can violate it. -/
 def DivergeSweepStepSortAgree : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},

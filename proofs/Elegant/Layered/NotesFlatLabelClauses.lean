@@ -1,7 +1,4 @@
-import Elegant.Layered.NotesFoundation
-import Elegant.Layered.ComposeNotesC8a
-import Elegant.Layered.RouteTransport
-import ElegantGeometry.Validator
+import Elegant.Layered.NotesFlatRouteClauses
 
 set_option autoImplicit false
 
@@ -650,24 +647,6 @@ def NotesC6AncF {base : List String → Input → Options → Except LayoutError
   ∀ p ∈ e.fragments, ∀ s x : String, x ∈ p.scene.layoutDump.ancestors s →
     x ∈ (inpDumpOf inp).ancestors s
 
-/-- Flag bridge (kept): the contracted scene keeps id and endpoints of each
-kept input route. -/
-def NotesC6FlagsKept {base : List String → Input → Options → Except LayoutError FamilyResult}
-    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
-    (e : NotesExecution base exactIds fuel inp o res) : Prop :=
-  ∀ r : ModelRoute, nlcKept inp e.layouts r →
-    ∀ cr ∈ e.contracted.scene.routes, cr.id = r.id →
-      cr.orthogonal = r.orthogonal ∧ cr.fromId = r.fromId ∧ cr.toId = r.toId
-
-/-- Flag bridge (fragment): each fragment scene keeps id and endpoints of each
-same-bundle input route. -/
-def NotesC6FlagsFrag {base : List String → Input → Options → Except LayoutError FamilyResult}
-    {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
-    (e : NotesExecution base exactIds fuel inp o res) : Prop :=
-  ∀ r : ModelRoute, ∀ a : Nat, nlcSameBundleAt inp e.layouts a r →
-    ∀ p ∈ e.fragments, ∀ fr ∈ p.scene.routes, fr.id = r.id →
-      fr.orthogonal = r.orthogonal ∧ fr.fromId = r.fromId ∧ fr.toId = r.toId
-
 /-- Unclaimed contracted boxes mirror input exclusivity. -/
 def NotesC6BoxExclC {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
@@ -732,14 +711,14 @@ def NotesC6RouterClear {base : List String → Input → Options → Except Layo
         ∀ b ∈ res.scene.boxes, b.id = ib.id →
           ¬ Polyline.hitsRect pts b.rect
 
-/-- The geometric context for C6: ancestor subsumption, flag and exclusivity
+/-- The geometric context for C6: ancestor subsumption, exclusivity
 mirrors, and the mixed/router clearances. Each conjunct is
 fragment/contracted/input geometry (the router clause reads the executed
 `res` boxes only as obstacle data), never a claim about `res` validity. -/
 def NotesC6Geom {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
-  NotesC6AncC e ∧ NotesC6AncF e ∧ NotesC6FlagsKept e ∧ NotesC6FlagsFrag e ∧
+  NotesC6AncC e ∧ NotesC6AncF e ∧
     NotesC6BoxExclC e ∧ NotesC6BoxExclF e ∧ NotesC6KeptFrag e ∧
     NotesC6FragContracted e ∧ NotesC6FragOther e ∧ NotesC6RouterClear e
 
@@ -793,7 +772,7 @@ private theorem nlc_c6_kept {base : List String → Input → Options → Except
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
     (hBase : Validator.C6 e.contracted.scene.layoutDump)
-    (hFlags : NotesC6FlagsKept e) (hExclC : NotesC6BoxExclC e)
+    (hFlags : notesFlagsKept inp e.layouts e.contracted) (hExclC : NotesC6BoxExclC e)
     (hKeptFrag : NotesC6KeptFrag e) (hAncC : NotesC6AncC e)
     {r : ModelRoute} (hr : r ∈ inp.routes) (hkept : nlcKept inp e.layouts r)
     {cr : Route} (hcr : cr ∈ e.contracted.scene.routes) (hcrid : cr.id = r.id)
@@ -804,7 +783,7 @@ private theorem nlc_c6_kept {base : List String → Input → Options → Except
     (hexc : b.exclusive = true) (hscopeIn : nlcScopeOut inp r ib) :
     ¬ Polyline.hitsRect rt.points b.rect := by
   have hexcib : ib.exclusive = true := by rw [← hexcb]; exact hexc
-  obtain ⟨_, hcrfrom, hcrto⟩ := hFlags r hkept cr hcr hcrid
+  obtain ⟨_, hcrfrom, hcrto⟩ := hFlags r hr hkept cr hcr hcrid
   rcases classifyRect hrect with ⟨q, hqf, hqR⟩ | ⟨hno, cb, hcbmem, hcbid, hcbr⟩
   · obtain ⟨sq, hsqmem, hsqid, hshift⟩ := Placed.rect_scene_box hqR
     have hbrect : b.rect = shiftRect q.dx q.dy sq.rect := hshift.symm
@@ -829,7 +808,7 @@ private theorem nlc_c6_frag {base : List String → Input → Options → Except
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
     (hFrag : ∀ p ∈ e.fragments, Validator.C6 p.scene.layoutDump)
-    (hFlags : NotesC6FlagsFrag e) (hExclF : NotesC6BoxExclF e)
+    (hFlags : notesFlagsFragment inp e.layouts e.fragments) (hExclF : NotesC6BoxExclF e)
     (hFragC : NotesC6FragContracted e) (hFragO : NotesC6FragOther e)
     (hAncF : NotesC6AncF e)
     (a : Nat) {r : ModelRoute} (hr : r ∈ inp.routes)
@@ -843,7 +822,7 @@ private theorem nlc_c6_frag {base : List String → Input → Options → Except
     (hexc : b.exclusive = true) (hscopeIn : nlcScopeOut inp r ib) :
     ¬ Polyline.hitsRect rt.points b.rect := by
   have hexcib : ib.exclusive = true := by rw [← hexcb]; exact hexc
-  obtain ⟨_, hffrom, hffto⟩ := hFlags r a hsame p hpf fr hfrmem hfrid
+  obtain ⟨_, hffrom, hffto⟩ := hFlags r hr a hsame p hpf fr hfrmem hfrid
   rcases classifyRect hrect with ⟨q, hqf, hqR⟩ | ⟨hno, cb, hcbmem, hcbid, hcbr⟩
   · obtain ⟨sq, hsqmem, hsqid, hshift⟩ := Placed.rect_scene_box hqR
     have hbrect : b.rect = shiftRect q.dx q.dy sq.rect := hshift.symm
@@ -893,9 +872,11 @@ theorem notes_c6 {base : List String → Input → Options → Except LayoutErro
     (e : NotesExecution base exactIds fuel inp o res)
     (hBase : Validator.C6 e.contracted.scene.layoutDump)
     (hFrag : ∀ p ∈ e.fragments, Validator.C6 p.scene.layoutDump)
+    (hFlagsK : notesFlagsKept inp e.layouts e.contracted)
+    (hFlagsF : notesFlagsFragment inp e.layouts e.fragments)
     (hGeom : NotesC6Geom e) :
     Validator.C6 res.scene.layoutDump := by
-  obtain ⟨hAncC, hAncF, hFlagsK, hFlagsF, hExclC, hExclF, hKeptF, hFragC, hFragO,
+  obtain ⟨hAncC, hAncF, hExclC, hExclF, hKeptF, hFragC, hFragO,
     hRouter⟩ := hGeom
   intro rt hrt b hb hexc hscope
   obtain ⟨r, hr, _, hfrom, hto, _, hcases⟩ := nlc_route_cases e hrt

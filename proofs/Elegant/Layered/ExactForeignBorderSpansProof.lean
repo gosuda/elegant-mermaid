@@ -147,14 +147,17 @@ def XB_ForeignBorderLayerOrder (exactIds : List String) : Prop :=
         nb.node.clusterPath.getLast? = some wNode.decl →
         j < i)
 
-/-- Exact cross-coordinate-placement residual: mirror of
-`ForeignBorderChainXAligned` over the exact pipeline and `componentRunX`. -/
+/-- Cross-coordinate-placement alignment for well-formed framed inputs over
+the exact pipeline and `componentRunX`. -/
 def XB_ForeignBorderChainXAligned (exactIds : List String) : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {measured : List MeasuredLabel}
     {graph0 graph : Graph},
     measuredGraph P inp o lines = .ok graph0 →
     exactGraph P exactIds inp o measured graph0 = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -662,6 +665,9 @@ private theorem xbf_x_hull_bound {P : Params} {exactIds : List String} {inp : In
     {graph0 graph : Graph}
     (hg0 : measuredGraph P inp o lines = .ok graph0)
     (hgX : exactGraph P exactIds inp o measured graph0 = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
     (hrun : componentRunX P (exactDecls exactIds inp)
@@ -710,20 +716,24 @@ private theorem xbf_x_hull_bound {P : Params} {exactIds : List String} {inp : In
       rcases hcon with h | h <;> rw [h] at hbca <;> omega
     rcases hb with hb | hb
     · exact ⟨pL, npL, Or.inl rfl,
-        (halign hg0 hgX hcomp hrun (a := a) (b := pL) (na := nca) (nb := npL) hcadr hrecpL
+        (halign hg0 hgX hlines hwf hfp hcomp hrun (a := a) (b := pL)
+          (na := nca) (nb := npL) hcadr hrecpL
           (Or.inl (hbca.trans hb)) (Or.inl hbpL)
           (hbca.trans (hb.trans hbpL.symm))
           (by rw [hcp']; exact ho.trans hopL.symm)).1,
-        (halign hg0 hgX hcomp hrun (a := a) (b := pL) (na := nca) (nb := npL) hcadr hrecpL
+        (halign hg0 hgX hlines hwf hfp hcomp hrun (a := a) (b := pL)
+          (na := nca) (nb := npL) hcadr hrecpL
           (Or.inl (hbca.trans hb)) (Or.inl hbpL)
           (hbca.trans (hb.trans hbpL.symm))
           (by rw [hcp']; exact ho.trans hopL.symm)).2⟩
     · exact ⟨pR, npR, Or.inr rfl,
-        (halign hg0 hgX hcomp hrun (a := a) (b := pR) (na := nca) (nb := npR) hcadr hrecpR
+        (halign hg0 hgX hlines hwf hfp hcomp hrun (a := a) (b := pR)
+          (na := nca) (nb := npR) hcadr hrecpR
           (Or.inr (hbca.trans hb)) (Or.inr hbpR)
           (hbca.trans (hb.trans hbpR.symm))
           (by rw [hcp']; exact ho.trans hopR.symm)).1,
-        (halign hg0 hgX hcomp hrun (a := a) (b := pR) (na := nca) (nb := npR) hcadr hrecpR
+        (halign hg0 hgX hlines hwf hfp hcomp hrun (a := a) (b := pR)
+          (na := nca) (nb := npR) hcadr hrecpR
           (Or.inr (hbca.trans hb)) (Or.inr hbpR)
           (hbca.trans (hb.trans hbpR.symm))
           (by rw [hcp']; exact ho.trans hopR.symm)).2⟩
@@ -742,20 +752,24 @@ private theorem xbf_x_hull_bound {P : Params} {exactIds : List String} {inp : In
       rcases hcon with h | h <;> rw [h] at hbcb <;> omega
     rcases hb with hb | hb
     · exact ⟨qL, nqL, Or.inl rfl,
-        (halign hg0 hgX hcomp hrun (a := b) (b := qL) (na := ncb) (nb := nqL) hcbdr hrecqL
+        (halign hg0 hgX hlines hwf hfp hcomp hrun (a := b) (b := qL)
+          (na := ncb) (nb := nqL) hcbdr hrecqL
           (Or.inl (hbcb.trans hb)) (Or.inl hbqL)
           (hbcb.trans (hb.trans hbqL.symm))
           (by rw [hcp']; exact ho.trans hopqL.symm)).1,
-        (halign hg0 hgX hcomp hrun (a := b) (b := qL) (na := ncb) (nb := nqL) hcbdr hrecqL
+        (halign hg0 hgX hlines hwf hfp hcomp hrun (a := b) (b := qL)
+          (na := ncb) (nb := nqL) hcbdr hrecqL
           (Or.inl (hbcb.trans hb)) (Or.inl hbqL)
           (hbcb.trans (hb.trans hbqL.symm))
           (by rw [hcp']; exact ho.trans hopqL.symm)).2⟩
     · exact ⟨qR, nqR, Or.inr rfl,
-        (halign hg0 hgX hcomp hrun (a := b) (b := qR) (na := ncb) (nb := nqR) hcbdr hrecqR
+        (halign hg0 hgX hlines hwf hfp hcomp hrun (a := b) (b := qR)
+          (na := ncb) (nb := nqR) hcbdr hrecqR
           (Or.inr (hbcb.trans hb)) (Or.inr hbqR)
           (hbcb.trans (hb.trans hbqR.symm))
           (by rw [hcp']; exact ho.trans hopqR.symm)).1,
-        (halign hg0 hgX hcomp hrun (a := b) (b := qR) (na := ncb) (nb := nqR) hcbdr hrecqR
+        (halign hg0 hgX hlines hwf hfp hcomp hrun (a := b) (b := qR)
+          (na := ncb) (nb := nqR) hcbdr hrecqR
           (Or.inr (hbcb.trans hb)) (Or.inr hbqR)
           (hbcb.trans (hb.trans hbqR.symm))
           (by rw [hcp']; exact ho.trans hopqR.symm)).2⟩
@@ -802,6 +816,9 @@ private theorem xbf_border_hulls_x_separated {P : Params} {exactIds : List Strin
     {graph0 graph : Graph}
     (hg0 : measuredGraph P inp o lines = .ok graph0)
     (hgX : exactGraph P exactIds inp o measured graph0 = .ok graph)
+    (hlines : lines.length = inp.boxes.length)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
     {comp : List Nat} (hcomp : comp ∈ components graph)
     {candidate : Nat} {run : Run} {labels : List MeasuredLabel} {orderOptions : OrderOptions}
     (hrun : componentRunX P (exactDecls exactIds inp)
@@ -880,7 +897,8 @@ private theorem xbf_border_hulls_x_separated {P : Params} {exactIds : List Strin
     exact hin
   rcases horder hg0 hgX hcomp hrun hu hw hgroupU hgroupW hneDecl hpathW hpathU hlayerMem
     with huFirst | hwFirst
-  · refine Or.inl (xbf_x_hull_bound hg0 hgX hcomp hrun halign hUL hbUL hoUL hUR hbUR hoUR
+  · refine Or.inl (xbf_x_hull_bound hg0 hgX hlines hwf hfp hcomp hrun halign
+      hUL hbUL hoUL hUR hbUR hoUR
       hWL hbWL hoWL hWR hbWR hoWR ?_)
     intro p hp q hq
     obtain ⟨np, hprec, hbp, hop⟩ : ∃ np : ProperNode,
@@ -908,7 +926,8 @@ private theorem xbf_border_hulls_x_separated {P : Params} {exactIds : List Strin
     exact hord hg0 hgX hcomp hrun hlayerMem (huFirst ip iq p q np nq hip hiq hprec hqrec hbp hop hbq hoq) hip hiq hprec hqrec
       (by intro hcon; rcases hcon with h | h <;> omega)
       (by intro hcon; rcases hcon with h | h <;> omega)
-  · refine Or.inr (xbf_x_hull_bound hg0 hgX hcomp hrun halign hWL hbWL hoWL hWR hbWR hoWR
+  · refine Or.inr (xbf_x_hull_bound hg0 hgX hlines hwf hfp hcomp hrun halign
+      hWL hbWL hoWL hWR hbWR hoWR
       hUL hbUL hoUL hUR hbUR hoUR ?_)
     intro p hp q hq
     obtain ⟨np, hprec, hbp, hop⟩ : ∃ np : ProperNode,
@@ -991,7 +1010,7 @@ theorem XB_foreignBorderSpansSeparated_holds (exactIds : List String)
           hUmark tW hlt hov1
         obtain ⟨mWL, mWR, nWL, nWR, hrecWL, hbWL, hoWL, hrkWL, hrecWR, hbWR, hoWR, hrkWR⟩ :=
           hWmark tW (Int.le_refl tW) hWle
-        rcases xbf_border_hulls_x_separated hg0 hgX hcomp hrun horder halign hord
+        rcases xbf_border_hulls_x_separated hg0 hgX hlines hwf hfp hcomp hrun horder halign hord
           hu hw hgroupU hgroupW hpathW hpathU rfl rfl hne
           hrecUL hbUL hoUL hrkUL hrecUR hbUR hoUR hrkUR
           hrecWL hbWL hoWL hrkWL hrecWR hbWR hoWR hrkWR with h | h
@@ -1001,7 +1020,7 @@ theorem XB_foreignBorderSpansSeparated_holds (exactIds : List String)
           hUmark tU (Int.le_refl tU) hUle
         obtain ⟨mWL, mWR, nWL, nWR, hrecWL, hbWL, hoWL, hrkWL, hrecWR, hbWR, hoWR, hrkWR⟩ :=
           hWmark tU (by omega) hov2
-        rcases xbf_border_hulls_x_separated hg0 hgX hcomp hrun horder halign hord
+        rcases xbf_border_hulls_x_separated hg0 hgX hlines hwf hfp hcomp hrun horder halign hord
           hu hw hgroupU hgroupW hpathW hpathU rfl rfl hne
           hrecUL hbUL hoUL hrkUL hrecUR hbUR hoUR hrkUR
           hrecWL hbWL hoWL hrkWL hrecWR hbWR hoWR hrkWR with h | h

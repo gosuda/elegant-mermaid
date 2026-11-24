@@ -1,4 +1,5 @@
 import Elegant.Layered.ExactCaptionSelfProof
+import Elegant.Layered.ExactTitleRunContext
 import Elegant.Layered.Pipeline
 import Elegant.Layered.ExactPipeline
 import Elegant.Layered.ExactFlatFacts
@@ -275,8 +276,7 @@ private theorem xcsbb_mapM_index_record {α β : Type} (f : α → Except Layout
 
  /-- Exact title width and height fit for a border-`-2` exact-candidate node. -/
  private theorem xcsbb_exact_title_fit {exactIds : List String} {inp : Input}
-     {o : Options} {res : FamilyResult}
-     (execution : SceneExecutionX exactIds inp o res)
+     {o : Options} (execution : ExactTitleRunContext exactIds inp o)
      {comp : List Nat} {candidate i : Nat} {tNode : Node}
      (hnode : (componentCandidate execution.graph comp candidate).nodes[i]? = some tNode)
      (hborder : tNode.border = -2) :
@@ -935,7 +935,7 @@ private theorem xcsbb_post_strict_gap {P : Params} {exactIds : List String} {inp
 /-- A candidate group top's cluster path contains its own declaration,
 transported across `exactGraph` to the measured origin. -/
 private theorem xcsbb_top_path {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} {candidate : Nat} {i : Nat} {tNode : Node}
     (hnode : (componentCandidate execution.graph comp candidate).nodes[i]? = some tNode)
     (hborder : tNode.border = -2) :
@@ -976,7 +976,7 @@ private theorem xcsbb_candidate_comp_index2 {g : Graph} {comp : List Nat}
 /-- A candidate bottom marker's cluster path contains its own declaration,
 transported across `exactGraph` to the measured origin. -/
 private theorem xcsbb_bottom_path {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} {candidate : Nat} {b : Nat} {fNode : Node}
     (hnode : (componentCandidate execution.graph comp candidate).nodes[b]? = some fNode)
     (hborder : fNode.border = 2) :
@@ -1023,7 +1023,7 @@ private theorem xcsbb_capH_eq {P : Params} {o : Options} {lines : List (List Mea
 copy lies in its rank band, the frame starts at or above its rect, and its
 rank equals the ranking rank of the group top. -/
 private theorem xcsbb_title_facts_X {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -1096,7 +1096,7 @@ marker lies in its rank band at zero height, its band reaches the frame
 bottom, and its rank is strictly below no bound yet — the strict ranking
 inequality in ranking-rank terms. -/
 private theorem xcsbb_marker_facts_X {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -1122,11 +1122,8 @@ private theorem xcsbb_marker_facts_X {exactIds : List String} {inp : Input} {o :
       rk rr.ranks i + 1 ≤ rk rr.ranks b := by
   obtain ⟨rr, _, hrr, hc, _, hrecords, hranks, hlt⟩ :=
     X_group_top_lt_bottom execution.graph0_eq execution.graph_eq hcomp hrun
-  have hlines : execution.lines.length = inp.boxes.length := by
-    have h := (mapM_getElem? _ _ _ execution.lines_eq).1
-    simpa only [List.length_zipIdx] using h
   obtain ⟨bottom, hfindB⟩ := X_componentRun_cg_bottom_find execution.graph0_eq
-    execution.graph_eq hlines hcomp hnode hborder
+    execution.graph_eq execution.lines_len hcomp hnode hborder
   have hbordV : bottom.1.border = 2 := by
     have hcond := List.find?_some hfindB
     simp only [Bool.and_eq_true, beq_iff_eq] at hcond
@@ -1183,8 +1180,9 @@ private theorem xcsbb_marker_facts_X {exactIds : List String} {inp : Input} {o :
 inside its own frame height. The caption bottom sits at or below the title
 band bottom; the bottom marker band starts a full `+ 1` gap below; the frame
 bottom reaches at least the marker bottom. -/
-private theorem xcsbb_bottom_core_X {exactIds : List String} {inp : Input} {o : Options}
-    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+theorem componentRunX_title_height_lt_frame
+    {exactIds : List String} {inp : Input} {o : Options}
+    (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -1218,7 +1216,7 @@ theorem XC_selfBottomHeightNarrowX_holds (exactIds : List String) :
     XC_SelfBottomHeightNarrowX exactIds := by
   intro inp o res execution comp hcomp candidate run orderOptions hrun
   intro i tNode hnode hborder
-  exact xcsbb_bottom_core_X execution hcomp hrun hnode hborder
+  exact componentRunX_title_height_lt_frame execution.exactTitleContext hcomp hrun hnode hborder
 
 /-- Closed exact self-bottom: the narrow height fact gives the residual
 through the existing combination theorem. -/

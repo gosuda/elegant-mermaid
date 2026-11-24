@@ -267,6 +267,56 @@ theorem X_sceneOf_route_entry_of_producer {P : Params} {exact : List Nat} {inp :
   rw [hroutes, hneg]
   rw [routePointTransport_eq]
 
+/-- Transport a component route and its endpoint's frame through the same placement,
+    orientation and canvas offset. This also applies when the route and box are
+    identified at their final scene emission equations. -/
+theorem parent_port_miss_transport {points : List Point} {r : Rect}
+    (hmiss : ¬ Polyline.hitsRect points r)
+    (margin : Int) (d : Direction) (canvasH boxX boxY minX minY : Int) :
+    ¬ Polyline.hitsRect (points.map (routePointTransport margin d canvasH boxX boxY minX minY))
+      (shiftRect margin margin (orientRect d canvasH (shiftRect (boxX - minX) (boxY - minY) r))) := by
+  have hmap : points.map (routePointTransport margin d canvasH boxX boxY minX minY) =
+      points.map (fun x => shiftPoint margin margin
+        (orientPoint d canvasH (shiftPoint (boxX - minX) (boxY - minY) x))) := by
+    apply List.map_congr_left
+    intro x _
+    rfl
+  rw [hmap]
+  simpa only [List.map_map, Function.comp_def] using
+    not_hitsRect_shift_orient d canvasH margin margin _ _
+      (not_hitsRect_shift (boxX - minX) (boxY - minY) _ _ hmiss)
+theorem X_chosen_part_route_from_points
+    {exactIds : List String} {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecutionX exactIds inp o res)
+    (packed : Pack.State)
+    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
+      execution.params.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
+      (LayoutConst.component_aspect_den.get o.profile)
+      (execution.componentsAcc.parts.map fun part =>
+        ⟨part.2.width, part.2.height, part.2.area⟩) = .ok packed)
+    {c : Nat} {q : (List Nat × Part) × Rect}
+    (hselected : (execution.componentsAcc.parts.zip packed.boxes)[c]? = some q)
+    {i k : Nat} {points : List Point} {minX minY : Int}
+    (hget : q.1.2.routes[i]? = some (k,
+      points.map (shiftPoint (0 - minX) (-minY))))
+    (hnodup : (q.1.2.routes.map (·.1)).Nodup)
+    {route : ModelRoute} (hroute : inp.routes[k]? = some route) :
+    res.scene.routes[k]? = some (Route.mk route.id route.fromId route.toId route.orthogonal
+      (points.map (routePointTransport execution.params.canvasMargin o.direction
+        execution.packedAcc.canvasH q.2.x q.2.y minX minY))) := by
+  have hk := (List.getElem?_eq_some_iff.mp hroute).1
+  have hsize := execution.components_routes_sizeX
+  have hrouteSize : k < execution.componentsAcc.routes.size := by rw [hsize]; exact hk
+  have hp := X_actual_components_packAcc_routes_getDX
+    (by rfl) execution.components_eq (exactGraph_decls_nodup execution.graph0_eq execution.graph_eq)
+    packed execution.packed_eq hpacked c q hselected i _ _ [] hget hnodup hrouteSize
+  have hs := sceneOf_routes_getElem? execution.params inp o execution.lines
+    execution.packedAcc execution.measured k hk
+  rw [← execution.scene_eq, (List.getElem?_eq_some_iff.mp hroute).2, hp] at hs
+  have hneg : -minY = 0 - minY := by omega
+  rw [hneg, routePointTransport_eq] at hs
+  exact hs
+
 /-- Exact scene-emission chain for `placeComponentExact` (counterpart of
 `SceneExecution.chosen_part_route_entry` over `SceneExecutionX`). The
 declaration bound comes from `X_candidate_model_endpoint_source`; everything
@@ -303,52 +353,36 @@ theorem X_chosen_part_route_entry
             execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY))) := by
   let cg := componentCandidate execution.graph q.1.1 candidate
   have hi := (List.getElem?_eq_some_iff.mp hedge).1
-  have he := (List.getElem?_eq_some_iff.mp hedge).2
-  have hlo : ∀ l ∈ loops, l.1 ≠ ((componentCandidate execution.graph q.1.1 candidate).edges[i]).decl := by
+  have he : cg.edges[i]'hi = edge := (List.getElem?_eq_some_iff.mp hedge).2
+  have he' := (List.getElem?_eq_some_iff.mp hedge).2
+  have hlo : ∀ l ∈ loops, l.1 ≠ (cg.edges[i]).decl := by
     simpa only [he] using hloop
-  have hedges : edge ∈ (componentCandidate execution.graph q.1.1 candidate).edges :=
-    List.mem_of_getElem? hedge
-  obtain ⟨index, _, _, _, _, hroute, _, hdeclIdx, _, _, _, _, _⟩ :=
-    X_candidate_model_endpoint_source execution.graph0_eq execution.graph_eq hedges
-  have hkLen : edge.decl < inp.routes.length := by
+  obtain ⟨index, route, _, _, _, hroute, _, hdeclIdx, _, _, _, _, _⟩ :=
+    X_candidate_model_endpoint_source execution.graph0_eq execution.graph_eq
+      (List.mem_of_getElem? hedge)
+  have hroute' : inp.routes[edge.decl]? = some route := by
     rw [hdeclIdx]
-    exact (List.getElem?_eq_some_iff.mp hroute).1
-  have hsize : execution.componentsAcc.routes.size = inp.routes.length :=
-    execution.components_routes_sizeX
-  have hrouteSize : ((componentCandidate execution.graph q.1.1 candidate).edges[i]).decl <
-      execution.componentsAcc.routes.size := by
-    rw [hsize]
-    simpa only [he] using hkLen
+    exact hroute
+  obtain ⟨native, hnative, horiginal, _⟩ := componentRunX_route_of_index hrun hi
+  have hnativeGet := (List.getElem?_eq_some_iff.mp hnative).2
   have hget := X_placeComponentExact_route_entry_of_producer hrun 0 loops i hi hlo
   have hpartRoutes : q.1.2.routes =
-      (placeComponentExact execution.params
-        (componentCandidate execution.graph q.1.1 candidate) run 0 execution.measured loops).routes := by
+      (placeComponentExact execution.params cg run 0 execution.measured loops).routes := by
     rw [hpart]
   rw [← hpartRoutes] at hget
-  have hnd : (((componentCandidate execution.graph q.1.1 candidate).edges.map (·.decl))).Nodup :=
+  have hpoints : q.1.2.routes[i]? = some (edge.decl,
+      native.points.map (shiftPoint (0 - (placeBoundsX execution.params cg run
+        execution.measured loops).minX) (-(placeBoundsX execution.params cg run
+        execution.measured loops).minY))) := by
+    simpa only [he', hnativeGet] using hget
+  have hnd : (cg.edges.map (·.decl)).Nodup :=
     componentCandidate_decls_nodup execution.graph q.1.1 candidate
       (exactGraph_decls_nodup execution.graph0_eq execution.graph_eq)
   have hpartNodup : (q.1.2.routes.map (·.1)).Nodup := by
     rw [hpartRoutes]
-    exact X_placeComponentExact_routes_decls_nodup _ _ _ _ _ _ hnd
-  have hpackedRoute := X_actual_components_packAcc_routes_getDX (by rfl)
-    execution.components_eq (exactGraph_decls_nodup execution.graph0_eq execution.graph_eq)
-    packed execution.packed_eq hpacked c q hselected i _ _ [] hget hpartNodup hrouteSize
-  have hscene := X_sceneOf_route_entry_of_producer (P := execution.params)
-    (exact := exactDecls exactIds inp) (o := o) (lines := execution.lines)
-    (cg := componentCandidate execution.graph q.1.1 candidate) (run := run)
-    (labels := execution.measured) (orderOptions := candidateOrder candidate)
-    hrun i hi hlo execution.packedAcc execution.measured
-    (placeBoundsX execution.params (componentCandidate execution.graph q.1.1 candidate)
-      run execution.measured loops) rfl q.2 hpackedRoute
-    (by simpa only [he] using hkLen)
-  rw [← execution.scene_eq] at hscene
-  obtain ⟨native, hnative, horiginal, _⟩ := componentRunX_route_of_index hrun hi
-  have hnativeGet := (List.getElem?_eq_some_iff.mp hnative).2
-  rw [hnativeGet] at hscene
-  refine ⟨inp.routes[edge.decl], native, List.getElem?_eq_getElem hkLen,
-    hnative, horiginal, ?_⟩
-  simpa only [he] using hscene
+    exact X_placeComponentExact_routes_decls_nodup execution.params cg run 0 execution.measured loops hnd
+  exact ⟨route, native, hroute', hnative, horiginal,
+    X_chosen_part_route_from_points execution packed hpacked hselected hpoints hpartNodup hroute'⟩
 /-- Exact normalized source: replay of `componentRun_normalized_source`
 through `componentRunX_spec` (`coordinateGraphX_chains` in place of
 `coordinateGraph_chains`; the sizing/title steps are node-only updates, so

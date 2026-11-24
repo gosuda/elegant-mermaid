@@ -8,7 +8,7 @@ namespace PipelineImpl
 
 /-- Stored title y equals its own frame y plus `clusterPad`, from the
 definition of `componentTitles` alone (no run spec). -/
-private theorem xcs_stored_y_eq {P : Params} {cg : Graph} {run : Run}
+theorem componentTitles_y_eq_frame {P : Params} {cg : Graph} {run : Run}
     {i : Nat} {stored0 : Rect}
     (hmem : (i, stored0) ∈ componentTitles P cg run) :
     stored0.y = (frameRect P cg run i).y + P.clusterPad := by
@@ -36,14 +36,14 @@ private theorem xcs_stored_y_eq {P : Params} {cg : Graph} {run : Run}
 
 /-- Exact self-top: the caption starts strictly below its own frame top.
 Proved outright: the stored title y is `frame.y + clusterPad` by
-`xcs_stored_y_eq`, the transported caption keeps that y, and `clusterPad`
+`componentTitles_y_eq_frame`, the transported caption keeps that y, and `clusterPad`
 is positive from `execution.checked`. Plain original: `captionSelfTop`. -/
 theorem XC_selfTopX_holds (exactIds : List String) : XC_SelfTopX exactIds := by
   intro inp o res execution comp _hmem candidate run orderOptions hrun
   intro i stored0 tNode hmem hnode hborder
   have hpad : 0 < execution.params.clusterPad :=
     checkedParams_clusterPad_pos execution.checked
-  have hy := xcs_stored_y_eq (P := execution.params) hmem
+  have hy := componentTitles_y_eq_frame (P := execution.params) hmem
   have htrans : (transportCaption execution.params o execution.lines comp i stored0).y =
       stored0.y := rfl
   omega
@@ -94,7 +94,7 @@ def XC_SelfSidesRightNarrowX (exactIds : List String) : Prop :=
 /-- Narrow height form of exact self-bottom: the padded measured caption
 height fits in its own frame height. No titles, no transported rect, no
 y-positions; single inequality. With the definitional stored-title y
-(`xcs_stored_y_eq`) it gives `XC_SelfBottomX`. Plain path: title-band
+(`componentTitles_y_eq_frame`) it gives `XC_SelfBottomX`. Plain path: title-band
 bottom strictly above the bottom-marker rank. -/
 def XC_SelfBottomHeightNarrowX (exactIds : List String) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
@@ -132,7 +132,7 @@ theorem XC_selfBottomX_holds (exactIds : List String)
     XC_SelfBottomX exactIds := by
   intro inp o res execution comp hcomp candidate run orderOptions hrun
   intro i stored0 tNode hmem hnode hborder
-  have hy := xcs_stored_y_eq (P := execution.params) hmem
+  have hy := componentTitles_y_eq_frame (P := execution.params) hmem
   have hheight := hh execution hcomp hrun i tNode hnode hborder
   have hty : (transportCaption execution.params o execution.lines comp i stored0).y =
       stored0.y := rfl

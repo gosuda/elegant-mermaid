@@ -25,11 +25,9 @@ Proves two of the three structural leaves consumed by
 * `R_FallbackOwnerCasesW` (`R_fallbackOwnerCasesW_holds`): a title-less owner
   is a node or is fixed.
 
-The third leaf, `R_FixedOwnerFit`, is narrowed: `R_fixedOwnerFit_none_holds`
-proves it for empty region sets by transport from the exact twin
-`xctb_fixedOwnerFitX_holds`, and `R_fixedOwnerFit_of_dominates` reduces the
-general case to the strictly narrower packed-domination residual
-`R_FixedBoxDominates`.
+`R_fixedOwnerFit_of_dominates` reduces the remaining fixed-owner fit to
+`R_FixedBoxDominates`. `RegionFixedBoxDominance.lean` proves that property
+for every successful region execution.
 
 Probe evidence (`proofs/wip/Probe/RegionFallbackStructuralTProbe.lean`,
 vector profile, `layoutRIds` recomputed phases): the title/cases mirrors hold
@@ -740,10 +738,8 @@ theorem R_fallbackOwnerCasesW_holds (exactIds : List String)
         | node => rfl
         | group => exact absurd h hrole
       exact Or.inl hroleNode
-/-- Packed-domination residual for the region fixed-owner fit: every fixed-size
-entry is dominated by its scene output box. Strictly narrower than
-`R_FixedOwnerFit` (one step of its proof); true on the fitting probe rows
-(`rfstFixB` in `RegionFallbackStructuralTProbe.lean`). -/
+/-- Every fixed-size entry is dominated by its scene output box.
+`RegionFixedBoxDominance.lean` proves this for successful region runs. -/
 def R_FixedBoxDominates (exactIds : List String)
     (idSets : List (String × List String)) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}

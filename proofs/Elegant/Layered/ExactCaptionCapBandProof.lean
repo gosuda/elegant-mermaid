@@ -145,8 +145,7 @@ non-fixed (so `exactGraph` leaves it unchanged) and exact membership would
 have thrown. Proved via the public `actual_title_caption_fit` on the measured
 candidate plus full-record transport across `exactGraph`. -/
 private theorem xccb_exact_title_fit {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} {candidate i : Nat} {tNode : Node}
     (hnode : (componentCandidate execution.graph comp candidate).nodes[i]? = some tNode)
     (hborder : tNode.border = -2) :
@@ -418,8 +417,7 @@ in both run graphs at the reserved index and shares its anchor rank. Replay
 of the plain `captionInTopBand_executed` title-rank chain over
 `componentRunX`, without any uniqueness indirection. -/
 private theorem xccb_title_coord_rank {exactIds : List String} {inp : Input}
-    {o : Options} {res : FamilyResult}
-    (execution : SceneExecutionX exactIds inp o res)
+    {o : Options} (execution : ExactTitleRunContext exactIds inp o)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)
     {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
     (hrun : componentRunX execution.params (exactDecls exactIds inp)
@@ -493,9 +491,24 @@ bottom of its own top rank band. Replay of the plain
 `captionInTopBand_executed` upper bound over `componentRunX`: title-copy
 placement, width, fit, and title rank replay through the exact machinery,
 and the band covers the title height by `componentRunX_node_band`. -/
-theorem XC_capBandX_holds (exactIds : List String) : XC_CapBandX exactIds := by
-  intro inp o res execution comp hcomp candidate run orderOptions hrun
-  intro i stored0 tNode hmem hnode hborder
+theorem componentRunX_title_bottom_le_rank_band
+    {exactIds : List String} {inp : Input} {o : Options}
+    (execution : ExactTitleRunContext exactIds inp o)
+    {comp : List Nat} (hcomp : comp ∈ components execution.graph)
+    {candidate : Nat} {run : Run} {orderOptions : OrderOptions}
+    (hrun : componentRunX execution.params (exactDecls exactIds inp)
+      (componentCandidate execution.graph comp candidate)
+      execution.measured orderOptions = .ok run)
+    {i : Nat} {stored0 : Rect} {tNode : Node}
+    (hmem : (i, stored0) ∈ componentTitles execution.params
+      (componentCandidate execution.graph comp candidate) run)
+    (hnode : (componentCandidate execution.graph comp candidate).nodes[i]? = some tNode)
+    (hborder : tNode.border = -2) :
+    (transportCaption execution.params o execution.lines comp i stored0).y +
+      (transportCaption execution.params o execution.lines comp i stored0).h ≤
+      run.top.getD (rk run.coordinateProper.rank i).toNat 0 +
+        CoordsImpl.layerHeight run.coordinateProper
+          (run.layers.getD (rk run.coordinateProper.rank i).toNat []) := by
   have hindexLt : i < (componentCandidate execution.graph comp candidate).nodes.length :=
     (List.getElem?_eq_some_iff.mp hnode).1
   obtain ⟨v, hcoordC, hproperC, htitleRankEq⟩ :=
@@ -553,6 +566,12 @@ theorem XC_capBandX_holds (exactIds : List String) : XC_CapBandX exactIds := by
     show stored0.y + (transportCapSize execution.params o execution.lines comp i).2 = _
     rw [hy0]
   omega
+
+theorem XC_capBandX_holds (exactIds : List String) : XC_CapBandX exactIds := by
+  intro inp o res execution comp hcomp candidate run orderOptions hrun
+  intro i stored0 tNode hmem hnode hborder
+  exact componentRunX_title_bottom_le_rank_band execution.exactTitleContext hcomp hrun
+    hmem hnode hborder
 
 
 

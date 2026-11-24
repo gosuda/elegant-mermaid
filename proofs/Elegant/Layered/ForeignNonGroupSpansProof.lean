@@ -365,12 +365,15 @@ is nonnegative; moreover a left (`border = -1`) marker lies left of a right
 (`border = 1`) marker of the same declaration at the same rank.  This is the
 chain alignment of the horizontal pass (`BorderChainUps` via
 `borderChainBlock_of_ups`) transported to the placed `x`-coordinates, together
-with the executed left-before-right border order, restricted to
-pipeline-built graphs (`measuredGraph` success and component membership). -/
+with the executed left-before-right border order. It applies to measured
+graphs of well-formed, framed inputs with one line list per input box. -/
 def SideMarkerSpanAligned : Prop :=
   ∀ {P : Params} {inp : Input} {o : Options}
     {lines : List (List Measure.Line)} {graph : Graph},
     measuredGraph P inp o lines = .ok graph →
+    lines.length = inp.boxes.length →
+    WellFormed (inputModel inp o) →
+    framedParents inp = true →
     ∀ {comp : List Nat}, comp ∈ components graph →
     ∀ {candidate : Nat} {run : Run} {labels : List MeasuredLabel}
       {orderOptions : OrderOptions},
@@ -566,7 +569,7 @@ theorem plain_frame_disjoint {P : Params} {inp : Input} {o : Options}
       have hborderROr : nR.node.border = -1 ∨ nR.node.border = 1 :=
         Or.inr hborderR
       have hcross :=
-        (halign hgraph hcomp hrun hmarkRunL hborderLOr hlastL
+        (halign hgraph hlines hwf hfp hcomp hrun hmarkRunL hborderLOr hlastL
           hmarkRunR hborderROr hlastR).2.2 ⟨hborderL, hborderR, hrankLR⟩
       have hall : ∀ r ∈ groupBorderRects (componentCandidate graph comp candidate) run uNode.decl,
           RouteImpl.leftOf run.proper run.xs mL ≤ r.x ∧
@@ -576,22 +579,22 @@ theorem plain_frame_disjoint {P : Params} {inp : Input} {o : Options}
         obtain ⟨q, nd, hq, hbq, hlastq, hrq⟩ := groupBorderRects_inv hr
         rcases hbq with hbqL | hbqR
         · obtain ⟨heq1, heq2⟩ :=
-            (halign hgraph hcomp hrun hmarkRunL hborderLOr hlastL
-              hq (Or.inl hbqL) hlastq).1 (by rw [hborderL, hbqL])
+            (halign hgraph hlines hwf hfp hcomp hrun hmarkRunL hborderLOr
+              hlastL hq (Or.inl hbqL) hlastq).1 (by rw [hborderL, hbqL])
           rw [hrq, rectAt_eq]
           dsimp only
           rw [heq1, ← heq2]
           exact ⟨Int.le_refl _, hcross.2⟩
         · obtain ⟨heq1, heq2⟩ :=
-            (halign hgraph hcomp hrun hmarkRunR hborderROr hlastR
-              hq (Or.inr hbqR) hlastq).1 (by rw [hborderR, hbqR])
+            (halign hgraph hlines hwf hfp hcomp hrun hmarkRunR hborderROr
+              hlastR hq (Or.inr hbqR) hlastq).1 (by rw [hborderR, hbqR])
           rw [hrq, rectAt_eq]
           dsimp only
           refine ⟨?_, ?_⟩
           · rw [← heq1]; exact hcross.1
           · omega
       have hnonnegR :=
-        (halign hgraph hcomp hrun hmarkRunR hborderROr hlastR
+        (halign hgraph hlines hwf hfp hcomp hrun hmarkRunR hborderROr hlastR
           hmarkRunR hborderROr hlastR).2.1
       have hminX := boundsOf_minX_ge_of_all hneRects (fun r hr => (hall r hr).1)
       have hright := boundsOf_right_le_of_all hnonnegR

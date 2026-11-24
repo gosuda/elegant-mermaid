@@ -48,7 +48,10 @@ Local copy of the private `tsep_hull_eq_of_pair`, with the alignment taken as
 a hypothesis instead of through the chain seam. -/
 private theorem lrt_hull_eq_of_pair
     {inp : Input} {o : Options} {res : FamilyResult}
-    (e : SceneExecution inp o res) (comp : List Nat) (candidate : Nat)
+    (e : SceneExecution inp o res)
+    (hwf : WellFormed (inputModel inp o))
+    (hfp : framedParents inp = true)
+    (comp : List Nat) (candidate : Nat)
     (run : Run) (oo : OrderOptions) (v : Nat) (nodeV : Node)
     (hcomp : comp ∈ components e.graph)
     (hnodeV : (componentCandidate e.graph comp candidate).nodes[v]? = some nodeV)
@@ -74,22 +77,24 @@ private theorem lrt_hull_eq_of_pair
     intro r hr
     obtain ⟨q, nd, hq, hbq, hlastq, hrq⟩ := groupBorderRects_inv hr
     rcases hbq with hbqL | hbqR
-    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq hcomp hrun hq (Or.inl hbqL)
-        hlastq hL (Or.inl hbL) hlL).1 (by rw [hbL, hbqL])
-      have hcross := (halign e.graph_eq hcomp hrun hL (Or.inl hbL) hlL
-        hR (Or.inr hbR) hlR).2.2 ⟨hbL, hbR, hrank⟩
+    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq (lrt_lines_len e) hwf hfp
+        hcomp hrun hq (Or.inl hbqL) hlastq hL (Or.inl hbL) hlL).1
+        (by rw [hbL, hbqL])
+      have hcross := (halign e.graph_eq (lrt_lines_len e) hwf hfp hcomp hrun
+        hL (Or.inl hbL) hlL hR (Or.inr hbR) hlR).2.2 ⟨hbL, hbR, hrank⟩
       rw [hrq, rectAt_eq run.proper run.xs run.ys q,
         rectAt_eq run.proper run.xs run.ys mR]
       dsimp only
       omega
-    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq hcomp hrun hq (Or.inr hbqR)
-        hlastq hR (Or.inr hbR) hlR).1 (by rw [hbR, hbqR])
+    · obtain ⟨heq1, heq2⟩ := (halign e.graph_eq (lrt_lines_len e) hwf hfp
+        hcomp hrun hq (Or.inr hbqR) hlastq hR (Or.inr hbR) hlR).1
+        (by rw [hbR, hbqR])
       rw [hrq, rectAt_eq run.proper run.xs run.ys q,
         rectAt_eq run.proper run.xs run.ys mR]
       dsimp only
       omega
-  have hnonnegR := (halign e.graph_eq hcomp hrun hR (Or.inr hbR) hlR
-    hR (Or.inr hbR) hlR).2.1
+  have hnonnegR := (halign e.graph_eq (lrt_lines_len e) hwf hfp hcomp hrun
+    hR (Or.inr hbR) hlR hR (Or.inr hbR) hlR).2.1
   have hmemR : Labels.rectAt run.proper run.xs run.ys mR ∈
       groupBorderRects (componentCandidate e.graph comp candidate) run
         nodeV.decl :=
@@ -240,15 +245,16 @@ theorem loopResTopReservation_holds {inp : Input} {o : Options}
     have e2 : rk run.proper.rank mR' = rk run.coordinateProper.rank mR' := by
       rw [hranks]
     rw [e1, e2, hrankL', hrankR']
-  have hHullPair := lrt_hull_eq_of_pair e comp candidate run orderOptions v nodeV
+  have hHullPair := lrt_hull_eq_of_pair e hwf hfp comp candidate run orderOptions v nodeV
     hcomp hnodeV hvTop hrun halign mL mR' nL nR' hpropL hbL' hlastL'
     hpropR' hbR'' hlastR' hrankPair
   have hSameR : (Labels.rectAt run.proper run.xs run.ys mR').x +
       (Labels.rectAt run.proper run.xs run.ys mR').w =
       (Labels.rectAt run.proper run.xs run.ys mR).x +
         (Labels.rectAt run.proper run.xs run.ys mR).w := by
-    obtain ⟨_, heqR⟩ := (halign e.graph_eq hcomp hrun hpropR' (Or.inr hbR'')
-      hlastR' hproperR (Or.inr hbR) hlastR).1 (by rw [hbR'', hbR])
+    obtain ⟨_, heqR⟩ := (halign e.graph_eq (lrt_lines_len e) hwf hfp hcomp hrun
+      hpropR' (Or.inr hbR'') hlastR' hproperR (Or.inr hbR) hlastR).1
+      (by rw [hbR'', hbR])
     rw [rectAt_eq run.proper run.xs run.ys mR',
       rectAt_eq run.proper run.xs run.ys mR]
     dsimp only

@@ -171,8 +171,7 @@ theorem rcbLaneSemanticR_endpoints {slot : Int} {p : Proper} {layers : List (Lis
         rt.points.head? = some ⟨lr.routing.targetX.getD i₁ 0,
           RouteImpl.yAt y (RouteImpl.edgeAt p i₁).head⟩ ∧
         rt.points.getLast? = some ⟨lr.routing.sourceX.getD i₀ 0,
-          RouteImpl.yAt y (RouteImpl.edgeAt p i₀).tail +
-            RouteImpl.nodeH p (RouteImpl.edgeAt p i₀).tail⟩
+          RouteImpl.tailPortY p y (RouteImpl.edgeAt p i₀).tail⟩
       else
         rt.points.head? = some (RouteImpl.pieceStart p y lr.routing i₀) ∧
         rt.points.getLast? = some (RouteImpl.pieceEnd p y lr.routing i₁) := by
@@ -233,15 +232,11 @@ theorem rcbRouteWithLanesR_endpoints {slot : Int} {p : Proper} {layers : List (L
         (if reversed.getD rt.original false then
           rt.points.head? = some ⟨qx, (RouteImpl.boxRect p x y
             (RouteImpl.edgeAt p i₁).head).y⟩ ∧
-          rt.points.getLast? = some ⟨px, (RouteImpl.boxRect p x y
-            (RouteImpl.edgeAt p i₀).tail).y +
-            (RouteImpl.boxRect p x y (RouteImpl.edgeAt p i₀).tail).h⟩
+          rt.points.getLast? = some ⟨px, RouteImpl.tailPortY p y
+            (RouteImpl.edgeAt p i₀).tail⟩
         else
-          rt.points.head? = some ⟨px, if RouteImpl.frameKind p
-            (RouteImpl.edgeAt p i₀).tail = -2 then
-            (RouteImpl.boxRect p x y (RouteImpl.edgeAt p i₀).tail).y else
-            (RouteImpl.boxRect p x y (RouteImpl.edgeAt p i₀).tail).y +
-            (RouteImpl.boxRect p x y (RouteImpl.edgeAt p i₀).tail).h⟩ ∧
+          rt.points.head? = some ⟨px, RouteImpl.tailPortY p y
+            (RouteImpl.edgeAt p i₀).tail⟩ ∧
           rt.points.getLast? = some ⟨qx, (RouteImpl.boxRect p x y
             (RouteImpl.edgeAt p i₁).head).y⟩) := by
   intro rt hrt i₀ i₁ h0 h1
@@ -256,7 +251,7 @@ theorem rcbRouteWithLanesR_endpoints {slot : Int} {p : Proper} {layers : List (L
     (hp i₀ hi0).1, (hp i₁ hi1).2, pr0.1, pr0.2.1, pr1.2.2.1, pr1.2.2.2, ?_⟩
   have hs : lr.routing.sourceX = base.sourceX := by rw [hlr]; rfl
   have ht : lr.routing.targetX = base.targetX := by rw [hlr]; rfl
-  simpa only [hs, ht, RouteImpl.pieceStart, RouteImpl.pieceEnd,
+  simpa only [hs, ht, RouteImpl.pieceStart, RouteImpl.pieceEnd, RouteImpl.tailPortY,
     RouteImpl.boxRect] using hports
 
 
@@ -613,19 +608,11 @@ theorem rcbOrdinaryAttachmentR {P : Params} {exact : List Nat}
       (if (cg'.edges.map (·.reversed)).getD i false then
         rt.points.head? = some ⟨qx, (RouteImpl.boxRect run.proper run.xs run.ys
           (RouteImpl.edgeAt run.proper last).head).y⟩ ∧
-        rt.points.getLast? = some ⟨px, (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).y +
-          (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).h⟩
+        rt.points.getLast? = some ⟨px, RouteImpl.tailPortY run.proper run.ys
+          (RouteImpl.edgeAt run.proper first).tail⟩
       else
-        rt.points.head? = some ⟨px, if RouteImpl.frameKind run.proper
-          (RouteImpl.edgeAt run.proper first).tail = -2 then
-          (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).y else
-          (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).y +
-          (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).h⟩ ∧
+        rt.points.head? = some ⟨px, RouteImpl.tailPortY run.proper run.ys
+          (RouteImpl.edgeAt run.proper first).tail⟩ ∧
         rt.points.getLast? = some ⟨qx, (RouteImpl.boxRect run.proper run.xs run.ys
           (RouteImpl.edgeAt run.proper last).head).y⟩) := by
     cases hLanes with
@@ -633,7 +620,7 @@ theorem rcbOrdinaryAttachmentR {P : Params} {exact : List Nat}
       obtain ⟨_, hrouting⟩ := hA
       have h := Elegant.Layered.route_endpoints_on_ports hrouting hRoutes rt hm
         first last hfirst' hlast'
-      rwa [horiginal] at h
+      simpa only [horiginal, RouteImpl.tailPortY, RouteImpl.boxRect] using h
     | inr hB =>
       obtain ⟨_, hroutingR⟩ := hB
       have h := rcbRouteWithLanesR_endpoints hroutingR hRoutes rt hm
@@ -650,24 +637,10 @@ theorem rcbOrdinaryAttachmentR {P : Params} {exact : List Nat}
   have hsh := (hdims _ hf.1).2
   have hth := (hdims _ hl.2.1).2
   have hsboundary : Validator.onBoundary
-      ⟨px, (RouteImpl.boxRect run.proper run.xs run.ys
-        (RouteImpl.edgeAt run.proper first).tail).y +
-        (RouteImpl.boxRect run.proper run.xs run.ys
-        (RouteImpl.edgeAt run.proper first).tail).h⟩
+      ⟨px, RouteImpl.tailPortY run.proper run.ys (RouteImpl.edgeAt run.proper first).tail⟩
       (RouteImpl.boxRect run.proper run.xs run.ys
         (RouteImpl.edgeAt run.proper first).tail) := by
-    simp only [Validator.onBoundary, RouteImpl.boxRect]
-    exact ⟨hpx0, hpx1, by omega, by omega, Or.inr (Or.inr (Or.inr True.intro))⟩
-  have hsboundary_ite : Validator.onBoundary
-      ⟨px, if RouteImpl.frameKind run.proper (RouteImpl.edgeAt run.proper first).tail = -2 then
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).y else
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).y +
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).h⟩
-      (RouteImpl.boxRect run.proper run.xs run.ys
-        (RouteImpl.edgeAt run.proper first).tail) := by
+    unfold RouteImpl.tailPortY
     by_cases hfk : RouteImpl.frameKind run.proper
         (RouteImpl.edgeAt run.proper first).tail = -2
     · simp only [Validator.onBoundary, RouteImpl.boxRect, hfk, ↓reduceIte]
@@ -709,7 +682,7 @@ theorem rcbOrdinaryAttachmentR {P : Params} {exact : List Nat}
     constructor
     · apply (onBoundary_shift _ _ _ _).mpr
       apply (onBoundary_orient _ _ _ _).mpr
-      exact (onBoundary_shift _ _ _ _).mpr hsboundary_ite
+      exact (onBoundary_shift _ _ _ _).mpr hsboundary
     · apply (onBoundary_shift _ _ _ _).mpr
       apply (onBoundary_orient _ _ _ _).mpr
       exact (onBoundary_shift _ _ _ _).mpr htboundary

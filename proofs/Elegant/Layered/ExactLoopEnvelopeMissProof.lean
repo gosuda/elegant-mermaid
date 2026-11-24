@@ -106,6 +106,7 @@ footprint misses every in-scope real box in a different rank. -/
 def X_loopEnvOtherRank (exactIds : List String) : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult)
     (execution : SceneExecutionX exactIds inp o res)
+    (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
     (comp : List Nat) (candidate : Nat) (run : Run)
     (orderOptions : OrderOptions) (cg : Graph) (k : Nat) (e : Edge) (v : Nat),
     comp ∈ components execution.graph →
@@ -296,7 +297,7 @@ theorem X_loopEnvelopeMiss_holds (exactIds : List String)
         exact hB inp o res execution hwf hfp comp candidate run orderOptions cg k e v
           hcomp hcg hrun hk hloop hex hbord hv hreal hscope₀ hscope₁
           _ _ hly_t htin_t hvin_v hvte
-    · refine hA inp o res execution comp candidate run orderOptions cg k e v
+    · refine hA inp o res execution hwf hfp comp candidate run orderOptions cg k e v
         hcomp hcg hrun hk hloop hex hbord hv hreal hscope₀ hscope₁
         (rk run.proper.rank e.tail).toNat (rk run.proper.rank v).toNat lt lv
         hly_t htin_t hly_v hvin_v heq
@@ -335,7 +336,7 @@ proper ranks, and proper rank equals coordinate rank on exact runs. -/
 theorem X_loopEnvOtherRank_of_otherRankMiss (exactIds : List String)
     (hother : XLEM_OtherRankMiss exactIds) :
     X_loopEnvOtherRank exactIds := by
-  intro inp o res execution comp candidate run orderOptions cg k e v
+  intro inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hex hbord hv hreal hscope₀ hscope₁ rt rv lt lv
     hly_t htin_t hly_v hvin_v hne
   obtain ⟨ranks, p0, labeled, q0, hn, hl, hcoord, hordEx, hxs, hproxy, hdrop,
@@ -354,7 +355,7 @@ theorem X_loopEnvOtherRank_of_otherRankMiss (exactIds : List String)
   have e2 : (rk run.coordinateProper.rank v).toNat = rv := by omega
   have hne' : (rk run.coordinateProper.rank v).toNat ≠
       (rk run.coordinateProper.rank e.tail).toNat := by omega
-  exact hother inp o res execution comp candidate run orderOptions cg k e v
+  exact hother inp o res execution hwf hfp comp candidate run orderOptions cg k e v
     hcomp hcg hrun hk hloop hv hreal hscope₀ hscope₁ hne'
 
 /-- Closed loop-envelope miss: the seam-field type from the four named parts,

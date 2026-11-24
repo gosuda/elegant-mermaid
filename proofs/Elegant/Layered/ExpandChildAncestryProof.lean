@@ -383,38 +383,6 @@ private theorem stepChain_concat {R : String → String → Prop} :
 
  /-! ### Empty-id facts -/
 
- private theorem empty_not_mem_ancestors_go {d : LayoutDump} (k : Nat) (s : String) :
-     "" ∉ LayoutDump.ancestors.go d k s := by
-   revert s
-   induction k with
-   | zero =>
-     intro s hmem
-     cases hmem
-   | succ k ih =>
-     intro s hmem
-     simp only [LayoutDump.ancestors.go, LayoutDump.box?] at hmem
-
-     match h : d.boxes.find? (fun b => b.id == s) with
-     | none =>
-       simp only [h] at hmem
-       cases hmem
-     | some b =>
-       simp only [h] at hmem
-       by_cases hp : b.parent = ""
-       · simp only [hp, ↓reduceIte] at hmem
-         cases hmem
-       · simp only [hp, ↓reduceIte, List.mem_cons] at hmem
-         have hne : ("" : String) ≠ b.parent := Ne.symm hp
-         have hmem' : "" ∈ LayoutDump.ancestors.go d k b.parent := by
-           rcases hmem with hcontra | hrest
-           · exact absurd hcontra hne
-           · exact hrest
-         exact ih _ hmem'
-
- private theorem empty_not_mem_ancestors {d : LayoutDump} (s : String) :
-     "" ∉ d.ancestors s := by
-   unfold LayoutDump.ancestors
-   exact empty_not_mem_ancestors_go d.boxes.length s
 
  /-- The index of the `""`-id box never occurs in a `Compound.ancestors`
  walk: the walk stops on `""` before looking anything up, and no nonempty
@@ -776,25 +744,6 @@ private theorem last_mem_tail {l : List String} {x : String}
       have hlast'' : (b :: t2).getLast? = some x := hlastB
       exact mem_of_getLast? _ _ hlast''
 
-/-- The last link of a step chain whose ends differ ends at the last element. -/
-private theorem stepChain_last_link {R : String → String → Prop}
-    {c : List String} {s x : String}
-    (hchain : StepChain R c) (hhead : c.head? = some s)
-    (hlast : c.getLast? = some x) (hne : s ≠ x) :
-    ∃ y, R y x ∧ y ∈ c := by
-  induction hchain generalizing s x with
-  | nil => simp at hhead
-  | single a =>
-    have hs : a = s := by simpa using hhead
-    have hx : a = x := by simpa using hlast
-    exact absurd (hs.symm.trans hx) hne
-  | cons hab htail ih =>
-    rename_i a b rest
-    have hlast' : (b :: rest).getLast? = some x := hlast
-    by_cases hbx : b = x
-    · exact ⟨a, hbx ▸ hab, List.mem_cons.mpr (Or.inl rfl)⟩
-    · obtain ⟨y, hry, hym⟩ := ih (by simp) hlast' hbx
-      exact ⟨y, hry, List.mem_cons.mpr (Or.inr hym)⟩
 
 /-! ### Ancestry conclusions for one `expandChild` call -/
 
@@ -906,11 +855,70 @@ theorem expandChild_c6_anchors
   rw [heq] at hmem
   exact Or.inl hmem
 
-/-- The expanded group is isolated from the other parent boxes: no other
-parent-scene box has the group among its ancestors.  A merged ancestor walk
-to the group ends in a parent link at the group, which mirrors a kept source
-box whose parent is the group; that source lies inside the group by
-`inside_of_parent`, against the parent sub-input's outside selection. -/
+private theorem no_parent_ancestor (d : LayoutDump) (target : String)
+    (h : ∀ b ∈ d.boxes, b.parent ≠ "" → b.parent ≠ target) :
+    ∀ (fuel : Nat) (id : String), target ∉ LayoutDump.ancestors.go d fuel id := by
+  intro fuel
+  induction fuel with
+  | zero =>
+    intro id
+    simp [LayoutDump.ancestors.go]
+  | succ fuel ih =>
+    intro id
+    cases hb : d.box? id with
+    | none => simp [LayoutDump.ancestors.go, hb]
+    | some b =>
+      have hmem : b ∈ d.boxes := List.mem_of_find?_eq_some hb
+      by_cases hp : b.parent = ""
+      · simp [LayoutDump.ancestors.go, hb, hp]
+      · simp only [LayoutDump.ancestors.go, hb, hp, ↓reduceIte, List.mem_cons, not_or]
+        exact ⟨Ne.symm (h b hmem hp), ih b.parent⟩
+
+theorem expandChild_group_ancestor_absent
+    {fuel : Nat} {P : Params} {inp : Input} {o : Options} {group : ModelBox}
+    {titleLines : List Measure.Line} {titleHeight : Int}
+    {parent child res : FamilyResult}
+    (hctx : ExpandChildCallContext fuel P inp o group titleLines titleHeight
+      parent child res) :
+    ∀ id, group.id ∉ parent.scene.layoutDump.ancestors id := by
+  obtain ⟨hwf, hgroup, hpboxes, _, hparent, _⟩ := hctx
+  have hnodup : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
+  have hgsel : group ∈ inp.boxes := List.mem_of_find?_eq_some hgroup
+  have hpnodup : ((parentSubInput inp group P titleLines child).boxes.map
+      (·.id)).Nodup := by
+    rw [hpboxes, selectInput_box_ids]
+    exact nodup_filter_map _ _ _ hnodup
+  intro id
+  unfold LayoutDump.ancestors
+  apply no_parent_ancestor
+  intro bb hbbmem hbbne hbbpar
+  have hbbmem' : bb ∈ parent.scene.boxes := hbbmem
+  obtain ⟨sb, hsbmem, _hsbid, hsbpar⟩ :=
+    layoutRecursive_scene_box_parent fuel _ _ _ hpnodup hparent bb hbbmem'
+  rw [hpboxes] at hsbmem
+  obtain ⟨m, hmmem, hkeep, _, hmsbpar⟩ :=
+    selectInput_box_spec inp
+      (fun box => !Compound.inside inp.boxes group.id box.id) "" hsbmem
+  have hsbpar' : sb.parent = group.id := by
+    rw [← hsbpar]
+    exact hbbpar
+  have hmpar : m.parent = group.id := by
+    rw [hmsbpar] at hsbpar'
+    by_cases he : m.parent = ""
+    · rw [he] at hsbpar' ⊢
+      simpa using hsbpar'
+    · have hcond : (m.parent == "") = false := by
+        cases hbe : (m.parent == "") with
+        | true => exact absurd (beq_iff_eq.mp hbe) he
+        | false => rfl
+      simpa [hcond] using hsbpar'
+  have hmne : m.parent ≠ "" := by
+    rw [hmpar, ← hbbpar]
+    exact hbbne
+  have hin : Compound.inside inp.boxes group.id m.id = true :=
+    inside_of_parent hnodup hgsel hmmem hmpar.symm hmne
+  simp [hin] at hkeep
+
 theorem expandChild_group_isolated
     {fuel : Nat} {P : Params} {inp : Input} {o : Options} {group : ModelBox}
     {titleLines : List Measure.Line} {titleHeight : Int}
@@ -921,50 +929,8 @@ theorem expandChild_group_isolated
       parent child res)
     (_hparams : ExpandChildCallParams P inp o group titleLines titleHeight) :
     ExpandChildGroupIsolated group parent := by
-  obtain ⟨hwf, hgroup, hpboxes, _, hparent, _⟩ := hctx
-  have hnodup : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
-  have hgsel : group ∈ inp.boxes := List.mem_of_find?_eq_some hgroup
-  have hpnodup : ((parentSubInput inp group P titleLines child).boxes.map
-      (·.id)).Nodup := by
-    rw [hpboxes, selectInput_box_ids]
-    exact nodup_filter_map _ _ _ hnodup
-  intro pb hpb hne
-  by_cases hg : group.id = ""
-  · rw [hg]
-    exact empty_not_mem_ancestors pb.id
-  · intro hmem
-    have hxgo : group.id ∈ LayoutDump.ancestors.go parent.scene.layoutDump
-        parent.scene.layoutDump.boxes.length pb.id := hmem
-    obtain ⟨c₂, hchain₂, hhead₂, hlast₂, _hlen₂⟩ := go_chain_of_mem _ _ _ hxgo
-    obtain ⟨y, hry, _hym⟩ := stepChain_last_link hchain₂ hhead₂ hlast₂ hne
-    obtain ⟨bb, hbbhit, hbbpar, _hbbne⟩ := hry
-    have hbbmem : bb ∈ parent.scene.boxes :=
-      List.mem_of_find?_eq_some hbbhit
-    obtain ⟨sb, hsbmem, _hsbid, hsbpar⟩ :=
-      layoutRecursive_scene_box_parent fuel _ _ _ hpnodup hparent bb hbbmem
-    rw [hpboxes] at hsbmem
-    obtain ⟨m, hmmem, hkeep, _, hmsbpar⟩ :=
-      selectInput_box_spec inp
-        (fun box => !Compound.inside inp.boxes group.id box.id) "" hsbmem
-    have hsbpar' : sb.parent = group.id := by
-      rw [← hsbpar]
-      exact hbbpar
-    have hmpar : m.parent = group.id := by
-      rw [hmsbpar] at hsbpar'
-      by_cases he : m.parent = ""
-      · rw [he] at hsbpar' ⊢
-        simpa using hsbpar'
-      · have hcond : (m.parent == "") = false := by
-          cases hbe : (m.parent == "") with
-          | true => exact absurd (beq_iff_eq.mp hbe) he
-          | false => rfl
-        simpa [hcond] using hsbpar'
-    have hmne : m.parent ≠ "" := by
-      rw [hmpar]
-      exact hg
-    have hin : Compound.inside inp.boxes group.id m.id = true :=
-      inside_of_parent hnodup hgsel hmmem hmpar.symm hmne
-    simp [hin] at hkeep
+  intro pb _hpb _hne
+  exact expandChild_group_ancestor_absent hctx pb.id
 
 /-- Both C8a ancestry conjuncts for one `expandChild` call: scope anchors of
 every embedded child box plus isolation of the group in the parent scene. -/

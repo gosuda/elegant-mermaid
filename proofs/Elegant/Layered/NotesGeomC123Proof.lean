@@ -11,10 +11,9 @@ namespace PipelineImpl
 
 Proved: `NotesC1Fit` from the envelope placement (`Ngc1PlaceW`) plus the
 contracted C1 tower fact; `NotesC2Geom` and `NotesC3Geom` from one bridge def
-each (`Ngc2BridgeW`, `Ngc3BridgeW`) plus tower facts (contracted C1/C2,
-fragment C1) and local well-formedness. Each bridge is a conjunction of
-fragment/envelope/input facts (base id preservation, lookup uniqueness,
-footprint placement and separation), never a claim about `res`.
+each (`Ngc2BridgeW`, `Ngc3BridgeW`) plus tower facts (contracted C2 and
+fragment C1 for C2, fragment C1 and local well-formedness for C3). Each
+bridge describes fragment/envelope/input facts, not the composed scene.
 
 Open: `Ngc1PlaceW`, `Ngc2BridgeW`, `Ngc3BridgeW` (one narrow def per clause).
 The footprint gap separation underneath `hSame`/`hPlace` is pure rect
@@ -46,15 +45,14 @@ theorem ngc1Fit_of_placeW {base : List String → Input → Options → Except L
     NotesC1Fit e :=
   notesC1Fit_holds e hBase hW
 
-/-- C2 bridge: base id preservation and roots, fragment lookup uniqueness
-(holding rect and cross-fragment absence), envelope canvas placement,
-same-layout footprint separation, and the two envelope C2 applicabilities.
-With the contracted C2 and fragment C1 tower facts plus local
-well-formedness this gives every `NotesC2Geom` conjunct. -/
+/-- C2 bridge: base box metadata, fragment lookup uniqueness (holding rect
+and cross-fragment absence), envelope canvas placement, same-layout
+footprint separation, and the two envelope C2 applicabilities. With
+contracted C2 and fragment C1 this gives `NotesC2Geom`. -/
 def Ngc2BridgeW {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
-  NotesBaseContract e ∧ NotesBaseFrag e ∧ NotesFragRoots e ∧
+  NotesBaseContract e ∧ NotesBaseFrag e ∧
     (∀ p ∈ e.fragments, ∀ sb ∈ p.scene.boxes,
       p.rect sb.id = some (shiftRect p.dx p.dy sb.rect)) ∧
     (∀ p ∈ e.fragments, ∀ q ∈ e.fragments, p ≠ q →
@@ -74,26 +72,26 @@ def Ngc2BridgeW {base : List String → Input → Options → Except LayoutError
         (∀ q ∈ e.fragments, ∀ r : Rect, q.rect cb.id ≠ some r) →
         cb.id ≠ eb.id ∧ cb.exclusive = true ∧ eb.exclusive = true ∧ cb.parent = eb.parent)
 
-/-- C2 geometry from the bridge, the contracted C2 and fragment C1 tower
-facts, and local well-formedness (for input nodup). -/
+/-- C2 geometry from the bridge and the contracted C2 and fragment C1 tower
+facts. -/
 theorem ngc2Geom_of_bridgeW {base : List String → Input → Options → Except LayoutError FamilyResult}
     {exactIds : List String} {fuel : Nat} {inp : Input} {o : Options} {res : FamilyResult}
     (e : NotesExecution base exactIds fuel inp o res)
-    (hwf : WellFormed (inputModel inp o))
     (hBase : Validator.C2 e.contracted.scene.layoutDump)
     (hFragC1 : ∀ l ∈ e.layouts, ∀ p ∈ placedOf' e.margin e.contracted.scene l,
       Validator.C1 p.scene.layoutDump)
     (hW : Ngc2BridgeW e) :
     NotesC2Geom e := by
-  obtain ⟨hBC, hBF, hRoots, hSelf, hCross, hPlace, hSame, hAppl, hApplF⟩ := hW
-  have hnd : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
+  obtain ⟨hBC, hBF, hSelf, hCross, hPlace, hSame, hAppl, hApplF⟩ := hW
   have hFM : NotesFirstMatch e := notesFirstMatch_holds e hSelf hCross
   have hCM : NotesContractMirror e := notesContractMirror_holds e hBC
-  have hFRM : NotesFragMirror e := notesFragMirror_holds e hBF hRoots hnd
+  have hSources : NotesFragBoxSources e := by
+    intro l hl
+    exact ⟨(hBF l hl).1.2, fun q hq => ((hBF l hl).2 q hq).2⟩
   have hEnv : NotesEnvFit e := notesEnvFit_holds e hPlace hFragC1
   have hPD : NotesPlacedDisjoint e := notesPlacedDisjoint_holds e hBase hAppl hEnv hSame
   have hFC : NotesForeignClear e := notesForeignClear_holds e hBase hApplF hEnv
-  exact ⟨hFM, hCM, hFRM, hPD, hFC⟩
+  exact ⟨hFM, hCM, hSources, hPD, hFC⟩
 
 /-- C3 bridge: base id preservation and roots, note/parent closure
 (bundle-note alignment and kept-input parent closure), fragment lookup

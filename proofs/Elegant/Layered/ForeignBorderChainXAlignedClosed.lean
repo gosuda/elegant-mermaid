@@ -11,37 +11,22 @@ namespace Elegant.Layered.PipelineImpl
 /-!
 # Closed border-chain alignment.
 
-`foreignBorderChainXAligned'` below closes `ForeignBorderChainXAligned` for
-executed runs. The conditional theorems `foreignBorderSideUps_of` and
-`foreignBorderChainXAligned_of` take universal chain-shape and fold-bound
-hypotheses that do not bind execution evidence, while
-`foreignSideChainShape_executed` and `foreignBorderEdgesNoncrossing_executed`
-need it; but every use inside `foreignBorderSideUps_of` is at one executed
-run. So this replays the body of `foreignBorderSideUps_of` with the pointwise
-executed facts inlined: the chain shape from `foreignSideChainShape_executed`,
-the fold bound from `foreignSideFoldBound'` applied to that shape and the
-executed non-crossing theorem, then continues exactly as the original proof
-does, and finishes with `foreignBorderChainXAligned`.
-
-The only hypothesis carried is the ordering-stage residual
-`ForeignBorderDivergeStable` from
-`Elegant.Layered.ForeignBorderEdgesNoncrossingProof` (probe evidence:
-`wip/Probe/BorderNoncrossingTProbe.lean` census B is zero on every executed
-sample, non-vacuous on all multi-group samples in both TB and LR).
+`foreignBorderSideUps_closed` specializes the chain-shape and fold facts
+to each successful framed run. The fold bound uses border-edge noncrossing,
+which in turn uses `ForeignBorderDivergeStable` for that run.
 -/
 
-/-- The side chains form single alignment blocks, closed for executed runs:
-replay of `foreignBorderSideUps_of` with the pointwise executed shape and
-fold facts inlined. -/
+/-- The side chains of a successful framed run form single alignment blocks
+given cross-layer order stability for divergent blocks. -/
 theorem foreignBorderSideUps_closed (hstab : ForeignBorderDivergeStable) :
     ForeignBorderSideUps := by
-  intro P inp o lines graph hgraph comp hcomp candidate run labels orderOptions hrun
+  intro P inp o lines graph hgraph hlines hwf hframed comp hcomp candidate run labels orderOptions hrun
     decl side hside k hk pos hpos
   have hpos' : CoordsImpl.checkLayers (sideBase run) run.layers = .ok pos := hpos
   have hsh : ForeignSideChainShape P run side decl pos k :=
     foreignSideChainShape_executed hgraph hcomp hrun hside hpos'
   have hcross : ForeignBorderEdgesNoncrossing P run pos k :=
-    foreignBorderEdgesNoncrossing_executed hgraph hcomp hrun hpos' hstab
+    foreignBorderEdgesNoncrossing_executed hgraph hlines hwf hframed hcomp hrun hpos' hstab
   have hrunEx : ∃ (cg : Graph) (labels : List MeasuredLabel)
       (orderOptions : OrderOptions),
       componentRun P cg labels orderOptions = .ok run :=
@@ -78,9 +63,8 @@ theorem foreignBorderSideUps_closed (hstab : ForeignBorderDivergeStable) :
     have hord := sideOrdered_ctx P run pos k side decl
     exact borderChainUps_of_pick hL hocc hord hpick
 
-/-- The closed alignment form `ForeignBorderChainXAligned`: every two
-same-side markers of one declaration share one closed `x`-interval. The only
-open content is the ordering-stage stability of divergent blocks. -/
+/-- Same-side markers of one declaration in a successful framed run share one
+closed `x`-interval given cross-layer order stability for divergent blocks. -/
 theorem foreignBorderChainXAligned' (hstab : ForeignBorderDivergeStable) :
     ForeignBorderChainXAligned :=
   foreignBorderChainXAligned (foreignBorderSideUps_closed hstab)

@@ -22,18 +22,18 @@ group frame once the fixed-size fit premise holds.
 Six region premises (W form: local `WellFormed`/`framedParents` directly
 after the execution binder exactly where the exact proof consumes them):
 
-* `R_OwnerCaptionContainFallbackFit` (geometric, open): the owner caption
-  lies inside the owner frame under fit;
-* `R_FixedOwnerFit` (structural, proved below): a fixed-size entry naming a
-  non-exclusive label-owning box fits that box's output rect;
-* `R_NonfixedGroupTitle` (structural, proved below): a non-fixed group owner
-  always records an installed title;
-* `R_OwnerFrameDisjoint` (geometric, open): the C8a instance for the
+* `R_OwnerCaptionContainFallbackFit` (proved in `RegionFallbackFitProof`):
+  the owner caption lies inside the owner frame under fit;
+* `R_FixedOwnerFit` (proved using `RegionFallbackStructuralProof`): a fixed-size
+  entry naming a non-exclusive label-owning box fits that box's output rect;
+* `R_NonfixedGroupTitle` (proved in `RegionFallbackStructuralProof`): a
+  non-fixed group owner always records an installed title;
+* `R_OwnerFrameDisjointW` (geometric, open): the C8a instance for the
   fallback owner frame;
 * `R_AncestorFrameStrictW` (geometric, open): ancestor groups strictly
   contain the descendant frame under local admission;
-* `R_FallbackOwnerCasesW` (structural, proved below): an owner with no
-  installed title is a node-role box or a fixed-size box.
+* `R_FallbackOwnerCasesW` (proved in `RegionFallbackStructuralProof`): an
+  owner with no installed title is a node-role box or a fixed-size box.
 
 Probe evidence (`#eval`s below, vector profile, `layoutRIds` recomputed
 phases): the non-`W` conclusion holds on the fitting rows and holds
@@ -42,7 +42,7 @@ breaks it, so the `W` form is stated. -/
 
 /-- R twin of `X_OwnerCaptionContainFallbackFit`
 (`ExactCaptionFallbackProof.lean:113`): the owner caption lies inside the
-owner frame under fit. Geometric residual, stays open. -/
+owner frame under fit. Proved in `RegionFallbackFitProof`. -/
 def R_OwnerCaptionContainFallbackFit (exactIds : List String)
     (idSets : List (String × List String)) : Prop :=
   ∀ {inp : Input} {o : Options} {res : FamilyResult}
@@ -92,12 +92,14 @@ def R_NonfixedGroupTitle (exactIds : List String)
     ((sceneTitlesExpr execution.params inp o execution.lines
       execution.packedAcc).find? (fun title => title.1 == obox.id)).isSome = true
 
- /-- The fallback owner's frame must miss unrelated group frames.
- The exact-family counterpart is `XFB_OwnerFrameDisjointW`. -/
- def R_OwnerFrameDisjoint (exactIds : List String)
+ /-- Under local well-formedness and framed parents, the fallback owner's
+ frame must miss unrelated group frames. The exact-family counterpart is
+ `XFB_OwnerFrameDisjointW`. -/
+ def R_OwnerFrameDisjointW (exactIds : List String)
      (idSets : List (String × List String)) : Prop :=
    ∀ {inp : Input} {o : Options} {res : FamilyResult}
      (execution : SceneExecutionR exactIds idSets inp o res)
+     (_hwf : WellFormed (inputModel inp o)) (_hfp : framedParents inp = true)
      (ownerIndex : Nat) (obox : ModelBox) (g : Box),
      inp.boxes[ownerIndex]? = some obox →
      (sceneTitlesExpr execution.params inp o execution.lines
@@ -619,7 +621,7 @@ def R_NonfixedGroupTitle (exactIds : List String)
  `X_fallbackOwnerFrameClearXW_holds` over `SceneExecutionR`. -/
 private theorem rfb_ownerFrame_holds (exactIds : List String)
     (idSets : List (String × List String))
-    (hdisj : R_OwnerFrameDisjoint exactIds idSets)
+    (hdisj : R_OwnerFrameDisjointW exactIds idSets)
     (hastrict : R_AncestorFrameStrictW exactIds idSets)
     (hnodesc : rfb_OwnerNoDescW exactIds idSets) :
     rfb_OwnerFrameClearXW exactIds idSets := by
@@ -674,7 +676,7 @@ private theorem rfb_ownerFrame_holds (exactIds : List String)
           rw [← hobId]
           exact hanc
         have hobAbsent := hnodesc execution hwf hfp ownerIndex obox hobox hnone g
-        have hd := hdisj execution ownerIndex obox g hobox hnone hgMem hgRole
+        have hd := hdisj execution hwf hfp ownerIndex obox g hobox hnone hgMem hgRole
           hEqId hancOb hobAbsent
         rw [hgetD] at hd
         exact Or.inl hd
@@ -687,7 +689,7 @@ private theorem rfb_ownerFrame_holds (exactIds : List String)
      (hcontain : R_OwnerCaptionContainFallbackFit exactIds idSets)
      (hfix : R_FixedOwnerFit exactIds idSets)
      (htitle : R_NonfixedGroupTitle exactIds idSets)
-     (hdisj : R_OwnerFrameDisjoint exactIds idSets)
+     (hdisj : R_OwnerFrameDisjointW exactIds idSets)
      (hastrict : R_AncestorFrameStrictW exactIds idSets)
      (hcases : R_FallbackOwnerCasesW exactIds idSets) :
      R_FallbackCaptionClearBW exactIds idSets := by
@@ -876,12 +878,12 @@ private def rfbFitPremiseB (P : Params) (_o : Options) (lines : List (List Measu
  #eval rfbFitPremiseOn rfbFixedInp rfbOpts
  #eval rfbFitPremiseOn rfbWideInp rfbOpts
 
- /-! NOTE: the three-premise wrapper (`R_fallbackCaptionClearB8W_holds`
- from the three geometric twins alone) is withheld: its three structural
- premises (`R_FixedOwnerFit`, `R_NonfixedGroupTitle`,
- `R_FallbackOwnerCasesW`) still need the region part-sizing residual
- (`R_PartSizingR`) and the region title-existence chain, both open.
- The six-premise `R_fallbackCaptionClearB8W_closed` above stays proved.
+ /-! Owner-caption containment follows from `R_ownerCaptionContainFallbackFit_holds`.
+ The structural premises follow from packed fixed-box dominance and the
+ non-fixed group title and fallback owner cases theorems. For general region
+ sets the two geometric premises are `R_OwnerFrameDisjointW` and
+ `R_AncestorFrameStrictW`, each under per-execution admission. The duplicate-id
+ probe above still refutes fallback clearance without that admission.
 
  ## Structural twins: fixed-owner fit. -/
 
