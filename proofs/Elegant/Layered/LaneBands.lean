@@ -1,5 +1,6 @@
 import Elegant.Scene
 import Elegant.Measure
+import Elegant.Text.Place
 import Elegant.Layered.Pipeline
 
 set_option autoImplicit false
@@ -623,11 +624,12 @@ theorem textObstacle_contains_closed {axis : Axis} {rect : Rect} {point : GridPo
 
 def textObstacles (axis : Axis) (s : Scene) : List Obstacle :=
   if s.options.profile == .cell then
-    s.items.flatMap fun group => group.items.filterMap fun item =>
+    s.items.flatMap fun group => group.items.flatMap fun item =>
       match item with
       | .text text =>
-        if 0 < text.rect.w ∧ 0 < text.rect.h then some (textObstacle axis text.rect) else none
-      | _ => none
+        (Text.Place.positionedLines text).filterMap fun line =>
+          if 0 < line.rect.w then some (textObstacle axis line.rect) else none
+      | _ => []
   else []
 
 def Obstacle.hits (o : Obstacle) (a b : GridPoint) : Bool :=
@@ -780,10 +782,25 @@ def routePolyline (axis : Axis) (g : RouteGrid) (ends : RouteEnds)
 def clearPolyline (g : RouteGrid) (axis : Axis) (points : List Point) : Bool :=
   (points.zip points.tail).all (fun (a, b) => g.free (axis.grid a) (axis.grid b))
 
-def findRoute (axis : Axis) (ends : RouteEnds) (obs boxes : List Obstacle) (bend : Int) :
+/-- Every segment of a clear complete polyline avoids every routing reservation. -/
+theorem clearPolyline_no_hits {g : RouteGrid} {axis : Axis} {points : List Point}
+    (h : clearPolyline g axis points = true) {a b : Point}
+    (hp : (a, b) ∈ points.zip points.tail) {obstacle : Obstacle}
+    (ho : obstacle ∈ g.obstacles) :
+    obstacle.hits (axis.grid a) (axis.grid b) = false := by
+  cases hit : obstacle.hits (axis.grid a) (axis.grid b) with
+  | false => rfl
+  | true =>
+    have present : g.obstacles.any
+        (fun obstacle => obstacle.hits (axis.grid a) (axis.grid b)) = true :=
+      List.any_eq_true.mpr ⟨obstacle, ho, hit⟩
+    have free := List.all_eq_true.mp h (a, b) hp
+    simp [RouteGrid.free, present] at free
+
+def findRoute (axis : Axis) (ends : RouteEnds) (obs : List Obstacle) (bend : Int) :
     List Int → Except LayoutError (List Point)
   | [] => .error .domain
-  | inflate :: rest => do
+  | inflate :: rest =>
     let g := routeGrid obs inflate ends.entry ends.exit
     let start := g.vertex ends.entry
     let goal := g.vertex ends.exit
@@ -791,12 +808,33 @@ def findRoute (axis : Axis) (ends : RouteEnds) (obs boxes : List Obstacle) (bend
       (List.range (g.cross.size * g.rank.size * 4))
       ⟨[⟨start * 4 + ends.startMove, 0, [start]⟩], none⟩
     match found with
-    | none => findRoute axis ends obs boxes bend rest
+    | none => findRoute axis ends obs bend rest
     | some node =>
-      let points ← routePolyline axis g ends node.path
-      let boxGrid := { g with obstacles := boxes }
-      if clearPolyline boxGrid axis points then pure points
-      else findRoute axis ends obs boxes bend rest
+      match routePolyline axis g ends node.path with
+      | .error error => .error error
+      | .ok points =>
+        if clearPolyline g axis points then .ok points
+        else findRoute axis ends obs bend rest
+
+/-- Successful routing certifies the complete polyline, including both fixed stubs,
+against the same reservations that constrained the grid search. -/
+theorem findRoute_clear {axis : Axis} {ends : RouteEnds} {obs : List Obstacle}
+    {bend : Int} {inflates : List Int} {points : List Point}
+    (h : findRoute axis ends obs bend inflates = .ok points) :
+    clearPolyline ⟨#[], #[], obs⟩ axis points = true := by
+  induction inflates generalizing points with
+  | nil => cases h
+  | cons inflate rest ih =>
+    simp only [findRoute] at h
+    split at h
+    · exact ih h
+    · split at h
+      · cases h
+      · split at h
+        · rename_i clear
+          cases h
+          exact clear
+        · exact ih h
 
 def replaceRouteItem (old points : List Point) : Primitive → Primitive
   | .polyline _ corner paint => .polyline points corner paint
@@ -819,7 +857,7 @@ def rerouteBands (axis : Axis) (sp : Spacing) (bend : Int) (bands : List Band)
         let boxes := (s.boxes.filter (fun b => b.exclusive && b.id != r.fromId &&
           b.id != r.toId)).map (fun b => obstacleOf axis b.rect)
         let obs := boxes ++ textObstacles axis s
-        pure { r with points := ← findRoute axis ends obs boxes bend [sp.slot, 0] }
+        pure { r with points := ← findRoute axis ends obs bend [sp.slot, 0] }
     | _, _, _, _ => pure r
   let items := s.items.map fun g =>
     match s.routes.find? (·.id == g.owner), routes.find? (·.id == g.owner) with

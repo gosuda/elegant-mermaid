@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"slices"
 
+	"github.com/gosuda/elegant-mermaid/internal/cells"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 )
@@ -313,7 +314,7 @@ func (r *bandRouter) ends(from, to geom.Rect, original []geom.Point, fromShift, 
 	return ends, nil
 }
 
-func (r *bandRouter) obstacles(from, to string) []obstacle {
+func (r *bandRouter) obstacles(from, to string) ([]obstacle, error) {
 	var out []obstacle
 	for i := range r.scene.Boxes {
 		box := &r.scene.Boxes[i]
@@ -322,25 +323,39 @@ func (r *bandRouter) obstacles(from, to string) []obstacle {
 		}
 	}
 	if r.scene.Options.Profile == scene.ProfileCell {
-		out = r.appendCellTextObstacles(out)
+		return r.appendCellTextObstacles(out)
 	}
-	return out
+	return out, nil
 }
 
-func (r *bandRouter) appendCellTextObstacles(out []obstacle) []obstacle {
+func (r *bandRouter) appendCellTextObstacles(out []obstacle) ([]obstacle, error) {
 	for _, group := range r.scene.Groups {
 		for _, item := range group.Items {
 			label, ok := item.(*scene.Text)
-			if !ok || label.Rect.W <= 0 || label.Rect.H <= 0 {
+			if !ok {
 				continue
 			}
-			bound := newObstacle(r.axis, label.Rect)
-			bound.cross0--
-			bound.cross1++
-			bound.rank0--
-			bound.rank1++
-			out = append(out, bound)
+			lines, err := cells.PositionedLines(label)
+			if err != nil {
+				return nil, err
+			}
+			out = appendLineObstacles(out, r.axis, lines)
 		}
+	}
+	return out, nil
+}
+
+func appendLineObstacles(out []obstacle, axis laneAxis, lines []cells.PositionedLine) []obstacle {
+	for _, line := range lines {
+		if line.Rect.W == 0 {
+			continue
+		}
+		bound := newObstacle(axis, line.Rect)
+		bound.cross0--
+		bound.cross1++
+		bound.rank0--
+		bound.rank1++
+		out = append(out, bound)
 	}
 	return out
 }
@@ -354,7 +369,10 @@ func (r *bandRouter) route(route *scene.Route, original []geom.Point, fromShift,
 	if err != nil {
 		return err
 	}
-	obstacles := r.obstacles(route.From, route.To)
+	obstacles, err := r.obstacles(route.From, route.To)
+	if err != nil {
+		return err
+	}
 	for _, inflate := range [2]int64{r.slot, 0} {
 		grid := newRouteGrid(obstacles, inflate, ends.entry, ends.exit)
 		search := routeSearch{grid: grid, start: grid.vertex(ends.entry), goal: grid.vertex(ends.exit), startMove: ends.startMove, endMove: ends.endMove, bend: r.bend}
@@ -366,7 +384,7 @@ func (r *bandRouter) route(route *scene.Route, original []geom.Point, fromShift,
 		if err != nil {
 			return err
 		}
-		clear, err := r.clear(route, points)
+		clear, err := r.clear(route, points, grid)
 		if err != nil {
 			return err
 		}
@@ -410,7 +428,7 @@ func collinear(a, b, c geom.Point) bool {
 	return (a.X == b.X && b.X == c.X) || (a.Y == b.Y && b.Y == c.Y)
 }
 
-func (r *bandRouter) clear(route *scene.Route, points []geom.Point) (bool, error) {
+func (r *bandRouter) clear(route *scene.Route, points []geom.Point, grid *routeGrid) (bool, error) {
 	for i := range r.scene.Boxes {
 		box := &r.scene.Boxes[i]
 		if !box.Exclusive || box.ID == route.From || box.ID == route.To {
@@ -421,7 +439,18 @@ func (r *bandRouter) clear(route *scene.Route, points []geom.Point) (bool, error
 			return false, err
 		}
 	}
-	return true, nil
+	return r.clearSegments(points, grid), nil
+}
+
+// Search checks entry-to-exit geometry; the assembled source and target stubs
+// must clear the identical obstacles before the complete route is admitted.
+func (r *bandRouter) clearSegments(points []geom.Point, grid *routeGrid) bool {
+	for i := 1; i < len(points); i++ {
+		if !grid.free(r.gridPoint(points[i-1]), r.gridPoint(points[i])) {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *bandRouter) replace(route *scene.Route, points []geom.Point) {
