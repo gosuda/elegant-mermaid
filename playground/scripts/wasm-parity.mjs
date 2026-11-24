@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative, sep } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import vm from 'node:vm';
 
@@ -28,7 +28,7 @@ const PAIRS = [
 ];
 
 const MAX_REPORTED = 20;
-const SKIPPED_DIRECTORIES = new Set(['_out-of-scope', 'termgfx']);
+const CORPUS_PATHSPEC = ['corpus/*.mmd', ':!corpus/_out-of-scope/*', ':!corpus/termgfx/*'];
 
 function fail(message) {
   process.stderr.write(`wasm-parity: ${message}\n`);
@@ -48,22 +48,15 @@ function parseEvery(argv) {
 }
 
 function corpusFiles() {
-  const found = [];
-  const walk = (directory) => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      if (entry.name.startsWith('.') || SKIPPED_DIRECTORIES.has(entry.name)) {
-        continue;
-      }
-      const path = join(directory, entry.name);
-      if (entry.isDirectory()) {
-        walk(path);
-      } else if (entry.isFile() && entry.name.endsWith('.mmd')) {
-        found.push(relative(root, path).split(sep).join('/'));
-      }
-    }
-  };
-  walk(corpusDir);
-  return found.sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
+  const listed = spawnSync('git', ['ls-files', '-z', '--', ...CORPUS_PATHSPEC], { cwd: root, maxBuffer: 1 << 26 });
+  if (listed.error !== undefined || listed.status !== 0) {
+    fail(`git ls-files failed: ${listed.error ?? listed.stderr.toString('utf8').trim()}`);
+  }
+  return listed.stdout
+    .toString('utf8')
+    .split('\0')
+    .filter((path) => path !== '')
+    .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
 }
 
 function sleep(ms) {
