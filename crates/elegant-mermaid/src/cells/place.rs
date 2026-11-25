@@ -128,7 +128,12 @@ mod tests {
     fn positioned_lines_share_sanitized_graphemes_alignment_and_unclipped_rows()
     -> Result<(), GeomError> {
         let label = TextItem {
-            rect: Rect { x: 10, y: 5, w: 20, h: 0 },
+            rect: Rect {
+                x: 10,
+                y: 5,
+                w: 20,
+                h: 0,
+            },
             role: TextRole::Label,
             size: 14,
             align: Align::Middle,
@@ -147,10 +152,42 @@ mod tests {
         assert_eq!(
             lines,
             [
-                ("A\u{301}".into(), Rect { x: 19, y: 5, w: 1, h: 1 }),
-                ("\u{fffd}\u{301}B".into(), Rect { x: 19, y: 6, w: 2, h: 1 }),
-                (String::new(), Rect { x: 20, y: 7, w: 0, h: 1 }),
-                (" ".into(), Rect { x: 19, y: 8, w: 1, h: 1 }),
+                (
+                    "A\u{301}".into(),
+                    Rect {
+                        x: 19,
+                        y: 5,
+                        w: 1,
+                        h: 1
+                    }
+                ),
+                (
+                    "\u{fffd}\u{301}B".into(),
+                    Rect {
+                        x: 19,
+                        y: 6,
+                        w: 2,
+                        h: 1
+                    }
+                ),
+                (
+                    String::new(),
+                    Rect {
+                        x: 20,
+                        y: 7,
+                        w: 0,
+                        h: 1
+                    }
+                ),
+                (
+                    " ".into(),
+                    Rect {
+                        x: 19,
+                        y: 8,
+                        w: 1,
+                        h: 1
+                    }
+                ),
             ]
         );
         Ok(())
@@ -159,7 +196,12 @@ mod tests {
     #[test]
     fn positioned_lines_preserve_floor_alignment_and_checked_coordinates() {
         let mut label = TextItem {
-            rect: Rect { x: 10, y: 5, w: 0, h: 1 },
+            rect: Rect {
+                x: 10,
+                y: 5,
+                w: 0,
+                h: 1,
+            },
             role: TextRole::Label,
             size: 14,
             align: Align::Middle,
@@ -168,8 +210,15 @@ mod tests {
             lines: vec![vec![Run::plain("A")]],
         };
         assert_eq!(
-            positioned_lines(&label).next().map(|line| line.map(|line| line.rect)),
-            Some(Ok(Rect { x: 9, y: 5, w: 1, h: 1 }))
+            positioned_lines(&label)
+                .next()
+                .map(|line| line.map(|line| line.rect)),
+            Some(Ok(Rect {
+                x: 9,
+                y: 5,
+                w: 1,
+                h: 1
+            }))
         );
         label.align = Align::End;
         label.rect.x = i32::MAX;
