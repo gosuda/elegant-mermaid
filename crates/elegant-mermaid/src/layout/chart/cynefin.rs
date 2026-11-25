@@ -67,7 +67,10 @@ impl<'a> CynefinPlan<'a> {
     }
 
     fn spec(&self, role: Role) -> TextSpec {
-        TextSpec::of_role(self.profile, role)
+        TextSpec {
+            font_family: crate::scene::has_font_family(&self.chart.config),
+            ..TextSpec::of_role(self.profile, role)
+        }
     }
 
     fn measure(&mut self) -> Result<(), LayoutError> {

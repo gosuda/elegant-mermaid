@@ -14,7 +14,10 @@ type attachmentRouting struct {
 }
 
 func (x attachmentExpansion) reconnect(result *Layout, routes expandedRoutes) error {
-	routing := newAttachmentRouting(x.graph, *result)
+	routing, err := newAttachmentRouting(x.graph, *result)
+	if err != nil {
+		return err
+	}
 	if err := x.rerouteAffected(routing, routes); err != nil {
 		return err
 	}
@@ -87,7 +90,7 @@ func (x attachmentExpansion) resizedEndpoint(e Edge) bool {
 	return false
 }
 
-func newAttachmentRouting(g *Graph, result Layout) attachmentRouting {
+func newAttachmentRouting(g *Graph, result Layout) (attachmentRouting, error) {
 	routing := attachmentRouting{graph: g, boxes: make(map[string]geom.Rect, len(result.Boxes))}
 	for _, box := range result.Boxes {
 		if _, ok := routing.boxes[box.ID]; !ok {
@@ -97,15 +100,32 @@ func newAttachmentRouting(g *Graph, result Layout) attachmentRouting {
 	labels, titles := fixedInnerText(g)
 	for _, label := range result.Labels {
 		if !labels[label.ID] {
-			routing.obstacles = append(routing.obstacles, label.Rect)
+			rect, err := attachmentTextObstacle(g, label.Rect)
+			if err != nil {
+				return attachmentRouting{}, err
+			}
+			routing.obstacles = append(routing.obstacles, rect)
 		}
 	}
 	for _, title := range result.Titles {
 		if !titles[title.ID] {
-			routing.obstacles = append(routing.obstacles, title.Rect)
+			rect, err := attachmentTextObstacle(g, title.Rect)
+			if err != nil {
+				return attachmentRouting{}, err
+			}
+			routing.obstacles = append(routing.obstacles, rect)
 		}
 	}
-	return routing
+	return routing, nil
+}
+
+func attachmentTextObstacle(g *Graph, rect geom.Rect) (geom.Rect, error) {
+	if g.LabelGutter == 0 || rect.W == 0 || rect.H == 0 {
+		return rect, nil
+	}
+	// Visibility edges may lie on an obstacle boundary. Reserve one cell
+	// around text so that boundary routes cannot overwrite a glyph.
+	return rectangle(int64(rect.X)-1, int64(rect.Y)-1, int64(rect.W)+2, int64(rect.H)+2)
 }
 
 func fixedInnerText(g *Graph) (map[string]bool, map[string]bool) {

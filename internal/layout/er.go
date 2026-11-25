@@ -269,8 +269,8 @@ func erLineHeight(profile scene.Profile) int32 {
 	return measure.RoleLabel.LineHeightPx() * 64
 }
 
-func erPieceWidth(piece string, profile scene.Profile) (int32, error) {
-	lines, err := measure.StyledLines(piece, math.MaxInt32, erMetric(profile))
+func erPieceWidth(piece string, profile scene.Profile, fontFamily string) (int32, error) {
+	lines, err := measure.StyledLines(piece, math.MaxInt32, erMetric(profile).WithFontFamily(fontFamily))
 	if err != nil {
 		return 0, err
 	}
@@ -281,10 +281,10 @@ func erPieceWidth(piece string, profile scene.Profile) (int32, error) {
 	return width, nil
 }
 
-func erTextWidth(text string, profile scene.Profile) (int32, error) {
+func erTextWidth(text string, profile scene.Profile, fontFamily string) (int32, error) {
 	var width int64
 	for piece := range strings.SplitSeq(text, "\n") {
-		w, err := erPieceWidth(piece, profile)
+		w, err := erPieceWidth(piece, profile, fontFamily)
 		if err != nil {
 			return 0, err
 		}
@@ -308,9 +308,10 @@ type erTable struct {
 	paddingY      int32
 	separator     int32
 	profile       scene.Profile
+	fontFamily    string
 }
 
-func erNewTable(text string, profile scene.Profile) (*erTable, error) {
+func erNewTable(text string, profile scene.Profile, fontFamily string) (*erTable, error) {
 	heading, attributes, _ := strings.Cut(text, "<br/><br/>")
 	heading = erDecodeField(heading)
 	var rows [][]string
@@ -323,7 +324,7 @@ func erNewTable(text string, profile scene.Profile) (*erTable, error) {
 			rows = append(rows, fields)
 		}
 	}
-	columns, err := erColumnWidths(rows, profile)
+	columns, err := erColumnWidths(rows, profile, fontFamily)
 	if err != nil {
 		return nil, err
 	}
@@ -351,6 +352,7 @@ func erNewTable(text string, profile scene.Profile) (*erTable, error) {
 		paddingY:      erConstant(profile, "padding_y"),
 		separator:     separator,
 		profile:       profile,
+		fontFamily:    fontFamily,
 	}, nil
 }
 
@@ -360,7 +362,7 @@ func (t *erTable) width() (int32, error) {
 		columns += int64(column.width)
 	}
 	gaps = int64(max(0, len(t.columns)-1)) * int64(t.paddingX)
-	headingWidth, err := erTextWidth(t.heading, t.profile)
+	headingWidth, err := erTextWidth(t.heading, t.profile, t.fontFamily)
 	if err != nil {
 		return 0, err
 	}
@@ -377,8 +379,8 @@ func (t *erTable) height() (int32, error) {
 	return checkedI32(int64(t.headingHeight) + rows + int64(t.separator) + 2*int64(t.paddingY))
 }
 
-func erTableSize(text string, profile scene.Profile) (geom.Size, error) {
-	table, err := erNewTable(text, profile)
+func erTableSize(text string, profile scene.Profile, fontFamily string) (geom.Size, error) {
+	table, err := erNewTable(text, profile, fontFamily)
 	if err != nil {
 		return geom.Size{}, err
 	}
@@ -403,14 +405,14 @@ func checkedI32(v int64) (int32, error) {
 	return int32(v), nil
 }
 
-func erColumnWidths(rows [][]string, profile scene.Profile) ([]erColumn, error) {
+func erColumnWidths(rows [][]string, profile scene.Profile, fontFamily string) ([]erColumn, error) {
 	var widths [4]int32
 	for _, row := range rows {
 		for i, field := range row {
 			if i >= len(widths) {
 				break
 			}
-			w, err := erTextWidth(field, profile)
+			w, err := erTextWidth(field, profile, fontFamily)
 			if err != nil {
 				return nil, err
 			}
@@ -465,7 +467,7 @@ func erFamilyInput(in Input) (layered.Input, error) {
 		if in.Boxes[i].Shape != "erBox" {
 			continue
 		}
-		size, err := erTableSize(in.Boxes[i].Text, in.Profile)
+		size, err := erTableSize(in.Boxes[i].Text, in.Profile, in.Options.FontFamily)
 		if err != nil {
 			return layered.Input{}, err
 		}
@@ -484,7 +486,7 @@ func erTableScene(in Input, s *scene.Scene) error {
 		if !ok {
 			continue
 		}
-		items, err := erTableItems(box.Text, rect, in.Profile)
+		items, err := erTableItems(box.Text, rect, in.Profile, in.Options.FontFamily)
 		if err != nil {
 			return err
 		}
@@ -511,14 +513,14 @@ func sceneBoxRect(s *scene.Scene, id string) (geom.Rect, bool) {
 	return geom.Rect{}, false
 }
 
-func erTableItems(text string, rect geom.Rect, profile scene.Profile) ([]scene.Primitive, error) {
-	table, err := erNewTable(text, profile)
+func erTableItems(text string, rect geom.Rect, profile scene.Profile, fontFamily string) ([]scene.Primitive, error) {
+	table, err := erNewTable(text, profile, fontFamily)
 	if err != nil {
 		return nil, err
 	}
 	shapes := []scene.Primitive{&scene.Rect{Shape: scene.Shape{Style: "node"}, Rect: rect}}
 	top := rect.Y + table.paddingY
-	heading, err := erTextItem(table.heading, geom.Rect{X: rect.X, Y: top, W: rect.W, H: table.headingHeight}, scene.AlignMiddle, profile)
+	heading, err := erTextItem(table.heading, geom.Rect{X: rect.X, Y: top, W: rect.W, H: table.headingHeight}, scene.AlignMiddle, profile, fontFamily)
 	if err != nil {
 		return nil, err
 	}
@@ -536,10 +538,10 @@ func erRule(start, end geom.Point) scene.Primitive {
 	return &scene.Polyline{Shape: scene.Shape{Style: "rule"}, Points: []geom.Point{start, end}}
 }
 
-func erTextItem(text string, rect geom.Rect, align scene.Align, profile scene.Profile) (*scene.Text, error) {
+func erTextItem(text string, rect geom.Rect, align scene.Align, profile scene.Profile, fontFamily string) (*scene.Text, error) {
 	var lines [][]scene.Run
 	for piece := range strings.SplitSeq(text, "\n") {
-		runs, err := erRunLines(piece, profile)
+		runs, err := erRunLines(piece, profile, fontFamily)
 		if err != nil {
 			return nil, err
 		}
@@ -548,8 +550,8 @@ func erTextItem(text string, rect geom.Rect, align scene.Align, profile scene.Pr
 	return &scene.Text{Rect: rect, Role: scene.TextRoleLabel, Size: 14, Align: align, Style: "text", Lines: lines}, nil
 }
 
-func erRunLines(piece string, profile scene.Profile) ([][]scene.Run, error) {
-	lines, err := measure.StyledLines(piece, math.MaxInt32, erMetric(profile))
+func erRunLines(piece string, profile scene.Profile, fontFamily string) ([][]scene.Run, error) {
+	lines, err := measure.StyledLines(piece, math.MaxInt32, erMetric(profile).WithFontFamily(fontFamily))
 	if err != nil {
 		return nil, err
 	}
@@ -594,7 +596,7 @@ func erAppendColumn(table *erTable, column erColumn, origin geom.Point, texts *[
 		if column.index < len(table.rows[i]) {
 			text = table.rows[i][column.index]
 		}
-		item, err := erTextItem(text, geom.Rect{X: origin.X, Y: y, W: column.width, H: table.rowHeights[i]}, scene.AlignStart, table.profile)
+		item, err := erTextItem(text, geom.Rect{X: origin.X, Y: y, W: column.width, H: table.rowHeights[i]}, scene.AlignStart, table.profile, table.fontFamily)
 		if err != nil {
 			return err
 		}

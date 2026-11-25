@@ -223,7 +223,7 @@ func (p *wardleyPlan) textStyleFor(role measure.Role, size int32) textStyle {
 	if p.cell {
 		profile = scene.ProfileCell
 	}
-	return textStyle{profile: profile, role: role, size: size}
+	return textStyle{profile: profile, role: role, size: size, fontFamily: p.o.FontFamily}
 }
 
 func (p *wardleyPlan) measureAll() error {

@@ -1,5 +1,6 @@
-import { mkdirSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs';
+import { closeSync, mkdirSync, mkdtempSync, openSync, readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs';
 import { execFile } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -404,14 +405,14 @@ function elkEdgePoint(point, offset) {
   return finalPoint({ x: point.x + offset.x, y: point.y + offset.y });
 }
 
-function elkChildren(dump, parentId, byId) {
+function elkChildren(dump, parentId, layoutOptions) {
   const children = [];
   for (const box of dump.boxes) {
     if (box.parent !== parentId) continue;
-    const nested = elkChildren(dump, box.id, byId);
+    const nested = elkChildren(dump, box.id, layoutOptions);
     const node = { id: box.id, width: pxOf(box.w), height: pxOf(box.h) };
     if (nested.length > 0) {
-      node.layoutOptions = { 'elk.padding': zeroPadding };
+      node.layoutOptions = { ...layoutOptions };
       node.children = nested;
     } else {
       node.width = pxOf(box.w);
@@ -432,10 +433,15 @@ function elkGraph(dump) {
   const elkDirection = directionToElk.get(direction === 'TD' ? 'TB' : direction);
   if (!elkDirection) fail(`unknown direction ${direction}`);
   const layoutOptions = { ...elkOptions, 'elk.direction': elkDirection };
+  // ELK 0.12.1 initializes model-order indices at the root. Repeating these
+  // options on a child graph makes its fan-out sorter read missing indices.
+  const nestedOptions = { ...layoutOptions };
+  delete nestedOptions['elk.layered.crossingMinimization.forceNodeModelOrder'];
+  delete nestedOptions['elk.layered.considerModelOrder.strategy'];
   const graph = {
     id: '__emd_root__',
     layoutOptions,
-    children: elkChildren(dump, '', byId),
+    children: elkChildren(dump, '', nestedOptions),
     edges: [],
   };
   graph.edges = dump.routes.map((route) => elkEdge(dump, route, byId));
@@ -454,8 +460,13 @@ function elkEdge(dump, route, byId) {
     if (labels.length > 0) {
       edge.labels = labels.map((label) => ({
         id: label.id,
+        text: label.text,
         width: pxOf(label.w),
         height: pxOf(label.h),
+        layoutOptions: {
+          'elk.edgeLabels.inline': elkOptions['elk.edgeLabels.inline'],
+          'elk.edgeLabels.placement': elkOptions['elk.edgeLabels.placement'],
+        },
       }));
     }
     return edge;
@@ -494,7 +505,7 @@ async function elkDump(dump) {
 
   const { edgeIndex, labelIndex } = elkIndexes(result);
   const routes = dump.routes.map((route) => elkRoute(route, edgeIndex, absolute));
-  const labels = dump.labels.map((label) => elkLabel(label, labelIndex));
+  const labels = dump.labels.map((label) => elkLabel(label, labelIndex, absolute));
   return { dump: makeTranslated(dump, boxes, routes, labels), absolute, raw };
 }
 
@@ -508,7 +519,7 @@ function elkIndexes(result) {
   for (const [routeId, edge] of edgeIndex) {
     for (const label of edge.labels ?? []) {
       if (typeof label.id !== 'string') fail('elk returned a label without an id');
-      labelIndex.set(label.id, { routeId, label });
+      labelIndex.set(label.id, { routeId, container: edge.container, label });
     }
   }
   return { edgeIndex, labelIndex };
@@ -528,21 +539,28 @@ function elkRoute(route, edgeIndex, absolute) {
     return { ...route, points: withoutRepeats(points) };
 }
 
-function elkLabel(label, labelIndex) {
+function elkLabel(label, labelIndex, absolute) {
     const entry = labelIndex.get(label.id);
     if (!entry) return { ...label };
     const position = entry.label;
     if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
       return fail(`elk returned no position for label ${label.id}`);
     }
-    return { ...label, x: unitsOf(position.x), y: unitsOf(position.y) };
+    const offset = absolute.get(entry.container);
+    if (!offset) fail(`elk returned unknown container ${entry.container} for label ${label.id}`);
+    return { ...label, x: unitsOf(position.x + offset.x), y: unitsOf(position.y + offset.y) };
 }
 
 function writeDumpFile(target, text) {
   mkdirSync(path.dirname(target), { recursive: true });
   const temporary = `${target}.${process.pid}.tmp`;
+  const descriptor = openSync(temporary, 'wx');
   try {
-    writeFileSync(temporary, text, { flag: 'wx' });
+    try {
+      writeFileSync(descriptor, text);
+    } finally {
+      closeSync(descriptor);
+    }
     renameSync(temporary, target);
   } finally {
     rmSync(temporary, { force: true });
@@ -606,7 +624,113 @@ function testDagreGroups(dump) {
   if (result.routes[0].from !== 'G1' || result.routes[0].to !== 'G2') fail('dagre relation preservation assertion failed');
 }
 
+async function testElkNestedOptions() {
+  for (const direction of ['TB', 'LR']) {
+    const dump = {
+      kind: 'flowchart',
+      options: { profile: 'vector', thoroughness: 3, max_width: 0, direction, limits: {} },
+      direction,
+      boxes: [
+        { id: 'Outer', role: 'group', x: 0, y: 0, w: 0, h: 0, parent: '', exclusive: false },
+        { id: 'Inner', role: 'group', x: 0, y: 0, w: 0, h: 0, parent: 'Outer', exclusive: false },
+        { id: 'A', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: 'Inner', exclusive: true },
+        { id: 'B', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: 'Inner', exclusive: true },
+      ],
+      routes: [{ id: 'e0', from: 'A', to: 'B', orthogonal: true, points: [] }],
+      labels: [],
+    };
+    const result = await elkDump(dump);
+    const source = result.dump.boxes.find((box) => box.id === 'A');
+    const target = result.dump.boxes.find((box) => box.id === 'B');
+    const gap = direction === 'TB' ? target.y - source.y - source.h : target.x - source.x - source.w;
+    const expected = unitsOf(dagreSpacing.ranksep);
+    if (gap !== expected) {
+      fail(`nested ${direction} rank gap is ${gap} units; expected ${expected}`);
+    }
+  }
+}
+
+async function testElkMixedHierarchy(dump) {
+  const mixed = structuredClone(dump);
+  mixed.boxes.push(
+    { id: 'C', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: 'G1', exclusive: true },
+    { id: 'E', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: 'G1', exclusive: true },
+    { id: 'D', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: '', exclusive: true },
+  );
+  mixed.routes.push(
+    { id: 'e1', from: 'A', to: 'C', orthogonal: true, points: [] },
+    { id: 'e2', from: 'D', to: 'G1', orthogonal: true, points: [] },
+    { id: 'e3', from: 'G1', to: 'G2', orthogonal: true, points: [] },
+    { id: 'e4', from: 'A', to: 'E', orthogonal: true, points: [] },
+  );
+  const result = await elkDump(mixed);
+  if (result.dump.boxes.length !== mixed.boxes.length || result.dump.routes.length !== mixed.routes.length) {
+    fail('ELK lost mixed hierarchy elements');
+  }
+  for (const route of result.dump.routes) {
+    if (route.points.length < 2) fail(`ELK returned no route for ${route.id}`);
+  }
+}
+
+async function testElkLabels() {
+  for (const direction of ['TB', 'LR']) {
+    const dump = {
+      kind: 'flowchart',
+      options: { profile: 'vector', thoroughness: 3, max_width: 0, direction, limits: {} },
+      direction,
+      boxes: [
+        { id: 'A', role: 'node', x: 0, y: 0, w: 8192, h: 2304, parent: '', exclusive: true },
+        { id: 'B', role: 'node', x: 0, y: 0, w: 8192, h: 2304, parent: '', exclusive: true },
+      ],
+      routes: [{ id: 'e0', from: 'A', to: 'B', orthogonal: true, points: [] }],
+      labels: [{ id: 'e0.label', owner: 'e0', text: 'connected', x: 0, y: 0, w: 2048, h: 1280, lines: ['connected'] }],
+    };
+    const result = await elkDump(dump);
+    assertInlineLabel(result.dump, 'e0.label');
+  }
+}
+
+function assertInlineLabel(dump, id) {
+  const label = dump.labels.find((candidate) => candidate.id === id);
+  const route = dump.routes.find((candidate) => candidate.id === label.owner);
+  const source = dump.boxes.find((box) => box.id === route.from);
+  const target = dump.boxes.find((box) => box.id === route.to);
+  const vertical = dump.options.includes('"direction":"TB"');
+  const start = vertical ? source.y + source.h : source.x + source.w;
+  const end = vertical ? target.y : target.x;
+  const lo = vertical ? label.y : label.x;
+  const hi = lo + (vertical ? label.h : label.w);
+  if (lo <= start || hi >= end) fail(`ELK did not reserve space for label ${id}`);
+  const cross = vertical ? label.x : label.y;
+  const crossEnd = cross + (vertical ? label.w : label.h);
+  const port = route.points[0][vertical ? 0 : 1];
+  if (port <= cross || port >= crossEnd) fail(`ELK did not place label ${id} inline`);
+}
+
+function testTemporaryOwnership() {
+  const directory = mkdtempSync(path.join(tmpdir(), 'emd-baseline-'));
+  const target = path.join(directory, 'layout.json');
+  const temporary = `${target}.${process.pid}.tmp`;
+  try {
+    writeFileSync(target, 'original');
+    writeFileSync(temporary, 'occupied');
+    let refused = false;
+    try {
+      writeDumpFile(target, 'replacement');
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      refused = true;
+    }
+    if (!refused || readFileSync(target, 'utf8') !== 'original' || readFileSync(temporary, 'utf8') !== 'occupied') {
+      fail('baseline output changed a file it did not own');
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
+
 async function selfTest() {
+  testTemporaryOwnership();
   const dump = {
     kind: 'flowchart',
     options: { profile: 'vector', thoroughness: 3, max_width: 0, direction: 'TB', limits: {} },
@@ -621,6 +745,9 @@ async function selfTest() {
     labels: [],
   };
   testDagreGroups(dump);
+  await testElkNestedOptions();
+  await testElkMixedHierarchy(dump);
+  await testElkLabels();
   const elk = await elkDump(dump);
   const boxOf = (id) => elk.dump.boxes.find((box) => box.id === id);
   const groupRaw = elk.raw.get('G2');
@@ -635,6 +762,7 @@ async function selfTest() {
   const nested = structuredClone(dump);
   nested.boxes.push({ id: 'C', role: 'node', x: 0, y: 0, w: 2048, h: 1280, parent: 'G2', exclusive: true });
   nested.routes.push({ id: 'e1', from: 'B', to: 'C', orthogonal: true, points: [] });
+  nested.labels.push({ id: 'e1.label', owner: 'e1', text: 'nested', x: 0, y: 0, w: 1024, h: 640, lines: ['nested'] });
   const nestedElk = await elkDump(nested);
   const source = nestedElk.dump.boxes.find((box) => box.id === 'B');
   const sourceGroup = nestedElk.absolute.get('G2');
@@ -644,6 +772,7 @@ async function selfTest() {
       || first[1] < source.y - 1 || first[1] > source.y + source.h + 1) {
     fail('nested route start did not take its container position');
   }
+  assertInlineLabel(nestedElk.dump, 'e1.label');
   if (unitsOf(-0.5 / 64) !== -1 || unitsOf(0.5 / 64) !== 1) fail('rounding assertion failed');
   const points = withoutRepeats([{ x: 1, y: 2 }, { x: 1, y: 2 }, { x: 3, y: 4 }].map(finalPoint));
   if (JSON.stringify(points) !== '[[64,128],[192,256]]') fail('route point assertion failed');

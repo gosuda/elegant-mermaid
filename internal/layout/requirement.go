@@ -120,12 +120,12 @@ func requirementMetric(profile scene.Profile) measure.Metric {
 	return measure.ForRole(measure.RoleLabel)
 }
 
-func requirementPieceLines(piece string, profile scene.Profile) ([]measure.StyledLine, error) {
-	return measure.StyledLines(piece, math.MaxInt32, requirementMetric(profile))
+func requirementPieceLines(piece string, profile scene.Profile, fontFamily string) ([]measure.StyledLine, error) {
+	return measure.StyledLines(piece, math.MaxInt32, requirementMetric(profile).WithFontFamily(fontFamily))
 }
 
-func requirementRunLines(piece string, profile scene.Profile) ([][]scene.Run, error) {
-	lines, err := requirementPieceLines(piece, profile)
+func requirementRunLines(piece string, profile scene.Profile, fontFamily string) ([][]scene.Run, error) {
+	lines, err := requirementPieceLines(piece, profile, fontFamily)
 	if err != nil {
 		return nil, err
 	}
@@ -142,12 +142,12 @@ func requirementRunLines(piece string, profile scene.Profile) ([][]scene.Run, er
 	return out, nil
 }
 
-func requirementTableSize(text string, profile scene.Profile) (geom.Size, error) {
+func requirementTableSize(text string, profile scene.Profile, fontFamily string) (geom.Size, error) {
 	paddingX, paddingY := requirementPadding(profile, "padding_x"), requirementPadding(profile, "padding_y")
 	lineHeight := int64(requirementLineHeight(profile))
 	var width, rows int64
 	for piece := range strings.SplitSeq(text, "\n") {
-		lines, err := requirementPieceLines(piece, profile)
+		lines, err := requirementPieceLines(piece, profile, fontFamily)
 		if err != nil {
 			return geom.Size{}, err
 		}
@@ -192,7 +192,7 @@ func requirementFamilyInput(in Input) (layered.Input, error) {
 	input := familyInput(in)
 	input.Sizes = make([]geom.Size, len(in.Boxes))
 	for i := range in.Boxes {
-		size, err := requirementTableSize(in.Boxes[i].Text, in.Profile)
+		size, err := requirementTableSize(in.Boxes[i].Text, in.Profile, in.Options.FontFamily)
 		if err != nil {
 			return layered.Input{}, err
 		}
@@ -215,7 +215,7 @@ func requirementTableScene(s *scene.Scene, in Input) error {
 		if !ok {
 			continue
 		}
-		items, err := requirementTableItems(text, rect, in.Profile)
+		items, err := requirementTableItems(text, rect, in.Profile, in.Options.FontFamily)
 		if err != nil {
 			return err
 		}
@@ -242,11 +242,11 @@ func requirementBoxRect(s *scene.Scene, id string) (geom.Rect, bool) {
 	return geom.Rect{}, false
 }
 
-func requirementRows(text string, profile scene.Profile) ([][][]scene.Run, error) {
+func requirementRows(text string, profile scene.Profile, fontFamily string) ([][][]scene.Run, error) {
 	pieces := strings.Split(text, "\n")
 	rows := make([][][]scene.Run, len(pieces))
 	for i, piece := range pieces {
-		lines, err := requirementRunLines(piece, profile)
+		lines, err := requirementRunLines(piece, profile, fontFamily)
 		if err != nil {
 			return nil, err
 		}
@@ -293,9 +293,9 @@ func requirementRowRect(x, y, w, h int64) (geom.Rect, error) {
 	return out, nil
 }
 
-func requirementTableItems(text string, rect geom.Rect, profile scene.Profile) ([]scene.Primitive, error) {
+func requirementTableItems(text string, rect geom.Rect, profile scene.Profile, fontFamily string) ([]scene.Primitive, error) {
 	paddingX, paddingY := requirementPadding(profile, "padding_x"), requirementPadding(profile, "padding_y")
-	rows, err := requirementRows(text, profile)
+	rows, err := requirementRows(text, profile, fontFamily)
 	if err != nil {
 		return nil, err
 	}

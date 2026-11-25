@@ -21,7 +21,10 @@ export default defineConfig({
   ...(external === undefined || external === ''
     ? {
         webServer: {
-          command: 'pnpm preview --port 4173 --strictPort',
+          command:
+            process.env.PLAYGROUND_SERVER_MODE === 'dev'
+              ? 'pnpm dev --port 4173 --strictPort'
+              : 'pnpm preview --port 4173 --strictPort',
           url: local,
           reuseExistingServer: false,
           timeout: 120_000,

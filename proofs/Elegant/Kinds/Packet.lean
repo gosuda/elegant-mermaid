@@ -15,10 +15,11 @@ structure Entry where
   lead : Option (ModelLabel × List Measure.Line × Int)
   trail : Option (ModelLabel × List Measure.Line × Int)
 
-private def measure (profile : Profile) (title body : Bool) (text : String) :
+private def measure (profile : Profile) (title body : Bool) (text : String)
+    (fontFamily : Bool := false) :
     Except LayoutError (List Measure.Line) := do
   let metric ← if profile == .cell then pure Measure.Metric.cell
-    else (if title then Measure.Role.title else if body then Measure.Role.body else Measure.Role.label).metric
+    else (if title then Measure.Role.title else if body then Measure.Role.body else Measure.Role.label).metric fontFamily
   StyledMeasure.wrap metric I32_MAX text.toList
 
 private def width (lines : List Measure.Line) : Int := lines.foldl (fun n l => max n l.width) 0
@@ -43,13 +44,13 @@ private def entries (m : Model) : Except LayoutError (List Entry) := do
     let text := match caption with
       | some l => l.text
       | none => match b.text with | some t => if t.isEmpty then b.id else t | none => b.id
-    let lines ← measure m.profile title false text
+    let lines ← measure (fontFamily := m.options.fontFamily) m.profile title false text
     let mut lead := none
     let mut trail := none
     for l in m.labels.filter (fun l => l.owner == b.id && l.id != b.id ++ ".label") do
       if title || !(l.id.endsWith ".bit" || l.id.endsWith ".lead" || l.id.endsWith ".trail") then
         throw .domain
-      let ls ← measure m.profile false true l.text
+      let ls ← measure (fontFamily := m.options.fontFamily) m.profile false true l.text
       if l.id.endsWith ".trail" then trail := some (l, ls, width ls)
       else lead := some (l, ls, width ls)
     let lh := if m.profile == .cell then 1 else if title then 1536 else 1280
@@ -173,7 +174,7 @@ theorem label_loop_origins (m : Model) (es : List Entry) (labels : List SceneLab
     (h : (forIn m.labels [] (fun l labels => do
       if let some e := es.find? (fun e => e.box.id == l.owner) then
         if l.id != l.owner ++ ".label" then
-          let ls ← measure m.profile false true l.text
+          let ls ← measure (fontFamily := m.options.fontFamily) m.profile false true l.text
           pure (ForInStep.yield (labels ++ [{
             id := l.id
             owner := l.owner
@@ -218,7 +219,7 @@ theorem label_loop_origins (m : Model) (es : List Entry) (labels : List SceneLab
         have guard : (l.id != l.owner ++ ".label") = true := by
           simpa only [bne_iff_ne] using caption
         simp only [found, guard, ↓reduceIte, bind, Except.bind] at hs
-        cases measured : measure m.profile false true l.text with
+        cases measured : measure (fontFamily := m.options.fontFamily) m.profile false true l.text with
         | error err =>
           simp only [measured] at hs
           cases hs
@@ -672,7 +673,7 @@ def scene (m : Model) : Except LayoutError Scene := do
   for l in m.labels do
     if let some e := es.find? (fun e => e.box.id == l.owner) then
       if l.id != l.owner ++ ".label" then
-        let ls ← measure m.profile false true l.text
+        let ls ← measure (fontFamily := m.options.fontFamily) m.profile false true l.text
         let br := bitRect p e.piece (width ls) (l.id.endsWith ".trail")
         labels := labels ++ [{
           id := l.id

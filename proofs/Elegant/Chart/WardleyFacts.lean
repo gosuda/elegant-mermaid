@@ -726,7 +726,7 @@ private theorem bind_ok {α β : Type} {x : Except LayoutError α}
 theorem layoutWith_decompose (c : Constants) (input : Input) (m : Model) (s : Scene)
     (h : layoutWith c input m = .ok s) :
     ∃ measured annotationBox labels boxes routes,
-      measureLabels c.fonts (m.profile == .cell) m.labels = .ok measured ∧
+      measureLabels c.fonts (m.profile == .cell) m.labels m.options.fontFamily = .ok measured ∧
       placeLabels c.labels (m.profile == .cell) input (arrange c.geometry input)
         m.routes measured = .ok (annotationBox, labels) ∧
       m.boxes.mapM (boxFunction (arrange c.geometry input) annotationBox) = .ok boxes ∧

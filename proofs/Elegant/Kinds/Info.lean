@@ -7,7 +7,7 @@ namespace Elegant.Kinds.Info
 
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
   let text := (m.labels.find? (fun l => l.id == "version")).map (·.text) |>.getD "v0.1.0"
-  match Chart.Info.layout m.profile text with
+  match Chart.Info.layout (fontFamily := m.options.fontFamily) m.profile text with
   | .error e => throw (.geometry e)
   | .ok r => pure { scene := Chart.Info.sceneOf m r, budgetExhausted := false }
 
@@ -19,7 +19,7 @@ theorem info_lines_in_canvas {m : Model} {result : Layered.FamilyResult}
   generalize ht :
     ((m.labels.find? (fun l => l.id == "version")).map (·.text) |>.getD "v0.1.0") =
       text at h
-  cases hr : Chart.Info.layout m.profile text with
+  cases hr : Chart.Info.layout (fontFamily := m.options.fontFamily) m.profile text with
   | error e =>
     simp only [hr, reduceCtorEq] at h
   | ok r =>
@@ -36,7 +36,7 @@ theorem info_lines_in_canvas {m : Model} {result : Layered.FamilyResult}
 theorem info_valid {m : Model} {result : Layered.FamilyResult}
     (_hw : Elegant.WellFormed m) (_hl : WithinLimits m)
     (h : layout m = .ok result) : HardConstraints result.scene.layoutDump := by
-  cases hr : Chart.Info.layout m.profile
+  cases hr : Chart.Info.layout (fontFamily := m.options.fontFamily) m.profile
       ((m.labels.find? (fun l => l.id == "version")).map (·.text) |>.getD "v0.1.0") with
   | error e =>
     simp only [layout, hr, reduceCtorEq] at h

@@ -93,6 +93,7 @@ pub(super) struct Pt {
 pub(super) struct RadarPlan<'a> {
     pub r: &'a Radar,
     pub c: Consts,
+    font_family: bool,
     pub radius: i64,
     pub extent: i64,
     pub rings: Vec<i64>,
@@ -175,6 +176,7 @@ impl<'a> RadarPlan<'a> {
         let mut plan = RadarPlan {
             r: radar,
             c,
+            font_family: crate::scene::has_font_family(&chart.config),
             radius,
             extent,
             rings,
@@ -272,12 +274,12 @@ impl<'a> RadarPlan<'a> {
             .collect()
     }
 
-    fn measure_text(label: &Label) -> Result<TextBox, LayoutError> {
+    fn measure_text(&self, label: &Label) -> Result<TextBox, LayoutError> {
         let (role, size) = role_of(label);
         let metric = Metric::Vector {
             size_px: size,
             weight: role.weight(),
-            font_family: false,
+            font_family: self.font_family,
         };
         let lines = measure::styled_lines(&label.text, i32::MAX, metric)?;
         let widest = lines
@@ -316,7 +318,7 @@ impl<'a> RadarPlan<'a> {
         self.texts = self
             .labels
             .iter()
-            .map(Self::measure_text)
+            .map(|label| self.measure_text(label))
             .collect::<Result<_, _>>()?;
         Ok(())
     }

@@ -20,6 +20,7 @@ type placedLabel struct {
 type cynefinPlan struct {
 	m          *chartmodel.Cynefin
 	profile    scene.Profile
+	fontFamily string
 	c          cynefinConsts
 	title      textBox
 	titleAt    rect
@@ -40,13 +41,13 @@ func newCynefinPlan(m *chartmodel.Cynefin, o scene.Options) (*cynefinPlan, error
 	if err != nil {
 		return nil, err
 	}
-	p := &cynefinPlan{m: m, profile: o.Profile, c: c, routes: cynefinRoutes(m), labels: map[string]placedLabel{}}
+	p := &cynefinPlan{m: m, profile: o.Profile, fontFamily: o.FontFamily, c: c, routes: cynefinRoutes(m), labels: map[string]placedLabel{}}
 	p.cx, p.cy = geom.FloorDiv(c.width, 2), geom.FloorDiv(c.height, 2)
 	return p, p.measure()
 }
 
 func (p *cynefinPlan) style(role measure.Role) textStyle {
-	return textStyle{profile: p.profile, role: role, size: role.SizePx()}
+	return textStyle{profile: p.profile, role: role, size: role.SizePx(), fontFamily: p.fontFamily}
 }
 
 func (p *cynefinPlan) measure() error {

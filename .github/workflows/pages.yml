@@ -52,7 +52,7 @@ jobs:
       - name: "Render the sample output"
         run: "just playground-sample"
       - name: "Build the site"
-        run: "BASE_PATH=/elegant-mermaid pnpm --dir playground build"
+        run: "BASE_PATH=/elegant-mermaid just playground-build"
       - name: "Configure Pages"
         uses: "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d" # v6.0.0
       - name: "Upload the site artifact"

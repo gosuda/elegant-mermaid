@@ -71,6 +71,7 @@ let message = $state('');
 let sharedUrl = $state<string | null>(null);
 let fixing = $state(false);
 let bootDone = false;
+let hashRevision = 0;
 let snapshots = $state<Record<EngineId, EngineSnapshot>>({ go: IDLE_SNAPSHOT, rust: IDLE_SNAPSHOT });
 let views = $state<Record<EngineId, EngineView>>({ go: emptyView(), rust: emptyView() });
 let svgUrls = $state<Record<EngineId, string | null>>({ go: null, rust: null });
@@ -308,8 +309,8 @@ async function copyLink(): Promise<void> {
       opt: { theme, background, charset, max_width: maxWidth },
     });
     url = shareUrl(window.location.href, encoded);
-  } catch {
-    message = COPY_UNSUPPORTED;
+  } catch (error) {
+    message = error instanceof RangeError ? error.message : COPY_UNSUPPORTED;
     return;
   }
   try {
@@ -338,9 +339,7 @@ async function boot(): Promise<void> {
   const note = encoded === null ? '' : await openShare(encoded);
   bootDone = true;
   issueRevision();
-  if (note !== '') {
-    message = note;
-  }
+  message = encoded !== null && payload === null ? INVALID_LINK_MESSAGE : '';
 }
 
 async function followShare(): Promise<void> {
@@ -368,8 +367,12 @@ onMount(() => {
   for (const id of selected) {
     clients[id]?.start();
   }
-  void boot();
+  const onHashChange = () => void loadHash();
+  window.addEventListener('hashchange', onHashChange);
+  void loadHash();
   return () => {
+    ++hashRevision;
+    window.removeEventListener('hashchange', onHashChange);
     schedule.cancel();
     for (const stop of unsubscribe) {
       stop();
@@ -498,6 +501,15 @@ onMount(() => {
           Both
         </label>
       </fieldset>
+
+      {#each ENGINE_IDS as id (id)}
+        {#if snapshots[id].state === 'error' && !selected.includes(id)}
+          <div role="group" aria-label="Recover {ENGINE_NAME[id]} engine">
+            <p>{failureText(ENGINE_NAME[id], snapshots[id].message)}</p>
+            <button type="button" onclick={() => clients[id]?.retry()}>Retry {ENGINE_NAME[id]} engine</button>
+          </div>
+        {/if}
+      {/each}
 
       <div class="tabs" role="tablist" aria-label="Output">
         {#each TABS as spec, index (spec.id)}

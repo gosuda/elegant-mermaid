@@ -25,7 +25,7 @@ pub(crate) fn from_radar(
     _profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, LayoutError> {
-    options.config = model.config.clone();
+    options.set_kind_config(model.config.clone());
     options.profile = Profile::Vector;
     let payload = payload(model);
     let skeleton = chart::model_skeleton(&payload)?;

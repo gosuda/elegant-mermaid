@@ -1,3 +1,3 @@
-const files = import.meta.glob<string>('./initial-text.txt', { query: '?raw', import: 'default', eager: true });
+import initialText from './initial-text.txt?raw';
 
-export const INITIAL_TEXT: string = files['./initial-text.txt'] ?? '';
+export const INITIAL_TEXT: string = initialText;

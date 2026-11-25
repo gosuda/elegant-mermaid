@@ -56,11 +56,13 @@ pub(crate) fn from_sequence(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = model
-        .config
-        .iter()
-        .map(|(key, value)| (key.clone(), scene_value(value)))
-        .collect();
+    options.set_kind_config(
+        model
+            .config
+            .iter()
+            .map(|(key, value)| (key.clone(), scene_value(value)))
+            .collect(),
+    );
     options.profile = profile;
     let mut author = Author {
         model,
@@ -687,7 +689,11 @@ impl<'a> Planner<'a> {
             actor_boxes.push(index);
             actor_wraps.push(box_wrap(box_));
             let target = wrap_target(shared_wrap, box_wrap(box_), width, padding);
-            let lines = measure(&box_.text, target, metric_of(profile, Role::Label))?;
+            let metric = crate::scene::configured_metric(
+                metric_of(profile, Role::Label),
+                &input.options.config,
+            );
+            let lines = measure(&box_.text, target, metric)?;
             actor_lines.push(lines);
         }
         let mut label_lines = Vec::with_capacity(input.labels.len());
@@ -707,7 +713,9 @@ impl<'a> Planner<'a> {
                 Role::Label
             };
             let target = wrap_target(shared_wrap, wrap, width, padding);
-            label_lines.push(measure(&label.text, target, metric_of(profile, role))?);
+            let metric =
+                crate::scene::configured_metric(metric_of(profile, role), &input.options.config);
+            label_lines.push(measure(&label.text, target, metric)?);
         }
         let mut planner = Planner {
             input,
@@ -1574,7 +1582,10 @@ impl Walk {
         let mut width = natural;
         if run.kind != kind_code("rect") {
             let title = planner.input.boxes[run.box_index].text.clone();
-            let metric = metric_of(planner.profile, Role::Label);
+            let metric = crate::scene::configured_metric(
+                metric_of(planner.profile, Role::Label),
+                &planner.input.options.config,
+            );
             let bracketed = format!("[{title}]");
             let title_w = measure(&bracketed, i32::MAX, metric)
                 .map(|lines| lines.iter().map(|line| line.width).max().unwrap_or(0))

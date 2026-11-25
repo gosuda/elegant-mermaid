@@ -52,12 +52,13 @@ def measureRole : TextRole → Measure.Role
   | .body => .body
   | _ => .label
 
-def measureCaption (profile : Profile) (role : TextRole) (text : String) :
+def measureCaption (profile : Profile) (role : TextRole) (text : String)
+    (fontFamily : Bool := false) :
     Except LayoutError Lanes.Caption := do
   let lineHeight := LayoutConst.line_h.get profile
   let metric ← match profile with
     | .cell => pure Measure.Metric.cell
-    | .vector => (measureRole role).metric
+    | .vector => (measureRole role).metric fontFamily
   match StyledMeasure.wrap metric I32_MAX text.toList with
   | .error _ => throw .overflow
   | .ok lines => return ⟨lines, lines.foldl (fun w l => max w l.width) 0,
@@ -98,7 +99,7 @@ def groupsRooted (m : Model) : Bool := m.boxes.all fun b => b.role != .group || 
 def decode (m : Model) : Except LayoutError Decoded := do
   if !groupsRooted m then throw .domain
   let captions ← m.labels.mapM fun l =>
-    measureCaption m.profile (if (laneIndex m l.owner).isSome then .label else .body) l.text
+    measureCaption (fontFamily := m.options.fontFamily) m.profile (if (laneIndex m l.owner).isSome then .label else .body) l.text
   let slots ← m.labels.zipIdx.mapM fun (l, j) => slotOf m j l
   let branches := ((m.boxes.filter (·.role == .group)).zipIdx).map fun (b, k) =>
     ({ id := b.id, order := laneOrderOf b.shape,

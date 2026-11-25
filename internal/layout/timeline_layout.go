@@ -36,6 +36,7 @@ func layoutTimeline(in Input) (scene.Scene, []diag.Diagnostic, error) {
 
 type timelineMeter struct {
 	profile                           scene.Profile
+	fontFamily                        string
 	cardWidth, columnGap, cardPadding int32
 }
 
@@ -64,7 +65,7 @@ func (m timelineMeter) text(text string, role scene.TextRole, target int32) (lan
 		measured := timelineRole(role)
 		metric, lineHeight = measure.ForRole(measured), measured.LineHeightPx()*unitsPerPx
 	}
-	lines, err := measure.StyledLines(text, target, metric)
+	lines, err := measure.StyledLines(text, target, metric.WithFontFamily(m.fontFamily))
 	if err != nil {
 		return lanes.Text{}, geom.ErrOverflow
 	}
@@ -118,6 +119,7 @@ func decodeTimeline(in Input) (lanes.TimelineInput, error) {
 	if err != nil {
 		return lanes.TimelineInput{}, err
 	}
+	meter.fontFamily = in.Options.FontFamily
 	d := &timelineDecoder{meter: meter, graph: lanes.TimelineInput{Direction: in.Direction}, links: make(map[string]string, len(in.Routes))}
 	for _, route := range in.Routes {
 		d.links[route.To] = route.ID

@@ -35,6 +35,8 @@ pub struct Edge {
     pub length: usize,
     pub user_id: String,
     pub span: Span,
+    /// The enclosing vertex statement; `span` retains the link-token provenance.
+    pub statement_span: Span,
     pub attrs: std::collections::BTreeMap<String, String>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -327,13 +329,13 @@ fn vertices(source: &str, value: &VertexStatement, model: &mut Model, parent: &s
     for (link, group) in &value.rest {
         let next = group_nodes(source, group, model, parent);
         if let (Some(from), Some(to)) = (previous.last(), next.first()) {
-            model.edges.push(edge(source, link, from, to));
+            model.edges.push(edge(source, link, from, to, value.span));
         }
         previous = next;
     }
 }
 
-fn edge(source: &str, link: &Link, from: &str, to: &str) -> Edge {
+fn edge(source: &str, link: &Link, from: &str, to: &str, statement_span: Span) -> Edge {
     let body = link.statement.end_text.trim();
     let stroke = stroke_of(body);
     let (start_marker, end_marker) = edge_markers(link, body);
@@ -367,6 +369,7 @@ fn edge(source: &str, link: &Link, from: &str, to: &str) -> Edge {
             .map(|span| source[span.start..span.end].trim_end_matches('@').into())
             .unwrap_or_default(),
         span: link.span,
+        statement_span,
         attrs: std::collections::BTreeMap::new(),
     }
 }

@@ -357,10 +357,10 @@ def paddingOf (m : Model) (dflt : Int) : Int :=
       | none => pad
     else pad) dflt
 
-def metricOf (profile : Profile) : Except LayoutError Measure.Metric :=
+def metricOf (profile : Profile) (fontFamily : Bool := false) : Except LayoutError Measure.Metric :=
   match profile with
   | .cell => pure Measure.Metric.cell
-  | .vector => Measure.Role.label.metric
+  | .vector => Measure.Role.label.metric fontFamily
 
 def measureText (metric : Measure.Metric) (text : String) :
     Except LayoutError (List Measure.Line) :=
@@ -420,7 +420,7 @@ def BlockPlan.build (m : Model) : Except LayoutError BlockPlan := do
   let consts ← BlockConsts.load m.profile
   let padding := paddingOf m consts.padding
   let specs := m.boxes.map fun b => Spec.parse b.shape
-  let metric ← metricOf m.profile
+  let metric ← metricOf m.profile m.options.fontFamily
   let boxLines ← (m.boxes.zip specs).mapM fun (b, s) =>
     if b.role == .node && s.type != "space" then measureText metric (boxText m b) else pure []
   let labelLines ← m.labels.mapM fun l => measureText metric l.text

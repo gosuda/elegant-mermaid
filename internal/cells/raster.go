@@ -2,7 +2,6 @@ package cells
 
 import (
 	"slices"
-	"strings"
 
 	"github.com/gosuda/elegant-mermaid/internal/gen"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
@@ -324,17 +323,12 @@ func (c *Canvas) placeBrailleText(p *scene.Text, ink Token) (int, error) {
 	span := measure.CeilDiv(int64(p.Rect.X)+int64(p.Rect.W), columnUnits) - first
 	refused := 0
 	for k, runs := range p.Lines {
-		var b strings.Builder
-		for _, run := range runs {
-			b.WriteString(run.Text)
-		}
-		text := terminalText(b.String())
-		width, err := measure.CellWidth(text)
+		text, width, err := cellLine(runs)
 		if err != nil {
 			return 0, err
 		}
 		row := geom.FloorDiv(int64(p.Rect.Y)+int64(k)*lineUnits(p.Role), rowUnits)
-		refused += c.placeClusters(text, lineStart(p.Align, int(first), int(span), int(width)), int(row), ink)
+		refused += c.placeClusters(text, int(lineStart(p.Align, first, span, int64(width))), int(row), ink)
 	}
 	return refused, nil
 }

@@ -86,7 +86,7 @@ func TestERTableKeepsColumns(t *testing.T) {
 	if box.Text != "A<br/><br/>int|id|PK|identifier" {
 		t.Fatal(box.Text)
 	}
-	items, err := erTableItems(box.Text, geom.Rect{W: 27, H: 5}, scene.ProfileCell)
+	items, err := erTableItems(box.Text, geom.Rect{W: 27, H: 5}, scene.ProfileCell, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,14 +129,14 @@ func TestERMDParentHasNoMarker(t *testing.T) {
 
 func TestERHeightReservesOnlyTheHeaderDividerInCells(t *testing.T) {
 	text := "A<br/><br/>int|a||<br/>int|b||"
-	cell, err := erTableSize(text, scene.ProfileCell)
+	cell, err := erTableSize(text, scene.ProfileCell, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cell != (geom.Size{W: 13, H: 6}) {
 		t.Fatal(cell)
 	}
-	vector, err := erTableSize(text, scene.ProfileVector)
+	vector, err := erTableSize(text, scene.ProfileVector, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +153,7 @@ func TestEREscapedFieldsKeepMultilineTextAndColumnDelimiters(t *testing.T) {
 	if erDecodeField(encoded) != "line1\nline2|literal\\n" {
 		t.Fatal(encoded)
 	}
-	table, err := erNewTable("A<br/><br/>"+encoded+"|name||", scene.ProfileCell)
+	table, err := erNewTable("A<br/><br/>"+encoded+"|name||", scene.ProfileCell, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestERFieldTableSize(t *testing.T) {
 	py := erConstant(scene.ProfileCell, "padding_y")
 	minWidth := erConstant(scene.ProfileCell, "min_width")
 	contentWidth := int32(1) + int32(2) + px
-	size, err := erTableSize(text, scene.ProfileCell)
+	size, err := erTableSize(text, scene.ProfileCell, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,11 +202,11 @@ func TestERFieldTableSize(t *testing.T) {
 
 func TestERFieldsEmitFlaggedRunsAndKeepFieldLines(t *testing.T) {
 	text := "A<br/><br/>x\\ny|**id**||"
-	size, err := erTableSize(text, scene.ProfileCell)
+	size, err := erTableSize(text, scene.ProfileCell, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	items, err := erTableItems(text, geom.Rect{W: size.W, H: size.H}, scene.ProfileCell)
+	items, err := erTableItems(text, geom.Rect{W: size.W, H: size.H}, scene.ProfileCell, "")
 	if err != nil {
 		t.Fatal(err)
 	}

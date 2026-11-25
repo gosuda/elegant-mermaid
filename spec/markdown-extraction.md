@@ -40,7 +40,7 @@ This file fixes the fence scanner that finds Mermaid blocks in a Markdown host, 
 - markdown-extraction-22: `render` of a host MUST require `-o` or `-a`. [just go-check]
 - markdown-extraction-23: `-o IMAGE` MUST write `<stem>-N<ext>` per block. [just go-check]
 - markdown-extraction-24: `-a DIR` alone MUST write `<input-stem>-N.<ext>` into `DIR`. [just go-check]
-- markdown-extraction-25: `-o HOST.md` MUST write a copy of the host in which each block is an image link, with alt text equal to the diagram `accTitle` and `diagram` when that is absent, with images in `-a`, default `<HOST-stem>.assets`, and with image format `svg` or `png`, default `svg`. [just go-check]
+- markdown-extraction-25: `-o HOST` with suffix `.md`, `.markdown`, or `.mdx` MUST write a copy of the host in which each block is an image link, with alt text equal to the diagram `accTitle` and `diagram` when that is absent, with images named `<HOST-stem>-N.<ext>` in `-a`, default `<HOST-stem>.assets` beside the output host, and with image format `svg` or `png`, default `svg`. Numbering, path selection, encoding, and write boundaries MUST follow cli-27. [just go-check]
 - markdown-extraction-26: A host with zero Mermaid blocks MUST exit 1 with `no Mermaid blocks found in INPUT; add a fenced code block labelled mermaid` and MUST write nothing. [just go-check]
 - markdown-extraction-27: `--fix` on a Markdown host MUST edit inside the blocks only and MUST map each edit back to host offsets. [just go-check]
 - markdown-extraction-28: The Rust `markdown::blocks` MUST return the same blocks, `Source` bytes, and host offsets as the Go `MarkdownBlocks` for the same host. [just rust-check]

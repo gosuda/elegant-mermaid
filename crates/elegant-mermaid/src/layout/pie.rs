@@ -26,7 +26,7 @@ pub(crate) fn from_pie(
     _profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, LayoutError> {
-    options.config = config_of(&model.config);
+    options.set_kind_config(config_of(&model.config));
     options.profile = Profile::Vector;
     let payload = payload(model);
     let skeleton = chart::pie_skeleton(&payload)?;

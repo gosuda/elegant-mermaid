@@ -142,12 +142,20 @@ func relocateLabels(s *scene.Scene, axis laneAxis, gap int64) error {
 	if err != nil {
 		return err
 	}
-	moved := moveOffendingLabels(s, axis, strip)
-	moveMatchingTexts(s, axis, strip, moved)
+	moved, err := moveOffendingLabels(s, axis, strip, gap)
+	if err != nil {
+		return err
+	}
+	moveMatchingTexts(s, moved)
 	return nil
 }
 
-func moveOffendingLabels(s *scene.Scene, axis laneAxis, strip int32) map[geom.Rect]struct{} {
+type labelRelocation struct {
+	owner         string
+	before, after geom.Rect
+}
+
+func moveOffendingLabels(s *scene.Scene, axis laneAxis, strip int32, gap int64) ([]labelRelocation, error) {
 	scopes := newLabelScopes(s)
 	var offenders []int
 	for i := range s.Labels {
@@ -155,24 +163,56 @@ func moveOffendingLabels(s *scene.Scene, axis laneAxis, strip int32) map[geom.Re
 			offenders = append(offenders, i)
 		}
 	}
-	moved := make(map[geom.Rect]struct{}, len(offenders))
+	moved := make([]labelRelocation, 0, len(offenders))
 	for _, index := range offenders {
 		label := &s.Labels[index]
-		moved[label.Rect] = struct{}{}
-		*axis.start(&label.Rect) = strip
+		next, err := vacantLabelStrip(label.Rect, axis, strip, gap, moved)
+		if err != nil {
+			return nil, err
+		}
+		moved = append(moved, labelRelocation{owner: label.Owner, before: label.Rect, after: next})
+		label.Rect = next
 	}
-	return moved
+	return moved, nil
 }
 
-func moveMatchingTexts(s *scene.Scene, axis laneAxis, strip int32, moved map[geom.Rect]struct{}) {
+func vacantLabelStrip(rect geom.Rect, axis laneAxis, strip int32, gap int64, moved []labelRelocation) (geom.Rect, error) {
+	*axis.start(&rect) = strip
+	for {
+		next := int64(*axis.start(&rect))
+		for _, previous := range moved {
+			if meetsInterior(rect, previous.after) {
+				end := int64(*axis.start(&previous.after)) + int64(*axis.length(&previous.after))
+				value, err := laneAdd(end, gap)
+				if err != nil {
+					return geom.Rect{}, err
+				}
+				next = max(next, value)
+			}
+		}
+		if next == int64(*axis.start(&rect)) {
+			return rect, nil
+		}
+		start, err := laneNarrow(next)
+		if err != nil {
+			return geom.Rect{}, err
+		}
+		*axis.start(&rect) = start
+	}
+}
+
+func moveMatchingTexts(s *scene.Scene, moved []labelRelocation) {
 	for _, group := range s.Groups {
 		for _, item := range group.Items {
 			text, ok := item.(*scene.Text)
 			if !ok {
 				continue
 			}
-			if _, hit := moved[text.Rect]; hit {
-				*axis.start(&text.Rect) = strip
+			for _, change := range moved {
+				if group.Owner == change.owner && text.Rect == change.before {
+					text.Rect = change.after
+					break
+				}
 			}
 		}
 	}

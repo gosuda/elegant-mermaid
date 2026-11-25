@@ -190,9 +190,9 @@ theorem gutter_caption_lower (g : Family) (c : Lanes.EventConsts)
       · exact ih _ hm
   exact member g.lanes c.contentStartX hlane
 
-theorem measureCaption_nonnegative {profile : Profile} {role : TextRole}
+theorem measureCaption_nonnegative {fontFamily : Bool} {profile : Profile} {role : TextRole}
     {target : Int} {text : String} {cap : Lanes.Caption}
-    (h : measureCaption profile role target text = .ok cap) :
+    (h : measureCaption profile role target text fontFamily = .ok cap) :
     0 ≤ cap.w ∧ 0 ≤ cap.h := by
   let finish (metric : Measure.Metric) : Except LayoutError Lanes.Caption := do
     let lines ← match StyledMeasure.wrap metric target text.toList with
@@ -226,7 +226,7 @@ theorem measureCaption_nonnegative {profile : Profile} {role : TextRole}
     apply process Measure.Metric.cell
     exact h
   | vector =>
-    change ((if role == .body then Measure.Role.body else Measure.Role.label).metric.bind
+    change (((if role == .body then Measure.Role.body else Measure.Role.label).metric fontFamily).bind
       finish) = .ok cap at h
     obtain ⟨metric, _, hm⟩ := bind_ok h
     exact process metric hm

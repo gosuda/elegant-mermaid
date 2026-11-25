@@ -36,19 +36,20 @@ type Lane struct {
 }
 
 type Frame struct {
-	Name       string
-	Reset      bool
-	Type       string
-	Category   Category
-	Identifier string
-	Display    string
-	Namespace  string
-	Lane       int
-	HasData    bool
-	Data       string
-	DataType   string
-	Span       source.Span
-	Sources    []Reference
+	Name          string
+	Reset         bool
+	Type          string
+	Category      Category
+	Identifier    string
+	Display       string
+	Namespace     string
+	Lane          int
+	HasData       bool
+	Data          string
+	DataType      string
+	Span          source.Span
+	StatementSpan source.Span
+	Sources       []Reference
 }
 
 type Relation struct {
@@ -117,7 +118,7 @@ func (r *resolver) frame(fields *syn.FrameFields, reset bool) Frame {
 	frame := Frame{
 		Name: fields.Name.Text, Reset: reset, Type: fields.ModelEntityType.Text, Category: category,
 		Identifier: fields.EntityIdentifier.Text, Display: display, Namespace: namespace,
-		Lane: r.lane(category, namespace), Span: fields.Name.Span,
+		Lane: r.lane(category, namespace), Span: fields.Name.Span, StatementSpan: fields.Span,
 	}
 	frame.HasData, frame.Data = r.payload(fields)
 	if fields.DataType != nil {

@@ -25,7 +25,8 @@ The core CI workflow runs `gen-check go-check rust-check build parity`.
 
 The verification workflow also runs the house linter, Lean proof audit,
 scheduler model, corpus oracle, random graphs, geometry validation, Lean
-parity, quality comparisons, and theme checks. Its independent jobs install
+parity, quality comparisons, theme checks, native/WebAssembly parity, and
+browser tests. Its independent jobs install
 the pinned gate dependencies and have longer time limits than core CI.
 Failures in one independent gate MUST NOT suppress the other gate results.
 

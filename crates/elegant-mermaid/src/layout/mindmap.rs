@@ -26,7 +26,7 @@ pub fn from_mindmap(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = BTreeMap::new();
+    options.set_kind_config(BTreeMap::new());
     if let Some(value) = model.config.max_node_width {
         options
             .config
@@ -212,7 +212,11 @@ impl<'a> Plan<'a> {
         let wrap = (i64::from(self.c.max_width) - 2 * i64::from(self.c.padding)).max(1);
         let wrap = i32::try_from(wrap).map_err(|_| GeomError::Overflow)?;
         for (b, parent) in self.input.boxes.iter().zip(parents) {
-            let lines = styled_lines(self.label_text(b), wrap, metric(self.input.profile))?;
+            let metric = crate::scene::configured_metric(
+                metric(self.input.profile),
+                &self.input.options.config,
+            );
+            let lines = styled_lines(self.label_text(b), wrap, metric)?;
             let width = lines.iter().map(|line| line.width).max().unwrap_or(0);
             let (w, h) = self.box_size(width, lines.len())?;
             self.measured.push(Measured {

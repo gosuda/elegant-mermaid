@@ -17,9 +17,9 @@ def arrange (width height textX textY : Int) (box : XY.TextBox) (size : Int) : R
   let y := max 0 (textY - Int.fdiv box.h 2)
   ⟨box, ⟨x, y, box.w, box.h⟩, ⟨max width (x + box.w), max height (y + box.h)⟩, size⟩
 
-def layout (profile : Profile) (text : String) : Except LayoutError Result := do
+def layout (profile : Profile) (text : String) (fontFamily : Bool := false) : Except LayoutError Result := do
   let size := Int.fdiv (LayoutConst.info_font_size.get profile) 64
-  let box ← XY.measureText (profile == .cell) text .title size
+  let box ← XY.measureText (profile == .cell) text .title size fontFamily
   let r := arrange (LayoutConst.info_width.get profile) (LayoutConst.info_height.get profile)
     (LayoutConst.info_text_x.get profile) (LayoutConst.info_text_y.get profile) box size
   if InI32 r.canvas.w ∧ InI32 r.canvas.h ∧ InI32 r.rect.x ∧ InI32 r.rect.y ∧
@@ -69,11 +69,11 @@ theorem folded_width_ge_line (lines : List Measure.Line) (initial : Int)
       exact Int.le_trans (Int.le_max_right _ _) hstart
     · exact ih (initial := max initial first.width) hrest
 
-theorem measured_line_width_le (cell : Bool) (text : String) (role : Measure.Role)
+theorem measured_line_width_le {fontFamily : Bool} (cell : Bool) (text : String) (role : Measure.Role)
     (size : Int) (box : XY.TextBox)
-    (h : XY.measureText cell text role size = .ok box) :
+    (h : XY.measureText cell text role size fontFamily = .ok box) :
     ∀ line ∈ box.lines, line.width ≤ box.w := by
-  cases hm : XY.metricOf cell role size with
+  cases hm : XY.metricOf cell role size fontFamily with
   | error e => simp [XY.measureText, hm, Bind.bind, Except.bind] at h
   | ok metric =>
     cases hl : StyledMeasure.wrap metric I32_MAX text.toList with
@@ -88,11 +88,11 @@ theorem measured_line_width_le (cell : Bool) (text : String) (role : Measure.Rol
       intro line hline
       exact folded_width_ge_line lines 0 line hline
 
-theorem layout_measured_line_width_le (profile : Profile) (text : String) (r : Result)
-    (h : layout profile text = .ok r) :
+theorem layout_measured_line_width_le {fontFamily : Bool} (profile : Profile) (text : String) (r : Result)
+    (h : layout profile text fontFamily = .ok r) :
     ∀ line ∈ r.box.lines, line.width ≤ r.rect.w := by
   unfold layout at h
-  cases hm : XY.measureText (profile == .cell) text .title
+  cases hm : XY.measureText (fontFamily := fontFamily) (profile == .cell) text .title
       (Int.fdiv (LayoutConst.info_font_size.get profile) 64) with
   | error e => simp [hm, Bind.bind, Except.bind] at h
   | ok box =>
@@ -108,11 +108,11 @@ theorem layout_measured_line_width_le (profile : Profile) (text : String) (r : R
         (Int.fdiv (LayoutConst.info_font_size.get profile) 64) box hm
     · cases h
 
-theorem layout_lines_in_canvas (profile : Profile) (text : String) (r : Result)
-    (h : layout profile text = .ok r) :
+theorem layout_lines_in_canvas {fontFamily : Bool} (profile : Profile) (text : String) (r : Result)
+    (h : layout profile text fontFamily = .ok r) :
     Rect.Contained ⟨0, 0, r.canvas.w, r.canvas.h⟩ r.rect := by
   unfold layout at h
-  cases hm : XY.measureText (profile == .cell) text .title
+  cases hm : XY.measureText (fontFamily := fontFamily) (profile == .cell) text .title
       (Int.fdiv (LayoutConst.info_font_size.get profile) 64) with
   | error e =>
     simp [hm, Bind.bind, Except.bind] at h

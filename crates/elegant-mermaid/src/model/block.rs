@@ -65,6 +65,7 @@ pub struct Edge {
     pub end: String,
     pub label: String,
     pub span: Span,
+    pub statement_span: Span,
     pub thickness: String,
     pub pattern: String,
     pub arrow_start: String,
@@ -232,7 +233,7 @@ fn arrow_start(spelling: &str) -> &'static str {
     }
 }
 
-fn edge(start: &str, end: &str, link: &Link<'_>) -> Edge {
+fn edge(start: &str, end: &str, link: &Link<'_>, statement_span: Span) -> Edge {
     let spelling = link.end.text.trim();
     Edge {
         start: start.into(),
@@ -241,6 +242,7 @@ fn edge(start: &str, end: &str, link: &Link<'_>) -> Edge {
             .label
             .map_or_else(String::new, |label| decode_entities(label.text)),
         span: link.span,
+        statement_span,
         thickness: if spelling.contains("==") {
             "thick"
         } else {
@@ -466,7 +468,8 @@ impl Resolver {
             let target = self.node_block(&linked.node, None);
             let target_id = target.id.clone();
             self.place(parent, target);
-            self.edges.push(edge(&previous, &target_id, &linked.link));
+            self.edges
+                .push(edge(&previous, &target_id, &linked.link, st.span));
             previous = target_id;
         }
     }

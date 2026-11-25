@@ -8,8 +8,18 @@ use crate::{
 pub fn from_agentflow(
     model: &Model,
     profile: Profile,
-    options: DumpOptions,
+    mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
+    options.config.remove("flowchart.padding");
+    if let Some(padding) = model.padding {
+        if padding < 0 {
+            return Err(GeomError::Domain);
+        }
+        options.config.insert(
+            "flowchart.padding".into(),
+            crate::scene::DumpValue::Integer(i64::from(padding)),
+        );
+    }
     let mut input = Input {
         kind: "agentflow",
         profile,
@@ -49,7 +59,7 @@ fn append_node(input: &mut Input, model: &Model, index: usize) -> Result<(), Geo
     let Some(node) = model.nodes.get(index) else {
         return Ok(());
     };
-    let (text, size) = content(&node.label, model.padding, input.profile)?;
+    let (text, size) = content(&node.label, model.padding, &node.shape, input)?;
     input.boxes.push(Box {
         id: node.id.clone(),
         role: BoxRole::Node,
@@ -71,7 +81,7 @@ fn append_group(input: &mut Input, model: &Model, index: usize) -> Result<(), Ge
         return Ok(());
     }
     let collapsed = group.appearance.metadata.iter().any(|entry| entry.key == "view" && matches!(&entry.value, crate::syntax::config_value::ConfigValue::String(value) if value == "collapsed"));
-    let (text, mut size) = content(&group.title, model.padding, input.profile)?;
+    let (text, mut size) = content(&group.title, model.padding, "", input)?;
     input.boxes.push(Box {
         id: group.id.clone(),
         role: if collapsed {
@@ -125,9 +135,10 @@ fn constant(profile: Profile, name: &str) -> Result<i32, GeomError> {
         .map(|row| row.value)
         .ok_or(GeomError::Domain)
 }
-fn measured(text: &str, profile: Profile) -> Result<(i32, i32), GeomError> {
-    let lines =
-        crate::measure::styled_lines(text, constant(profile, "wrapping_width")?, metric(profile))?;
+fn measured(text: &str, input: &Input) -> Result<(i32, i32), GeomError> {
+    let profile = input.profile;
+    let metric = crate::scene::configured_metric(metric(profile), &input.options.config);
+    let lines = crate::measure::styled_lines(text, constant(profile, "wrapping_width")?, metric)?;
     let width = lines.iter().map(|line| line.width).max().unwrap_or(0);
     let count = i32::try_from(lines.len()).map_err(|_| GeomError::Overflow)?;
     let height = count
@@ -145,10 +156,17 @@ fn metric(profile: Profile) -> crate::measure::Metric {
 fn content(
     text: &str,
     padding: Option<i32>,
-    profile: Profile,
+    shape: &str,
+    input: &Input,
 ) -> Result<(String, Size), GeomError> {
-    let (width, height) = measured(text, profile)?;
-    let (pad_x, pad_y) = padding_units(padding, profile)?;
+    let profile = input.profile;
+    let (width, height) = measured(text, input)?;
+    let (mut pad_x, pad_y) = padding_units(padding, profile)?;
+    if is_framed(shape) {
+        pad_x = pad_x
+            .checked_add(constant(profile, "padding")?)
+            .ok_or(GeomError::Overflow)?;
+    }
     let width = width
         .checked_add(pad_x.checked_mul(2).ok_or(GeomError::Overflow)?)
         .ok_or(GeomError::Overflow)?;
@@ -162,6 +180,12 @@ fn content(
             h: height,
         },
     ))
+}
+fn is_framed(shape: &str) -> bool {
+    matches!(
+        shape,
+        "subroutine" | "subprocess" | "subproc" | "framed-rectangle"
+    )
 }
 fn padding_units(padding: Option<i32>, profile: Profile) -> Result<(i32, i32), GeomError> {
     let Some(padding) = padding else {
@@ -347,7 +371,7 @@ fn outline(
                 point(rect.x, bottom),
             ]))
         }
-        "subroutine" | "subprocess" | "subproc" | "framed-rectangle" => framed(rect, profile),
+        name if is_framed(name) => framed(rect, profile),
         "lin-doc" | "lined-document" => document_outline(rect),
         "connector" => Ok(vec![Item::Ellipse(EllipseItem {
             shape,

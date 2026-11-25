@@ -35,6 +35,7 @@ func layoutJourney(in Input) (scene.Scene, []diag.Diagnostic, error) {
 
 type journeyMeter struct {
 	profile                       scene.Profile
+	fontFamily                    string
 	taskWidth, columnGap, padding int64
 	scoreMin                      int
 }
@@ -48,7 +49,7 @@ func newJourneyMeter(in Input, graph *lanes.JourneyInput) (journeyMeter, error) 
 		}
 		v[i] = int64(value)
 	}
-	m := journeyMeter{profile: in.Profile, taskWidth: v[0], columnGap: v[1], padding: v[2] + v[3], scoreMin: int(v[4])}
+	m := journeyMeter{profile: in.Profile, fontFamily: in.Options.FontFamily, taskWidth: v[0], columnGap: v[1], padding: v[2] + v[3], scoreMin: int(v[4])}
 	if in.Profile == scene.ProfileVector {
 		if err := m.applyConfig(in.Options.Config, graph); err != nil {
 			return journeyMeter{}, err
@@ -93,7 +94,7 @@ func (m journeyMeter) text(text string, role scene.TextRole, target int32) (lane
 		measured := journeyRole(role)
 		metric, lineHeight = measure.ForRole(measured), measured.LineHeightPx()*journeyUnitsPerPx
 	}
-	lines, err := measure.StyledLines(text, target, metric)
+	lines, err := measure.StyledLines(text, target, metric.WithFontFamily(m.fontFamily))
 	if err != nil {
 		return lanes.Text{}, geom.ErrOverflow
 	}

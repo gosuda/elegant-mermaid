@@ -240,6 +240,40 @@ fn math_stays_opaque_literal() -> Result<(), GeomError> {
 }
 
 #[test]
+fn configured_styled_runs_use_the_same_font_factor_as_their_line() -> Result<(), GeomError> {
+    for text in [
+        "From $$x(t)$$ to $$y(t)$$",
+        "**From** $$x$$ *to* $$y$$",
+        "$$x(t)$$",
+    ] {
+        let base = styled_lines(text, i32::MAX, label_metric())?;
+        let configured = styled_lines(text, i32::MAX, label_metric().with_font_family())?;
+        assert_eq!(base.len(), 1, "{text}");
+        assert_eq!(configured.len(), 1, "{text}");
+        assert_eq!(
+            configured[0].width,
+            crate::measure::apply_font_family_factor(base[0].width)?,
+            "{text}"
+        );
+        assert_eq!(base[0].runs.len(), configured[0].runs.len(), "{text}");
+        for (before, after) in base[0].runs.iter().zip(&configured[0].runs) {
+            assert_eq!(before.text, after.text);
+            assert_eq!(
+                before.math, after.math,
+                "formula outlines use their own metrics"
+            );
+            let width = if before.math.is_some() {
+                before.width
+            } else {
+                crate::measure::apply_font_family_factor(before.width)?
+            };
+            assert_eq!(after.width, width, "{text}: {}", before.text);
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn cell_profile_ignores_style() -> Result<(), GeomError> {
     let lines = styled_lines("**ab** cd", 400, Metric::Cell)?;
     assert_eq!(lines.len(), 1);

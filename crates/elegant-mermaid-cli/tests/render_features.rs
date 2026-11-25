@@ -173,6 +173,25 @@ fn render_config_font_family_reports_the_effective_value_once() -> TestResult {
 }
 
 #[test]
+fn layout_dumps_keep_shared_font_options_and_source_warnings() -> TestResult {
+    let source =
+        "---\nconfig:\n  fontFamily: serif\n  typo: true\n---\nflowchart LR\nA[Alphabet]\n";
+    for stage in ["model", "layout"] {
+        let (code, dump, stderr) = run(&["layout", "--stage", stage], source)?;
+        assert_eq!(code, 0, "{stage}: {stderr}");
+        assert!(dump.contains("\"fontFamily\":\"serif\""), "{stage}: {dump}");
+        assert_eq!(
+            stderr
+                .matches("info[config/font-metrics-approximate]")
+                .count(),
+            1
+        );
+        assert!(stderr.contains("warning[config/unknown-key]: unknown config key typo"));
+    }
+    Ok(())
+}
+
+#[test]
 fn render_icon_pack_flag_draws_pack_icons() -> TestResult {
     let scratch = Scratch::new("pack")?;
     let pack = scratch.file("pack.json", PACK)?;

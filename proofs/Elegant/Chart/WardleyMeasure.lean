@@ -54,13 +54,14 @@ def textStyle (c : FontConstants) (kind : LabelKind) : Measure.Role × Int :=
   | .annotation => (.body, Int.fdiv c.noteSize 64)
   | _ => (.body, Int.fdiv c.labelSize 64)
 
-def measureLabels (c : FontConstants) (cell : Bool) (labels : List ModelLabel) :
+def measureLabels (c : FontConstants) (cell : Bool) (labels : List ModelLabel)
+    (fontFamily : Bool := false) :
     Except LayoutError (List MeasuredLabel) :=
   labels.mapM fun l => do
     let (kind, index) ← classify l
     let (role, size) := textStyle c kind
     if l.text = "" then return ⟨l, kind, index, role, size, [], {}⟩
-    let box ← XY.measureText cell l.text role size
+    let box ← XY.measureText cell l.text role size fontFamily
     return ⟨l, kind, index, role, size, box.lines, ⟨box.w, box.h⟩⟩
 
 end Elegant.Chart.Wardley

@@ -71,7 +71,13 @@ impl GroupScale {
         if self.cell {
             return Ok(units);
         }
-        scaled_width(units, self.size_px, self.weight)
+        let width = scaled_width(units, self.size_px, self.weight)?;
+        if self.font_family {
+            let width = i32::try_from(width).map_err(|_| GeomError::Overflow)?;
+            super::width::apply_font_family_factor(width).map(i64::from)
+        } else {
+            Ok(width)
+        }
     }
 }
 
