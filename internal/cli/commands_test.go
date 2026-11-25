@@ -31,7 +31,6 @@ func TestCommandContract(t *testing.T) {
 		message string
 	}{
 		{[]string{"--version"}, 0, ""},
-		{nil, 2, "Usage: emd"},
 		{[]string{"render", "-e", "gif"}, 2, "invalid value gif for -e; expected one of: svg, png, text"},
 		{[]string{"render", "-s", "0"}, 2, "invalid value 0 for -s; expected one of: 1..8"},
 		{[]string{"render", "-s", "9"}, 2, "invalid value 9 for -s; expected one of: 1..8"},

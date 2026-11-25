@@ -48,6 +48,35 @@ build-rs:
 # Build both binaries: bin/emd-go and bin/emd-rs
 build: build-go build-rs
 
+# Build both WebAssembly engines into playground/static/wasm
+playground-wasm:
+    mkdir -p playground/static/wasm/emd-rs
+    GOOS=js GOARCH=wasm go build -trimpath -o playground/static/wasm/emd-go.wasm ./cmd/emd-wasm
+    cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" playground/static/wasm/wasm_exec.js
+    cargo build --locked --release --target wasm32-unknown-unknown -p elegant-mermaid-wasm
+    wasm-bindgen --target web --out-dir playground/static/wasm/emd-rs --out-name elegant_mermaid_wasm "${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/release/elegant_mermaid_wasm.wasm"
+
+# Render the default playground source as the sample output that the page shows before the engines load
+playground-sample:
+    node --input-type=module -e "process.stdout.write((await import('./playground/src/lib/defaults.ts')).DEFAULT_SOURCE)" | go run ./cmd/emd render -e text --charset unicode --color never -t elegant-light > playground/src/lib/initial-text.txt
+
+# Go wasm, Rust wasm, and both native binaries give the same bytes on every tenth corpus file
+wasm-parity: build playground-wasm
+    node playground/scripts/wasm-parity.mjs
+
+# Playground checks: Biome, svelte-check, and the Vitest unit tests
+playground-check:
+    pnpm --dir playground install --frozen-lockfile
+    pnpm --dir playground exec biome check .
+    pnpm --dir playground check
+    pnpm --dir playground exec vitest run
+
+# Playground end-to-end tests in Playwright against the built site
+playground-e2e: playground-wasm playground-sample
+    pnpm --dir playground install --frozen-lockfile
+    pnpm --dir playground build
+    pnpm --dir playground exec playwright test
+
 # Lean build with warnings as errors, then the proof hygiene audit
 proofs:
     cd proofs && lake build --wfail
@@ -289,6 +318,9 @@ verify:
     just model
     just oracle
     just parity
+    just wasm-parity
+    just playground-check
+    just playground-e2e
     just layered-random-check
     just kernel-diff
     just validate

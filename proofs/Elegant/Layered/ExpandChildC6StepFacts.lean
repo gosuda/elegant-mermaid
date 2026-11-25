@@ -1,4 +1,5 @@
 import Elegant.Layered.ExpandChildStructureFacts
+import Elegant.Layered.RecursiveCallParams
 
 set_option autoImplicit false
 
@@ -83,6 +84,7 @@ theorem expandChild_c6_step_of_geometry
       framedParents inp = true →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight
         parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC6Geometry P inp o group titleHeight parent child res)
     (hanchorC6 : ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options)
       (group : ModelBox) (titleLines : List Measure.Line) (titleHeight : Int)
@@ -91,6 +93,7 @@ theorem expandChild_c6_step_of_geometry
       framedParents inp = true →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight
         parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC6Anchors group parent child res) :
     ∀ (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
       (titleLines : List Measure.Line) (titleHeight : Int)
@@ -99,12 +102,13 @@ theorem expandChild_c6_step_of_geometry
       framedParents inp = true →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight
         parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC6Step P inp o group titleHeight parent child res := by
-  intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx
+  intro fuel P inp o group titleLines titleHeight parent child res hexpand hframed hctx hparams
   have hanch := hanchorC6 fuel P inp o group titleLines titleHeight parent child res
-    hexpand hframed hctx
+    hexpand hframed hctx hparams
   have hgeo := hgeoC6 fuel P inp o group titleLines titleHeight parent child res
-    hexpand hframed hctx
+    hexpand hframed hctx hparams
   obtain ⟨hwf, hgroup, _hpboxes, hchild, hparent, hexpand'⟩ := hctx
   intro frame metric tl _lines dx dy hframe hmetric htitle _hlines hdx hdy
   have hwrap : ExpandChildTitleWrapped P inp o group tl := ⟨metric, hmetric, htitle⟩

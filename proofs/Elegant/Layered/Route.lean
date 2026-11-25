@@ -525,6 +525,16 @@ def edgesOf (p : Proper) (o : Nat) : List Nat :=
 
 def yAt (y : List Int) (v : Nat) : Int := y.getD v 0
 
+def tailPortY (p : Proper) (y : List Int) (v : Nat) : Int :=
+  if frameKind p v = -2 then yAt y v else yAt y v + nodeH p v
+
+theorem tailPortY_le_bottom {p : Proper} {y : List Int} {v : Nat} (h : 0 ≤ nodeH p v) :
+    tailPortY p y v ≤ yAt y v + nodeH p v := by
+  unfold tailPortY
+  split
+  · omega
+  · exact Int.le_refl _
+
 def pieceStart (p : Proper) (y : List Int) (r : Routing) (i : Nat) : Point :=
   ⟨r.sourceX.getD i 0,
     if frameKind p (edgeAt p i).tail = -2 then yAt y (edgeAt p i).tail
@@ -2889,8 +2899,8 @@ theorem reverseRunMid_bounds {slot rankGap : Int} {top heights : List Int} {r : 
     (hsl : 0 ≤ ((r.gaps.getD gap default).segments.getD index default).slot)
     (hcount : ((r.gaps.getD gap default).segments.getD index default).slot + 1 ≤
       (r.gaps.getD gap default).slots)
-    (hstep : top.getD (gap + 1) 0 =
-      top.getD gap 0 + heights.getD gap 0 + rankGap + slot * (r.gaps.getD gap default).slots) :
+    (hstep : top.getD gap 0 + heights.getD gap 0 + rankGap +
+      slot * (r.gaps.getD gap default).slots ≤ top.getD (gap + 1) 0) :
     top.getD gap 0 + heights.getD gap 0 ≤ reverseRunMid slot top heights r gap index ∧
       reverseRunMid slot top heights r gap index ≤ top.getD (gap + 1) 0 := by
   have hhalf0 := Int.fdiv_nonneg (by omega : 0 ≤ slot) (by decide : 0 ≤ (2 : Int))
@@ -2936,10 +2946,10 @@ def reversedPoints (slot : Int) (p : Proper) (y top heights : List Int)
     (r : Routing) (run : ReversedLane) : List Point :=
   let cs := reverseRunMid slot top heights r run.sourceGap run.sourceSegment
   let ct := reverseRunMid slot top heights r run.targetGap run.targetSegment
+  let targetY := tailPortY p y run.targetNode
   [⟨run.sourceX, yAt y run.sourceNode⟩, ⟨run.sourceX, cs⟩,
     ⟨run.lane, cs⟩, ⟨run.lane, ct⟩, ⟨run.targetRun, ct⟩,
-    ⟨run.targetRun, yAt y run.targetNode + nodeH p run.targetNode⟩,
-    ⟨run.targetX, yAt y run.targetNode + nodeH p run.targetNode⟩]
+    ⟨run.targetRun, targetY⟩, ⟨run.targetX, targetY⟩]
 
 def laneRouteOf (slot : Int) (p : Proper) (y top heights : List Int)
     (r : LaneRouting) (o : Nat) : Except LayoutError EdgeRoute :=
@@ -3048,7 +3058,7 @@ theorem reversedPoints_endpoints (slot : Int) (p : Proper) (y top heights : List
     (reversedPoints slot p y top heights r run).head? =
       some ⟨run.sourceX, yAt y run.sourceNode⟩ ∧
     (reversedPoints slot p y top heights r run).getLast? =
-      some ⟨run.targetX, yAt y run.targetNode + nodeH p run.targetNode⟩ := by
+      some ⟨run.targetX, tailPortY p y run.targetNode⟩ := by
   simp [reversedPoints]
 
 theorem gapLine_miss {G : Geo} {n K k v : Nat} (hG : G.Ok n K)
@@ -3193,7 +3203,7 @@ theorem laneRouteOf_reverse_endpoints {slot : Int} {p : Proper} {y top heights :
     (h : laneRouteOf slot p y top heights r o = .ok rt) :
     rt.points.head? = some ⟨run.sourceX, yAt y run.sourceNode⟩ ∧
       rt.points.getLast? =
-        some ⟨run.targetX, yAt y run.targetNode + nodeH p run.targetNode⟩ := by
+        some ⟨run.targetX, tailPortY p y run.targetNode⟩ := by
   simp only [laneRouteOf, hs] at h
   split at h
   · simp only [Except.ok.injEq] at h
@@ -3211,8 +3221,7 @@ theorem laneSemantic_endpoints {slot : Int} {p : Proper} {layers : List (List Na
       (edgesOf p rt.original).getLast? = some i₁ →
       if reversed.getD rt.original false then
         rt.points.head? = some ⟨lr.routing.targetX.getD i₁ 0, yAt y (edgeAt p i₁).head⟩ ∧
-        rt.points.getLast? = some ⟨lr.routing.sourceX.getD i₀ 0,
-          yAt y (edgeAt p i₀).tail + nodeH p (edgeAt p i₀).tail⟩
+        rt.points.getLast? = some ⟨lr.routing.sourceX.getD i₀ 0, tailPortY p y (edgeAt p i₀).tail⟩
       else
         rt.points.head? = some (pieceStart p y lr.routing i₀) ∧
         rt.points.getLast? = some (pieceEnd p y lr.routing i₁) := by
@@ -3319,9 +3328,16 @@ theorem laneRouteOf_reverse_avoids {slot : Int} {p : Proper} {layers : List (Lis
         ⟨run.lane, reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.sourceGap run.sourceSegment⟩,
         ⟨run.lane, reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.targetGap run.targetSegment⟩,
         ⟨run.targetRun, reverseRunMid slot top (layers.map (layerHeight p)) lr.routing run.targetGap run.targetSegment⟩,
-        ⟨run.targetRun, yAt y run.targetNode + nodeH p run.targetNode⟩,
-        ⟨run.targetX, yAt y run.targetNode + nodeH p run.targetNode⟩]
+        ⟨run.targetRun, tailPortY p y run.targetNode⟩,
+        ⟨run.targetX, tailPortY p y run.targetNode⟩]
       ((routeGeo p layers x y top).rect v)
+    have hy : tailPortY p y run.targetNode = yAt y run.targetNode + nodeH p run.targetNode := by
+      by_cases htop : frameKind p run.targetNode = -2
+      · have hflat : nodeH p run.targetNode = 0 :=
+          hG.frame_flat run.targetNode ht (Or.inl htop)
+        rw [tailPortY, ite_eq_left htop, hflat, Int.add_zero]
+      · rw [tailPortY, ite_eq_right htop]
+    rw [hy]
     exact reversedSevenPoint_avoids (G := routeGeo p layers x y top) hG hs ht hv hvs hvt hvpos
       hsr htr htg hsx htx htrun hcs.1 hcs.2 hct.1 hct.2
       (by simpa only [routeGeo, Geo.rect, boxRect, Int.min_self] using hlane)
@@ -3719,8 +3735,9 @@ theorem route_endpoints_on_ports {slot : Int} {p : Proper} {layers : List (List 
         qx ≤ (boxRect p x y (edgeAt p i₁).head).x + (boxRect p x y (edgeAt p i₁).head).w ∧
         (if reversed.getD rt.original false then
           rt.points.head? = some ⟨qx, (boxRect p x y (edgeAt p i₁).head).y⟩ ∧
-          rt.points.getLast? = some ⟨px, (boxRect p x y (edgeAt p i₀).tail).y +
-            (boxRect p x y (edgeAt p i₀).tail).h⟩
+          rt.points.getLast? = some ⟨px, if frameKind p (edgeAt p i₀).tail = -2 then
+            (boxRect p x y (edgeAt p i₀).tail).y else
+            (boxRect p x y (edgeAt p i₀).tail).y + (boxRect p x y (edgeAt p i₀).tail).h⟩
         else
           rt.points.head? = some ⟨px, if frameKind p (edgeAt p i₀).tail = -2 then
             (boxRect p x y (edgeAt p i₀).tail).y else
@@ -3738,7 +3755,8 @@ theorem route_endpoints_on_ports {slot : Int} {p : Proper} {layers : List (List 
     (hp i₀ hi0).1, (hp i₁ hi1).2, pr0.1, pr0.2.1, pr1.2.2.1, pr1.2.2.2, ?_⟩
   have hs : lr.routing.sourceX = base.sourceX := by rw [hlr]; rfl
   have ht : lr.routing.targetX = base.targetX := by rw [hlr]; rfl
-  simpa only [hs, ht, RouteImpl.pieceStart, RouteImpl.pieceEnd, boxRect] using hports
+  simpa only [hs, ht, RouteImpl.pieceStart, RouteImpl.pieceEnd, boxRect,
+    RouteImpl.tailPortY] using hports
 
 theorem forward_route_avoids_nodes {slot gap : Int} {rankGap : Nat → Int} {p : Proper} {layers : List (List Nat)}
     {x y top : List Int} {r : Routing} {routes : List EdgeRoute} (hP : ProperShape p)

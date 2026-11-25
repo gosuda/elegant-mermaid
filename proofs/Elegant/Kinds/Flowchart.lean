@@ -1,14 +1,18 @@
 import Elegant.Model
 import Elegant.Layered.Pipeline
+import Elegant.Layered.LayeredAdmission
 import Elegant.Kinds.FlowchartIcons
 
 set_option autoImplicit false
-
 /-! Flowchart model adapter. Box-owned labels provide node text; route-owned label records
 reach the family in model order. The family measures them and raises labelled-edge minimum
 lengths to two before ranking. Markers and strokes remain scene metadata. Icon nodes (shapes
 `icon`, `iconCircle`, `iconRounded`, `iconSquare`) get the built-in `unknown` icon after the
-family scene is assembled (`FlowchartIcons`). -/
+family scene is assembled (`FlowchartIcons`).
+
+The layout runs the family call under the shared `Layered.admit` guard: an input with an
+empty box id, a box id equal to a route id, a non-exclusive fixed-size box, or a fixed size
+with zero or negative width or height answers `.error (.geometry .domain)`. -/
 
 namespace Elegant
 namespace Kinds
@@ -34,7 +38,7 @@ def input (m : Model) : Layered.Input :=
     labels := m.labels }
 
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult := do
-  let result ← Layered.layoutFamily (input m) m.options
+  let result ← Layered.admit (input m) (Layered.layoutFamily (input m) m.options)
   let markers : List RouteMarkers := m.routes.map fun r =>
     ⟨r.id, sceneMarker r.markerStart, sceneMarker r.markerEnd⟩
   pure { result with scene := placeIcons m (result.scene.projectCellAttachments markers) }

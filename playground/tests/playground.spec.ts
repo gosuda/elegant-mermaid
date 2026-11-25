@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from '@playwright/test';
+import { encodeShare } from '../src/lib/share';
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -197,6 +198,24 @@ test.describe('share links', () => {
       'This shared link is invalid or incomplete; the default sample was loaded.',
     );
     await expect(page.locator('.cm-content')).toContainText(DEFAULT_FIRST_LINE);
+  });
+
+  test('follows shared links opened in the same tab', async ({ page }) => {
+    await openPlayground(page);
+    const encoded = await encodeShare({
+      src: 'flowchart TB\n  P --> Q\n',
+      opt: { theme: 'nord', background: null, charset: 'ascii', max_width: null },
+    });
+    await page.goto(`./#s=${encoded}`);
+    await expect(page.locator('.cm-content')).toContainText('P --> Q');
+    await expect(page.getByLabel('Theme')).toHaveValue('nord');
+    await expect(page.getByLabel('Charset')).toHaveValue('ascii');
+    await page.goto('./#s=%%%not-a-link');
+    await expect(page.getByRole('status')).toContainText(
+      'This shared link is invalid or incomplete; the default sample was loaded.',
+    );
+    await expect(page.locator('.cm-content')).toContainText(DEFAULT_FIRST_LINE);
+    await expect(page.getByLabel('Theme')).toHaveValue('elegant-light');
   });
 });
 
@@ -515,7 +534,11 @@ test.describe('first paint without scripts', () => {
     await expect(page.getByLabel('Mermaid source')).toContainText(DEFAULT_FIRST_LINE);
     await expect(page.getByRole('radio', { name: 'Both' })).toBeChecked();
     await expect(page.getByRole('tab', { name: 'SVG' })).toHaveAttribute('aria-selected', 'true');
-    await expect(page.getByLabel('Sample output while the engines load')).toBeVisible();
+    const sample = page.getByLabel('Sample output while the engines load');
+    await expect(sample).toBeVisible();
+    for (const rendered of ['┌', 'Start', 'Choice', 'Done']) {
+      await expect(sample).toContainText(rendered);
+    }
     await expect(page.getByRole('status')).toBeEmpty();
     await expect(page.locator('noscript p')).toHaveText(
       'This playground needs JavaScript to render your edits; the sample source and output remain available.',

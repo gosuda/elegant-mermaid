@@ -8,18 +8,18 @@ set_option autoImplicit false
 
 `layout_c8b` lifts `Validator.C8b` — every group frame of the dump is disjoint
 from every scene label or strictly contains it — from a successful flat
-`PipelineImpl.layout`.  The proof dispatches the three label families that
-`PipelineImpl.sceneOf` emits (measured route labels, installed title captions,
-`ownedTextRect` fallback captions) and transports the packed-coordinate
-relations through the common margin/orientation projection.
+ `PipelineImpl.layout`.  The proof dispatches the label families that
+ `PipelineImpl.sceneOf` emits (measured route labels, installed title captions,
+ and the scene-level `ownedTextRect` fallback captions) and transports the
+ packed-coordinate relations through the common margin/orientation projection.
 
 The geometric content lives in two executed facts:
 
-* `LabelFramePackedClear` — the packed-coordinate core over the actual
-  `Acc.labels`, `Acc.titles`, and `Acc.rects` arrays that `placeComponent` and
-  `packAcc` produce (`placedLabels`, `componentTitles`, `frameRect`,
-  `Labels.textRectAt`, `Loops.placement`, `RouteImpl.reversedLabelRect`,
-  `Pack.pack` shelf disjointness).
+ * `LabelFramePackedClear` — the packed-coordinate core over the actual
+   `Acc.labels` route-label rects and `Acc.titles` caption rects that
+   `placeComponent` and `packAcc` produce (`placedLabels`, `componentTitles`,
+   `Labels.textRectAt`, `Loops.placement`, `RouteImpl.reversedLabelRect`,
+   `frameRect` group frames, `Pack.pack` shelf disjointness).
 * `FallbackCaptionClear` — the caption produced by the `ownedTextRect`
   fallback branch of `sceneOf` (`titleRect`, `nodeSize` insets,
   `group_caption_output_rank_fit`, the border-proxy width lane).
@@ -61,12 +61,15 @@ def sceneTitlesExpr (P : Params) (inp : Input) (o : Options)
       (orientRect o.direction packed.canvasH
         { stored.2 with w := size.w, h := size.h }))
 
-/-- Packed-coordinate core of the label/frame clearance: over the actual
-`packed.labels` route-label rects (placed by `placedLabels`), the substituted
-`packed.titles` caption rects (placed by `componentTitles`), and the
-`ownedTextRect` fallback captions, against the packed rect of every
-group-role box (the `frameRect` span carried through `packAcc`).  This is the
-fact that the coordinate phases establish — cluster-pad insets of
+ /-- Packed-coordinate core of the label/frame clearance: over the actual
+ `packed.labels` route-label rects (placed by `placedLabels`) and the
+ substituted `packed.titles` caption rects (placed by `componentTitles`),
+ against the packed rect of every group-role box (the `frameRect` span
+ carried through `packAcc`).  The `ownedTextRect` fallback captions are
+ covered at scene level by `FallbackCaptionClear` instead: the packed-frame
+ fallback clause was false in vector LR/RL (it evaluates `ownedTextRect`
+ before `orientRect`) and is redundant for `layout_c8b`.  This is the
+ fact that the coordinate phases establish — cluster-pad insets of
 `crossCoordsClusterWith`, the top/bottom marker ranks of `Compound.markNodes`
 behind `frameRect`'s vertical span, `Labels.textRectAt`/`Loops.placement`/
 `RouteImpl.reversedLabelRect` label placement, and `Pack.pack` shelf
@@ -87,19 +90,7 @@ def LabelFramePackedClear (P : Params) (inp : Input) (o : Options)
           { stored with
             w := (titleCaptionSize P o (lines.getD key [])).w
             h := (titleCaptionSize P o (lines.getD key [])).h }
-        Disjoint g caption ∨ g.StrictInside caption) ∧
-    (∀ ownerIndex : Nat,
-      ∀ (k : Nat) (gBox : ModelBox), inp.boxes[k]? = some gBox →
-        gBox.role = BoxRole.group →
-        let g := packed.rects.getD k default
-        let role0 : String :=
-          match inp.boxes[ownerIndex]? with
-          | some b => b.role.id
-          | none => ""
-        let boxOwner : Box :=
-          ⟨"", role0, packed.rects.getD ownerIndex default, "", false⟩
-        Disjoint g (ownedTextRect P boxOwner (lines.getD ownerIndex [])) ∨
-          g.StrictInside (ownedTextRect P boxOwner (lines.getD ownerIndex [])))
+        Disjoint g caption ∨ g.StrictInside caption)
 
 /-- The fallback-branch caption clearance: for a scene label emitted by the
 `ownedTextRect` fallback of `sceneOf` (owner is a non-exclusive box absent
@@ -227,7 +218,7 @@ theorem layout_c8b {inp : Input} {o : Options} {res : FamilyResult}
     cases hm : execution.measured.find?
         (fun item : MeasuredLabel => item.index == indexL) with
     | some measured =>
-      obtain ⟨h1, _, _⟩ := hpack
+      obtain ⟨h1, _⟩ := hpack
       have hpm := List.find?_some hm
       have hmIdx : measured.index = indexL := by simpa using hpm
       have hrel := h1 indexL hKey hgBox hk hgroupRole
@@ -302,7 +293,7 @@ theorem layout_c8b {inp : Input} {o : Options} {res : FamilyResult}
               (sceneTitlesExpr execution.params inp o execution.lines
                 execution.packedAcc).find? (fun t => t.1 == source.owner) = some t := hts
           obtain ⟨tsel, hsel⟩ := hts'
-          obtain ⟨_, h2, _⟩ := hpack
+          obtain ⟨_, h2⟩ := hpack
           have hselMem := List.mem_of_find?_eq_some hsel
           obtain ⟨stored, hstoredMem, hfeq⟩ := List.mem_filterMap.mp hselMem
           cases hbx : inp.boxes[stored.1]? with

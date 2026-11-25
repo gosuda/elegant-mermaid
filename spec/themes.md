@@ -7,7 +7,7 @@ This file fixes the token model, the built-in themes, the contrast gate, the ups
 - themes-01: A theme MUST hold the colour tokens `bg`, `fg`, `line`, `accent`, `muted`, `surface`, `border`, `series[0]` to `series[11]`, `error`, `warning`, and `success`, plus typography, spacing, stroke, and radius tokens. [just go-check]
 - themes-02: Every scene style token MUST resolve through this model, so a back end MUST NOT hold a colour or size literal. [just theme-check]
 - themes-03: All geometry and paint constants MUST be generated from `spec/data/`. [just gen-check]
-- themes-04: `theme-check` MUST scan every tracked Go and Rust file except generated packages (any `gen/` directory), `tools/`, and `_test.go` files, for `#` followed by 3, 4, 6, or 8 hexadecimal digits and a word boundary, and MUST fail on a match. [just theme-check]
+- themes-04: `theme-check` MUST scan every tracked Go and Rust file except generated files (`*_gen.go` and any `gen/` directory), `tools/`, and test files (`*_test.go` files, any `tests/` directory, `tests.rs`, and `*_tests.rs`), for `#` followed by 3, 4, 6, or 8 hexadecimal digits and a word boundary, and MUST fail on a match. [just theme-check]
 - themes-05: Typography MUST be the three roles of `spec/text-measurement.md`. [just go-check]
 - themes-06: The spacing tokens MUST be 4, 8, 12, 16, 24, 32, and 48 px, which are 256, 512, 768, 1024, 1536, 2048, and 3072 units. [just go-check]
 - themes-07: The stroke tokens MUST be `normal` at 64 units (1 px) and `emphasis` at 128 units (2 px). [just go-check]

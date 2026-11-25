@@ -1,4 +1,5 @@
 import Elegant.Kinds.Class
+import Elegant.Layered.LayeredAdmission
 import Elegant.Layered.PipelineFacts
 
 set_option autoImplicit false
@@ -561,9 +562,11 @@ theorem decorate_layoutDump {m : Model} {s s' : Scene} (h : decorate m s = .ok s
     subst h
     rfl
 
-/-- The adapter's scene has the family's dump and budget flag; only the display list differs. -/
+/-- The adapter's scene has the family's dump and budget flag; only the display list differs.
+A successful run also records that the built input passed the admission guard. -/
 theorem layout_spec {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r) :
     ∃ sizes res, classSizes m = .ok sizes ∧
+      Layered.layeredAdmissibleB (input m sizes) = true ∧
       Layered.layoutFamily (input m sizes) m.options = .ok res ∧
       r.scene.layoutDump = res.scene.layoutDump ∧ r.budgetExhausted = res.budgetExhausted := by
   unfold layout at h
@@ -572,7 +575,8 @@ theorem layout_spec {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r
   | ok sizes =>
     rw [hs] at h
     dsimp only at h
-    cases hr : Layered.layoutFamily (input m sizes) m.options with
+    cases hr : Layered.admit (input m sizes)
+        (Layered.layoutFamily (input m sizes) m.options) with
     | error e => rw [hr] at h; simp at h
     | ok res =>
       rw [hr] at h
@@ -583,14 +587,15 @@ theorem layout_spec {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r
         rw [hd] at h
         simp only [Except.ok.injEq] at h
         subst h
-        exact ⟨sizes, res, rfl, hr,
+        obtain ⟨hadm, hfam⟩ := Layered.admit_ok hr
+        exact ⟨sizes, res, rfl, hadm, hfam,
           (decorate_layoutDump hd).trans (Scene.projectCellAttachments_layoutDump _ _), rfl⟩
 
 /-- Box and route ids keep the model's declaration order. -/
 theorem layout_ids {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r) :
     r.scene.boxes.map (·.id) = m.boxes.map (·.id) ∧
       r.scene.routes.map (·.id) = m.routes.map (·.id) := by
-  obtain ⟨sizes, res, _, hf, hd, _⟩ := layout_spec h
+  obtain ⟨sizes, res, _, _, hf, hd, _⟩ := layout_spec h
   have hid := Layered.layoutFamily_ids hf
   have hb : r.scene.boxes = res.scene.boxes := congrArg LayoutDump.boxes hd
   have hr : r.scene.routes = res.scene.routes := congrArg LayoutDump.routes hd
@@ -603,7 +608,7 @@ theorem layout_valid_of_family
       Layered.layoutFamily inp o = .ok res → Validator.check res.scene.layoutDump = true)
     {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r) :
     Validator.check r.scene.layoutDump = true := by
-  obtain ⟨sizes, res, _, hf, hd, _⟩ := layout_spec h
+  obtain ⟨sizes, res, _, _, hf, hd, _⟩ := layout_spec h
   rw [hd]
   exact hfam _ _ _ hf
 

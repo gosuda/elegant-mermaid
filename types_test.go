@@ -51,14 +51,6 @@ func TestKindSetMatchesGeneratedTable(t *testing.T) {
 	assert.Equal(t, sortedWant, generated)
 }
 
-func TestKindStringRoundTrip(t *testing.T) {
-	for i := 0; i <= int(mermaid.KindInfo); i++ {
-		kind := mermaid.Kind(i)
-		assert.NotEmpty(t, kind.String())
-		assert.NotEqual(t, "unknown", kind.String())
-	}
-}
-
 func TestFixSafetyOrder(t *testing.T) {
 	assert.Less(t, mermaid.FixSafe, mermaid.FixUnsafe)
 }

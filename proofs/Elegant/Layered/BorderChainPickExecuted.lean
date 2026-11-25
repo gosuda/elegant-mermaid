@@ -175,15 +175,38 @@ private theorem foldl_alignNode_snd_lt {c : Ctx} {B : Int} :
 
 /-- Premise 1 (`edge_closed`): under `ExecutedChainFacts` every context edge
 touching a chain node joins chain nodes at adjacent ranks — the far end is a
-chain node by the construction and the rank adjacency comes from
-`OccurringBorderChain.rank_adj`. -/
+chain node by the construction and the rank adjacency comes from `EdgeOK`
+(an edge joins consecutive ranks). The old `OccurringBorderChain.rank_adj`
+(all-pairs adjacency) is false on real chains of length three or more and is
+no longer used here. -/
 theorem edgeClosed_of_executedChainFacts {p : Proper} {c : Ctx} {chain : List Nat}
-    {hocc : OccurringBorderChain c chain}
-    (hF : ExecutedChainFacts p c chain) :
+    (hF : ExecutedChainFacts p c chain)
+    (hE : EdgeOK c) :
     ChainEdgesClosed c chain := by
   intro v hv e he htouch
-  obtain ⟨_hbc, u, hu_mem, hu_other, hne⟩ := hF.incident_border v hv e he htouch
-  exact ⟨u, hu_mem, hu_other, hocc.rank_adj u hu_mem v hv hne⟩
+  obtain ⟨_hbc, u, hu_mem, hu_other, _hne⟩ := hF.incident_border v hv e he htouch
+  obtain ⟨_, _, hadj⟩ := hE e he
+  have hadj' : c.rank[u]! + 1 = c.rank[v]! ∨ c.rank[v]! + 1 = c.rank[u]! := by
+    have hu_copy := hu_other
+    unfold otherEnd at hu_copy
+    split at hu_copy
+    · rename_i htv
+      have htv_eq : c.edges[e]!.tail = v := beq_iff_eq.mp htv
+      have hu_eq : u = c.edges[e]!.head := hu_copy.symm
+      have hv_eq : v = c.edges[e]!.tail := htv_eq.symm
+      rw [← hu_eq, ← hv_eq] at hadj
+      rcases hadj with h | h <;> omega
+    · rename_i htv
+      have hu_eq : u = c.edges[e]!.tail := hu_copy.symm
+      have hhead : c.edges[e]!.head = v := by
+        rcases htouch with h | h
+        · exfalso
+          exact absurd (by simpa using h : (c.edges[e]!.tail == v) = true) htv
+        · exact h
+      have hv_eq : v = c.edges[e]!.head := hhead.symm
+      rw [← hu_eq, ← hv_eq] at hadj
+      rcases hadj with h | h <;> omega
+  exact ⟨u, hu_mem, hu_other, hadj'⟩
 
 /-- The rank predecessor of a chain node is reachable through an upper edge. -/
 theorem upperNonempty_of_executedChainFacts {p : Proper} {c : Ctx} {chain : List Nat}
@@ -258,9 +281,10 @@ theorem borderChainPickFacts_of_executedChainFacts {p : Proper} {c : Ctx}
     (hF : ExecutedChainFacts p c chain)
     (hedges : c.edges.size = p.edges.length ∧
       ∀ i, i < p.edges.length → c.edges[i]! = p.edges[i]!)
-    (hmarked : c.marked = typeOneConflicts p pos) :
+    (hmarked : c.marked = typeOneConflicts p pos)
+    (hE : EdgeOK c) :
     BorderChainPickFacts c chain hocc :=
-   ⟨edgeClosed_of_executedChainFacts (hocc := hocc) hF,
+   ⟨edgeClosed_of_executedChainFacts (hF := hF) (hE := hE),
    fun _ hv _ hpred => upperNonempty_of_executedChainFacts hF hv hpred,
    fun _ hv _ he => upperUnmarked_of_executedChainFacts hF hedges hmarked hv he,
    fun _ hv _ hpred => lastLtPred_of_executedChainFacts hF hv hpred⟩
@@ -287,9 +311,10 @@ theorem borderChainPick_of_executedChainFacts {p : Proper} {c : Ctx} {chain : Li
     (hF : ExecutedChainFacts p c chain)
     (hedges : c.edges.size = p.edges.length ∧
       ∀ i, i < p.edges.length → c.edges[i]! = p.edges[i]!)
-    (hmarked : c.marked = typeOneConflicts p pos) :
+    (hmarked : c.marked = typeOneConflicts p pos)
+    (hE : EdgeOK c) :
     BorderChainPick c chain hocc :=
-  borderChainPick_of_facts (borderChainPickFacts_of_executedChainFacts hF hedges hmarked)
+  borderChainPick_of_facts (borderChainPickFacts_of_executedChainFacts hF hedges hmarked hE)
 
 /-- The assembly applies at the real executed context: for
 `clusterCtx ng cp (borderAlignment p0 layers) layers
@@ -302,10 +327,11 @@ theorem executed_borderChainPick {ng cp : Int} {p0 : Proper}
       (typeOneConflicts (borderAlignment p0 layers) pos) k) chain)
     (hF : ExecutedChainFacts (borderAlignment p0 layers)
       (clusterCtx ng cp (borderAlignment p0 layers) layers
-        (typeOneConflicts (borderAlignment p0 layers) pos) k) chain) :
+        (typeOneConflicts (borderAlignment p0 layers) pos) k) chain)
+    (hE : EdgeOK (clusterCtx ng cp (borderAlignment p0 layers) layers
+      (typeOneConflicts (borderAlignment p0 layers) pos) k)) :
     BorderChainPick (clusterCtx ng cp (borderAlignment p0 layers) layers
       (typeOneConflicts (borderAlignment p0 layers) pos) k) chain hocc :=
   borderChainPick_of_executedChainFacts hF
-    (executedClusterCtx_edges (p := borderAlignment p0 layers)) rfl
-
+    (executedClusterCtx_edges (p := borderAlignment p0 layers)) rfl hE
 end Elegant.Layered

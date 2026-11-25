@@ -16,7 +16,15 @@ theorem reversed_runtime_clearance {slot gap : Int} {rankGap : Nat → Int} {p :
     (hvt : v ≠ run.targetNode) :
     ¬ Polyline.hitsRect rt.points (boxRect p x y v) := by
   have hm := List.mem_of_find?_eq_some hf
-  obtain ⟨hcs, hct⟩ := laneRun_mid_bounds hr hF hm
+  have hstep (k : Nat) (hk : k + 1 < layers.length) :
+      top.getD k 0 + (layers.map (layerHeight p)).getD k 0 + rankGap k +
+        slot * (lr.routing.gaps.getD k default).slots ≤ top.getD (k + 1) 0 := by
+    have hlt : k < layers.length := by omega
+    have hl := List.getElem?_eq_getElem hlt
+    have hb := hF.band_step k layers[k] hl hk
+    rw [heights_getD hl]
+    omega
+  obtain ⟨hcs, hct⟩ := laneRun_mid_bounds hr hF.slot_pos hF.half_slot_le hstep hm
   obtain ⟨hs, ht, hsr, htr, htg, hsx0, hsx1, htx0, htx1, _, htrun⟩ := laneRun_node_facts hr hm
   exact laneRouteOf_reverse_avoids hf he (geo_ok_withLanes hr hF) hs ht hv hvs hvt
     hsr htr htg ⟨hsx0, hsx1⟩ ⟨htx0, htx1⟩ hcs hct hvpos htrun (laneRun_right_bound hr hm hv)

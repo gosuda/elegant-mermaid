@@ -5,16 +5,18 @@ import Elegant.Layered.Pipeline
 set_option autoImplicit false
 
 /-! Lane-band pinning for the swimlane kind. The layered family lays the whole diagram out; this
-pass then pins every top-level lane (a root group) to one band on the cross axis: x for `TB` and
-`BT`, y for `LR` and `RL`. Bands are consecutive in lane order with no gap. A band is as thick as
-the title band, two clearances (cluster padding plus routing gutter) and the content extent of its
-boxes and of the routes with both ends in the lane, all read from the unpinned layout. Root nodes
-share one band after the last lane, without title band or outer clearance. Every box, label,
-route point and display-list primitive moves by its band's shift; a route between two lanes
-moves each endpoint with its own lane (`Move.ends`), and a primitive coordinate equal to the
-route's first or last point follows it. The frames are then stretched to their bands, the origin
-is restored, labels that now meet a foreign frame or an unrelated node move to a strip past the
-geometry, and the canvas grows along the cross axis. Mirrors `pinBands` of the Go swimlane layout. -/
+pass pins every top-level lane (a root group) to one band on the cross axis: x for `TB` and
+`BT`, y for `LR` and `RL`. The final attachment step (in `Elegant.Layered.LaneEnds`) slides
+lane-frame route ends to their new frame sides: `pinBands` mirrors the engines up to canvas
+growth, and `pinLanes` adds the final attachment. A band is as thick as the title band, two
+clearances (cluster padding plus routing gutter) and the content extent of its boxes and of the
+routes with both ends in the lane, all read from the unpinned layout. Root nodes share one band
+after the last lane, without title band or outer clearance. Every box, label, route point and
+display-list primitive moves by its band's shift; a route between two lanes moves each endpoint
+with its own lane (`Move.ends`), and a primitive coordinate equal to the route's first or last
+point follows it. The frames are then stretched to their bands, the origin is restored, labels
+that now meet a foreign frame or an unrelated node move to a strip past the geometry, and the
+canvas grows along the cross axis. Mirrors `pinBands` of the Go swimlane layout. -/
 
 namespace Elegant
 namespace Layered
@@ -105,16 +107,36 @@ structure Band where
   thickness : Int
   deriving Repr
 
-/-- Cross-axis coordinates of the members' boxes and of the routes inside the lane. -/
+/-- Cross-axis coordinates of member boxes and of routes with both endpoints in the band. -/
 def contentValues (boxes : List ModelBox) (s : Scene) (axis : Axis) (lane : String)
     (members : List String) : List Int :=
+  let loose := lane == ""
   members.flatMap (fun id =>
     match s.boxes.find? (fun b => b.id == id) with
     | none => []
     | some b => [axis.start b.rect, axis.start b.rect + axis.length b.rect]) ++
   s.routes.flatMap (fun r =>
-    if inLane boxes r.fromId lane && inLane boxes r.toId lane then r.points.map axis.point
-    else [])
+    let inside :=
+      if loose then members.contains r.fromId && members.contains r.toId
+      else inLane boxes r.fromId lane && inLane boxes r.toId lane
+    if inside then r.points.map axis.point else [])
+
+theorem contentValues_mem_loose_route_point {boxes : List ModelBox} {s : Scene}
+    {axis : Axis} {members : List String} {r : Route} {p : Point}
+    (hr : r ∈ s.routes) (hp : p ∈ r.points)
+    (hfrom : r.fromId ∈ members) (hto : r.toId ∈ members) :
+    axis.point p ∈ contentValues boxes s axis "" members := by
+  unfold contentValues
+  apply List.mem_append.mpr
+  right
+  apply List.mem_flatMap.mpr
+  refine ⟨r, hr, ?_⟩
+  have hf : members.contains r.fromId = true := List.contains_iff_mem.mpr hfrom
+  have ht : members.contains r.toId = true := List.contains_iff_mem.mpr hto
+  simpa [hf, ht] using
+    (show (r.fromId ∈ members ∧ r.toId ∈ members) ∧
+        axis.point p ∈ r.points.map axis.point from
+      ⟨⟨hfrom, hto⟩, List.mem_map.mpr ⟨p, hp, rfl⟩⟩)
 
 def laneBand (boxes : List ModelBox) (s : Scene) (axis : Axis) (sp : Spacing) (lane : String)
     (start : Int) : Band :=

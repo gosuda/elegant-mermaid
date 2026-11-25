@@ -83,8 +83,9 @@ export class EngineClient {
       return Promise.reject(new Error('the engine is not ready'));
     }
     const id = this.#nextCall++;
-    const { promise, resolve, reject } = Promise.withResolvers<string>();
-    this.#pending.set(id, { resolve, reject });
+    const promise = new Promise<string>((resolve, reject) => {
+      this.#pending.set(id, { resolve, reject });
+    });
     worker.postMessage({ type: 'call', id, revision, op, source, optionsJson });
     return promise;
   }

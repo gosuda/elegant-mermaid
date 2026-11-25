@@ -507,9 +507,23 @@ theorem expandChild_c8b_structure_wrapped
 
 /-- The three label-scope conjuncts of `ExpandChildC7Structure`, split out as
 a named residual: the owner-scope transports of child and parent labels into
-the merged dump, and the scope anchors of every merged label.  All three
-presuppose the `labelOwnerAnc` route-endpoint and ancestor walks of the
-merged dump; no proved fact of the expansion supplies them yet. -/
+the merged dump, and the scope anchors of every merged label the group owns
+or that comes from the child scene.  All three presuppose the
+`labelOwnerAnc` route-endpoint and ancestor walks of the merged dump; no
+proved fact of the expansion supplies them yet.
+
+The anchor conjunct is restricted to group-owned and child-sourced labels:
+stated for every merged label it is false, refuted by an executed probe
+(`proofs/wip/Probe/ExpandChildStepProbe.lean`, inputs `labInOut` and
+`titleLabel`): boxes `[G group, x y in G, p q]`, routes `[e1 x->y, e2 p->q]`,
+labels `[l1 owner e1, l2 owner e2]`.  For the result label `l2` (owner `e2`,
+an edge outside the group) and scope id `G` (whose parent-scene ancestors
+are `[]`), `labelOwnerAnc l2` in the merged dump is `[]`, which does not
+contain `G`.  The restricted form held on all 26 probed executed calls.
+Child sourcing is stated as an id-and-owner match against the child scene,
+exactly the shape `expandChild_labels_eq_wrapped` plus
+`ExpandChildLabelOwners` identifies (caption or child part of the merged
+label list), hence checkable. -/
 def ExpandChildC7LabelScopes (_P : Params) (group : ModelBox)
     (parent child result : FamilyResult) : Prop :=
   (∀ cl ∈ child.scene.labels, ∀ rl ∈ result.scene.layoutDump.labels, rl.id = cl.id →
@@ -519,8 +533,47 @@ def ExpandChildC7LabelScopes (_P : Params) (group : ModelBox)
       ∀ x ∈ parent.scene.layoutDump.labelOwnerAnc pl.toLabel,
         x ∈ result.scene.layoutDump.labelOwnerAnc rl) ∧
   (∀ rl ∈ result.scene.layoutDump.labels,
+      (rl.owner = group.id ∨ ∃ cl ∈ child.scene.labels, rl.id = cl.id ∧ rl.owner = cl.owner) →
       ∀ x ∈ group.id :: parent.scene.layoutDump.ancestors group.id,
         x ∈ result.scene.layoutDump.labelOwnerAnc rl)
+
+/-- The restricted C7 structure remainder of one `expandChild` call: the
+box-lookup transports of both merged scenes, the scene-size bounds, the
+label classification, the owner-scope transports for child and parent
+labels, and the scope anchors restricted to group-owned or child-sourced
+merged labels.  This is what `expandChild_c7_structure` concludes; the
+unrestricted `ExpandChildC7Structure` anchors for parent-sourced labels are
+refuted by the `ExpandChildStepProbe` `labInOut`/`titleLabel` witness, so the
+matching `ExpandChildC7Structure`/`ExpandChildC7Step` conjuncts must take the
+same restriction. -/
+def ExpandChildC7StructureRestricted (P : Params) (inp : Input) (o : Options) (group : ModelBox)
+    (titleHeight : Int) (parent child res : FamilyResult) : Prop :=
+  ∀ (frame : Box) (tl : List Measure.Line) (dx dy : Int),
+    parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
+    dx = frame.rect.x + (childInset group.direction P.clusterPad
+        (tl.foldl (fun width line => max width line.width) 0) titleHeight).x -
+      P.canvasMargin →
+    dy = frame.rect.y + (childInset group.direction P.clusterPad
+        (tl.foldl (fun width line => max width line.width) 0) titleHeight).y -
+      P.canvasMargin →
+    ExpandChildTitleWrapped P inp o group tl →
+    (∀ b : Box, child.scene.layoutDump.box? b.id = some b →
+        res.scene.layoutDump.box? b.id = some (embedBox group.id dx dy b)) ∧
+    (∀ b : Box, parent.scene.layoutDump.box? b.id = some b →
+        res.scene.layoutDump.box? b.id = some b) ∧
+    child.scene.boxes.length ≤ res.scene.boxes.length ∧
+    parent.scene.boxes.length ≤ res.scene.boxes.length ∧
+    ExpandChildLabelClasses P group tl titleHeight frame dx dy parent child res ∧
+    (∀ cl ∈ child.scene.labels, ∀ rl ∈ res.scene.layoutDump.labels, rl.id = cl.id →
+        ∀ x ∈ child.scene.layoutDump.labelOwnerAnc cl.toLabel,
+          x ∈ res.scene.layoutDump.labelOwnerAnc rl) ∧
+    (∀ pl ∈ parent.scene.labels, ∀ rl ∈ res.scene.layoutDump.labels, rl.id = pl.id →
+        ∀ x ∈ parent.scene.layoutDump.labelOwnerAnc pl.toLabel,
+          x ∈ res.scene.layoutDump.labelOwnerAnc rl) ∧
+    (∀ rl ∈ res.scene.layoutDump.labels,
+        (rl.owner = group.id ∨ ∃ cl ∈ child.scene.labels, rl.id = cl.id ∧ rl.owner = cl.owner) →
+        ∀ x ∈ group.id :: parent.scene.layoutDump.ancestors group.id,
+          x ∈ res.scene.layoutDump.labelOwnerAnc rl)
 
 /-- The structural residual `ExpandChildC7Structure` reduces to, for a
 successful `expandChild` under the recursion's call context: the shared core
@@ -539,31 +592,7 @@ theorem expandChild_c7_structure_wrapped
     (hexpand : expandChild P inp o group titleHeight parent child = .ok res)
     (howners : ExpandChildLabelOwners inp parent child)
     (hscopes : ExpandChildC7LabelScopes P group parent child res) :
-    ∀ (frame : Box) (tl : List Measure.Line) (dx dy : Int),
-      parent.scene.boxes.find? (fun box => box.id == group.id) = some frame →
-      dx = frame.rect.x + (childInset group.direction P.clusterPad
-          (tl.foldl (fun width line => max width line.width) 0) titleHeight).x -
-        P.canvasMargin →
-      dy = frame.rect.y + (childInset group.direction P.clusterPad
-          (tl.foldl (fun width line => max width line.width) 0) titleHeight).y -
-        P.canvasMargin →
-      ExpandChildTitleWrapped P inp o group tl →
-      (∀ b : Box, child.scene.layoutDump.box? b.id = some b →
-          res.scene.layoutDump.box? b.id = some (embedBox group.id dx dy b)) ∧
-      (∀ b : Box, parent.scene.layoutDump.box? b.id = some b →
-          res.scene.layoutDump.box? b.id = some b) ∧
-      child.scene.boxes.length ≤ res.scene.boxes.length ∧
-      parent.scene.boxes.length ≤ res.scene.boxes.length ∧
-      ExpandChildLabelClasses P group tl titleHeight frame dx dy parent child res ∧
-      (∀ cl ∈ child.scene.labels, ∀ rl ∈ res.scene.layoutDump.labels, rl.id = cl.id →
-          ∀ x ∈ child.scene.layoutDump.labelOwnerAnc cl.toLabel,
-            x ∈ res.scene.layoutDump.labelOwnerAnc rl) ∧
-      (∀ pl ∈ parent.scene.labels, ∀ rl ∈ res.scene.layoutDump.labels, rl.id = pl.id →
-          ∀ x ∈ parent.scene.layoutDump.labelOwnerAnc pl.toLabel,
-            x ∈ res.scene.layoutDump.labelOwnerAnc rl) ∧
-      (∀ rl ∈ res.scene.layoutDump.labels,
-          ∀ x ∈ group.id :: parent.scene.layoutDump.ancestors group.id,
-            x ∈ res.scene.layoutDump.labelOwnerAnc rl) := by
+    ExpandChildC7StructureRestricted P inp o group titleHeight parent child res := by
   intro frame tl dx dy hframe hdx hdy hwrap
   have hcore := expandChild_core_wrapped hwf hgroup hchild hparent hexpand
     frame tl dx dy hframe hdx hdy hwrap
@@ -609,7 +638,24 @@ theorem expandChild_c8b_structure
 /-- The `hstructC7` premise shape of `expandChild_c7_step_of_geometry`: the
 C7 structure residual of every `expandChild` call the recursion performs,
 discharged from the wrapped core, the label classification under the
-label-owner invariant, and the split-out label-scope residual. -/
+label-owner invariant, and the split-out label-scope residual.  Concludes
+`ExpandChildC7StructureRestricted`, whose anchor conjunct covers only
+group-owned or child-sourced result labels.
+
+The anchor conjunct is the restricted form of `ExpandChildC7LabelScopes`
+(group-owned or child-sourced result labels only).  Concluding the
+unrestricted `ExpandChildC7Structure` anchors for parent-sourced labels is
+impossible: `proofs/wip/Probe/ExpandChildStepProbe.lean` (`labInOut`,
+`titleLabel`) exhibits result label `l2` (owner `e2`, an edge outside the
+group) with `G ∈ group.id :: ancestors group.id` but
+`G ∉ labelOwnerAnc l2` in the merged dump.  The parent-label case of the C7
+argument is covered downstream instead: parent labels clear parent boxes by
+the parent's own clause C7 (`hscopeParent` in `expandChild_c7`), and clear
+child boxes by geometry (`hmissParentLabel`); `hanchor` there is only ever
+applied to caption and child labels.  Wiring this through
+`expandChild_c7_step_of_geometry` needs the same restriction on
+`ExpandChildC7Structure` (`ExpandChildStepsFacts.lean`) and
+`ExpandChildC7Step` (`RecursiveC7.lean`). -/
 theorem expandChild_c7_structure
     (fuel : Nat) (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     (titleLines : List Measure.Line) (titleHeight : Int)
@@ -620,7 +666,7 @@ theorem expandChild_c7_structure
       parent child res)
     (howners : ExpandChildLabelOwners inp parent child)
     (hscopes : ExpandChildC7LabelScopes P group parent child res) :
-    ExpandChildC7Structure P inp o group titleHeight parent child res := by
+    ExpandChildC7StructureRestricted P inp o group titleHeight parent child res := by
   obtain ⟨hwf, hgroup, _hpboxes, hchild, hparent, hexpand'⟩ := hctx
   exact expandChild_c7_structure_wrapped hwf hgroup hchild hparent hexpand' howners
     hscopes
