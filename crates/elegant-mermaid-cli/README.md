@@ -75,7 +75,7 @@ npm install --global emd-cli       # GNU/Linux x64 with glibc, Node.js 26 or lat
 
 - Render SVG, PNG, or terminal text from the same layout.
 - Pick one of 20 themes, including `elegant-light`, `elegant-dark`, `github-dark`, `nord`, and the Mermaid defaults.
-- Embed glyph outlines in SVG (`--svg-text paths`) so the viewer needs no font.
+- Embed glyph outlines in SVG (`--svg-text paths`) so the viewer needs no font. Inter draws Latin, Greek and Cyrillic text; bundled Noto fallback fonts draw CJK text, emoji, and mathematical and technical symbols, without moving the layout.
 - Watch a file and redraw it in the terminal on every save.
 - Check `.mmd`, `.mermaid`, `.md`, `.markdown`, and `.mdx` files. Diagnostics in Markdown point at positions in the host file.
 - Lint with safe and unsafe fixes, and select, ignore, or configure rules.
@@ -281,4 +281,4 @@ Open an issue or a pull request on [GitHub](https://github.com/gosuda/elegant-me
 
 ## License
 
-Apache-2.0. See [`LICENSE`](LICENSE). The bundled Inter fonts are under OFL-1.1 and the Unicode data under Unicode-3.0; [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists every bundled work.
+Apache-2.0. See [`LICENSE`](LICENSE). The bundled Inter and Noto fonts are under OFL-1.1 and the Unicode data under Unicode-3.0; [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists every bundled work.

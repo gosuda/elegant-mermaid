@@ -107,11 +107,14 @@ func renderOne(t renderable) ([]outFile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []outFile{
+	files := []outFile{
 		{path: "internal/gen/" + t.fileName() + ".go", content: formattedGo},
 		{path: "crates/elegant-mermaid/src/gen/" + t.fileName() + ".rs", content: formattedRs},
-		{path: "proofs/Elegant/Gen/" + exportName(t.fileName()) + ".lean", content: lnSrc},
-	}, nil
+	}
+	if len(lnSrc) == 0 {
+		return files, nil
+	}
+	return append(files, outFile{path: "proofs/Elegant/Gen/" + exportName(t.fileName()) + ".lean", content: lnSrc}), nil
 }
 
 func modSource(modules []string) []byte {
@@ -167,19 +170,42 @@ func writeOutputs(root string, files []outFile) error {
 	return nil
 }
 
+type copyRule struct {
+	src string
+	dst []string
+}
+
+// The font files and license texts both engines embed.
+var embeddedFonts = []string{
+	"Inter-Regular.ttf",
+	"Inter-SemiBold.ttf",
+	"LICENSE.txt",
+	"NotoSansCJKsc-Regular.ttf",
+	"NotoSansCJKsc-SemiBold.ttf",
+	"NotoSans-Regular.ttf",
+	"NotoSans-SemiBold.ttf",
+	"NotoSansSymbols-Regular.ttf",
+	"NotoSansSymbols-SemiBold.ttf",
+	"NotoSansSymbols2-Regular.ttf",
+	"NotoSansMath-Regular.ttf",
+	"NotoSansCoptic-Regular.ttf",
+	"NotoEmoji-Regular.ttf",
+	"LICENSES-NOTO.txt",
+}
+
 func buildCopies(root string) ([]outFile, error) {
-	copies := []struct {
-		src string
-		dst []string
-	}{
-		{"spec/data/fonts/Inter-Regular.ttf", []string{"raster/fonts/Inter-Regular.ttf", "crates/elegant-mermaid/assets/fonts/Inter-Regular.ttf"}},
-		{"spec/data/fonts/Inter-SemiBold.ttf", []string{"raster/fonts/Inter-SemiBold.ttf", "crates/elegant-mermaid/assets/fonts/Inter-SemiBold.ttf"}},
-		{"spec/data/fonts/LICENSE.txt", []string{"raster/fonts/LICENSE.txt", "crates/elegant-mermaid/assets/fonts/LICENSE.txt"}},
+	copies := []copyRule{
 		{"spec/data/fonts/Inter-Regular.woff2", []string{"playground/static/fonts/Inter-Regular.woff2"}},
 		{"spec/data/fonts/Inter-SemiBold.woff2", []string{"playground/static/fonts/Inter-SemiBold.woff2"}},
 		{"README.md", []string{"crates/elegant-mermaid/README.md", "crates/elegant-mermaid-cli/README.md"}},
 		{"LICENSE", []string{"crates/elegant-mermaid/LICENSE", "crates/elegant-mermaid-cli/LICENSE"}},
 		{"THIRD_PARTY_NOTICES.md", []string{"crates/elegant-mermaid/THIRD_PARTY_NOTICES.md", "crates/elegant-mermaid-cli/THIRD_PARTY_NOTICES.md"}},
+	}
+	for _, name := range embeddedFonts {
+		copies = append(copies, copyRule{
+			"spec/data/fonts/" + name,
+			[]string{"raster/fonts/" + name, "crates/elegant-mermaid/assets/fonts/" + name},
+		})
 	}
 	var files []outFile
 	for _, copy := range copies {

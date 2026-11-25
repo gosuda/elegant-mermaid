@@ -156,6 +156,7 @@ type inputs struct {
 
 	regularTTF  []byte
 	semiboldTTF []byte
+	emojiTTF    []byte
 
 	sources   []sourcesInput
 	sourcesOK bool
@@ -506,6 +507,9 @@ func loadFontData(root string, in *inputs) error {
 		return err
 	}
 	if in.semiboldTTF, err = readOptional(root, "spec/data/fonts/Inter-SemiBold.ttf"); err != nil {
+		return err
+	}
+	if in.emojiTTF, err = readOptional(root, "spec/data/fonts/NotoEmoji-Regular.ttf"); err != nil {
 		return err
 	}
 	return nil

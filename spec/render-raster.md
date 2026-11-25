@@ -44,7 +44,7 @@ This file fixes the raster back end that turns a vector scene into PNG bytes.
 
 ## Text
 
-- render-raster-23: Glyph outlines MUST come from `GlyphOutlines`, which MUST fill with the colour that the text style resolves to for the active theme. [just go-check]
+- render-raster-23: Glyph outlines MUST come from `GlyphOutlines`, which MUST fill with the colour that the text style resolves to for the active theme. A codepoint without an Inter outline MUST take the fallback rule of `spec/render-svg.md` (render-svg-63), and the outline commands MUST equal those of SVG drawn as paths for the same text. [just go-check]
 - render-raster-24: The origin and baseline of a glyph MUST follow the text rule of `spec/render-svg.md`, and glyph placement MUST follow the `Placement` sub-rule under `SVG text` in `spec/render-svg.md`. [just go-check]
 - render-raster-25: Bold and italic runs MUST follow the `Markdown strings` rule of `spec/text-measurement.md`. [just go-check]
 

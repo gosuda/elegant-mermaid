@@ -14,6 +14,8 @@ use crate::{
 };
 use std::{collections::BTreeMap, fmt, sync::Arc};
 
+pub(crate) mod fallback;
+
 const LINE_HEIGHT: i64 = 1280;
 const TITLE_LINE_HEIGHT: i64 = 1536;
 const UNITS_PER_PX: i64 = 64;
@@ -49,6 +51,7 @@ struct Font {
 #[derive(Clone)]
 pub struct GlyphOutlines {
     fonts: Arc<[Font; 2]>,
+    noto: fallback::NotoFonts,
 }
 
 impl fmt::Debug for GlyphOutlines {
@@ -61,11 +64,25 @@ impl fmt::Debug for GlyphOutlines {
 }
 
 impl GlyphOutlines {
-    #[cfg(any(feature = "png", test))]
+    #[cfg(test)]
     pub(crate) fn new(fonts: [(i64, Contours); 2]) -> GlyphOutlines {
         GlyphOutlines {
             fonts: Arc::new(fonts.map(|(upem, glyphs)| Font { upem, glyphs })),
+            noto: fallback::NotoFonts::empty(),
         }
+    }
+    #[cfg(feature = "png")]
+    pub(crate) fn with_fallback(
+        fonts: [(i64, Contours); 2],
+        noto: fallback::NotoFonts,
+    ) -> GlyphOutlines {
+        GlyphOutlines {
+            fonts: Arc::new(fonts.map(|(upem, glyphs)| Font { upem, glyphs })),
+            noto,
+        }
+    }
+    pub(crate) fn noto(&self) -> &fallback::NotoFonts {
+        &self.noto
     }
 
     #[cfg(test)]
@@ -131,7 +148,6 @@ fn line_width(outlines: &GlyphOutlines, t: &TextItem, line: &[Run]) -> Result<i6
 
 struct RunPlacement<'a> {
     font: &'a Font,
-    weight: Weight,
     size: i32,
     italic: bool,
     baseline: i64,
@@ -169,19 +185,6 @@ impl RunPlacement<'_> {
             }
             Command::Close => Command::Close,
         })
-    }
-
-    fn draw(&self, out: &mut Vec<Command>, run: &Run, start: i64) -> Result<i64, GeomError> {
-        let mut prefix = 0;
-        for c in run.text.chars() {
-            let cp = u32::from(c);
-            let origin = add(start, scaled(prefix, self.size, self.font.upem)?)?;
-            for &command in self.font.glyphs.get(&cp).map_or(&[][..], Vec::as_slice) {
-                out.push(self.command(origin, command)?);
-            }
-            prefix = add(prefix, advance_units(self.weight, cp))?;
-        }
-        add(start, scaled(prefix, self.size, self.font.upem)?)
     }
 }
 
@@ -228,18 +231,213 @@ pub(crate) fn text_commands(
         let baseline = baseline_y(t, row)?;
         let mut x = line_start(t, line_width(outlines, t, line)?)?;
         for run in line {
-            let weight = run_weight(t, run);
-            let placement = RunPlacement {
-                font: outlines.font(weight),
-                weight,
-                size: t.size,
-                italic: run.italic,
+            let ctx = RunContext::for_run(
+                outlines,
+                run_weight(t, run),
+                t.size,
+                run.italic,
                 baseline,
-            };
-            x = placement.draw(&mut out, run, x)?;
+                x,
+            );
+            x = draw_run(&mut out, run, &ctx)?;
         }
     }
     Ok(out)
+}
+
+struct RunContext<'a> {
+    inter: &'a Font,
+    noto: &'a fallback::NotoFonts,
+    placement: RunPlacement<'a>,
+    weight: Weight,
+    size: i32,
+    italic: bool,
+    baseline: i64,
+    start: i64,
+}
+
+impl<'a> RunContext<'a> {
+    fn for_run(
+        outlines: &'a GlyphOutlines,
+        weight: Weight,
+        size: i32,
+        italic: bool,
+        baseline: i64,
+        start: i64,
+    ) -> Self {
+        let inter = outlines.font(weight);
+        Self {
+            inter,
+            noto: outlines.noto(),
+            placement: RunPlacement {
+                font: inter,
+                size,
+                italic,
+                baseline,
+            },
+            weight,
+            size,
+            italic,
+            baseline,
+            start,
+        }
+    }
+}
+
+enum GlyphPlan<'a> {
+    Slot {
+        width: usize,
+        loaded: fallback::LoadedGlyph,
+    },
+    Centered {
+        commands: &'a Vec<Command>,
+    },
+    Direct {
+        commands: &'a Vec<Command>,
+    },
+    Skip,
+}
+
+fn origin(ctx: &RunContext<'_>, prefix: &[i64], i: usize) -> Result<i64, GeomError> {
+    add(ctx.start, scaled(prefix[i], ctx.size, ctx.inter.upem)?)
+}
+
+fn slot_span(
+    ctx: &RunContext<'_>,
+    prefix: &[i64],
+    i: usize,
+    width: usize,
+    x0: i64,
+) -> Result<i64, GeomError> {
+    let x1 = add(
+        ctx.start,
+        scaled(prefix[i + width], ctx.size, ctx.inter.upem)?,
+    )?;
+    x1.checked_sub(x0).ok_or(GeomError::Overflow)
+}
+
+fn sequence_plan<'a>(ctx: &RunContext<'a>, scalars: &[u32], i: usize) -> Option<GlyphPlan<'a>> {
+    let (width, glyph) = fallback::longest_sequence(&scalars[i..])?;
+    let loaded = fallback::load_emoji_glyph(ctx.noto.emoji, glyph)?;
+    Some(GlyphPlan::Slot { width, loaded })
+}
+
+fn vs16_emoji_plan<'a>(ctx: &RunContext<'a>, scalars: &[u32], i: usize) -> Option<GlyphPlan<'a>> {
+    if i + 1 >= scalars.len() || scalars[i + 1] != 0xFE0F {
+        return None;
+    }
+    let loaded = fallback::load_codepoint(ctx.noto.emoji, scalars[i])?;
+    Some(GlyphPlan::Slot { width: 2, loaded })
+}
+
+fn vs16_inter_plan<'a>(ctx: &RunContext<'a>, scalars: &[u32], i: usize) -> Option<GlyphPlan<'a>> {
+    if i + 1 >= scalars.len() || scalars[i + 1] != 0xFE0F {
+        return None;
+    }
+    let commands = ctx.inter.glyphs.get(&scalars[i])?;
+    Some(GlyphPlan::Centered { commands })
+}
+
+fn inter_plan<'a>(ctx: &RunContext<'a>, scalars: &[u32], i: usize) -> Option<GlyphPlan<'a>> {
+    let commands = ctx.inter.glyphs.get(&scalars[i])?;
+    Some(GlyphPlan::Direct { commands })
+}
+
+fn presentation_plan<'a>(ctx: &RunContext<'a>, scalars: &[u32], i: usize) -> Option<GlyphPlan<'a>> {
+    if !fallback::has_presentation(scalars[i]) {
+        return None;
+    }
+    let loaded = fallback::load_codepoint(ctx.noto.emoji, scalars[i])?;
+    Some(GlyphPlan::Slot { width: 1, loaded })
+}
+
+fn candidate_plan<'a>(ctx: &RunContext<'a>, scalars: &[u32], i: usize) -> Option<GlyphPlan<'a>> {
+    for (_, data) in fallback::candidates(ctx.noto, ctx.weight) {
+        if let Some(loaded) = fallback::load_codepoint(data, scalars[i]) {
+            return Some(GlyphPlan::Slot { width: 1, loaded });
+        }
+    }
+    None
+}
+
+fn plan_glyph<'a>(ctx: &RunContext<'a>, scalars: &[u32], i: usize) -> GlyphPlan<'a> {
+    if let Some(plan) = sequence_plan(ctx, scalars, i) {
+        return plan;
+    }
+    if let Some(plan) = vs16_emoji_plan(ctx, scalars, i) {
+        return plan;
+    }
+    if let Some(plan) = vs16_inter_plan(ctx, scalars, i) {
+        return plan;
+    }
+    if let Some(plan) = inter_plan(ctx, scalars, i) {
+        return plan;
+    }
+    if let Some(plan) = presentation_plan(ctx, scalars, i) {
+        return plan;
+    }
+    if let Some(plan) = candidate_plan(ctx, scalars, i) {
+        return plan;
+    }
+    GlyphPlan::Skip
+}
+
+fn place_glyph(
+    out: &mut Vec<Command>,
+    ctx: &RunContext<'_>,
+    scalars: &[u32],
+    prefix: &[i64],
+    i: usize,
+) -> Result<usize, GeomError> {
+    match plan_glyph(ctx, scalars, i) {
+        GlyphPlan::Slot { width, loaded } => {
+            let x0 = origin(ctx, prefix, i)?;
+            let slot = slot_span(ctx, prefix, i, width, x0)?;
+            fallback::place_into(out, &loaded, ctx.size, x0, slot, ctx.baseline, ctx.italic)?;
+            Ok(width)
+        }
+        GlyphPlan::Centered { commands } => {
+            let x0 = origin(ctx, prefix, i)?;
+            let slot = slot_span(ctx, prefix, i, 2, x0)?;
+            let natural = scaled(
+                advance_units(ctx.weight, scalars[i]),
+                ctx.size,
+                ctx.inter.upem,
+            )?;
+            let at = add(
+                x0,
+                floor_div(slot.checked_sub(natural).ok_or(GeomError::Overflow)?, 2),
+            )?;
+            for command in commands.iter().copied() {
+                out.push(ctx.placement.command(at, command)?);
+            }
+            Ok(2)
+        }
+        GlyphPlan::Direct { commands } => {
+            let x0 = origin(ctx, prefix, i)?;
+            for command in commands.iter().copied() {
+                out.push(ctx.placement.command(x0, command)?);
+            }
+            Ok(1)
+        }
+        GlyphPlan::Skip => Ok(1),
+    }
+}
+
+fn draw_run(out: &mut Vec<Command>, run: &Run, ctx: &RunContext<'_>) -> Result<i64, GeomError> {
+    let scalars: Vec<u32> = run.text.chars().map(u32::from).collect();
+    let count = scalars.len();
+    let mut prefix: Vec<i64> = Vec::with_capacity(count + 1);
+    prefix.push(0);
+    for cp in scalars.iter().copied() {
+        let last = prefix[prefix.len() - 1];
+        prefix.push(add(last, advance_units(ctx.weight, cp))?);
+    }
+    let mut i = 0;
+    while i < count {
+        i += place_glyph(out, ctx, &scalars, &prefix, i)?;
+    }
+    add(ctx.start, scaled(prefix[count], ctx.size, ctx.inter.upem)?)
 }
 
 #[cfg(test)]

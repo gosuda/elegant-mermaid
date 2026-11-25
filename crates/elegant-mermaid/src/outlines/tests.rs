@@ -282,3 +282,361 @@ mod inter {
         Ok(())
     }
 }
+
+#[test]
+fn fallback_order_checks_sans_first_and_coptic_last() {
+    use crate::outlines::fallback::{FallbackFont, candidates};
+    let empty = crate::outlines::fallback::NotoFonts::empty();
+    let regular = candidates(&empty, Weight::Regular);
+    assert_eq!(regular[0].0, FallbackFont::Sans);
+    assert_eq!(regular[5].0, FallbackFont::Coptic);
+    let semibold = candidates(&empty, Weight::Semibold);
+    assert_eq!(semibold[0].0, FallbackFont::Sans);
+    assert_eq!(semibold[1].0, FallbackFont::Symbols);
+    assert_eq!(semibold[5].0, FallbackFont::Coptic);
+}
+
+#[test]
+fn fitted_narrow_glyph_centres_with_exact_integers() -> Result<(), Box<dyn Error>> {
+    use crate::outlines::fallback::{LoadedGlyph, place_into};
+    let glyph = LoadedGlyph {
+        upem: 2048,
+        advance: 1000,
+        commands: square(1000),
+    };
+    let mut out = Vec::new();
+    place_into(&mut out, &glyph, SIZE, i64::from(BOX_X), 700, 2278, false)?;
+    assert_eq!(
+        out,
+        vec![
+            Command::Move(BOX_X + 100, 2278),
+            Command::Line(BOX_X + 100 + 500, 2278),
+            Command::Line(BOX_X + 100 + 500, 2278 - 500),
+            Command::Line(BOX_X + 100, 2278 - 500),
+            Command::Close,
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn fitted_wide_glyph_scales_down_with_exact_integers() -> Result<(), Box<dyn Error>> {
+    use crate::outlines::fallback::{LoadedGlyph, place_into};
+    let glyph = LoadedGlyph {
+        upem: 2048,
+        advance: 2000,
+        commands: square(2000),
+    };
+    let mut out = Vec::new();
+    place_into(&mut out, &glyph, SIZE, i64::from(BOX_X), 500, 2278, false)?;
+    assert_eq!(
+        out,
+        vec![
+            Command::Move(BOX_X, 2278),
+            Command::Line(BOX_X + 500, 2278),
+            Command::Line(BOX_X + 500, 2278 - 500),
+            Command::Line(BOX_X, 2278 - 500),
+            Command::Close,
+        ]
+    );
+    Ok(())
+}
+
+#[cfg(feature = "png")]
+mod fallback {
+    use super::*;
+    use crate::{
+        geom::floor_div,
+        measure::{round_half_up, upem},
+        outlines::fallback,
+    };
+
+    fn noto() -> crate::outlines::fallback::NotoFonts {
+        *crate::raster::inter_outlines().noto()
+    }
+
+    fn baseline() -> i64 {
+        i64::from(BOX_Y) + 640 + floor_div(i64::from(SIZE) * 64 * 35, 100)
+    }
+
+    fn slot_for(weight: Weight, cps: &[u32]) -> i64 {
+        let sum: i64 = cps.iter().copied().map(|cp| advance(weight, cp)).sum();
+        round_half_up(sum * i64::from(SIZE) * 64, upem(weight))
+    }
+
+    fn expect_single(weight: Weight, cp: u32, text: &str) -> Result<Vec<Command>, Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        let (_, loaded) =
+            fallback::font_for_codepoint(outlines.noto(), weight, cp).ok_or("no fallback font")?;
+        let slot = slot_for(weight, &[cp]);
+        let mut expected = Vec::new();
+        fallback::place_into(
+            &mut expected,
+            &loaded,
+            SIZE,
+            i64::from(BOX_X),
+            slot,
+            baseline(),
+            false,
+        )?;
+        let observed = text_commands(&outlines, &plain(TextRole::Body, Align::Start, text))?;
+        assert_eq!(observed, expected);
+        Ok(expected)
+    }
+
+    #[test]
+    fn inter_wins_for_a() {
+        let outlines = crate::raster::inter_outlines();
+        assert!(outlines.has_outline(Weight::Regular, u32::from('A')));
+        assert!(outlines.has_outline(Weight::Semibold, u32::from('A')));
+    }
+
+    #[test]
+    fn cjk_zhong_comes_from_the_cjk_font() -> Result<(), Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        assert!(!outlines.has_outline(Weight::Regular, 0x4E2D));
+        let (font, loaded) = fallback::font_for_codepoint(outlines.noto(), Weight::Regular, 0x4E2D)
+            .ok_or("U+4E2D has no fallback font")?;
+        assert_eq!(font, fallback::FallbackFont::Cjk);
+        assert!(!loaded.commands.is_empty());
+        expect_single(Weight::Regular, 0x4E2D, "中")?;
+        Ok(())
+    }
+
+    #[test]
+    fn house_comes_from_the_symbols_font() -> Result<(), Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        assert!(!outlines.has_outline(Weight::Regular, 0x2302));
+        let (font, loaded) = fallback::font_for_codepoint(outlines.noto(), Weight::Regular, 0x2302)
+            .ok_or("U+2302 has no fallback font")?;
+        assert_eq!(font, fallback::FallbackFont::Symbols);
+        assert!(!loaded.commands.is_empty());
+        expect_single(Weight::Regular, 0x2302, "⌂")?;
+        Ok(())
+    }
+
+    #[test]
+    fn fraktur_u_comes_from_the_math_font() -> Result<(), Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        assert!(!outlines.has_outline(Weight::Regular, 0x1D518));
+        let (font, loaded) =
+            fallback::font_for_codepoint(outlines.noto(), Weight::Regular, 0x1D518)
+                .ok_or("U+1D518 has no fallback font")?;
+        assert_eq!(font, fallback::FallbackFont::Math);
+        assert!(!loaded.commands.is_empty());
+        expect_single(Weight::Regular, 0x1D518, "𝔘")?;
+        Ok(())
+    }
+
+    #[test]
+    fn coptic_sima_comes_from_the_coptic_font() -> Result<(), Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        assert!(!outlines.has_outline(Weight::Regular, 0x03E7));
+        let (font, loaded) = fallback::font_for_codepoint(outlines.noto(), Weight::Regular, 0x03E7)
+            .ok_or("U+03E7 has no fallback font")?;
+        assert_eq!(font, fallback::FallbackFont::Coptic);
+        assert!(!loaded.commands.is_empty());
+        expect_single(Weight::Regular, 0x03E7, "ϧ")?;
+        Ok(())
+    }
+
+    #[test]
+    fn cyllic_comes_from_noto_sans() -> Result<(), Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        assert!(!outlines.has_outline(Weight::Regular, 0xA66E));
+        let (font, loaded) = fallback::font_for_codepoint(outlines.noto(), Weight::Regular, 0xA66E)
+            .ok_or("U+A66E has no fallback font")?;
+        assert_eq!(font, fallback::FallbackFont::Sans);
+        assert!(!loaded.commands.is_empty());
+        expect_single(Weight::Regular, 0xA66E, "ꙮ")?;
+        Ok(())
+    }
+
+    #[test]
+    fn regional_pair_is_one_glyph_with_the_summed_slot() -> Result<(), Box<dyn Error>> {
+        let pair = [0x1F1EFu32, 0x1F1F5u32];
+        let (len, glyph) =
+            fallback::longest_sequence(&pair).ok_or("flag pair is not a sequence")?;
+        assert_eq!(len, 2);
+        let outlines = crate::raster::inter_outlines();
+        let loaded =
+            fallback::load_emoji_glyph(outlines.noto().emoji, glyph).ok_or("no emoji glyph")?;
+        let slot = slot_for(Weight::Regular, &pair);
+        let mut expected = Vec::new();
+        fallback::place_into(
+            &mut expected,
+            &loaded,
+            SIZE,
+            i64::from(BOX_X),
+            slot,
+            baseline(),
+            false,
+        )?;
+        let observed = text_commands(&outlines, &plain(TextRole::Body, Align::Start, "🇯🇵"))?;
+        assert_eq!(observed, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn inter_wins_for_heart() {
+        let outlines = crate::raster::inter_outlines();
+        assert!(outlines.has_outline(Weight::Regular, 0x2764));
+        assert!(outlines.has_outline(Weight::Semibold, 0x2764));
+    }
+
+    #[test]
+    fn alembic_alone_takes_symbols_fallback_while_vs16_merges_the_emoji_slot()
+    -> Result<(), Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        assert!(!outlines.has_outline(Weight::Regular, 0x2697));
+        assert!(!fallback::has_presentation(0x2697));
+        let (font, _) = fallback::font_for_codepoint(outlines.noto(), Weight::Regular, 0x2697)
+            .ok_or("U+2697 has no fallback font")?;
+        assert_eq!(font, fallback::FallbackFont::Symbols);
+        expect_single(Weight::Regular, 0x2697, "⚗")?;
+        let pair = [0x2697u32, 0xFE0Fu32];
+        let loaded =
+            fallback::load_codepoint(outlines.noto().emoji, 0x2697).ok_or("no emoji alembic")?;
+        let slot = slot_for(Weight::Regular, &pair);
+        let mut expected = Vec::new();
+        fallback::place_into(
+            &mut expected,
+            &loaded,
+            SIZE,
+            i64::from(BOX_X),
+            slot,
+            baseline(),
+            false,
+        )?;
+        let text: String = pair.iter().copied().filter_map(char::from_u32).collect();
+        let observed = text_commands(&outlines, &plain(TextRole::Body, Align::Start, &text))?;
+        assert_eq!(observed, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn white_smiling_face_alone_comes_from_a_text_font() -> Result<(), Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        assert!(!outlines.has_outline(Weight::Regular, 0x263A));
+        assert!(!fallback::has_presentation(0x263A));
+        let (font, loaded) = fallback::font_for_codepoint(outlines.noto(), Weight::Regular, 0x263A)
+            .ok_or("U+263A has no fallback font")?;
+        assert!(matches!(
+            font,
+            fallback::FallbackFont::Sans
+                | fallback::FallbackFont::Symbols
+                | fallback::FallbackFont::Symbols2
+                | fallback::FallbackFont::Math
+                | fallback::FallbackFont::Cjk
+                | fallback::FallbackFont::Coptic
+        ));
+        assert!(!loaded.commands.is_empty());
+        expect_single(Weight::Regular, 0x263A, "☺")?;
+        Ok(())
+    }
+
+    #[test]
+    fn keycap_with_vs16_is_one_glyph_in_the_summed_slot() -> Result<(), Box<dyn Error>> {
+        let triple = [0x23u32, 0xFE0Fu32, 0x20E3u32];
+        let (len, glyph) = fallback::longest_sequence(&triple).ok_or("no keycap sequence")?;
+        assert_eq!(len, 3);
+        assert_eq!(fallback::sequence_at(&triple), Some(glyph));
+        let outlines = crate::raster::inter_outlines();
+        let loaded =
+            fallback::load_emoji_glyph(outlines.noto().emoji, glyph).ok_or("no keycap glyph")?;
+        let slot = slot_for(Weight::Regular, &triple);
+        let mut expected = Vec::new();
+        fallback::place_into(
+            &mut expected,
+            &loaded,
+            SIZE,
+            i64::from(BOX_X),
+            slot,
+            baseline(),
+            false,
+        )?;
+        let text: String = triple.iter().copied().filter_map(char::from_u32).collect();
+        let observed = text_commands(&outlines, &plain(TextRole::Body, Align::Start, &text))?;
+        assert_eq!(observed, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn heart_with_vs16_takes_the_emoji_glyph() -> Result<(), Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        assert!(outlines.has_outline(Weight::Regular, 0x2764));
+        assert!(fallback::load_codepoint(outlines.noto().emoji, 0x2764).is_some());
+        assert!(fallback::longest_sequence(&[0x2764u32, 0xFE0Fu32]).is_none());
+        let pair = [0x2764u32, 0xFE0Fu32];
+        let loaded =
+            fallback::load_codepoint(outlines.noto().emoji, 0x2764).ok_or("no emoji heart")?;
+        let slot = slot_for(Weight::Regular, &pair);
+        let mut expected = Vec::new();
+        fallback::place_into(
+            &mut expected,
+            &loaded,
+            SIZE,
+            i64::from(BOX_X),
+            slot,
+            baseline(),
+            false,
+        )?;
+        let text: String = pair.iter().copied().filter_map(char::from_u32).collect();
+        let observed = text_commands(&outlines, &plain(TextRole::Body, Align::Start, &text))?;
+        assert_eq!(observed, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn inter_glyph_with_vs16_and_no_emoji_glyph_takes_both_slots() -> Result<(), Box<dyn Error>> {
+        let outlines = crate::raster::inter_outlines();
+        let cp = 0x41u32;
+        assert!(outlines.has_outline(Weight::Regular, cp));
+        assert!(fallback::load_codepoint(outlines.noto().emoji, cp).is_none());
+        assert!(!fallback::has_presentation(cp));
+        assert!(fallback::longest_sequence(&[cp, 0xFE0Fu32]).is_none());
+        assert!(
+            !crate::r#gen::emojiseq::EMOJI_SEQUENCES
+                .iter()
+                .any(|row| row.scalars.first() == Some(&cp))
+        );
+        let font = outlines.font(Weight::Regular);
+        let commands = font.glyphs.get(&cp).ok_or("no inter glyph")?;
+        let loaded = fallback::LoadedGlyph {
+            upem: font.upem,
+            advance: advance_units(Weight::Regular, cp),
+            commands: commands.clone(),
+        };
+        let slot = slot_for(Weight::Regular, &[cp, 0xFE0Fu32]);
+        let mut expected = Vec::new();
+        fallback::place_into(
+            &mut expected,
+            &loaded,
+            SIZE,
+            i64::from(BOX_X),
+            slot,
+            baseline(),
+            false,
+        )?;
+        let text: String = [cp, 0xFE0Fu32]
+            .iter()
+            .copied()
+            .filter_map(char::from_u32)
+            .collect();
+        let observed = text_commands(&outlines, &plain(TextRole::Body, Align::Start, &text))?;
+        assert_eq!(observed, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn noto_glyphs_use_the_requested_noto_bytes() {
+        let fresh = noto();
+        assert!(!fresh.emoji.is_empty());
+        assert!(!fresh.sans_regular.is_empty());
+        assert!(!fresh.symbols_regular.is_empty());
+        assert!(!fresh.symbols2.is_empty());
+        assert!(!fresh.math.is_empty());
+        assert!(!fresh.cjk_regular.is_empty());
+        assert!(!fresh.coptic.is_empty());
+    }
+}
