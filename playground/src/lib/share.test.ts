@@ -53,9 +53,10 @@ describe('share link codec', () => {
       src: ' '.repeat(2 ** 21),
       opt: { theme: 'elegant-light', background: null, charset: 'unicode', max_width: null },
     };
-    const encoded = await encodeShare(value);
-    expect(encoded.length).toBeLessThan(8192);
-    expect(await decodeShare(encoded)).toBeNull();
+    await expect(encodeShare(value)).rejects.toThrow('Shared diagrams must fit within 2 MiB of JSON.');
+    const raw = await encodeRaw(JSON.stringify(value));
+    expect(raw.length).toBeLessThan(8192);
+    expect(await decodeShare(raw)).toBeNull();
   });
 
   async function encodeRaw(json: string): Promise<string> {
