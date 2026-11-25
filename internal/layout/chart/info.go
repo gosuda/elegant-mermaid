@@ -65,7 +65,7 @@ func LayoutInfo(ctx context.Context, m *chartmodel.Info, o scene.Options) (scene
 	if err != nil {
 		return scene.Scene{}, nil, err
 	}
-	style := textStyle{profile: o.Profile, role: measure.RoleTitle, size: int32(c.fontSize / 64)}
+	style := textStyle{profile: o.Profile, role: measure.RoleTitle, size: int32(c.fontSize / 64), fontFamily: o.FontFamily}
 	box, err := style.measure(m.Text)
 	if err != nil {
 		return scene.Scene{}, nil, err

@@ -7,6 +7,7 @@ import (
 	"github.com/gosuda/elegant-mermaid/internal/geom"
 	"github.com/gosuda/elegant-mermaid/internal/measure"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
+	"github.com/gosuda/elegant-mermaid/internal/theme"
 )
 
 func terminalControlRunes() []rune {
@@ -33,8 +34,15 @@ func assertTerminalLabelControl(t *testing.T, r rune) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := &scene.Text{Rect: geom.Rect{W: 3, H: 1}}
-	n, err := c.placeLine(p, "a"+string(r)+"b", 0, TokenFG)
+	palette, err := theme.Resolve("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &scene.Text{
+		Rect:  geom.Rect{W: 3, H: 1},
+		Lines: [][]scene.Run{{{Text: "a" + string(r) + "b"}}},
+	}
+	n, err := c.placeAll([]*scene.Text{p}, palette)
 	if err != nil || n != 0 {
 		t.Fatalf("placement: refused=%d err=%v", n, err)
 	}

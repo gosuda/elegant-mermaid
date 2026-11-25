@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"github.com/gosuda/elegant-mermaid/internal/cells"
+	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
 	"github.com/gosuda/elegant-mermaid/internal/icon"
 	"github.com/gosuda/elegant-mermaid/internal/layout"
@@ -18,7 +19,10 @@ import (
 	"github.com/gosuda/elegant-mermaid/internal/theme"
 )
 
-type Scene struct{ value scene.Scene }
+type Scene struct {
+	value  scene.Scene
+	config syntax.EffectiveConfig
+}
 
 func (s *Scene) Dump() []byte { return s.value.AppendJSON(nil) }
 
@@ -26,14 +30,18 @@ func Layout(ctx context.Context, d *Document, o LayoutOptions) (*Scene, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if d == nil || d.HasErrors() {
-		return nil, fmt.Errorf("%w: document has errors", ErrInvalidDocument)
+	if err := sourceDocumentError(d); err != nil {
+		return nil, err
 	}
 	options, err := layoutOptions(o)
 	if err != nil {
 		return nil, err
 	}
-	in, err := documentLayoutInput(d, options)
+	config, err := documentConfig(d, o.Config)
+	if err != nil {
+		return nil, err
+	}
+	in, err := documentLayoutInput(d, options, config)
 	if err != nil {
 		return nil, err
 	}
@@ -49,14 +57,38 @@ func Layout(ctx context.Context, d *Document, o LayoutOptions) (*Scene, error) {
 		return nil, renderError(err)
 	}
 	layout.PlaceIcons(&value, d.diagram.IconRefs(), in.IconPacks)
-	return &Scene{value: value}, nil
+	return &Scene{value: value, config: config}, nil
 }
 
-func documentLayoutInput(d *Document, options scene.Options) (layout.Input, error) {
+func documentConfig(d *Document, text []byte) (syntax.EffectiveConfig, error) {
+	site, err := siteConfig(text)
+	if err != nil {
+		return syntax.EffectiveConfig{}, err
+	}
+	config, err := d.diagram.EffectiveConfig(site)
+	if err != nil {
+		return syntax.EffectiveConfig{}, fmt.Errorf("%w: %v", ErrBadConfig, err)
+	}
+	for _, diagnostic := range d.diagram.DiagnosticsFor(config) {
+		if diagnostic.Severity == diag.SeverityError {
+			return syntax.EffectiveConfig{}, fmt.Errorf("%w: document has errors", ErrInvalidDocument)
+		}
+	}
+	return config, nil
+}
+
+func sourceDocumentError(d *Document) error {
+	if d == nil || d.diagram == nil || d.diagram.HasSourceErrors() {
+		return fmt.Errorf("%w: document has errors", ErrInvalidDocument)
+	}
+	return nil
+}
+
+func documentLayoutInput(d *Document, options scene.Options, config syntax.EffectiveConfig) (layout.Input, error) {
 	if d.diagram == nil || !d.diagram.Supported() {
 		return layout.Input{}, fmt.Errorf("%w: parser and layout for %s are not implemented", ErrInvalidDocument, d.kind.String())
 	}
-	in, err := d.diagram.Input(options.Profile, options)
+	in, err := d.diagram.InputConfigured(options.Profile, options, config)
 	if err != nil {
 		return layout.Input{}, renderError(err)
 	}
@@ -74,9 +106,6 @@ func layoutOptions(o LayoutOptions) (scene.Options, error) {
 		return scene.Options{}, fmt.Errorf("%w: %v", ErrBadConfig, err)
 	}
 	if err := validateIconPacks(o.IconPacks); err != nil {
-		return scene.Options{}, err
-	}
-	if _, err := siteConfig(o.Config); err != nil {
 		return scene.Options{}, err
 	}
 	return scene.Options{Profile: scene.Profile(o.Profile), Thoroughness: int32(o.Thoroughness), MaxWidth: int32(o.MaxWidth), Limits: scene.Limits{MaxNodes: int32(o.Limits.MaxNodes), MaxEdges: int32(o.Limits.MaxEdges), MaxTextBytes: int32(o.Limits.MaxTextBytes)}}, nil
@@ -141,16 +170,8 @@ func RenderSVG(ctx context.Context, d *Document, o SVGOptions) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	site, err := siteConfig(o.Config)
-	if err != nil {
-		return nil, err
-	}
-	look, err := d.diagram.Look(site)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrBadConfig, err)
-	}
 	var out bytes.Buffer
-	opts := svg.Options{Theme: o.Theme, Background: o.Background, Text: svg.TextMode(o.Text), IDPrefix: o.IDPrefix, Kind: d.kind.String(), Title: d.diagram.AccTitle, Description: d.diagram.AccDescr, Look: look, Links: d.diagram.Links()}
+	opts := svg.Options{Theme: o.Theme, Background: o.Background, Text: svg.TextMode(o.Text), IDPrefix: o.IDPrefix, Kind: d.kind.String(), Title: d.diagram.AccTitle, Description: d.diagram.AccDescr, Look: layout.SceneLook(s.config.Look), FontFamily: s.config.FontFamily, Links: d.diagram.Links()}
 	if o.Outlines != nil {
 		fonts := o.Outlines.fonts
 		opts.Outlines = &fonts
@@ -177,8 +198,8 @@ func RenderText(ctx context.Context, d *Document, o TextOptions) ([]byte, error)
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if d == nil || d.HasErrors() {
-		return nil, fmt.Errorf("%w: document has errors", ErrInvalidDocument)
+	if err := sourceDocumentError(d); err != nil {
+		return nil, err
 	}
 	if o.Charset > CharsetASCII || o.Color > ColorTruecolor {
 		return nil, fmt.Errorf("%w: invalid text option", ErrBadConfig)

@@ -23,7 +23,7 @@ pub(crate) fn from_venn(
     _profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, LayoutError> {
-    options.config = model.config.clone();
+    options.set_kind_config(model.config.clone());
     options.profile = Profile::Vector;
     let payload = payload(model);
     let skeleton = plan::skeleton(&payload)?;

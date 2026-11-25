@@ -120,7 +120,7 @@ def build (m : Model) : Except LayoutError (Scene × Bool) := do
   let p : Grid.Architecture.GeometryParams := archParams m
   let groups := m.boxes.filter (fun b => b.role == .group)
   let nodes := m.boxes.filter (fun b => b.role != .group)
-  let metric ← Common.labelMetric profile
+  let metric ← Common.labelMetric profile m.options.fontFamily
   let titles ← groups.mapM (fun b => lines metric I32_MAX (text m b))
   let captions ← nodes.mapM (fun b => lines metric p.labelWrap (text m b))
   let inner ← nodes.mapM (fun b => lines metric (max 1 (iw-2*inset)) (field b.shape "icontext"))
@@ -307,7 +307,7 @@ theorem build_success (m : Model) (scene : Scene) (capped : Bool)
         if cell then 1 else 0, LayoutConst.architecture_badge.get profile⟩ ∧
       groups = m.boxes.filter (fun b => b.role == .group) ∧
       nodes = m.boxes.filter (fun b => b.role != .group) ∧
-      Common.labelMetric profile = .ok metric ∧
+      Common.labelMetric profile m.options.fontFamily = .ok metric ∧
       groups.mapM (fun b => lines metric I32_MAX (text m b)) = .ok titles ∧
       nodes.mapM (fun b => lines metric p.labelWrap (text m b)) = .ok captions ∧
       nodes.mapM (fun b => lines metric (max 1 (iw - 2*inset))

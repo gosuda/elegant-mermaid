@@ -186,6 +186,7 @@ pub(super) struct QuadPlan<'a> {
     pub profile: Profile,
     pub c: QuadConsts,
     pub cell: bool,
+    font_family: bool,
     pub boxes: Vec<BoxSpec>,
     pub specs: Vec<LabelSpec>,
     pub texts: Vec<TextBox>,
@@ -202,7 +203,11 @@ pub(super) struct QuadPlan<'a> {
 }
 
 impl<'a> QuadPlan<'a> {
-    fn new(q: &'a Quadrant, profile: Profile) -> Result<QuadPlan<'a>, LayoutError> {
+    fn new(
+        q: &'a Quadrant,
+        profile: Profile,
+        font_family: bool,
+    ) -> Result<QuadPlan<'a>, LayoutError> {
         let c = QuadConsts::load(profile, q)?;
         if q.points
             .iter()
@@ -215,6 +220,7 @@ impl<'a> QuadPlan<'a> {
             profile,
             c,
             cell: profile == Profile::Cell,
+            font_family,
             boxes: box_specs(q),
             specs: label_specs(q),
             texts: Vec::new(),
@@ -248,7 +254,7 @@ impl<'a> QuadPlan<'a> {
             Metric::Vector {
                 size_px: size,
                 weight: role.weight(),
-                font_family: false,
+                font_family: self.font_family,
             }
         }
     }
@@ -326,7 +332,11 @@ pub(crate) fn layout_quadrant(
     q: &Quadrant,
     options: &DumpOptions,
 ) -> Result<(Scene, bool), LayoutError> {
-    let mut plan = QuadPlan::new(q, options.profile)?;
+    let mut plan = QuadPlan::new(
+        q,
+        options.profile,
+        crate::scene::has_font_family(&options.config),
+    )?;
     plan.arrange()?;
     plan.place()?;
     let canvas = Size {

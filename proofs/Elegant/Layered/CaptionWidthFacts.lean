@@ -1273,7 +1273,7 @@ theorem layoutRecursive_selected_caption_containment
         !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) = some group)
     (hsuccess : layoutRecursive (fuel + 1) inp o = .ok res) :
     ∃ (P : Params) (metric : Measure.Metric) (titleLines : List Measure.Line) (frame : Box),
-      checkedParams o.profile inp.kind = .ok P ∧ metricOf o.profile = .ok metric ∧
+      checkedParams o.profile inp.kind = .ok P ∧ metricOf o.profile o.fontFamily = .ok metric ∧
       StyledMeasure.wrap metric
         (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
         (inp.texts.getD
@@ -1407,7 +1407,7 @@ theorem layoutRecursive_selected_caption_frame_containment
         !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) = some group)
     (hsuccess : layoutRecursive (fuel + 1) inp o = .ok res) :
     ∃ (P : Params) (metric : Measure.Metric) (titleLines : List Measure.Line) (frame : Box),
-      checkedParams o.profile inp.kind = .ok P ∧ metricOf o.profile = .ok metric ∧
+      checkedParams o.profile inp.kind = .ok P ∧ metricOf o.profile o.fontFamily = .ok metric ∧
       StyledMeasure.wrap metric
         (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
         (inp.texts.getD

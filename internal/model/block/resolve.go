@@ -208,7 +208,9 @@ func (r *resolver) nodeStatement(parent *Block, st *syn.NodeStatement, reference
 	for _, link := range st.Links {
 		target := r.nodeBlock(link.Node, nil)
 		r.place(parent, target)
-		r.model.Edges = append(r.model.Edges, edge(previous, target.ID, link.Link))
+		resolved := edge(previous, target.ID, link.Link)
+		resolved.StatementSpan = st.Span
+		r.model.Edges = append(r.model.Edges, resolved)
 		previous = target.ID
 	}
 }

@@ -130,33 +130,35 @@ structure PlacedLabel where
   italic : Bool := false
   visible : Bool := false
 
-def width (cell : Bool) (text : String) (role : Measure.Role) (size : Int) :
+def width (cell : Bool) (text : String) (role : Measure.Role) (size : Int)
+    (fontFamily : Bool := false) :
     Except LayoutError Int := do
-  let metric ← Chart.XY.metricOf cell role size
+  let metric ← Chart.XY.metricOf cell role size fontFamily
   Measure.textWidth metric text.toList
 
-private def fitPrefix (cell : Bool) (text : List Measure.Cluster) (role : Measure.Role)
+private def fitPrefix (fontFamily : Bool) (cell : Bool) (text : List Measure.Cluster) (role : Measure.Role)
     (size avail : Int) (lo hi : Nat) : Nat → Except LayoutError Nat
   | 0 => pure lo
   | fuel + 1 => do
     if lo ≥ hi then pure lo else
       let mid := (lo + hi + 1) / 2
       let s := String.ofList (text.take mid).flatten ++ "..."
-      let w ← width cell s role size
-      if w ≤ avail then fitPrefix cell text role size avail mid hi fuel
-      else fitPrefix cell text role size avail lo (mid - 1) fuel
+      let w ← width cell s role size fontFamily
+      if w ≤ avail then fitPrefix fontFamily cell text role size avail mid hi fuel
+      else fitPrefix fontFamily cell text role size avail lo (mid - 1) fuel
 
-def fit (cell : Bool) (text : String) (avail : Int) (role : Measure.Role) (size : Int) :
+def fit (cell : Bool) (text : String) (avail : Int) (role : Measure.Role) (size : Int)
+    (fontFamily : Bool := false) :
     Except LayoutError (Option (String × Int)) := do
   if text.isEmpty then pure none else
-    let w ← width cell text role size
+    let w ← width cell text role size fontFamily
     if w ≤ avail then pure (some (text, w)) else
-      let ew ← width cell "..." role size
+      let ew ← width cell "..." role size fontFamily
       if ew > avail then pure none else
         let cs := Measure.segment text.toList
-        let k ← fitPrefix cell cs role size avail 0 (cs.length - 1) cs.length
+        let k ← fitPrefix fontFamily cell cs role size avail 0 (cs.length - 1) cs.length
         let shown := String.ofList (cs.take k).flatten ++ "..."
-        let sw ← width cell shown role size
+        let sw ← width cell shown role size fontFamily
         pure (some (shown, sw))
 
 def putLabel (l : PlacedLabel) (shown : String) (r : Rect) (size : Int) : PlacedLabel :=
@@ -175,7 +177,7 @@ def placeTitle (m : Model) (c : Consts) (labels : List PlacedLabel) : Except Lay
     match labels[i]? with
     | none => pure labels
     | some l =>
-      match ← fit (m.profile == .cell) l.source.text c.width .title 16 with
+      match ← fit (m.profile == .cell) l.source.text c.width .title 16 m.options.fontFamily with
       | none => pure labels
       | some (shown, w) =>
         let lh := if m.profile == .cell then 1 else 1536
@@ -208,7 +210,7 @@ def placeHeader (m : Model) (c : Consts) (n : Node) (labels : List PlacedLabel) 
   let border := LayoutConst.treemap_header_border.get p
   let top := border + Int.fdiv (c.header - border - lh) 2
   if r.h ≤ top + lh then pure labels else
-    let vw ← if value.isSome then width cell (sourceText labels value) .body vs else pure 0
+    let vw ← if value.isSome then width cell (sourceText labels value) .body vs m.options.fontFamily else pure 0
     let vi := LayoutConst.treemap_header_value_inset.get p
     let ni := LayoutConst.treemap_header_label_inset.get p
     let reserve := vi + vw + LayoutConst.treemap_header_gap.get p
@@ -218,7 +220,7 @@ def placeHeader (m : Model) (c : Consts) (n : Node) (labels : List PlacedLabel) 
     let labels ← match name with
       | none => pure labels
       | some j => do
-        match ← fit cell (sourceText labels name) avail .label ns with
+        match ← fit cell (sourceText labels name) avail .label ns m.options.fontFamily with
         | none => pure labels
         | some (shown, w) => pure (labels.modify j (fun l =>
           { putLabel l shown ⟨r.x + ni, r.y + top, w, lh⟩ ns with align := .start }))
@@ -251,12 +253,12 @@ def leafConstants (p : Profile) (dense : Bool) : LeafConsts :=
       LayoutConst.treemap_leaf_pad.get p, LayoutConst.treemap_leaf_min_display.get p,
       LayoutConst.treemap_leaf_spacing.get p⟩
 
-private def fitSize (text : String) (availW availH smallest size : Int) : Nat → Except LayoutError Int
+private def fitSize (fontFamily : Bool) (text : String) (availW availH smallest size : Int) : Nat → Except LayoutError Int
   | 0 => pure size
   | fuel + 1 => do
     if size ≤ smallest then pure size else
-      let w ← width false text .label size
-      if w > availW then fitSize text availW availH smallest (size - 1) fuel
+      let w ← width false text .label size fontFamily
+      if w > availW then fitSize fontFamily text availW availH smallest (size - 1) fuel
       else pure (max smallest (min size (Int.fdiv availH 64)))
 
 def placeLeaf (m : Model) (lc : LeafConsts) (n : Node) (labels : List PlacedLabel) :
@@ -272,9 +274,9 @@ def placeLeaf (m : Model) (lc : LeafConsts) (n : Node) (labels : List PlacedLabe
     if aw < lc.minDisplay || ah < lc.minDisplay then pure labels else
       let cell := m.profile == .cell
       let ns ← if cell then pure 0 else
-        fitSize (sourceText labels name) aw ah (Int.fdiv lc.labelMin 64)
+        fitSize m.options.fontFamily (sourceText labels name) aw ah (Int.fdiv lc.labelMin 64)
           (Int.fdiv lc.labelSize 64) (Int.fdiv lc.labelSize 64).toNat
-      match ← fit cell (sourceText labels name) aw .label ns with
+      match ← fit cell (sourceText labels name) aw .label ns m.options.fontFamily with
       | none => pure labels
       | some (shown, nw) =>
         let lh := if cell then 1 else 1280
@@ -284,7 +286,7 @@ def placeLeaf (m : Model) (lc : LeafConsts) (n : Node) (labels : List PlacedLabe
               (roundDiv (ns * LayoutConst.treemap_value_scale_percent.get m.profile) 100))
           let pair := 2 * lh + lc.spacing
           let room := pair ≤ (if cell then ah else r.h)
-          let vw ← if value.isSome && room then width cell (sourceText labels value) .body vs else pure 0
+          let vw ← if value.isSome && room then width cell (sourceText labels value) .body vs m.options.fontFamily else pure 0
           let showValue := value.isSome && room && vw ≤ aw
           let rows := if showValue then pair else lh
           let top := if cell then r.y + lc.pad + Int.fdiv (ah - rows) 2
@@ -326,11 +328,11 @@ def leafGroupLabelVerticalStrict (m : Model) (nodes : List Node) : Bool :=
       | none => true
       | some j =>
         let nameText := sourceText (initialLabels m) (some j)
-        match fitSize nameText aw ah (Int.fdiv lc.labelMin 64) (Int.fdiv lc.labelSize 64)
+        match fitSize m.options.fontFamily nameText aw ah (Int.fdiv lc.labelMin 64) (Int.fdiv lc.labelSize 64)
             (Int.fdiv lc.labelSize 64).toNat with
         | .error _ => true
         | .ok ns =>
-          match fit false nameText aw .label ns with
+          match fit false nameText aw .label ns m.options.fontFamily with
           | .ok none => true
           | .error _ => true
           | .ok (some _) =>
@@ -339,7 +341,7 @@ def leafGroupLabelVerticalStrict (m : Model) (nodes : List Node) : Bool :=
               (min (Int.fdiv lc.valueSize 64)
                 (roundDiv (ns * LayoutConst.treemap_value_scale_percent.get m.profile) 100))
             let vw := match (if value.isSome && decide (2 * 1280 + lc.spacing ≤ r.h) then
-              width false (sourceText (initialLabels m) value) .body vs else pure 0) with
+              width false (sourceText (initialLabels m) value) .body vs m.options.fontFamily else pure 0) with
               | .ok k => k
               | .error _ => 0
             let showValue := value.isSome && decide (2 * 1280 + lc.spacing ≤ r.h) &&
@@ -493,11 +495,11 @@ def labelIdsNameOwner (m : Model) : Bool :=
 /-- `fitPrefix` only ever returns an index whose ellipsis-suffixed prefix
     already fit the available width: the `lo` invariant is preserved by every
     recursive step, including fuel exhaustion. -/
-theorem fitPrefix_width_le (cell : Bool) (text : List Measure.Cluster)
+theorem fitPrefix_width_le {fontFamily : Bool} (cell : Bool) (text : List Measure.Cluster)
     (role : Measure.Role) (size avail : Int) :
-    ∀ (fuel lo hi k : Nat), fitPrefix cell text role size avail lo hi fuel = .ok k →
-      (∀ w, width cell (String.ofList (text.take lo).flatten ++ "...") role size = .ok w → w ≤ avail) →
-      ∀ w, width cell (String.ofList (text.take k).flatten ++ "...") role size = .ok w → w ≤ avail := by
+    ∀ (fuel lo hi k : Nat), fitPrefix fontFamily cell text role size avail lo hi fuel = .ok k →
+      (∀ w, width (fontFamily := fontFamily) cell (String.ofList (text.take lo).flatten ++ "...") role size = .ok w → w ≤ avail) →
+      ∀ w, width (fontFamily := fontFamily) cell (String.ofList (text.take k).flatten ++ "...") role size = .ok w → w ≤ avail := by
   intro fuel
   induction fuel with
   | zero =>
@@ -531,9 +533,9 @@ theorem fitPrefix_width_le (cell : Bool) (text : List Measure.Cluster)
 /-- Every width `fit` reports is within `avail`: the full-text branch checks
     directly, the ellipsis branch checks `"..."` first and `fitPrefix`'s
     invariant bounds the returned prefix width. -/
-theorem fit_width_le_avail (cell : Bool) (text : String) (avail : Int)
+theorem fit_width_le_avail {fontFamily : Bool} (cell : Bool) (text : String) (avail : Int)
     (role : Measure.Role) (size : Int) (shown : String) (w : Int)
-    (h : fit cell text avail role size = .ok (some (shown, w))) : w ≤ avail := by
+    (h : fit (fontFamily := fontFamily) cell text avail role size = .ok (some (shown, w))) : w ≤ avail := by
   simp only [fit] at h
   cases he : text.isEmpty with
   | true => simp only [he] at h; cases h
@@ -551,7 +553,7 @@ theorem fit_width_le_avail (cell : Bool) (text : String) (avail : Int)
           obtain ⟨sw, hsw, h⟩ := bind_ok h
           cases h
           clear h
-          have hlo : ∀ w', width cell (String.ofList ((Measure.segment text.toList).take 0).flatten ++ "...") role size = .ok w' → w' ≤ avail := by
+          have hlo : ∀ w', width (fontFamily := fontFamily) cell (String.ofList ((Measure.segment text.toList).take 0).flatten ++ "...") role size = .ok w' → w' ≤ avail := by
             intro w' hw'
             have hred : String.ofList ((Measure.segment text.toList).take 0).flatten ++ "..." = "..." := by
               simp [List.take_zero]

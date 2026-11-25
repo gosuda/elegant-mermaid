@@ -12,9 +12,21 @@ namespace Kinds
 namespace Common
 
 
-def labelMetric : Profile → Except LayoutError Measure.Metric
-  | .vector => Measure.Role.label.metric
+def labelMetric (profile : Profile) (fontFamily : Bool := false) :
+    Except LayoutError Measure.Metric :=
+  match profile with
+  | .vector => Measure.Role.label.metric fontFamily
   | .cell => pure Measure.Metric.cell
+
+#guard match labelMetric .vector false, labelMetric .vector true with
+  | .ok baseline, .ok custom =>
+    match Measure.textWidth baseline "Sample".toList, Measure.textWidth custom "Sample".toList with
+    | .ok baselineWidth, .ok customWidth =>
+      customWidth == Measure.fontFamilyFactor baselineWidth && baselineWidth < customWidth
+    | _, _ => false
+  | _, _ => false
+
+#guard ((labelMetric .cell true).toOption.map (·.fontFamily)) == some false
 
 def checkSize (width height : Int) : Except LayoutError Size :=
   if I32_MAX < width ∨ I32_MAX < height then .error .overflow else .ok ⟨width, height⟩

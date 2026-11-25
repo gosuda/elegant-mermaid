@@ -29,7 +29,7 @@ pub(crate) fn from_xychart(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, LayoutError> {
-    options.config = model.config.clone();
+    options.set_kind_config(model.config.clone());
     if model.orientation == Orientation::Horizontal {
         options.config.insert(
             ORIENTATION_KEY.to_owned(),

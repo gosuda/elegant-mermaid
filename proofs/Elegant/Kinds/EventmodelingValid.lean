@@ -295,11 +295,11 @@ theorem decode_first_loop_processed_groups (m : Model)
                 [{ id := "", index := i, caption := none }] }
               pure i
           let parts := (boxText m b).splitOn "\n\n"
-          let name ← measureCaption m.profile .label
+          let name ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label
             (Lanes.EventConsts.load m.profile).boxMaxWidth (parts.headD "")
           let data ← if parts.length ≤ 1 then pure none else do
             let text := (String.intercalate "\n\n" parts.tail).replace "\n" "<br>"
-            pure (some (← measureCaption m.profile .body
+            pure (some (← measureCaption (fontFamily := m.options.fontFamily) m.profile .body
               (Lanes.EventConsts.load m.profile).boxMaxWidth text))
           g := { g with frames := g.frames ++
             [{ id := b.id, lane, category := b.shape, name, data }] }
@@ -319,7 +319,7 @@ theorem decode_first_loop_processed_groups (m : Model)
   · cases hi : state.2.findIdx? (· == b.parent) with
     | none =>
       simp [hr, hi, Bind.bind, Except.bind, pure, Except.pure] at hs
-      cases hn : measureCaption m.profile .label
+      cases hn : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           (Lanes.EventConsts.load m.profile).boxMaxWidth
           (((boxText m b).splitOn "\n\n").head?.getD "") with
       | error e =>
@@ -331,7 +331,7 @@ theorem decode_first_loop_processed_groups (m : Model)
           cases hs
           exact ⟨_, rfl, processedGroups_frame
             (processedGroups_append_ids hp [b.parent]) hr⟩
-        · cases hd : measureCaption m.profile .body
+        · cases hd : measureCaption (fontFamily := m.options.fontFamily) m.profile .body
               (Lanes.EventConsts.load m.profile).boxMaxWidth
               ((String.intercalate "\n\n" ((boxText m b).splitOn "\n\n").tail).replace
                 "\n" "<br>") with
@@ -344,7 +344,7 @@ theorem decode_first_loop_processed_groups (m : Model)
               (processedGroups_append_ids hp [b.parent]) hr⟩
     | some i =>
       simp [hr, hi, Bind.bind, Except.bind, pure, Except.pure] at hs
-      cases hn : measureCaption m.profile .label
+      cases hn : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           (Lanes.EventConsts.load m.profile).boxMaxWidth
           (((boxText m b).splitOn "\n\n").head?.getD "") with
       | error e =>
@@ -355,7 +355,7 @@ theorem decode_first_loop_processed_groups (m : Model)
         · simp only [ite_eq_left hparts] at hs
           cases hs
           exact ⟨_, rfl, processedGroups_frame hp hr⟩
-        · cases hd : measureCaption m.profile .body
+        · cases hd : measureCaption (fontFamily := m.options.fontFamily) m.profile .body
               (Lanes.EventConsts.load m.profile).boxMaxWidth
               ((String.intercalate "\n\n" ((boxText m b).splitOn "\n\n").tail).replace
                 "\n" "<br>") with
@@ -661,11 +661,11 @@ theorem decode_first_loop_complete (m : Model) (hwf : WellFormed m)
                 [{ id := "", index := i, caption := none }] }
               pure i
           let parts := (boxText m b).splitOn "\n\n"
-          let name ← measureCaption m.profile .label
+          let name ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label
             (Lanes.EventConsts.load m.profile).boxMaxWidth (parts.headD "")
           let data ← if parts.length ≤ 1 then pure none else do
             let text := (String.intercalate "\n\n" parts.tail).replace "\n" "<br>"
-            pure (some (← measureCaption m.profile .body
+            pure (some (← measureCaption (fontFamily := m.options.fontFamily) m.profile .body
               (Lanes.EventConsts.load m.profile).boxMaxWidth text))
           g := { g with frames := g.frames ++
             [{ id := b.id, lane, category := b.shape, name, data }] }
@@ -700,7 +700,7 @@ theorem decode_first_loop_complete (m : Model) (hwf : WellFormed m)
     cases hi : state.2.findIdx? (· == b.parent) with
     | none =>
       simp [hr, hi, Bind.bind, Except.bind, pure, Except.pure] at hs
-      cases hn : measureCaption m.profile .label
+      cases hn : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           (Lanes.EventConsts.load m.profile).boxMaxWidth
           (((boxText m b).splitOn "\n\n").head?.getD "") with
       | error e => simp [hn] at hs
@@ -711,7 +711,7 @@ theorem decode_first_loop_complete (m : Model) (hwf : WellFormed m)
           cases hs
           exact ⟨_, rfl, completeDecodePrefix_fallback_frame hunique hp hb hr
             hparents hi name none⟩
-        · cases hd : measureCaption m.profile .body
+        · cases hd : measureCaption (fontFamily := m.options.fontFamily) m.profile .body
               (Lanes.EventConsts.load m.profile).boxMaxWidth
               ((String.intercalate "\n\n" ((boxText m b).splitOn "\n\n").tail).replace
                 "\n" "<br>") with
@@ -723,7 +723,7 @@ theorem decode_first_loop_complete (m : Model) (hwf : WellFormed m)
               hparents hi name (some data)⟩
     | some i =>
       simp [hr, hi, Bind.bind, Except.bind, pure, Except.pure] at hs
-      cases hn : measureCaption m.profile .label
+      cases hn : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           (Lanes.EventConsts.load m.profile).boxMaxWidth
           (((boxText m b).splitOn "\n\n").head?.getD "") with
       | error e => simp [hn] at hs
@@ -733,7 +733,7 @@ theorem decode_first_loop_complete (m : Model) (hwf : WellFormed m)
         · simp only [ite_eq_left hparts] at hs
           cases hs
           exact ⟨_, rfl, completeDecodePrefix_frame hunique hp hb hr hi name none⟩
-        · cases hd : measureCaption m.profile .body
+        · cases hd : measureCaption (fontFamily := m.options.fontFamily) m.profile .body
               (Lanes.EventConsts.load m.profile).boxMaxWidth
               ((String.intercalate "\n\n" ((boxText m b).splitOn "\n\n").tail).replace
                 "\n" "<br>") with
@@ -786,7 +786,7 @@ theorem decode_label_loop_parent_witnesses {sources : List ModelBox}
       let some i := ids.findIdx? (· == label.owner) | throw .domain
       let some lane := state.lanes[i]? | throw .domain
       let c := Lanes.EventConsts.load m.profile
-      let caption ← measureCaption m.profile .label
+      let caption ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label
         (c.contentStartX - 4 * c.lanePadding) label.text
       pure (.yield { state with lanes := state.lanes.set i { lane with caption := some caption } }))
         = .ok output) :
@@ -803,7 +803,7 @@ theorem decode_label_loop_parent_witnesses {sources : List ModelBox}
     cases hlane : state.lanes[i]? with
     | none => simp [hi, hlane, throw, throwThe, MonadExceptOf.throw] at hs
     | some lane =>
-      cases hcap : measureCaption m.profile .label
+      cases hcap : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           ((Lanes.EventConsts.load m.profile).contentStartX -
             4 * (Lanes.EventConsts.load m.profile).lanePadding) label.text with
       | error e => simp [hi, hlane, hcap, Bind.bind, Except.bind] at hs
@@ -1089,7 +1089,7 @@ theorem decode_label_loop_references
       let some i := ids.findIdx? (· == label.owner) | throw .domain
       let some lane := state.lanes[i]? | throw .domain
       let c := Lanes.EventConsts.load m.profile
-      let caption ← measureCaption m.profile .label
+      let caption ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label
         (c.contentStartX - 4 * c.lanePadding) label.text
       pure (.yield { state with lanes := state.lanes.set i { lane with caption := some caption } }))
         = .ok output) :
@@ -1104,7 +1104,7 @@ theorem decode_label_loop_references
     cases hlane : state.lanes[i]? with
     | none => simp [hi, hlane, throw, throwThe, MonadExceptOf.throw] at hs
     | some lane =>
-      cases hcap : measureCaption m.profile .label
+      cases hcap : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           ((Lanes.EventConsts.load m.profile).contentStartX -
             4 * (Lanes.EventConsts.load m.profile).lanePadding) label.text with
       | error e => simp [hi, hlane, hcap, Bind.bind, Except.bind] at hs
@@ -1353,11 +1353,11 @@ theorem decode_first_loop_lane_trace (m : Model) (hwf : WellFormed m)
                 [{ id := "", index := i, caption := none }] }
               pure i
           let parts := (boxText m b).splitOn "\n\n"
-          let name ← measureCaption m.profile .label
+          let name ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label
             (Lanes.EventConsts.load m.profile).boxMaxWidth (parts.headD "")
           let data ← if parts.length ≤ 1 then pure none else do
             let text := (String.intercalate "\n\n" parts.tail).replace "\n" "<br>"
-            pure (some (← measureCaption m.profile .body
+            pure (some (← measureCaption (fontFamily := m.options.fontFamily) m.profile .body
               (Lanes.EventConsts.load m.profile).boxMaxWidth text))
           g := { g with frames := g.frames ++
             [{ id := b.id, lane, category := b.shape, name, data }] }
@@ -1379,7 +1379,7 @@ theorem decode_first_loop_lane_trace (m : Model) (hwf : WellFormed m)
   · cases hi : state.2.findIdx? (· == b.parent) with
     | none =>
       simp [hr, hi, Bind.bind, Except.bind, pure, Except.pure] at hs
-      cases hn : measureCaption m.profile .label
+      cases hn : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           (Lanes.EventConsts.load m.profile).boxMaxWidth
           (((boxText m b).splitOn "\n\n").head?.getD "") with
       | error e => simp [hn] at hs
@@ -1389,7 +1389,7 @@ theorem decode_first_loop_lane_trace (m : Model) (hwf : WellFormed m)
         · simp only [ite_eq_left hparts] at hs
           cases hs
           exact ⟨_, rfl, laneTrace_fallback_frame hunique ht hb hr hi name none⟩
-        · cases hd : measureCaption m.profile .body
+        · cases hd : measureCaption (fontFamily := m.options.fontFamily) m.profile .body
               (Lanes.EventConsts.load m.profile).boxMaxWidth
               ((String.intercalate "\n\n" ((boxText m b).splitOn "\n\n").tail).replace
                 "\n" "<br>") with
@@ -1400,7 +1400,7 @@ theorem decode_first_loop_lane_trace (m : Model) (hwf : WellFormed m)
             exact ⟨_, rfl, laneTrace_fallback_frame hunique ht hb hr hi name (some data)⟩
     | some i =>
       simp [hr, hi, Bind.bind, Except.bind, pure, Except.pure] at hs
-      cases hn : measureCaption m.profile .label
+      cases hn : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           (Lanes.EventConsts.load m.profile).boxMaxWidth
           (((boxText m b).splitOn "\n\n").head?.getD "") with
       | error e => simp [hn] at hs
@@ -1410,7 +1410,7 @@ theorem decode_first_loop_lane_trace (m : Model) (hwf : WellFormed m)
         · simp only [ite_eq_left hparts] at hs
           cases hs
           exact ⟨_, rfl, laneTrace_frame hunique ht hb hr hi name none⟩
-        · cases hd : measureCaption m.profile .body
+        · cases hd : measureCaption (fontFamily := m.options.fontFamily) m.profile .body
               (Lanes.EventConsts.load m.profile).boxMaxWidth
               ((String.intercalate "\n\n" ((boxText m b).splitOn "\n\n").tail).replace
                 "\n" "<br>") with
@@ -1450,7 +1450,7 @@ theorem decode_label_loop_lane_trace (m : Model) (ids : List String) (labels : L
       let some i := ids.findIdx? (· == label.owner) | throw .domain
       let some lane := state.lanes[i]? | throw .domain
       let c := Lanes.EventConsts.load m.profile
-      let caption ← measureCaption m.profile .label
+      let caption ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label
         (c.contentStartX - 4 * c.lanePadding) label.text
       pure (.yield { state with lanes := state.lanes.set i { lane with caption := some caption } }))
         = .ok output) :
@@ -1464,7 +1464,7 @@ theorem decode_label_loop_lane_trace (m : Model) (ids : List String) (labels : L
     cases hlane : state.lanes[i]? with
     | none => simp [hi, hlane, throw, throwThe, MonadExceptOf.throw] at hs
     | some lane =>
-      cases hcap : measureCaption m.profile .label
+      cases hcap : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           ((Lanes.EventConsts.load m.profile).contentStartX -
             4 * (Lanes.EventConsts.load m.profile).lanePadding) label.text with
       | error e => simp [hi, hlane, hcap, Bind.bind, Except.bind] at hs

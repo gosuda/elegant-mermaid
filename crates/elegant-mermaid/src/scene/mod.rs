@@ -150,6 +150,31 @@ impl Default for DumpOptions {
     }
 }
 
+impl DumpOptions {
+    /// Replace per-kind options while retaining shared measurement configuration.
+    pub(crate) fn set_kind_config(&mut self, mut config: BTreeMap<String, DumpValue>) {
+        if let Some(font) = self.config.remove("fontFamily") {
+            config.insert("fontFamily".into(), font);
+        }
+        self.config = config;
+    }
+}
+
+pub(crate) fn configured_metric(
+    metric: crate::measure::Metric,
+    config: &BTreeMap<String, DumpValue>,
+) -> crate::measure::Metric {
+    if has_font_family(config) {
+        metric.with_font_family()
+    } else {
+        metric
+    }
+}
+
+pub(crate) fn has_font_family(config: &BTreeMap<String, DumpValue>) -> bool {
+    matches!(config.get("fontFamily"), Some(DumpValue::String(value)) if !value.is_empty())
+}
+
 /// The role of a dump box.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BoxRole {

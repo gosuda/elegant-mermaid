@@ -94,7 +94,7 @@ func decodeEventmodeling(in Input) (decodedEvents, error) {
 			d.graph.Lanes = append(d.graph.Lanes, lanes.EventLane{ID: box.ID, Index: eventLaneIndex(box.Shape)})
 			continue
 		}
-		frame, err := d.frame(in.Profile, box, wraps)
+		frame, err := d.frame(in.Profile, box, wraps, in.Options.FontFamily)
 		if err != nil {
 			return decodedEvents{}, err
 		}
@@ -112,7 +112,7 @@ func decodeEventmodeling(in Input) (decodedEvents, error) {
 	return d, d.labels(in, wraps)
 }
 
-func (d *decodedEvents) frame(profile scene.Profile, box Box, wraps lanes.EventWraps) (lanes.EventFrame, error) {
+func (d *decodedEvents) frame(profile scene.Profile, box Box, wraps lanes.EventWraps, fontFamily string) (lanes.EventFrame, error) {
 	lane, known := d.laneAt[box.Parent]
 	if !known {
 		lane = len(d.graph.Lanes)
@@ -122,10 +122,10 @@ func (d *decodedEvents) frame(profile scene.Profile, box Box, wraps lanes.EventW
 	name, data, hasData := strings.Cut(box.Text, eventDataBreak)
 	frame := lanes.EventFrame{ID: box.ID, Lane: lane, Category: box.Shape}
 	var err error
-	if frame.Name, err = measureEventText(profile, name, wraps.Frame, scene.TextRoleLabel); err != nil || !hasData {
+	if frame.Name, err = measureEventText(profile, name, wraps.Frame, scene.TextRoleLabel, fontFamily); err != nil || !hasData {
 		return frame, err
 	}
-	text, err := measureEventText(profile, strings.ReplaceAll(data, "\n", "<br>"), wraps.Frame, scene.TextRoleBody)
+	text, err := measureEventText(profile, strings.ReplaceAll(data, "\n", "<br>"), wraps.Frame, scene.TextRoleBody, fontFamily)
 	frame.Data = &text
 	return frame, err
 }
@@ -136,7 +136,7 @@ func (d *decodedEvents) labels(in Input, wraps lanes.EventWraps) error {
 		if !known {
 			return fmt.Errorf("label %q: %w", label.ID, errEventmodelingInput)
 		}
-		text, err := measureEventText(in.Profile, label.Text, wraps.Lane, label.Role)
+		text, err := measureEventText(in.Profile, label.Text, wraps.Lane, label.Role, in.Options.FontFamily)
 		if err != nil {
 			return err
 		}
@@ -155,12 +155,12 @@ func eventMetric(profile scene.Profile, role scene.TextRole) measure.Metric {
 	return measure.ForRole(measure.RoleLabel)
 }
 
-func measureEventText(profile scene.Profile, text string, target int32, role scene.TextRole) (lanes.Text, error) {
+func measureEventText(profile scene.Profile, text string, target int32, role scene.TextRole, fontFamily string) (lanes.Text, error) {
 	lineHeight, ok := layoutConstant(profile, "line_h")
 	if !ok {
 		return lanes.Text{}, lanes.ErrConstants
 	}
-	lines, err := measure.StyledLines(text, target, eventMetric(profile, role))
+	lines, err := measure.StyledLines(text, target, eventMetric(profile, role).WithFontFamily(fontFamily))
 	if err != nil {
 		return lanes.Text{}, geom.ErrOverflow
 	}

@@ -15,9 +15,12 @@
 // returns fresh bytes on each call.
 //
 // LayoutOptions.Config accepts a config mapping; empty or whitespace-only
-// input means an empty mapping. SVG output applies look and handDrawnSeed;
-// other upstream config keys are accepted but not applied. Rendering supports
-// all registered diagram kinds, icon packs, and SVG text paths.
+// input means an empty mapping. Per-call config overrides source config
+// without changing the Document. The maxTextSize and maxEdges caps are
+// rechecked under that overlay; the original parse diagnostics stay unchanged.
+// fontFamily selects the SVG font family and conservative vector text widths.
+// SVG output also applies look and handDrawnSeed. Rendering supports all
+// registered diagram kinds, icon packs, and SVG text paths.
 //
 // Render errors wrap one exported sentinel for errors.Is, except that a
 // cancelled context returns ctx.Err() unchanged. Cancellation is checked at

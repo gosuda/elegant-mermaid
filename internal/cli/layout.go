@@ -44,10 +44,10 @@ func layoutSource(cfg Config, o layoutOptions) error {
 	if err != nil {
 		return err
 	}
+	if err := diag.RenderText(cfg.Stderr, path, f.Source, f.Diagnostics, diag.FrameOptions{}); err != nil {
+		return err
+	}
 	if hasErrors(f.Diagnostics) {
-		if err := diag.RenderText(cfg.Stderr, path, f.Source, f.Diagnostics, diag.FrameOptions{}); err != nil {
-			return err
-		}
 		return &ExitError{Code: 1}
 	}
 	in, err := m.Input(profile, scene.Options{})

@@ -48,18 +48,19 @@ type Node struct {
 }
 
 type Edge struct {
-	From    string
-	To      string
-	Label   string
-	LabelOK bool
-	Labels  LabelKind
-	Stroke  string
-	Marker  string
-	Start   string
-	Length  int
-	UserID  string
-	Span    source.Span
-	Attrs   map[string]string
+	From          string
+	To            string
+	Label         string
+	LabelOK       bool
+	Labels        LabelKind
+	Stroke        string
+	Marker        string
+	Start         string
+	Length        int
+	UserID        string
+	Span          source.Span
+	StatementSpan source.Span
+	Attrs         map[string]string
 }
 
 type Group struct {

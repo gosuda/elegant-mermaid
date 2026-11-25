@@ -112,7 +112,7 @@ This file lists the public names of the Go package `mermaid`, the Go package `ra
 ## Errors
 
 - library-surface-14: Each Go error returned by this package or by `raster` MUST wrap exactly one sentinel with `%w`, and callers MUST test it with `errors.Is`. [just go-check]
-- library-surface-15: `Layout`, `RenderSVG`, `RenderText`, `RenderSVGSource`, and `RenderTextSource` MUST return `ErrInvalidDocument` when the document has error-severity diagnostics. [just go-check]
+- library-surface-15: `Layout`, `RenderSVG`, `RenderText`, `RenderSVGSource`, and `RenderTextSource` MUST return `ErrInvalidDocument` when the effective diagnostics have error severity. Effective diagnostics MUST retain the document's syntax and resolution diagnostics and recompute config-dependent limit and font diagnostics after applying `LayoutOptions.Config`. A higher per-call limit MAY therefore admit a document that exceeded its parse-time limit; it MUST NOT hide a syntax or resolution error, mutate the document, or change `Document.Diagnostics()`. [just go-check]
 - library-surface-16: `ErrTooLarge` and `ErrOverflow` MUST come from `Layout`, so every render function MUST return them too. [just go-check]
 - library-surface-17: `ErrBadConfig` MUST cover an invalid option value, an unknown theme name, `Config` text that does not parse or whose root is not a mapping, and `TextPaths` without `Outlines`. [just go-check]
 - library-surface-18: `ErrBadIconPack` MUST come from `ParseIconPack`, and `ParseIconPack` MUST NOT repair invalid UTF-8. [just go-check]

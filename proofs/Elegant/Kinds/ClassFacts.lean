@@ -288,11 +288,11 @@ theorem tableSize_spec {p : Profile} {cs : List (List Measure.Line)} {s : Size}
   exact checkSize_spec h
 
 /-- The three compartments are measured in order, each under the metric of its index. -/
-theorem measureTable_spec {p : Profile} {t : Table} {cs : List (List Measure.Line)}
-    (h : measureTable p t = .ok cs) :
+theorem measureTable_spec {fontFamily : Bool} {p : Profile} {t : Table} {cs : List (List Measure.Line)}
+    (h : measureTable p t fontFamily = .ok cs) :
     ∃ m0 m1 m2 head attributes methods,
-      compartmentMetric p 0 = .ok m0 ∧ compartmentMetric p 1 = .ok m1 ∧
-      compartmentMetric p 2 = .ok m2 ∧ measureCompartment m0 t.head = .ok head ∧
+      compartmentMetric p 0 fontFamily = .ok m0 ∧ compartmentMetric p 1 fontFamily = .ok m1 ∧
+      compartmentMetric p 2 fontFamily = .ok m2 ∧ measureCompartment m0 t.head = .ok head ∧
       measureCompartment m1 t.attributes = .ok attributes ∧
       measureCompartment m2 t.methods = .ok methods ∧ cs = [head, attributes, methods] := by
   unfold measureTable at h
@@ -340,13 +340,13 @@ theorem measureCompartment_covers (metric : Measure.Metric) :
 /-- class-051 and class-052 as a closed form: the width is the widest line plus twice the padding;
 the height is the compartment heights, one separator between neighbouring compartments (two for
 three compartments), and two border rows in the cell profile. -/
-theorem classSize_spec {p : Profile} {t : Table} {s : Size} (h : classSize p t = .ok s) :
-    ∃ cs, measureTable p t = .ok cs ∧ cs.length = 3 ∧
+theorem classSize_spec {fontFamily : Bool} {p : Profile} {t : Table} {s : Size} (h : classSize p t fontFamily = .ok s) :
+    ∃ cs, measureTable p t fontFamily = .ok cs ∧ cs.length = 3 ∧
       s.w = tableWidth cs + 2 * LayoutConst.class_padding.get p ∧
       s.h = tableHeight (LayoutConst.line_h.get p) cs + 2 * LayoutConst.class_separator.get p +
         (if p = .cell then 2 else 0) := by
   unfold classSize at h
-  cases hm : measureTable p t with
+  cases hm : measureTable p t fontFamily with
   | error e => rw [hm] at h; simp at h
   | ok cs =>
     rw [hm] at h
@@ -398,9 +398,9 @@ theorem tableHeight_ge {α : Type} {lineH : Int} (hl : 0 ≤ lineH) :
     omega
 
 /-- Every line of every row of every compartment fits in the table between its paddings. -/
-theorem classSize_covers_rows {p : Profile} {t : Table} {s : Size} (h : classSize p t = .ok s) :
+theorem classSize_covers_rows {fontFamily : Bool} {p : Profile} {t : Table} {s : Size} (h : classSize p t fontFamily = .ok s) :
     ∀ index c, t.compartments[index]? = some c → ∀ row ∈ c, ∃ m ls,
-      compartmentMetric p index = .ok m ∧ rowLines m row = .ok ls ∧
+      compartmentMetric p index fontFamily = .ok m ∧ rowLines m row = .ok ls ∧
       ∀ l ∈ ls, l.width + 2 * LayoutConst.class_padding.get p ≤ s.w := by
   obtain ⟨cs, hm, _, hw, _⟩ := classSize_spec h
   obtain ⟨m0, m1, m2, head, attributes, methods, hm0, hm1, hm2, hh, ha, hme, hcs⟩ :=

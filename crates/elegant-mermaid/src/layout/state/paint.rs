@@ -225,14 +225,16 @@ fn separator(parent: Rect, a: Rect, b: Rect, inset: i32) -> Result<[Point; 2], L
     let br = edge(b.x, b.w)?;
     let ab = edge(a.y, a.h)?;
     let bb = edge(b.y, b.h)?;
-    let left = edge(parent.x, inset)?;
-    let top = edge(parent.y, inset)?;
+    let left = edge(parent.x, inset)?.max(a.x.min(b.x));
+    let top = edge(parent.y, inset)?.max(a.y.min(b.y));
     let right = edge(parent.x, parent.w)?
         .checked_sub(inset)
-        .ok_or(LayoutError::Overflow)?;
+        .ok_or(LayoutError::Overflow)?
+        .min(ar.max(br));
     let bottom = edge(parent.y, parent.h)?
         .checked_sub(inset)
-        .ok_or(LayoutError::Overflow)?;
+        .ok_or(LayoutError::Overflow)?
+        .min(ab.max(bb));
     if inset < 0 || left > right || top > bottom || a.w <= 0 || a.h <= 0 || b.w <= 0 || b.h <= 0 {
         return Err(LayoutError::Domain);
     }
@@ -242,6 +244,9 @@ fn separator(parent: Rect, a: Rect, b: Rect, inset: i32) -> Result<[Point; 2], L
         } else {
             midpoint(br, a.x)?
         };
+        if x < left || x > right {
+            return Err(LayoutError::Domain);
+        }
         return Ok([Point { x, y: top }, Point { x, y: bottom }]);
     }
     if ab <= b.y || bb <= a.y {
@@ -250,7 +255,136 @@ fn separator(parent: Rect, a: Rect, b: Rect, inset: i32) -> Result<[Point; 2], L
         } else {
             midpoint(bb, a.y)?
         };
+        if y < top || y > bottom {
+            return Err(LayoutError::Domain);
+        }
         return Ok([Point { x: left, y }, Point { x: right, y }]);
     }
     Err(LayoutError::Domain)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dividers_cover_only_region_bodies_inside_parent_padding() -> Result<(), LayoutError> {
+        let parent = Rect {
+            x: 0,
+            y: 0,
+            w: 40,
+            h: 30,
+        };
+        let cases = [
+            (
+                Rect {
+                    x: 4,
+                    y: 7,
+                    w: 10,
+                    h: 10,
+                },
+                Rect {
+                    x: 22,
+                    y: 9,
+                    w: 12,
+                    h: 8,
+                },
+                [Point { x: 18, y: 7 }, Point { x: 18, y: 17 }],
+            ),
+            (
+                Rect {
+                    x: 5,
+                    y: 5,
+                    w: 10,
+                    h: 5,
+                },
+                Rect {
+                    x: 7,
+                    y: 20,
+                    w: 14,
+                    h: 5,
+                },
+                [Point { x: 5, y: 15 }, Point { x: 21, y: 15 }],
+            ),
+            (
+                Rect {
+                    x: 4,
+                    y: 0,
+                    w: 10,
+                    h: 30,
+                },
+                Rect {
+                    x: 22,
+                    y: 1,
+                    w: 12,
+                    h: 28,
+                },
+                [Point { x: 18, y: 2 }, Point { x: 18, y: 28 }],
+            ),
+            (
+                Rect {
+                    x: 0,
+                    y: 5,
+                    w: 40,
+                    h: 5,
+                },
+                Rect {
+                    x: 1,
+                    y: 20,
+                    w: 38,
+                    h: 5,
+                },
+                [Point { x: 2, y: 15 }, Point { x: 38, y: 15 }],
+            ),
+        ];
+        for (a, b, expected) in cases {
+            assert_eq!(separator(parent, a, b, 2)?, expected);
+            assert_eq!(separator(parent, b, a, 2)?, expected);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn dividers_reject_overflow_and_midpoints_outside_the_parent() {
+        let parent = Rect {
+            x: 0,
+            y: 0,
+            w: 40,
+            h: 30,
+        };
+        let left = Rect {
+            x: -20,
+            y: 7,
+            w: 10,
+            h: 10,
+        };
+        let right = Rect {
+            x: -5,
+            y: 9,
+            w: 10,
+            h: 8,
+        };
+        assert_eq!(separator(parent, left, right, 2), Err(LayoutError::Domain));
+        let above = Rect {
+            x: 5,
+            y: -20,
+            w: 10,
+            h: 10,
+        };
+        let below = Rect {
+            x: 7,
+            y: -5,
+            w: 14,
+            h: 10,
+        };
+        assert_eq!(separator(parent, above, below, 2), Err(LayoutError::Domain));
+        let overflow = Rect {
+            x: i32::MAX,
+            ..parent
+        };
+        assert_eq!(
+            separator(overflow, left, right, 2),
+            Err(LayoutError::Overflow)
+        );
+    }
 }

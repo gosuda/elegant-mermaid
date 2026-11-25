@@ -45,14 +45,16 @@ def wrapTarget (shared : Bool) (override : Wrap) (width padding : Int) : Int :=
   let wrapped := match override with | .forced => true | .suppressed => false | .inherited => shared
   if wrapped then max (width - 2 * padding) 1 else I32_MAX
 
-def metricOf (profile : Profile) (role : Measure.Role) : Except LayoutError Measure.Metric :=
+def metricOf (profile : Profile) (role : Measure.Role) (fontFamily : Bool := false) :
+    Except LayoutError Measure.Metric :=
   match profile with
   | .cell => pure Measure.Metric.cell
-  | .vector => role.metric
+  | .vector => role.metric fontFamily
 
-def measureLines (profile : Profile) (role : Measure.Role) (target : Int) (text : String) :
+def measureLines (profile : Profile) (role : Measure.Role) (target : Int) (text : String)
+    (fontFamily : Bool := false) :
     Except LayoutError (List Measure.Line) := do
-  let metric ← metricOf profile role
+  let metric ← metricOf profile role fontFamily
   StyledMeasure.wrap metric target text.toList
 
 /-! ### The event stream -/
@@ -197,9 +199,9 @@ def Plan.build (m : Model) : Except LayoutError Plan := do
   let shared := sharedWrap m
   let actors := m.boxes.filter isActorBox
   let actorLines ← actors.mapM fun b =>
-    measureLines m.profile .label (wrapTarget shared (boxWrap b) c.actorWidth c.wrapPadding) (boxText m b)
+    measureLines (fontFamily := m.options.fontFamily) m.profile .label (wrapTarget shared (boxWrap b) c.actorWidth c.wrapPadding) (boxText m b)
   let labelLines ← m.labels.mapM fun l =>
-    measureLines m.profile (if labelIsBody m l then .body else .label)
+    measureLines (fontFamily := m.options.fontFamily) m.profile (if labelIsBody m l then .body else .label)
       (wrapTarget shared (labelWrap m l) c.actorWidth c.wrapPadding) l.text
   let sizes := (actors.zip actorLines).map fun (b, lines) => actorSize c shared b lines
   let pl : Plan :=
@@ -608,7 +610,7 @@ def fragmentWidth (pl : Plan) (run : FragRun) (natural : Int) : Except LayoutErr
     let titleText := match pl.m.labels.find? (fun l => l.id == id ++ ".label") with
       | some l => l.text
       | none => "[]"
-    let titleLines ← measureLines pl.m.profile .label I32_MAX titleText
+    let titleLines ← measureLines (fontFamily := pl.m.options.fontFamily) pl.m.profile .label I32_MAX titleText
     let placed := pl.labelWidth (labelPosById pl.m (id ++ ".label"))
     let base := max (max natural (c.labelBoxWidth + 2 * c.boxMargin))
       (max (widest titleLines) placed + 2 * c.boxMargin)

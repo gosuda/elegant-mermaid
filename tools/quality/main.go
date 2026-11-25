@@ -17,10 +17,12 @@ import (
 	"sync"
 )
 
+const defaultKinds = "flowchart,class,state,er,requirement,usecase,c4,agentflow,swimlane"
+
 type options struct {
-	emd, kinds string
-	jobs       int
-	write      bool
+	emd, kinds  string
+	jobs        int
+	write, list bool
 }
 type metric struct {
 	Schema    int   `json:"schema"`
@@ -83,9 +85,10 @@ func parseFlags(args []string, out io.Writer) (options, error) {
 	f := flag.NewFlagSet("quality", flag.ContinueOnError)
 	f.SetOutput(out)
 	f.StringVar(&o.emd, "emd", "bin/emd-go", "metric scoring executable")
-	f.StringVar(&o.kinds, "kinds", "flowchart", "comma-separated layered kinds")
+	f.StringVar(&o.kinds, "kinds", defaultKinds, "comma-separated layered kinds")
 	f.IntVar(&o.jobs, "jobs", runtime.NumCPU(), "maximum concurrent fixtures")
 	f.BoolVar(&o.write, "write", false, "rewrite committed fixture and exception files (parent only)")
+	f.BoolVar(&o.list, "list", false, "print the selected fixture paths without scoring or writing files")
 	if err := f.Parse(args); err != nil {
 		return o, err
 	}
@@ -97,7 +100,7 @@ func parseFlags(args []string, out io.Writer) (options, error) {
 }
 
 func selectedKinds(text string) ([]string, error) {
-	allowed := []string{"flowchart", "class", "state", "er", "requirement", "usecase", "c4", "agentflow", "swimlane"}
+	allowed := strings.Split(defaultKinds, ",")
 	kinds := strings.Split(text, ",")
 	for _, kind := range kinds {
 		if !slices.Contains(allowed, kind) {
@@ -160,6 +163,9 @@ func prepareFixtures(o options, out, errOut io.Writer) ([]string, bool, error) {
 	if _, err := out.Write(list); err != nil {
 		return nil, false, err
 	}
+	if o.list {
+		return paths, true, nil
+	}
 	listOK, err := compareFile("corpus/quality-corpus.txt", list, o.write)
 	if err != nil {
 		return nil, false, err
@@ -174,6 +180,9 @@ func run(o options, out, errOut io.Writer) (bool, error) {
 	paths, listOK, err := prepareFixtures(o, out, errOut)
 	if err != nil {
 		return false, err
+	}
+	if o.list {
+		return true, nil
 	}
 	fixtures, err := collect(o, paths)
 	if err != nil {

@@ -23,6 +23,7 @@ pub fn from_er(model: &Model, profile: Profile, options: DumpOptions) -> Result<
         spacing: Default::default(),
     };
     let group_ids = group_ids(model);
+    let font_family = crate::scene::has_font_family(&input.options.config);
     for entity in &model.entities {
         if model.groups.iter().any(|group| group.id == entity.id) {
             continue;
@@ -30,7 +31,7 @@ pub fn from_er(model: &Model, profile: Profile, options: DumpOptions) -> Result<
         let text = table_text(entity);
         input
             .sizes
-            .push(SizeRule::Content(table_size(&text, profile)?));
+            .push(SizeRule::Content(table_size(&text, profile, font_family)?));
         input.boxes.push(Box {
             id: entity.id.clone(),
             role: BoxRole::Node,
@@ -248,11 +249,16 @@ fn constant(profile: Profile, name: &str) -> Result<i32, GeomError> {
         .ok_or(GeomError::Domain)
 }
 
-fn metric(profile: Profile) -> crate::measure::Metric {
-    if profile == Profile::Cell {
+fn metric(profile: Profile, font_family: bool) -> crate::measure::Metric {
+    let metric = if profile == Profile::Cell {
         crate::measure::Metric::Cell
     } else {
         crate::measure::Metric::for_role(crate::measure::Role::Label)
+    };
+    if font_family {
+        metric.with_font_family()
+    } else {
+        metric
     }
 }
 
@@ -262,14 +268,14 @@ fn metric(profile: Profile) -> crate::measure::Metric {
 /// spans stay opaque. An empty piece yields no line.
 fn piece_lines<'a>(
     piece: &'a str,
-    profile: Profile,
+    metric: crate::measure::Metric,
 ) -> Result<Vec<crate::measure::StyledLine<'a>>, GeomError> {
-    crate::measure::styled_lines(piece, i32::MAX, metric(profile))
+    crate::measure::styled_lines(piece, i32::MAX, metric)
 }
 
 /// The width of one decoded field piece: its widest styled line.
-fn piece_width(piece: &str, profile: Profile) -> Result<i32, GeomError> {
-    Ok(piece_lines(piece, profile)?
+fn piece_width(piece: &str, metric: crate::measure::Metric) -> Result<i32, GeomError> {
+    Ok(piece_lines(piece, metric)?
         .iter()
         .map(|line| line.width)
         .max()
@@ -279,8 +285,11 @@ fn piece_width(piece: &str, profile: Profile) -> Result<i32, GeomError> {
 /// The scene runs of one decoded field piece: one line per styled line,
 /// each carrying its bold and italic flags. An empty piece keeps one empty
 /// plain line, so plain fields emit exactly what `Run::plain` emitted.
-fn run_lines(piece: &str, profile: Profile) -> Result<Vec<Vec<crate::scene::Run>>, GeomError> {
-    let lines = piece_lines(piece, profile)?;
+fn run_lines(
+    piece: &str,
+    metric: crate::measure::Metric,
+) -> Result<Vec<Vec<crate::scene::Run>>, GeomError> {
+    let lines = piece_lines(piece, metric)?;
     let mapped = lines
         .iter()
         .map(|line| {
@@ -306,9 +315,9 @@ fn run_lines(piece: &str, profile: Profile) -> Result<Vec<Vec<crate::scene::Run>
     Ok(mapped)
 }
 
-fn text_width(text: &str, profile: Profile) -> Result<i32, GeomError> {
+fn text_width(text: &str, metric: crate::measure::Metric) -> Result<i32, GeomError> {
     text.split('\n')
-        .map(|piece| piece_width(piece, profile))
+        .map(|piece| piece_width(piece, metric))
         .try_fold(0i32, |width, next| next.map(|next| width.max(next)))
 }
 
@@ -329,11 +338,12 @@ struct Table {
     padding_x: i32,
     padding_y: i32,
     separator: i32,
-    profile: Profile,
+    metric: crate::measure::Metric,
 }
 
 impl Table {
-    fn new(text: &str, profile: Profile) -> Result<Self, GeomError> {
+    fn new(text: &str, profile: Profile, font_family: bool) -> Result<Self, GeomError> {
+        let metric = metric(profile, font_family);
         let (heading, attributes) = text.split_once("<br/><br/>").unwrap_or((text, ""));
         let heading = decode_field(heading);
         let rows = if attributes.is_empty() {
@@ -344,7 +354,7 @@ impl Table {
                 .map(|row| row.split('|').map(decode_field).collect::<Vec<_>>())
                 .collect::<Vec<_>>()
         };
-        let columns = column_widths(&rows, profile)?;
+        let columns = column_widths(&rows, metric)?;
         let row_heights = rows
             .iter()
             .map(|row| row_height(row, profile))
@@ -359,11 +369,11 @@ impl Table {
             padding_x: constant(profile, "padding_x")?,
             padding_y: constant(profile, "padding_y")?,
             separator: i32::from(profile == Profile::Cell),
-            profile,
+            metric,
         })
     }
 
-    fn width(&self, profile: Profile) -> Result<i32, GeomError> {
+    fn width(&self) -> Result<i32, GeomError> {
         let columns = self.columns.iter().try_fold(0i32, |sum, (_, width)| {
             sum.checked_add(*width).ok_or(GeomError::Overflow)
         })?;
@@ -375,7 +385,7 @@ impl Table {
         let width = columns
             .checked_add(gap_width)
             .ok_or(GeomError::Overflow)?
-            .max(text_width(&self.heading, profile)?);
+            .max(text_width(&self.heading, self.metric)?);
         width
             .checked_add(self.padding_x.checked_mul(2).ok_or(GeomError::Overflow)?)
             .ok_or(GeomError::Overflow)
@@ -393,11 +403,14 @@ impl Table {
     }
 }
 
-fn column_widths(rows: &[Vec<String>], profile: Profile) -> Result<Vec<(usize, i32)>, GeomError> {
+fn column_widths(
+    rows: &[Vec<String>],
+    metric: crate::measure::Metric,
+) -> Result<Vec<(usize, i32)>, GeomError> {
     let mut widths = [0i32; 4];
     for row in rows {
         for (width, field) in widths.iter_mut().zip(row) {
-            *width = (*width).max(text_width(field, profile)?);
+            *width = (*width).max(text_width(field, metric)?);
         }
     }
     Ok(widths
@@ -418,10 +431,10 @@ fn row_height(row: &[String], profile: Profile) -> Result<i32, GeomError> {
         .and_then(|count| count.checked_mul(line_height(profile)))
         .ok_or(GeomError::Overflow)
 }
-fn table_size(text: &str, profile: Profile) -> Result<Size, GeomError> {
-    let table = Table::new(text, profile)?;
+fn table_size(text: &str, profile: Profile, font_family: bool) -> Result<Size, GeomError> {
+    let table = Table::new(text, profile, font_family)?;
     Ok(Size {
-        w: table.width(profile)?.max(constant(profile, "min_width")?),
+        w: table.width()?.max(constant(profile, "min_width")?),
         h: table.height(profile)?.max(constant(profile, "min_height")?),
     })
 }
@@ -466,7 +479,12 @@ fn table_scene(
         let Some(bounds) = scene.boxes().iter().find(|bounds| bounds.id == group.owner) else {
             continue;
         };
-        group.items = table_items(&node.text, bounds.rect, input.profile)?;
+        group.items = table_items(
+            &node.text,
+            bounds.rect,
+            input.profile,
+            crate::scene::has_font_family(&input.options.config),
+        )?;
     }
     Ok(crate::scene::Scene::new(
         scene.canvas(),
@@ -488,12 +506,12 @@ fn text_item(
     text: &str,
     rect: Rect,
     align: crate::scene::Align,
-    profile: Profile,
+    metric: crate::measure::Metric,
 ) -> Result<crate::scene::Item, LayoutError> {
     use crate::scene::*;
     let mut lines = Vec::new();
     for piece in text.split('\n') {
-        lines.extend(run_lines(piece, profile).map_err(layout_error)?);
+        lines.extend(run_lines(piece, metric).map_err(layout_error)?);
     }
     Ok(Item::Text(TextItem {
         rect,
@@ -514,9 +532,10 @@ fn table_items(
     text: &str,
     rect: Rect,
     profile: Profile,
+    font_family: bool,
 ) -> Result<Vec<crate::scene::Item>, LayoutError> {
     use crate::scene::*;
-    let table = Table::new(text, profile).map_err(layout_error)?;
+    let table = Table::new(text, profile, font_family).map_err(layout_error)?;
     let mut shapes = vec![Item::Rect(RectItem {
         shape: Shape::plain(ShapeStyle::Node),
         rect,
@@ -532,7 +551,7 @@ fn table_items(
             h: table.heading_height,
         },
         Align::Middle,
-        profile,
+        table.metric,
     )?);
     let divider = coordinate(i64::from(top) + i64::from(table.heading_height))?;
     let right = coordinate(i64::from(rect.x) + i64::from(rect.w) - i64::from(table.separator))?;
@@ -597,7 +616,7 @@ fn append_column(
                 h: *height,
             },
             crate::scene::Align::Start,
-            table.profile,
+            table.metric,
         )?);
         y = coordinate(i64::from(y) + i64::from(*height))?;
     }

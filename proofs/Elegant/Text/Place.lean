@@ -72,6 +72,22 @@ def lineStart (align : Align) (x w lineW : Int) : Int :=
 def lineChars (runs : List TextRun) : List Char :=
   (runs.map fun run => run.text.toList).flatten
 
+/-- The exact normalized clusters and occupied cell rectangle of one rendered line. -/
+structure PositionedLine where
+  clusters : List Measure.Cluster
+  rect : Rect
+  deriving DecidableEq, Repr
+
+/-- Placement and routing share sanitation, measurement, alignment, and line indexing.
+Declared rectangle height does not truncate the supplied lines. -/
+def positionedLine (t : SceneText) (k : Nat) (text : List Char) : PositionedLine :=
+  let clusters := Measure.segment (text.map terminalChar)
+  let width : Int := (Measure.cw clusters : Nat)
+  ⟨clusters, ⟨lineStart t.align t.rect.x t.rect.w width, t.rect.y + (k : Int), width, 1⟩⟩
+
+def positionedLines (t : SceneText) : List PositionedLine :=
+  t.lines.zipIdx.map fun (runs, k) => positionedLine t k (lineChars runs)
+
 /-- The canvas, the column of the next cluster, and the number of refused clusters. -/
 abbrev LineState := Canvas × Int × Nat
 
@@ -84,9 +100,8 @@ def placeCluster (row : Int) (st : LineState) (cl : Measure.Cluster) : LineState
 
 /-- Place line `k` of a text: the canvas and the number of refused clusters. -/
 def placeLine (g : Canvas) (t : SceneText) (k : Nat) (text : List Char) : Canvas × Nat :=
-  let clusters := Measure.segment (text.map terminalChar)
-  let st := clusters.foldl (placeCluster (t.rect.y + (k : Int)))
-    (g, lineStart t.align t.rect.x t.rect.w ((Measure.cw clusters : Nat) : Int), 0)
+  let line := positionedLine t k text
+  let st := line.clusters.foldl (placeCluster line.rect.y) (g, line.rect.x, 0)
   (st.1, st.2.2)
 
 /-- Place the lines of a text from line index `k`, adding the refused clusters to `n`. -/
@@ -296,6 +311,39 @@ theorem lineStart_inside_rect (align : Align) (x w lineW : Int) (_h0 : 0 ≤ lin
   · rw [Int.fdiv_eq_ediv_of_nonneg _ (by decide)]
     omega
   · omega
+
+/-- Every cell attempted for a cluster lies inside its measured line span. -/
+theorem positionedLine_cluster_span (t : SceneText) (k : Nat) (text : List Char)
+    (before after : List Measure.Cluster) (cluster : Measure.Cluster) (offset : Nat)
+    (h : (positionedLine t k text).clusters = before ++ cluster :: after)
+    (ho : offset < Measure.clusterWidth cluster) :
+    (positionedLine t k text).rect.x ≤
+        (positionedLine t k text).rect.x + (Measure.cw before : Int) + (offset : Int) ∧
+      (positionedLine t k text).rect.x + (Measure.cw before : Int) + (offset : Int) <
+        (positionedLine t k text).rect.x + (positionedLine t k text).rect.w := by
+  have width : (positionedLine t k text).rect.w =
+      ((Measure.cw before + Measure.clusterWidth cluster + Measure.cw after : Nat) : Int) := by
+    change ((Measure.cw (positionedLine t k text).clusters : Nat) : Int) = _
+    rw [h]
+    simp only [Measure.cw, List.map_append, List.sum_append, List.map_cons, List.sum_cons]
+    omega
+  constructor <;> omega
+
+/-- A fitting line occupies only cells within its text rectangle. -/
+theorem positionedLine_inside_rect (t : SceneText) (k : Nat) (text : List Char)
+    (hw : (positionedLine t k text).rect.w ≤ t.rect.w)
+    (hk : (k : Int) + 1 ≤ t.rect.h) :
+    t.rect.x ≤ (positionedLine t k text).rect.x ∧
+      (positionedLine t k text).rect.x + (positionedLine t k text).rect.w ≤
+        t.rect.x + t.rect.w ∧
+      t.rect.y ≤ (positionedLine t k text).rect.y ∧
+      (positionedLine t k text).rect.y + (positionedLine t k text).rect.h ≤
+        t.rect.y + t.rect.h := by
+  have horizontal := lineStart_inside_rect t.align t.rect.x t.rect.w
+    ((Measure.cw (Measure.segment (text.map terminalChar)) : Nat) : Int)
+    (Int.natCast_nonneg _) hw
+  dsimp only [positionedLine]
+  omega
 
 /-- A cell that holds label text after `placeAll` had no arm bits and no symbol before, and
 `placeAll` leaves every arm mask and every symbol unchanged. The canvas that `placeAll`

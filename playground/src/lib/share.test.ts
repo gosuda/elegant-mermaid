@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_SOURCE } from './defaults';
 import { compressionSupported, decodeShare, encodeShare, fragmentPayload, type SharePayload, shareUrl } from './share';
 
@@ -19,7 +19,7 @@ describe('share link codec', () => {
   });
 
   it('round-trips multibyte and large sources without padding characters', async () => {
-    const src = `flowchart LR\n  A["héllo 🌍 世界"] --> B\n${'  B --> C\n'.repeat(5000)}`;
+    const src = `flowchart LR\n  A["héllo 🌍 café"] --> B\n${'  B --> C\n'.repeat(5000)}`;
     const value: SharePayload = {
       src,
       opt: { theme: 'elegant-light', background: null, charset: 'unicode', max_width: null },
@@ -59,14 +59,17 @@ describe('share link codec', () => {
   });
 
   async function encodeRaw(json: string): Promise<string> {
-    const stream = new Blob([new TextEncoder().encode(json)])
-      .stream()
-      .pipeThrough(new CompressionStream('deflate-raw'));
+    return encodeBytes(new TextEncoder().encode(json));
+  }
+
+  async function encodeBytes(input: Uint8Array<ArrayBuffer>): Promise<string> {
+    const stream = new Blob([input]).stream().pipeThrough(new CompressionStream('deflate-raw'));
     const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
-    return btoa(String.fromCharCode(...bytes))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/, '');
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
   it('rejects JSON that is not the payload shape', async () => {
@@ -79,6 +82,81 @@ describe('share link codec', () => {
     expect(await decodeShare(await encodeRaw('{"src":"x","opt":{"max_width":-1}}'))).toBeNull();
     expect(await decodeShare(await encodeRaw('{"src":"x","opt":{"background":"red"}}'))).toBeNull();
     expect(await decodeShare(await encodeRaw('{"src":"x","opt":{"extra":1}}'))).toBeNull();
+  });
+
+  it('rejects a compressed payload larger than the decoded byte limit', async () => {
+    const json = JSON.stringify({ src: 'x'.repeat(2 * 1024 * 1024), opt: {} });
+    const encoded = await encodeRaw(json);
+    expect(encoded.length).toBeLessThan(4096);
+    expect(await decodeShare(encoded)).toBeNull();
+  });
+
+  it('refuses to encode a payload that cannot be decoded within the limit', async () => {
+    await expect(encodeShare({ ...payload, src: 'x'.repeat(2 * 1024 * 1024) })).rejects.toThrow(
+      'Shared diagrams must fit within 2 MiB of JSON.',
+    );
+  });
+
+  it('accepts exactly 2 MiB of UTF-8 JSON and rejects one byte more', async () => {
+    const limit = 2 * 1024 * 1024;
+    const overhead = new TextEncoder().encode(JSON.stringify({ ...payload, src: '' })).byteLength;
+    const contentBytes = limit - overhead;
+    const value: SharePayload = {
+      ...payload,
+      src: 'é'.repeat(Math.floor(contentBytes / 2)) + 'x'.repeat(contentBytes % 2),
+    };
+    expect(new TextEncoder().encode(JSON.stringify(value)).byteLength).toBe(limit);
+    expect(await decodeShare(await encodeShare(value))).toEqual(value);
+
+    const oversized = { ...value, src: `${value.src}x` };
+    expect(new TextEncoder().encode(JSON.stringify(oversized)).byteLength).toBe(limit + 1);
+    expect(await decodeShare(await encodeRaw(JSON.stringify(oversized)))).toBeNull();
+    await expect(encodeShare(oversized)).rejects.toBeInstanceOf(RangeError);
+  });
+
+  it('rejects oversized base64 before decoding and accepts the encoded boundary', async () => {
+    const decodeBase64 = vi.spyOn(globalThis, 'atob');
+    try {
+      expect(await decodeShare('A'.repeat(4 * 1024 * 1024 + 1))).toBeNull();
+      expect(decodeBase64).not.toHaveBeenCalled();
+      expect(await decodeShare('A'.repeat(4 * 1024 * 1024))).toBeNull();
+      expect(decodeBase64).toHaveBeenCalledTimes(1);
+    } finally {
+      decodeBase64.mockRestore();
+    }
+  });
+
+  it('cancels decompression before reading beyond an oversized chunk', async () => {
+    let reads = 0;
+    const cancel = vi.fn();
+    class OversizedStream {
+      readonly readable = new ReadableStream<Uint8Array>(
+        {
+          pull(controller) {
+            reads += 1;
+            controller.enqueue(new Uint8Array(2 * 1024 * 1024 + 1));
+          },
+          cancel,
+        },
+        { highWaterMark: 0 },
+      );
+      readonly writable = new WritableStream<Uint8Array>();
+    }
+    vi.stubGlobal('DecompressionStream', OversizedStream);
+    try {
+      expect(await decodeShare('AA')).toBeNull();
+      expect(reads).toBe(1);
+      expect(cancel).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('rejects malformed UTF-8 instead of repairing it into valid JSON', async () => {
+    const prefix = new TextEncoder().encode('{"src":"');
+    const suffix = new TextEncoder().encode('","opt":{}}');
+    const encoded = await encodeBytes(new Uint8Array([...prefix, 0xff, ...suffix]));
+    expect(await decodeShare(encoded)).toBeNull();
   });
 
   it('fills absent option keys with defaults', async () => {

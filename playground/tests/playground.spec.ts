@@ -55,11 +55,17 @@ test.describe('engines and output', () => {
       expect(await image.getAttribute('src')).toMatch(/^blob:/);
       await expect(page.getByLabel(`${label} engine download`)).toHaveCount(0);
     }
-    const engineUrls = urls.filter((url) => /wasm_exec\.js|\.wasm$|elegant_mermaid_wasm\.js$/.test(url));
-    expect(engineUrls.length).toBeGreaterThanOrEqual(4);
-    for (const url of engineUrls) {
-      expect(new URL(url).pathname.startsWith(`${basePath}/wasm/`)).toBe(true);
-    }
+    const enginePaths = urls
+      .map((url) => new URL(url).pathname)
+      .filter((pathname) => /wasm_exec\.js$|\.wasm$|elegant_mermaid_wasm\.js$/.test(pathname));
+    expect(new Set(enginePaths)).toEqual(
+      new Set([
+        `${basePath}/wasm/wasm_exec.js`,
+        `${basePath}/wasm/emd-go.wasm`,
+        `${basePath}/wasm/emd-rs/elegant_mermaid_wasm.js`,
+        `${basePath}/wasm/emd-rs/elegant_mermaid_wasm_bg.wasm`,
+      ]),
+    );
   });
 
   test('typing a diagram updates both panes and the comparison', async ({ page }) => {
@@ -136,6 +142,43 @@ test.describe('engines and output', () => {
     await expect(page.getByRole('radio', { name: 'Both' })).toBeEnabled();
   });
 
+  test('a failed engine remains recoverable after selecting the healthy engine', async ({ page }) => {
+    await page.route('**/emd-rs/*.wasm', (route) => route.abort());
+    await page.goto('./');
+    await expect(pane(page, 'go')).toHaveAttribute('data-state', 'ready');
+    await expect(pane(page, 'rust')).toHaveAttribute('data-state', 'error');
+    await page.getByRole('radio', { name: 'Go', exact: true }).check();
+    await expect(pane(page, 'rust')).toHaveCount(0);
+    await page.unroute('**/emd-rs/*.wasm');
+    await page.getByRole('button', { name: 'Retry Rust engine' }).click();
+    await expect(page.getByRole('radio', { name: 'Both' })).toBeEnabled();
+    await page.getByRole('radio', { name: 'Both' }).check();
+    await expect(comparison(page)).toHaveText(IDENTICAL);
+  });
+
+  test('renders when Promise.withResolvers is absent in both realms', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(Promise, 'withResolvers', { configurable: true, value: undefined });
+    });
+    let workerRequests = 0;
+    await page.route(/engine(?:[.-])worker.*\.js(?:\?.*)?$/, async (route) => {
+      workerRequests += 1;
+      const response = await route.fetch();
+      const prefix = [
+        "Object.defineProperty(Promise, 'withResolvers', { configurable: true, value: undefined });",
+        "Object.defineProperty(globalThis, 'emdCall', { configurable: true, set(value) {",
+        "  setTimeout(() => Object.defineProperty(globalThis, 'emdCall', { configurable: true, writable: true, value }), 25);",
+        '} });',
+      ].join('\n');
+      await route.fulfill({
+        response,
+        body: `${prefix}\n${await response.text()}`,
+      });
+    });
+    await openPlayground(page);
+    expect(workerRequests).toBe(2);
+  });
+
   test('a stalled download shows a native progress element named for its engine', async ({ page }) => {
     await page.route('**/emd-go.wasm', async (route) => {
       const { promise, resolve } = Promise.withResolvers<void>();
@@ -174,6 +217,47 @@ test.describe('share links', () => {
     if (basePath !== '') {
       expect(seen.filter((entry) => new URL(entry).pathname === '/')).toEqual([]);
     }
+  });
+
+  test('loads links changed in the same tab and follows browser history', async ({ page }) => {
+    await openPlayground(page);
+    const links = await page.evaluate(async () => {
+      const encode = async (src: string, theme: string): Promise<string> => {
+        const bytes = new TextEncoder().encode(JSON.stringify({ src, opt: { theme } }));
+        const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+        const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
+        return btoa(String.fromCharCode(...compressed))
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+      };
+      return [
+        await encode('flowchart LR\n First --> Link', 'nord'),
+        await encode('flowchart TD\n Second --> Link', 'github-dark'),
+      ];
+    });
+    const [first, second] = links;
+    if (first === undefined || second === undefined) {
+      throw new Error('expected two shared diagrams');
+    }
+    await page.evaluate((encoded) => {
+      location.hash = `s=${encoded}`;
+    }, first);
+    await expect(page.locator('.cm-content')).toContainText('First --> Link');
+    await expect(page.getByLabel('Theme')).toHaveValue('nord');
+    await page.evaluate((encoded) => {
+      location.hash = `s=${encoded}`;
+    }, second);
+    await expect(page.locator('.cm-content')).toContainText('Second --> Link');
+    await expect(page.getByLabel('Theme')).toHaveValue('github-dark');
+    await page.goBack();
+    await expect(page.locator('.cm-content')).toContainText('First --> Link');
+    await expect(page.getByLabel('Theme')).toHaveValue('nord');
+    await page.evaluate(() => {
+      location.hash = 's=bad-link';
+    });
+    await expect(page.locator('.cm-content')).toContainText(DEFAULT_FIRST_LINE);
+    await expect(page.getByRole('status')).toContainText('This shared link is invalid or incomplete');
   });
 
   test('offers the URL when the clipboard refuses the write', async ({ page }) => {
@@ -539,6 +623,7 @@ test.describe('first paint without scripts', () => {
     for (const rendered of ['┌', 'Start', 'Choice', 'Done']) {
       await expect(sample).toContainText(rendered);
     }
+    await expect(sample).not.toContainText('Engines are loading.');
     await expect(page.getByRole('status')).toBeEmpty();
     await expect(page.locator('noscript p')).toHaveText(
       'This playground needs JavaScript to render your edits; the sample source and output remain available.',

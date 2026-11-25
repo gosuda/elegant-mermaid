@@ -13,7 +13,11 @@ export interface SharePayload {
 }
 
 const PREFIX = 's=';
-const MAX_PAYLOAD_BYTES = 1 << 20;
+const MAX_JSON_BYTES = 2 * 1024 * 1024;
+// Leave room for deflate framing and incompressible input before base64 expansion.
+const MAX_ENCODED_CHARACTERS = 4 * 1024 * 1024;
+const MAX_COMPRESSED_BYTES = (MAX_ENCODED_CHARACTERS / 4) * 3;
+const SIZE_ERROR = 'Shared diagrams must fit within 2 MiB of JSON.';
 
 function toBase64Url(bytes: Uint8Array): string {
   let binary = '';
@@ -25,7 +29,7 @@ function toBase64Url(bytes: Uint8Array): string {
 }
 
 function fromBase64Url(text: string): Uint8Array | null {
-  if (!/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) {
+  if (text.length > MAX_ENCODED_CHARACTERS || !/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) {
     return null;
   }
   const padded = text.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (text.length % 4)) % 4);
@@ -41,34 +45,37 @@ function fromBase64Url(text: string): Uint8Array | null {
   }
 }
 
-async function deflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
-  const output = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(output).arrayBuffer());
-}
-
-async function inflate(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array | null> {
-  const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+async function pipe(
+  bytes: Uint8Array<ArrayBuffer>,
+  stream: CompressionStream | DecompressionStream,
+  limit: number,
+): Promise<Uint8Array> {
+  const reader = new Blob([bytes]).stream().pipeThrough(stream).getReader();
   const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
+  let length = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      if (value.byteLength > limit - length) {
+        await reader.cancel();
+        throw new RangeError(SIZE_ERROR);
+      }
+      chunks.push(value);
+      length += value.byteLength;
     }
-    total += value.byteLength;
-    if (total > MAX_PAYLOAD_BYTES) {
-      await reader.cancel();
-      return null;
-    }
-    chunks.push(value);
+  } finally {
+    reader.releaseLock();
   }
-  const inflated = new Uint8Array(total);
+  const output = new Uint8Array(length);
   let offset = 0;
   for (const chunk of chunks) {
-    inflated.set(chunk, offset);
+    output.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return inflated;
+  return output;
 }
 
 export function compressionSupported(): boolean {
@@ -85,7 +92,14 @@ export async function encodeShare(payload: SharePayload): Promise<string> {
       max_width: payload.opt.max_width,
     },
   });
-  const deflated = await deflate(new TextEncoder().encode(json));
+  if (json.length > MAX_JSON_BYTES) {
+    throw new RangeError(SIZE_ERROR);
+  }
+  const bytes = new TextEncoder().encode(json);
+  if (bytes.byteLength > MAX_JSON_BYTES) {
+    throw new RangeError(SIZE_ERROR);
+  }
+  const deflated = await pipe(bytes, new CompressionStream('deflate-raw'), MAX_COMPRESSED_BYTES);
   return toBase64Url(deflated);
 }
 
@@ -127,10 +141,7 @@ export async function decodeShare(encoded: string): Promise<SharePayload | null>
   }
   let json: string;
   try {
-    const bytes = await inflate(new Uint8Array(deflated));
-    if (bytes === null) {
-      return null;
-    }
+    const bytes = await pipe(new Uint8Array(deflated), new DecompressionStream('deflate-raw'), MAX_JSON_BYTES);
     json = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
     return null;

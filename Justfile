@@ -11,6 +11,7 @@ gen-check:
 # Go checks: gofmt, go vet, golangci-lint, race tests, govulncheck; accepts `just go-check PKG='./x/...'`
 go-check PKG='./...': build
     {{ if trim_start_match(PKG, 'PKG=') != './...' { "go test -list '.*' " + trim_start_match(PKG, 'PKG=') + " | grep '^Test' >/dev/null" } else { "true" } }}
+    gofmt -d $(go list -f '{{{{.Dir}}' ./...)
     test -z "$(gofmt -l $(go list -f '{{{{.Dir}}' ./...))"
     go vet {{ trim_start_match(PKG, 'PKG=') }}
     go tool golangci-lint run
@@ -49,6 +50,7 @@ playground-sample:
 
 # Go wasm, Rust wasm, and both native binaries give the same bytes on every tenth corpus file
 wasm-parity: build playground-wasm
+    node --test playground/scripts/wasm-parity.test.mjs
     node playground/scripts/wasm-parity.mjs
 
 # Playground checks: Biome, svelte-check, and the Vitest unit tests
@@ -58,11 +60,16 @@ playground-check:
     pnpm --dir playground check
     pnpm --dir playground exec vitest run
 
-# Playground end-to-end tests in Playwright against the built site
-playground-e2e: playground-wasm playground-sample
-    pnpm --dir playground install --frozen-lockfile
+# Prerender the browser application, including its worker assets
+playground-build: build playground-wasm
+    node playground/scripts/initial-text.mjs
     pnpm --dir playground build
+
+# Playground end-to-end tests in Playwright against the built site
+playground-e2e: playground-build
+    pnpm --dir playground install --frozen-lockfile
     pnpm --dir playground exec playwright test
+    PLAYGROUND_SERVER_MODE=dev pnpm --dir playground exec playwright test --grep 'both engines render the default source'
 
 # Lean build with warnings as errors, then the proof hygiene audit
 proofs:
@@ -194,6 +201,19 @@ parity *ARGS:
     go_version="$(bin/emd-go --version)"; rs_version="$(bin/emd-rs --version)"; test "$go_version" = "$rs_version"
     just _each _parity-one {{ ARGS }}
 
+# Compare actual Markdown assets, rewritten hosts, diagnostics, and path handling
+markdown-parity: build
+    go run ./tools/markdown-parity
+
+# Exercise platform path rules directly in the actual Markdown URL module
+markdown-paths:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dir="$(mktemp -d)"
+    trap 'rm -rf "$dir"' EXIT
+    rustc --edition=2024 --test crates/elegant-mermaid-cli/src/render/markdown/links.rs -o "$dir/markdown-links-tests.exe"
+    "$dir/markdown-links-tests.exe"
+
 _accept-one FILE:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -262,8 +282,11 @@ quality *ARGS:
     #!/usr/bin/env bash
     set -euo pipefail
     jobs="$(just _jobs {{ ARGS }})"
-    EMD_BIN=bin/emd-go node tools/upstream-oracle/baseline.mjs corpus/quality-corpus.txt "$jobs"
-    go run ./tools/quality -emd bin/emd-go -kinds flowchart -jobs "$jobs"
+    fixtures="$(mktemp)"
+    trap 'rm -f -- "$fixtures"' EXIT
+    go run ./tools/quality -list > "$fixtures"
+    EMD_BIN=bin/emd-go node tools/upstream-oracle/baseline.mjs "$fixtures" "$jobs"
+    go run ./tools/quality -emd bin/emd-go -jobs "$jobs"
 
 # Format check on the staged content of Go and Rust files; the pre-commit hook runs it
 staged-format:
@@ -299,12 +322,14 @@ verify:
     just gen-check
     just go-check
     just rust-check
+    just markdown-paths
     just slop
     just build
     just proofs
     just model
     just oracle
     just parity
+    just markdown-parity
     just wasm-parity
     just playground-check
     just playground-e2e

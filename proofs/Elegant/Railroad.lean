@@ -313,13 +313,14 @@ def placeRule (m : Model) (metric : Measure.Metric) (before : RuleState) (rule :
     (before.y+g.defY) rule.id state
   return ⟨state,before.y+g.height+c "vsep",max before.widest g.width⟩
 
-def metricFor : Profile → Except LayoutError Measure.Metric
+def metricFor (profile : Profile) (fontFamily : Bool := false) : Except LayoutError Measure.Metric :=
+  match profile with
   | .cell => .ok Measure.Metric.cell
-  | .vector => Measure.Role.label.metric
+  | .vector => Measure.Role.label.metric fontFamily
 
 def layout (m : Model) (rules : List Rule) : Except LayoutError Scene := do
   let p := m.profile
-  let metric ← metricFor p
+  let metric ← metricFor p m.options.fontFamily
   let c := constant p
   let result ← rules.foldlM (placeRule m metric) {y := c "margin"}
   let width := if rules.isEmpty then c "empty_width" else result.widest+2*c "margin"

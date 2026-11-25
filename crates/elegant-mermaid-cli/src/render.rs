@@ -2,10 +2,12 @@ use crate::error::{CliError, UsageError};
 use crate::{diagnostics, input, options};
 use elegant_mermaid::syntax::config_value::{ConfigValue, parse_config_yaml};
 use elegant_mermaid::{
-    IconPack, IconPackError, LayoutOptions, Look, Profile, RasterError, RenderError, cells,
+    IconPack, IconPackError, LayoutOptions, Profile, RasterError, RenderError, cells,
     parse_icon_pack, raster, scene, svg,
 };
 use std::io::IsTerminal;
+
+mod markdown;
 
 pub fn run(args: &[String], environment: &crate::view::Environment) -> (Vec<u8>, String, i32) {
     match prepare(args, environment) {
@@ -24,28 +26,25 @@ fn prepare(
     if !paths.is_empty() && !o.input.is_empty() {
         return Err(UsageError::InputTwice.into());
     }
-    let o = resolve_options(o, environment)?;
-    if o.format == "png" && o.output.is_empty() && std::io::stdout().is_terminal() {
+    let path = paths.first().cloned().unwrap_or_else(|| {
+        if o.input.is_empty() {
+            "-".into()
+        } else {
+            o.input.clone()
+        }
+    });
+    let host = crate::check::markdown_host(std::path::Path::new(&path));
+    let o = resolve_options(o, host, environment)?;
+    if o.format == "png"
+        && o.output.is_empty()
+        && o.artefact_dir.is_none()
+        && std::io::stdout().is_terminal()
+    {
         return Err(UsageError::PngToTerminal.into());
     }
-    let path = paths
-        .first()
-        .map(String::as_str)
-        .unwrap_or(if o.input.is_empty() { "-" } else { &o.input });
     let config = read_config(&o.config)?;
     let icon_packs = read_icon_packs(&o.icon_packs)?;
-    let bytes = input::read(path)?;
-    let document = elegant_mermaid::parse_bytes(&bytes);
-    let path = input::label(path);
-    let mut stderr = diagnostics::text(
-        path,
-        document.source(),
-        document.diagnostics(),
-        options::colour(&o.color, environment),
-    );
-    if diagnostics::has_errors(document.diagnostics()) {
-        return Ok((Vec::new(), stderr, 1));
-    }
+    let bytes = input::read(&path)?;
     let layout_options = LayoutOptions {
         profile: if o.format == "text" {
             Profile::Cell
@@ -58,10 +57,36 @@ fn prepare(
         config,
         ..LayoutOptions::default()
     };
+    if host {
+        return markdown::render(&path, &bytes, &o, &layout_options, environment);
+    }
+    render_input(&path, &bytes, &o, &layout_options, environment)
+}
+
+fn render_input(
+    path: &str,
+    bytes: &[u8],
+    options: &options::Options,
+    layout_options: &LayoutOptions,
+    environment: &crate::view::Environment,
+) -> Result<(Vec<u8>, String, i32), CliError> {
+    let document = elegant_mermaid::parse_bytes(bytes);
+    let effective = document.effective_config(layout_options.config.as_deref())?;
+    let source_diagnostics = document.diagnostics_for(&effective);
+    let path = input::label(path);
+    let mut stderr = diagnostics::text(
+        path,
+        document.source(),
+        &source_diagnostics,
+        options::colour(&options.color, environment),
+    );
+    if diagnostics::has_errors(&source_diagnostics) {
+        return Ok((Vec::new(), stderr, 1));
+    }
     if document.resolved().is_none() {
         return Err(CliError::UnsupportedKind);
     }
-    let (scene, ds) = match elegant_mermaid::layout_with_diagnostics(&document, &layout_options) {
+    let (scene, ds) = match elegant_mermaid::layout_with_diagnostics(&document, layout_options) {
         Ok(value) => value,
         Err(error @ RenderError::InvalidConfig { .. }) => return Err(error.into()),
         Err(error) => {
@@ -70,31 +95,27 @@ fn prepare(
         }
     };
     stderr.push_str(&diagnostics::text(path, document.source(), &ds, false));
-    let rendered = match o.format.as_str() {
-        "svg" => svg_output(&scene, &o, &document, layout_options.config.as_deref())
-            .map(String::into_bytes),
-        "png" => match png_output(&scene, &o) {
-            Err(error @ RasterError::InvalidConfig { .. }) => return Err(error.into()),
-            other => other.map_err(CliError::from),
-        },
-        _ => text_output(&scene, &o, environment).map(String::into_bytes),
-    };
-    let output = match rendered {
+    let output = match encoded_output(&scene, options, &document, &effective, environment) {
         Ok(value) => value,
+        Err(error @ CliError::Raster(RasterError::InvalidConfig { .. })) => return Err(error),
         Err(error) => {
             stderr.push_str(&format!("{error}\n"));
             return Ok((Vec::new(), stderr, 1));
         }
     };
-    if o.output.is_empty() {
+    if options.output.is_empty() {
         return Ok((output, stderr, 0));
     }
-    crate::output::write_file(std::path::Path::new(&o.output), &output, None).map_err(
-        |source| CliError::Write {
-            path: o.output.clone(),
+    if let Err(source) =
+        crate::output::write_file(std::path::Path::new(&options.output), &output, None)
+    {
+        let error = CliError::Write {
+            path: options.output.clone(),
             source,
-        },
-    )?;
+        };
+        stderr.push_str(&format!("{error}\n"));
+        return Ok((Vec::new(), stderr, 2));
+    }
     Ok((Vec::new(), stderr, 0))
 }
 fn read_config(path: &str) -> Result<Option<String>, CliError> {
@@ -125,10 +146,10 @@ fn site_config_failure(text: &str) -> Option<String> {
     if !matches!(value, ConfigValue::Mapping(_)) {
         return Some("config must be a mapping".to_owned());
     }
-    Look::read(&[&value])
+    elegant_mermaid::config::EffectiveConfig::read(&[&value])
         .1
         .into_iter()
-        .next()
+        .find(|diagnostic| diagnostic.severity == elegant_mermaid::Severity::Error)
         .map(|diagnostic| diagnostic.message)
 }
 fn read_icon_packs(paths: &[String]) -> Result<Vec<IconPack>, CliError> {
@@ -151,24 +172,49 @@ fn read_icon_packs(paths: &[String]) -> Result<Vec<IconPack>, CliError> {
 }
 fn resolve_options(
     mut options: options::Options,
+    host: bool,
     environment: &crate::view::Environment,
 ) -> Result<options::Options, UsageError> {
+    if !host && options.artefact_dir.is_some() {
+        return Err(UsageError::ArtefactsNeedMarkdown);
+    }
+    if host {
+        if options.output.is_empty() && options.artefact_dir.is_none() {
+            return Err(UsageError::MarkdownNeedsOutput);
+        }
+        if crate::check::markdown_host(std::path::Path::new(&options.output)) {
+            if options.format.is_empty() {
+                options.format = "svg".into();
+            }
+            options::choice(&options.format, "-e", &["svg", "png"])?;
+        }
+    }
     options::resolve(&mut options, environment)?;
     Ok(options)
+}
+
+fn encoded_output(
+    scene: &scene::Scene,
+    options: &options::Options,
+    document: &elegant_mermaid::Document<'_>,
+    config: &elegant_mermaid::config::EffectiveConfig,
+    environment: &crate::view::Environment,
+) -> Result<Vec<u8>, CliError> {
+    match options.format.as_str() {
+        "svg" => svg_output(scene, options, document, config).map(String::into_bytes),
+        "png" => png_output(scene, options).map_err(CliError::from),
+        _ => text_output(scene, options, environment).map(String::into_bytes),
+    }
 }
 fn svg_output(
     scene: &scene::Scene,
     o: &options::Options,
     document: &elegant_mermaid::Document<'_>,
-    config: Option<&str>,
+    config: &elegant_mermaid::config::EffectiveConfig,
 ) -> Result<String, CliError> {
     let model = document.resolved().ok_or(CliError::UnsupportedKind)?;
     let (title, description, kind) = model.accessibility();
     let links = model.links();
-    let look = match config {
-        Some(text) => document.look().with_config(text),
-        None => Ok(document.look()),
-    }?;
     let paths = o.svg_text == "paths";
     let outlines = paths.then(raster::inter_outlines);
     let mut output = String::new();
@@ -188,7 +234,8 @@ fn svg_output(
             title,
             description,
             links: &links,
-            look,
+            look: config.look(),
+            font_family: config.font_family(),
             ..svg::Options::default()
         },
     )?;

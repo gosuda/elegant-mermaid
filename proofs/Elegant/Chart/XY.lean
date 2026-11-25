@@ -245,15 +245,17 @@ def roundHalfUp (a b : Int) : Int := Int.fdiv (2 * a + b) (2 * b)
 def lineHeight (cell : Bool) (role : Measure.Role) (size : Int) : Int :=
   if cell then 1 else roundHalfUp (size * 64 * role.lineHeightPx) role.sizePx
 
-def metricOf (cell : Bool) (role : Measure.Role) (size : Int) : Except LayoutError Measure.Metric :=
+def metricOf (cell : Bool) (role : Measure.Role) (size : Int) (fontFamily : Bool := false) :
+    Except LayoutError Measure.Metric :=
   if cell then pure Measure.Metric.cell
   else do
     let u ← Measure.upemOf role.weight
-    pure { profile := .vector, sizePx := size, weight := role.weight, upem := u, fontFamily := false }
+    pure { profile := .vector, sizePx := size, weight := role.weight, upem := u, fontFamily }
 
-def measureText (cell : Bool) (text : String) (role : Measure.Role) (size : Int) :
+def measureText (cell : Bool) (text : String) (role : Measure.Role) (size : Int)
+    (fontFamily : Bool := false) :
     Except LayoutError TextBox := do
-  let m ← metricOf cell role size
+  let m ← metricOf cell role size fontFamily
   match StyledMeasure.wrap m I32_MAX text.toList with
   | .error _ => throw .overflow
   | .ok lines =>
@@ -267,11 +269,12 @@ def styleOf (c : XYConsts) (x : Axis) (s : Spec) : Measure.Role × Int :=
   | .point => (.body, Int.fdiv c.pointSize 64)
   | _ => (.label, 14)
 
-def measureAll (c : XYConsts) (cell : Bool) (x : Axis) (specs : List Spec) :
+def measureAll (c : XYConsts) (cell : Bool) (x : Axis) (specs : List Spec)
+    (fontFamily : Bool := false) :
     Except LayoutError (List Item) :=
   specs.mapM fun s => do
     let (role, size) := styleOf c x s
-    let box ← measureText cell s.text role size
+    let box ← measureText cell s.text role size fontFamily
     return ⟨s, role, size, box⟩
 
 def findKind (items : List Item) (k : Kind) : Option (Nat × Item) :=
@@ -749,14 +752,14 @@ def categoryAxis (inp : Input) (a : Axis) : Axis :=
 def valueAxis (inp : Input) (a : Axis) : Axis :=
   { a with pos := if inp.horizontal then Pos.top else Pos.left }
 
-def prepare (profile : Profile) (inp : Input) : Except LayoutError Prep := do
+def prepare (profile : Profile) (inp : Input) (fontFamily : Bool := false) : Except LayoutError Prep := do
   let c0 ← XYConsts.load profile
   let c := adjustedConsts profile inp c0
   let axes ← newAxes inp
   checkMagnitude (inp.plots.flatMap fun pl => pl.points.flatMap fun pt => [pt.value, pt.x])
   let x0 := categoryAxis inp axes.1
   let y0 := valueAxis inp axes.2.1
-  let items ← measureAll c (profile == .cell) x0 (labelSpecs inp x0 y0)
+  let items ← measureAll c (profile == .cell) x0 (labelSpecs inp x0 y0) fontFamily
   return ⟨c, x0, y0, axes.2.2, items⟩
 
 def checkRects (rects : List Rect) : Except LayoutError Unit :=
@@ -773,8 +776,8 @@ def finish (profile : Profile) (inp : Input) (p : Prep) : Except LayoutError Res
   (groupsOf a p.c inp p.items placed boxes rects).bind fun groups =>
   .ok ⟨⟨a.width, a.height⟩, boxes, rects, p.items, placed, groups, p.capped⟩
 
-def layout (profile : Profile) (inp : Input) : Except LayoutError Result :=
-  (prepare profile inp).bind (finish profile inp)
+def layout (profile : Profile) (inp : Input) (fontFamily : Bool := false) : Except LayoutError Result :=
+  (prepare profile inp fontFamily).bind (finish profile inp)
 
 end XY
 end Chart

@@ -145,8 +145,8 @@ func pieStyle(kind pieLabelKind) (measure.Role, int32) {
 	return measure.RoleLabel, measure.RoleLabel.SizePx()
 }
 
-func measurePie(text string, role measure.Role, size int32) (textBox, error) {
-	metric := measure.Metric{Profile: measure.ProfileVector, SizePx: size, Weight: role.Weight()}
+func measurePie(text string, role measure.Role, size int32, fontFamily string) (textBox, error) {
+	metric := measure.Metric{Profile: measure.ProfileVector, SizePx: size, Weight: role.Weight(), FontFamily: fontFamily != ""}
 	lines, err := measure.StyledLines(text, geom.I32Max, metric)
 	if err != nil {
 		return textBox{}, err
@@ -164,7 +164,7 @@ func (p *piePlan) arrange() (*pieScene, error) {
 	s.texts = make([]textBox, len(s.specs))
 	for i, spec := range s.specs {
 		role, size := pieStyle(spec.kind)
-		t, err := measurePie(spec.text, role, size)
+		t, err := measurePie(spec.text, role, size, p.fontFamily)
 		if err != nil {
 			return nil, err
 		}
@@ -359,6 +359,7 @@ func layoutPie(m *chartmodel.Chart, o scene.Options) (scene.Scene, []diag.Diagno
 	if err != nil {
 		return scene.Scene{}, nil, err
 	}
+	p.fontFamily = o.FontFamily
 	s, err := p.arrange()
 	if err != nil {
 		return scene.Scene{}, nil, err

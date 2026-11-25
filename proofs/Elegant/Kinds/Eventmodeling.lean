@@ -11,11 +11,12 @@ open Common
 
 abbrev Family := Lanes.Eventmodeling.Input
 
-def measureCaption (profile : Profile) (role : TextRole) (target : Int) (text : String) :
+def measureCaption (profile : Profile) (role : TextRole) (target : Int) (text : String)
+    (fontFamily : Bool := false) :
     Except LayoutError Lanes.Caption := do
   let metric ← match profile with
     | .cell => pure Measure.Metric.cell
-    | .vector => (if role == .body then Measure.Role.body else Measure.Role.label).metric
+    | .vector => (if role == .body then Measure.Role.body else Measure.Role.label).metric fontFamily
   let lines ← match StyledMeasure.wrap metric target text.toList with
     | .ok ls => pure ls
     | .error _ => throw .overflow
@@ -54,10 +55,10 @@ def decode (m : Model) : Except LayoutError Family := do
           g := { g with lanes := g.lanes ++ [{ id := "", index := i, caption := none }] }
           pure i
       let parts := (boxText m b).splitOn "\n\n"
-      let name ← measureCaption m.profile .label c.boxMaxWidth (parts.headD "")
+      let name ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label c.boxMaxWidth (parts.headD "")
       let data ← if parts.length ≤ 1 then pure none else do
         let text := (String.intercalate "\n\n" parts.tail).replace "\n" "<br>"
-        pure (some (← measureCaption m.profile .body c.boxMaxWidth text))
+        pure (some (← measureCaption (fontFamily := m.options.fontFamily) m.profile .body c.boxMaxWidth text))
       g := { g with frames := g.frames ++ [{ id := b.id, lane, category := b.shape, name, data }] }
   for r in m.routes do
     let some src := g.frames.findIdx? (·.id == r.fromId) | throw .domain
@@ -66,7 +67,7 @@ def decode (m : Model) : Except LayoutError Family := do
   for l in m.labels do
     let some i := ids.findIdx? (· == l.owner) | throw .domain
     let some lane := g.lanes[i]? | throw .domain
-    let caption ← measureCaption m.profile .label (c.contentStartX - 4 * c.lanePadding) l.text
+    let caption ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label (c.contentStartX - 4 * c.lanePadding) l.text
     g := { g with lanes := g.lanes.set i { lane with caption := some caption } }
   return g
 
@@ -1459,7 +1460,7 @@ theorem decode_label_loop_invariants {sources : List ModelBox}
       let some i := ids.findIdx? (· == label.owner) | throw .domain
       let some lane := state.lanes[i]? | throw .domain
       let c := Lanes.EventConsts.load m.profile
-      let caption ← measureCaption m.profile .label
+      let caption ← measureCaption (fontFamily := m.options.fontFamily) m.profile .label
         (c.contentStartX - 4 * c.lanePadding) label.text
       pure (.yield { state with lanes := state.lanes.set i { lane with caption := some caption } }))
         = .ok output) :
@@ -1477,7 +1478,7 @@ theorem decode_label_loop_invariants {sources : List ModelBox}
     | none =>
       simp [hi, hlane, throw, throwThe, MonadExceptOf.throw] at hs
     | some lane =>
-      cases hcap : measureCaption m.profile .label
+      cases hcap : measureCaption (fontFamily := m.options.fontFamily) m.profile .label
           ((Lanes.EventConsts.load m.profile).contentStartX -
             4 * (Lanes.EventConsts.load m.profile).lanePadding) label.text with
       | error e =>

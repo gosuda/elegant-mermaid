@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 	"github.com/gosuda/elegant-mermaid/internal/syntax"
 )
@@ -22,8 +23,11 @@ func ParseSiteConfig(text []byte) (syntax.ConfigValue, error) {
 	if value.Kind != syntax.ValueMapping {
 		return syntax.ConfigValue{}, fmt.Errorf("%w: config must be a mapping", ErrSiteConfig)
 	}
-	if _, ds = syntax.ReadLook(value); len(ds) != 0 {
-		return syntax.ConfigValue{}, fmt.Errorf("%w: %s", ErrSiteConfig, ds[0].Message)
+	_, ds = syntax.ReadEffectiveConfig(value)
+	for _, diagnostic := range ds {
+		if diagnostic.Severity == diag.SeverityError {
+			return syntax.ConfigValue{}, fmt.Errorf("%w: %s", ErrSiteConfig, diagnostic.Message)
+		}
 	}
 	return value, nil
 }
@@ -40,10 +44,14 @@ func (d *Diagram) configMappings() []syntax.ConfigValue {
 }
 
 func (d *Diagram) Look(site syntax.ConfigValue) (scene.Look, error) {
-	parsed, ds := d.look.Overlay(site)
-	if len(ds) != 0 {
-		return scene.Look{}, fmt.Errorf("%w: %s", ErrSiteConfig, ds[0].Message)
+	config, err := d.EffectiveConfig(site)
+	if err != nil {
+		return scene.Look{}, err
 	}
+	return SceneLook(config.Look), nil
+}
+
+func SceneLook(parsed syntax.Look) scene.Look {
 	look := scene.Look{Seed: parsed.Seed}
 	switch parsed.Value {
 	case "neo":
@@ -51,5 +59,5 @@ func (d *Diagram) Look(site syntax.ConfigValue) (scene.Look, error) {
 	case "handDrawn":
 		look.Kind = scene.LookHandDrawn
 	}
-	return look, nil
+	return look
 }

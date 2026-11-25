@@ -120,6 +120,7 @@ fn svg_output(document: &Document<'_>, options: &Options) -> Option<String> {
             description,
             links: &links,
             look: document.look(),
+            font_family: document.config().font_family(),
             ..svg::Options::default()
         },
     )
@@ -153,9 +154,9 @@ fn layout_output(document: &Document<'_>, options: &Options) -> Option<String> {
     } else {
         scene::Profile::Vector
     };
-    let input = resolved
-        .input(profile, scene::DumpOptions::default())
-        .ok()?;
+    let mut dump = scene::DumpOptions::default();
+    document.config().apply_to(&mut dump);
+    let input = resolved.input(profile, dump).ok()?;
     if options.model {
         return Some(layout::modeldump::model_dump(&input));
     }

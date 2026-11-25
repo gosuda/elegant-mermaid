@@ -35,11 +35,13 @@ pub(crate) fn from_packet(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = model
-        .config
-        .iter()
-        .map(|entry| (entry.key.to_owned(), dump_value(&entry.setting)))
-        .collect::<BTreeMap<_, _>>();
+    options.set_kind_config(
+        model
+            .config
+            .iter()
+            .map(|entry| (entry.key.to_owned(), dump_value(&entry.setting)))
+            .collect::<BTreeMap<_, _>>(),
+    );
     options.profile = profile;
     let mut input = Input {
         kind: KIND,
@@ -332,6 +334,7 @@ impl<'a> Plan<'a> {
         } else {
             Metric::cell()
         };
+        let metric = crate::scene::configured_metric(metric, &self.input.options.config);
         let lines =
             measure::styled_lines(text, i32::MAX, metric).map_err(|_| GeomError::Overflow)?;
         let height = i64::try_from(lines.len()).map_err(|_| GeomError::Overflow)?

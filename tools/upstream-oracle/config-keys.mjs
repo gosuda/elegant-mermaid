@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
-const schemaPath = '.references/mermaid/packages/mermaid/src/schemas/config.schema.yaml';
+const schemaPath = 'spec/data/upstream/mermaid-config.schema.yaml';
 const kindsPath = 'spec/data/kinds.json';
 const baseDefinition = 'BaseDiagramConfig';
 const rowSeparator = '\u0000';

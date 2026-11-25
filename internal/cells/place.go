@@ -1,8 +1,6 @@
 package cells
 
 import (
-	"strings"
-
 	"github.com/gosuda/elegant-mermaid/internal/geom"
 	"github.com/gosuda/elegant-mermaid/internal/measure"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
@@ -23,10 +21,10 @@ func textInk(p *scene.Text, t theme.Theme) Token {
 	return TokenFG
 }
 
-func lineStart(align scene.Align, x, w, lineW int) int {
+func lineStart(align scene.Align, x, w, lineW int64) int64 {
 	switch align {
 	case scene.AlignMiddle:
-		return x + int(geom.FloorDiv(int64(w-lineW), 2))
+		return x + geom.FloorDiv(w-lineW, 2)
 	case scene.AlignEnd:
 		return x + w - lineW
 	default:
@@ -37,29 +35,15 @@ func lineStart(align scene.Align, x, w, lineW int) int {
 func (c *Canvas) placeAll(labels []*scene.Text, t theme.Theme) (int, error) {
 	refused := 0
 	for _, p := range labels {
-		for k, runs := range p.Lines {
-			var b strings.Builder
-			for _, run := range runs {
-				b.WriteString(run.Text)
-			}
-			n, err := c.placeLine(p, b.String(), k, textInk(p, t))
-			if err != nil {
-				return 0, err
-			}
-			refused += n
+		lines, err := PositionedLines(p)
+		if err != nil {
+			return 0, err
+		}
+		for _, line := range lines {
+			refused += c.placeClusters(line.Text, int(line.Rect.X), int(line.Rect.Y), textInk(p, t))
 		}
 	}
 	return refused, nil
-}
-
-func (c *Canvas) placeLine(p *scene.Text, text string, row int, ink Token) (int, error) {
-	text = terminalText(text)
-	width, err := measure.CellWidth(text)
-	if err != nil {
-		return 0, err
-	}
-	col := lineStart(p.Align, int(p.Rect.X), int(p.Rect.W), int(width))
-	return c.placeClusters(text, col, int(p.Rect.Y)+row, ink), nil
 }
 
 func (c *Canvas) placeClusters(text string, col, row int, ink Token) int {

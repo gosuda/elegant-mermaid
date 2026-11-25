@@ -30,14 +30,15 @@ type Block struct {
 }
 
 type Edge struct {
-	Start      string
-	End        string
-	Label      string
-	Span       source.Span
-	Thickness  string
-	Pattern    string
-	ArrowStart string
-	ArrowEnd   string
+	Start         string
+	End           string
+	Label         string
+	Span          source.Span
+	StatementSpan source.Span
+	Thickness     string
+	Pattern       string
+	ArrowStart    string
+	ArrowEnd      string
 }
 
 type ClassDef struct {

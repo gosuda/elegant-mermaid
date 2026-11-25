@@ -71,7 +71,7 @@ func TestNonContainsRelationshipsUseDashedTargetArrows(t *testing.T) {
 }
 
 func TestVectorDividerUsesPaddingWithoutAddingHeight(t *testing.T) {
-	items, err := requirementTableItems("<<Element>>\nE\nType: service", geom.Rect{X: 0, Y: 0, W: 20000, H: 5120}, scene.ProfileVector)
+	items, err := requirementTableItems("<<Element>>\nE\nType: service", geom.Rect{X: 0, Y: 0, W: 20000, H: 5120}, scene.ProfileVector, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestLayeredPipelineReturnsRequirementTableGroups(t *testing.T) {
 
 func requirementFirstTextLines(t *testing.T, source string) [][]scene.Run {
 	t.Helper()
-	items, err := requirementTableItems(source, geom.Rect{X: 0, Y: 0, W: 4000, H: 4000}, scene.ProfileVector)
+	items, err := requirementTableItems(source, geom.Rect{X: 0, Y: 0, W: 4000, H: 4000}, scene.ProfileVector, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func semiBoldWidth(t *testing.T, text string) int32 {
 
 func assertRequirementSize(t *testing.T, text string, profile scene.Profile, want geom.Size) {
 	t.Helper()
-	size, err := requirementTableSize(text, profile)
+	size, err := requirementTableSize(text, profile, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestRequirementEscapesAndForcedBreaksAffectSize(t *testing.T) {
 	assertRequirementSize(t, `\*x`, profile, geom.Size{W: semiBoldWidth(t, "*x") + paddingX, H: int32(height) + paddingY})
 	a, b := semiBoldWidth(t, "a"), semiBoldWidth(t, "b")
 	assertRequirementSize(t, "a<br>b", profile, geom.Size{W: max(a, b) + paddingX, H: int32(2*height) + paddingY})
-	items, err := requirementTableItems("a<br>b\nhead\nfield", geom.Rect{X: 0, Y: 0, W: 20000, H: 20000}, profile)
+	items, err := requirementTableItems("a<br>b\nhead\nfield", geom.Rect{X: 0, Y: 0, W: 20000, H: 20000}, profile, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +236,7 @@ func TestRequirementTableRowsAndCellDimensions(t *testing.T) {
 }
 
 func TestVectorTableUsesMeasuredWidthAndSinglePadding(t *testing.T) {
-	size, err := requirementTableSize("A\nB", scene.ProfileVector)
+	size, err := requirementTableSize("A\nB", scene.ProfileVector, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +276,7 @@ func TestRelationshipLabelsStrokesMarkersAndCollisionIDs(t *testing.T) {
 }
 
 func TestTableScenePreservesRowsInsideCellBorders(t *testing.T) {
-	items, err := requirementTableItems("<<Element>>\nE\nType: service", geom.Rect{X: 0, Y: 0, W: 16, H: 5}, scene.ProfileCell)
+	items, err := requirementTableItems("<<Element>>\nE\nType: service", geom.Rect{X: 0, Y: 0, W: 16, H: 5}, scene.ProfileCell, "")
 	if err != nil {
 		t.Fatal(err)
 	}

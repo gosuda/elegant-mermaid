@@ -197,7 +197,7 @@ def measureLabel (p : Plan) (l : ModelLabel) : Except LayoutError LabelSpec := d
     else if l.id.startsWith "xt.t" then
       (.topTick, ((String.ofList (l.id.toList.drop 4)).toNat?).getD 0, .label, 10)
     else (.tick, ((String.ofList (l.id.toList.drop 3)).toNat?).getD 0, .label, 10)
-  let box ← XY.measureText (p.model.profile == .cell) l.text role size
+  let box ← XY.measureText (fontFamily := p.model.options.fontFamily) (p.model.profile == .cell) l.text role size
   pure ⟨l, kind, index, role, size, box⟩
 
 def Plan.taskLabelRect (p : Plan) (task : Task) (box : Rect) (text : XY.TextBox) : Rect × Align :=

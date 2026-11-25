@@ -216,7 +216,7 @@ theorem placeTitle_cases (m : Model) (c : Consts)
       ∃ i l shown w,
         before.findIdx? (fun x => x.source.id == "title") = some i ∧
         before[i]? = some l ∧
-        fit (m.profile == .cell) l.source.text c.width .title 16 = .ok (some (shown, w)) ∧
+        fit (fontFamily := m.options.fontFamily) (m.profile == .cell) l.source.text c.width .title 16 = .ok (some (shown, w)) ∧
         after = before.modify i (fun old => putLabel old shown
           ⟨Int.fdiv (c.width - w) 2,
             Int.fdiv (c.titleBand - (if m.profile == .cell then 1 else 1536)) 2,
@@ -228,7 +228,7 @@ theorem placeTitle_cases (m : Model) (c : Consts)
     split at h
     · cases h; exact Or.inl rfl
     · rename_i l hl
-      cases hfit : fit (m.profile == .cell) l.source.text c.width .title 16 with
+      cases hfit : fit (fontFamily := m.options.fontFamily) (m.profile == .cell) l.source.text c.width .title 16 with
       | error e =>
         simp only [hfit, bind, Except.bind] at h
         cases h
@@ -277,12 +277,12 @@ theorem step_cases (m : Model) (nodes : List Node) (lc : LeafConsts)
       simp only [hid, hc, Bool.false_eq_true, ↓reduceIte] at h
       exact Or.inr (Or.inr ⟨rfl, rfl, h⟩)
 
-theorem fit_success_cases (cell : Bool) (text : String) (avail : Int)
+theorem fit_success_cases {fontFamily : Bool} (cell : Bool) (text : String) (avail : Int)
     (role : Measure.Role) (size : Int) (shown : String) (w : Int)
-    (h : fit cell text avail role size = .ok (some (shown, w))) :
+    (h : fit (fontFamily := fontFamily) cell text avail role size = .ok (some (shown, w))) :
     text.isEmpty = false ∧
-      ((shown = text ∧ width cell text role size = .ok w ∧ w ≤ avail) ∨
-        width cell shown role size = .ok w) := by
+      ((shown = text ∧ width (fontFamily := fontFamily) cell text role size = .ok w ∧ w ≤ avail) ∨
+        width (fontFamily := fontFamily) cell shown role size = .ok w) := by
   unfold fit at h
   cases he : text.isEmpty with
   | true =>
@@ -383,11 +383,11 @@ theorem placeLeaf_cell_fit_cases (m : Model) (lc : LeafConsts) (n : Node)
     let value := before.findIdx? (fun l => l.source.id == n.source.id ++ ".value")
     let nameText := ((before[j]?).map (·.source.text)).getD ""
     let valueText := ((value.bind fun k => before[k]?).map (·.source.text)).getD ""
-    (fit true nameText aw .label 0 = .ok none ∧ after = before) ∨
+    (fit (fontFamily := m.options.fontFamily) true nameText aw .label 0 = .ok none ∧ after = before) ∨
       ∃ shown nw vw middle,
-        fit true nameText aw .label 0 = .ok (some (shown, nw)) ∧
+        fit (fontFamily := m.options.fontFamily) true nameText aw .label 0 = .ok (some (shown, nw)) ∧
         (if value.isSome && decide (2 + lc.spacing ≤ ah) then
-          width true valueText .body 0 else pure 0) = .ok vw ∧
+          width (fontFamily := m.options.fontFamily) true valueText .body 0 else pure 0) = .ok vw ∧
         let showValue := value.isSome && decide (2 + lc.spacing ≤ ah) && decide (vw ≤ aw)
         let rows := if showValue then 2 + lc.spacing else 1
         let top := r.y + lc.pad + Int.fdiv (ah - rows) 2
@@ -408,12 +408,12 @@ theorem placeLeaf_cell_fit_cases (m : Model) (lc : LeafConsts) (n : Node)
   simp only [labelIndex_eq_findIdx, sourceText_eq_lookup] at h
   simp only [Bool.or_eq_true, decide_eq_true_eq, hdisplay, hcell, ↓reduceIte,
     pure, Except.pure, bind, Except.bind] at h
-  change (fit true
+  change (fit (fontFamily := m.options.fontFamily) true
       ((((before.findIdx? (fun l => l.source.id == n.source.id ++ ".name")).bind
         fun k => before[k]?).map (·.source.text)).getD "")
       ((tileRect n.rect).w - 2 * lc.pad) .label 0 >>= _) = .ok after at h
   obtain ⟨answer, hfit, h⟩ := bind_ok h
-  change fit true
+  change fit (fontFamily := m.options.fontFamily) true
     ((((before.findIdx? (fun l => l.source.id == n.source.id ++ ".name")).bind
       fun k => before[k]?).map (·.source.text)).getD "")
     _ _ _ = _ at hfit
@@ -478,12 +478,12 @@ theorem placeHeader_fit_cases (m : Model) (c : Consts) (n : Node)
     let vi := LayoutConst.treemap_header_value_inset.get p
     let ni := LayoutConst.treemap_header_label_inset.get p
     ∃ vw fitted middle,
-      (if value.isSome then width cell valueText .body vs else pure 0) = .ok vw ∧
+      (if value.isSome then width (fontFamily := m.options.fontFamily) cell valueText .body vs else pure 0) = .ok vw ∧
       let reserve := vi + vw + LayoutConst.treemap_header_gap.get p
       let showValue := value.isSome && decide (vw + vi + ni ≤ r.w) &&
         decide (r.w - ni - reserve ≥ LayoutConst.treemap_header_label_min.get p)
       let avail := if showValue then r.w - ni - reserve else r.w - 2 * ni
-      fit cell nameText avail .label ns = .ok fitted ∧
+      fit (fontFamily := m.options.fontFamily) cell nameText avail .label ns = .ok fitted ∧
       middle = (match fitted with
         | none => before
         | some (shown, w) => before.modify j (fun l =>
@@ -560,7 +560,7 @@ theorem placeHeader_absent_name_cases (m : Model) (c : Consts) (n : Node)
     let vi := LayoutConst.treemap_header_value_inset.get p
     let ni := LayoutConst.treemap_header_label_inset.get p
     ∃ vw,
-      (if value.isSome then width cell valueText .body vs else pure 0) = .ok vw ∧
+      (if value.isSome then width (fontFamily := m.options.fontFamily) cell valueText .body vs else pure 0) = .ok vw ∧
       after = (if value.isSome && decide (vw + vi + ni ≤ r.w) then
         match value with
         | none => before
@@ -610,9 +610,9 @@ theorem placeLeaf_vector_fit_cases (m : Model) (lc : LeafConsts) (n : Node)
     let nameText := ((before[j]?).map (·.source.text)).getD ""
     let valueText := ((value.bind fun k => before[k]?).map (·.source.text)).getD ""
     ∃ ns,
-      (fit false nameText aw .label ns = .ok none ∧ after = before) ∨
+      (fit (fontFamily := m.options.fontFamily) false nameText aw .label ns = .ok none ∧ after = before) ∨
       ∃ shown nw,
-        fit false nameText aw .label ns = .ok (some (shown, nw)) ∧
+        fit (fontFamily := m.options.fontFamily) false nameText aw .label ns = .ok (some (shown, nw)) ∧
         ((1280 > r.h ∧ after = before) ∨
         ∃ vw middle,
           ¬1280 > r.h ∧
@@ -620,7 +620,7 @@ theorem placeLeaf_vector_fit_cases (m : Model) (lc : LeafConsts) (n : Node)
             (min (Int.fdiv lc.valueSize 64)
               (roundDiv (ns * LayoutConst.treemap_value_scale_percent.get m.profile) 100))
           (if value.isSome && decide (2 * 1280 + lc.spacing ≤ r.h) then
-            width false valueText .body vs else pure 0) = .ok vw ∧
+            width (fontFamily := m.options.fontFamily) false valueText .body vs else pure 0) = .ok vw ∧
           let showValue := value.isSome && decide (2 * 1280 + lc.spacing ≤ r.h) &&
             decide (vw ≤ aw)
           let rows := if showValue then 2 * 1280 + lc.spacing else 1280
@@ -764,14 +764,14 @@ def HeaderWriteRun (m : Model) (c : Consts) (n : Node)
   let vi := LayoutConst.treemap_header_value_inset.get p
   let ni := LayoutConst.treemap_header_label_inset.get p
   ∃ vw fitted middle,
-    (if value.isSome then width cell valueText .body vs else pure 0) = .ok vw ∧
+    (if value.isSome then width (fontFamily := m.options.fontFamily) cell valueText .body vs else pure 0) = .ok vw ∧
     let reserve := vi + vw + LayoutConst.treemap_header_gap.get p
     let showValue := value.isSome && decide (vw + vi + ni ≤ r.w) &&
       (name.isNone || decide (r.w - ni - reserve ≥ LayoutConst.treemap_header_label_min.get p))
     let avail := if showValue then r.w - ni - reserve else r.w - 2 * ni
     (match name with
       | none => fitted = none
-      | some _ => fit cell nameText avail .label ns = .ok fitted) ∧
+      | some _ => fit (fontFamily := m.options.fontFamily) cell nameText avail .label ns = .ok fitted) ∧
     middle = (match name, fitted with
       | some j, some (shown, w) => before.modify j (fun l =>
         { putLabel l shown ⟨r.x + ni, r.y + top, w, lh⟩ ns with align := .start })
@@ -820,7 +820,7 @@ def LeafWriteRun (m : Model) (lc : LeafConsts) (n : Node)
   ∃ j ns shown nw vw middle,
     before.findIdx? (fun l => l.source.id == n.source.id ++ ".name") = some j ∧
     (cell = true → ns = 0) ∧
-    fit cell (((before[j]?).map (·.source.text)).getD "") aw .label ns =
+    fit (fontFamily := m.options.fontFamily) cell (((before[j]?).map (·.source.text)).getD "") aw .label ns =
       .ok (some (shown, nw)) ∧
     let lh := if cell then 1 else 1280
     let vs := if cell then 0 else max (Int.fdiv lc.valueMin 64)
@@ -828,7 +828,7 @@ def LeafWriteRun (m : Model) (lc : LeafConsts) (n : Node)
         (roundDiv (ns * LayoutConst.treemap_value_scale_percent.get m.profile) 100))
     let pair := 2 * lh + lc.spacing
     let room := decide (pair ≤ (if cell then ah else r.h))
-    (if value.isSome && room then width cell valueText .body vs else pure 0) = .ok vw ∧
+    (if value.isSome && room then width (fontFamily := m.options.fontFamily) cell valueText .body vs else pure 0) = .ok vw ∧
     let showValue := value.isSome && room && decide (vw ≤ aw)
     let rows := if showValue then pair else lh
     let top := if cell then r.y + lc.pad + Int.fdiv (ah - rows) 2
@@ -881,7 +881,7 @@ theorem title_origin_at_index (m : Model) (c : Consts) (after : List PlacedLabel
       ∃ l shown w,
         (initialLabels m).findIdx? (fun x => x.source.id == "title") = some i ∧
         (initialLabels m)[i]? = some l ∧
-        fit (m.profile == .cell) l.source.text c.width .title 16 = .ok (some (shown, w)) ∧
+        fit (fontFamily := m.options.fontFamily) (m.profile == .cell) l.source.text c.width .title 16 = .ok (some (shown, w)) ∧
         after[i]? = some (putLabel l shown
           ⟨Int.fdiv (c.width - w) 2,
             Int.fdiv (c.titleBand - (if m.profile == .cell then 1 else 1536)) 2,
@@ -913,7 +913,7 @@ theorem public_label_placement_cases (m : Model) (result : Layered.FamilyResult)
           ∃ l shown w,
             (initialLabels m).findIdx? (fun x => x.source.id == "title") = some i ∧
             (initialLabels m)[i]? = some l ∧
-            fit (m.profile == .cell) l.source.text (constants m).width .title 16 =
+            fit (fontFamily := m.options.fontFamily) (m.profile == .cell) l.source.text (constants m).width .title 16 =
               .ok (some (shown, w)) ∧
             titleLabels[i]? = some (putLabel l shown
               ⟨Int.fdiv ((constants m).width - w) 2,

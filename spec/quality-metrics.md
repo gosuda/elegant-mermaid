@@ -76,6 +76,7 @@ This file defines the hard constraints beyond the validator, the metric formulas
     Dagre 3.1.3 cannot rank an edge that ends at a compound parent. An edge endpoint that is a group MUST be replaced, for dagre only, by the first real node among the group's descendants in declaration order. A group with no real descendant MUST be passed to dagre as an ordinary node with our measured size and no children. The dump keeps the original `from` and `to` ids. A fixture for which an engine still throws fails `just quality`, and the message names the fixture and the engine.
 - quality-metrics-27: The ELK baseline MUST use these Layered options, with edge routing orthogonal and model order on. [just quality]
     Upstream Mermaid defaults `forceNodeModelOrder` to false and `considerModelOrder` to `NODES_AND_EDGES`; here both are on.
+    The table applies at the root. Nested graphs MUST repeat the same options except the two model-order options, which MUST remain root-only. ELK 0.12.1 does not initialize the model-order indices needed when those options are repeated on nested graphs. Spacing, direction, and padding therefore remain identical at every depth without invoking that invalid nested ordering pass.
     |Option|Value|
     |---|---|
     |`elk.algorithm`|`layered`|
@@ -95,7 +96,7 @@ This file defines the hard constraints beyond the validator, the metric formulas
     |`elk.edgeLabels.placement`|`CENTER`|
 - quality-metrics-28: No subgraph `direction` MUST be passed to either baseline. [just quality]
 - quality-metrics-29: Node text MUST stay inside the node box, and neither baseline MUST get node labels. [just quality]
-    An edge label is passed with our measured `w` and `h`. Dagre gets `width`, `height`, and `labelpos: 'c'` on the edge, with the edge name set to the route id. ELK gets a label child with the label id, `width`, and `height`. Dagre returns the label centre as the edge `x` and `y` when `labelpos` is `c` (dagre 3.1.3 shifts `x` by half the label width only for `l` and `r`). ELK returns the label top-left.
+    An edge label is passed with our measured `w` and `h`. Dagre gets `width`, `height`, and `labelpos: 'c'` on the edge, with the edge name set to the route id. ELK gets a label child with the label id, `text`, `width`, and `height`, and the listed inline and placement options on that label. ELK ignores a label without `text`, and the root options do not set an individual label's placement. Dagre returns the label centre as the edge `x` and `y` when `labelpos` is `c` (dagre 3.1.3 shifts `x` by half the label width only for `l` and `r`). ELK returns the label top-left relative to its edge's container; the adapter adds that container's absolute position before rounding, as it does for route points.
 - quality-metrics-30: Every coordinate or size that a baseline returns in px, `v`, MUST become the integer `r(64 * v)`, where `r(u) = sign(u) * floor(abs(u) + 0.5)` rounds half away from zero on the IEEE double `u`. [just quality]
     The product `64 * v` is exact.
 - quality-metrics-31: A real node box MUST keep our `w` and `h`. [just quality]

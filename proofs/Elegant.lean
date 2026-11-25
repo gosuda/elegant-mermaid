@@ -294,6 +294,7 @@ import Elegant.Kinds.ArchitectureC6
 import Elegant.Layered.FlatGroupEndpointsProof
 import Elegant.Layered.FlatC6ScopeBridgeProof
 import Elegant.Layered.ForeignBorderSpansProof
+import Elegant.Layered.LaneBandsTextCases
 import Elegant.Layered.ForeignNonGroupSpansProof
 import Elegant.Kinds.TreemapC7
 import Elegant.Kinds.ArchitectureC2

@@ -57,20 +57,22 @@ structure Row where
 def field (m : Model) (b : ModelBox) (suffix fallback : String) : String :=
   m.labels.foldl (fun value l => if l.owner == b.id && l.id.endsWith suffix then l.text else value) fallback
 
-def measureWidth (p : Profile) (role : Measure.Role) (s : String) : Except LayoutError Int := do
+def measureWidth (p : Profile) (role : Measure.Role) (s : String)
+    (fontFamily : Bool := false) : Except LayoutError Int := do
   if p = .cell then
     Measure.textWidth ⟨.cell, 14, 0, 2048, false⟩ s.toList
   else
-    let metric ← role.metric
+    let metric ← role.metric fontFamily
     Measure.textWidth metric s.toList
 
 theorem measureWidth_nonnegative {p : Profile} {role : Measure.Role}
-    {s : String} {w : Int} (h : measureWidth p role s = .ok w) :
+    {s : String} {w : Int} {fontFamily : Bool}
+    (h : measureWidth p role s fontFamily = .ok w) :
     0 ≤ w := by
   unfold measureWidth at h
   split at h
   · exact Measure.textWidth_nonneg h
-  · cases hm : role.metric with
+  · cases hm : role.metric fontFamily with
     | error e => simp [hm, Bind.bind, Except.bind] at h
     | ok metric =>
       simp only [hm, Bind.bind, Except.bind] at h
@@ -124,8 +126,8 @@ def pushRow (m : Model) (entry : ModelBox × Nat) (out : Array Row) :
   let icon := field m b ".icon" ""
   let icon := if icon == "none" then "" else icon
   let role := if b.shape == "directory" then Measure.Role.label else .body
-  let lw ← measureWidth m.profile role name
-  let dw ← measureWidth m.profile .body desc
+  let lw ← measureWidth m.profile role name m.options.fontFamily
+  let dw ← measureWidth m.profile .body desc m.options.fontFamily
   let last := !(m.routes.any fun r => r.fromId == (match parent with
     | none => "" | some j => ((m.boxes[j]?).map (·.id)).getD "") &&
     (match m.boxes.findIdx? (fun a => a.id == r.toId) with | some j => j > i | none => false))

@@ -221,10 +221,10 @@ theorem folded_width_ge_initial (lines : List Measure.Line) (initial : Int) :
   | cons first rest ih =>
     exact Int.le_trans (Int.le_max_left _ _) (ih (max initial first.width))
 
-theorem measured_text_nonnegative (cell : Bool) (text : String) (role : Measure.Role)
-    (box : XY.TextBox) (hout : XY.measureText cell text role role.sizePx = .ok box) :
+theorem measured_text_nonnegative {fontFamily : Bool} (cell : Bool) (text : String) (role : Measure.Role)
+    (box : XY.TextBox) (hout : XY.measureText cell text role role.sizePx fontFamily = .ok box) :
     0 ≤ box.w ∧ 0 ≤ box.h := by
-  cases hm : XY.metricOf cell role role.sizePx with
+  cases hm : XY.metricOf cell role role.sizePx fontFamily with
   | error e => simp [XY.measureText, hm, Bind.bind, Except.bind] at hout
   | ok metric =>
     cases hl : StyledMeasure.wrap metric I32_MAX text.toList with
@@ -379,7 +379,7 @@ def measureDomain (m : Model) (id : String) :
     Except LayoutError (List (ModelLabel × XY.TextBox × Measure.Role)) :=
   (m.labels.filter (fun l => l.owner == id)).mapM fun l => do
     let role := if l.id == id ++ ".label" then Measure.Role.label else .body
-    let box ← XY.measureText (m.profile == .cell) l.text role role.sizePx
+    let box ← XY.measureText (fontFamily := m.options.fontFamily) (m.profile == .cell) l.text role role.sizePx
     pure (l, box, role)
 
 def measuredWidth (c : Consts) (measured : List (ModelLabel × XY.TextBox × Measure.Role)) : Int :=
@@ -965,7 +965,7 @@ def layout (m : Model) : Except LayoutError Scene := do
   let title ← match titleSource with
     | none => pure ([] : List Placed)
     | some l => do
-      let b ← XY.measureText (m.profile == .cell) l.text .title 16
+      let b ← XY.measureText (fontFamily := m.options.fontFamily) (m.profile == .cell) l.text .title 16
       pure [⟨l,b,⟨max 0 (Int.fdiv c.width 2 - Int.fdiv b.w 2), c.pad,b.w,b.h⟩,.title,.middle⟩]
   let domains ← (m.boxes.filter (fun b => b.id != "frame")).mapM fun b =>
     placeDomain c m ((title.head?).map (·.box.h) |>.getD 0) b.id
@@ -978,7 +978,7 @@ def layout (m : Model) : Except LayoutError Scene := do
     match m.labels.find? (fun l => l.owner == r.id) with
     | none => pure labels
     | some l => do
-      let box ← XY.measureText (m.profile == .cell) l.text .body 14
+      let box ← XY.measureText (fontFamily := m.options.fontFamily) (m.profile == .cell) l.text .body 14
       let candidates := labelSides c box r.points
       let blocked := fun rect => domains.any (fun d => overlaps rect d.rect) ||
         routes.any (fun route => hitsLabel route.points rect (if m.profile == .cell then 1 else 0)) ||
@@ -1131,7 +1131,7 @@ theorem measureDomain_nonnegative (m : Model) (id : String)
   intro l t ht
   let role := if l.id == id ++ ".label" then Measure.Role.label else .body
   change (do
-    let box ← XY.measureText (m.profile == Profile.cell) l.text role role.sizePx
+    let box ← XY.measureText (fontFamily := m.options.fontFamily) (m.profile == Profile.cell) l.text role role.sizePx
     pure (l, box, role)) = .ok t at ht
   obtain ⟨box, hbox, ht⟩ := bind_ok ht
   have he : (l, box, role) = t := by

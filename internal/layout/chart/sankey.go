@@ -108,9 +108,9 @@ type sankeyText struct {
 	cells int64
 }
 
-func measureSankeyLabel(text string) (sankeyText, error) {
+func measureSankeyLabel(text, fontFamily string) (sankeyText, error) {
 	role := measure.RoleLabel
-	metric := measure.Metric{Profile: measure.ProfileVector, SizePx: role.SizePx(), Weight: role.Weight()}
+	metric := measure.Metric{Profile: measure.ProfileVector, SizePx: role.SizePx(), Weight: role.Weight(), FontFamily: fontFamily != ""}
 	lines, err := measure.Wrap(text, geom.I32Max, metric)
 	if err != nil {
 		return sankeyText{}, err
@@ -129,16 +129,17 @@ func measureSankeyLabel(text string) (sankeyText, error) {
 }
 
 type sankeyPlan struct {
-	m      *chartmodel.Chart
-	s      *chartmodel.Sankey
-	c      sankeyConsts
-	flow   *flow
-	width  int64
-	height int64
-	nodes  []rect
-	texts  []*sankeyText
-	places []rect
-	aligns []scene.Align
+	m          *chartmodel.Chart
+	s          *chartmodel.Sankey
+	fontFamily string
+	c          sankeyConsts
+	flow       *flow
+	width      int64
+	height     int64
+	nodes      []rect
+	texts      []*sankeyText
+	places     []rect
+	aligns     []scene.Align
 }
 
 func layoutSankey(m *chartmodel.Chart, o scene.Options) (scene.Scene, []diag.Diagnostic, error) {
@@ -146,6 +147,7 @@ func layoutSankey(m *chartmodel.Chart, o scene.Options) (scene.Scene, []diag.Dia
 	if err != nil {
 		return scene.Scene{}, nil, err
 	}
+	p.fontFamily = o.FontFamily
 	if err = p.arrange(); err != nil {
 		return scene.Scene{}, nil, err
 	}
@@ -210,7 +212,7 @@ func (p *sankeyPlan) placeLabels() error {
 		if n.Label == "" {
 			continue
 		}
-		text, err := measureSankeyLabel(n.Label)
+		text, err := measureSankeyLabel(n.Label, p.fontFamily)
 		if err != nil {
 			return err
 		}

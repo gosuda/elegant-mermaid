@@ -189,7 +189,55 @@ def placedFragments (margin : Int) (contracted : Scene) (l : BundleLayout) :
   pure (place l.footprint.target l.part.scene ::
     (l.notes.zip l.footprint.notes).map fun q => place q.2 q.1.2.scene)
 
-def routeAround (inp : Input) (atts : List Attach) (frame : Frame)
+/-- Visibility routing permits obstacle-boundary segments. This one-cell reservation keeps
+the closed painted text rectangle in the obstacle's open interior. -/
+def expandedTextRect (rect : Rect) : Rect :=
+  ⟨rect.x - 1, rect.y - 1, rect.w + 2, rect.h + 2⟩
+
+theorem expandedTextRect_contains_closed {rect : Rect} {point : Point}
+    (hx : rect.x ≤ point.x ∧ point.x ≤ rect.x + rect.w)
+    (hy : rect.y ≤ point.y ∧ point.y ≤ rect.y + rect.h) :
+    (expandedTextRect rect).x < point.x ∧
+    point.x < (expandedTextRect rect).x + (expandedTextRect rect).w ∧
+    (expandedTextRect rect).y < point.y ∧
+    point.y < (expandedTextRect rect).y + (expandedTextRect rect).h := by
+  simp only [expandedTextRect]
+  omega
+
+def attachmentTextObstacle (profile : Profile) (rect : Rect) : Except LayoutError Rect :=
+  if profile == .vector || rect.w == 0 || rect.h == 0 then pure rect
+  else
+    let expanded := expandedTextRect rect
+    if expanded.w < 0 ∨ expanded.h < 0 then throw .domain
+    else if InI32 expanded.x ∧ InI32 expanded.y ∧ InI32 expanded.w ∧
+        InI32 expanded.h ∧ InI32 (expanded.x + expanded.w) ∧
+        InI32 (expanded.y + expanded.h) then pure expanded
+    else throw .overflow
+
+theorem attachmentTextObstacle_cell {rect obstacle : Rect} (hw : rect.w ≠ 0)
+    (hh : rect.h ≠ 0) (h : attachmentTextObstacle .cell rect = .ok obstacle) :
+    obstacle = expandedTextRect rect := by
+  have skip : (Profile.cell == .vector || rect.w == 0 || rect.h == 0) = false := by
+    simp [hw, hh]
+  simp only [attachmentTextObstacle, skip, Bool.false_eq_true, ↓reduceIte] at h
+  split at h
+  · cases h
+  · split at h
+    · cases h
+      rfl
+    · cases h
+
+#guard (attachmentTextObstacle .vector ⟨3, 4, 5, 1⟩).toOption = some ⟨3, 4, 5, 1⟩
+#guard (attachmentTextObstacle .cell ⟨3, 4, 5, 1⟩).toOption = some ⟨2, 3, 7, 3⟩
+#guard (attachmentTextObstacle .cell ⟨3, 4, 0, 1⟩).toOption = some ⟨3, 4, 0, 1⟩
+#guard match attachmentTextObstacle .cell ⟨I32_MIN, 0, 1, 1⟩ with
+  | .error .overflow => true
+  | _ => false
+#guard match attachmentTextObstacle .cell ⟨I32_MAX - 1, 0, 1, 1⟩ with
+  | .error .overflow => true
+  | _ => false
+
+def routeAround (profile : Profile) (inp : Input) (atts : List Attach) (frame : Frame)
     (rects : List (String × Rect)) (labels : List SceneLabel) (titles : List (String × Rect))
     (r : ModelRoute) : Except LayoutError (List Point) := do
   let some from_ := rects.lookup r.fromId | throw .domain
@@ -202,7 +250,9 @@ def routeAround (inp : Input) (atts : List Attach) (frame : Frame)
     | some owner => if comp.contains owner.fromId then some l.rect else none
     | none => none
   let titleObstacles := titles.filterMap fun t => if comp.contains t.1 then some t.2 else none
-  let obstacles := (boxObstacles ++ labelObstacles ++ titleObstacles).map frame.rect
+  let textObstacles ← (labelObstacles ++ titleObstacles).mapM fun rect =>
+    attachmentTextObstacle profile (frame.rect rect)
+  let obstacles := boxObstacles.map frame.rect ++ textObstacles
   let starts := Visibility.ports (frame.rect from_)
   let ends := Visibility.ports (frame.rect to_)
   let grid := Visibility.newGrid obstacles (starts ++ ends) none
@@ -243,12 +293,12 @@ def composeNotes (P : Params) (inp : Input) (o : Options) (margin : Int)
           match (placed.getD a []).findSome? (·.route r.id) with
           | some points => pure points
           | none => throw .domain
-        else routeAround inp atts frame rects labels titles r
+        else routeAround o.profile inp atts frame rects labels titles r
       | none, none =>
         match contracted.scene.routes.find? (·.id == r.id) with
         | some route => pure route.points
         | none => throw .domain
-      | _, _ => routeAround inp atts frame rects labels titles r
+      | _, _ => routeAround o.profile inp atts frame rects labels titles r
     pure (Route.mk r.id r.fromId r.toId r.orthogonal points)
   let items := applyTitles titles (sceneItems P inp boxes routes lines labels)
   pure { contracted.scene with boxes := boxes, routes := routes, labels := labels, items := items }
@@ -262,7 +312,7 @@ def layoutNotes (base : List String → Input → Options → Except LayoutError
     if bundles.isEmpty then base exactIds inp o
     else
       let P ← checkedParams o.profile inp.kind
-      let metric ← metricOf o.profile
+      let metric ← metricOf o.profile o.fontFamily
       let margin := P.canvasMargin
       let layouts ← bundles.mapM
         (bundleLayout (layoutNotes base exactIds fuel) (base exactIds) inp o margin (2 * P.slot + 2))

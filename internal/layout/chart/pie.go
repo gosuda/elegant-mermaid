@@ -53,6 +53,7 @@ type pieSlice struct {
 type piePlan struct {
 	chart        *chartmodel.Chart
 	pie          *chartmodel.Pie
+	fontFamily   string
 	c            pieConsts
 	donut        int64
 	textPosition int64

@@ -24,11 +24,13 @@ pub(crate) fn from_architecture(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = model
-        .config
-        .iter()
-        .map(|entry| (entry.key.clone(), DumpValue::Integer(entry.value)))
-        .collect::<BTreeMap<_, _>>();
+    options.set_kind_config(
+        model
+            .config
+            .iter()
+            .map(|entry| (entry.key.clone(), DumpValue::Integer(entry.value)))
+            .collect::<BTreeMap<_, _>>(),
+    );
     options.profile = profile;
     options.direction = Direction::Tb;
     let aligns = alignment_suffixes(model);
