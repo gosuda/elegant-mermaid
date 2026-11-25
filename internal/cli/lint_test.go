@@ -639,6 +639,7 @@ func checkFrameOwnership(t *testing.T) {
 		checkGrammarDiagnostics(t, source, []string{"check", "--output-format", "json", "-"}, grammarExpectation{frameCode, "error", 0, 0})
 	}
 	for name, config := range map[string]string{
+		"select":   `{"lint":{"select":["flowchart/duplicate-ids"]}}`,
 		"ignore":   `{"lint":{"ignore":["` + frameCode + `"]}}`,
 		"off":      `{"lint":{"severity":{"` + frameCode + `":"off"}}}`,
 		"severity": `{"lint":{"severity":{"` + frameCode + `":"info"}}}`,

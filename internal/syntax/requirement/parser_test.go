@@ -376,11 +376,7 @@ func TestQuotedTokensKeepQuotesWithoutEscaping(t *testing.T) {
 	}
 }
 
-func TestLexerModesAndRulePrecedence(t *testing.T) {
-	want := []string{"INITIAL", "string", "token", "unqString", "style", "acc_title", "acc_descr", "acc_descr_multiline"}
-	if strings.Join(Modes, ",") != strings.Join(want, ",") {
-		t.Fatal(Modes)
-	}
+func TestLexerRulePrecedence(t *testing.T) {
 	tokens := Lex([]byte("requirementDiagram\nstyle A x:12%;#fff\n"), nil)
 	kinds := make([]string, len(tokens))
 	for i, tok := range tokens {

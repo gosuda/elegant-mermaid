@@ -168,12 +168,15 @@ def FlatC6LoopCase (inp : Input) (o : Options) (res : FamilyResult) : Prop :=
   ∀ (execution : SceneExecution inp o res),
     FrameClearanceSeam inp o res → RouteScopeBridge inp o res →
     (∀ (comp : List Nat) (candidate : Nat) (run : Run) (v : Nat),
+      comp ∈ components execution.graph →
       componentRun execution.params
         (componentCandidate execution.graph comp candidate) execution.measured
         (candidateOrder candidate) = .ok run →
       LoopReservation (componentCandidate execution.graph comp candidate) run
         execution.measured v) →
     (∀ (comp : List Nat) (candidate : Nat) (run : Run) (v b : Nat),
+      comp ∈ components execution.graph →
+      ((componentCandidate execution.graph comp candidate).nodes.getD b default).border = 0 →
       componentRun execution.params
         (componentCandidate execution.graph comp candidate) execution.measured
         (candidateOrder candidate) = .ok run →
@@ -218,12 +221,15 @@ theorem flat_c6_core
     (hbridge : RouteScopeBridge inp o res)
     (hloopRes : ∀ (e : SceneExecution inp o res) (comp : List Nat)
       (candidate : Nat) (run : Run) (v : Nat),
+      comp ∈ components e.graph →
       componentRun e.params
         (componentCandidate e.graph comp candidate) e.measured
         (candidateOrder candidate) = .ok run →
       LoopReservation (componentCandidate e.graph comp candidate) run e.measured v)
     (hloopSep : ∀ (e : SceneExecution inp o res) (comp : List Nat)
       (candidate : Nat) (run : Run) (v b : Nat),
+      comp ∈ components e.graph →
+      ((componentCandidate e.graph comp candidate).nodes.getD b default).border = 0 →
       componentRun e.params
         (componentCandidate e.graph comp candidate) e.measured
         (candidateOrder candidate) = .ok run →
@@ -260,6 +266,7 @@ theorem layout_c6 {inp : Input} {o : Options} {res : FamilyResult}
     (hbridge : RouteScopeBridge inp o res)
     (hloopRes : ∀ (execution : SceneExecution inp o res) (comp : List Nat)
       (candidate : Nat) (run : Run) (v : Nat),
+      comp ∈ components execution.graph →
       componentRun execution.params
         (componentCandidate execution.graph comp candidate) execution.measured
         (candidateOrder candidate) = .ok run →
@@ -267,6 +274,8 @@ theorem layout_c6 {inp : Input} {o : Options} {res : FamilyResult}
         execution.measured v)
     (hloopSep : ∀ (execution : SceneExecution inp o res) (comp : List Nat)
       (candidate : Nat) (run : Run) (v b : Nat),
+      comp ∈ components execution.graph →
+      ((componentCandidate execution.graph comp candidate).nodes.getD b default).border = 0 →
       componentRun execution.params
         (componentCandidate execution.graph comp candidate) execution.measured
         (candidateOrder candidate) = .ok run →

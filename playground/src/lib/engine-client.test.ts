@@ -84,6 +84,27 @@ describe('EngineClient', () => {
     await expect(answer).resolves.toBe('{"ok":true}');
   });
 
+  it('answers a call in a browser without Promise.withResolvers', async () => {
+    const withResolvers = Object.getOwnPropertyDescriptor(Promise, 'withResolvers');
+    Reflect.deleteProperty(Promise, 'withResolvers');
+    try {
+      const { client, workers } = setup();
+      client.start();
+      workers[0]?.emit({ type: 'ready' });
+      const answer = client.call('check', 'src', '{}', 3);
+      const sent = workers[0]?.sent[1];
+      if (sent?.type !== 'call') {
+        throw new Error('expected a call message');
+      }
+      workers[0]?.emit({ type: 'result', id: sent.id, revision: 3, response: '{"ok":true}' });
+      await expect(answer).resolves.toBe('{"ok":true}');
+    } finally {
+      if (withResolvers !== undefined) {
+        Object.defineProperty(Promise, 'withResolvers', withResolvers);
+      }
+    }
+  });
+
   it('rejects a call that the worker reports as failed', async () => {
     const { client, workers } = setup();
     client.start();

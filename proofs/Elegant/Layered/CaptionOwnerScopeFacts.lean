@@ -221,6 +221,8 @@ def OwnerScopeSamePartClear (inp : Input) (o : Options) (res : FamilyResult) : P
     b.id ∉ res.scene.layoutDump.labelOwnerAnc
       (captionLabel inp o res execution ownerIndex source lines) →
     source.owner ∉ res.scene.layoutDump.ancestors b.id →
+    (PipelineImpl.sceneTitlesExpr execution.params inp o execution.lines
+        execution.packedAcc).find? (fun title => title.1 == source.owner) = none →
     ∀ (bi k posOwner posB : Nat) (part : List Nat × PipelineImpl.Part),
       res.scene.boxes[bi]? = some b →
       execution.componentsAcc.parts[k]? = some part →
@@ -245,7 +247,7 @@ here from the executed packing. -/
 theorem ownerScopeExclusiveClear_of_same_part {inp : Input} {o : Options}
     {res : FamilyResult} (hsame : OwnerScopeSamePartClear inp o res) :
     OwnerScopeExclusiveClear inp o res := by
-  intro execution index ownerIndex source lines b hsrc hmeas hfindIdx hmem hex hscope hd
+  intro execution index ownerIndex source lines b hsrc hmeas hfindIdx hmem hex hscope hd hnone
   have hmem0 : b ∈ res.scene.layoutDump.boxes := hmem
   have hexprEq : (PipelineImpl.sceneBoxesExpr execution.params inp o execution.packedAcc)
       = res.scene.boxes := (execution.boxes_eq_map).symm
@@ -291,7 +293,7 @@ theorem ownerScopeExclusiveClear_of_same_part {inp : Input} {o : Options}
       PipelineImpl.part_frame_lookup execution packed hpacked hkB'
         (List.getElem?_eq_some_iff.mpr ⟨hKB, rfl⟩)
     have hdisjFrame := hsame execution index ownerIndex source lines b hsrc hmeas hfindIdx
-      hmem0 hex hscope hd bi kB posO posB partO hbi hkB' hposO hposB hposNe candB runB hrunB
+      hmem0 hex hscope hd hnone bi kB posO posB partO hbi hkB' hposO hposB hposNe candB runB hrunB
     have hdisjFrame' : Disjoint
         (PipelineImpl.frameRect execution.params
           (PipelineImpl.componentCandidate execution.graph partO.1 candB) runB posB)

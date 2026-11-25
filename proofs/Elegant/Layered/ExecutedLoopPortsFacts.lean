@@ -244,6 +244,23 @@ theorem componentLoops_entry_origin
   cases heq
   exact ⟨v, List.mem_range.mp hv, placements, hp, entry.1, hentry, rfl, hend⟩
 
+theorem componentLoops_entry_misses_owner
+    {P : Params} {cg : Graph} {run : Run} {labels : List MeasuredLabel}
+    {loops : List (Nat × LoopPlacement)}
+    (hloops : componentLoops P cg run labels = .ok loops)
+    {entry : Nat × LoopPlacement} (hentry : entry ∈ loops) :
+    ∃ v, v < cg.nodes.length ∧ ∃ edge ∈ loopEdges cg.edges v,
+      entry.1 = edge.decl ∧ edge.tail = v ∧ edge.head = v ∧
+      ¬ Polyline.hitsRect entry.2.points (frameRect P cg run v) := by
+  obtain ⟨v, hv, placements, hp, edge, hzip, hdecl, htail, hhead⟩ :=
+    componentLoops_entry_origin hloops hentry
+  have hm := (List.of_mem_zip hzip).2
+  have hmiss : ¬ Polyline.hitsRect entry.2.points (frameRect P cg run v) := by
+    split at hp
+    · exact Loops.exactLoops_result_outside_node hp entry.2 hm
+    · exact Loops.loops_result_outside_node hp entry.2 hm
+  exact ⟨v, hv, edge, (List.of_mem_zip hzip).1, hdecl, htail, hhead, hmiss⟩
+
 theorem componentLoops_excludes_ordinary_decl
     {P : Params} {cg : Graph} {run : Run} {labels : List MeasuredLabel}
     {loops : List (Nat × LoopPlacement)}

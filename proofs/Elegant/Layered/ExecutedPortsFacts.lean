@@ -72,26 +72,12 @@ theorem componentRun_ordinary_route_attachment
   have hsh := (hdims _ hf.1).2
   have hth := (hdims _ hl.2.1).2
   have hsboundary : Validator.onBoundary
-      ⟨px, (RouteImpl.boxRect run.proper run.xs run.ys
-        (RouteImpl.edgeAt run.proper first).tail).y +
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).h⟩
-      (RouteImpl.boxRect run.proper run.xs run.ys (RouteImpl.edgeAt run.proper first).tail) := by
-    simp only [Validator.onBoundary, RouteImpl.boxRect]
-    exact ⟨hpx0, hpx1, by omega, by omega, Or.inr (Or.inr (Or.inr True.intro))⟩
-  have hsboundary_ite : Validator.onBoundary
-      ⟨px, if RouteImpl.frameKind run.proper (RouteImpl.edgeAt run.proper first).tail = -2 then
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).y else
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).y +
-        (RouteImpl.boxRect run.proper run.xs run.ys
-          (RouteImpl.edgeAt run.proper first).tail).h⟩
+      ⟨px, RouteImpl.tailPortY run.proper run.ys (RouteImpl.edgeAt run.proper first).tail⟩
       (RouteImpl.boxRect run.proper run.xs run.ys (RouteImpl.edgeAt run.proper first).tail) := by
     by_cases hfk : RouteImpl.frameKind run.proper (RouteImpl.edgeAt run.proper first).tail = -2
-    · simp only [Validator.onBoundary, RouteImpl.boxRect, hfk, ↓reduceIte]
+    · simp only [Validator.onBoundary, RouteImpl.tailPortY, RouteImpl.boxRect, hfk, ↓reduceIte]
       exact ⟨hpx0, hpx1, by omega, by omega, Or.inr (Or.inr (Or.inl True.intro))⟩
-    · simp only [Validator.onBoundary, RouteImpl.boxRect, hfk, ↓reduceIte]
+    · simp only [Validator.onBoundary, RouteImpl.tailPortY, RouteImpl.boxRect, hfk, ↓reduceIte]
       exact ⟨hpx0, hpx1, by omega, by omega, Or.inr (Or.inr (Or.inr True.intro))⟩
   have htboundary : Validator.onBoundary
       ⟨qx, (RouteImpl.boxRect run.proper run.xs run.ys
@@ -127,7 +113,7 @@ theorem componentRun_ordinary_route_attachment
     constructor
     · apply (onBoundary_shift _ _ _ _).mpr
       apply (onBoundary_orient _ _ _ _).mpr
-      exact (onBoundary_shift _ _ _ _).mpr hsboundary_ite
+      exact (onBoundary_shift _ _ _ _).mpr hsboundary
     · apply (onBoundary_shift _ _ _ _).mpr
       apply (onBoundary_orient _ _ _ _).mpr
       exact (onBoundary_shift _ _ _ _).mpr htboundary

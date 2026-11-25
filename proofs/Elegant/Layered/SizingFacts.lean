@@ -298,6 +298,7 @@ theorem CaptionsMatch.selectInput
     rw [htext, hid]
     exact h q.2 q.1 hsource
 
+
 theorem caption_index_of_unique_ids {inp : Input}
     (hids : (inp.boxes.map (·.id)).Nodup)
     {i : Nat} {box : ModelBox} (hbox : inp.boxes[i]? = some box) :
@@ -336,6 +337,7 @@ theorem FrameOrigin.caption_source {o : Options} {id : String} {size : Size}
   simp only [Option.getD_some]
   rw [hcaptions i origin.group hi]
   exact congrArg captions origin.id_eq.symm
+
 
 theorem FrameOrigin.title_fit {o : Options} {id : String} {size : Size}
     (origin : FrameOrigin o id size) :
@@ -545,29 +547,6 @@ theorem measuredGraph_fixed_node_dims
         subst after
         cases o.direction <;> simp only [orientNode] at * <;> omega
 
-theorem SceneExecution.fixed_caption_node_fit
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res)
-    (hin : CaptionInputs captions inp o)
-    {i : Nat} {box : ModelBox} (hbox : inp.boxes[i]? = some box)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) = some entry) :
-    ∃ lines node, execution.lines[i]? = some lines ∧
-      execution.graph.nodes[i]? = some node ∧ node.decl = i ∧ node.border = 0 ∧
-      (match o.direction with
-        | .LR | .RL => (max 1 lines.length : Int) * execution.params.lineH
-        | .TB | .BT => lines.foldl (fun width line => max width line.width) 0) +
-          2 * execution.params.clusterPad ≤ node.w ∧
-      (match o.direction with
-        | .LR | .RL => lines.foldl (fun width line => max width line.width) 0
-        | .TB | .BT => (max 1 lines.length : Int) * execution.params.lineH) +
-          2 * execution.params.clusterPad ≤ node.h := by
-  obtain ⟨lines, hline, hw, hh⟩ := execution.fixed_caption_fit hin hbox hfixed
-  obtain ⟨node, hnode, hdecl, hborder, hnw, hnh⟩ :=
-    measuredGraph_fixed_node_dims execution.graph_eq hline hbox hfixed
-  refine ⟨lines, node, hline, hnode, hdecl, hborder, ?_, ?_⟩
-  all_goals cases hd : o.direction <;> simp only [hd] at hnw hnh ⊢ <;> omega
-
 theorem componentRun_original_frame_minimum_dims
     {P : Params} {cg : Graph} {run : Run}
     {labels : List MeasuredLabel} {orderOptions : OrderOptions}
@@ -630,30 +609,6 @@ theorem SceneExecution.component_rect_minimum_dims
   have heq := Option.some.inj hindex
   exact ⟨by rw [Prod.mk.inj heq |>.1]; exact hminimum.1,
     by rw [Prod.mk.inj heq |>.2]; exact hminimum.2⟩
-
-theorem SceneExecution.fixed_caption_component_fit
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res)
-    (hin : CaptionInputs captions inp o)
-    {key : Nat} {box : ModelBox} (hbox : inp.boxes[key]? = some box)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) = some entry)
-    {part : List Nat × Part} (hpart : part ∈ execution.componentsAcc.parts)
-    {i : Nat} (hkey : part.1[i]? = some key)
-    {rect : Rect} (hrect : part.2.rects[i]? = some rect) :
-    ∃ lines, execution.lines[key]? = some lines ∧
-      lines.foldl (fun width line => max width line.width) 0 +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).w ∧
-      (max 1 lines.length : Int) * execution.params.lineH +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).h := by
-  obtain ⟨lines, node, hline, hnode, _, hborder, hw, hh⟩ :=
-    execution.fixed_caption_node_fit hin hbox hfixed
-  have hminimum := execution.component_rect_minimum_dims hpart hkey hnode hborder hrect
-  refine ⟨lines, hline, ?_, ?_⟩
-  all_goals
-    cases hd : o.direction <;> simp only [hd, orientRect] at hw hh ⊢ <;> omega
 
 theorem indexed_rect_minimum_dimensions_pending
     (minimum : Nat → Size) (dx dy : Int) (entries : List (Nat × Rect))
@@ -817,32 +772,6 @@ theorem SceneExecution.packed_rect_minimum_dims_of_coverage
     (fun i r hr => Or.inr (hcoverage i r hr)) hparts key rect hrect
   simpa only [minimum, hnode, hborder, ↓reduceIte] using hfit
 
-theorem SceneExecution.fixed_caption_packed_fit_of_coverage
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res)
-    (hin : CaptionInputs captions inp o)
-    (hcoverage : ∀ i rect, execution.componentsAcc.rects[i]? = some rect →
-      ∃ part ∈ execution.componentsAcc.parts,
-        ∃ entry ∈ part.1.zip part.2.rects, entry.1 = i)
-    {key : Nat} {box : ModelBox} (hbox : inp.boxes[key]? = some box)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == box.id) = some entry)
-    {rect : Rect} (hrect : execution.packedAcc.rects[key]? = some rect) :
-    ∃ lines, execution.lines[key]? = some lines ∧
-      lines.foldl (fun width line => max width line.width) 0 +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).w ∧
-      (max 1 lines.length : Int) * execution.params.lineH +
-          2 * execution.params.clusterPad ≤
-        (orientRect o.direction execution.packedAcc.canvasH rect).h := by
-  obtain ⟨lines, node, hline, hnode, _, hborder, hw, hh⟩ :=
-    execution.fixed_caption_node_fit hin hbox hfixed
-  have hminimum :=
-    execution.packed_rect_minimum_dims_of_coverage hcoverage hnode hborder hrect
-  refine ⟨lines, hline, ?_, ?_⟩
-  all_goals
-    cases hd : o.direction <;> simp only [hd, orientRect] at hw hh ⊢ <;> omega
-
 theorem SceneExecution.box_index_origin
     {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res) {index : Nat} {box : Box}
@@ -858,47 +787,5 @@ theorem SceneExecution.box_index_origin
   | some source =>
     refine ⟨source, rfl, ?_⟩
     simpa [hs] using hbox.symm
-
-theorem SceneExecution.fixed_box_fallback_sizing_of_coverage
-    {inp : Input} {o : Options} {res : FamilyResult} {captions : String → String}
-    (execution : SceneExecution inp o res) (hin : CaptionInputs captions inp o)
-    (hcoverage : ∀ i rect, execution.componentsAcc.rects[i]? = some rect →
-      ∃ part ∈ execution.componentsAcc.parts,
-        ∃ entry ∈ part.1.zip part.2.rects, entry.1 = i)
-    {index : Nat} {box : Box} (hbox : res.scene.boxes[index]? = some box)
-    {source : ModelBox} (hsource : inp.boxes[index]? = some source)
-    {entry : String × Size}
-    (hfixed : inp.fixedSizes.find? (fun fixed => fixed.1 == source.id) = some entry)
-    {rect : Rect} (hrect : execution.packedAcc.rects[index]? = some rect) :
-    (((execution.lines.getD index []).length : Int) * execution.params.lineH ≤ box.rect.h) ∧
-      (2 * execution.params.clusterPad ≤ box.rect.w ∧
-       execution.params.clusterPad +
-        (max 1 (execution.lines.getD index []).length : Int) * execution.params.lineH ≤ box.rect.h) := by
-  obtain ⟨actual, hactual, hboxeq⟩ := execution.box_index_origin hbox
-  rw [hsource] at hactual
-  cases Option.some.inj hactual
-  obtain ⟨lines, hline, hw, hh⟩ :=
-    execution.fixed_caption_packed_fit_of_coverage hin hcoverage hsource hfixed hrect
-  have hget : execution.packedAcc.rects.getD index default = rect := by
-    obtain ⟨hi, heq⟩ := Array.getElem?_eq_some_iff.mp hrect
-    simpa [Array.getD, hi] using heq
-  have hlineget : execution.lines.getD index [] = lines := by
-    simp only [List.getD_eq_getElem?_getD, hline, Option.getD_some]
-  have signs := checkedParams_sizing_nonneg execution.checked
-  have width_nonneg : ∀ (ls : List Measure.Line) (start : Int),
-      0 ≤ start → 0 ≤ ls.foldl (fun w line => max w line.width) start := by
-    intro ls
-    induction ls with
-    | nil => intro start hs; exact hs
-    | cons line rest ih =>
-      intro start hs
-      exact ih _ (Int.le_trans hs (Int.le_max_left _ _))
-  have hw0 := width_nonneg lines 0 (by omega)
-  have hheight : (lines.length : Int) * execution.params.lineH ≤
-      (max 1 lines.length : Int) * execution.params.lineH :=
-    Int.mul_le_mul_of_nonneg_right (by omega) signs.1
-  rw [hboxeq, hget, hlineget]
-  dsimp only [shiftRect]
-  exact ⟨by omega, by omega, by omega⟩
 
 end Elegant.Layered.PipelineImpl

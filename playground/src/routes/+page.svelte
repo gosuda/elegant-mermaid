@@ -32,7 +32,14 @@ import { ANSWER_OPS, type AnswerOp, DEBOUNCE_MS, ENGINE_IDS, ENGINE_NAME, type E
 import { parseResponse } from '../lib/response';
 import { RevisionGuard } from '../lib/revision';
 import samples from '../lib/samples.json';
-import { compressionSupported, decodeShare, encodeShare, fragmentPayload, shareUrl } from '../lib/share';
+import {
+  compressionSupported,
+  decodeShare,
+  encodeShare,
+  fragmentPayload,
+  type SharePayload,
+  shareUrl,
+} from '../lib/share';
 import { type EngineView, emptyView, failureText, nextTab, paneContent, TABS, type TabId } from '../lib/view';
 
 type EngineChoice = EngineId | 'both';
@@ -45,13 +52,17 @@ interface Job extends RenderOptions {
 const guard = new RevisionGuard();
 const clients: Partial<Record<EngineId, EngineClient>> = {};
 const dispatched: Record<EngineId, number> = { go: 0, rust: 0 };
-const sampleText = INITIAL_TEXT;
+const sampleText = INITIAL_TEXT !== '' ? INITIAL_TEXT : 'Engines are loading. Output appears here.';
+const DEFAULT_SHARE: SharePayload = {
+  src: DEFAULT_SOURCE,
+  opt: { theme: 'elegant-light', background: null, charset: 'unicode', max_width: null },
+};
 
-let source = $state(DEFAULT_SOURCE);
-let theme = $state<string>('elegant-light');
-let charset = $state<Charset>('unicode');
-let background = $state<string | null>(null);
-let maxWidth = $state<number | null>(null);
+let source = $state(DEFAULT_SHARE.src);
+let theme = $state<string>(DEFAULT_SHARE.opt.theme);
+let charset = $state<Charset>(DEFAULT_SHARE.opt.charset);
+let background = $state<string | null>(DEFAULT_SHARE.opt.background);
+let maxWidth = $state<number | null>(DEFAULT_SHARE.opt.max_width);
 let engineChoice = $state<EngineChoice>('both');
 let tab = $state<TabId>('svg');
 let latest = $state(0);
@@ -311,25 +322,34 @@ async function copyLink(): Promise<void> {
   }
 }
 
-async function loadHash(): Promise<void> {
-  const revision = ++hashRevision;
+async function openShare(encoded: string): Promise<string> {
+  const payload = compressionSupported() ? await decodeShare(encoded) : null;
+  const shared = payload ?? DEFAULT_SHARE;
+  theme = shared.opt.theme;
+  charset = shared.opt.charset;
+  background = shared.opt.background;
+  maxWidth = shared.opt.max_width;
+  editor?.setText(shared.src);
+  source = shared.src;
+  return payload === null ? INVALID_LINK_MESSAGE : '';
+}
+
+async function boot(): Promise<void> {
   const encoded = fragmentPayload(window.location.hash);
-  if (encoded === null && bootDone && window.location.hash !== '') {
-    return;
-  }
-  const payload = encoded !== null && compressionSupported() ? await decodeShare(encoded) : null;
-  if (revision !== hashRevision) {
-    return;
-  }
-  theme = payload?.opt.theme ?? 'elegant-light';
-  charset = payload?.opt.charset ?? 'unicode';
-  background = payload?.opt.background ?? null;
-  maxWidth = payload?.opt.max_width ?? null;
-  source = payload?.src ?? DEFAULT_SOURCE;
-  editor?.setText(source);
+  const note = encoded === null ? '' : await openShare(encoded);
   bootDone = true;
   issueRevision();
   message = encoded !== null && payload === null ? INVALID_LINK_MESSAGE : '';
+}
+
+async function followShare(): Promise<void> {
+  const encoded = fragmentPayload(window.location.hash);
+  if (encoded === null || !bootDone) {
+    return;
+  }
+  const note = await openShare(encoded);
+  issueRevision();
+  message = note;
 }
 
 onMount(() => {
@@ -367,6 +387,8 @@ onMount(() => {
   };
 });
 </script>
+
+<svelte:window onhashchange={() => void followShare()} />
 
 <main>
   <a class="skip" href="#editor" onclick={skipToEditor}>Skip to editor</a>

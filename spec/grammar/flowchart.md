@@ -527,7 +527,7 @@ shape-data      = SHAPE_DATA , { SHAPE_DATA } ;
 - flowchart-099: Every diagnostic MUST carry the span of its row, and a diagnostic of severity error MUST make `check` exit 1. [just go-check]
 - flowchart-100: The parser MUST raise `flowchart/dir-invalid` at the token after the header keyword when that token is neither a direction token of the `dir` mode nor `NODIR`, as in `flowchart XY`, and MUST raise no diagnostic when the header holds no direction at all. [just go-check]
 - flowchart-101: A bracket label that holds plain text before a `"` MUST raise `flowchart/label-quote-in-unquoted` as a parser code, because the authority `text` production admits a plain run, or a string or markdown run followed by plain text, and never plain text before a string. [just oracle]
-- flowchart-102: The Rust parser MUST be `syntax::flowchart`, file `crates/elegant-mermaid/src/syntax/flowchart.rs`, and it MUST hold the tree nodes of the table above under the same names. [just rust-check]
+- flowchart-102: The Rust parser MUST be `syntax::flowchart`, module directory `crates/elegant-mermaid/src/syntax/flowchart/`, and it MUST hold the tree nodes of the table above under the same names. [just rust-check]
 - flowchart-103: The Go parser MUST be `internal/syntax/flowchart`, with the fuzz target `FuzzFlowchart` beside the package. [just go-check]
 - flowchart-104: The Go and Rust models MUST hold the same node list, edge list, and group list, in the same order, for the same source. [just parity]
 - flowchart-105: The lexer MUST take the first matching rule of the current mode at the current byte, in the order of the rule tables of this file; jison without `%options flex` does the same. [just parity]

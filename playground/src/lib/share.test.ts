@@ -48,6 +48,16 @@ describe('share link codec', () => {
     expect(await decodeShare('AAAAAAAA')).toBeNull();
   });
 
+  it('refuses a short link that inflates to megabytes', async () => {
+    const value: SharePayload = {
+      src: ' '.repeat(2 ** 21),
+      opt: { theme: 'elegant-light', background: null, charset: 'unicode', max_width: null },
+    };
+    const encoded = await encodeShare(value);
+    expect(encoded.length).toBeLessThan(8192);
+    expect(await decodeShare(encoded)).toBeNull();
+  });
+
   async function encodeRaw(json: string): Promise<string> {
     return encodeBytes(new TextEncoder().encode(json));
   }

@@ -36,6 +36,41 @@ build:
     cargo build --release --locked -p emd-cli
     cp "${CARGO_TARGET_DIR:-target}/release/emd" bin/emd-rs
 
+# Build both WebAssembly engines into playground/static/wasm
+playground-wasm:
+    mkdir -p playground/static/wasm/emd-rs
+    GOOS=js GOARCH=wasm go build -trimpath -o playground/static/wasm/emd-go.wasm ./cmd/emd-wasm
+    cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" playground/static/wasm/wasm_exec.js
+    cargo build --locked --release --target wasm32-unknown-unknown -p elegant-mermaid-wasm
+    wasm-bindgen --target web --out-dir playground/static/wasm/emd-rs --out-name elegant_mermaid_wasm "${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/release/elegant_mermaid_wasm.wasm"
+
+# Render the default playground source as the sample output that the page shows before the engines load
+playground-sample:
+    node --input-type=module -e "process.stdout.write((await import('./playground/src/lib/defaults.ts')).DEFAULT_SOURCE)" | go run ./cmd/emd render -e text --charset unicode --color never -t elegant-light > playground/src/lib/initial-text.txt
+
+# Go wasm, Rust wasm, and both native binaries give the same bytes on every tenth corpus file
+wasm-parity: build playground-wasm
+    node --test playground/scripts/wasm-parity.test.mjs
+    node playground/scripts/wasm-parity.mjs
+
+# Playground checks: Biome, svelte-check, and the Vitest unit tests
+playground-check:
+    pnpm --dir playground install --frozen-lockfile
+    pnpm --dir playground exec biome check .
+    pnpm --dir playground check
+    pnpm --dir playground exec vitest run
+
+# Prerender the browser application, including its worker assets
+playground-build: build playground-wasm
+    node playground/scripts/initial-text.mjs
+    pnpm --dir playground build
+
+# Playground end-to-end tests in Playwright against the built site
+playground-e2e: playground-build
+    pnpm --dir playground install --frozen-lockfile
+    pnpm --dir playground exec playwright test
+    PLAYGROUND_SERVER_MODE=dev pnpm --dir playground exec playwright test --grep 'both engines render the default source'
+
 # Lean build with warnings as errors, then the proof hygiene audit
 proofs:
     cd proofs && lake build --wfail
@@ -282,36 +317,6 @@ theme-check: build
     cargo nextest run --locked -p elegant-mermaid --all-features -E 'test(corpus_svg_titles)'
     node tools/upstream-oracle/config-keys.mjs --missing spec/data/config-keys
 
-
-# Build the two browser engines from the pinned native toolchains
-playground-wasm:
-    mkdir -p playground/static/wasm/emd-rs
-    GOOS=js GOARCH=wasm go build -trimpath -o playground/static/wasm/emd-go.wasm ./cmd/emd-wasm
-    cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" playground/static/wasm/wasm_exec.js
-    cargo build --locked --release --target wasm32-unknown-unknown -p elegant-mermaid-wasm
-    wasm-bindgen --target web --out-dir playground/static/wasm/emd-rs --out-name elegant_mermaid_wasm "${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/release/elegant_mermaid_wasm.wasm"
-
-# Browser types, formatting, lint, and unit regressions
-playground-check:
-    pnpm --dir playground check
-    pnpm --dir playground exec biome check .
-    pnpm --dir playground exec vitest run
-
-# Prerender the browser application, including its worker assets
-playground-build: build playground-wasm
-    node playground/scripts/initial-text.mjs
-    pnpm --dir playground build
-
-# Compare tracked corpus fixtures across native and browser engines
-wasm-parity: build playground-wasm
-    node --test playground/scripts/wasm-parity.test.mjs
-    node playground/scripts/wasm-parity.mjs
-
-# Exercise production output and the classic worker served by Vite development mode
-playground-e2e: playground-build
-    pnpm --dir playground exec playwright test
-    PLAYGROUND_SERVER_MODE=dev pnpm --dir playground exec playwright test --grep 'both engines render the default source'
-
 # Run every gate whose subject exists, in order
 verify:
     just gen-check
@@ -325,12 +330,12 @@ verify:
     just oracle
     just parity
     just markdown-parity
+    just wasm-parity
+    just playground-check
+    just playground-e2e
     just layered-random-check
     just kernel-diff
     just validate
     just lean-parity
     just quality
     just theme-check
-    just playground-check
-    just wasm-parity
-    just playground-e2e

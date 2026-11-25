@@ -1,6 +1,8 @@
 package layout
 
 import (
+	"slices"
+
 	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/gen"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
@@ -161,6 +163,7 @@ func pinBands(in Input, s *scene.Scene) error {
 	if err != nil {
 		return err
 	}
+	frames := laneFrames(axis, bands, s)
 	canvas := s.Canvas
 	pin := buildLanePin(axis, bands, s)
 	original := originalPoints(s)
@@ -177,7 +180,10 @@ func pinBands(in Input, s *scene.Scene) error {
 	if err = relocateLabels(s, axis, spacing.slot); err != nil {
 		return err
 	}
-	return growCanvas(s, canvas, axis)
+	if err = growCanvas(s, canvas, axis); err != nil {
+		return err
+	}
+	return attachLaneEnds(s, axis, frames)
 }
 
 func layBands(in Input, s *scene.Scene, axis laneAxis, spacing laneSpacing, lanes []string) ([]laneBand, error) {
@@ -289,7 +295,13 @@ func contentExtent(in Input, s *scene.Scene, band *laneBand, axis laneAxis) lane
 	}
 	for i := range s.Routes {
 		route := &s.Routes[i]
-		if !inLane(in, route.From, band.id) || !inLane(in, route.To, band.id) {
+		var withinBand bool
+		if band.id == "" {
+			withinBand = slices.Contains(band.members, route.From) && slices.Contains(band.members, route.To)
+		} else {
+			withinBand = inLane(in, route.From, band.id) && inLane(in, route.To, band.id)
+		}
+		if !withinBand {
 			continue
 		}
 		for j := range route.Points {

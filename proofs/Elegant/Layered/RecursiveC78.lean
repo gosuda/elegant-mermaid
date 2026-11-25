@@ -1,6 +1,9 @@
 import Elegant.Layered.ExpandChildContainment
 import Elegant.Layered.ExecutedPortsFacts
+import Elegant.Layered.InputFixedFit
 import Elegant.Layered.RecursiveCallContext
+import Elegant.Layered.RecursiveCallParams
+import Elegant.Layered.SceneBounds
 
 set_option autoImplicit false
 
@@ -149,9 +152,8 @@ them. -/
 abbrev FlatC8b : Prop :=
   ∀ (inp : Input) (o : Options) (res : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
+    InputFixedFit inp o →
     layout inp o = .ok res → Validator.C8b res.scene.layoutDump
-
-/-! ### Merge classification -/
 
 /-- The caption rect `expandChild` installs for labels owned by the split
 group. -/
@@ -375,6 +377,7 @@ def ExpandChildC8bStep (P : Params) (inp : Input) (o : Options) (group : ModelBo
         Disjoint g.rect (shiftRect dx dy cl.rect) ∨
           g.rect.StrictInside (shiftRect dx dy cl.rect)) ∧
     (∀ cg ∈ child.scene.boxes, cg.role = "group" → ∀ pl ∈ parent.scene.labels,
+        pl.owner ≠ group.id →
         Disjoint (shiftRect dx dy cg.rect) pl.rect ∨
           (shiftRect dx dy cg.rect).StrictInside pl.rect) ∧
     (∀ cg ∈ child.scene.boxes, cg.role = "group" →
@@ -416,7 +419,7 @@ theorem expandChild_c8b {P : Params} {inp : Input} {o : Options} {group : ModelB
   have hrlDump : sl.toLabel ∈ result.scene.layoutDump.labels :=
     List.mem_map.mpr ⟨sl, hsl, rfl⟩
   rcases hclassify sl.toLabel hrlDump with ⟨_hown, hrect⟩ |
-    ⟨cl, hcl, _hone, _hid, _hown2, hrect⟩ | ⟨pl, hpl, _hone, _hid, _hown2, hrect⟩
+    ⟨cl, hcl, _hone, _hid, _hown2, hrect⟩ | ⟨pl, hpl, hone, _hid, hownEq, hrect⟩
   · -- rl is the group caption at the title rect
     rcases List.mem_append.mp hgItems with hgc | hgp
     · obtain ⟨cg, hcg, hgEq⟩ := List.mem_map.mp hgc
@@ -450,8 +453,9 @@ theorem expandChild_c8b {P : Params} {inp : Input} {o : Options} {group : ModelB
         rw [← hgEq] at hgRole
         simpa [embedBox] using hgRole
       have hgrect : g.rect = shiftRect dx dy cg.rect := by rw [← hgEq]; rfl
+      have hplOwn : pl.owner ≠ group.id := hownEq ▸ hone
       rw [hgrect, hrect]
-      exact hchildGroupVsParentLabel cg hcg hgrole pl hpl
+      exact hchildGroupVsParentLabel cg hcg hgrole pl hpl hplOwn
     · rw [hrect]
       exact hparentC8b g hgp hgRole pl.toLabel (List.mem_map.mpr ⟨pl, hpl, rfl⟩)
 
@@ -481,6 +485,7 @@ theorem layoutRecursive_c8a_of_flat (hflat8a : FlatC8a)
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC8aStep P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
@@ -507,6 +512,7 @@ theorem layoutRecursive_c8a_of_flat (hflat8a : FlatC8a)
         have hparentC8a := ih _ _ _ hwfParent hframedParent hparentAt
         have hstep := hgeo fuel P inp o group titleLines _ parent child res hexpandAt hframed
           ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
+          ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
         exact expandChild_c8a hchildC8a hparentC8a hstep hexpandAt
 
 /-- `layoutRecursive` preserves C8b given the flat clause for leaf layouts,
@@ -519,32 +525,44 @@ theorem layoutRecursive_c8b_of_flat (hflat8b : FlatC8b)
       expandChild P inp o group titleHeight parent child = .ok res →
       framedParents inp = true →
       ExpandChildCallContext fuel P inp o group titleLines titleHeight parent child res →
+      ExpandChildCallParams P inp o group titleLines titleHeight →
       ExpandChildC8bStep P inp o group titleHeight parent child res) :
     ∀ (fuel : Nat) (inp : Input) (o : Options) (res : FamilyResult),
       WellFormed (inputModel inp o) → framedParents inp = true →
+      InputFixedFit inp o →
       layoutRecursive fuel inp o = .ok res → Validator.C8b res.scene.layoutDump := by
   intro fuel
   induction fuel with
   | zero =>
-      intro inp o res hwf hframed h
-      exact hflat8b inp o res hwf hframed h
+      intro inp o res hwf hframed hfit h
+      exact hflat8b inp o res hwf hframed hfit h
   | succ fuel ih =>
-      intro inp o res hwf hframed h
+      intro inp o res hwf hframed hfit h
       have hboxIds : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
       have hcovered : RoutesCovered inp := routesCovered_of_wellFormed hwf
       rcases layoutRecursive_succ_sources h with ⟨_, hlayout⟩ |
         ⟨group, _P0, _metric0, _child0, _titleLines0, _parent0, hg, _, _, _, _, _, _⟩
-      · exact hflat8b inp o res hwf hframed hlayout
+      · exact hflat8b inp o res hwf hframed hfit hlayout
       · obtain ⟨P, metric, child, titleLines, parent, _frame, _lines, _dx, _dy,
           hP, hm, hchild, hwrap, hparentAt, hexpandAt, _, _, _, _, _, _, _, _⟩ :=
           layoutRecursive_embedding_assembly_sources hboxIds hcovered hg h
         obtain ⟨hwfChild, hframedChild, hwfParent, hframedParent⟩ :=
           hsub fuel inp o group P metric titleLines child parent hwf hframed hP hm hwrap
             hchild hparentAt
-        have hchildC8b := ih _ _ _ hwfChild hframedChild hchild
-        have hparentC8b := ih _ _ _ hwfParent hframedParent hparentAt
+        have hfitChild := hfit.childSubInput group
+        have hcm := layoutRecursive_canvas_margins fuel hchild
+        have hcw : 2 * P.canvasMargin ≤ child.scene.canvas.w := by
+          rw [checkedParams_canvasMargin hP]
+          exact hcm.1
+        have hch : 2 * P.canvasMargin ≤ child.scene.canvas.h := by
+          rw [checkedParams_canvasMargin hP]
+          exact hcm.2
+        have hfitParent := InputFixedFit.parentSubInput hwf hfit hP hm hwrap hcw hch
+        have hchildC8b := ih _ _ _ hwfChild hframedChild hfitChild hchild
+        have hparentC8b := ih _ _ _ hwfParent hframedParent hfitParent hparentAt
         have hstep := hgeo fuel P inp o group titleLines _ parent child res hexpandAt hframed
           ⟨hwf, hg, rfl, hchild, hparentAt, hexpandAt⟩
+          ⟨hP, rfl, ⟨metric, hm, hwrap⟩⟩
         exact expandChild_c8b hchildC8b hparentC8b hstep hexpandAt
 
 end Elegant.Layered.PipelineImpl

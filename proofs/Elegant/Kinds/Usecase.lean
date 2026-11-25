@@ -1,5 +1,6 @@
 import Elegant.Kinds.Common
 import Elegant.Layered.ExactPipeline
+import Elegant.Layered.LayeredAdmission
 
 set_option autoImplicit false
 
@@ -248,19 +249,24 @@ def drawShapes (m : Model) (s : Scene) : Except LayoutError Scene := do
   let result ← s.items.foldlM (drawStep m s) ([], s.labels)
   pure { s with items := result.1, labels := result.2 }
 
-def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
-  match sizes m with
-  | .error e => .error (.geometry e)
-  | .ok fixed =>
-    match Layered.layoutFamilyB
-      (Layered.PipelineImpl.layoutRecursiveX
-        ((m.boxes.filter fun b => isActor b.shape).map (·.id)) (m.boxes.length + 1))
-      (input m fixed) m.options with
-    | .error e => .error e
-    | .ok result =>
-      match drawShapes m (result.scene.projectCellAttachments (routeMarkers m)) with
-      | .error e => .error (.geometry e)
-      | .ok scene => .ok { result with scene := scene }
+ /-- Adapter entry: the family run (and the draw post-pass) execute only when the
+ user-approved admission guard `Layered.layeredAdmissibleB` holds on the built
+ input; otherwise the adapter answers `.geometry .domain`. A successful run
+ recovers the guard by `Layered.admit_ok`, which supplies the exact-seams
+ validity premises via `Layered.layeredAdmissibleB_spec. -/
+ def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
+   match sizes m with
+   | .error e => .error (.geometry e)
+   | .ok fixed =>
+     match Layered.admit (input m fixed) (Layered.layoutFamilyB
+       (Layered.PipelineImpl.layoutRecursiveX
+         ((m.boxes.filter fun b => isActor b.shape).map (·.id)) (m.boxes.length + 1))
+       (input m fixed) m.options) with
+     | .error e => .error e
+     | .ok result =>
+       match drawShapes m (result.scene.projectCellAttachments (routeMarkers m)) with
+       | .error e => .error (.geometry e)
+       | .ok scene => .ok { result with scene := scene }
 
 end Usecase
 end Kinds

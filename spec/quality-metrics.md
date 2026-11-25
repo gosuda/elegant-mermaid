@@ -60,8 +60,8 @@ This file defines the hard constraints beyond the validator, the metric formulas
     1. Read our vector dump from `emd layout --profile vector FILE`. Take the box ids, `parent` links, node and group sizes, route `from` and `to`, and the label `owner`, `w`, and `h`.
     2. Run dagre and ELK with the parameters below. Use the same node and label sizes as ours.
     3. Write two canonical layout dumps: `corpus/.cache/quality/<path>.dagre.json` and `corpus/.cache/quality/<path>.elk.json`, where `<path>` is the corpus path.
-- quality-metrics-25: Baseline spacing MUST come from the vector values of `layout-constants.json`, with sizes in px = units / 64 and all unlisted options at the engine default. [just quality]
-    Spacing comes from the vector values of `layout-constants.json`: `vector.node_gap` = 24 px, `vector.rank_gap` = 48 px, and `vector.slot` = 12 px. Sizes pass in px = units / 64, which is exact in binary floating point. Padding and margins are 0 in both engines. Every option that is not listed keeps the engine's default. Mermaid's `elk.layered` defaults are not used except where listed.
+- quality-metrics-25: Baseline spacing MUST come from the vector values of `spec/data/layout-constants.json`, with sizes in px = units / 64 and all unlisted options at the engine default. [just quality]
+    Spacing comes from the vector values of `spec/data/layout-constants.json`: `vector.node_gap` = 24 px, `vector.rank_gap` = 48 px, and `vector.slot` = 12 px. Sizes pass in px = units / 64, which is exact in binary floating point. Padding and margins are 0 in both engines. Every option that is not listed keeps the engine's default. Mermaid's `elk.layered` defaults are not used except where listed.
 - quality-metrics-26: The dagre baseline MUST use these graph options. [just quality]
     |Option|Value|
     |---|---|
@@ -103,7 +103,7 @@ This file defines the hard constraints beyond the validator, the metric formulas
     Dagre gives the centre, so `left = r(64 * x) - floor_div(w, 2)` and `top = r(64 * y) - floor_div(h, 2)`. ELK gives the top-left, so `left = r(64 * x)` and `top = r(64 * y)`.
 - quality-metrics-32: A group box MUST take `w = r(64 * width)` and `h = r(64 * height)` from the engine output, and its position MUST follow the same rule as a node. [just quality]
 - quality-metrics-33: ELK positions MUST be made absolute before rounding: ELK reports positions relative to the parent, so the `x` and `y` of every ancestor are added before rounding. [just quality]
-    `baseline.mjs` MUST assert this on one nested fixture: a child placed at `(0, 0)` inside a group that is not at the origin gets the group's position.
+    `tools/upstream-oracle/baseline.mjs` MUST assert this on one nested fixture: a child placed at `(0, 0)` inside a group that is not at the origin gets the group's position.
 - quality-metrics-34: Baseline routes MUST be scored as returned. [just quality]
     A dagre route is its `points` list, as returned. An ELK route is, for each section in order, `startPoint`, then `bendPoints`, then `endPoint`. A point equal to the previous point is dropped. Routes are scored as returned. They are not clipped, rerouted, or given extra endpoints. Baseline `hard_ok` is reported and not gated.
 

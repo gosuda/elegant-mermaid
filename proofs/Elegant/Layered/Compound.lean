@@ -182,6 +182,37 @@ theorem markNodes_getElem?_group (boxes : List ModelBox) (pad : Int)
     Option.map_some, Nat.zero_add, hb]
   simp [hg]
 
+/-- Prefix classification for `markNodes`: below `nodes.length` the record
+is the mapped source node — border `-2` for a group box, otherwise the
+source node's own border. Bottom (`border = 2`) records only exist at
+indices `≥ nodes.length`. -/
+theorem markNodes_getElem?_prefix_border (boxes : List ModelBox) (pad : Int)
+    (titles : List (Int × Int)) (nodes : List Node) {i : Nat} (hi : i < nodes.length)
+    {x : Node} (hx : (markNodes boxes pad titles nodes)[i]? = some x) :
+    x.border = -2 ∨ x.border = (nodes[i]'hi).border := by
+  unfold markNodes at hx
+  dsimp only at hx
+  rw [List.getElem?_append_left (zipIdx_map_lt_length hi)] at hx
+  simp only [List.getElem?_map, List.getElem?_zipIdx, List.getElem?_eq_getElem hi,
+    Option.map_some, Nat.zero_add] at hx
+  cases hbox : boxes[i]? with
+  | none =>
+    simp only [hbox] at hx
+    right
+    obtain rfl := Option.some.inj hx
+    rfl
+  | some box =>
+    simp only [hbox] at hx
+    by_cases hgrp : box.role == .group
+    · simp only [hgrp, ↓reduceIte] at hx
+      left
+      obtain rfl := Option.some.inj hx
+      rfl
+    · simp only [hgrp, Bool.false_eq_true, ↓reduceIte] at hx
+      right
+      obtain rfl := Option.some.inj hx
+      rfl
+
 private theorem markNodes_getElem?_node (boxes : List ModelBox) (pad : Int)
     (titles : List (Int × Int)) (nodes : List Node) {i : Nat} (hi : i < nodes.length)
     {box : ModelBox} (hb : boxes[i]? = some box) (hng : box.role ≠ .group) :

@@ -47,15 +47,19 @@ def OrderedByCtx (c : Ctx) (chain ordered : List Nat) : Prop :=
 
 /-- The border chain of one cluster side that the executed pipeline produces:
 the nodes are distinct, all lie on the pass layers, at most one node per rank,
-and consecutive chain nodes sit on adjacent ranks so that
-`border_alignment_chain_edge` supplies the border edge between them. -/
+and the chain has no rank gap (neighbours in rank order sit on adjacent ranks)
+so that `border_alignment_chain_edge` supplies the border edge between
+rank-adjacent nodes. The old all-pairs `rank_adj` (any two distinct nodes on
+adjacent ranks) is false on every executed chain of length three or more with
+consecutive ranks (e.g. `chain = [9, 11, 13, 15, 17]`): the first and last
+markers are four ranks apart. -/
 structure OccurringBorderChain (c : Ctx) (chain : List Nat) : Prop where
   nodup : chain.Nodup
   flat : ∀ v ∈ chain, v ∈ c.layers.flatten
   rank_inj : ∀ u ∈ chain, ∀ w ∈ chain, c.rank[u]! = c.rank[w]! → u = w
-  rank_adj : ∀ u ∈ chain, ∀ v ∈ chain, u ≠ v →
-    c.rank[u]! + 1 = c.rank[v]! ∨ c.rank[v]! + 1 = c.rank[u]!
-
+  rank_consec : ∀ u ∈ chain, ∀ v ∈ chain, c.rank[u]! < c.rank[v]! →
+    (∀ w ∈ chain, ¬ (c.rank[u]! < c.rank[w]! ∧ c.rank[w]! < c.rank[v]!)) →
+    c.rank[u]! + 1 = c.rank[v]!
 /-- The pass-context predecessor of `v` on the chain: the unique chain node one
 rank below `v`. For the chain head (minimal rank) there is none. -/
 def chainPred (c : Ctx) (chain : List Nat) (v : Nat) : Option Nat :=
@@ -561,6 +565,13 @@ theorem foldUpFacts (c : Ctx) : FoldUpFacts c :=
   ⟨foldl_alignNode_up_ne c, up_ne_alignLayer c, up_ne_foldl_alignLayer c,
     fold_up_pick c, fold_up_none c, alignAll_up_take c, alignAll_up_eq c⟩
 
+/-- From the pairwise key order: any earlier element precedes any later one. -/
+theorem pairwise_keyLe_get {c : Ctx} (ordered : List Nat)
+    (hp : ordered.Pairwise (fun a b : Nat => keyLe c a b = true))
+    (i j : Nat) (hi : i < ordered.length) (hj : j < ordered.length) (hlt : i < j) :
+    keyLe c (ordered[i]'hi) (ordered[j]'hj) = true :=
+  List.pairwise_iff_getElem.mp hp i j hi hj hlt
+
 /-! ## `BorderChainUps` for occurring chains -/
 
 /-- layered-107's executed-pipeline fact: for an occurring border chain, the
@@ -608,11 +619,66 @@ theorem borderChainUps_of_pick {ng cp : Int} {p : Proper}
       nodup_getElem_ne ordered hnd i (i + 1) (by omega) hi (by omega)
     have hrk : (clusterCtx ng cp p layers marked k).rank[ordered[i]]! + 1 =
         (clusterCtx ng cp p layers marked k).rank[ordered[i + 1]]! := by
+      have hi' : i < ordered.length := by omega
       have hkey := pairwise_succ_keyLe ordered hp i hi
       obtain ⟨rle, _⟩ := rank_pos_of_keyLe hkey
-      rcases hocc.rank_adj ordered[i] hpred ordered[i + 1] hv hne with h | h
-      · exact h
-      · omega
+      have hne_rank : (clusterCtx ng cp p layers marked k).rank[ordered[i]'hi']! ≠
+          (clusterCtx ng cp p layers marked k).rank[ordered[i + 1]'hi]! := by
+        intro heqrk
+        have h1 : (ordered[i]'hi' : Nat) ∈ chain := hperm.mem_iff.mp
+          (List.getElem_mem hi')
+        have h2 : (ordered[i + 1]'hi : Nat) ∈ chain := hperm.mem_iff.mp
+          (List.getElem_mem hi)
+        have hinj := hocc.rank_inj _ (by simpa using h1) _ (by simpa using h2) heqrk
+        exact hne (by simpa using hinj)
+      have hlt : (clusterCtx ng cp p layers marked k).rank[ordered[i]'hi']! <
+          (clusterCtx ng cp p layers marked k).rank[ordered[i + 1]'hi]! := by
+        omega
+      have hnogap : ∀ w ∈ chain,
+          ¬ ((clusterCtx ng cp p layers marked k).rank[ordered[i]'hi']! <
+            (clusterCtx ng cp p layers marked k).rank[w]! ∧
+            (clusterCtx ng cp p layers marked k).rank[w]! <
+              (clusterCtx ng cp p layers marked k).rank[ordered[i + 1]'hi]!) := by
+        intro w hw hcon
+        obtain ⟨hlo, hhi⟩ := hcon
+        have hwOrd : w ∈ ordered := hperm.symm.subset hw
+        obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hwOrd
+        obtain ⟨hjlt, heq⟩ := List.getElem?_eq_some_iff.mp hj
+        by_cases heqi : j = i
+        · have hj' : ordered[i]? = some w := by rw [← heqi]; exact hj
+          have hget : ordered[i]? = some (ordered[i]'hi') :=
+            List.getElem?_eq_getElem hi'
+          have heqw : w = ordered[i]'hi' :=
+            Option.some_inj.mp (hj'.symm.trans hget)
+          have hrw : (clusterCtx ng cp p layers marked k).rank[ordered[i]'hi']! =
+              (clusterCtx ng cp p layers marked k).rank[w]! := by
+            rw [heqw]
+          omega
+        · by_cases heqj : j = i + 1
+          · have hj' : ordered[i + 1]? = some w := by rw [← heqj]; exact hj
+            have hget : ordered[i + 1]? = some (ordered[i + 1]'hi) :=
+              List.getElem?_eq_getElem hi
+            have heqw : w = ordered[i + 1]'hi :=
+              Option.some_inj.mp (hj'.symm.trans hget)
+            have hrw : (clusterCtx ng cp p layers marked k).rank[w]! =
+                (clusterCtx ng cp p layers marked k).rank[ordered[i + 1]'hi]! := by
+              rw [heqw]
+            omega
+          · rcases Nat.lt_or_ge j i with hjl | hjg
+            · have hkey2 := pairwise_keyLe_get ordered hp j i hjlt hi' hjl
+              obtain ⟨rle2, _⟩ := rank_pos_of_keyLe hkey2
+              have hrw : (clusterCtx ng cp p layers marked k).rank[w]! =
+                  (clusterCtx ng cp p layers marked k).rank[ordered[j]'hjlt]! := by
+                rw [← heq]
+              omega
+            · have hjgt : i + 1 < j := by omega
+              have hkey3 := pairwise_keyLe_get ordered hp (i + 1) j hi hjlt hjgt
+              obtain ⟨rle3, _⟩ := rank_pos_of_keyLe hkey3
+              have hrw : (clusterCtx ng cp p layers marked k).rank[w]! =
+                  (clusterCtx ng cp p layers marked k).rank[ordered[j]'hjlt]! := by
+                rw [← heq]
+              omega
+      exact hocc.rank_consec _ (by simpa using hpred) _ (by simpa using hv) hlt hnogap
     have hcp := chainPred_eq_some hocc hv hpred hrk
     obtain ⟨eb, -, -, hpk⟩ := hpick.pick ordered[i + 1] hv ordered[i] hcp
     obtain ⟨l, hl, hlv⟩ := hL.loc hflat

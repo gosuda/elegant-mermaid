@@ -1,4 +1,5 @@
 import Elegant.Kinds.Common
+import Elegant.Layered.LayeredAdmission
 
 set_option autoImplicit false
 
@@ -166,11 +167,14 @@ def decorate (m : Model) (s : Scene) : Except LayoutError Scene := do
   let items ← s.items.mapM (decorateGroup m s)
   pure { s with items := items }
 
+/-- Adapter entrypoint: the family runs only on an admissible input (nonempty box
+ids, no box id naming a route id, exclusive fixed-size boxes, positive fixed sizes);
+otherwise `.error (.geometry .domain)`. -/
 def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
   match sizes m with
   | .error e => .error (.geometry e)
   | .ok fixed =>
-    match Layered.layoutFamily (input m fixed) m.options with
+    match Layered.admit (input m fixed) (Layered.layoutFamily (input m fixed) m.options) with
     | .error e => .error e
     | .ok result =>
       match decorate m (result.scene.projectCellAttachments (routeMarkers m)) with
@@ -192,30 +196,34 @@ theorem decorate_layoutDump {m : Model} {s s' : Scene} (h : decorate m s = .ok s
 
 theorem layout_spec {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r) :
     ∃ fixed res, sizes m = .ok fixed ∧
+      Layered.layeredAdmissibleB (input m fixed) = true ∧
       Layered.layoutFamily (input m fixed) m.options = .ok res ∧
       r.scene.layoutDump = res.scene.layoutDump ∧ r.budgetExhausted = res.budgetExhausted := by
   unfold layout at h
   cases hs : sizes m with
   | error e => simp [hs] at h
   | ok fixed =>
-    cases hf : Layered.layoutFamily (input m fixed) m.options with
-    | error e => simp [hs, hf] at h
+    cases ha : Layered.admit (input m fixed)
+        (Layered.layoutFamily (input m fixed) m.options) with
+    | error e => simp [hs, ha] at h
     | ok res =>
       cases hd : decorate m (res.scene.projectCellAttachments (routeMarkers m)) with
-      | error e => simp [hs, hf, hd] at h
+      | error e => simp [hs, ha, hd] at h
       | ok scene =>
-        simp only [hs, hf, hd, Except.ok.injEq] at h
+        simp only [hs, ha, hd, Except.ok.injEq] at h
         subst h
-        exact ⟨fixed, res, rfl, hf,
+        obtain ⟨hadm, hfam⟩ := Layered.admit_ok ha
+        exact ⟨fixed, res, rfl, hadm, hfam,
           (decorate_layoutDump hd).trans (Scene.projectCellAttachments_layoutDump _ _), rfl⟩
 
-/-- ER validity reduces to the family's: the adapter changes sizes and the display list only. -/
+/-- ER validity reduces to the family's: the adapter changes sizes and the display list only.
+A successful run also records that the built input passed the admission guard. -/
 theorem layout_valid_of_family
     (hfam : ∀ (inp : Layered.Input) (o : Options) (res : Layered.FamilyResult),
       Layered.layoutFamily inp o = .ok res → Validator.check res.scene.layoutDump = true)
     {m : Model} {r : Layered.FamilyResult} (h : layout m = .ok r) :
     Validator.check r.scene.layoutDump = true := by
-  obtain ⟨fixed, res, _, hf, hd, _⟩ := layout_spec h
+  obtain ⟨fixed, res, _, _, hf, hd, _⟩ := layout_spec h
   rw [hd]
   exact hfam _ _ _ hf
 

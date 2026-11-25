@@ -376,6 +376,10 @@ fn polyline(
         raw.push(axis.at(narrow(p.cross)?, narrow(p.rank)?));
     }
     raw.push(ends.target);
+    Ok(simplify(raw))
+}
+
+pub(super) fn simplify(raw: impl IntoIterator<Item = Point>) -> Vec<Point> {
     let mut points: Vec<Point> = Vec::new();
     for p in raw {
         if points.last() == Some(&p) {
@@ -392,7 +396,7 @@ fn polyline(
         }
         points.push(p);
     }
-    Ok(points)
+    points
 }
 
 fn replace(items: &mut [scene::Group], route: &mut scene::SceneRoute, points: Vec<Point>) {
