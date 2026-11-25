@@ -45,11 +45,11 @@ private theorem flatLabelDims {exactIds : List String} {inp : Input} {o : Option
     {res : FamilyResult} (hrun : layoutX exactIds inp o = .ok res) :
     ∀ label ∈ res.scene.labels, 0 ≤ label.rect.w ∧ 0 ≤ label.rect.h := by
   obtain ⟨execution⟩ := layoutX_sceneExecution hrun
-  have hacc := execution.packedAcc_bounded (exactPartsBounded' execution)
+  have hacc := SceneExecutionX.straightAcc_bounded execution (exactPartsBounded' execution)
   have hline := checkedParams_lineH_nonneg execution.checked
   have hmargin := checkedParams_canvasMargin_ge_one execution.checked
   have hboxes := sceneOf_boxes_bounded execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc (by omega)
+    execution.straightAcc execution.measured hacc (by omega)
   intro label hlabel
   rw [execution.scene_eq] at hlabel
   obtain ⟨q, _, hemitted⟩ := List.mem_filterMap.mp hlabel
@@ -62,7 +62,7 @@ private theorem flatLabelDims {exactIds : List String} {inp : Input} {o : Option
       simp only [hmeasured, Option.some.injEq] at hemitted
       subst label
       apply orientedDims
-      cases hget : execution.packedAcc.labels[measured.index]? with
+      cases hget : execution.straightAcc.labels[measured.index]? with
       | none =>
         rw [Array.getD_eq_getD_getElem?, hget]
         exact ⟨Int.le_refl 0, Int.le_refl 0⟩
@@ -77,12 +77,12 @@ private theorem flatLabelDims {exactIds : List String} {inp : Input} {o : Option
         simp only [howner, Option.some.injEq] at hemitted
         subst label
         change 0 ≤ (sceneCaptionRect execution.params inp o execution.lines
-            execution.packedAcc index q.1.owner).w ∧
+            execution.straightAcc index q.1.owner).w ∧
           0 ≤ (sceneCaptionRect execution.params inp o execution.lines
-            execution.packedAcc index q.1.owner).h
+            execution.straightAcc index q.1.owner).h
         unfold sceneCaptionRect
         cases htitle : (sceneTitlesExpr execution.params inp o execution.lines
-            execution.packedAcc).find? (fun title => title.1 == q.1.owner) with
+            execution.straightAcc).find? (fun title => title.1 == q.1.owner) with
         | some title =>
           simp only [Option.map_some, Option.getD_some]
           obtain ⟨stored, _, hstored⟩ :=
@@ -101,7 +101,7 @@ private theorem flatLabelDims {exactIds : List String} {inp : Input} {o : Option
         | none =>
           simp only [Option.map_none, Option.getD_none]
           let boxes := (sceneOf execution.params inp o execution.lines
-            execution.packedAcc execution.measured).boxes
+            execution.straightAcc execution.measured).boxes
           let box := boxes.getD index ⟨"", "", default, "", false⟩
           let lines := execution.lines.getD index []
           change 0 ≤ (ownedTextRect execution.params box lines).w ∧

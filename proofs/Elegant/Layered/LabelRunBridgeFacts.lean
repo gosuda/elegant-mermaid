@@ -274,7 +274,8 @@ theorem scene_label_rect {inp : Input} {o : Options} {res : FamilyResult}
         Option.some.inj (hfind.symm.trans hmeasured)
       have hr := (congrArg (fun s => s.toLabel.rect) (Option.some.inj hemitted)).symm
       dsimp only at hr
-      rw [hlm] at hr
+      rw [hlm, execution.straight_canvasH,
+        (Elegant.Layered.PipelineImpl.straightenAcc_fields execution.straight_eq).2.1] at hr
       exact hr
     · next hfind =>
       split at hemitted

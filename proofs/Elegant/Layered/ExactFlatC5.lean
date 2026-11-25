@@ -52,6 +52,7 @@ theorem layoutX_ids {exactIds : List String} {inp : Input} {o : Options}
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
+  obtain ⟨_, _, h⟩ := bind_ok h
   split at h
   · simp at h
   · have h := Except.ok.inj h
@@ -1167,7 +1168,7 @@ theorem flatGroupEndpointsX {exactIds : List String}
   have hmodel : inp.routes[key]? = some (inp.routes[key]'hkey) :=
     List.getElem?_eq_getElem hkey
   have hscene := sceneOf_routes_getElem? execution.params inp o execution.lines
-    execution.packedAcc execution.measured key hkey
+    execution.straightAcc execution.measured key hkey
   rw [← execution.scene_eq] at hscene
   have houtRecord := Option.some.inj (houtIndex.symm.trans hscene)
   obtain ⟨packed, c, q, candidate, run, loops, area, i, edge,

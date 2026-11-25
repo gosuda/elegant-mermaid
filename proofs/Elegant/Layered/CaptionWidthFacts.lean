@@ -977,7 +977,7 @@ theorem SceneExecution.installed_group_caption_containment
       applyTitles captions (sceneItems execution.params inp res.scene.boxes res.scene.routes
         execution.lines res.scene.labels) := by
     rw [execution.scene_eq]
-    rfl
+    simp only [sceneOf, execution.straight_titles, execution.straight_canvasH] <;> rfl
   obtain ⟨installed, text, hemitted, hgroupRole, howner, htext, hrect⟩ :=
     applyTitles_box_caption_emission execution.params inp res.scene.boxes res.scene.routes
       execution.lines res.scene.labels captions hboxmem hrole

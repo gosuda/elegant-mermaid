@@ -245,7 +245,7 @@ theorem layoutRecursiveX_attached_fixed_frame_miss
   have origins := layoutRecursiveB_attached_origins (layoutX exactIds) (by
     intro ip op rr hl
     obtain ⟨execution⟩ := layoutX_sceneExecution hl
-    exact ⟨execution.params, execution.lines, execution.packedAcc, execution.measured,
+    exact ⟨execution.params, execution.lines, execution.straightAcc, execution.measured,
       execution.scene_eq⟩) fuel inp o res hwf h
   obtain ⟨_, _, _, _, _, dx, dy, hl, hw, hfix, hf, hr, hfrom, hto, hpoints, hrect⟩ :=
     origins.2.2 hfixed hframe hroute hatt
@@ -274,7 +274,7 @@ theorem expandChild_parent_attached_fixed_leaf
   have origins := layoutRecursiveB_attached_origins layout (by
     intro ip op rr h
     obtain ⟨execution⟩ := layout_sceneExecution h
-    exact ⟨execution.params, execution.lines, execution.packedAcc, execution.measured,
+    exact ⟨execution.params, execution.lines, execution.straightAcc, execution.measured,
       execution.scene_eq⟩) fuel parentInput o parent hwf hp
   refine ⟨entry, ?_⟩
   intro frame hframe route hroute hatt

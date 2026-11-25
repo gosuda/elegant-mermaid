@@ -278,10 +278,11 @@ theorem exact_leaf_caption_firstText {ids : List String} {inp : Input}
         match primitive with
         | .text text => .text { text with rect := title.2 }
         | _ => primitive }
+  have hfields := straightenAcc_fields execution.straight_eq
   have hitems : res.scene.items = applyTitles titles
       (sceneItems P inp res.scene.boxes res.scene.routes execution.lines res.scene.labels) := by
     rw [execution.scene_eq]
-    rfl
+    simp only [sceneOf, hfields.2.2.1, hfields.2.2.2.2] <;> rfl
   refine ⟨present, ?_, ?_⟩
   · rw [hitems]
     exact List.mem_map.mpr ⟨raw, hraw, rfl⟩

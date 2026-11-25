@@ -56,6 +56,7 @@ import Elegant.Layered.Pack
 import Elegant.Layered.Portfolio
 import Elegant.Layered.PipelineFacts
 import Elegant.Layered.SceneBounds
+import Elegant.Layered.StraightenFacts
 import Elegant.Layered.LaneBands
 import Elegant.Kinds.Flowchart
 import Elegant.Kinds.Class

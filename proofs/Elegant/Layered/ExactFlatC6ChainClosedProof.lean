@@ -2,6 +2,7 @@ import Elegant.Layered.ExactBottomBracketVacancyProof
 import Elegant.Layered.ExactFlatC6BridgeChainProof
 import Elegant.Layered.ExactFlatForeignLoopProof
 import Elegant.Layered.RankSiblingDisjoint
+import Elegant.Layered.ExactStraightenFacts
 
 set_option autoImplicit false
 
@@ -29,8 +30,6 @@ theorem SceneExecutionX.route_avoids_foreign_real
   exact componentRunX_route_avoids_real_of_bottom_bracket (checkedParams_valid execution.checked)
     hshape hrun (sceneExecutionX_bottomBracketVacant execution hwf hfp hcomp hrun)
     hnative hfirst hlast hv hreal hfrom hto
-
-set_option maxHeartbeats 1200000 in
 /-- Exact chain routes miss foreign exclusive boxes. In the same part, the
 source box determines the real run node; across parts, the emitted route and
 box are confined by axis-separated shelves, even if a shelf is degenerate. -/
@@ -67,7 +66,7 @@ theorem x6_chainCaseW_holds (exactIds : List String) : X6_ChainCaseW exactIds :=
       (List.mem_of_getElem? hedge)
   have hmodelAt : inp.routes[edge.decl]? = some model := by rwa [hmodelDecl]
   obtain ⟨boxKey, hboxAt⟩ := List.mem_iff_getElem?.mp hb
-  obtain ⟨source, hsource, hboxId, _, hboxExclusive, _⟩ :=
+  obtain ⟨source, hsource, hboxId, _, hboxExclusive, hboxRect⟩ :=
     sceneBox_source_rectX execution hboxAt
   have hboxKeyLen := (List.getElem?_eq_some_iff.mp hsource).1
   obtain ⟨part, pos, c', _, hentry, hpos⟩ := key_part_positionX execution hboxKeyLen
@@ -138,9 +137,175 @@ theorem x6_chainCaseW_holds (exactIds : List String) : X6_ChainCaseW exactIds :=
       hpart hpos hsource
     have hscene := X_chosen_part_route_from_points execution packed hpacked hselected
       hrouteLocal hpartNodup hmodelAt
-    rw [Option.some.inj (hrouteAt.symm.trans hscene), Option.some.inj (hboxLookup.symm.trans hbox)]
-    exact parent_port_miss_transport hmiss execution.params.canvasMargin o.direction
-      execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY
+    have hsuff : res.scene.routes[edge.decl]? =
+        some (Route.mk model.id model.fromId model.toId model.orthogonal
+          (native.points.map (routePointTransport execution.params.canvasMargin o.direction
+            execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY))) →
+        ¬ Polyline.hitsRect r.points b.rect := by
+      intro hscene0
+      have hrEq := Option.some.inj (hrouteAt.symm.trans hscene0)
+      have hbEq := Option.some.inj (hboxLookup.symm.trans hbox)
+      rw [hrEq, hbEq]
+      exact parent_port_miss_transport hmiss execution.params.canvasMargin o.direction
+        execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY
+    rcases hscene with hscene | ⟨ptsCorr, hcor, hrouteC⟩
+    · exact hsuff hscene
+    · obtain ⟨_cx0, _y0, _y1, _hltCor, hptsCorrEq⟩ := hcor
+      have hgetD : execution.straightAcc.routes.getD edge.decl [] = ptsCorr :=
+      ExactStraighten.straight_points_of_scene execution hrouteC
+      have hptsNe : ptsCorr ≠ [] := by
+        rw [hptsCorrEq]
+        intro hcon
+        simp at hcon
+      have hpts : execution.straightAcc.routes[edge.decl]? = some ptsCorr := by
+        have hgd : (execution.straightAcc.routes[edge.decl]?.getD []) = ptsCorr := by
+          have h := hgetD
+          rw [Array.getD_eq_getD_getElem?] at h
+          exact h
+        cases ho : execution.straightAcc.routes[edge.decl]? with
+        | none =>
+          simp only [ho, Option.getD_none] at hgd
+          exact absurd hgd.symm hptsNe
+        | some v =>
+          simp only [ho, Option.getD_some] at hgd
+          exact congrArg Option.some hgd
+      rcases ExactStraighten.route_cases_clear execution X_componentRun_normalized_source hpts with hpackedPts | ⟨qW, ctx0W, oxW, oyW, iW, eW,
+        routingW, spanW, hmemW, hctxW, hoffW, heW, hdeclW, hspanW, hptsW, hclearW⟩
+      · have hsize : edge.decl < execution.componentsAcc.routes.size := by
+          rw [← packAcc_routes_size execution.packed_eq]
+          exact (Array.getElem?_eq_some_iff.mp hpackedPts).1
+        have heP := (List.getElem?_eq_some_iff.mp hedge).2
+        have hgetP := X_placeComponentExact_route_entry_of_producer hrun 0 loops i hi
+          (by simpa only [he] using hloopen)
+        have hpartRoutes : q.1.2.routes =
+            (placeComponentExact execution.params
+              (componentCandidate execution.graph q.1.1 candidate) run 0 execution.measured
+              loops).routes := by
+          rw [hpart]
+        rw [← hpartRoutes] at hgetP
+        have hpackedRoute := ExactStraighten.actual_components_packAcc_routes_getD (by rfl)
+          execution.components_eq
+          (exactGraph_decls_nodup execution.graph0_eq execution.graph_eq)
+          packed execution.packed_eq hpacked c q hselected i _ _ [] hgetP hpartNodup
+          (by rw [heP]; exact hsize)
+        have hnativeGet := (List.getElem?_eq_some_iff.mp hnative).2
+        have hk' : edge.decl < inp.routes.length := (List.getElem?_eq_some_iff.mp hmodelAt).1
+        have hmodelEq : inp.routes[edge.decl]'hk' = model :=
+          Option.some.inj ((List.getElem?_eq_getElem hk').symm.trans hmodelAt)
+        have hbridge : execution.packedAcc.routes.getD edge.decl [] =
+            execution.straightAcc.routes.getD edge.decl [] := by
+          rw [hgetD, Array.getD_eq_getD_getElem?, hpackedPts, Option.getD_some]
+        have hneg : -bounds.minY = 0 - bounds.minY := by omega
+        have hstraight0 := sceneOf_routes_getElem? execution.params inp o execution.lines
+          execution.straightAcc execution.measured edge.decl hk'
+        rw [← execution.scene_eq] at hstraight0
+        rw [ExactStraighten.straight_canvasH execution] at hstraight0
+        rw [heP, hbridge] at hpackedRoute
+        rw [hneg] at hpackedRoute
+        rw [hmodelEq] at hstraight0
+        rw [hpackedRoute, routePointTransport_eq, hnativeGet] at hstraight0
+        exact hsuff hstraight0
+      · have hrole : source.role = .node := by
+          cases h : source.role with
+          | node => rfl
+          | group => exact absurd h hnotGroup
+        have hcompSize : execution.componentsAcc.rects.size = inp.boxes.length :=
+          execution.components_rects_size
+        have hpackSize : execution.packedAcc.rects.size = execution.componentsAcc.rects.size :=
+          installed_packAcc_rects_size execution.packed_eq
+        have hsizeW : boxKey < execution.packedAcc.rects.size := by
+          rw [hpackSize, hcompSize]
+          exact hboxKeyLen
+        have hneF : execution.packedAcc.rects[boxKey]? ≠ none := by
+          intro hcon
+          have hle := Array.getElem?_eq_none_iff.mp hcon
+          omega
+        obtain ⟨rectW, hlookW⟩ := Option.ne_none_iff_exists'.mp hneF
+        have hflag : decide (source.role == BoxRole.node) = true := by
+          have hb : (source.role == BoxRole.node) = true := by
+            rw [hrole]
+            exact beq_self_eq_true _
+          rw [decide_eq_true_eq]
+          exact hb
+        have hmemG := ExactStraighten.installed_global_mem hlookW hsource
+        rw [hflag] at hmemG
+        have hcond := List.all_eq_true.mp hclearW _ (List.mem_append.mpr (Or.inl hmemG))
+        have hcondBeta : (rectW == spanW.tailRect || rectW == spanW.headRect || false ||
+            !Polyline.hitsRectB [⟨spanW.column, spanW.top⟩, ⟨spanW.column, spanW.bottom⟩]
+              rectW) = true := hcond
+        obtain ⟨eInv, heInv, _heligInv, _hdeclInv, hltW⟩ := ExactStraighten.straightSpanOf_inv hspanW
+        have hshapeW : spanW.top = spanW.tailRect.y + spanW.tailRect.h ∧
+            spanW.bottom = spanW.headRect.y := by
+          have hspan2 := hspanW
+          unfold straightSpanOf at hspan2
+          cases he2 : ({ ctx0W with dx := ctx0W.dx + oxW, dy := ctx0W.dy + oyW }).proper.edges[iW]? with
+          | none =>
+            simp only [he2] at hspan2
+            cases hspan2
+          | some e2 =>
+            simp only [he2] at hspan2
+            cases hel : !straightEdgeEligible { ctx0W with dx := ctx0W.dx + oxW, dy := ctx0W.dy + oyW }
+              routingW iW e2 with
+            | true =>
+              simp only [hel] at hspan2
+              cases hspan2
+            | false =>
+              simp only [hel] at hspan2
+              cases hgeom : straightGeom { ctx0W with dx := ctx0W.dx + oxW, dy := ctx0W.dy + oyW }
+                routingW iW e2 with
+              | mk tw hw th hh tailLeft headLeft lo hi cx =>
+                simp only [hgeom] at hspan2
+                by_cases hlo : lo > hi
+                · rw [ite_eq_left hlo] at hspan2
+                  cases hspan2
+                · rw [ite_eq_right hlo] at hspan2
+                  obtain ⟨pin, _, hspan2⟩ := bind_ok hspan2
+                  obtain ⟨top, _, hspan2⟩ := bind_ok hspan2
+                  obtain ⟨bottom, _, hspan2⟩ := bind_ok hspan2
+                  by_cases hge : top ≥ bottom
+                  · rw [ite_eq_left hge] at hspan2
+                    cases hspan2
+                  · rw [ite_eq_right hge] at hspan2
+                    obtain ⟨column, _, hspan2⟩ := bind_ok hspan2
+                    have hs := Option.some.inj (Except.ok.inj hspan2)
+                    subst hs
+                    refine ⟨by dsimp only; omega, by dsimp only⟩
+        have hptsEqW : ptsCorr = [⟨spanW.column, spanW.top⟩, ⟨spanW.column, spanW.bottom⟩] := by
+          rw [hptsW]
+          rfl
+        have hmissW : ¬ Polyline.hitsRect ptsCorr rectW := by
+          rw [hptsEqW]
+          cases hEqT : rectW == spanW.tailRect with
+          | true =>
+            have hRectEqT : rectW = spanW.tailRect := beq_iff_eq.mp hEqT
+            rw [hRectEqT]
+            exact ExactStraighten.corridor_misses_tail hshapeW.1 hltW
+          | false =>
+            cases hEqH : rectW == spanW.headRect with
+            | true =>
+              have hRectEqH : rectW = spanW.headRect := beq_iff_eq.mp hEqH
+              rw [hRectEqH]
+              exact ExactStraighten.corridor_misses_head hshapeW.2 hltW
+            | false =>
+              cases hB : Polyline.hitsRectB [⟨spanW.column, spanW.top⟩,
+                  ⟨spanW.column, spanW.bottom⟩] rectW with
+              | true =>
+                rw [hEqT, hEqH, hB] at hcondBeta
+                cases hcondBeta
+              | false =>
+                exact (Polyline.hitsRectB_eq_false_iff _ _).mp hB
+        have hbV : b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin
+            (orientRect o.direction execution.packedAcc.canvasH rectW) := by
+          have hget : execution.packedAcc.rects.getD boxKey default = rectW := by
+            rw [Array.getD_eq_getD_getElem?, hlookW, Option.getD_some]
+          rw [hboxRect, hget]
+        have hrouteEqC : r.points =
+            ptsCorr.map fun p => shiftPoint execution.params.canvasMargin
+              execution.params.canvasMargin
+              (orientPoint o.direction execution.packedAcc.canvasH p) :=
+          congrArg Route.points (Option.some.inj (hrouteAt.symm.trans hrouteC))
+        rw [hrouteEqC, hbV]
+        exact not_hitsRect_shift_orient _ _ _ _ _ _ hmissW
   · exact execution.chosenRoute_misses_other_part hpacked hselected hrouteLocal hpartNodup
       hmodelAt hrouteAt (Ne.symm hsame) hentry hpos hboxAt
 

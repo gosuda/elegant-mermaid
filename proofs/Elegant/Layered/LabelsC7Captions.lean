@@ -241,6 +241,8 @@ theorem sceneCaptionBoxContainment {inp : Input} {o : Options} {res : FamilyResu
           rw [congrArg (fun s : SceneLabel => s.rect) heq]
           unfold PipelineImpl.sceneCaptionRect
           rw [hlmodel]
+          rw [(Elegant.Layered.PipelineImpl.straightenAcc_fields execution.straight_eq).1,
+            execution.straight_titles, execution.straight_canvasH]
           rfl
         -- the validator scope of the caption label
         have hscope' : b.id ∉ res.scene.layoutDump.labelOwnerAnc

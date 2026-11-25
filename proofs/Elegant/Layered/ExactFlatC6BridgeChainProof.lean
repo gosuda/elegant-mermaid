@@ -191,7 +191,7 @@ private theorem x6bc_scopedW {exactIds : List String}
     rw [← hdeclIdx]; exact hkeyedge
   have hse := execution.scene_eq
   rw [hse] at hsceneT
-  have hget := sceneOf_routes_getElem? execution.params inp o execution.lines execution.packedAcc execution.measured index hk
+  have hget := sceneOf_routes_getElem? execution.params inp o execution.lines execution.straightAcc execution.measured index hk
   have hmap := congrArg (Option.map Route.fromId) (hget.symm.trans hsceneT)
   have hmapT := congrArg (Option.map Route.toId) (hget.symm.trans hsceneT)
   simp only [Option.map_some, Option.some.injEq] at hmap hmapT

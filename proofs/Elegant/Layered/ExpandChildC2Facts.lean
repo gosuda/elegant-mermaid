@@ -98,6 +98,7 @@ theorem layout_scene_box_parent {inp : Input} {o : Options} {res : FamilyResult}
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
   · simp at h
   · have h := Except.ok.inj h

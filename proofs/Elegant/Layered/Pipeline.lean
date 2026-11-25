@@ -16,6 +16,7 @@ import Elegant.Layered.Compound
 import Elegant.Layered.Portfolio
 import Elegant.Layered.FramePorts
 import Elegant.Layered.NoteIds
+import Elegant.Layered.Straighten
 
 set_option autoImplicit false
 
@@ -491,6 +492,7 @@ structure Part where
   height : Int
   area : Int := 0
   titles : List (Nat × Rect) := []
+  straighten : Option StraightenCtx := none
 
 def shiftPoint (dx dy : Int) (p : Point) : Point := ⟨p.x + dx, p.y + dy⟩
 
@@ -531,6 +533,12 @@ def placeComponent (P : Params) (cg : Graph) (run : Run) (cursor : Int)
     (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))
   let dx := cursor - b.minX
   let dy := 0 - b.minY
+  let sctx : StraightenCtx :=
+    { proper := run.proper, layers := run.layers,
+      xs := run.xs, ys := run.ys, tops := run.top, routing := run.routing,
+      lanes := run.lanes, slot := P.slot,
+      reversed := cg.edges.map (·.reversed), decls := cg.edges.map (·.decl),
+      dx := dx, dy := dy }
   { labels := labelRects.map (fun q => (q.1, shiftRect dx dy q.2))
     rects := rects.map (shiftRect dx dy)
     routes := cg.edges.zipIdx.map fun q =>
@@ -538,7 +546,8 @@ def placeComponent (P : Params) (cg : Graph) (run : Run) (cursor : Int)
         (fun l => l.2.points)).getD (edgePoints run q.2 q.1)).map (shiftPoint dx dy))
     width := b.right - b.minX
     height := b.bottom - b.minY
-    titles := (componentTitles P cg run).map (fun q => (q.1, shiftRect dx dy q.2)) }
+    titles := (componentTitles P cg run).map (fun q => (q.1, shiftRect dx dy q.2))
+    straighten := some sctx }
 
 def placeComponentExact (P : Params) (cg : Graph) (run : Run) (cursor : Int)
     (labels : List MeasuredLabel := []) (loops : List (Nat × LoopPlacement) := []) : Part :=
@@ -556,6 +565,12 @@ def placeComponentExact (P : Params) (cg : Graph) (run : Run) (cursor : Int)
     (run.routes.flatMap (·.points) ++ loops.flatMap (fun q => q.2.points))
   let dx := cursor - b.minX
   let dy := -b.minY
+  let sctx : StraightenCtx :=
+    { proper := run.proper, layers := run.layers,
+      xs := run.xs, ys := run.ys, tops := run.top, routing := run.routing,
+      lanes := run.lanes, slot := P.slot,
+      reversed := cg.edges.map (·.reversed), decls := cg.edges.map (·.decl),
+      dx := dx, dy := dy }
   { labels := labelRects.map (fun q => (q.1, shiftRect dx dy q.2))
     rects := rects.map (shiftRect dx dy)
     routes := cg.edges.zipIdx.map fun q =>
@@ -563,7 +578,8 @@ def placeComponentExact (P : Params) (cg : Graph) (run : Run) (cursor : Int)
         (fun l => l.2.points)).getD (edgePoints run q.2 q.1)).map (shiftPoint dx dy))
     width := b.right - b.minX
     height := b.bottom - b.minY
-    titles := (componentTitles P cg run).map (fun q => (q.1, shiftRect dx dy q.2)) }
+    titles := (componentTitles P cg run).map (fun q => (q.1, shiftRect dx dy q.2))
+    straighten := some sctx }
 
 def partArea (rects : List Rect) (routes : List (Nat × List Point)) : Int :=
   rects.foldl (fun total r => total + r.w * r.h) 0 +
@@ -632,6 +648,57 @@ def packAcc (P : Params) (o : Options) (acc : Acc) : Except LayoutError Acc := d
       titles := out.titles ++ part.titles.map
         (fun r => (comp.getD r.1 0, shiftRect dx dy r.2)) })
     { acc with canvasW := packed.width, canvasH := packed.height, titles := [] })
+
+/-- The straightening context of a packed part and its pack offset: the shift
+from the part's first rectangle to that rectangle's packed position. -/
+def straightenOffset (comp : List Nat) (part : Part) (rects : Array Rect) :
+    Option (StraightenCtx × Int × Int) :=
+  match part.straighten, comp.zip part.rects with
+  | some ctx0, (v, r) :: _ =>
+    match rects[v]? with
+    | some base => some (ctx0, base.x - r.x, base.y - r.y)
+    | none => none
+  | _, _ => none
+
+/-- The global box list straightening checks: packed rectangles with node flags. -/
+def installed_global_boxes (acc : Acc) (inp : Input) : List (Bool × Rect) :=
+  (List.range acc.rects.size).filterMap fun v =>
+    match acc.rects[v]?, inp.boxes[v]? with
+    | some r, some m => some (decide (m.role == BoxRole.node), r)
+    | _, _ => none
+
+/-- The obstacles of one part's straightening: every node box, and the other
+real nodes of the part. -/
+def straightenPartBoxes (inp : Input) (acc : Acc) (ctx0 : StraightenCtx)
+    (comp : List Nat) : List (Bool × Rect) :=
+  installed_global_boxes acc inp ++
+    comp.zipIdx.filterMap fun q =>
+      if straightRealNode ctx0.proper q.2 then
+        match acc.rects[q.1]?, inp.boxes[q.1]? with
+        | some r, some m => if m.role == BoxRole.node then none else some (true, r)
+        | _, _ => none
+      else none
+
+def straightenParts (boxesOf : StraightenCtx → List Nat → List (Bool × Rect))
+    (rects : Array Rect) :
+    List ((List Nat) × Part) → Array (List Point) →
+    Except LayoutError (Array (List Point))
+  | [], routes => .ok routes
+  | q :: rest, routes =>
+    match straightenOffset q.1 q.2 rects with
+    | none => straightenParts boxesOf rects rest routes
+    | some (ctx0, ox, oy) =>
+      match straightenComponent { ctx0 with dx := ctx0.dx + ox, dy := ctx0.dy + oy } (boxesOf ctx0 q.1) routes with
+      | .ok updated => straightenParts boxesOf rects rest updated
+      | .error e => .error e
+
+def straightenRoutes (inp : Input) (acc : Acc) : Except LayoutError (Array (List Point)) :=
+  straightenParts (fun ctx0 comp => straightenPartBoxes inp acc ctx0 comp) acc.rects acc.parts acc.routes
+
+def straightenAcc (inp : Input) (acc : Acc) : Except LayoutError Acc := do
+  let routes ← straightenRoutes inp acc
+  pure { acc with routes }
+
 def orientPoint (d : Direction) (h : Int) (p : Point) : Point :=
   match d with
   | .TB => p
@@ -939,6 +1006,7 @@ def layout (inp : Input) (o : Options) : Except LayoutError FamilyResult := do
   let acc ← (components g).foldlM
     (fun acc comp => layoutComponent P inp o g acc comp measured) start
   let acc ← packAcc P o acc
+  let acc ← straightenAcc inp acc
   let scene := sceneOf P inp o lines acc measured
   if I32_MAX < scene.canvas.w ∨ I32_MAX < scene.canvas.h then throw .overflow
   else pure ⟨scene, acc.budget, acc.parts.foldl (fun area part => area + part.2.area) 0⟩

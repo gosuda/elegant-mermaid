@@ -345,7 +345,9 @@ pub(super) fn layout_unisolated(
         nodes: &lines,
         routes: route_lines,
     };
-    for part in place_components(&g, input, &measurements)? {
+    let mut parts = place_components(&g, input, &measurements)?;
+    super::straighten::straighten_parts(&mut parts, input)?;
+    for part in parts {
         let (size, exhausted) = write_component(&mut dump, &mut placed_titles, part, &text)?;
         canvas.w = canvas.w.max(size.w);
         canvas.h = canvas.h.max(size.h);
@@ -490,12 +492,12 @@ fn blank_dump(input: &Input) -> Dump {
     dump
 }
 
-struct PackedComponent {
-    members: Vec<usize>,
-    graph: Graph,
-    layout: Component,
-    bounds: (i32, i32, i32, i32),
-    origin: Point,
+pub(crate) struct PackedComponent {
+    pub(crate) members: Vec<usize>,
+    pub(crate) graph: Graph,
+    pub(crate) layout: Component,
+    pub(crate) bounds: (i32, i32, i32, i32),
+    pub(crate) origin: Point,
 }
 
 fn place_components(

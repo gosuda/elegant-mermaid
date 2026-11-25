@@ -38,7 +38,7 @@ theorem SceneExecutionX.attached_fixed_frame_miss
   obtain ⟨key, hprIndex⟩ := List.mem_iff_getElem?.mp hpr
   have hkey : key < inp.routes.length := by
     rw [← sceneOf_routes_length execution.params inp o execution.lines
-      execution.packedAcc execution.measured, ← execution.scene_eq]
+      execution.straightAcc execution.measured, ← execution.scene_eq]
     exact (List.getElem?_eq_some_iff.mp hprIndex).1
   obtain ⟨packed, c, q, candidate, run, loops, area, i, edge,
     hpacked, hselected, hrun, hloops, hpart, hedge, hdecl⟩ :=
@@ -61,7 +61,7 @@ theorem SceneExecutionX.attached_fixed_frame_miss
   rw [← hindex] at hroute
   have hrouteEq : inp.routes[key]'hkey = route := (List.getElem?_eq_some_iff.mp hroute).2
   have hscene := sceneOf_routes_getElem? execution.params inp o execution.lines
-    execution.packedAcc execution.measured key hkey
+    execution.straightAcc execution.measured key hkey
   rw [← execution.scene_eq] at hscene
   have hprEq := Option.some.inj (hprIndex.symm.trans hscene)
   have hfrom : pr.fromId = route.fromId :=

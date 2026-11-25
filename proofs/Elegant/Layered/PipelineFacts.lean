@@ -1781,6 +1781,7 @@ theorem layout_ids {inp : Input} {o : Options} {res : FamilyResult}
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
   · simp at h
   · have h := Except.ok.inj h
@@ -4259,11 +4260,11 @@ theorem placeComponent_routes_bounds_of_run
         (List.mem_flatMap.mpr ⟨_, List.getElem_mem _, hp'⟩)
   exact PipelineImpl.placeComponent_shifted_point_bounds_zero P cg run labels loops point hcovered
 
-/-- Recover the executed phases, including the exact packed accumulator used by
-`sceneOf`; no placement or scene-validity hypothesis is supplied by the caller. -/
-theorem layout_success_phases {inp : Input} {o : Options} {result : FamilyResult}
+ /-- Recover the executed phases, including the exact packed accumulator used by
+     `sceneOf`; no placement or scene-validity hypothesis is supplied by the caller. -/
+ theorem layout_success_phases {inp : Input} {o : Options} {result : FamilyResult}
     (h : PipelineImpl.layout inp o = .ok result) :
-    ∃ P metric lines measured graph mid packed,
+    ∃ P metric lines measured graph mid packed straight,
       PipelineImpl.checkedParams o.profile inp.kind = .ok P ∧
       PipelineImpl.metricOf o.profile = .ok metric ∧
       PipelineImpl.boxLines metric
@@ -4279,9 +4280,10 @@ theorem layout_success_phases {inp : Input} {o : Options} {result : FamilyResult
           Array.replicate inp.routes.length [], Array.replicate inp.labels.length default,
           false, [], []⟩ = .ok mid ∧
       PipelineImpl.packAcc P o mid = .ok packed ∧
-      result.scene = PipelineImpl.sceneOf P inp o lines packed measured ∧
-      result.budgetExhausted = packed.budget ∧
-      result.itemArea = packed.parts.foldl (fun area part => area + part.2.area) 0 := by
+      PipelineImpl.straightenAcc inp packed = .ok straight ∧
+      result.scene = PipelineImpl.sceneOf P inp o lines straight measured ∧
+      result.budgetExhausted = straight.budget ∧
+    result.itemArea = straight.parts.foldl (fun area part => area + part.2.area) 0 := by
   unfold PipelineImpl.layout at h
   obtain ⟨P, hP, h⟩ := PipelineImpl.bind_ok h
   obtain ⟨metric, hm, h⟩ := PipelineImpl.bind_ok h
@@ -4290,13 +4292,14 @@ theorem layout_success_phases {inp : Input} {o : Options} {result : FamilyResult
   obtain ⟨graph, hg, h⟩ := PipelineImpl.bind_ok h
   obtain ⟨mid, hmid, h⟩ := PipelineImpl.bind_ok h
   obtain ⟨packed, hpacked, h⟩ := PipelineImpl.bind_ok h
+  obtain ⟨straight, hstraight, h⟩ := PipelineImpl.bind_ok h
   dsimp only at h
   split at h
   · simp [throw, throwThe, MonadExceptOf.throw] at h
   · have he := Except.ok.inj h
     subst result
-    exact ⟨P, metric, lines, measured, graph, mid, packed,
-      hP, hm, hl, hmeasured, hg, hmid, hpacked, rfl, rfl, rfl⟩
+    exact ⟨P, metric, lines, measured, graph, mid, packed, straight,
+      hP, hm, hl, hmeasured, hg, hmid, hpacked, hstraight, rfl, rfl, rfl⟩
 
 /-- The public family gate admits precisely an actual successful recursive run
 on the supplied input, and its successful branch establishes model admission. -/
@@ -4334,7 +4337,7 @@ theorem layoutFamily_success {inp : Input} {o : Options} {result : FamilyResult}
 and the disjoint component packing used to assemble its final scene. -/
 theorem layout_success_component_packing {inp : Input} {o : Options}
     {result : FamilyResult} (h : PipelineImpl.layout inp o = .ok result) :
-    ∃ P lines measured graph mid out packed,
+    ∃ P lines measured graph mid out packed straight,
       PipelineImpl.measuredGraph P inp o lines = .ok graph ∧
       (graph.edges.map (·.decl)).Nodup ∧
       (PipelineImpl.components graph).foldlM
@@ -4343,17 +4346,18 @@ theorem layout_success_component_packing {inp : Input} {o : Options}
           Array.replicate inp.routes.length [], Array.replicate inp.labels.length default,
           false, [], []⟩ = .ok mid ∧
       PipelineImpl.packAcc P o mid = .ok out ∧
+      PipelineImpl.straightenAcc inp out = .ok straight ∧
       Pack.pack (if o.profile == .cell then o.maxWidth else 0)
         P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
         (LayoutConst.component_aspect_den.get o.profile)
         (mid.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed ∧
       packed.boxes.Pairwise Disjoint ∧
-      result.scene = PipelineImpl.sceneOf P inp o lines out measured := by
-  obtain ⟨P, metric, lines, measured, graph, mid, out,
-    _, _, _, _, hg, hfold, hpack, hscene, _, _⟩ := layout_success_phases h
+      result.scene = PipelineImpl.sceneOf P inp o lines straight measured := by
+  obtain ⟨P, metric, lines, measured, graph, mid, out, straight,
+    _, _, _, _, hg, hfold, hpack, hstraight, hscene, _, _⟩ := layout_success_phases h
   obtain ⟨packed, hpacked, hdisjoint⟩ := PipelineImpl.packAcc_components_disjoint hpack
-  exact ⟨P, lines, measured, graph, mid, out, packed, hg,
-    PipelineImpl.measuredGraph_decls_nodup hg, hfold, hpack, hpacked, hdisjoint, hscene⟩
+  exact ⟨P, lines, measured, graph, mid, out, packed, straight, hg,
+    PipelineImpl.measuredGraph_decls_nodup hg, hfold, hpack, hstraight, hpacked, hdisjoint, hscene⟩
 
 /-- With no recursively laid-out independent group, the public successful run
 uses the same base pipeline whose phase witnesses are recovered above. -/
