@@ -163,7 +163,9 @@ function fixtureErrors(fixture, operation, results) {
         const warnings = diagnostics.filter((diagnostic) => diagnostic.code === 'config/unknown-key');
         if (
           warnings.length !== fixture.warnings.length ||
-          warnings.some((warning, index) => warning.severity !== 'warning' || warning.message !== fixture.warnings[index])
+          warnings.some(
+            (warning, index) => warning.severity !== 'warning' || warning.message !== fixture.warnings[index],
+          )
         ) {
           errors.push(`${engine}: missing or incorrect authored config warnings`);
         }
