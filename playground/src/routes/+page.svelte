@@ -71,7 +71,6 @@ let message = $state('');
 let sharedUrl = $state<string | null>(null);
 let fixing = $state(false);
 let bootDone = false;
-let hashRevision = 0;
 let snapshots = $state<Record<EngineId, EngineSnapshot>>({ go: IDLE_SNAPSHOT, rust: IDLE_SNAPSHOT });
 let views = $state<Record<EngineId, EngineView>>({ go: emptyView(), rust: emptyView() });
 let svgUrls = $state<Record<EngineId, string | null>>({ go: null, rust: null });
@@ -339,7 +338,7 @@ async function boot(): Promise<void> {
   const note = encoded === null ? '' : await openShare(encoded);
   bootDone = true;
   issueRevision();
-  message = encoded !== null && payload === null ? INVALID_LINK_MESSAGE : '';
+  message = note;
 }
 
 async function followShare(): Promise<void> {
@@ -367,12 +366,8 @@ onMount(() => {
   for (const id of selected) {
     clients[id]?.start();
   }
-  const onHashChange = () => void loadHash();
-  window.addEventListener('hashchange', onHashChange);
-  void loadHash();
+  void boot();
   return () => {
-    ++hashRevision;
-    window.removeEventListener('hashchange', onHashChange);
     schedule.cancel();
     for (const stop of unsubscribe) {
       stop();
