@@ -104,15 +104,27 @@ func markdownFormatExtension(format string) string {
 	return format
 }
 
+// Commit through the resolved filesystem directory: a missing prefix that ..
+// cancels must not be created, and a later symlink keeps its meaning. MkdirAll
+// on the lexical path fails where a symlink component meets .. (Lstat is not Stat).
 func commitMarkdownOutputs(outputs []markdownOutput) error {
+	resolved := make([]markdownOutput, 0, len(outputs))
 	for _, output := range outputs {
-		if err := os.MkdirAll(outputDirectory(output.path), 0o755); err != nil {
+		directory, err := resolvedOutputDirectory(outputDirectory(output.path))
+		if err != nil {
 			return fileerr.Write(output.path, err)
 		}
-	}
-	for _, output := range outputs {
-		if err := atomicOutput(output.path, output.data); err != nil {
+		if err := os.MkdirAll(directory, 0o755); err != nil {
 			return fileerr.Write(output.path, err)
+		}
+		resolved = append(resolved, markdownOutput{
+			path: joinOutputPath(directory, filepath.Base(output.path)),
+			data: output.data,
+		})
+	}
+	for i, output := range resolved {
+		if err := atomicOutput(output.path, output.data); err != nil {
+			return fileerr.Write(outputs[i].path, err)
 		}
 	}
 	return nil
