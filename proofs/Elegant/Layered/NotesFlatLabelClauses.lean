@@ -442,7 +442,7 @@ private theorem nlc_route_cases
           fr.id = r.id ∧ rt.points = fr.points.map (shiftPoint p.dx p.dy)) ∨
        (nlcCross inp e.layouts r ∧
         ∃ pts : List Point, rt.points = pts ∧
-          routeAround inp e.atts (nlcFrameOf e.contracted o e.margin)
+          routeAround o.profile inp e.atts (nlcFrameOf e.contracted o e.margin)
             (nlcRectsOf res.scene.boxes)
             (nlcLabelsOf e.fragments e.contracted inp)
             (nlcTitlesOf e.fragments e.contracted) r = .ok pts)) := by
@@ -493,7 +493,7 @@ private theorem nlc_route_cases
       have hmk : Route.mk x.id x.fromId x.toId x.orthogonal pts = rt :=
         Except.ok.inj hj
       have hptseq : rt.points = pts := (congrArg Route.points hmk).symm
-      have hroute : routeAround inp e.atts (nlcFrameOf e.contracted o e.margin)
+      have hroute : routeAround o.profile inp e.atts (nlcFrameOf e.contracted o e.margin)
           (nlcRectsOf res.scene.boxes)
           (nlcLabelsOf e.fragments e.contracted inp)
           (nlcTitlesOf e.fragments e.contracted) x = .ok pts := hroute
@@ -526,7 +526,7 @@ private theorem nlc_route_cases
       have hmk : Route.mk x.id x.fromId x.toId x.orthogonal pts = rt :=
         Except.ok.inj hj
       have hptseq : rt.points = pts := (congrArg Route.points hmk).symm
-      have hroute : routeAround inp e.atts (nlcFrameOf e.contracted o e.margin)
+      have hroute : routeAround o.profile inp e.atts (nlcFrameOf e.contracted o e.margin)
           (nlcRectsOf res.scene.boxes)
           (nlcLabelsOf e.fragments e.contracted inp)
           (nlcTitlesOf e.fragments e.contracted) x = .ok pts := hroute
@@ -602,7 +602,7 @@ private theorem nlc_route_cases
         have hmk : Route.mk x.id x.fromId x.toId x.orthogonal pts = rt :=
           Except.ok.inj hj
         have hptseq : rt.points = pts := (congrArg Route.points hmk).symm
-        have hroute : routeAround inp e.atts (nlcFrameOf e.contracted o e.margin)
+        have hroute : routeAround o.profile inp e.atts (nlcFrameOf e.contracted o e.margin)
             (nlcRectsOf res.scene.boxes)
             (nlcLabelsOf e.fragments e.contracted inp)
           (nlcTitlesOf e.fragments e.contracted) x = .ok pts := hroute
@@ -703,7 +703,7 @@ def NotesC6RouterClear {base : List String → Input → Options → Except Layo
     (e : NotesExecution base exactIds fuel inp o res) : Prop :=
   ∀ r ∈ inp.routes, nlcCross inp e.layouts r →
     ∀ pts : List Point,
-      routeAround inp e.atts (nlcFrameOf e.contracted o e.margin)
+      routeAround o.profile inp e.atts (nlcFrameOf e.contracted o e.margin)
         (nlcRectsOf res.scene.boxes)
         (nlcLabelsOf e.fragments e.contracted inp)
         (nlcTitlesOf e.fragments e.contracted) r = .ok pts →
@@ -852,7 +852,7 @@ private theorem nlc_c6_cross {base : List String → Input → Options → Excep
     (e : NotesExecution base exactIds fuel inp o res)
     (hRouter : NotesC6RouterClear e)
     {r : ModelRoute} (hr : r ∈ inp.routes) (hcross : nlcCross inp e.layouts r)
-    {pts : List Point} (hroute : routeAround inp e.atts (nlcFrameOf e.contracted o e.margin)
+    {pts : List Point} (hroute : routeAround o.profile inp e.atts (nlcFrameOf e.contracted o e.margin)
       (nlcRectsOf res.scene.boxes) (nlcLabelsOf e.fragments e.contracted inp)
       (nlcTitlesOf e.fragments e.contracted) r = .ok pts)
     {rt : Route} (hpts : rt.points = pts)
