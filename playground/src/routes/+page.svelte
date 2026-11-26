@@ -339,15 +339,21 @@ async function boot(): Promise<void> {
   const note = encoded === null ? '' : await openShare(encoded);
   bootDone = true;
   issueRevision();
-  message = encoded !== null && payload === null ? INVALID_LINK_MESSAGE : '';
+  if (note !== '') {
+    message = note;
+  }
 }
 
 async function followShare(): Promise<void> {
+  const revision = ++hashRevision;
   const encoded = fragmentPayload(window.location.hash);
   if (encoded === null || !bootDone) {
     return;
   }
   const note = await openShare(encoded);
+  if (revision !== hashRevision) {
+    return;
+  }
   issueRevision();
   message = note;
 }
@@ -367,12 +373,9 @@ onMount(() => {
   for (const id of selected) {
     clients[id]?.start();
   }
-  const onHashChange = () => void loadHash();
-  window.addEventListener('hashchange', onHashChange);
-  void loadHash();
+  void boot();
   return () => {
     ++hashRevision;
-    window.removeEventListener('hashchange', onHashChange);
     schedule.cancel();
     for (const stop of unsubscribe) {
       stop();
