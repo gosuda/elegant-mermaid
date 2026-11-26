@@ -33,7 +33,9 @@ Failures in one independent gate MUST NOT suppress the other gate results.
 `just verify` remains the complete local entry point. Both workflows MUST
 pass before the repository is described as fully verified.
 
-`pages.yml` runs `playground-wasm` and `playground-sample`.
+`pages.yml` runs `playground-build`. That recipe builds the native and
+WebAssembly engines, renders the default sample through
+`playground/scripts/initial-text.mjs`, and prerenders the site.
 
 ## Lean proofs
 
