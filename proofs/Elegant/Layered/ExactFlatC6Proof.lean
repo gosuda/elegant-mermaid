@@ -338,7 +338,7 @@ theorem x6_core {exactIds : List String} {inp : Input} {o : Options}
   have hlen : res.scene.routes.length = inp.routes.length := by
     rw [execution.scene_eq]
     exact sceneOf_routes_length execution.params inp o execution.lines
-      execution.packedAcc execution.measured
+      execution.straightAcc execution.measured
   have hkey : key < inp.routes.length := by
     rw [← hlen]
     exact (List.getElem?_eq_some_iff.mp hkget).1

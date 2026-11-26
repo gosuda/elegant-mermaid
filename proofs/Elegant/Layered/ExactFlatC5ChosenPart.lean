@@ -1,4 +1,5 @@
 import Elegant.Layered.ExactFlatC5
+import Elegant.Layered.ExactStraightenFacts
 
 set_option autoImplicit false
 
@@ -25,24 +26,6 @@ stage; the precise blocker is noted at each definition):
 `componentRunX`), `X_DumpLookup` (part-level dump-box identification over
 `placeComponentExact`), and `X_BottomMarkerDump` (bottom-marker dump box
 plus frame boundary over the exact run). -/
-
-/-- Routes of an exact-placed component cover the candidate edge decls. -/
-private theorem X_placeComponentExact_routes_decls (P : Params) (cg : Graph) (run : Run)
-    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement)) :
-    (placeComponentExact P cg run cursor labels loops).routes.map (·.1) =
-      cg.edges.map (·.decl) := by
-  unfold placeComponentExact
-  dsimp only
-  rw [List.map_map]
-  exact zipIdx_map_comp (·.decl) cg.edges 0
-
-/-- Exact-placed routes keep declaration uniqueness. -/
-private theorem X_placeComponentExact_routes_decls_nodup (P : Params) (cg : Graph) (run : Run)
-    (cursor : Int) (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement))
-    (hnd : (cg.edges.map (·.decl)).Nodup) :
-    ((placeComponentExact P cg run cursor labels loops).routes.map (·.1)).Nodup := by
-  rw [X_placeComponentExact_routes_decls]
-  exact hnd
 
 /-- Exact part route-entry projection (counterpart of
 `placeComponent_route_entry_of_producer` for `placeComponentExact`; the
@@ -97,139 +80,14 @@ private theorem X_chosen_part_frame_entry
   rw [hpart]
   exact hrect
 
-/-- Exact fold preserves the route array size. -/
-private theorem X_components_fold_routes_sizeX (P : Params) (exactIds : List String)
-    (inp : Input) (o : Options) (g : Graph) (measured : List MeasuredLabel) :
-    ∀ (comps : List (List Nat)) (start out : Acc),
-      comps.foldlM (fun acc comp => layoutComponentX P exactIds inp o g acc comp measured)
-        start = .ok out → out.routes.size = start.routes.size
-  | [], start, out, h => by
-    simp only [List.foldlM_nil, pure, Except.pure, Except.ok.injEq] at h
-    rw [← h]
-  | comp :: rest, start, out, h => by
-    simp only [List.foldlM_cons] at h
-    cases hc : layoutComponentX P exactIds inp o g start comp measured with
-    | error e => simp [hc, bind, Except.bind] at h
-    | ok next =>
-      simp only [hc, bind, Except.bind] at h
-      exact (X_components_fold_routes_sizeX P exactIds inp o g measured rest next out h).trans
-        (layoutComponentX_sizes hc).2.1.symm
-
 /-- Exact execution keeps the route array length. -/
 private theorem SceneExecutionX.components_routes_sizeX {exactIds : List String}
     {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecutionX exactIds inp o res) :
     execution.componentsAcc.routes.size = inp.routes.length := by
-  have h := X_components_fold_routes_sizeX execution.params exactIds inp o execution.graph
+  have h := ExactStraighten.components_fold_routes_size execution.params exactIds inp o execution.graph
     execution.measured (components execution.graph) _ _ execution.components_eq
   simpa only [Array.size_replicate] using h
-
-/-- Exact ownership: every exact-placed route decl is owned by its component. -/
-private theorem X_actualPart_ownsX {P : Params} {exactIds : List String} {inp : Input} {o : Options}
-    {g : Graph} {labels : List MeasuredLabel} {q : List Nat × Part}
-    (h : ActualPartX P exactIds inp o g labels q) :
-    ∀ d ∈ q.2.routes.map (·.1), ownsDecl g q.1 d := by
-  obtain ⟨index, _, run, loops, _, _, _, _, _, hr⟩ := h
-  rw [hr, X_placeComponentExact_routes_decls]
-  intro d hd
-  obtain ⟨e, he, rfl⟩ := List.mem_map.mp hd
-  exact componentCandidate_edge_owns he
-
-/-- Exact route-key noninterference across distinct actual parts. -/
-private theorem X_actual_components_route_keys_disjointX {P : Params} {exactIds : List String}
-    {inp : Input} {o : Options} {g : Graph} {labels : List MeasuredLabel}
-    {start out : Acc}
-    (hempty : start.parts = [])
-    (hfold : (components g).foldlM
-      (fun acc comp => layoutComponentX P exactIds inp o g acc comp labels) start = .ok out)
-    (hnd : (g.edges.map (·.decl)).Nodup)
-    {a b : List Nat × Part} (ha : a ∈ out.parts) (hb : b ∈ out.parts)
-    (hne : a.1 ≠ b.1) {d : Nat} (hd : d ∈ a.2.routes.map (·.1)) :
-    d ∉ b.2.routes.map (·.1) := by
-  obtain ⟨hm, hall⟩ := actual_components_partsX hempty hfold
-  have hca : a.1 ∈ components g := by
-    rw [← hm]
-    exact List.mem_map_of_mem ha
-  have hcb : b.1 ∈ components g := by
-    rw [← hm]
-    exact List.mem_map_of_mem hb
-  intro hd'
-  exact components_ownsDecl_disjoint hnd hca hcb hne
-    (X_actualPart_ownsX (hall a ha) d hd) (X_actualPart_ownsX (hall b hb) d hd')
-
-/-- Exact later-route-key noninterference by indexed membership. -/
-private theorem X_actual_components_later_route_key_neX {P : Params} {exactIds : List String}
-    {inp : Input} {o : Options} {g : Graph} {labels : List MeasuredLabel}
-    {start out : Acc}
-    (hempty : start.parts = [])
-    (hfold : (components g).foldlM
-      (fun acc comp => layoutComponentX P exactIds inp o g acc comp labels) start = .ok out)
-    (hnd : (g.edges.map (·.decl)).Nodup)
-    {i j : Nat} {a b : List Nat × Part}
-    (ha : out.parts[i]? = some a) (hb : out.parts[j]? = some b) (hij : i < j)
-    {d : Nat} (hd : d ∈ a.2.routes.map (·.1)) :
-    d ∉ b.2.routes.map (·.1) := by
-  obtain ⟨hm, _⟩ := actual_components_partsX hempty hfold
-  have hn : (out.parts.map (·.1)).Nodup := by
-    rw [hm]
-    exact components_entries_nodup g
-  obtain ⟨hi, hai⟩ := List.getElem?_eq_some_iff.mp ha
-  obtain ⟨hj, hbj⟩ := List.getElem?_eq_some_iff.mp hb
-  have hne : a.1 ≠ b.1 := by
-    have hpair := List.pairwise_iff_getElem.mp hn
-    have hnij := hpair i j (by simpa using hi) (by simpa using hj) hij
-    simpa [hai, hbj] using hnij
-  exact X_actual_components_route_keys_disjointX hempty hfold hnd
-    (List.mem_iff_getElem?.mpr ⟨i, ha⟩) (List.mem_iff_getElem?.mpr ⟨j, hb⟩) hne hd
-
-/-- Exact zip-later noninterference for the packed selection. -/
-private theorem X_actual_components_zip_later_route_key_neX
-    {P : Params} {exactIds : List String} {inp : Input} {o : Options} {g : Graph}
-    {labels : List MeasuredLabel} {start out : Acc} {positions : List Rect}
-    (hempty : start.parts = [])
-    (hfold : (components g).foldlM
-      (fun acc comp => layoutComponentX P exactIds inp o g acc comp labels) start = .ok out)
-    (hnd : (g.edges.map (·.decl)).Nodup)
-    {c : Nat} {a : List Nat × Part} {pos : Rect}
-    (hsel : (out.parts.zip positions)[c]? = some (a, pos))
-    {d : Nat} (hd : d ∈ a.2.routes.map (·.1))
-    {q' : (List Nat × Part) × Rect}
-    (hq' : q' ∈ (out.parts.zip positions).drop (c + 1)) :
-    d ∉ q'.1.2.routes.map (·.1) := by
-  obtain ⟨j, hjlt, hjget⟩ :=
-    zip_drop_mem_later_getElem? (xs := out.parts) (ys := positions) hq'
-  exact X_actual_components_later_route_key_neX hempty hfold hnd
-    (zip_getElem?_left hsel) hjget hjlt hd
-
-/-- Exact packAcc route projection (copy of
-`actual_components_packAcc_routes_getD`). -/
-private theorem X_actual_components_packAcc_routes_getDX
-    {P : Params} {exactIds : List String} {inp : Input} {o : Options} {g : Graph}
-    {labels : List MeasuredLabel} {start mid out : Acc}
-    (hempty : start.parts = [])
-    (hfold : (components g).foldlM
-      (fun acc comp => layoutComponentX P exactIds inp o g acc comp labels) start = .ok mid)
-    (hnd : (g.edges.map (·.decl)).Nodup)
-    (packed : Pack.State)
-    (hpack : packAcc P o mid = .ok out)
-    (hpacked : Pack.pack (if o.profile == .cell then o.maxWidth else 0)
-      P.nodeGap 0 (LayoutConst.component_aspect_num.get o.profile)
-      (LayoutConst.component_aspect_den.get o.profile)
-      (mid.parts.map fun q => ⟨q.2.width, q.2.height, q.2.area⟩) = .ok packed)
-    (c : Nat) (q : (List Nat × Part) × Rect)
-    (hget_pair : (mid.parts.zip packed.boxes)[c]? = some q)
-    (i : Nat) (k : Nat) (pts : List Point) (d : List Point)
-    (hget_route : q.1.2.routes[i]? = some (k, pts))
-    (hnodup : (q.1.2.routes.map (·.1)).Nodup)
-    (hsize : k < mid.routes.size) :
-    out.routes.getD k d = pts.map (shiftPoint q.2.x q.2.y) := by
-  have hsel : (mid.parts.zip packed.boxes)[c]? = some (q.1, q.2) := hget_pair
-  have hmem : k ∈ q.1.2.routes.map (·.1) := by
-    have hp : (k, pts) ∈ q.1.2.routes := List.mem_iff_getElem?.mpr ⟨i, hget_route⟩
-    exact List.mem_map_of_mem hp
-  refine packAcc_routes_getD hpack packed hpacked c q hget_pair i k pts d hget_route hnodup hsize ?_
-  intro q' hq'
-  exact X_actual_components_zip_later_route_key_neX hempty hfold hnd hsel hmem hq'
 
 /-- Exact scene route-entry projection (counterpart of
 `sceneOf_route_entry_of_producer` for the exact run; `hrun` is used only for
@@ -301,21 +159,52 @@ theorem X_chosen_part_route_from_points
       points.map (shiftPoint (0 - minX) (-minY))))
     (hnodup : (q.1.2.routes.map (·.1)).Nodup)
     {route : ModelRoute} (hroute : inp.routes[k]? = some route) :
-    res.scene.routes[k]? = some (Route.mk route.id route.fromId route.toId route.orthogonal
+    (res.scene.routes[k]? = some (Route.mk route.id route.fromId route.toId route.orthogonal
       (points.map (routePointTransport execution.params.canvasMargin o.direction
-        execution.packedAcc.canvasH q.2.x q.2.y minX minY))) := by
+        execution.packedAcc.canvasH q.2.x q.2.y minX minY))) ∨
+     ∃ pts : List Point, IsCorridor pts ∧
+       res.scene.routes[k]? = some (Route.mk route.id route.fromId route.toId route.orthogonal
+         (pts.map fun p => shiftPoint execution.params.canvasMargin execution.params.canvasMargin
+           (orientPoint o.direction execution.packedAcc.canvasH p)))) := by
   have hk := (List.getElem?_eq_some_iff.mp hroute).1
+  have hrouteEq : route = inp.routes[k]'hk := Option.some.inj (hroute.symm.trans (List.getElem?_eq_getElem hk))
   have hsize := execution.components_routes_sizeX
   have hrouteSize : k < execution.componentsAcc.routes.size := by rw [hsize]; exact hk
-  have hp := X_actual_components_packAcc_routes_getDX
+  have hp := ExactStraighten.actual_components_packAcc_routes_getD
     (by rfl) execution.components_eq (exactGraph_decls_nodup execution.graph0_eq execution.graph_eq)
     packed execution.packed_eq hpacked c q hselected i _ _ [] hget hnodup hrouteSize
-  have hs := sceneOf_routes_getElem? execution.params inp o execution.lines
-    execution.packedAcc execution.measured k hk
-  rw [← execution.scene_eq, (List.getElem?_eq_some_iff.mp hroute).2, hp] at hs
-  have hneg : -minY = 0 - minY := by omega
-  rw [hneg, routePointTransport_eq] at hs
-  exact hs
+  have hstraight := sceneOf_routes_getElem? execution.params inp o execution.lines
+    execution.straightAcc execution.measured k hk
+  rw [← execution.scene_eq] at hstraight
+  rw [ExactStraighten.straight_canvasH execution] at hstraight
+  have hpsize : execution.packedAcc.routes.size = inp.routes.length := by
+    rw [packAcc_routes_size execution.packed_eq, hsize]
+  have hsizeEq : execution.straightAcc.routes.size = execution.packedAcc.routes.size :=
+    ExactStraighten.straightenAcc_routes_size execution.straight_eq
+  have hssize : k < execution.straightAcc.routes.size := by
+    rw [hsizeEq, hpsize]; exact hk
+  have hgetS : execution.straightAcc.routes[k]? =
+      some (execution.straightAcc.routes.getD k []) := by
+    simp only [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hssize, Option.getD_some]
+  rcases straightenAcc_route_cases execution.straight_eq k _ hgetS with hpackedPts | hcor
+  · have hbridge : execution.packedAcc.routes.getD k [] =
+        execution.straightAcc.routes.getD k [] := by
+      simp only [Array.getD_eq_getD_getElem?, hpackedPts, Option.getD_some]
+    have hneg : -minY = 0 - minY := by omega
+    have hp' : execution.straightAcc.routes.getD k [] =
+        (points.map (shiftPoint (0 - minX) (-minY))).map (shiftPoint q.2.x q.2.y) := by
+      rw [← hbridge]
+      simpa only [Array.getD_eq_getD_getElem?] using hp
+    rw [hp', hneg, routePointTransport_eq, ← hrouteEq] at hstraight
+    exact Or.inl hstraight
+  · have hstraightC : res.scene.routes[k]? = some (Route.mk route.id route.fromId route.toId
+        route.orthogonal
+        ((execution.straightAcc.routes.getD k []).map fun p => shiftPoint
+          execution.params.canvasMargin execution.params.canvasMargin
+          (orientPoint o.direction execution.packedAcc.canvasH p))) := by
+      rw [← hrouteEq] at hstraight
+      exact hstraight
+    exact Or.inr ⟨execution.straightAcc.routes.getD k [], hcor, hstraightC⟩
 
 /-- Exact scene-emission chain for `placeComponentExact` (counterpart of
 `SceneExecution.chosen_part_route_entry` over `SceneExecutionX`). The
@@ -347,10 +236,15 @@ theorem X_chosen_part_route_entry
       run.routes[i]? = some native ∧ native.original = i ∧
       let cg := componentCandidate execution.graph q.1.1 candidate
       let bounds := placeBoundsX execution.params cg run execution.measured loops
-      res.scene.routes[edge.decl]? =
+      (res.scene.routes[edge.decl]? =
         some (Route.mk route.id route.fromId route.toId route.orthogonal
           (native.points.map (routePointTransport execution.params.canvasMargin o.direction
-            execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY))) := by
+            execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY))) ∨
+       ∃ pts : List Point, IsCorridor pts ∧
+         res.scene.routes[edge.decl]? =
+           some (Route.mk route.id route.fromId route.toId route.orthogonal
+             (pts.map fun p => shiftPoint execution.params.canvasMargin execution.params.canvasMargin
+               (orientPoint o.direction execution.packedAcc.canvasH p)))) := by
   let cg := componentCandidate execution.graph q.1.1 candidate
   have hi := (List.getElem?_eq_some_iff.mp hedge).1
   have he : cg.edges[i]'hi = edge := (List.getElem?_eq_some_iff.mp hedge).2
@@ -380,9 +274,13 @@ theorem X_chosen_part_route_entry
       (exactGraph_decls_nodup execution.graph0_eq execution.graph_eq)
   have hpartNodup : (q.1.2.routes.map (·.1)).Nodup := by
     rw [hpartRoutes]
-    exact X_placeComponentExact_routes_decls_nodup execution.params cg run 0 execution.measured loops hnd
-  exact ⟨route, native, hroute', hnative, horiginal,
-    X_chosen_part_route_from_points execution packed hpacked hselected hpoints hpartNodup hroute'⟩
+    exact ExactStraighten.placeComponentExact_routes_decls_nodup execution.params cg run 0 execution.measured loops hnd
+  have hscene := X_chosen_part_route_from_points execution packed hpacked hselected
+    hpoints hpartNodup hroute'
+  refine ⟨route, native, hroute', hnative, horiginal, ?_⟩
+  rcases hscene with hscene | ⟨pts, hcor, hsceneC⟩
+  · exact Or.inl hscene
+  · exact Or.inr ⟨pts, hcor, hsceneC⟩
 /-- Exact normalized source: replay of `componentRun_normalized_source`
 through `componentRunX_spec` (`coordinateGraphX_chains` in place of
 `coordinateGraph_chains`; the sizing/title steps are node-only updates, so
@@ -1501,12 +1399,585 @@ private theorem Xc_group_top_coordinate_record {P : Params} {exact : List Nat}
   · exact (clearF_keys _).1.trans (titleF_keys _).1
   · exact (clearF_keys _).2.2.1.trans (titleF_keys _).2.2.1
   · exact Xc_coord_marker_height (Or.inl hgroup)
+private theorem Xc_straightPort_lo_aux {source target lo hi : Int} (hle : lo ≤ hi) :
+    lo ≤ straightPort source target lo hi := by
+  unfold straightPort
+  by_cases h1 : lo ≤ source ∧ source ≤ hi
+  · rw [ite_eq_left h1]
+    exact h1.1
+  · rw [ite_eq_right h1]
+    by_cases h2 : lo ≤ target ∧ target ≤ hi
+    · rw [ite_eq_left h2]
+      exact h2.1
+    · rw [ite_eq_right h2]
+      omega
+
+private theorem Xc_straightPort_hi_aux {source target lo hi : Int} (hle : lo ≤ hi) :
+    straightPort source target lo hi ≤ hi := by
+  unfold straightPort
+  by_cases h1 : lo ≤ source ∧ source ≤ hi
+  · rw [ite_eq_left h1]
+    exact h1.2
+  · rw [ite_eq_right h1]
+    by_cases h2 : lo ≤ target ∧ target ≤ hi
+    · rw [ite_eq_left h2]
+      exact h2.2
+    · rw [ite_eq_right h2]
+      omega
+
+private theorem Xc_straightSpanOf_column_mem {ctx : StraightenCtx} {routing : Routing} {i : Nat}
+    {span : StraightSpan} (h : straightSpanOf ctx routing i = .ok (some span)) :
+    span.tailRect.x ≤ span.column ∧ span.column ≤ span.tailRect.x + span.tailRect.w ∧
+    span.headRect.x ≤ span.column ∧ span.column ≤ span.headRect.x + span.headRect.w := by
+  unfold straightSpanOf at h
+  cases he : ctx.proper.edges[i]? with
+  | none =>
+    simp only [he] at h
+    cases h
+  | some e =>
+    simp only [he] at h
+    cases hel : !straightEdgeEligible ctx routing i e with
+    | true =>
+      simp only [hel] at h
+      cases h
+    | false =>
+      simp only [hel] at h
+      cases hgeom : straightGeom ctx routing i e with
+      | mk tw hw th hh tailLeft headLeft lo hi cx =>
+        simp only [hgeom] at h
+        by_cases hlo : lo > hi
+        · rw [ite_eq_left hlo] at h
+          cases h
+        · rw [ite_eq_right hlo] at h
+          obtain ⟨pin, _, h⟩ := bind_ok h
+          obtain ⟨top, _, h⟩ := bind_ok h
+          obtain ⟨bottom, _, h⟩ := bind_ok h
+          by_cases hge : top ≥ bottom
+          · rw [ite_eq_left hge] at h
+            cases h
+          · rw [ite_eq_right hge] at h
+            obtain ⟨column, hcolNarrow, h⟩ := bind_ok h
+            have hs := Option.some.inj (Except.ok.inj h)
+            have hcolEq : column = cx + ctx.dx := by
+              unfold narrowI32 at hcolNarrow
+              by_cases hc : -2147483648 ≤ cx + ctx.dx ∧ cx + ctx.dx ≤ 2147483647
+              · rw [ite_eq_left hc] at hcolNarrow
+                exact (Except.ok.inj hcolNarrow).symm
+              · rw [ite_eq_right hc] at hcolNarrow
+                cases hcolNarrow
+            simp only [straightGeom] at hgeom
+            simp only [StraightGeom.mk.injEq] at hgeom
+            obtain ⟨hEtw, hEhw, _, _, hEtl, hEhl, hElo, hEhi, hEcx⟩ := hgeom
+            have hle : lo ≤ hi := by omega
+            have hSP : straightPort (routing.sourceX.getD i 0) (routing.targetX.getD i 0) lo hi
+                = cx := by
+              rw [← hElo, ← hEhi]
+              exact hEcx
+            have hloCx : lo ≤ cx := by
+              rw [← hSP]
+              exact Xc_straightPort_lo_aux hle
+            have hhiCx : cx ≤ hi := by
+              rw [← hSP]
+              exact Xc_straightPort_hi_aux hle
+            subst hs
+            refine ⟨?_, ?_, ?_, ?_⟩
+            · show tailLeft + ctx.dx ≤ column
+              omega
+            · show column ≤ tailLeft + ctx.dx + tw
+              omega
+            · show headLeft + ctx.dx ≤ column
+              omega
+            · show column ≤ headLeft + ctx.dx + hw
+              omega
+
+private theorem Xc_bool_of_not_true {b : Bool} (h : (!b) = true) : b = false := by
+  cases hb : b with
+  | true =>
+    simp only [hb] at h
+    cases h
+  | false => rfl
+
+private theorem Xc_straightRealNode_exists {p : Proper} {v : Nat}
+    (h : straightRealNode p v = true) :
+    ∃ n, p.nodes[v]? = some n ∧ n.dummy = false ∧ n.label = false ∧ n.node.border = 0 := by
+  unfold straightRealNode at h
+  cases hv : p.nodes[v]? with
+  | none =>
+    simp only [hv] at h
+    cases h
+  | some n =>
+    simp only [hv, Bool.and_eq_true, beq_iff_eq] at h
+    obtain ⟨⟨hd, hl⟩, hbord⟩ := h
+    exact ⟨n, rfl, Xc_bool_of_not_true hd, Xc_bool_of_not_true hl, hbord⟩
 
 
 
 
+private theorem Xc_installed_run_of_mem {exactIds : List String} {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    {q : List Nat × Part} {ctx0 : StraightenCtx}
+    (hmem : q ∈ execution.componentsAcc.parts)
+    (hctx : q.2.straighten = some ctx0) :
+    ∃ (index : Nat) (run : Run) (loops : List (Nat × LoopPlacement)) (area : Int),
+      componentRunX execution.params (exactDecls exactIds inp)
+        (componentCandidate execution.graph q.1 index)
+        execution.measured (candidateOrder index) = .ok run ∧
+      q.2 = { placeComponentExact execution.params
+        (componentCandidate execution.graph q.1 index) run 0 execution.measured loops
+        with area := area } ∧
+      ctx0.proper = run.proper ∧ ctx0.xs = run.xs ∧ ctx0.ys = run.ys ∧
+      ctx0.dx = 0 - (placeBoundsX execution.params
+        (componentCandidate execution.graph q.1 index) run execution.measured loops).minX ∧
+      ctx0.dy = -(placeBoundsX execution.params
+        (componentCandidate execution.graph q.1 index) run execution.measured loops).minY := by
+  obtain ⟨index, chosen, run, loops, area, _, _, _, hrun, _, hplace⟩ :=
+    (actual_components_parts_geometryX (by rfl) execution.components_eq).2 q hmem
+  have hU : (placeComponentExact execution.params
+      (componentCandidate execution.graph q.1 index) run 0 execution.measured loops).straighten
+      = some ctx0 := by
+    rw [← hctx, hplace]
+  unfold placeComponentExact at hU
+  dsimp only at hU
+  have hEq := Option.some.inj hU
+  have hproper : ctx0.proper = run.proper := congrArg StraightenCtx.proper hEq.symm
+  have hxs : ctx0.xs = run.xs := congrArg StraightenCtx.xs hEq.symm
+  have hys : ctx0.ys = run.ys := congrArg StraightenCtx.ys hEq.symm
+  have hdx : ctx0.dx = 0 - (placeBoundsX execution.params
+    (componentCandidate execution.graph q.1 index) run execution.measured loops).minX :=
+    congrArg StraightenCtx.dx hEq.symm
+  have hdy : ctx0.dy = -(placeBoundsX execution.params
+    (componentCandidate execution.graph q.1 index) run execution.measured loops).minY :=
+    congrArg StraightenCtx.dy hEq.symm
+  exact ⟨index, run, loops, area, hrun, hplace, hproper, hxs, hys, hdx, hdy⟩
+
+private theorem Xc_XBbs_coordinateGraph0_lookup (P : Params) (exact : List Nat)
+    (p : Proper) {v : Nat} {nd : ProperNode}
+    (h : (clearProxyExtents (OrderImpl.addClusterBorders
+      (titleReservations (sizeProperPortsX P exact p)) P.clusterBorderW)).nodes[v]? =
+        some nd) :
+    (∃ m, p.nodes[v]? = some m ∧ nd.dummy = m.dummy ∧ nd.node.border = m.node.border ∧
+      nd.node.clusterPath = m.node.clusterPath ∧
+      ((nd.node.border = -2 ∨ nd.node.border = 2) → nd.node.h = 0)) ∨
+    (nd.dummy = false ∧ (nd.node.border = -1 ∨ nd.node.border = 1)) ∨
+    (∃ (i : Nat) (q : ProperNode × Nat),
+      (titleNodes (sizeProperPortsX P exact p))[i]? = some q ∧
+      v = p.nodes.length + i ∧ nd.dummy = q.1.dummy ∧ nd.node.border = 3 ∧
+      nd.node.clusterPath = q.1.node.clusterPath) := by
+  rw [clearProxyExtents_nodes] at h
+  obtain ⟨extra, hx, hall⟩ := addClusterBorders_extra
+    (titleReservations (sizeProperPortsX P exact p)) P.clusterBorderW
+  rw [hx] at h
+  simp only [List.getElem?_map, Option.map_eq_some_iff] at h
+  obtain ⟨m, hl, rfl⟩ := h
+  have hlen : (sizeProperPortsX P exact p).nodes.length = p.nodes.length :=
+    Xc_sizeProperPortsX_length P exact p
+  obtain ⟨c1, c2, c3, c4⟩ := clearF_keys m
+  by_cases hv1 : v < (titleReservations (sizeProperPortsX P exact p)).nodes.length
+  · rw [List.getElem?_append_left hv1] at hl
+    rw [titleReservations_nodes] at hl hv1
+    by_cases hv2 : v < (sizeProperPortsX P exact p).nodes.length
+    · rw [List.getElem?_append_left (by simpa using hv2)] at hl
+      left
+      cases hs : (sizeProperPortsX P exact p).nodes[v]? with
+      | none => simp [List.getElem?_map, hs] at hl
+      | some s =>
+        simp only [List.getElem?_map, hs, Option.map_some, Option.some.injEq] at hl
+        subst hl
+        have hk := sizeProperPortsX_key P exact p v
+        rw [hs] at hk
+        cases hp : p.nodes[v]? with
+        | none => simp [hp] at hk
+        | some mp =>
+          simp only [hp, Option.map_some, Option.some.injEq, Prod.mk.injEq] at hk
+          obtain ⟨hd, hb, hpth⟩ := hk
+          obtain ⟨t1, t2, t3, t4⟩ := titleF_keys s
+          refine ⟨mp, rfl, ?_, ?_, ?_, ?_⟩
+          · rw [c1, t1, hd]
+          · rw [c2, t2, hb]
+          · rw [c3, t3, hpth]
+          · intro hbd
+            rw [c4]
+            exact t4 (by rw [← t2, ← c2]; exact hbd)
+    · right; right
+      rw [List.getElem?_append_right (by simpa [hlen] using hv2)] at hl
+      simp only [List.getElem?_map, Option.map_eq_some_iff] at hl
+      obtain ⟨q, hq, rfl⟩ := hl
+      refine ⟨v - (sizeProperPortsX P exact p).nodes.length, q, ?_, by omega, ?_, ?_, ?_⟩
+      · simpa [hlen] using hq
+      · rw [c1]; rfl
+      · rw [c2]; rfl
+      · rw [c3]; rfl
+  · rw [List.getElem?_append_right (by omega)] at hl
+    right; left
+    obtain ⟨e1, e2⟩ := hall m (List.mem_of_getElem? hl)
+    refine ⟨(clearF_keys m).1.trans e1, ?_⟩
+    rw [(clearF_keys m).2.1]
+    exact e2
+
+private theorem Xc_XBbs_coordinateGraph_lookup (P : Params) (exact : List Nat)
+    (p : Proper) {v : Nat} {nd : ProperNode}
+    (h : (coordinateGraphX P exact p).nodes[v]? = some nd) :
+    (∃ m, p.nodes[v]? = some m ∧ nd.dummy = m.dummy ∧ nd.node.border = m.node.border ∧
+      (m.dummy = false → nd.node.clusterPath = m.node.clusterPath) ∧
+      ((nd.node.border = -2 ∨ nd.node.border = 2) → nd.node.h = 0)) ∨
+    (nd.dummy = false ∧ (nd.node.border = -1 ∨ nd.node.border = 1)) ∨
+    (∃ (i : Nat) (q : ProperNode × Nat),
+      (titleNodes (sizeProperPortsX P exact p))[i]? = some q ∧
+      v = p.nodes.length + i ∧ nd.dummy = q.1.dummy ∧ nd.node.border = 3 ∧
+      (q.1.dummy = false → nd.node.clusterPath = q.1.node.clusterPath)) := by
+  unfold coordinateGraphX at h
+  obtain ⟨m1, hm1, hd, hb, hh, hnd⟩ := materialize_lookup _ h
+  rcases Xc_XBbs_coordinateGraph0_lookup P exact p hm1 with ⟨m, hm, h1, h2, h3, h4⟩ | ⟨h1, h2⟩ |
+    ⟨i, q, hq, hv, h1, h2, h3⟩
+  · refine Or.inl ⟨m, hm, hd.trans h1, hb.trans h2, fun hf => ?_, fun hbd => ?_⟩
+    · have : m1.dummy = false := by rw [h1]; exact hf
+      rw [hnd this]
+      exact h3
+    · rw [hh]
+      exact h4 (by rw [← hb]; exact hbd)
+  · exact Or.inr (Or.inl ⟨by rw [hd]; exact h1, by rw [hb]; exact h2⟩)
+  · refine Or.inr (Or.inr ⟨i, q, hq, hv, hd.trans h1, hb.trans h2, fun hf => ?_⟩)
+    have : m1.dummy = false := by rw [h1]; exact hf
+    rw [hnd this]
+    exact h3
+
+private theorem Xc_installed_proper_below {P : Params} {exact : List Nat} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (hrun : componentRunX P exact cg labels orderOptions = .ok run)
+    {v : Nat} {nd : ProperNode} (hv : run.proper.nodes[v]? = some nd)
+    (hd : nd.dummy = false) (hb : nd.node.border = 0) :
+    v < cg.nodes.length := by
+  obtain ⟨ranks, p0, labeled, q0, hn, hl, hcoord, _, _, hproxy, hdrop, _, _, _⟩ :=
+    componentRunX_spec hrun
+  have hkeys : NodeKeys cg labeled := addLabelNodes_keys _ _ _ (normalize_keys hn) hl
+  have hdropNodes : run.proper.nodes = q0.nodes := by
+    rw [← hdrop, OrderImpl.dropSynthetic_nodes]
+  have hlenQ : q0.nodes.length = (coordinateGraphX P exact labeled).nodes.length := by
+    rw [hcoord]
+    exact (proxyWidths_rel hproxy).2.2.1
+  have hvq : q0.nodes[v]? = some nd := by
+    rw [← hdropNodes]
+    exact hv
+  have hlt : v < q0.nodes.length := (List.getElem?_eq_some_iff.mp hvq).1
+  have hltPc : v < (coordinateGraphX P exact labeled).nodes.length := by
+    rw [← hlenQ]
+    exact hlt
+  obtain ⟨ndpc, hpc⟩ : ∃ ndpc, (coordinateGraphX P exact labeled).nodes[v]? = some ndpc :=
+    ⟨_, List.getElem?_eq_getElem hltPc⟩
+  have hpc' : run.coordinateProper.nodes[v]? = some ndpc := by
+    rw [← hcoord]
+    exact hpc
+  obtain ⟨nd', hq0', hdEq, hbEq, _⟩ := (proxyWidths_rel hproxy).2.2.2.2.1 v ndpc hpc'
+  have hnd' : nd' = nd := Option.some.inj (hq0'.symm.trans hvq)
+  subst hnd'
+  have hpcDummy : ndpc.dummy = false := by
+    rw [← hdEq]
+    exact hd
+  have hpcBorder : ndpc.node.border = 0 := by
+    rw [← hbEq]
+    exact hb
+  rcases Xc_XBbs_coordinateGraph_lookup P exact labeled hpc with ⟨m, hm, hdPc, _, _, _⟩ | ⟨_, hbS⟩
+    | ⟨_, _, _, _, _, hbT, _⟩
+  · rcases hkeys v m hm with ⟨n, hnCg, _, _, _⟩ | ⟨hdLab, _, _⟩
+    · exact (List.getElem?_eq_some_iff.mp hnCg).1
+    · have hmf : m.dummy = false := by
+        rw [← hdPc]
+        exact hpcDummy
+      rw [hmf] at hdLab
+      exact absurd hdLab (by decide)
+  · rcases hbS with h | h <;> omega
+  · rw [hpcBorder] at hbT
+    exact absurd hbT (by decide)
+
+private theorem Xc_installed_proper_cg_node {P : Params} {exact : List Nat} {cg : Graph} {run : Run}
+    {labels : List MeasuredLabel} {orderOptions : OrderOptions}
+    (hrun : componentRunX P exact cg labels orderOptions = .ok run)
+    {v : Nat} {nd : ProperNode} (hv : run.proper.nodes[v]? = some nd)
+    (hd : nd.dummy = false) (hb : nd.node.border = 0) :
+    ∃ n, cg.nodes[v]? = some n ∧ n.border = 0 := by
+  obtain ⟨ranks, p0, labeled, q0, hn, hl, hcoord, _, _, hproxy, hdrop, _, _, _⟩ :=
+    componentRunX_spec hrun
+  have hkeys : NodeKeys cg labeled := addLabelNodes_keys _ _ _ (normalize_keys hn) hl
+  have hdropNodes : run.proper.nodes = q0.nodes := by
+    rw [← hdrop, OrderImpl.dropSynthetic_nodes]
+  have hlenQ : q0.nodes.length = (coordinateGraphX P exact labeled).nodes.length := by
+    rw [hcoord]
+    exact (proxyWidths_rel hproxy).2.2.1
+  have hvq : q0.nodes[v]? = some nd := by
+    rw [← hdropNodes]
+    exact hv
+  have hlt : v < q0.nodes.length := (List.getElem?_eq_some_iff.mp hvq).1
+  have hltPc : v < (coordinateGraphX P exact labeled).nodes.length := by
+    rw [← hlenQ]
+    exact hlt
+  obtain ⟨ndpc, hpc⟩ : ∃ ndpc, (coordinateGraphX P exact labeled).nodes[v]? = some ndpc :=
+    ⟨_, List.getElem?_eq_getElem hltPc⟩
+  have hpc' : run.coordinateProper.nodes[v]? = some ndpc := by
+    rw [← hcoord]
+    exact hpc
+  obtain ⟨nd', hq0', hdEq, hbEq, _⟩ := (proxyWidths_rel hproxy).2.2.2.2.1 v ndpc hpc'
+  have hnd' : nd' = nd := Option.some.inj (hq0'.symm.trans hvq)
+  subst hnd'
+  have hpcDummy : ndpc.dummy = false := by
+    rw [← hdEq]
+    exact hd
+  have hpcBorder : ndpc.node.border = 0 := by
+    rw [← hbEq]
+    exact hb
+  rcases Xc_XBbs_coordinateGraph_lookup P exact labeled hpc with ⟨m, hm, hdPc, hbPc, _, _⟩ | ⟨_, hbS⟩
+    | ⟨_, _, _, _, _, hbT, _⟩
+  · rcases hkeys v m hm with ⟨n, hnCg, _, hbML, _⟩ | ⟨hdLab, _, _⟩
+    · exact ⟨n, hnCg, by rw [← hbML, ← hbPc]; exact hpcBorder⟩
+    · have hmf : m.dummy = false := by
+        rw [← hdPc]
+        exact hpcDummy
+      rw [hmf] at hdLab
+      exact absurd hdLab (by decide)
+  · rcases hbS with h | h <;> omega
+  · rw [hpcBorder] at hbT
+    exact absurd hbT (by decide)
+
+private theorem Xc_installed_comp_nodes_length (g : Graph) (comp : List Nat) (index : Nat) :
+    (componentCandidate g comp index).nodes.length = comp.length := by
+  rw [componentCandidate_nodes]
+  show (comp.map fun w => g.nodes.getD w default).length = comp.length
+  simp
+
+private theorem Xc_installed_place_rects_lengthX (P : Params) (cg : Graph) (run : Run)
+    (labels : List MeasuredLabel) (loops : List (Nat × LoopPlacement)) :
+    (placeComponentExact P cg run 0 labels loops).rects.length = cg.nodes.length := by
+  unfold placeComponentExact
+  dsimp only
+  simp only [List.length_map, List.length_range]
 
 
+private theorem Xc_installed_fold_rects_sizeX (P : Params) (exactIds : List String) (inp : Input)
+    (o : Options) (graph : Graph) (labels : List MeasuredLabel) :
+    ∀ (comps : List (List Nat)) (start out : Acc),
+      comps.foldlM (fun acc comp => layoutComponentX P exactIds inp o graph acc comp labels) start = .ok out →
+      out.rects.size = start.rects.size
+  | [], start, out, h => by
+    have he : start = out := Except.ok.inj h
+    rw [he]
+  | comp :: comps, start, out, h => by
+    rw [List.foldlM_cons] at h
+    obtain ⟨next, hnext, hrest⟩ := bind_ok h
+    rw [Xc_installed_fold_rects_sizeX P exactIds inp o graph labels comps next out hrest]
+    exact (layoutComponentX_sizes hnext).1.symm
+
+private theorem Xc_installed_mapM_ok_length {err α β : Type} (f : α → Except err β) :
+    ∀ (l : List α) (out : List β), l.mapM f = Except.ok out → out.length = l.length := by
+  intro l
+  induction l with
+  | nil =>
+    intro out h
+    change Except.ok [] = Except.ok out at h
+    injection h with hout
+    subst out
+    rfl
+  | cons a l ih =>
+    intro out h
+    simp only [List.mapM_cons] at h
+    cases ha : f a with
+    | error err =>
+      rw [ha] at h
+      change Except.error err = Except.ok out at h
+      cases h
+    | ok b =>
+      cases hxs : l.mapM f with
+      | error err =>
+        rw [ha, hxs] at h
+        change Except.error err = Except.ok out at h
+        cases h
+      | ok xs =>
+        rw [ha, hxs] at h
+        change Except.ok (b :: xs) = Except.ok out at h
+        injection h with hout
+        subst out
+        exact congrArg Nat.succ (ih xs hxs)
+
+private theorem Xc_installed_lines_lenX {exactIds : List String} {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res) :
+    execution.lines.length = inp.boxes.length := by
+  have h := execution.lines_eq
+  simp only [boxLines] at h
+  calc execution.lines.length = (inp.boxes.zipIdx).length :=
+        Xc_installed_mapM_ok_length _ _ _ h
+    _ = inp.boxes.length := List.length_zipIdx
+
+private theorem Xc_installed_graph_markedX {exactIds : List String} {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res) :
+    ∃ N : List Node, execution.graph0.nodes =
+      Compound.markNodes
+        (inp.boxes.map fun box =>
+          if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then { box with role := .node }
+          else box)
+        execution.params.clusterPad
+        (execution.lines.map fun ls =>
+          let width := ls.foldl (fun w line => max w line.width) 0
+          let height := (max 1 ls.length : Int) * execution.params.lineH
+          match o.direction with
+          | .LR | .RL => (height, width)
+          | .TB | .BT => (width, height))
+        N ∧ N.length = execution.lines.length := by
+  have h := execution.graph0_eq
+  unfold measuredGraph at h
+  obtain ⟨nodes0, hn0, h⟩ := bind_ok h
+  obtain ⟨edges, _, h⟩ := bind_ok h
+  obtain ⟨mm, _, h⟩ := bind_ok h
+  obtain ⟨labels, _, h⟩ := bind_ok h
+  obtain ⟨nodes, hnodes, h⟩ := bind_ok h
+  have hfin := Except.ok.inj h
+  refine ⟨nodes, ?_, ?_⟩
+  · rw [← hfin]
+    rfl
+  · have h0 : nodes0.length = execution.lines.length := by
+      unfold sizedNodes at hn0
+      have h0' := Xc_installed_mapM_ok_length _ _ _ hn0
+      rwa [List.length_zipIdx] at h0'
+    have h1 : nodes.length = nodes0.length := by
+      have h1' := Xc_installed_mapM_ok_length _ _ _ hnodes
+      rwa [List.length_zipIdx, List.length_map] at h1'
+    rw [h1]
+    exact h0
+
+private theorem Xc_installed_markNodes_split (boxes : List ModelBox) (pad : Int)
+    (titles : List (Int × Int)) (nodes : List Node) :
+    ∃ marked appended, Compound.markNodes boxes pad titles nodes = marked ++ appended ∧
+      marked.length = nodes.length ∧
+      (∀ r ∈ appended, r.border = 2) := by
+  refine ⟨_, _, rfl, ?_, ?_⟩
+  · simp only [List.length_map, List.length_zipIdx]
+  · intro r hr
+    obtain ⟨qq, hqq, heq⟩ := List.mem_filterMap.mp hr
+    cases hrole : qq.1.role == .group with
+    | true =>
+      simp only [hrole, ↓reduceIte] at heq
+      obtain rfl := Option.some.inj heq
+      rfl
+    | false =>
+      simp [hrole] at heq
+
+private theorem Xc_installed_key_lt_boxesX {exactIds : List String} {inp : Input} {o : Options}
+    {res : FamilyResult} (execution : SceneExecutionX exactIds inp o res)
+    {comp : List Nat} {index : Nat} {run : Run} {labels : List MeasuredLabel}
+    {orderOptions : OrderOptions} {exact : List Nat}
+    (hrun : componentRunX execution.params exact
+      (componentCandidate execution.graph comp index)
+      labels orderOptions = .ok run)
+    {v : Nat} {nd : ProperNode} (hv : run.proper.nodes[v]? = some nd)
+    (hd : nd.dummy = false) (hb : nd.node.border = 0)
+    (hcomp : comp ∈ components execution.graph)
+    {key : Nat} (hkey : comp[v]? = some key) :
+    key < inp.boxes.length := by
+  obtain ⟨n, hnCg, hnBorder⟩ := Xc_installed_proper_cg_node hrun hv hd hb
+  have hcgmap : (componentCandidate execution.graph comp index).nodes =
+      comp.map fun w => execution.graph.nodes.getD w default := by
+    rw [componentCandidate_nodes]
+    rfl
+  rw [hcgmap, List.getElem?_map, hkey, Option.map_some] at hnCg
+  have hfn : execution.graph.nodes.getD key default = n := Option.some.inj hnCg
+  have hnB : (execution.graph.nodes.getD key default).border = 0 := by
+    rw [hfn]
+    exact hnBorder
+  obtain ⟨r, hr⟩ := mem_components_eq hcomp
+  have hkeyLt : key < execution.graph.nodes.length := by
+    have h1 : key ∈ (List.range execution.graph.nodes.length).filter
+        (fun w => (componentLab execution.graph)[w]! == r) := by
+      rw [← hr]
+      exact List.mem_of_getElem? hkey
+    exact List.mem_range.mp (List.mem_filter.mp h1).1
+  have hlenGraph : execution.graph.nodes.length = execution.graph0.nodes.length := by
+    have h1 := exactGraph_length execution.graph_eq
+    omega
+  have hkeyLt0 : key < execution.graph0.nodes.length := by omega
+  obtain ⟨N, hgraph, hNlen⟩ := Xc_installed_graph_markedX execution
+  have hlines := Xc_installed_lines_lenX execution
+  have hN : N.length = inp.boxes.length := by
+    rw [hNlen]
+    exact hlines
+  have hkeyTot : key < (Compound.markNodes
+      (inp.boxes.map fun box =>
+        if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then { box with role := .node }
+        else box)
+      execution.params.clusterPad
+      (execution.lines.map fun ls =>
+        let width := ls.foldl (fun w line => max w line.width) 0
+        let height := (max 1 ls.length : Int) * execution.params.lineH
+        match o.direction with
+        | .LR | .RL => (height, width)
+        | .TB | .BT => (width, height))
+      N).length := by
+    rw [← hgraph]
+    exact hkeyLt0
+  obtain ⟨rr, hrGet⟩ : ∃ rr,
+      (Compound.markNodes
+        (inp.boxes.map fun box =>
+          if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then { box with role := .node }
+          else box)
+        execution.params.clusterPad
+        (execution.lines.map fun ls =>
+          let width := ls.foldl (fun w line => max w line.width) 0
+          let height := (max 1 ls.length : Int) * execution.params.lineH
+          match o.direction with
+          | .LR | .RL => (height, width)
+          | .TB | .BT => (width, height))
+        N)[key]? = some rr :=
+    ⟨_, List.getElem?_eq_getElem hkeyTot⟩
+  have hgetExact : execution.graph.nodes[key]? = some n := by
+    have h1 : execution.graph.nodes[key]? = some (execution.graph.nodes[key]'hkeyLt) :=
+      List.getElem?_eq_getElem hkeyLt
+    have h2 : (execution.graph.nodes[key]?).getD default = n := by
+      rw [← List.getD_eq_getElem?_getD]
+      exact hfn
+    have hval : execution.graph.nodes[key]'hkeyLt = n := by
+      simpa only [h1, Option.getD_some] using h2
+    rw [h1, hval]
+  obtain ⟨nd0, hnd0, hnb0, _, _⟩ := Xc_node_key_rev execution.graph_eq hgetExact
+  have hnB0 : nd0.border = 0 := hnb0.trans hnBorder
+  have hrn : rr = nd0 := by
+    have h1 : (Compound.markNodes
+        (inp.boxes.map fun box =>
+          if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then { box with role := .node }
+          else box)
+        execution.params.clusterPad
+        (execution.lines.map fun ls =>
+          let width := ls.foldl (fun w line => max w line.width) 0
+          let height := (max 1 ls.length : Int) * execution.params.lineH
+          match o.direction with
+          | .LR | .RL => (height, width)
+          | .TB | .BT => (width, height))
+        N).getD key default = nd0 := by
+      have h2 : execution.graph0.nodes.getD key default = nd0 := by
+        rw [List.getD_eq_getElem?_getD, hnd0, Option.getD_some]
+      rwa [hgraph] at h2
+    have h3 : ((Compound.markNodes
+        (inp.boxes.map fun box =>
+          if inp.fixedSizes.any (fun fixed => fixed.1 == box.id) then { box with role := .node }
+          else box)
+        execution.params.clusterPad
+        (execution.lines.map fun ls =>
+          let width := ls.foldl (fun w line => max w line.width) 0
+          let height := (max 1 ls.length : Int) * execution.params.lineH
+          match o.direction with
+          | .LR | .RL => (height, width)
+          | .TB | .BT => (width, height))
+        N)[key]?).getD default = nd0 := h1
+    rwa [hrGet] at h3
+  have hnBorder0 : nd0.border = 0 := hnB0
+  obtain ⟨marked, appended, hsplit, hmlen, hbord⟩ :=
+    Xc_installed_markNodes_split _ _ _ N
+  rw [hsplit] at hrGet
+  rw [List.getElem?_append] at hrGet
+  split at hrGet
+  · simp only [hmlen] at *
+    rw [← hN]
+    assumption
+  · have hmem := List.mem_of_getElem? hrGet
+    have hb2 := hbord rr hmem
+    rw [hrn] at hb2
+    rw [hnBorder0] at hb2
+    exact absurd hb2 (by decide)
 
 /-- The exact chosen-part row holds, modulo the three uniform single-stage
 residuals: the run-level port attachment (`X_RunAttach`), the part-level
@@ -1565,6 +2036,24 @@ theorem x_chosenPart_holds (exactIds : List String)
       execution.params.canvasMargin o.direction execution.packedAcc.canvasH q.2.x q.2.y
   obtain ⟨mroute0, native, hmodelRoute, hnative, horiginal, hscene⟩ :=
     X_chosen_part_route_entry execution packed hpacked hselected hrun hpart hedge hloopEdge
+  have hids : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
+  have hsuff : res.scene.routes[edge.decl]? =
+      some (Route.mk mroute0.id mroute0.fromId mroute0.toId mroute0.orthogonal
+        (native.points.map (routePointTransport execution.params.canvasMargin o.direction
+          execution.packedAcc.canvasH q.2.x q.2.y
+          (placeBoundsX execution.params (componentCandidate execution.graph q.1.1 candidate)
+            run execution.measured loops).minX
+          (placeBoundsX execution.params (componentCandidate execution.graph q.1.1 candidate)
+            run execution.measured loops).minY))) →
+      ∃ (out : Route) (start finish : Point) (fromBox toBox : Box),
+        res.scene.routes[edge.decl]? = some out ∧
+        out.points.head? = some start ∧ out.points.getLast? = some finish ∧
+        res.scene.layoutDump.box? out.fromId = some fromBox ∧
+        res.scene.layoutDump.box? out.toId = some toBox ∧
+        Validator.onBoundary start fromBox.rect ∧
+        Validator.onBoundary finish toBox.rect := by
+    intro hscene0
+    {
   have hsame : native = rt := (Option.some.inj (hget.symm.trans hnative)).symm
   subst hsame
   have hmodelEq : mroute = mroute0 :=
@@ -1661,7 +2150,7 @@ theorem x_chosenPart_holds (exactIds : List String)
             run execution.measured loops).minX
           (placeBoundsX execution.params (componentCandidate execution.graph q.1.1 candidate)
             run execution.measured loops).minY)),
-      _, _, fromBox, toBox, hscene, ?_, ?_, hfromLookup, htoLookup, hfromBound, htoBound⟩
+      _, _, fromBox, toBox, hscene0, ?_, ?_, hfromLookup, htoLookup, hfromBound, htoBound⟩
     · simp only [List.head?_map, hstart, Option.map_some]
     · simp only [List.getLast?_map, hfinish, Option.map_some]
   · simp only [hcondEq, hr] at hports
@@ -1749,9 +2238,146 @@ theorem x_chosenPart_holds (exactIds : List String)
             run execution.measured loops).minX
           (placeBoundsX execution.params (componentCandidate execution.graph q.1.1 candidate)
             run execution.measured loops).minY)),
-      _, _, fromBox, toBox, hscene, ?_, ?_, hfromLookup, htoLookup, hfromBound, htoBound⟩
+      _, _, fromBox, toBox, hscene0, ?_, ?_, hfromLookup, htoLookup, hfromBound, htoBound⟩
     · simp only [List.head?_map, hstart, Option.map_some]
     · simp only [List.getLast?_map, hfinish, Option.map_some]
+    }
+  simp only at hscene
+  rcases hscene with hscene | _hcorr
+  · exact hsuff hscene
+  -- Corridor case is second: resplit the corridor route via route_cases.
+  case inr =>
+    obtain ⟨_pts, _hcor, _hrouteC⟩ := _hcorr
+    obtain ⟨_x, _y₀, _y₁, _hlt, _hptsEq⟩ := _hcor
+    have _hk' : edge.decl < inp.routes.length :=
+      (List.getElem?_eq_some_iff.mp hrouteD).1
+    have _hstraight := sceneOf_routes_getElem? execution.params inp o execution.lines
+      execution.straightAcc execution.measured edge.decl _hk'
+    rw [← execution.scene_eq] at _hstraight
+    rw [ExactStraighten.straight_canvasH execution] at _hstraight
+    have _hgetD : execution.straightAcc.routes.getD edge.decl [] = _pts :=
+      ExactStraighten.straight_points_of_scene execution _hrouteC
+    have hpts : execution.straightAcc.routes[edge.decl]? = some _pts := by
+      have _hne : _pts ≠ [] := by
+        rw [_hptsEq]
+        intro _hcon
+        simp at _hcon
+      have _hgd : (execution.straightAcc.routes[edge.decl]?.getD []) = _pts := by
+        have _h := _hgetD
+        rw [Array.getD_eq_getD_getElem?] at _h
+        exact _h
+      cases _ho : execution.straightAcc.routes[edge.decl]? with
+      | none =>
+        simp only [_ho, Option.getD_none] at _hgd
+        exact absurd _hgd.symm _hne
+      | some _v =>
+        simp only [_ho, Option.getD_some] at _hgd
+        exact congrArg Option.some _hgd
+    rcases ExactStraighten.route_cases execution X_componentRun_normalized_source hpts with _hpackedPts | hinst
+    · -- (P) packed corridor: the packed route equals the corridor points, so the
+      -- placed-points bridge turns _hrouteC into the first-disjunct form reused via hsuff.
+      have _heP := (List.getElem?_eq_some_iff.mp hedge).2
+      have _hgetP := X_placeComponentExact_route_entry_of_producer hrun 0 loops i hi hloopCg
+      have _hpartRoutes : q.1.2.routes =
+          (placeComponentExact execution.params (componentCandidate execution.graph q.1.1 candidate)
+            run 0 execution.measured loops).routes := by
+        rw [hpart]
+      rw [← _hpartRoutes] at _hgetP
+      have _hpartNodup : (q.1.2.routes.map (·.1)).Nodup := by
+        rw [_hpartRoutes]
+        exact ExactStraighten.placeComponentExact_routes_decls_nodup execution.params
+          (componentCandidate execution.graph q.1.1 candidate) run 0
+          execution.measured loops hnd
+      have _hrouteSize : edge.decl < execution.componentsAcc.routes.size := by
+        rw [← packAcc_routes_size execution.packed_eq]
+        exact (Array.getElem?_eq_some_iff.mp _hpackedPts).1
+      have _hpackedRoute := ExactStraighten.actual_components_packAcc_routes_getD
+        (by rfl) execution.components_eq (exactGraph_decls_nodup execution.graph0_eq execution.graph_eq)
+        packed execution.packed_eq hpacked c q hselected i _ _ [] _hgetP _hpartNodup (by rw [_heP]; exact _hrouteSize)
+      have _hnativeGet := (List.getElem?_eq_some_iff.mp hnative).2
+      have _hmodelEq : inp.routes[edge.decl]'_hk' = mroute0 :=
+        Option.some.inj ((List.getElem?_eq_getElem _hk').symm.trans hmodelRoute)
+      have _hbridge : execution.packedAcc.routes.getD edge.decl [] =
+          execution.straightAcc.routes.getD edge.decl [] := by
+        rw [_hgetD, Array.getD_eq_getD_getElem?, _hpackedPts, Option.getD_some]
+      have _hneg : -(placeBoundsX execution.params (componentCandidate execution.graph q.1.1 candidate)
+          run execution.measured loops).minY =
+          0 - (placeBoundsX execution.params (componentCandidate execution.graph q.1.1 candidate)
+          run execution.measured loops).minY := by omega
+      rw [_heP, _hbridge] at _hpackedRoute
+      rw [_hneg] at _hpackedRoute
+      rw [_hmodelEq] at _hstraight
+      rw [_hpackedRoute, routePointTransport_eq, _hnativeGet] at _hstraight
+      exact hsuff _hstraight
+    · obtain ⟨tailKey, headKey, tailRect, headRect, span,
+        _hEdgeTailLt, _hEdgeHeadLt, htailLt, hheadLt, hKeyT, hKeyH,
+        htailRect, hheadRect, h0tail, h0head,
+        _htxT, _htwT, _htxH, _htwH, hxT1, hxT2, hxH1, hxH2, hy0eq, hy1eq, hptsEq⟩ :=
+        execution.installed_part_edge_rects hinst hselected hedge rfl hrun hpart
+      have hptsEq2 : _pts = [⟨span.column, span.top⟩, ⟨span.column, span.bottom⟩] := by
+        rw [hptsEq]
+        rfl
+      have hmEq : mroute = mroute0 :=
+        (Option.some.inj (hmodelRoute.symm.trans hrouteD)).symm
+      have hkeys : ∃ sF sT : ModelBox, inp.boxes[tailKey]? = some sF ∧ sF.id = mroute.fromId ∧
+        inp.boxes[headKey]? = some sT ∧ sT.id = mroute.toId := by
+        have hidsEq := execution.installed_part_edge_key_ids hinst hselected hedge rfl hrun hpart (route := mroute) hrouteD htailLt hheadLt hKeyT hKeyH
+        obtain ⟨hsFid, hsTid⟩ := hidsEq
+        have hsourceTail : inp.boxes[tailKey]? = some (inp.boxes[tailKey]'htailLt) :=
+          List.getElem?_eq_getElem htailLt
+        have hsourceHead : inp.boxes[headKey]? = some (inp.boxes[headKey]'hheadLt) :=
+          List.getElem?_eq_getElem hheadLt
+        exact ⟨_, _, hsourceTail, hsFid, hsourceHead, hsTid⟩
+      obtain ⟨sF, sT, hsourceTail, hsFid, hsourceHead, hsTid⟩ := hkeys
+      have htailGetD : execution.packedAcc.rects.getD tailKey default = tailRect := by
+        simp only [Array.getD_eq_getD_getElem?, htailRect, Option.getD_some]
+      have hheadGetD : execution.packedAcc.rects.getD headKey default = headRect := by
+        simp only [Array.getD_eq_getD_getElem?, hheadRect, Option.getD_some]
+      have hlookupTail := Xc_source_box_lookup_of_box_ids_nodupX execution hids hsourceTail
+      have hlookupHead := Xc_source_box_lookup_of_box_ids_nodupX execution hids hsourceHead
+      rw [htailGetD] at hlookupTail
+      rw [hheadGetD] at hlookupHead
+      have hsFid0 : sF.id = mroute0.fromId := by
+        rw [hmEq] at hsFid; exact hsFid
+      have hsTid0 : sT.id = mroute0.toId := by
+        rw [hmEq] at hsTid; exact hsTid
+      have hb := corridor_onBoundary_acc h0tail h0head ⟨hxT1, hxT2⟩ ⟨hxH1, hxH2⟩ hy0eq hy1eq
+      have hbScene := corridor_onBoundary_scene (margin := execution.params.canvasMargin)
+        (d := o.direction) (h := execution.packedAcc.canvasH) hb
+      have hptsMap : (_pts.map fun p => shiftPoint execution.params.canvasMargin
+        execution.params.canvasMargin
+        (orientPoint o.direction execution.packedAcc.canvasH p)) =
+        [(shiftPoint execution.params.canvasMargin execution.params.canvasMargin
+          (orientPoint o.direction execution.packedAcc.canvasH ⟨span.column, span.top⟩)),
+         (shiftPoint execution.params.canvasMargin execution.params.canvasMargin
+          (orientPoint o.direction execution.packedAcc.canvasH ⟨span.column, span.bottom⟩))] := by
+        rw [hptsEq2]
+        simp only [List.map_cons, List.map_nil]
+      refine ⟨Route.mk mroute0.id mroute0.fromId mroute0.toId mroute0.orthogonal
+        (_pts.map fun p => shiftPoint execution.params.canvasMargin
+          execution.params.canvasMargin
+          (orientPoint o.direction execution.packedAcc.canvasH p)),
+        (shiftPoint execution.params.canvasMargin execution.params.canvasMargin
+          (orientPoint o.direction execution.packedAcc.canvasH ⟨span.column, span.top⟩)),
+        (shiftPoint execution.params.canvasMargin execution.params.canvasMargin
+          (orientPoint o.direction execution.packedAcc.canvasH ⟨span.column, span.bottom⟩)),
+        { id := sF.id, role := sF.role.id,
+          rect :=
+            shiftRect execution.params.canvasMargin execution.params.canvasMargin
+              (orientRect o.direction execution.packedAcc.canvasH tailRect),
+          parent := sF.parent, exclusive := sF.exclusive },
+        { id := sT.id, role := sT.role.id,
+          rect :=
+            shiftRect execution.params.canvasMargin execution.params.canvasMargin
+              (orientRect o.direction execution.packedAcc.canvasH headRect),
+          parent := sT.parent, exclusive := sT.exclusive },
+        _hrouteC, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · rw [hptsMap]; rfl
+      · rw [hptsMap]; rfl
+      · rw [← hsFid0]; exact hlookupTail
+      · rw [← hsTid0]; exact hlookupHead
+      · exact hbScene.1
+      · exact hbScene.2
 end PipelineImpl
 end Layered
 end Elegant

@@ -740,6 +740,8 @@ theorem X_scene_label_rect {exactIds : List String} {inp : Input} {o : Options}
       have hr := (congrArg (fun s => s.toLabel.rect) (Option.some.inj hemitted)).symm
       dsimp only at hr
       rw [hlm] at hr
+      have hfields := straightenAcc_fields execution.straight_eq
+      rw [hfields.2.1, hfields.2.2.2.2] at hr
       exact hr
     · next hfind =>
       split at hemitted
@@ -1424,6 +1426,8 @@ theorem X_sceneCaptionBoxContainment {exactIds : List String} {inp : Input} {o :
           rw [congrArg (fun s : SceneLabel => s.rect) heq]
           unfold sceneCaptionRect
           rw [hlmodel]
+          have hfields := straightenAcc_fields execution.straight_eq
+          rw [hfields.1, hfields.2.2.1, hfields.2.2.2.2]
           rfl
         have hscope' : b.id ∉ res.scene.layoutDump.labelOwnerAnc
             (X_captionLabel exactIds execution ownerIndex source l.lines) := by

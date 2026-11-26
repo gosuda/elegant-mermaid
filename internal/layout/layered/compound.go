@@ -50,6 +50,7 @@ type Layout struct {
 	BudgetExhausted   bool
 	fixedArea         int64
 	Width, Height     int32
+	straighten        []straightenContext
 }
 type PackOptions struct{ MaxWidth, Gap, AspectNum, AspectDen int32 }
 

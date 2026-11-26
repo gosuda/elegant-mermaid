@@ -248,9 +248,14 @@ func Pack(parts []Layout, opts PackOptions) (Layout, error) {
 			return out, err
 		}
 		x, y := sh.place(int64(bounds.W), int64(bounds.H))
-		if err := translateLayout(&part, x-int64(bounds.X), y-int64(bounds.Y)); err != nil {
+		dx, dy := x-int64(bounds.X), y-int64(bounds.Y)
+		if err := translateLayout(&part, dx, dy); err != nil {
 			return out, err
 		}
+		for k := range part.straighten {
+			part.straighten[k].dx, part.straighten[k].dy = dx, dy
+		}
+		out.straighten = append(out.straighten, part.straighten...)
 		out.Boxes = append(out.Boxes, part.Boxes...)
 		out.Routes = append(out.Routes, part.Routes...)
 		out.Labels = append(out.Labels, part.Labels...)

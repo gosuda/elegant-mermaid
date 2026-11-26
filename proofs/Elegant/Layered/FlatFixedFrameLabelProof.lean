@@ -764,8 +764,9 @@ theorem flatFixedFrameLabel_not_strictInside
       simp only [hm] at hemitted
       have hrect := congrArg (fun s : SceneLabel => s.rect) (Option.some.inj hemitted)
       change (shiftRect execution.params.canvasMargin execution.params.canvasMargin
-        (orientRect o.direction execution.packedAcc.canvasH
-          (execution.packedAcc.labels.getD measured.index default))) = label.rect at hrect
+        (orientRect o.direction execution.straightAcc.canvasH
+          (execution.straightAcc.labels.getD measured.index default))) = label.rect at hrect
+      rw [execution.straight_canvasH, (Elegant.Layered.PipelineImpl.straightenAcc_fields execution.straight_eq).2.1] at hrect
       rw [← hrect]
       exact execution.measuredRect_not_strictInside_fixedFrame hwf hframed hsource hfixed
         hframe measured.index
@@ -779,8 +780,16 @@ theorem flatFixedFrameLabel_not_strictInside
         have hlabelOwner : original.owner = label.owner :=
           congrArg (fun s : SceneLabel => s.owner) hlabelEq
         have hrect := congrArg (fun s : SceneLabel => s.rect) hlabelEq
-        change sceneCaptionRect execution.params inp o execution.lines execution.packedAcc
+        change sceneCaptionRect execution.params inp o execution.lines execution.straightAcc
           ownerKey original.owner = label.rect at hrect
+        have hcapBridge : sceneCaptionRect execution.params inp o execution.lines
+            execution.straightAcc ownerKey original.owner =
+            sceneCaptionRect execution.params inp o execution.lines
+            execution.packedAcc ownerKey original.owner := by
+          unfold sceneCaptionRect sceneTitlesExpr sceneBoxesExpr
+          rw [execution.straight_titles, execution.straight_canvasH,
+            (Elegant.Layered.PipelineImpl.straightenAcc_fields execution.straight_eq).1]
+        rw [hcapBridge] at hrect
         unfold sceneCaptionRect at hrect
         cases ht : (sceneTitlesExpr execution.params inp o execution.lines execution.packedAcc).find?
             (fun title => title.1 == original.owner) with

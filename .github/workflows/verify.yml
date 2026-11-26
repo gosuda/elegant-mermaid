@@ -41,7 +41,11 @@ jobs:
         with:
           tool: "just@1.59.0"
       - name: "Build both engines"
-        run: "just build"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
+          just build
       - name: "Stage the native engines"
         run: |
           mkdir -p dist-engines
@@ -105,10 +109,18 @@ jobs:
           bin/emd-rs --version
       - name: "Check generated files"
         if: "!cancelled() && steps.tools.outcome == 'success'"
-        run: "just gen-check"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
+          just gen-check
       - name: "Run the Go gates"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just --no-deps go-check"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
+          just --no-deps go-check
       - name: "Run the Rust gates"
         if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just --no-deps rust-check"
@@ -161,25 +173,41 @@ jobs:
           key: "lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}-${{ hashFiles('proofs/**/*.lean') }}"
       - name: "Check corpus verdicts"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just oracle JOBS=4"
+        run: |
+          just oracle JOBS=4
       - name: "Check corpus engine parity"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just parity JOBS=4"
+        run: |
+          just parity JOBS=4
       - name: "Compare Markdown exports"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just --no-deps markdown-parity"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
+          just --no-deps markdown-parity
       - name: "Check generated layered graphs"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just --no-deps layered-random-check JOBS=4"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
+          just --no-deps layered-random-check JOBS=4
       - name: "Compare geometry kernels"
         if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
-        run: "just --no-deps kernel-diff"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
+          just --no-deps kernel-diff
       - name: "Validate every corpus layout"
         if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
-        run: "just validate JOBS=4"
+        run: |
+          just validate JOBS=4
       - name: "Compare every layout with Lean"
         if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
-        run: "just lean-parity JOBS=4"
+        run: |
+          just lean-parity JOBS=4
       - name: "Upload verification binaries"
         if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
         uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
@@ -254,10 +282,18 @@ jobs:
           bin/emd-rs --version
       - name: "Check layout quality"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just quality JOBS=4"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
+          just quality JOBS=4
       - name: "Check themes and config coverage"
         if: "!cancelled() && steps.go.outcome == 'success' && steps.rust.outcome == 'success' && steps.tools.outcome == 'success'"
-        run: "just --no-deps theme-check"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
+          just --no-deps theme-check
 
   house:
     runs-on: "depot-ubuntu-24.04-8"
@@ -297,7 +333,9 @@ jobs:
           key: "sloplint-72f29bae0ba1187da854e080c998b8a21f1e4640"
       - name: "Run house lint"
         if: "!cancelled() && steps.sloplint.outcome == 'success'"
-        run: "just slop"
+        run: |
+          sloplint_cpus="$(python3 -c 'import os; print(",".join(map(str, sorted(os.sched_getaffinity(0))[:2])))')"
+          taskset --cpu-list "$sloplint_cpus" just slop
       - name: "Install the pinned model checker"
         id: "tlc"
         if: "!cancelled()"
@@ -380,11 +418,15 @@ jobs:
         id: "build"
         if: "!cancelled() && steps.engines.outcome == 'success'"
         run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
           just playground-wasm
           just --no-deps playground-build
       - name: "Check native and WebAssembly parity"
         if: "!cancelled() && steps.build.outcome == 'success'"
-        run: "just --no-deps wasm-parity"
+        run: |
+          just --no-deps wasm-parity
       - name: "Restore the Playwright browsers"
         id: "playwright-cache"
         if: "!cancelled() && steps.packages.outcome == 'success'"

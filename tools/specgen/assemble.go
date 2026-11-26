@@ -24,7 +24,7 @@ func buildGeneratedTables(in *inputs) ([]renderable, error) {
 		computed.alphanumeric,
 	}
 	tables = append(tables, specTables...)
-	return append(tables, computed.sine, computed.lin16Table), nil
+	return append(tables, computed.sine, computed.lin16Table, computed.emojiseq, computed.emojipres), nil
 }
 
 type computedTables struct {
@@ -41,6 +41,8 @@ type computedTables struct {
 	sine         *arrayTable
 	lin16        [lin16Entries]uint16
 	lin16Table   *arrayTable
+	emojiseq     *emojiSeqTable
+	emojipres    *emojiPresentationTable
 }
 
 func computeStartingTables(in *inputs) (*computedTables, error) {
@@ -70,6 +72,9 @@ func computeStartingTables(in *inputs) (*computedTables, error) {
 		lin16Table: &arrayTable{name: "lin16", goName: "Lin16", rsName: "LIN16", leanName: "lin16", goElem: "uint16", rsElem: "u16", leanElem: "Nat", values: lin16Values(lin16)},
 	}
 	if err := computed.buildUnicodeTables(in); err != nil {
+		return nil, err
+	}
+	if err := computed.buildEmojiTables(in); err != nil {
 		return nil, err
 	}
 	kinds, kindErr := buildKindTable(in.kinds)
@@ -110,6 +115,16 @@ func (computed *computedTables) buildUnicodeTables(in *inputs) error {
 	computed.incb = buildIncbTable(incb)
 	computed.ideographic = buildIdeographicTable(ideographic)
 	computed.alphanumeric = buildAlphanumericTable(alphanumeric)
+	return nil
+}
+
+func (computed *computedTables) buildEmojiTables(in *inputs) error {
+	seq, pres, err := collectEmojiTables(in)
+	if err != nil {
+		return err
+	}
+	computed.emojiseq = seq
+	computed.emojipres = pres
 	return nil
 }
 

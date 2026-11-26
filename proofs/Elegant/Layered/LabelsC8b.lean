@@ -184,6 +184,7 @@ theorem layout_c8b {inp : Input} {o : Options} {res : FamilyResult}
   simp only [Scene.layoutDump] at hgMem hlMem
   obtain ⟨sl, hsl, hlEq⟩ := List.mem_map.mp hlMem
   rw [execution.scene_eq] at hsl
+  rw [execution.scene_labels] at hsl
   obtain ⟨qL, hqL, hemitted⟩ := List.mem_filterMap.mp hsl
   obtain ⟨source, indexL⟩ := qL
   have hsrcL : inp.labels[indexL]? = some source :=
@@ -263,7 +264,7 @@ theorem layout_c8b {inp : Input} {o : Options} {res : FamilyResult}
         cases hselD with
         | inl hsel =>
           have hgMemScene : g ∈ res.scene.boxes := by
-            rw [execution.scene_eq]
+            rw [execution.boxes_eq_map]
             exact List.mem_map.mpr ⟨(hgBox, hKey), hq, hgeq⟩
           have hlrect : sl.rect = ownedTextRect execution.params
               ((sceneBoxesExpr execution.params inp o execution.packedAcc).getD

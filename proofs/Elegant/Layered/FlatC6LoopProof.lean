@@ -4,6 +4,7 @@ import Elegant.Layered.RouteTransport
 import Elegant.Layered.PartSeparation
 import Elegant.Layered.ComponentCoverage
 import Elegant.Layered.SceneBounds
+import Elegant.Layered.StraightenFacts
 
 set_option autoImplicit false
 
@@ -270,13 +271,41 @@ private theorem scene_loop_route_points {inp : Input} {o : Options} {res : Famil
     packed execution.packed_eq hpacked c q hselected i _ _ [] hget_pC hpartNodup hrouteSize
   have hkdecl : edge.decl < inp.routes.length := by simpa only [cg, he] using hk
   have hk'' : edge.decl < inp.routes.length := hkdecl
-  have hscene := sceneOf_routes_getElem? execution.params inp o execution.lines
-    execution.packedAcc execution.measured edge.decl hkdecl
-  rw [← execution.scene_eq] at hscene
-  rw [hpackedRoute] at hscene
-  rw [routePointTransport_eq] at hscene
-  refine ⟨(inp.routes[edge.decl]'hk''), List.getElem?_eq_getElem hk'', ?_⟩
-  exact hscene
+  have hsceneS := sceneOf_routes_getElem? execution.params inp o execution.lines
+    execution.straightAcc execution.measured edge.decl hkdecl
+  rw [← execution.scene_eq] at hsceneS
+  rw [execution.straight_canvasH] at hsceneS
+  have hpsize : execution.packedAcc.routes.size = inp.routes.length := by
+    rw [Elegant.Layered.packAcc_routes_size execution.packed_eq, hsize]
+  have hsizeS : edge.decl < execution.straightAcc.routes.size := by
+    have hpb := execution.packedAcc_bounded execution.components_parts_bounded
+    obtain ⟨_, _, _, _, _, hsz, _⟩ :=
+      straightenAcc_bounded execution.straight_eq hpb.routes_bounded
+    rw [hsz, hpsize]
+    exact hkdecl
+  have hgetS : execution.straightAcc.routes[edge.decl]? =
+      some (execution.straightAcc.routes.getD edge.decl []) := by
+    simp only [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hsizeS,
+      Option.getD_some]
+  have hbridge : execution.packedAcc.routes[edge.decl]? =
+      some (execution.straightAcc.routes.getD edge.decl []) →
+      execution.packedAcc.routes.getD edge.decl [] =
+        execution.straightAcc.routes.getD edge.decl [] := by
+    intro hpackedS
+    rw [Array.getD_eq_getD_getElem?, hpackedS, Array.getD_eq_getD_getElem?]
+    rfl
+  rcases execution.route_cases hgetS with hpackedS | hinst
+  · rw [← hbridge hpackedS] at hsceneS
+    rw [hpackedRoute] at hsceneS
+    rw [routePointTransport_eq] at hsceneS
+    refine ⟨(inp.routes[edge.decl]'hk''), List.getElem?_eq_getElem hk'', ?_⟩
+    exact hsceneS
+  · exfalso
+    have hrouteKey : inp.routes[edge.decl]? = some (inp.routes[edge.decl]'hkdecl) :=
+      List.getElem?_eq_getElem hkdecl
+    have heq := execution.self_edge_route_ends hedge hself _hrun hrouteKey
+    have hne := execution.installed_route_ends hinst hrouteKey
+    exact absurd heq hne
 
 /-- Segment between two points of a closed shelf rect misses the interior of
 any rect the disjoint partner shelf contains.  With both shelves of positive

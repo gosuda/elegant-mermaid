@@ -130,6 +130,7 @@ private theorem layout_scene_mirror {inp : Input} {o : Options} {res : FamilyRes
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
   · simp at h
   · have hres := Except.ok.inj h

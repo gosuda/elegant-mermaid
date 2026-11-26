@@ -8,6 +8,8 @@ pub(crate) mod alphanumeric;
 pub(crate) mod cellsymbols;
 pub(crate) mod configkeys;
 pub(crate) mod diagnostics;
+pub(crate) mod emojipresentation;
+pub(crate) mod emojiseq;
 pub(crate) mod entities;
 pub(crate) mod glyphjoin;
 pub(crate) mod graphemes;

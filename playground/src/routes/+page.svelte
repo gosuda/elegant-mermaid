@@ -71,6 +71,7 @@ let message = $state('');
 let sharedUrl = $state<string | null>(null);
 let fixing = $state(false);
 let bootDone = false;
+let hashRevision = 0;
 let snapshots = $state<Record<EngineId, EngineSnapshot>>({ go: IDLE_SNAPSHOT, rust: IDLE_SNAPSHOT });
 let views = $state<Record<EngineId, EngineView>>({ go: emptyView(), rust: emptyView() });
 let svgUrls = $state<Record<EngineId, string | null>>({ go: null, rust: null });
@@ -338,15 +339,21 @@ async function boot(): Promise<void> {
   const note = encoded === null ? '' : await openShare(encoded);
   bootDone = true;
   issueRevision();
-  message = note;
+  if (note !== '') {
+    message = note;
+  }
 }
 
 async function followShare(): Promise<void> {
+  const revision = ++hashRevision;
   const encoded = fragmentPayload(window.location.hash);
   if (encoded === null || !bootDone) {
     return;
   }
   const note = await openShare(encoded);
+  if (revision !== hashRevision) {
+    return;
+  }
   issueRevision();
   message = note;
 }
@@ -368,6 +375,7 @@ onMount(() => {
   }
   void boot();
   return () => {
+    ++hashRevision;
     schedule.cancel();
     for (const stop of unsubscribe) {
       stop();

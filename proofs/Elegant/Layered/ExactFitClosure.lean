@@ -74,8 +74,10 @@ private theorem X_layout_canvas_margins {exactIds : List String} {inp : Input}
     2 * canvasMarginOf o.profile inp.kind ≤ res.scene.canvas.h := by
   obtain ⟨execution⟩ := layoutX_sceneExecution h
   have hb := packAcc_canvas_nonneg execution.packed_eq
+  have hcanvas := (sceneOf_straightenAcc execution.params inp o execution.lines
+    execution.packedAcc execution.straightAcc execution.measured execution.straight_eq).1
   rw [← checkedParams_canvasMargin execution.checked]
-  rw [execution.scene_eq]
+  rw [execution.scene_eq, hcanvas]
   change _ ≤ (orientCanvas o.direction
     (execution.packedAcc.canvasW + 2 * _)
     (execution.packedAcc.canvasH + 2 * _)).w ∧
@@ -145,6 +147,7 @@ private theorem X_layout_ids {exactIds : List String} {inp : Input} {o : Options
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
   · simp at h
   · have h := Except.ok.inj h
@@ -166,6 +169,7 @@ private theorem X_layout_box_parent {exactIds : List String} {inp : Input} {o : 
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   split at h

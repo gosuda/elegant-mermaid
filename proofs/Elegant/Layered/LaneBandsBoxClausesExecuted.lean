@@ -637,6 +637,7 @@ private theorem exec_scene_exclusive_leaf {inp : Input} {o : Options} {res : Fam
   obtain ⟨_, _, h⟩ := PipelineImpl.bind_ok h
   obtain ⟨acc, _, h⟩ := PipelineImpl.bind_ok h
   obtain ⟨acc, _, h⟩ := PipelineImpl.bind_ok h
+  obtain ⟨acc, _, h⟩ := PipelineImpl.bind_ok h
   split at h
   · simp at h
   · have hok := Except.ok.inj h

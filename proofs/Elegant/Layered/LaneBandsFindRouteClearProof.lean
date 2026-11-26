@@ -1154,10 +1154,10 @@ theorem findRoute_ok_node (axis : Axis) (ends : RouteEnds) (obs : List Obstacle)
       cases hpoly : routePolyline axis
           (routeGrid obs inflate ends.entry ends.exit) ends node.path with
       | error e =>
-        simp only [hpoly, Bind.bind, Except.bind] at h
+        simp only [hpoly] at h
         cases h
       | ok mid =>
-        simp only [hpoly, Bind.bind, Except.bind] at h
+        simp only [hpoly] at h
         split at h
         · obtain rfl := Except.ok.inj h
           exact ⟨inflate, List.mem_cons_self,

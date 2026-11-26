@@ -5,6 +5,7 @@ use crate::layout::layered::{
     LayoutError, clusters, coords,
     graph::{Graph, Proper},
     gutters, isolate, labels, lanes, loops, order, regions, route,
+    straighten::StraightenContext,
 };
 use crate::measure;
 use crate::scene::BoxRole;
@@ -16,7 +17,7 @@ pub(in crate::layout::layered) struct Measurements<'text, 'scene> {
     pub fixed: &'scene [isolate::Fixed<'scene>],
 }
 
-pub(in crate::layout::layered) struct Component {
+pub(crate) struct Component {
     pub boxes: Vec<Rect>,
     pub routes: Vec<route::EdgeRoute>,
     pub labels: Vec<(usize, Rect)>,
@@ -24,6 +25,7 @@ pub(in crate::layout::layered) struct Component {
     pub loop_extents: Vec<Rect>,
     pub label_reservations: Vec<(usize, Rect)>,
     pub budget: bool,
+    pub straighten: Option<StraightenContext>,
 }
 
 impl Component {
@@ -200,6 +202,20 @@ pub(super) fn component_core(
         ));
     }
     let loop_extents = loops::reservations(g, &boxes, &sizes, &extents, input)?;
+    let mut border = vec![false; drawn.nodes.len()];
+    for cluster in &clusters {
+        for v in cluster
+            .left
+            .iter()
+            .chain(cluster.right.iter())
+            .copied()
+            .chain([cluster.node, cluster.bottom, cluster.title])
+        {
+            if let Some(slot) = border.get_mut(v) {
+                *slot = true;
+            }
+        }
+    }
     Ok(Component {
         boxes,
         routes,
@@ -208,6 +224,16 @@ pub(super) fn component_core(
         loop_extents,
         label_reservations,
         budget: budget || ordered.budget_exhausted,
+        straighten: Some(StraightenContext {
+            proper: drawn,
+            layers: ordered.layers,
+            x,
+            y,
+            top,
+            routing: r,
+            cluster_tops,
+            border,
+        }),
     })
 }
 

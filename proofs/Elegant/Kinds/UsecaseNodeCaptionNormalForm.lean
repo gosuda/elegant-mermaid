@@ -250,7 +250,18 @@ def exactLeafCaptionAssembly {ids : List String} {inp : Input} {o : Options} {re
   box_keys := by
     rw [e.boxes_eq_mapX, List.map_map]
     exact zipIdx_map_comp modelBoxKey inp.boxes 0
-  items_eq := by rw [e.scene_eq]; rfl
+  items_eq := by
+    have hfields := straightenAcc_fields e.straight_eq
+    have htitles : sceneTitlesExpr e.params inp o e.lines e.straightAcc =
+        sceneTitlesExpr e.params inp o e.lines e.packedAcc := by
+      unfold sceneTitlesExpr
+      rw [hfields.2.2.1, hfields.2.2.2.2]
+    have hscene : (sceneOf e.params inp o e.lines e.straightAcc e.measured).items =
+        applyTitles (sceneTitlesExpr e.params inp o e.lines e.straightAcc)
+          (sceneItems e.params inp (sceneOf e.params inp o e.lines e.straightAcc e.measured).boxes
+            (sceneOf e.params inp o e.lines e.straightAcc e.measured).routes e.lines
+            (sceneOf e.params inp o e.lines e.straightAcc e.measured).labels) := rfl
+    rw [e.scene_eq, hscene, htitles]
   title_owner := fun _ ht => exact_leaf_title_owner_group e ht
 
 private theorem selectInput_box_keys (inp : Input) (keep : ModelBox → Bool) (root : String) :

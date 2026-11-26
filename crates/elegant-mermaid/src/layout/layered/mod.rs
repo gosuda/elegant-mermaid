@@ -18,6 +18,7 @@ pub mod rank;
 mod regions;
 pub mod route;
 mod sibling_order;
+pub mod straighten;
 
 pub use crate::geom::GeomError as LayoutError;
 

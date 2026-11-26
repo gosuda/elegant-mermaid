@@ -540,6 +540,7 @@ private theorem xsgl_layout_role {exactIds : List String} {inp : Input} {o : Opt
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
   · simp at h
   · have h := Except.ok.inj h
