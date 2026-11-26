@@ -1,10 +1,8 @@
 name: "verify"
 
-"on":
-  push:
-    branches:
-      - "main"
-  pull_request:
+on:
+  schedule:
+    - cron: '41 4 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -19,9 +17,52 @@ defaults:
     shell: "bash"
 
 jobs:
+  build:
+    runs-on: "depot-ubuntu-24.04-8"
+    timeout-minutes: 20
+    env:
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - name: "Checkout"
+        uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
+      - name: "Set up Go"
+        uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache: true
+      - name: "Install the Rust toolchain"
+        run: "rustup toolchain install"
+      - name: "Cache the Rust build"
+        uses: "Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0" # v2.9.3
+      - name: "Install just"
+        uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
+        with:
+          tool: "just@1.59.0"
+      - name: "Build both engines"
+        run: "just build"
+      - name: "Stage the native engines"
+        run: |
+          mkdir -p dist-engines
+          cp bin/emd-go bin/emd-rs dist-engines/
+          ./dist-engines/emd-go --version
+          ./dist-engines/emd-rs --version
+      - name: "Upload the native engines"
+        uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
+        with:
+          name: "native-engines"
+          path: |
+            dist-engines/emd-go
+            dist-engines/emd-rs
+          if-no-files-found: "error"
+          retention-days: 7
+
   references:
     runs-on: "depot-ubuntu-24.04-8"
     timeout-minutes: 90
+    needs: "build"
+    if: "!cancelled()"
     env:
       CARGO_BUILD_JOBS: "2"
       LEAN_NUM_THREADS: "2"
@@ -34,64 +75,113 @@ jobs:
         uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: "Install the Rust toolchain"
         run: "rustup toolchain install"
+      - name: "Cache the Rust build"
+        uses: "Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0" # v2.9.3
       - name: "Install gate tools"
         id: "tools"
         uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
         with:
           tool: "just@1.59.0,cargo-nextest@0.9.151,cargo-deny@0.20.2,jaq@3.2.0"
+      - name: "Download the native engines"
+        id: "engines-download"
+        if: "!cancelled() && needs.build.result == 'success' && steps.tools.outcome == 'success'"
+        uses: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" # v8.0.2
+        with:
+          name: "native-engines"
+          path: "dist-engines"
+      - name: "Check the native engines"
+        id: "engines"
+        if: "!cancelled() && steps.engines-download.outcome == 'success'"
+        run: |
+          mkdir -p bin
+          cp dist-engines/emd-go dist-engines/emd-rs bin/
+          chmod +x bin/emd-go bin/emd-rs
+          test -x bin/emd-go
+          test -x bin/emd-rs
+          bin/emd-go --version
+          bin/emd-rs --version
       - name: "Check generated files"
         if: "!cancelled() && steps.tools.outcome == 'success'"
         run: "just gen-check"
-      - name: "Build both engines"
-        id: "build"
-        if: "!cancelled() && steps.tools.outcome == 'success'"
-        run: "just build"
       - name: "Run the Go gates"
-        if: "!cancelled() && steps.build.outcome == 'success'"
-        run: "just go-check"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
+        run: "just --no-deps go-check"
       - name: "Run the Rust gates"
-        if: "!cancelled() && steps.build.outcome == 'success'"
-        run: "just rust-check"
-      - name: "Install the pinned Lean toolchain"
-        id: "lean"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
+        run: "just --no-deps rust-check"
+      - name: "Restore the pinned Lean toolchain"
+        id: "lean-cache"
         if: "!cancelled() && steps.tools.outcome == 'success'"
+        uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: "~/.cache/lean"
+          key: "lean-${{ hashFiles('proofs/lean-toolchain') }}"
+      - name: "Install the pinned Lean toolchain"
+        id: "lean-install"
+        if: "!cancelled() && steps.tools.outcome == 'success' && steps.lean-cache.outputs.cache-hit != 'true'"
         run: |
           test "$(cat proofs/lean-toolchain)" = "leanprover/lean4:v4.35.0"
           curl --fail --location --retry 3 --output "$RUNNER_TEMP/lean.tar.zst" \
             "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-linux.tar.zst"
           echo "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d  $RUNNER_TEMP/lean.tar.zst" | sha256sum --check
-          mkdir -p "$RUNNER_TEMP/lean"
-          tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" --strip-components=1 -C "$RUNNER_TEMP/lean"
-          echo "$RUNNER_TEMP/lean/bin" >> "$GITHUB_PATH"
+          mkdir -p "$HOME/.cache/lean"
+          tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" --strip-components=1 -C "$HOME/.cache/lean"
+      - name: "Add the Lean toolchain to PATH"
+        id: "lean"
+        if: "!cancelled() && steps.tools.outcome == 'success'"
+        run: "echo \"$HOME/.cache/lean/bin\" >> \"$GITHUB_PATH\""
+      - name: "Save the pinned Lean toolchain"
+        if: "!cancelled() && steps.lean-install.outcome == 'success'"
+        uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: "~/.cache/lean"
+          key: "lean-${{ hashFiles('proofs/lean-toolchain') }}"
+      - name: "Restore the lake build cache"
+        id: "lake-cache"
+        if: "!cancelled() && steps.tools.outcome == 'success'"
+        uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: "proofs/.lake"
+          key: "lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}-${{ hashFiles('proofs/**/*.lean') }}"
+          restore-keys: |
+            lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}-
+            lake-
       - name: "Build and audit every proof"
         id: "proofs"
         if: "!cancelled() && steps.lean.outcome == 'success'"
         run: "just proofs"
+      - name: "Save the lake build cache"
+        if: "!cancelled() && steps.proofs.outcome == 'success' && steps.lake-cache.outputs.cache-hit != 'true'"
+        uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: "proofs/.lake"
+          key: "lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}-${{ hashFiles('proofs/**/*.lean') }}"
       - name: "Check corpus verdicts"
-        if: "!cancelled() && steps.build.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just oracle JOBS=4"
       - name: "Check corpus engine parity"
-        if: "!cancelled() && steps.build.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just parity JOBS=4"
       - name: "Compare Markdown exports"
-        if: "!cancelled() && steps.build.outcome == 'success'"
-        run: "just markdown-parity"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
+        run: "just --no-deps markdown-parity"
       - name: "Check generated layered graphs"
-        if: "!cancelled() && steps.build.outcome == 'success'"
-        run: "just layered-random-check JOBS=4"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
+        run: "just --no-deps layered-random-check JOBS=4"
       - name: "Compare geometry kernels"
-        if: "!cancelled() && steps.build.outcome == 'success' && steps.proofs.outcome == 'success'"
-        run: "just kernel-diff"
+        if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
+        run: "just --no-deps kernel-diff"
       - name: "Validate every corpus layout"
-        if: "!cancelled() && steps.build.outcome == 'success' && steps.proofs.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
         run: "just validate JOBS=4"
       - name: "Compare every layout with Lean"
-        if: "!cancelled() && steps.build.outcome == 'success' && steps.proofs.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
         run: "just lean-parity JOBS=4"
       - name: "Upload verification binaries"
-        if: "!cancelled() && steps.build.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
         uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
         with:
           name: "verification-binaries"
@@ -105,6 +195,7 @@ jobs:
   quality:
     runs-on: "depot-ubuntu-24.04-8"
     timeout-minutes: 45
+    needs: "build"
     env:
       CARGO_BUILD_JOBS: "2"
     steps:
@@ -116,9 +207,13 @@ jobs:
         uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: "Install the Rust toolchain"
         run: "rustup toolchain install"
+      - name: "Cache the Rust build"
+        uses: "Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0" # v2.9.3
       - name: "Install gate tools"
+        id: "tools"
         uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
         with:
           tool: "just@1.59.0,cargo-nextest@0.9.151"
@@ -133,16 +228,32 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "tools/upstream-oracle/pnpm-lock.yaml"
       - name: "Install oracle packages"
+        if: "!cancelled() && steps.tools.outcome == 'success'"
         run: "pnpm --dir tools/upstream-oracle install --frozen-lockfile"
-      - name: "Build both engines"
-        id: "build"
-        run: "just build"
+      - name: "Download the native engines"
+        id: "engines-download"
+        if: "!cancelled() && needs.build.result == 'success' && steps.tools.outcome == 'success'"
+        uses: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" # v8.0.2
+        with:
+          name: "native-engines"
+          path: "dist-engines"
+      - name: "Check the native engines"
+        id: "engines"
+        if: "!cancelled() && steps.engines-download.outcome == 'success'"
+        run: |
+          mkdir -p bin
+          cp dist-engines/emd-go dist-engines/emd-rs bin/
+          chmod +x bin/emd-go bin/emd-rs
+          test -x bin/emd-go
+          test -x bin/emd-rs
+          bin/emd-go --version
+          bin/emd-rs --version
       - name: "Check layout quality"
-        if: "!cancelled() && steps.build.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just quality JOBS=4"
       - name: "Check themes and config coverage"
-        if: "!cancelled() && steps.build.outcome == 'success'"
-        run: "just theme-check"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
+        run: "just --no-deps theme-check"
 
   house:
     runs-on: "depot-ubuntu-24.04-8"
@@ -160,9 +271,26 @@ jobs:
         uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
         with:
           tool: "just@1.59.0"
+      - name: "Restore the pinned house linter"
+        id: "sloplint-cache"
+        uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: ".tools/sloplint"
+          key: "sloplint-72f29bae0ba1187da854e080c998b8a21f1e4640"
       - name: "Install the pinned house linter"
+        id: "sloplint-install"
+        if: "!cancelled() && steps.sloplint-cache.outputs.cache-hit != 'true'"
+        run: "cargo install --git https://github.com/gosuda/sloplint --rev 72f29bae0ba1187da854e080c998b8a21f1e4640 --locked --root \"$GITHUB_WORKSPACE/.tools/sloplint\" sloplint"
+      - name: "Add the house linter to PATH"
         id: "sloplint"
-        run: "cargo install --git https://github.com/gosuda/sloplint --rev 72f29bae0ba1187da854e080c998b8a21f1e4640 --locked sloplint"
+        if: "!cancelled()"
+        run: "echo \"$GITHUB_WORKSPACE/.tools/sloplint/bin\" >> \"$GITHUB_PATH\""
+      - name: "Save the pinned house linter"
+        if: "!cancelled() && steps.sloplint-install.outcome == 'success'"
+        uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: ".tools/sloplint"
+          key: "sloplint-72f29bae0ba1187da854e080c998b8a21f1e4640"
       - name: "Run house lint"
         if: "!cancelled() && steps.sloplint.outcome == 'success'"
         run: "just slop"
@@ -181,6 +309,8 @@ jobs:
   playground:
     runs-on: "depot-ubuntu-24.04-8"
     timeout-minutes: 45
+    needs: "build"
+    if: "!cancelled()"
     env:
       CARGO_BUILD_JOBS: "2"
       BASE_PATH: "/elegant-mermaid"
@@ -193,8 +323,11 @@ jobs:
         uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: "Install the Rust toolchain"
         run: "rustup toolchain install && rustup target add wasm32-unknown-unknown"
+      - name: "Cache the Rust build"
+        uses: "Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0" # v2.9.3
       - name: "Install gate tools"
         uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
         with:
@@ -221,17 +354,50 @@ jobs:
       - name: "Run browser unit tests"
         if: "!cancelled() && steps.packages.outcome == 'success'"
         run: "pnpm --dir playground exec vitest run"
-      - name: "Build the native and browser engines"
+      - name: "Download the native engines"
+        id: "engines-download"
+        if: "!cancelled() && needs.build.result == 'success' && steps.packages.outcome == 'success'"
+        uses: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" # v8.0.2
+        with:
+          name: "native-engines"
+          path: "dist-engines"
+      - name: "Check the native engines"
+        id: "engines"
+        if: "!cancelled() && steps.engines-download.outcome == 'success'"
+        run: |
+          mkdir -p bin
+          cp dist-engines/emd-go dist-engines/emd-rs bin/
+          chmod +x bin/emd-go bin/emd-rs
+          test -x bin/emd-go
+          test -x bin/emd-rs
+          bin/emd-go --version
+          bin/emd-rs --version
+      - name: "Build the browser engines"
         id: "build"
-        if: "!cancelled() && steps.packages.outcome == 'success'"
-        run: "just build playground-build"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
+        run: |
+          just playground-wasm
+          just --no-deps playground-build
       - name: "Check native and WebAssembly parity"
         if: "!cancelled() && steps.build.outcome == 'success'"
-        run: "just wasm-parity"
+        run: "just --no-deps wasm-parity"
+      - name: "Restore the Playwright browsers"
+        id: "playwright-cache"
+        if: "!cancelled() && steps.packages.outcome == 'success'"
+        uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: "~/.cache/ms-playwright"
+          key: "playwright-${{ hashFiles('playground/pnpm-lock.yaml') }}"
       - name: "Install Chromium"
         id: "chromium"
         if: "!cancelled() && steps.packages.outcome == 'success'"
         run: "pnpm --dir playground exec playwright install --with-deps chromium"
+      - name: "Save the Playwright browsers"
+        if: "!cancelled() && steps.chromium.outcome == 'success' && steps.playwright-cache.outputs.cache-hit != 'true'"
+        uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: "~/.cache/ms-playwright"
+          key: "playwright-${{ hashFiles('playground/pnpm-lock.yaml') }}"
       - name: "Test the production application"
         if: "!cancelled() && steps.build.outcome == 'success' && steps.chromium.outcome == 'success'"
         run: "pnpm --dir playground exec playwright test"
@@ -248,7 +414,7 @@ jobs:
           retention-days: 7
 
   windows-paths:
-    runs-on: "windows-latest"
+    runs-on: "depot-windows-2025"
     timeout-minutes: 15
     steps:
       - name: "Checkout"
