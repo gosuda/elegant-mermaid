@@ -116,7 +116,7 @@ jobs:
       - name: "Restore the pinned Lean toolchain"
         id: "lean-cache"
         if: "!cancelled() && steps.tools.outcome == 'success'"
-        uses: "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
           path: "~/.cache/lean"
           key: "lean-${{ hashFiles('proofs/lean-toolchain') }}"
@@ -134,9 +134,15 @@ jobs:
         id: "lean"
         if: "!cancelled() && steps.tools.outcome == 'success'"
         run: "echo \"$HOME/.cache/lean/bin\" >> \"$GITHUB_PATH\""
+      - name: "Save the pinned Lean toolchain"
+        if: "!cancelled() && steps.lean-install.outcome == 'success'"
+        uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: "~/.cache/lean"
+          key: "lean-${{ hashFiles('proofs/lean-toolchain') }}"
       - name: "Restore the lake build cache"
         if: "!cancelled() && steps.tools.outcome == 'success'"
-        uses: "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
           path: "proofs/.lake"
           key: "lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}"
@@ -146,6 +152,12 @@ jobs:
         id: "proofs"
         if: "!cancelled() && steps.lean.outcome == 'success'"
         run: "just proofs"
+      - name: "Save the lake build cache"
+        if: "!cancelled() && steps.tools.outcome == 'success'"
+        uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: "proofs/.lake"
+          key: "lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}"
       - name: "Check corpus verdicts"
         if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just oracle JOBS=4"
@@ -260,7 +272,7 @@ jobs:
           tool: "just@1.59.0"
       - name: "Restore the pinned house linter"
         id: "sloplint-cache"
-        uses: "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
           path: ".tools/sloplint"
           key: "sloplint-72f29bae0ba1187da854e080c998b8a21f1e4640"
@@ -272,6 +284,12 @@ jobs:
         id: "sloplint"
         if: "!cancelled()"
         run: "echo \"$GITHUB_WORKSPACE/.tools/sloplint/bin\" >> \"$GITHUB_PATH\""
+      - name: "Save the pinned house linter"
+        if: "!cancelled() && steps.sloplint-install.outcome == 'success'"
+        uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: ".tools/sloplint"
+          key: "sloplint-72f29bae0ba1187da854e080c998b8a21f1e4640"
       - name: "Run house lint"
         if: "!cancelled() && steps.sloplint.outcome == 'success'"
         run: "just slop"
@@ -361,7 +379,7 @@ jobs:
         run: "just wasm-parity"
       - name: "Restore the Playwright browsers"
         if: "!cancelled() && steps.packages.outcome == 'success'"
-        uses: "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
           path: "~/.cache/ms-playwright"
           key: "playwright-${{ hashFiles('playground/pnpm-lock.yaml') }}"
@@ -369,6 +387,12 @@ jobs:
         id: "chromium"
         if: "!cancelled() && steps.packages.outcome == 'success'"
         run: "pnpm --dir playground exec playwright install --with-deps chromium"
+      - name: "Save the Playwright browsers"
+        if: "!cancelled() && steps.chromium.outcome == 'success'"
+        uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
+        with:
+          path: "~/.cache/ms-playwright"
+          key: "playwright-${{ hashFiles('playground/pnpm-lock.yaml') }}"
       - name: "Test the production application"
         if: "!cancelled() && steps.build.outcome == 'success' && steps.chromium.outcome == 'success'"
         run: "pnpm --dir playground exec playwright test"
