@@ -40,13 +40,15 @@ jobs:
         if: "!cancelled() && steps.setup.outcome == 'success'"
         run: |
           export GOENV=off GOCACHEPROG=''
-          test -z "$(go env GOCACHEPROG)"
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
           just gen-check
       - name: "Run the Go gates"
         if: "!cancelled() && steps.setup.outcome == 'success'"
         run: |
           export GOENV=off GOCACHEPROG=''
-          test -z "$(go env GOCACHEPROG)"
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
           just go-check
       - name: "Run the Rust gates"
         if: "!cancelled() && steps.setup.outcome == 'success'"
@@ -56,11 +58,10 @@ jobs:
         id: "build"
         run: |
           export GOENV=off GOCACHEPROG=''
-          test -z "$(go env GOCACHEPROG)"
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
           just build
       - name: "Run parity"
         if: "!cancelled() && steps.build.outcome == 'success'"
         run: |
-          export GOENV=off GOCACHEPROG=''
-          test -z "$(go env GOCACHEPROG)"
           just parity
