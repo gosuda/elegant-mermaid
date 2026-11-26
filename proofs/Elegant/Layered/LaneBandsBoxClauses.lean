@@ -856,10 +856,10 @@ private theorem boxClauses_shiftAll_scene_full {axis : Axis} {delta : Int} {s s'
   exact boxClauses_shiftAll_full s.boxes axis delta _ hboxes _ hb'
 
 private theorem boxClauses_r_from_pinned {axis : Axis}
-    {pinned routed origin stripScene r : Scene} {strip : Int}
+    {pinned routed origin stripScene r : Scene} {strip gap : Int}
     (hRouteEq : routed.boxes = pinned.boxes)
     (horig : restoreOrigin axis routed = .ok origin)
-    (hStripEq : stripScene = relocateLabels axis strip origin)
+    (hStripEq : relocateLabels axis strip gap origin = .ok stripScene)
     (hGrowEq : r.boxes = stripScene.boxes) :
     ∃ oDelta, ∀ b' ∈ r.boxes, ∃ m ∈ pinned.boxes,
       b'.id = m.id ∧ b'.parent = m.parent ∧ b'.role = m.role ∧ b'.exclusive = m.exclusive ∧
@@ -867,9 +867,7 @@ private theorem boxClauses_r_from_pinned {axis : Axis}
       (axis = Axis.y → b'.rect.x = m.rect.x ∧ b'.rect.w = m.rect.w) ∧
       Axis.start axis b'.rect = Axis.start axis m.rect + oDelta ∧
       Axis.length axis b'.rect = Axis.length axis m.rect := by
-  have hRelEq : stripScene.boxes = origin.boxes := by
-    rw [hStripEq]
-    exact relocateLabels_boxes _ _ _
+  have hRelEq : stripScene.boxes = origin.boxes := relocateLabels_boxes hStripEq
   rcases restoreOrigin_cases horig with hEq | ⟨delta, _hpos, hshift⟩
   · refine ⟨0, fun b' hb' => ?_⟩
     rw [hGrowEq, hRelEq, hEq, hRouteEq] at hb'
@@ -899,14 +897,14 @@ private theorem boxClauses_r_from_pinned {axis : Axis}
 
 private theorem boxClauses_master {boxes : List ModelBox} {o : Options} {s r : Scene}
     {axis : Axis} {sp : Spacing} {bands : List Band}
-    {pinned routed origin stripScene : Scene} {strip : Int}
+    {pinned routed origin stripScene : Scene} {strip gap : Int}
     (hBoxes : (boxes.map (·.id)).Nodup) (hNe : ∀ b ∈ boxes, b.id ≠ "")
     (hbands : bands = layBands boxes s axis sp (lanesOf boxes))
     (happ : applyPin (buildPin axis bands s) bands s = .ok pinned)
     (hroute : rerouteBands axis sp (LayoutConst.rank_gap.get o.profile) bands
       (buildPin axis bands s) s.routes pinned = .ok routed)
     (horig : restoreOrigin axis routed = .ok origin)
-    (hStripEq : stripScene = relocateLabels axis strip origin)
+    (hStripEq : relocateLabels axis strip gap origin = .ok stripScene)
     (hgrow : growCanvas axis s.canvas stripScene = .ok r) :
     ∃ oDelta, ∀ b' ∈ r.boxes, ∃ b ∈ s.boxes,
       b'.id = b.id ∧ b'.parent = b.parent ∧ b'.role = b.role ∧ b'.exclusive = b.exclusive ∧
@@ -1191,7 +1189,7 @@ theorem pinC1Cover_of_pin {boxes : List ModelBox} {o : Options} {s r : Scene}
     · intro b' hb'
       have hbStrip : b' ∈ stripScene.boxes := hGrowEq ▸ hb'
       have hbOrig : b' ∈ origin.boxes := by
-        have hEq : stripScene.boxes = origin.boxes := by rw [hstripEq]; rfl
+        have hEq : stripScene.boxes = origin.boxes := relocateLabels_boxes hstripEq
         rw [hEq] at hbStrip
         exact hbStrip
       have hOrigCases := restoreOrigin_cases horig
@@ -1261,7 +1259,7 @@ theorem pinC1Cover_of_pin {boxes : List ModelBox} {o : Options} {s r : Scene}
         have hAx' : axis = Axis.x := haxis.trans hAx
         have hbStrip : b' ∈ stripScene.boxes := hGrowEq ▸ hb'
         have hbOrig : b' ∈ origin.boxes := by
-          have hEq : stripScene.boxes = origin.boxes := by rw [hstripEq]; rfl
+          have hEq : stripScene.boxes = origin.boxes := relocateLabels_boxes hstripEq
           rw [hEq] at hbStrip
           exact hbStrip
         have h0 := hNonneg _ hbOrig
@@ -1276,7 +1274,7 @@ theorem pinC1Cover_of_pin {boxes : List ModelBox} {o : Options} {s r : Scene}
         have hAx' : axis = Axis.y := haxis.trans hAx
         have hbStrip : b' ∈ stripScene.boxes := hGrowEq ▸ hb'
         have hbOrig : b' ∈ origin.boxes := by
-          have hEq : stripScene.boxes = origin.boxes := by rw [hstripEq]; rfl
+          have hEq : stripScene.boxes = origin.boxes := relocateLabels_boxes hstripEq
           rw [hEq] at hbStrip
           exact hbStrip
         have h0 := hNonneg _ hbOrig

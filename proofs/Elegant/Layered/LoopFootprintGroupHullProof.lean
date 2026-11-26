@@ -113,7 +113,6 @@ theorem Rect.StrictInside.toContained' {a b : Rect}
   unfold Rect.StrictInside Rect.Contained at *
   omega
 
-/-- A loop tail is in bounds. -/
 theorem loopTail_bounded {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res)
     {comp : List Nat} (hcomp : comp ∈ components execution.graph)

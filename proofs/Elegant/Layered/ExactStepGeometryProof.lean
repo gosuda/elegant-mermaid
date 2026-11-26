@@ -564,7 +564,7 @@ theorem XG_parent_box_ids_nodupB (exactIds : List String)
   have hboxIds : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
   have hP : checkedParams o.profile inp.kind = .ok P := hparams.1
   have hwrapCtx : ExpandChildTitleWrapped P inp o group titleLines := hparams.2.2
-  have hmetric : metricOf o.profile = .ok hwrapCtx.choose := hwrapCtx.choose_spec.1
+  have hmetric : metricOf o.profile o.fontFamily = .ok hwrapCtx.choose := hwrapCtx.choose_spec.1
   have hwrapEq : StyledMeasure.wrap hwrapCtx.choose
       (Measure.wrapTarget hwrapCtx.choose.profile P.wrapWidth
         (if o.profile == .cell then o.maxWidth else 0))

@@ -64,7 +64,7 @@ def nriRouterEndsExec (inp : Input) (o : Options) (res : FamilyResult)
     (contracted : FamilyResult) (fragments : List Placed) (atts : List Attach)
     (margin : Int) : Prop :=
   WellFormed (inputModel inp o) →
-    notesRouterEnds inp atts (notesFrameOf contracted o margin)
+    notesRouterEnds o.profile inp atts (notesFrameOf contracted o margin)
       (notesRectsOf res.scene.boxes) (notesLabelsOf fragments contracted inp)
       (notesTitlesOf fragments contracted)
 
@@ -251,6 +251,13 @@ private theorem nri_shortest_ortho (g : Visibility.Grid)
   rw [hpts] at hcomp
   exact hcomp
 
+private theorem bind_ok {α β : Type} {x : Except LayoutError α}
+    {f : α → Except LayoutError β} {y : β}
+    (h : x >>= f = .ok y) : ∃ a, x = .ok a ∧ f a = .ok y := by
+  cases x with
+  | error e => simp [Bind.bind, Except.bind] at h
+  | ok a => exact ⟨a, rfl, h⟩
+
 private theorem nri_frame_output_ortho (frame : Frame) (pts : List Point)
     (h : Polyline.isOrthogonal pts = true) :
     Polyline.isOrthogonal (pts.map frame.output) = true := by
@@ -261,10 +268,10 @@ private theorem nri_frame_output_ortho (frame : Frame) (pts : List Point)
   exact (isOrthogonal_shift_orient frame.direction frame.height
     frame.margin frame.margin pts).mpr h
 
-theorem notesRouterOrtho_holds (inp : Input) (atts : List Attach)
+theorem notesRouterOrtho_holds (profile : Profile) (inp : Input) (atts : List Attach)
     (frame : Frame) (rects : List (String × Rect))
     (labels : List SceneLabel) (titles : List (String × Rect)) :
-    notesRouterOrtho inp atts frame rects labels titles := by
+    notesRouterOrtho profile inp atts frame rects labels titles := by
   intro r hr pts hroute
   unfold routeAround at hroute
   cases hfrom : rects.lookup r.fromId with
@@ -274,10 +281,11 @@ theorem notesRouterOrtho_holds (inp : Input) (atts : List Attach)
       | none => simp [hfrom, hto] at hroute
       | some to_ =>
           simp only [hfrom, hto] at hroute
-          split at hroute
-          · simp at hroute
+          obtain ⟨_, _, hgrid⟩ := bind_ok hroute
+          split at hgrid
+          · simp at hgrid
           · next points heq =>
-              have hpts : points.map frame.output = pts := Except.ok.inj hroute
+              have hpts : points.map frame.output = pts := Except.ok.inj hgrid
               rw [← hpts]
               exact nri_frame_output_ortho frame points
                 (nri_shortest_ortho _ _ _ _ heq)

@@ -854,9 +854,7 @@ theorem pinBands_exclusivePositive {boxes : List ModelBox} {o : Options} {s pinn
       rw [hmap]
       exact hShNodup
     have hgrowB : pinned.boxes = stripScene.boxes := (growCanvas_frame hgrow).1
-    have hstripB : stripScene.boxes = origin.boxes := by
-      rw [hstripEq]
-      exact relocateLabels_boxes _ _ _
+    have hstripB : stripScene.boxes = origin.boxes := relocateLabels_boxes hstripEq
     have hrouteB : routed.boxes = p0.boxes := (rerouteBands_frame hroute).1
     obtain ⟨bR, hbR, _hRid, hRexcl, hRw, hRh⟩ :
         ∃ bR ∈ p0.boxes, bR.id = b'.id ∧ bR.exclusive = b'.exclusive ∧
@@ -939,9 +937,7 @@ theorem pinBands_framesFit {boxes : List ModelBox} {o : Options} {s pinned : Sce
         rw [hmap]
         exact hShNodup
       have hgrowB : pinned.boxes = stripScene.boxes := (growCanvas_frame hgrow).1
-      have hstripB : stripScene.boxes = origin.boxes := by
-        rw [hstripEq]
-        exact relocateLabels_boxes _ _ _
+      have hstripB : stripScene.boxes = origin.boxes := relocateLabels_boxes hstripEq
       have hrouteB : routed.boxes = p0.boxes := (rerouteBands_frame hroute).1
       obtain ⟨bR, hbR, hRid, hRlen⟩ :
           ∃ bR ∈ p0.boxes, bR.id = fb.id ∧
