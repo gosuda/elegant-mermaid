@@ -380,7 +380,6 @@ def Role.metric (r : Role) (fontFamily : Bool := false) : Except LayoutError Met
   let u ← upemOf r.weight
   pure { profile := .vector, sizePx := r.sizePx, weight := r.weight, upem := u, fontFamily }
 
-/-- The cell metric. -/
 def Metric.cell : Metric :=
   { profile := .cell, sizePx := 0, weight := 0, upem := 1, fontFamily := false }
 

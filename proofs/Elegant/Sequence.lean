@@ -559,7 +559,6 @@ def noteSpan (pl : Plan) (cs : List Int) (placement a b box : Nat) : Int × Int 
   else if placement == 1 then (cA + half actorW + half c.actorMargin, width0)
   else (cA - half actorW - half c.actorMargin - width0, width0)
 
-/-- The height of the text of a note. -/
 def noteTextHeight (pl : Plan) (box : Nat) : Int :=
   match ownedLabelPos pl.m ((pl.m.boxes[box]?.map (·.id)).getD "") with
   | some p => ((pl.labelLines.getD p []).length : Int) * pl.c.lineHeight
