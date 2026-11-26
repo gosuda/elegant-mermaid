@@ -33,9 +33,9 @@ private theorem filterMapM_member_ok {α β : Type} (f : α → Except LayoutErr
       · obtain ⟨found, hxFound, hmem⟩ := ih tail htail x hx
         exact ⟨found, hxFound, fun y hy => List.mem_cons_of_mem _ (hmem y hy)⟩
 
-private theorem actor_nodeSize_ok {p : Profile} {shape text : String}
+private theorem actor_nodeSize_ok {p : Profile} {shape text : String} {fam : Bool}
     {out : Option (Size × Bool)} (ha : isActor shape = true)
-    (h : nodeSize p shape text = .ok out) : ∃ size, out = some (size, true) := by
+    (h : nodeSize p shape text fam = .ok out) : ∃ size, out = some (size, true) := by
   have hs : isSized shape = true := by simp [isSized, ha]
   cases p <;>
     simp only [nodeSize, hs, ha, Bool.not_true, Bool.false_eq_true, ↓reduceIte, actorMetrics] at h <;>

@@ -27,7 +27,7 @@ structure SceneExecutionX (exactIds : List String) (inp : Input) (o : Options)
   componentsAcc : Acc
   packedAcc : Acc
   checked : checkedParams o.profile inp.kind = .ok params
-  metric_eq : metricOf o.profile = .ok metric
+  metric_eq : metricOf o.profile o.fontFamily = .ok metric
   lines_eq : boxLines metric
     (Measure.wrapTarget metric.profile params.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
     inp = .ok lines
@@ -50,7 +50,7 @@ theorem layoutX_success_phases {exactIds : List String} {inp : Input} {o : Optio
     {result : FamilyResult} (h : layoutX exactIds inp o = .ok result) :
     ∃ P metric lines measured graph0 graph mid packed,
       checkedParams o.profile inp.kind = .ok P ∧
-      metricOf o.profile = .ok metric ∧
+      metricOf o.profile o.fontFamily = .ok metric ∧
       boxLines metric
         (Measure.wrapTarget metric.profile P.wrapWidth
           (if o.profile == .cell then o.maxWidth else 0)) inp = .ok lines ∧

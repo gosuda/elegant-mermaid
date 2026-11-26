@@ -14,7 +14,7 @@ private theorem r7LoopRawSizing {P : Params} {inp : Input} {o : Options}
     (hg : measuredGraph P inp o lines = .ok g) :
     ∃ (metric : Measure.Metric) (labels : List MeasuredLabel) (raw : Graph)
       (titles : List (Int × Int)),
-      metricOf o.profile = .ok metric ∧
+      metricOf o.profile o.fontFamily = .ok metric ∧
       measureLabels P metric
         (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
         inp o.direction = .ok labels ∧

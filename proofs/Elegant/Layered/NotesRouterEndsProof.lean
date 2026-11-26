@@ -269,7 +269,7 @@ def nriRouterPathExec (inp : Input) (o : Options) (res : FamilyResult)
     (notesRectsOf res.scene.boxes).lookup r.toId = some to_ →
     0 ≤ from_.w ∧ 0 ≤ from_.h ∧ 0 ≤ to_.w ∧ 0 ≤ to_.h ∧
     ∀ pts : List Point,
-      routeAround inp atts (notesFrameOf contracted o margin)
+      routeAround o.profile inp atts (notesFrameOf contracted o margin)
         (notesRectsOf res.scene.boxes)
         (notesLabelsOf fragments contracted inp)
         (notesTitlesOf fragments contracted) r = .ok pts →

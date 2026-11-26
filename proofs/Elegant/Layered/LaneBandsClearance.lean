@@ -866,8 +866,9 @@ theorem rerouteBands_mem (axis : Axis) (sp : Spacing) (bend : Int)
         s.boxes.find? (fun b => b.id == r.fromId) = some fb ∧
         s.boxes.find? (fun b => b.id == r.toId) = some tb ∧
         routeEnds axis sp pin fb tb old.points = .ok ends ∧
-        obs = (s.boxes.filter (fun b => b.exclusive && b.id != r.fromId &&
-          b.id != r.toId)).map (fun b => obstacleOf axis b.rect) ∧
+        obs = ((s.boxes.filter (fun b => b.exclusive && b.id != r.fromId &&
+          b.id != r.toId)).map (fun b => obstacleOf axis b.rect) ++
+          textObstacles axis s) ∧
         findRoute axis ends obs bend [sp.slot, 0] = .ok pts ∧ r'.points = pts)) := by
   unfold rerouteBands at h
   obtain ⟨routes, hmap, h⟩ := bind_ok' h
