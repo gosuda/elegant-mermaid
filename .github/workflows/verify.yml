@@ -189,6 +189,7 @@ jobs:
             bin/emd-go
             bin/emd-rs
             proofs/.lake/build/bin/geomcheck
+          include-hidden-files: true
           if-no-files-found: "error"
           retention-days: 7
 
@@ -196,6 +197,7 @@ jobs:
     runs-on: "depot-ubuntu-24.04-8"
     timeout-minutes: 45
     needs: "build"
+    if: "!cancelled()"
     env:
       CARGO_BUILD_JOBS: "2"
     steps:
@@ -204,11 +206,13 @@ jobs:
         with:
           persist-credentials: false
       - name: "Set up Go"
+        id: "go"
         uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
         with:
           go-version-file: "go.mod"
           cache: true
       - name: "Install the Rust toolchain"
+        id: "rust"
         run: "rustup toolchain install"
       - name: "Cache the Rust build"
         uses: "Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0" # v2.9.3
@@ -252,7 +256,7 @@ jobs:
         if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just quality JOBS=4"
       - name: "Check themes and config coverage"
-        if: "!cancelled() && steps.engines.outcome == 'success'"
+        if: "!cancelled() && steps.go.outcome == 'success' && steps.rust.outcome == 'success' && steps.tools.outcome == 'success'"
         run: "just --no-deps theme-check"
 
   house:
