@@ -260,20 +260,20 @@ def notesTitlesOf (fragments : List Placed) (contracted : FamilyResult) :
 /-! ### Named residuals: router facts, flag bridges, first-match sides -/
 
 /-- Router residual (C4): every successful `routeAround` output is orthogonal. -/
-def notesRouterOrtho (inp : Input) (atts : List Attach) (frame : Frame)
+def notesRouterOrtho (profile : Profile) (inp : Input) (atts : List Attach) (frame : Frame)
     (rects : List (String × Rect)) (labels : List SceneLabel)
     (titles : List (String × Rect)) : Prop :=
   ∀ r ∈ inp.routes, ∀ pts : List Point,
-    routeAround inp atts frame rects labels titles r = .ok pts →
+    routeAround profile inp atts frame rects labels titles r = .ok pts →
     Polyline.isOrthogonal pts = true
 
 /-- Router residual (C5): every successful `routeAround` output starts and
 ends on the boundary of its looked-up end rects. -/
-def notesRouterEnds (inp : Input) (atts : List Attach) (frame : Frame)
+def notesRouterEnds (profile : Profile) (inp : Input) (atts : List Attach) (frame : Frame)
     (rects : List (String × Rect)) (labels : List SceneLabel)
     (titles : List (String × Rect)) : Prop :=
   ∀ r ∈ inp.routes, ∀ pts : List Point,
-    routeAround inp atts frame rects labels titles r = .ok pts →
+    routeAround profile inp atts frame rects labels titles r = .ok pts →
     ∃ from_ to_ : Rect, ∃ p q : Point,
       rects.lookup r.fromId = some from_ ∧ rects.lookup r.toId = some to_ ∧
       pts.head? = some p ∧ pts.getLast? = some q ∧
@@ -337,7 +337,7 @@ theorem notes_route_cases
           fr.id = r.id ∧ rt.points = fr.points.map (shiftPoint p.dx p.dy)) ∨
        (notesCross inp e.layouts r ∧
         ∃ pts : List Point, rt.points = pts ∧
-          routeAround inp e.atts (notesFrameOf e.contracted o e.margin)
+          routeAround o.profile inp e.atts (notesFrameOf e.contracted o e.margin)
             (notesRectsOf res.scene.boxes)
             (notesLabelsOf e.fragments e.contracted inp)
             (notesTitlesOf e.fragments e.contracted) r = .ok pts)) := by
@@ -388,7 +388,7 @@ theorem notes_route_cases
       have hmk : Route.mk x.id x.fromId x.toId x.orthogonal pts = rt :=
         Except.ok.inj hj
       have hptseq : rt.points = pts := (congrArg Route.points hmk).symm
-      have hroute : routeAround inp e.atts (notesFrameOf e.contracted o e.margin)
+      have hroute : routeAround o.profile inp e.atts (notesFrameOf e.contracted o e.margin)
           (notesRectsOf res.scene.boxes)
           (notesLabelsOf e.fragments e.contracted inp)
           (notesTitlesOf e.fragments e.contracted) x = .ok pts := hroute
@@ -421,7 +421,7 @@ theorem notes_route_cases
       have hmk : Route.mk x.id x.fromId x.toId x.orthogonal pts = rt :=
         Except.ok.inj hj
       have hptseq : rt.points = pts := (congrArg Route.points hmk).symm
-      have hroute : routeAround inp e.atts (notesFrameOf e.contracted o e.margin)
+      have hroute : routeAround o.profile inp e.atts (notesFrameOf e.contracted o e.margin)
           (notesRectsOf res.scene.boxes)
           (notesLabelsOf e.fragments e.contracted inp)
           (notesTitlesOf e.fragments e.contracted) x = .ok pts := hroute
@@ -497,7 +497,7 @@ theorem notes_route_cases
         have hmk : Route.mk x.id x.fromId x.toId x.orthogonal pts = rt :=
           Except.ok.inj hj
         have hptseq : rt.points = pts := (congrArg Route.points hmk).symm
-        have hroute : routeAround inp e.atts (notesFrameOf e.contracted o e.margin)
+        have hroute : routeAround o.profile inp e.atts (notesFrameOf e.contracted o e.margin)
             (notesRectsOf res.scene.boxes)
             (notesLabelsOf e.fragments e.contracted inp)
             (notesTitlesOf e.fragments e.contracted) x = .ok pts := hroute
@@ -535,7 +535,7 @@ theorem notes_c4
     (hC4f : ∀ p ∈ e.fragments, Validator.C4 p.scene.layoutDump)
     (hfk : notesFlagsKept inp e.layouts e.contracted)
     (hff : notesFlagsFragment inp e.layouts e.fragments)
-    (hro : notesRouterOrtho inp e.atts (notesFrameOf e.contracted o e.margin)
+    (hro : notesRouterOrtho o.profile inp e.atts (notesFrameOf e.contracted o e.margin)
       (notesRectsOf res.scene.boxes)
       (notesLabelsOf e.fragments e.contracted inp)
       (notesTitlesOf e.fragments e.contracted)) :
@@ -579,7 +579,7 @@ theorem notes_c5
       notesKeptBoxContracted e.placed r)
     (hfn : ∀ r ∈ inp.routes, ∀ a : Nat, notesSameBundleAt inp e.layouts a r →
       notesFragBoxFirst e.fragments r)
-    (hre : notesRouterEnds inp e.atts (notesFrameOf e.contracted o e.margin)
+    (hre : notesRouterEnds o.profile inp e.atts (notesFrameOf e.contracted o e.margin)
       (notesRectsOf res.scene.boxes)
       (notesLabelsOf e.fragments e.contracted inp)
       (notesTitlesOf e.fragments e.contracted)) :

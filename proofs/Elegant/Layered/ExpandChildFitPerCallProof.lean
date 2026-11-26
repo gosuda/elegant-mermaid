@@ -76,7 +76,7 @@ inductive FitReached (tin : Input) (to : Options) : Input → Options → Prop w
       (base : FitReached tin to mid mo)
       (hwf : WellFormed (inputModel mid mo))
       (hP : checkedParams mo.profile mid.kind = .ok P)
-      (hm : metricOf mo.profile = .ok metric)
+      (hm : metricOf mo.profile mo.fontFamily = .ok metric)
       (hwrap : StyledMeasure.wrap metric
         (Measure.wrapTarget metric.profile P.wrapWidth
           (if mo.profile == .cell then mo.maxWidth else 0))

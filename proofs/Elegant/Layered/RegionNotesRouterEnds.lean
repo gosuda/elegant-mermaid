@@ -11,7 +11,7 @@ theorem NotesExecution.region_router_ends
     (e : NotesExecution (fun ids sub opts => layoutRIds ids (reindexRegionSets idSets sub) sub opts)
       exactIds fuel inp o res)
     (hwf : WellFormed (inputModel inp o)) :
-    notesRouterEnds inp e.atts (notesFrameOf e.contracted o e.margin)
+    notesRouterEnds o.profile inp e.atts (notesFrameOf e.contracted o e.margin)
       (notesRectsOf res.scene.boxes)
       (notesLabelsOf e.fragments e.contracted inp)
       (notesTitlesOf e.fragments e.contracted) := by
