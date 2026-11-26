@@ -56,12 +56,13 @@ jobs:
             dist-engines/emd-go
             dist-engines/emd-rs
           if-no-files-found: "error"
-          retention-days: 1
+          retention-days: 7
 
   references:
     runs-on: "depot-ubuntu-24.04-8"
     timeout-minutes: 90
     needs: "build"
+    if: "!cancelled()"
     env:
       CARGO_BUILD_JOBS: "2"
       LEAN_NUM_THREADS: "2"
@@ -86,7 +87,7 @@ jobs:
           tool: "just@1.59.0,cargo-nextest@0.9.151,cargo-deny@0.20.2,jaq@3.2.0"
       - name: "Download the native engines"
         id: "engines-download"
-        if: "!cancelled() && steps.tools.outcome == 'success'"
+        if: "!cancelled() && needs.build.result == 'success' && steps.tools.outcome == 'success'"
         uses: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" # v8.0.2
         with:
           name: "native-engines"
@@ -107,10 +108,10 @@ jobs:
         run: "just gen-check"
       - name: "Run the Go gates"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just go-check"
+        run: "just --no-deps go-check"
       - name: "Run the Rust gates"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just rust-check"
+        run: "just --no-deps rust-check"
       - name: "Restore the pinned Lean toolchain"
         id: "lean-cache"
         if: "!cancelled() && steps.tools.outcome == 'success'"
@@ -139,23 +140,25 @@ jobs:
           path: "~/.cache/lean"
           key: "lean-${{ hashFiles('proofs/lean-toolchain') }}"
       - name: "Restore the lake build cache"
+        id: "lake-cache"
         if: "!cancelled() && steps.tools.outcome == 'success'"
         uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
           path: "proofs/.lake"
-          key: "lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}"
+          key: "lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}-${{ hashFiles('proofs/**/*.lean') }}"
           restore-keys: |
+            lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}-
             lake-
       - name: "Build and audit every proof"
         id: "proofs"
         if: "!cancelled() && steps.lean.outcome == 'success'"
         run: "just proofs"
       - name: "Save the lake build cache"
-        if: "!cancelled() && steps.tools.outcome == 'success'"
+        if: "!cancelled() && steps.proofs.outcome == 'success' && steps.lake-cache.outputs.cache-hit != 'true'"
         uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
           path: "proofs/.lake"
-          key: "lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}"
+          key: "lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}-${{ hashFiles('proofs/**/*.lean') }}"
       - name: "Check corpus verdicts"
         if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just oracle JOBS=4"
@@ -164,13 +167,13 @@ jobs:
         run: "just parity JOBS=4"
       - name: "Compare Markdown exports"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just markdown-parity"
+        run: "just --no-deps markdown-parity"
       - name: "Check generated layered graphs"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just layered-random-check JOBS=4"
+        run: "just --no-deps layered-random-check JOBS=4"
       - name: "Compare geometry kernels"
         if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
-        run: "just kernel-diff"
+        run: "just --no-deps kernel-diff"
       - name: "Validate every corpus layout"
         if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
         run: "just validate JOBS=4"
@@ -178,7 +181,7 @@ jobs:
         if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
         run: "just lean-parity JOBS=4"
       - name: "Upload verification binaries"
-        if: "!cancelled() && steps.engines.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
         uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
         with:
           name: "verification-binaries"
@@ -229,7 +232,7 @@ jobs:
         run: "pnpm --dir tools/upstream-oracle install --frozen-lockfile"
       - name: "Download the native engines"
         id: "engines-download"
-        if: "!cancelled() && steps.tools.outcome == 'success'"
+        if: "!cancelled() && needs.build.result == 'success' && steps.tools.outcome == 'success'"
         uses: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" # v8.0.2
         with:
           name: "native-engines"
@@ -250,7 +253,7 @@ jobs:
         run: "just quality JOBS=4"
       - name: "Check themes and config coverage"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just theme-check"
+        run: "just --no-deps theme-check"
 
   house:
     runs-on: "depot-ubuntu-24.04-8"
@@ -307,6 +310,7 @@ jobs:
     runs-on: "depot-ubuntu-24.04-8"
     timeout-minutes: 45
     needs: "build"
+    if: "!cancelled()"
     env:
       CARGO_BUILD_JOBS: "2"
       BASE_PATH: "/elegant-mermaid"
@@ -352,7 +356,7 @@ jobs:
         run: "pnpm --dir playground exec vitest run"
       - name: "Download the native engines"
         id: "engines-download"
-        if: "!cancelled() && steps.packages.outcome == 'success'"
+        if: "!cancelled() && needs.build.result == 'success' && steps.packages.outcome == 'success'"
         uses: "actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333" # v8.0.2
         with:
           name: "native-engines"
@@ -371,11 +375,14 @@ jobs:
       - name: "Build the browser engines"
         id: "build"
         if: "!cancelled() && steps.engines.outcome == 'success'"
-        run: "just build playground-build"
+        run: |
+          just playground-wasm
+          just --no-deps playground-build
       - name: "Check native and WebAssembly parity"
         if: "!cancelled() && steps.build.outcome == 'success'"
-        run: "just wasm-parity"
+        run: "just --no-deps wasm-parity"
       - name: "Restore the Playwright browsers"
+        id: "playwright-cache"
         if: "!cancelled() && steps.packages.outcome == 'success'"
         uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
@@ -386,7 +393,7 @@ jobs:
         if: "!cancelled() && steps.packages.outcome == 'success'"
         run: "pnpm --dir playground exec playwright install --with-deps chromium"
       - name: "Save the Playwright browsers"
-        if: "!cancelled() && steps.chromium.outcome == 'success'"
+        if: "!cancelled() && steps.chromium.outcome == 'success' && steps.playwright-cache.outputs.cache-hit != 'true'"
         uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
           path: "~/.cache/ms-playwright"
