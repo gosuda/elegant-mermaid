@@ -820,7 +820,7 @@ private theorem lgc_gapClear_empty {boxes : List ModelBox} {o : Options} {s r : 
 shared restore delta. -/
 private theorem lgc_frame_bundle {boxes : List ModelBox} {o : Options} {s r : Scene}
     {axis : Axis} {sp : Spacing} {bands : List Band} {p0 routed origin stripScene : Scene}
-    {strip : Int} {bend : Int}
+    {strip gap : Int} {bend : Int}
     (hNoEmpty : ∀ b ∈ s.boxes, b.id ≠ "")
     (hsNodup : (s.boxes.map fun b => b.id).Nodup)
     (hBoxesNodup : (boxes.map fun b => b.id).Nodup)
@@ -829,7 +829,7 @@ private theorem lgc_frame_bundle {boxes : List ModelBox} {o : Options} {s r : Sc
     (hroute : rerouteBands axis sp bend bands (buildPin axis bands s) s.routes p0
       = .ok routed)
     (hgrow : growCanvas axis s.canvas stripScene = .ok r)
-    (hstripEq : stripScene = relocateLabels axis strip origin)
+    (hstripEq : relocateLabels axis strip gap origin = .ok stripScene)
     (hbands : bands = layBands boxes s axis sp (lanesOf boxes))
     (hpin : pinBands boxes o s = .ok r)
     (hsp : spacingOf o.profile = .ok sp)
@@ -887,9 +887,7 @@ private theorem lgc_frame_bundle {boxes : List ModelBox} {o : Options} {s r : Sc
   have hFit := pinBands_framesFit hNoEmpty hBoxesNodup hModelNoEmpty hsNodup hpin sp hsp
   have hfit := hFit f hf' fb hfb
   have hgrowB : r.boxes = stripScene.boxes := (growCanvas_frame hgrow).1
-  have hstripB : stripScene.boxes = origin.boxes := by
-    rw [hstripEq]
-    exact relocateLabels_boxes _ _ _
+  have hstripB : stripScene.boxes = origin.boxes := relocateLabels_boxes hstripEq
   have hrouteB : routed.boxes = p0.boxes := (rerouteBands_frame hroute).1
   have hfb' : r.boxes.find? (fun b => b.id == f.id) = some fb := hfb
   have hfbO : fb ∈ origin.boxes := by
@@ -928,14 +926,14 @@ private theorem lgc_frame_bundle {boxes : List ModelBox} {o : Options} {s r : Sc
 /-- Pinned exclusive boxes are placed frames or shifted members. -/
 private theorem lgc_box_bundle {boxes : List ModelBox} {_o : Options} {s r : Scene}
     {axis : Axis} {sp : Spacing} {bands : List Band} {p0 routed origin stripScene : Scene}
-    {strip : Int} {bend : Int} {D : Int}
+    {strip gap : Int} {bend : Int} {D : Int}
     (hcover : PinBoxCoverage boxes s axis sp)
     (hshift : LaneGapShiftCover boxes s axis sp)
     (happ : applyPin (buildPin axis bands s) bands s = .ok p0)
     (hroute : rerouteBands axis sp bend bands (buildPin axis bands s) s.routes p0
       = .ok routed)
     (hgrow : growCanvas axis s.canvas stripScene = .ok r)
-    (hstripEq : stripScene = relocateLabels axis strip origin)
+    (hstripEq : relocateLabels axis strip gap origin = .ok stripScene)
     (hbands : bands = layBands boxes s axis sp (lanesOf boxes))
     (hDtrans : ∀ b' ∈ origin.boxes, ∃ b ∈ routed.boxes, b'.id = b.id ∧
       b'.exclusive = b.exclusive ∧
@@ -953,9 +951,7 @@ private theorem lgc_box_bundle {boxes : List ModelBox} {_o : Options} {s r : Sce
   have hpinAxis : (buildPin axis bands s).axis = axis := rfl
   rw [hpinAxis] at hfold hboxes
   have hgrowB : r.boxes = stripScene.boxes := (growCanvas_frame hgrow).1
-  have hstripB : stripScene.boxes = origin.boxes := by
-    rw [hstripEq]
-    exact relocateLabels_boxes _ _ _
+  have hstripB : stripScene.boxes = origin.boxes := relocateLabels_boxes hstripEq
   have hrouteB : routed.boxes = p0.boxes := (rerouteBands_frame hroute).1
   have hbO : b ∈ origin.boxes := by
     rw [hgrowB, hstripB] at hb

@@ -34,7 +34,7 @@ def SubInputWellFormedB
     (child parent : FamilyResult),
     WellFormed (inputModel inp o) → framedParents inp = true →
     checkedParams o.profile inp.kind = .ok P →
-    metricOf o.profile = .ok metric →
+    metricOf o.profile o.fontFamily = .ok metric →
     StyledMeasure.wrap metric
       (Measure.wrapTarget metric.profile P.wrapWidth
         (if o.profile == .cell then o.maxWidth else 0))

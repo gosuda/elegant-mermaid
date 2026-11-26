@@ -28,7 +28,7 @@ theorem layoutRecursiveB_succ_sources
       inp.boxes.find? (fun box => Compound.independent inp.boxes inp.routes box &&
         !inp.fixedSizes.any (fun fixed => fixed.1 == box.id)) = some group ∧
       checkedParams o.profile inp.kind = .ok P ∧
-      metricOf o.profile = .ok metric ∧
+      metricOf o.profile o.fontFamily = .ok metric ∧
       layoutRecursiveB base fuel
         (selectInput inp (fun box => Compound.inside inp.boxes group.id box.id) group.id)
         { o with direction := directionOf group.direction } = .ok child ∧

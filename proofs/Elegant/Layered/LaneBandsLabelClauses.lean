@@ -129,21 +129,21 @@ theorem spacing_slot_pos {o : Options} {sp : Spacing} (h : spacingOf o.profile =
     decide
   | cell =>
     decide
-theorem strip_disjoint {axis : Axis} {origin : Scene} {g : Box} (hg : g ∈ origin.boxes) {r : Rect} {slot strip : Int} (hpos : 0 < slot) (hstrip : strip = highest axis origin + slot) : Disjoint g.rect (axis.withStart r strip) := by
-  have hlt : highest axis origin < strip := by omega
+theorem strip_disjoint {axis : Axis} {origin : Scene} {g : Box} (hg : g ∈ origin.boxes) {r' : Rect} {slot strip : Int} (hpos : 0 < slot) (hstrip : strip = highest axis origin + slot) (hle : strip ≤ axis.start r') : Disjoint g.rect r' := by
+  have hlt : highest axis origin < axis.start r' := by omega
   cases axis with
   | x =>
     have hgStart : g.rect.x ≤ highest Axis.x origin := highest_bounds (box_start_mem (axis := Axis.x) hg)
     have hgFar : g.rect.x + g.rect.w ≤ highest Axis.x origin := highest_bounds (box_far_mem (axis := Axis.x) hg)
+    simp only [Axis.start] at hlt
     unfold Disjoint Rect.meetsInterior
-    simp only [Axis.withStart]
     intro hmeet
     omega
   | y =>
     have hgStart : g.rect.y ≤ highest Axis.y origin := highest_bounds (box_start_mem (axis := Axis.y) hg)
     have hgFar : g.rect.y + g.rect.h ≤ highest Axis.y origin := highest_bounds (box_far_mem (axis := Axis.y) hg)
+    simp only [Axis.start] at hlt
     unfold Disjoint Rect.meetsInterior
-    simp only [Axis.withStart]
     intro hmeet
     omega
 theorem placeItem_text (place : Rect → Rect) (t : SceneText) : placeItem place (.text t) = .text t := rfl
@@ -176,8 +176,8 @@ theorem pinBands_c8b {boxes : List ModelBox} {o : Options} {s r : Scene} (h : pi
   · obtain ⟨sp, axis, _bands, _pinned, _routed, origin, strip, stripScene, hsp, _, _, _, _, _, hstripEq, hrelocEq, hgrow⟩ := pinBands_spec hempty h
     have hstrip : strip = highest axis origin + sp.slot := checked_value hstripEq
     have hslotPos : 0 < sp.slot := spacing_slot_pos hsp
-    have hstripBoxes : stripScene.boxes = origin.boxes := by rw [hrelocEq]; rfl
-    have hstripRoutes : stripScene.routes = origin.routes := by rw [hrelocEq]; rfl
+    have hstripBoxes : stripScene.boxes = origin.boxes := relocateLabels_boxes hrelocEq
+    have hstripRoutes : stripScene.routes = origin.routes := relocateLabels_routes hrelocEq
     obtain ⟨hgrowBoxes, hgrowRoutes, hgrowLabels⟩ := growCanvas_frame hgrow
     have hrBoxes : r.boxes = origin.boxes := by rw [hgrowBoxes, hstripBoxes]
     have hdBoxes : r.layoutDump.boxes = r.boxes := (pinBands_layoutDump (r := r)).1
@@ -187,8 +187,7 @@ theorem pinBands_c8b {boxes : List ModelBox} {o : Options} {s r : Scene} (h : pi
     rw [hdLabels] at hl
     obtain ⟨sl, hslMem, hslEq⟩ := List.mem_map.mp hl
     have hslStrip : sl ∈ stripScene.labels := by rw [← hgrowLabels]; exact hslMem
-    have hslReloc : sl ∈ (relocateLabels axis strip origin).labels := hrelocEq ▸ hslStrip
-    obtain ⟨m, hmMem, _hmid, _hmown, hstay, hmove⟩ := relocateLabels_labels hslReloc
+    obtain ⟨m, hmMem, _hmid, _hmown, hstay, hmove⟩ := relocateLabels_labels hrelocEq hslStrip
     have hgR : g ∈ r.boxes := by rw [← hdBoxes]; exact hg
     have hgO : g ∈ origin.boxes := by rw [← hrBoxes]; exact hgR
     have hlRect : l.rect = sl.rect := by rw [← hslEq]
@@ -202,9 +201,9 @@ theorem pinBands_c8b {boxes : List ModelBox} {o : Options} {s r : Scene} (h : pi
         cases hnb : needsRelocation origin m with
         | true => rfl
         | false => exact absurd hnb hneed
-      have hslMoved : sl.rect = axis.withStart m.rect strip := hmove hneedT
-      have hdisj := strip_disjoint hgO hslotPos hstrip (r := m.rect)
-      rw [hlRect, hslMoved]
+      obtain ⟨hle, -, -, -⟩ := hmove hneedT
+      have hdisj : Disjoint g.rect sl.rect := strip_disjoint hgO hslotPos hstrip hle
+      rw [hlRect]
       exact Or.inl hdisj
 -- `pinBands_c7` is stated and proved at the end of this file.
 
@@ -764,8 +763,8 @@ theorem ownerAncestors_eq (s : Scene) (l : SceneLabel) :
           (addAncestors s.boxes (s.boxes.length + 2) r.fromId [])
       | none => addAncestors s.boxes (s.boxes.length + 2) l.owner [] := rfl
 /-- The ancestor bridge for a relocated-label scene, proved from fuel stability. -/
-theorem laneRelocAncBridge {origin stripScene : Scene} {axis : Axis} {strip : Int}
-    (_hstrip : stripScene = relocateLabels axis strip origin)
+theorem laneRelocAncBridge {origin stripScene : Scene} {axis : Axis} {strip gap : Int}
+    (_hstrip : relocateLabels axis strip gap origin = .ok stripScene)
     (m : SceneLabel) (_hm : m ∈ origin.labels)
     (hshape : LaneSceneShape origin) (hstable : LaneAncFuelStableAll) :
     ∀ (id : String), id ∈ ownerAncestors origin m →
@@ -925,8 +924,9 @@ private theorem reroutePair_id {axis : Axis} {sp : Spacing} {pin : Pin}
         if fi == ti || old.points.length < 2 then (pure r : Except LayoutError Route)
         else do
           let ends ← routeEnds axis sp pin fb tb old.points
-          let obs := (s.boxes.filter (fun b => b.exclusive && b.id != r.fromId &&
+          let boxes := (s.boxes.filter (fun b => b.exclusive && b.id != r.fromId &&
             b.id != r.toId)).map (fun b => obstacleOf axis b.rect)
+          let obs := boxes ++ textObstacles axis s
           pure { r with points := ← findRoute axis ends obs bend [sp.slot, 0] }
       | _, _, _, _ => (pure r : Except LayoutError Route)) : Except LayoutError Route) = .ok y) :
     y.id = r.id := by
@@ -1039,19 +1039,19 @@ private theorem rerouteRoutes_mem_id (axis : Axis) (sp : Spacing) (bend : Int)
 its boxes and routes with the restored origin scene, and every output box/route id
 (and box parent) is witnessed by an input element. -/
 theorem pinBands_transport {s r pinned routed origin : Scene} {sp : Spacing}
-    {axis : Axis} {bands : List Band} {strip : Int} {stripScene : Scene} {bend : Int}
+    {axis : Axis} {bands : List Band} {strip gap : Int} {stripScene : Scene} {bend : Int}
     (happ : applyPin (buildPin axis bands s) bands s = .ok pinned)
     (hroute : rerouteBands axis sp bend bands (buildPin axis bands s) s.routes pinned = .ok routed)
     (horig : restoreOrigin axis routed = .ok origin)
-    (hrelocEq : stripScene = relocateLabels axis strip origin)
+    (hrelocEq : relocateLabels axis strip gap origin = .ok stripScene)
     (hgrow : growCanvas axis s.canvas stripScene = .ok r) :
     r.boxes = origin.boxes ∧ r.routes = origin.routes ∧
       (∀ b' ∈ origin.boxes, ∃ b ∈ s.boxes, b'.id = b.id ∧ b'.parent = b.parent) ∧
       (∀ b ∈ s.boxes, ∃ b' ∈ origin.boxes, b.id = b'.id ∧ b.parent = b'.parent) ∧
       (∀ rt ∈ origin.routes, ∃ rt₀ ∈ s.routes, rt.id = rt₀.id) := by
   have hgrowF := growCanvas_frame hgrow
-  have hboxesRO : r.boxes = origin.boxes := by rw [hgrowF.1, hrelocEq, relocateLabels_boxes]
-  have hroutesRO : r.routes = origin.routes := by rw [hgrowF.2.1, hrelocEq, relocateLabels_routes]
+  have hboxesRO : r.boxes = origin.boxes := by rw [hgrowF.1, relocateLabels_boxes hrelocEq]
+  have hroutesRO : r.routes = origin.routes := by rw [hgrowF.2.1, relocateLabels_routes hrelocEq]
   obtain ⟨shB, shL, shR, shI, hboxM, _hlabelM, hrouteM, _hitemM, hfold⟩ :=
     applyPin_shifted happ
   obtain ⟨_hlenSB, hidSB, hparSB, _hroleSB, _hexSB⟩ :=
@@ -1132,8 +1132,8 @@ theorem pinBands_c7 {boxes : List ModelBox} {o : Options} {s r : Scene}
       pinBands_spec hempty h
     have hstrip : strip = highest axis origin + sp.slot := checked_value hstripEq
     have hslotPos : 0 < sp.slot := spacing_slot_pos hsp
-    have hstripBoxes : stripScene.boxes = origin.boxes := by rw [hrelocEq]; rfl
-    have hstripRoutes : stripScene.routes = origin.routes := by rw [hrelocEq]; rfl
+    have hstripBoxes : stripScene.boxes = origin.boxes := relocateLabels_boxes hrelocEq
+    have hstripRoutes : stripScene.routes = origin.routes := relocateLabels_routes hrelocEq
     obtain ⟨hgrowBoxes, hgrowRoutes, hgrowLabels⟩ := growCanvas_frame hgrow
     have hrBoxes : r.boxes = origin.boxes := by rw [hgrowBoxes, hstripBoxes]
     have hrRoutes : r.routes = origin.routes := by rw [hgrowRoutes, hstripRoutes]
@@ -1181,10 +1181,8 @@ theorem pinBands_c7 {boxes : List ModelBox} {o : Options} {s r : Scene}
     rw [hdLabels] at hl
     obtain ⟨sl, hslMem, hslEq⟩ := List.mem_map.mp hl
     have hslStrip : sl ∈ stripScene.labels := by rw [← hgrowLabels]; exact hslMem
-    have hslReloc : sl ∈ (relocateLabels axis strip origin).labels :=
-      hrelocEq ▸ hslStrip
     obtain ⟨m, hmMem, _hmid, hmown, hstay, hmove⟩ :=
-      relocateLabels_labels hslReloc
+      relocateLabels_labels hrelocEq hslStrip
     have hbR : b ∈ r.boxes := by rw [← hdBoxes]; exact hb
     have hbO : b ∈ origin.boxes := by rw [← hrBoxes]; exact hbR
     have hlRect : l.rect = sl.rect := by rw [← hslEq]
@@ -1243,12 +1241,11 @@ theorem pinBands_c7 {boxes : List ModelBox} {o : Options} {s r : Scene}
         cases hnb : needsRelocation origin m with
         | true => rfl
         | false => exact absurd hnb hneed
-      have hslMoved : sl.rect = axis.withStart m.rect strip := hmove hneedT
-      have hdisj : Disjoint b.rect (axis.withStart m.rect strip) :=
-        strip_disjoint hbO hslotPos hstrip (r := m.rect)
+      obtain ⟨hle, -, -, -⟩ := hmove hneedT
+      have hdisj : Disjoint b.rect sl.rect := strip_disjoint hbO hslotPos hstrip hle
       have hgoal : ¬ l.rect.meetsInterior b.rect := by
-        rw [hlRect, hslMoved]
-        have h1 : ¬ b.rect.meetsInterior (axis.withStart m.rect strip) := hdisj
+        rw [hlRect]
+        have h1 : ¬ b.rect.meetsInterior sl.rect := hdisj
         rw [Rect.meetsInterior_comm]
         exact h1
       exact hgoal

@@ -16,11 +16,11 @@ theorem layoutRecursiveB_caption_lines {ids : List String} {fuel : Nat} {inp : I
     {o : Options} {res : FamilyResult}
     (h : layoutRecursiveB (layoutX ids) fuel inp o = .ok res) :
     ∃ (P : Params) (metric : Measure.Metric) (lines : List (List Measure.Line)),
-      checkedParams o.profile inp.kind = .ok P ∧ metricOf o.profile = .ok metric ∧
+      checkedParams o.profile inp.kind = .ok P ∧ metricOf o.profile o.fontFamily = .ok metric ∧
       boxLines metric (captionWrapTarget P metric o) inp = .ok lines := by
   have flat (hflat : layoutX ids inp o = .ok res) :
       ∃ (P : Params) (metric : Measure.Metric) (lines : List (List Measure.Line)),
-        checkedParams o.profile inp.kind = .ok P ∧ metricOf o.profile = .ok metric ∧
+        checkedParams o.profile inp.kind = .ok P ∧ metricOf o.profile o.fontFamily = .ok metric ∧
         boxLines metric (captionWrapTarget P metric o) inp = .ok lines := by
     obtain ⟨P, metric, lines, _, _, _, _, _, _, hP, hm, hl, _⟩ := layoutX_success_phases hflat
     exact ⟨P, metric, lines, hP, hm, hl⟩
@@ -36,7 +36,7 @@ theorem layoutRecursiveB_caption_lines {ids : List String} {fuel : Nat} {inp : I
 theorem layoutRecursiveB_caption_lines_at {ids : List String} {fuel : Nat} {inp : Input}
     {o : Options} {res : FamilyResult} {P : Params} {metric : Measure.Metric}
     (h : layoutRecursiveB (layoutX ids) fuel inp o = .ok res)
-    (hP : checkedParams o.profile inp.kind = .ok P) (hm : metricOf o.profile = .ok metric) :
+    (hP : checkedParams o.profile inp.kind = .ok P) (hm : metricOf o.profile o.fontFamily = .ok metric) :
     ∃ lines, boxLines metric (captionWrapTarget P metric o) inp = .ok lines := by
   obtain ⟨Q, subMetric, lines, hQ, hSubMetric, hl⟩ := layoutRecursiveB_caption_lines h
   have hParams : Q = P := Except.ok.inj (hQ.symm.trans hP)
@@ -51,7 +51,7 @@ at corresponding box occurrences. Child direction can change; kind, profile, and
 theorem exact_expansion_caption_lines {ids : List String} {fuel : Nat} {inp : Input}
     {o : Options} {group : ModelBox} {P : Params} {metric : Measure.Metric}
     {titleLines : List Measure.Line} {titleHeight : Int} {child parent res : FamilyResult}
-    (hP : checkedParams o.profile inp.kind = .ok P) (hm : metricOf o.profile = .ok metric)
+    (hP : checkedParams o.profile inp.kind = .ok P) (hm : metricOf o.profile o.fontFamily = .ok metric)
     (hchild : layoutRecursiveB (layoutX ids) fuel (childSubInput inp group)
       (childSubOptions o group) = .ok child)
     (hparent : layoutRecursiveB (layoutX ids) fuel

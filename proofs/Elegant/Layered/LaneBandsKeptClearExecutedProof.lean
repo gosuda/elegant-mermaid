@@ -1854,7 +1854,7 @@ theorem pinBands_c6_executed {m : Model} {base : FamilyResult}
       · -- Fresh route: proved `findRoute` soundness plus obstacle coverage.
         have hmem : obstacleOf axis b'.rect ∈ obs := by
           rw [hobs]
-          exact obstacle_cover s1 axis r b' hb's1 hex hscope1
+          exact List.mem_append.mpr (Or.inl (obstacle_cover s1 axis r b' hb's1 hex hscope1))
         have hclear := pinBandsFindRouteClear_holds axis sp
           (buildPin axis bands base.scene) fb tb
           old.points ends hends obs (LayoutConst.rank_gap.get m.options.profile)
@@ -1863,12 +1863,8 @@ theorem pinBands_c6_executed {m : Model} {base : FamilyResult}
         exact hclear
     have hC6s3 : Validator.C6 s3.layoutDump :=
       restoreOrigin_C6 axis s2 s3 horig hC6s2
-    have hb43 : s4.layoutDump.boxes = s3.layoutDump.boxes := by
-      rw [hstripEq]
-      exact relocateLabels_boxes axis strip s3
-    have hr43 : s4.layoutDump.routes = s3.layoutDump.routes := by
-      rw [hstripEq]
-      exact relocateLabels_routes axis strip s3
+    have hb43 : s4.layoutDump.boxes = s3.layoutDump.boxes := relocateLabels_boxes hstripEq
+    have hr43 : s4.layoutDump.routes = s3.layoutDump.routes := relocateLabels_routes hstripEq
     have hC6s4 : Validator.C6 s4.layoutDump :=
       C6_of_boxes_routes_eq hb43 hr43 hC6s3
     have hgrowF := growCanvas_frame hgrow

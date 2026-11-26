@@ -20,6 +20,7 @@ concurrency:
 jobs:
   build:
     runs-on: "depot-ubuntu-24.04"
+    timeout-minutes: 30
     steps:
       - name: "Checkout"
         uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
@@ -27,8 +28,11 @@ jobs:
         uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
         with:
           go-version-file: "go.mod"
+          cache: true
       - name: "Install the Rust toolchain"
         run: "rustup toolchain install"
+      - name: "Cache the Rust build"
+        uses: "Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0" # v2.9.3
       - name: "Add the WebAssembly target"
         run: "rustup target add wasm32-unknown-unknown"
       - name: "Install gate tools"

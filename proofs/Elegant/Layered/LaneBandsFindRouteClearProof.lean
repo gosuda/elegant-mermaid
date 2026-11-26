@@ -207,8 +207,7 @@ theorem findRoute_ok_clear (axis : Axis) (ends : RouteEnds) (obs : List Obstacle
     · have hRest : findRoute axis ends obs bend rest = .ok points := h
       obtain ⟨inf, hmem, g, hg, hobs, hclear⟩ := ih hRest
       exact ⟨inf, List.mem_cons_of_mem _ hmem, g, hg, hobs, hclear⟩
-    · simp only [Bind.bind, Except.bind] at h
-      split at h
+    · split at h
       · cases h
       · split at h
         · have hEq := Except.ok.inj h
@@ -1155,10 +1154,10 @@ theorem findRoute_ok_node (axis : Axis) (ends : RouteEnds) (obs : List Obstacle)
       cases hpoly : routePolyline axis
           (routeGrid obs inflate ends.entry ends.exit) ends node.path with
       | error e =>
-        simp only [hpoly, Bind.bind, Except.bind] at h
+        simp only [hpoly] at h
         cases h
       | ok mid =>
-        simp only [hpoly, Bind.bind, Except.bind] at h
+        simp only [hpoly] at h
         split at h
         · obtain rfl := Except.ok.inj h
           exact ⟨inflate, List.mem_cons_self,
@@ -1346,7 +1345,7 @@ theorem pinBands_c6 {m : Model} {base : FamilyResult} {pinned : Scene}
       · -- Fresh route: proved `findRoute` soundness plus obstacle coverage.
         have hmem : obstacleOf axis b'.rect ∈ obs := by
           rw [hobs]
-          exact obstacle_cover s1 axis r b' hb's1 hex hscope1
+          exact List.mem_append.mpr (Or.inl (obstacle_cover s1 axis r b' hb's1 hex hscope1))
         have hclear := pinBandsFindRouteClear_holds axis sp (buildPin axis bands base.scene) fb tb
           old.points ends hends obs (LayoutConst.rank_gap.get m.options.profile)
           pts hfind_pt (obstacleOf axis b'.rect) hmem b'.rect rfl
@@ -1354,12 +1353,8 @@ theorem pinBands_c6 {m : Model} {base : FamilyResult} {pinned : Scene}
         exact hclear
     have hC6s3 : Validator.C6 s3.layoutDump :=
       restoreOrigin_C6 axis s2 s3 horig hC6s2
-    have hb43 : s4.layoutDump.boxes = s3.layoutDump.boxes := by
-      rw [hstripEq]
-      exact relocateLabels_boxes axis strip s3
-    have hr43 : s4.layoutDump.routes = s3.layoutDump.routes := by
-      rw [hstripEq]
-      exact relocateLabels_routes axis strip s3
+    have hb43 : s4.layoutDump.boxes = s3.layoutDump.boxes := relocateLabels_boxes hstripEq
+    have hr43 : s4.layoutDump.routes = s3.layoutDump.routes := relocateLabels_routes hstripEq
     have hC6s4 : Validator.C6 s4.layoutDump :=
       C6_of_boxes_routes_eq hb43 hr43 hC6s3
     have hgrowF := growCanvas_frame hgrow

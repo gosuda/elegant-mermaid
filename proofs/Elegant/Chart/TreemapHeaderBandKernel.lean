@@ -106,7 +106,7 @@ private theorem label_id_classify (m : Model) (result : Layered.FamilyResult)
 
 /-- A checked `width` call is nonnegative. -/
 private theorem width_nonneg {cell : Bool} {text : String} {role : Measure.Role}
-    {size x : Int} (h : width cell text role size = .ok x) : 0 ≤ x := by
+    {size x : Int} {fontFamily : Bool} (h : width cell text role size fontFamily = .ok x) : 0 ≤ x := by
   unfold width at h
   obtain ⟨metric, _, hw⟩ := CanvasC1.except_bind_ok h
   exact Measure.textWidth_nonneg hw
@@ -186,7 +186,7 @@ every side of the node's tile. -/
 private theorem header_name_rect_strict (m : Model) (c : Consts) (n : Node)
     (text shown : String) (ns w vw lh top ni vi reserve avail : Int)
     (showValue : Bool)
-    (hfit : fit (m.profile == .cell) text avail .label ns = .ok (some (shown, w)))
+    (hfit : fit (m.profile == .cell) text avail .label ns m.options.fontFamily = .ok (some (shown, w)))
     (hlh : lh = if (m.profile == .cell) then 1 else 1280)
     (hch : c.header = if (m.profile == .cell) then 2 else 1600)
     (htop : top = LayoutConst.treemap_header_border.get m.profile +
