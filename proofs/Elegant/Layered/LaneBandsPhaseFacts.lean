@@ -27,7 +27,7 @@ theorem pinBands_spec {boxes : List ModelBox} {o : Options} {s r : Scene}
         (buildPin axis bands s) s.routes pinned = .ok routed ∧
       restoreOrigin axis routed = .ok origin ∧
       Measure.checkedI32 (highest axis origin + sp.slot) = .ok strip ∧
-      stripScene = relocateLabels axis strip origin ∧
+      relocateLabels axis strip sp.slot origin = .ok stripScene ∧
       growCanvas axis s.canvas stripScene = .ok r := by
   have hempty : (lanesOf boxes).isEmpty = false := by
     cases heq : lanesOf boxes with
@@ -40,11 +40,11 @@ theorem pinBands_spec {boxes : List ModelBox} {o : Options} {s r : Scene}
   obtain ⟨routed, hroute, h⟩ := bind_ok h
   obtain ⟨origin, horig, h⟩ := bind_ok h
   obtain ⟨strip, hstrip, h⟩ := bind_ok h
+  obtain ⟨stripScene, hreloc, h⟩ := bind_ok h
   exact ⟨sp, Axis.ofDirection o.direction,
     layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes),
-    pinned, routed, origin, strip,
-    relocateLabels (Axis.ofDirection o.direction) strip origin,
-    hsp, rfl, rfl, happ, hroute, horig, hstrip, rfl, h⟩
+    pinned, routed, origin, strip, stripScene,
+    hsp, rfl, rfl, happ, hroute, horig, hstrip, hreloc, h⟩
 
 /-- A checked value that succeeds equals the exact integer. -/
 theorem checked_value {v w : Int}
@@ -309,24 +309,90 @@ theorem restoreOrigin_cases {axis : Axis} {s s' : Scene}
         subst h
         exact Or.inl rfl
 
-/-- Relocated labels either stay or move to the strip; identity is preserved. -/
-theorem relocateLabels_labels {axis : Axis} {strip : Int} {s : Scene}
-    {l : SceneLabel} (hmem : l ∈ (relocateLabels axis strip s).labels) :
+/-- Every label produced by `moveOffendingLabels` comes from the input list with
+its identity kept: an untouched label keeps its rectangle, and a relocated
+label starts at or past the strip with its other axis and size kept. -/
+private theorem moveOffendingLabels_mem {axis : Axis} {strip gap : Int} {s : Scene} :
+    ∀ (ls : List SceneLabel) (moved : List LabelRelocation)
+      (labels : List SceneLabel) (moved' : List LabelRelocation),
+      moveOffendingLabels axis strip gap s ls moved = .ok (labels, moved') →
+      ∀ l ∈ labels, ∃ m ∈ ls, m.id = l.id ∧ m.owner = l.owner ∧
+        (¬ needsRelocation s m → l.rect = m.rect) ∧
+        (needsRelocation s m → strip ≤ axis.start l.rect ∧
+          axis.other.start l.rect = axis.other.start m.rect ∧
+          l.rect.w = m.rect.w ∧ l.rect.h = m.rect.h) := by
+  intro ls
+  induction ls with
+  | nil =>
+    intro moved labels moved' h l hl
+    simp only [moveOffendingLabels, Pure.pure, Except.pure, Except.ok.injEq,
+      Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp at hl
+  | cons head tail ih =>
+    intro moved labels moved' h l hl
+    simp only [moveOffendingLabels] at h
+    split at h
+    · rename_i hneeds
+      obtain ⟨rect, hrect, h⟩ := bind_ok h
+      obtain ⟨p, hp, h⟩ := bind_ok h
+      cases p with
+      | mk rest moved2 =>
+        dsimp only at h
+        simp only [Pure.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        have hspec := vacantLabelStrip_preserves_and_clears hrect
+        simp only [List.mem_cons] at hl
+        rcases hl with rfl | htail
+        · refine ⟨head, List.mem_cons.mpr (Or.inl rfl), rfl, rfl, ?_, ?_⟩
+          · intro hneg
+            exact absurd hneeds hneg
+          · intro _
+            obtain ⟨hle, hother, hw, hh, -⟩ := hspec
+            exact ⟨hle, hother, hw, hh⟩
+        · obtain ⟨m, hm, hid, hown, hstay, hmove⟩ := ih _ _ _ hp _ htail
+          exact ⟨m, List.mem_cons.mpr (Or.inr hm), hid, hown, hstay, hmove⟩
+    · rename_i hneeds
+      obtain ⟨p, hp, h⟩ := bind_ok h
+      cases p with
+      | mk rest moved2 =>
+        dsimp only at h
+        simp only [Pure.pure, Except.pure, Except.ok.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        simp only [List.mem_cons] at hl
+        rcases hl with rfl | htail
+        · refine ⟨l, List.mem_cons.mpr (Or.inl rfl), rfl, rfl, ?_, ?_⟩
+          · intro _
+            rfl
+          · intro hpos
+            exact absurd hpos hneeds
+        · obtain ⟨m, hm, hid, hown, hstay, hmove⟩ := ih _ _ _ hp _ htail
+          exact ⟨m, List.mem_cons.mpr (Or.inr hm), hid, hown, hstay, hmove⟩
+
+/-- Relocated labels either stay or move at or past the strip; identity and the
+other axis and size are preserved. The old exact-strip equality is unprovable
+because relocation bumps past earlier moves; the bound is what the strip
+disjointness argument actually needs. -/
+theorem relocateLabels_labels {axis : Axis} {strip gap : Int} {s result : Scene}
+    {l : SceneLabel}
+    (h : relocateLabels axis strip gap s = .ok result)
+    (hmem : l ∈ result.labels) :
     ∃ m ∈ s.labels, m.id = l.id ∧ m.owner = l.owner ∧
       (¬ needsRelocation s m → l.rect = m.rect) ∧
-      (needsRelocation s m → l.rect = axis.withStart m.rect strip) := by
-  unfold relocateLabels at hmem
-  simp only at hmem
-  obtain ⟨m, hmemMap, rfl⟩ := List.mem_map.mp (by simpa using hmem)
-  refine ⟨m, hmemMap, ?_, ?_, ?_, ?_⟩
-  · by_cases hc : needsRelocation s m <;> simp [hc]
-  · by_cases hc : needsRelocation s m <;> simp [hc]
-  · intro hneg
-    by_cases hc : needsRelocation s m
-    · exact absurd hc hneg
-    · simp [hc]
-  · intro hpos
-    simp [hpos]
+      (needsRelocation s m → strip ≤ axis.start l.rect ∧
+        axis.other.start l.rect = axis.other.start m.rect ∧
+        l.rect.w = m.rect.w ∧ l.rect.h = m.rect.h) := by
+  unfold relocateLabels at h
+  obtain ⟨p, hp, h⟩ := bind_ok h
+  cases p with
+  | mk labels moved =>
+    dsimp only at h
+    simp only [Pure.pure, Except.pure, Except.ok.injEq] at h
+    subst h
+    have hmem' : l ∈ labels := hmem
+    obtain ⟨m, hm, hid, hown, hstay, hmove⟩ :=
+      moveOffendingLabels_mem _ _ _ _ hp _ hmem'
+    exact ⟨m, hm, hid, hown, hstay, hmove⟩
 
 /-- The grown canvas is the max of the old extent and the checked geometry height. -/
 theorem growCanvas_exact {axis : Axis} {canvas : Size} {s s' : Scene}

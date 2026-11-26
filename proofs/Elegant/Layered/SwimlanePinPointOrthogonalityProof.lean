@@ -100,7 +100,7 @@ theorem pinBands_points_orthogonal {boxes : List ModelBox} {o : Options} {s pinn
       · exact hRouted
       · exact shiftAll_points_orthogonal hshift hRouted
     intro r hr
-    rw [(growCanvas_frame hgrow).2.1, hstrip, relocateLabels_routes] at hr
+    rw [(growCanvas_frame hgrow).2.1, relocateLabels_routes hstrip] at hr
     exact hOrigin r hr
 
 end Elegant.Layered.LaneBands
