@@ -122,7 +122,7 @@ structure NotesExecution (base : List String → Input → Options → Except La
   margin : Int
   gap : Int
   checked : checkedParams o.profile inp.kind = .ok params
-  metric_eq : metricOf o.profile = .ok metric
+  metric_eq : metricOf o.profile o.fontFamily = .ok metric
   margin_eq : margin = params.canvasMargin
   gap_eq : gap = 2 * params.slot + 2
   atts_eq : atts = attachmentsOf inp.boxes

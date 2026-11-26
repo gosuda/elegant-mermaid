@@ -121,9 +121,7 @@ private theorem pinLanes_allOrtho {boxes : List ModelBox} {o : Options} {s pinne
       · subst heq
         exact h1
       · exact pinLanes_shiftAll_ortho h1 hshift
-    have hstripR : stripScene.routes = origin.routes := by
-      rw [hrelocEq]
-      exact relocateLabels_routes axis _ origin
+    have hstripR : stripScene.routes = origin.routes := relocateLabels_routes hrelocEq
     have hgrowR : pinned.routes = stripScene.routes := (growCanvas_frame hgrow).2.1
     intro r hr
     rw [hgrowR, hstripR] at hr

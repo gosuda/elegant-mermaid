@@ -36,20 +36,20 @@ private def stubEnds : RouteEnds :=
 
 -- Vector routing retains its original obstacle inventory and complete route.
 #guard (textObstacles .y { textScene with options := { profile := .vector } }).isEmpty
-#guard findRoute .y stubEnds [] 5 [2, 0] == .ok [⟨29, 5⟩, ⟨40, 5⟩]
+#guard match findRoute .y stubEnds [] 5 [2, 0] with
+  | .ok pts => decide (pts = [⟨29, 5⟩, ⟨40, 5⟩])
+  | .error _ => false
 
 -- Line placement uses floor division for negative odd gaps and does not clip
 -- supplied lines to the declared height. A space still occupies a cell.
-#guard (Text.Place.positionedLines
-  { centeredText with rect := ⟨10, 5, 0, 0⟩
-    lines := [[⟨"ABC", false, false⟩], [⟨" ", false, false⟩]] }).map (·.rect) ==
-  [⟨8, 5, 3, 1⟩, ⟨9, 6, 1, 1⟩]
+#guard decide ((Text.Place.positionedLines
+  { centeredText with rect := ⟨10, 5, 0, 0⟩, lines := [[⟨"ABC", false, false⟩], [⟨" ", false, false⟩]] }).map (·.rect) =
+  [⟨8, 5, 3, 1⟩, ⟨9, 6, 1, 1⟩])
 
 -- Joined runs are sanitized before measuring, so a terminal control reserves
 -- the replacement glyph that placement will attempt.
-#guard (Text.Place.positionedLines
-  { centeredText with align := .start
-    lines := [[⟨"A", false, false⟩, ⟨String.singleton (Char.ofNat 0x85), false, false⟩]] }).map
-  (·.rect) == [⟨10, 5, 2, 1⟩]
+#guard decide ((Text.Place.positionedLines
+  { centeredText with align := .start, lines := [[⟨"A", false, false⟩, ⟨String.singleton (Char.ofNat 0x85), false, false⟩]] }).map
+  (·.rect) = [⟨10, 5, 2, 1⟩])
 
 end Elegant.Layered.LaneBands

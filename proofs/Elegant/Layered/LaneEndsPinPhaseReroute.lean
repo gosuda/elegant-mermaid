@@ -56,7 +56,7 @@ def lepeRerouteFreshEndsExec (boxes : List ModelBox) (o : Options) (s : Scene) :
     (_htb : pinned.boxes.find? (fun b => b.id == r.toId) = some tb)
     {ends : RouteEnds} {obs : List Obstacle} {pts : List Point}
     (_hends : routeEnds (Axis.ofDirection o.direction) sp (buildPin (Axis.ofDirection o.direction) (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s) fb tb old.points = .ok ends)
-    (_hobs : obs = (pinned.boxes.filter (fun b => b.exclusive && b.id != r.fromId && b.id != r.toId)).map (fun b => obstacleOf (Axis.ofDirection o.direction) b.rect))
+    (_hobs : obs = ((pinned.boxes.filter (fun b => b.exclusive && b.id != r.fromId && b.id != r.toId)).map (fun b => obstacleOf (Axis.ofDirection o.direction) b.rect) ++ textObstacles (Axis.ofDirection o.direction) pinned))
     (_hfind : findRoute (Axis.ofDirection o.direction) ends obs (LayoutConst.rank_gap.get o.profile) [sp.slot, 0] = .ok pts),
   ∃ p q : Point, ∃ fbp tbp : Box,
     pts.head? = some p ∧ pts.getLast? = some q ∧

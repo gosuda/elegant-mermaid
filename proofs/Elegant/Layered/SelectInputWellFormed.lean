@@ -68,7 +68,6 @@ theorem selectInput_routes_sublist (inp : Input) (keep : ModelBox → Bool) (roo
   dsimp only
   exact zipIdx_filter_map_fst_sublist _ inp.routes
 
-/-- The selected route ids are a sublist of the input route ids. -/
 theorem selectInput_routes_ids_sublist (inp : Input) (keep : ModelBox → Bool) (root : String) :
     ((selectInput inp keep root).routes.map (·.id)).Sublist (inp.routes.map (·.id)) := by
   refine List.Sublist.map (fun r => r.id) (selectInput_routes_sublist inp keep root)

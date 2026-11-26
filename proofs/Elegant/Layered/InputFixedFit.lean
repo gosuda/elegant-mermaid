@@ -33,7 +33,7 @@ def InputFixedFit (inp : Input) (o : Options) : Prop :=
   ∀ (i : Nat) (box : ModelBox), inp.boxes[i]? = some box → box.id = entry.1 →
     box.exclusive = false → (∃ l ∈ inp.labels, l.owner = box.id) →
   ∀ (P : Params) (metric : Measure.Metric) (lines : List Measure.Line),
-    checkedParams o.profile inp.kind = .ok P → metricOf o.profile = .ok metric →
+    checkedParams o.profile inp.kind = .ok P → metricOf o.profile o.fontFamily = .ok metric →
     StyledMeasure.wrap metric
       (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
       (inp.texts.getD i box.id).toList = .ok lines →
@@ -92,6 +92,7 @@ fixed sizes, box identities and captions come from the source input. -/
 private theorem select_transport {inp : Input} {o : Options}
     (h : InputFixedFit inp o) (keep : ModelBox → Bool)
     {o' : Options} (hp : o'.profile = o.profile) (hm : o'.maxWidth = o.maxWidth)
+    (hf : o'.fontFamily = o.fontFamily)
     {inp' : Input} (hkind : inp'.kind = inp.kind)
     (hfix : ∀ entry : String × Size, entry ∈ inp'.fixedSizes → entry ∈ inp.fixedSizes)
     (hidx : ∀ (i : Nat) (box : ModelBox), inp'.boxes[i]? = some box →
@@ -109,9 +110,9 @@ private theorem select_transport {inp : Input} {o : Options}
     have hrew := hP'
     rw [hp, hkind] at hrew
     exact hrew
-  have hm'' : metricOf o.profile = .ok metric' := by
+  have hm'' : metricOf o.profile o.fontFamily = .ok metric' := by
     have hrew := hm'
-    rw [hp] at hrew
+    rw [hp, hf] at hrew
     exact hrew
   have hwrap'' : StyledMeasure.wrap metric'
       (Measure.wrapTarget metric'.profile P'.wrapWidth
@@ -128,13 +129,14 @@ private theorem select_transport {inp : Input} {o : Options}
 
 theorem InputFixedFit.selectInput {inp : Input} {o : Options}
     (h : InputFixedFit inp o) (keep : ModelBox → Bool) (root : String)
-    {o' : Options} (hp : o'.profile = o.profile) (hm : o'.maxWidth = o.maxWidth) :
+    {o' : Options} (hp : o'.profile = o.profile) (hm : o'.maxWidth = o.maxWidth)
+    (hf : o'.fontFamily = o.fontFamily) :
     InputFixedFit (Elegant.Layered.PipelineImpl.selectInput inp keep root) o' := by
   have hkind : (Elegant.Layered.PipelineImpl.selectInput inp keep root).kind = inp.kind := rfl
   have hfix : ∀ entry : String × Size,
       entry ∈ (Elegant.Layered.PipelineImpl.selectInput inp keep root).fixedSizes →
       entry ∈ inp.fixedSizes := fun _ he => he
-  exact select_transport h keep hp hm hkind hfix
+  exact select_transport h keep hp hm hf hkind hfix
     (fun i box hbox => selectInput_indexed _ _ hbox)
     (fun l hl => (List.mem_filter.mp hl).1)
 
@@ -146,7 +148,7 @@ theorem InputFixedFit.childSubInput {inp : Input} {o : Options}
     (Elegant.Layered.PipelineImpl.selectInput inp
       (fun box => Compound.inside inp.boxes group.id box.id) group.id)
     { o with direction := directionOf group.direction }
-  exact h.selectInput _ _ rfl rfl
+  exact h.selectInput _ _ rfl rfl rfl
 
 theorem childFrameSize_fixedSizeFit (role : BoxRole) (P : Params) (dir : String)
     (titleLines : List Measure.Line) (content : Size)
@@ -217,7 +219,7 @@ theorem InputFixedFit.parentSubInput {inp : Input} {o : Options} {group : ModelB
     {child : FamilyResult}
     (hwf : WellFormed (inputModel inp o)) (h : InputFixedFit inp o)
     (hP : checkedParams o.profile inp.kind = .ok P)
-    (hm : metricOf o.profile = .ok metric)
+    (hm : metricOf o.profile o.fontFamily = .ok metric)
     (hwrap : StyledMeasure.wrap metric
       (Measure.wrapTarget metric.profile P.wrapWidth
         (if o.profile == .cell then o.maxWidth else 0))
@@ -238,7 +240,7 @@ theorem InputFixedFit.parentSubInput {inp : Input} {o : Options} {group : ModelB
   · have hsel : InputFixedFit
         (Elegant.Layered.PipelineImpl.selectInput inp
           (fun box => !Compound.inside inp.boxes group.id box.id) "") o :=
-      h.selectInput _ _ rfl rfl
+      h.selectInput _ _ rfl rfl rfl
     exact hsel entry hold i box hbox hid hexcl hown P' metric' lines' hP' hm' hwrap'
   · rw [List.mem_singleton] at hnew
     subst hnew

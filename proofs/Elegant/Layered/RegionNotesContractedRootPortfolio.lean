@@ -192,7 +192,7 @@ private theorem erase_expandedCost (P : Params) (inp : Input) (o : Options) (a b
     match s.boxes.find? (fun (box : Box) => box.id == child.1) with
     | none => pure s
     | some frame =>
-      let metric ← metricOf o.profile
+      let metric ← metricOf o.profile o.fontFamily
       let index := (inp.boxes.findIdx? (fun (box : ModelBox) => box.id == child.1)).getD 0
       let lines ← StyledMeasure.wrap metric
         (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == Profile.cell then o.maxWidth else 0))
@@ -220,7 +220,7 @@ private theorem erase_expandedCost (P : Params) (inp : Input) (o : Options) (a b
     cases hf : s.boxes.find? (fun box => box.id == child.1) with
     | none => rfl
     | some frame =>
-      cases metricOf o.profile with
+      cases hm : metricOf o.profile o.fontFamily with
       | error e => rfl
       | ok metric =>
         simp only [bind, Except.bind]
@@ -313,7 +313,7 @@ private theorem erase_componentScene (P : Params) (inp : Input) (o : Options) (c
       dsimp only [title]
       rw [hfind]
       cases (emit inp).find? (fun b => b.id == model.owner && !b.exclusive) <;> rfl
-    cases hm : metricOf o.profile with
+    cases hm : metricOf o.profile o.fontFamily with
     | error e => rfl
     | ok metric =>
       simp only [hlabel]

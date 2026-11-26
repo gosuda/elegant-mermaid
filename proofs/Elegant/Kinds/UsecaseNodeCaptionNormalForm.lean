@@ -91,7 +91,7 @@ structure CaptionSceneAssembly (inp : Input) (o : Options) (res : FamilyResult) 
   lines : List (List Measure.Line)
   titles : List (String × Rect)
   checked : checkedParams o.profile inp.kind = .ok params
-  metric_ok : metricOf o.profile = .ok metric
+  metric_ok : metricOf o.profile o.fontFamily = .ok metric
   lines_ok : boxLines metric
     (Measure.wrapTarget metric.profile params.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
     inp = .ok lines

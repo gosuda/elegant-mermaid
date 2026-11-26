@@ -37,7 +37,7 @@ private theorem caption_box_lookup {inp : Input} {o : Options} {res : FamilyResu
 private theorem caption_tables {inp : Input} {o : Options} {res : FamilyResult}
     (a : CaptionSceneAssembly inp o res) {P : Params} {metric : Measure.Metric}
     {lines : List (List Measure.Line)} (hP : checkedParams o.profile inp.kind = .ok P)
-    (hm : metricOf o.profile = .ok metric)
+    (hm : metricOf o.profile o.fontFamily = .ok metric)
     (hl : boxLines metric (captionWrapTarget P metric o) inp = .ok lines) :
     a.params = P ∧ a.lines = lines := by
   have hp := Except.ok.inj (a.checked.symm.trans hP)

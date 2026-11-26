@@ -1,5 +1,5 @@
 use super::Encoded;
-use super::links::{alt_text, relative_url};
+use super::links::{alt_text, relative_url, resolved_directory};
 use crate::error::CliError;
 use crate::options::Options;
 use elegant_mermaid::markdown::Block;
@@ -26,18 +26,34 @@ pub(super) fn write(
         .map(|path| rewrite(bytes, blocks, encoded, &plan.images, path))
         .transpose()?;
     // Complete every transformation before directory creation or file writes.
-    for path in plan.images.iter().chain(plan.host.iter()) {
+    // Resolve each output directory first, mirroring the Go engine: a missing
+    // prefix cancelled by `..` must not be created, and a later symlink keeps
+    // its meaning. Errors name the path the user supplied.
+    let resolve_target = |path: &Path| -> Result<PathBuf, CliError> {
         let parent = path
             .parent()
             .filter(|path| !path.as_os_str().is_empty())
             .unwrap_or(Path::new("."));
-        std::fs::create_dir_all(parent).map_err(|source| write_error(path, source))?;
+        let directory = resolved_directory(parent).map_err(|source| write_error(path, source))?;
+        std::fs::create_dir_all(&directory).map_err(|source| write_error(path, source))?;
+        let name = path
+            .file_name()
+            .ok_or_else(|| write_error(path, io::Error::from(io::ErrorKind::IsADirectory)))?;
+        Ok(directory.join(name))
+    };
+    let mut image_targets = Vec::with_capacity(plan.images.len());
+    for path in &plan.images {
+        image_targets.push(resolve_target(path)?);
     }
-    for (path, image) in plan.images.iter().zip(encoded) {
-        atomic_write(path, &image.bytes)?;
+    let host_target = match &plan.host {
+        Some(path) => Some(resolve_target(path)?),
+        None => None,
+    };
+    for (target, image) in image_targets.iter().zip(encoded) {
+        atomic_write(target, &image.bytes)?;
     }
-    if let (Some(path), Some(bytes)) = (&plan.host, host) {
-        atomic_write(path, &bytes)?;
+    if let (Some(target), Some(bytes)) = (host_target, host) {
+        atomic_write(&target, &bytes)?;
     }
     Ok(())
 }

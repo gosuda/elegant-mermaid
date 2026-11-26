@@ -854,8 +854,9 @@ theorem c4c5_reroute_mem (axis : Axis) (sp : Spacing) (bend : Int)
         s.boxes.find? (fun b => b.id == r.fromId) = some fb ∧
         s.boxes.find? (fun b => b.id == r.toId) = some tb ∧
         routeEnds axis sp pin fb tb old.points = .ok ends ∧
-        obs = (s.boxes.filter (fun b => b.exclusive && b.id != r.fromId &&
-          b.id != r.toId)).map (fun b => obstacleOf axis b.rect) ∧
+        obs = ((s.boxes.filter (fun b => b.exclusive && b.id != r.fromId &&
+          b.id != r.toId)).map (fun b => obstacleOf axis b.rect) ++
+          textObstacles axis s) ∧
         findRoute axis ends obs bend [sp.slot, 0] = .ok pts ∧ r'.points = pts)) := by
   unfold rerouteBands at h
   obtain ⟨routes, hmap, h⟩ := c4c5_bind h
@@ -865,7 +866,7 @@ theorem c4c5_reroute_mem (axis : Axis) (sp : Spacing) (bend : Int)
   intro r' hr'
   have hr'' : r' ∈ routes := hr'
   obtain ⟨r, hrmem, old, holdmem, hpair, hfy⟩ := c4c5_mapM_zip_mem _ _ _ _ hmap r' hr''
-  change (match bands.findIdx? (fun b => b.id == r.fromId || b.members.contains r.fromId), bands.findIdx? (fun b => b.id == r.toId || b.members.contains r.toId), s.boxes.find? (fun b => b.id == r.fromId), s.boxes.find? (fun b => b.id == r.toId) with | some fi, some ti, some fb, some tb => if fi == ti || old.points.length < 2 then pure r else (do let ends ← routeEnds axis sp pin fb tb old.points; let obs := (s.boxes.filter (fun (b : Box) => b.exclusive && b.id != r.fromId && b.id != r.toId)).map (fun (b : Box) => obstacleOf axis b.rect); pure { r with points := ← findRoute axis ends obs bend [sp.slot, 0] } : Except LayoutError Route) | _, _, _, _ => pure r) = .ok r' at hfy
+  change (match bands.findIdx? (fun b => b.id == r.fromId || b.members.contains r.fromId), bands.findIdx? (fun b => b.id == r.toId || b.members.contains r.toId), s.boxes.find? (fun b => b.id == r.fromId), s.boxes.find? (fun b => b.id == r.toId) with | some fi, some ti, some fb, some tb => if fi == ti || old.points.length < 2 then pure r else (do let ends ← routeEnds axis sp pin fb tb old.points; let boxes := (s.boxes.filter (fun (b : Box) => b.exclusive && b.id != r.fromId && b.id != r.toId)).map (fun (b : Box) => obstacleOf axis b.rect); let obs := boxes ++ textObstacles axis s; pure { r with points := ← findRoute axis ends obs bend [sp.slot, 0] } : Except LayoutError Route) | _, _, _, _ => pure r) = .ok r' at hfy
   cases hfi : bands.findIdx? (fun b => b.id == r.fromId || b.members.contains r.fromId) with
   | none =>
     rw [hfi] at hfy
@@ -1171,18 +1172,26 @@ theorem c4c5_C5_of_boxes_routes_eq {d₁ d₂ : LayoutDump}
     rw [hb]
     exact htb'
 
-theorem relocateLabels_c4 {axis : Axis} {strip : Int} {s : Scene} :
-    Validator.C4 s.layoutDump → Validator.C4 (relocateLabels axis strip s).layoutDump := by
-  intro h r hr horth
-  have hrS : r ∈ s.layoutDump.routes := hr
-  exact h r hrS horth
+theorem relocateLabels_c4 {axis : Axis} {strip gap : Int} {s result : Scene}
+    (h : relocateLabels axis strip gap s = .ok result) :
+    Validator.C4 s.layoutDump → Validator.C4 result.layoutDump := by
+  have hrD : result.layoutDump.routes = s.layoutDump.routes := by
+    show result.routes = s.routes
+    exact relocateLabels_routes h
+  intro hC4
+  exact c4c5_C4_of_routes_eq hrD hC4
 
-theorem relocateLabels_c5 {axis : Axis} {strip : Int} {s : Scene} :
-    Validator.C5 s.layoutDump → Validator.C5 (relocateLabels axis strip s).layoutDump := by
-  intro h r hr
-  have hrS : r ∈ s.layoutDump.routes := hr
-  obtain ⟨p, q, fb, tb, hp, hq, hfb, htb, hb1, hb2⟩ := h r hrS
-  exact ⟨p, q, fb, tb, hp, hq, hfb, htb, hb1, hb2⟩
+theorem relocateLabels_c5 {axis : Axis} {strip gap : Int} {s result : Scene}
+    (h : relocateLabels axis strip gap s = .ok result) :
+    Validator.C5 s.layoutDump → Validator.C5 result.layoutDump := by
+  have hbD : result.layoutDump.boxes = s.layoutDump.boxes := by
+    show result.boxes = s.boxes
+    exact relocateLabels_boxes h
+  have hrD : result.layoutDump.routes = s.layoutDump.routes := by
+    show result.routes = s.routes
+    exact relocateLabels_routes h
+  intro hC5
+  exact c4c5_C5_of_boxes_routes_eq hbD hrD hC5
 
 theorem growCanvas_c4 {axis : Axis} {canvas : Size} {s s' : Scene}
     (h : growCanvas axis canvas s = .ok s') :
@@ -1490,9 +1499,8 @@ theorem pinBands_c4 {boxes : List ModelBox} {o : Options} {s r : Scene}
   have hroutedC4 : Validator.C4 routed.layoutDump :=
     rerouteBands_c4 hroute hC4orig happIdx hbandSome hboxSome hOrthoPin
   have horigC4 : Validator.C4 origin.layoutDump := restoreOrigin_c4 horig hroutedC4
-  have hstripC4 : Validator.C4 stripScene.layoutDump := by
-    rw [hstripEq]
-    exact relocateLabels_c4 horigC4
+  have hstripC4 : Validator.C4 stripScene.layoutDump :=
+    relocateLabels_c4 hstripEq horigC4
   exact growCanvas_c4 hgrow hstripC4
 
 theorem pinBands_c5 {boxes : List ModelBox} {o : Options} {s r : Scene}
@@ -1582,7 +1590,6 @@ theorem pinBands_c5 {boxes : List ModelBox} {o : Options} {s r : Scene}
     rerouteBands_c5 hroute hC5pinned hC5 rfl happ hpinAxis hnodupB hnfPinned hzipsame hEndsPin
   have horigC5 : Validator.C5 origin.layoutDump :=
     restoreOrigin_c5 horig hnodupRouted hroutedC5
-  have hstripC5 : Validator.C5 stripScene.layoutDump := by
-    rw [hstripEq]
-    exact relocateLabels_c5 horigC5
+  have hstripC5 : Validator.C5 stripScene.layoutDump :=
+    relocateLabels_c5 hstripEq horigC5
   exact growCanvas_c5 hgrow hstripC5
