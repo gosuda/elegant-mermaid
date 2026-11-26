@@ -65,7 +65,7 @@ pub(crate) fn relative_url(target: &Path, host: &Path) -> io::Result<String> {
 
 /// Existing components must be directories. Missing components are prospective
 /// directories, so their suffix can be resolved before any output is created.
-fn resolved_directory(path: &Path) -> io::Result<PathBuf> {
+pub(crate) fn resolved_directory(path: &Path) -> io::Result<PathBuf> {
     let mut directory = std::env::current_dir()?.canonicalize()?;
     for component in path.components() {
         match component {
@@ -153,6 +153,20 @@ mod tests {
         }
     }
 
+    /// Build a probe path that keeps `.` and `..` lexically intact, so the
+    /// resolver under test actually sees them. `Path::join` on a verbatim
+    /// Windows base collapses `..` lexically (see `PathBuf::push`), which
+    /// would make these probes vacuous on Windows.
+    fn probe_path(base: &Path, parts: &[&str]) -> PathBuf {
+        let separator = std::path::MAIN_SEPARATOR.to_string();
+        let mut buf = base.as_os_str().to_owned();
+        for part in parts {
+            buf.push(&separator);
+            buf.push(part);
+        }
+        PathBuf::from(buf)
+    }
+
     #[test]
     fn title_cannot_change_the_image_syntax() {
         assert_eq!(alt_text(""), "diagram");
@@ -200,13 +214,14 @@ mod tests {
     fn directory_resolution_allows_missing_directories_but_rejects_files() -> std::io::Result<()> {
         let directory = TestDir::new()?;
         assert_eq!(
-            resolved_directory(&directory.0.join("missing/../images"))?,
+            resolved_directory(&probe_path(&directory.0, &["missing", "..", "images"]))?,
             directory.0.join("images")
         );
         assert!(!directory.0.join("missing").exists());
         std::fs::write(directory.0.join("file"), b"sentinel")?;
         assert_eq!(
-            resolved_directory(&directory.0.join("file/../images")).map_err(|error| error.kind()),
+            resolved_directory(&probe_path(&directory.0, &["file", "..", "images"]))
+                .map_err(|error| error.kind()),
             Err(std::io::ErrorKind::NotADirectory)
         );
         Ok(())
