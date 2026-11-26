@@ -6,22 +6,31 @@ set_option autoImplicit false
 namespace Elegant.Layered.PipelineImpl
 
 /-- Both endpoints of the returned list are mapped ports, regardless of rectangle dimensions. -/
+private theorem bind_ok {α β : Type} {x : Except LayoutError α}
+    {f : α → Except LayoutError β} {y : β}
+    (h : x >>= f = .ok y) : ∃ a, x = .ok a ∧ f a = .ok y := by
+  cases x with
+  | error e => simp [Bind.bind, Except.bind] at h
+  | ok a => exact ⟨a, rfl, h⟩
+
+/-- Both endpoints of the returned list are mapped ports, regardless of rectangle dimensions. -/
 theorem routeAround_endpoints_mem
-    {inp : Input} {atts : List Attach} {frame : Frame}
+    {profile : Profile} {inp : Input} {atts : List Attach} {frame : Frame}
     {rects : List (String × Rect)} {labels : List SceneLabel} {titles : List (String × Rect)}
     {r : ModelRoute} {from_ to_ : Rect} {pts : List Point}
     (hFrom : rects.lookup r.fromId = some from_)
     (hTo : rects.lookup r.toId = some to_)
-    (hRoute : routeAround inp atts frame rects labels titles r = .ok pts) :
+    (hRoute : routeAround profile inp atts frame rects labels titles r = .ok pts) :
     ∃ p q : Point, pts.head? = some p ∧ pts.getLast? = some q ∧
       p ∈ (Visibility.ports (frame.rect from_)).map frame.output ∧
       q ∈ (Visibility.ports (frame.rect to_)).map frame.output := by
   unfold routeAround at hRoute
   simp only [hFrom, hTo] at hRoute
-  split at hRoute
-  · simp at hRoute
+  obtain ⟨_, _, hgrid⟩ := bind_ok hRoute
+  split at hgrid
+  · simp at hgrid
   · next points hShortest =>
-    have hPts : points.map frame.output = pts := Except.ok.inj hRoute
+    have hPts : points.map frame.output = pts := Except.ok.inj hgrid
     obtain ⟨p, hp, hHead⟩ := Visibility.newGrid_shortest_start_mem hShortest
     obtain ⟨q, hq, hLast⟩ := nrep_shortest_end_mem _
       (Visibility.ports (frame.rect from_)) (Visibility.ports (frame.rect to_)) points hShortest

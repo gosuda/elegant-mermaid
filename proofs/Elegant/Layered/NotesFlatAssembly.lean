@@ -80,7 +80,7 @@ theorem notes_exec_orthogonal
   · rw [hpts, notesShiftPoint_orthogonal]
     exact hFb p hp fr hfrmem
   · rw [hpts]
-    exact notesRouterOrtho_holds inp e.atts (notesFrameOf e.contracted o e.margin)
+    exact notesRouterOrtho_holds o.profile inp e.atts (notesFrameOf e.contracted o e.margin)
       (notesRectsOf res.scene.boxes) (notesLabelsOf e.fragments e.contracted inp)
       (notesTitlesOf e.fragments e.contracted) x hx pts hroute
 
@@ -344,7 +344,7 @@ theorem notes_validate_none
   have hFlags := notesFlagsKept_of_route_mirror e hwf
     (hRouteBase _ _ _ _ e.contracted_eq)
   have hFlagsFrag := notesFlagsFragment_of_route_mirror hRouteBase e (Model.routeIds_nodup hwf)
-  have hRouterOrtho := notesRouterOrtho_holds inp e.atts (notesFrameOf e.contracted o e.margin)
+  have hRouterOrtho := notesRouterOrtho_holds o.profile inp e.atts (notesFrameOf e.contracted o e.margin)
     (notesRectsOf res.scene.boxes) (notesLabelsOf e.fragments e.contracted inp)
     (notesTitlesOf e.fragments e.contracted)
   have hRouterPath := nriRouterPathExec_of_rects_lookup_nonneg inp o res

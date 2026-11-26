@@ -325,10 +325,22 @@ private theorem lxe_phaseRestore_holds : lepePhaseRestore := by
 
 /-- `relocateLabels` preserves `EndsOnOld`: boxes and routes are untouched. -/
 private theorem lxe_phaseRelocate_holds : lepePhaseRelocate := by
-  intro axis frames s strip hE r hr
-  have hrS : r ∈ s.layoutDump.routes := hr
+  intro axis frames s result strip gap h hE r hr
+  have hb : result.boxes = s.boxes := relocateLabels_boxes h
+  have hrout : result.routes = s.routes := relocateLabels_routes h
+  have hdB : result.layoutDump.boxes = s.layoutDump.boxes := hb
+  have hdR : result.layoutDump.routes = s.layoutDump.routes := hrout
+  have hrS : r ∈ s.layoutDump.routes := by rw [← hdR]; exact hr
   obtain ⟨p, q, fb, tb, hp, hq, hfb, htb, hb1, hb2⟩ := hE r hrS
-  exact ⟨p, q, fb, tb, hp, hq, hfb, htb, hb1, hb2⟩
+  have hfb' : result.layoutDump.box? r.fromId = some fb := by
+    unfold LayoutDump.box?
+    rw [hdB]
+    exact hfb
+  have htb' : result.layoutDump.box? r.toId = some tb := by
+    unfold LayoutDump.box?
+    rw [hdB]
+    exact htb
+  exact ⟨p, q, fb, tb, hp, hq, hfb', htb', hb1, hb2⟩
 
 /-- `growCanvas` preserves `EndsOnOld`: boxes and routes are untouched. -/
 private theorem lxe_phaseGrow_holds : lepePhaseGrow := by
@@ -399,9 +411,8 @@ theorem pinBands_ends_of_routed {boxes : List ModelBox} {o : Options} {s r : Sce
   have hstripE : EndsOnOld (Axis.ofDirection o.direction)
       (laneFrames (Axis.ofDirection o.direction)
         (layBands boxes s (Axis.ofDirection o.direction) sp (lanesOf boxes)) s)
-      stripScene.layoutDump := by
-    rw [hstripEq]
-    exact lxe_phaseRelocate_holds horigE
+      stripScene.layoutDump :=
+    lxe_phaseRelocate_holds hstripEq horigE
   exact lxe_phaseGrow_holds hgrow hstripE
 
 /-- After `pinBands`, every route end lies on its end box boundary, or on the

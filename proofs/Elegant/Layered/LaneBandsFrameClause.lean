@@ -1910,9 +1910,7 @@ theorem pinBands_c8a {boxes : List ModelBox} {o : Options} {s r : Scene}
     obtain ⟨hroutedBoxes, _hroutedLabels, _hroutedCanvas⟩ := rerouteBands_frame hroute
 
     obtain ⟨hgrowBoxes, _hgrowRoutes, _hgrowLabels⟩ := growCanvas_frame hgrow
-    have hstripBoxes : stripScene.boxes = origin.boxes := by
-      rw [hstripEq]
-      exact relocateLabels_boxes axis strip origin
+    have hstripBoxes : stripScene.boxes = origin.boxes := relocateLabels_boxes hstripEq
     have hrBoxes : r.boxes = origin.boxes := by rw [hgrowBoxes, hstripBoxes]
     have hPinned : Validator.C8a pinned.layoutDump := by
       have hTiled : Tiled (firstLaneStart s (lanesOf boxes) axis) bands := by
