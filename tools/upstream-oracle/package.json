@@ -2,10 +2,10 @@
   "name": "upstream-oracle",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@12.18.0",
+  "packageManager": "pnpm@12.23.0",
   "dependencies": {
-    "@dagrejs/dagre": "3.1.3",
-    "d3-hierarchy": "3.1.2",
+    "@dagrejs/dagre": "3.1.4",
+    "d3-hierarchy": "3.1.3",
     "d3-sankey": "0.12.3",
     "elkjs": "0.12.1",
     "jsdom": "31.0.1",
