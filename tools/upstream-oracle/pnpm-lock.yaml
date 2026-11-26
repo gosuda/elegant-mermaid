@@ -186,8 +186,8 @@ importers:
   .:
     dependencies:
       '@dagrejs/dagre':
-        specifier: 3.1.4
-        version: 3.1.4
+        specifier: 3.1.3
+        version: 3.1.3
       d3-hierarchy:
         specifier: 3.1.3
         version: 3.1.3
@@ -227,11 +227,11 @@ packages:
   '@chevrotain/utils@13.2.0':
     resolution: {integrity: sha512-SzKYY68rseOrb9KILVzPsl6SjkQtdWw01SRGB5aCVI5kFcHltQsOYV3JB0Ffst72DgkvHCyDQ0NLwxtmCCf97Q==}
 
-  '@dagrejs/dagre@3.1.4':
-    resolution: {integrity: sha512-tW3fsvXxSteGpBHgT/hqPxBxTibPw409mH97S6LzXe+ddak2/RtPtYkYPo5gfvzBtnjxrZnoh8ft62zA3LDAZQ==}
+  '@dagrejs/dagre@3.1.3':
+    resolution: {integrity: sha512-X4aUTwOReZvthaZWOVHqlJ52/ZdhZFEM4+Lh/uR4XooUSLE6p71bcy7MPGzYnNUcNh+nj+i/qJQpCMIdQnSmrg==}
 
-  '@dagrejs/graphlib@4.0.8':
-    resolution: {integrity: sha512-B3G85dH8UebW+r2leKKmYp+YwzJnjCqT1eqDq04BtAbRa5ULgCQuVfsqEQsw+s4dvC01QEw9PE2QX1g7KWDATQ==}
+  '@dagrejs/graphlib@4.0.6':
+    resolution: {integrity: sha512-Hjv7hbfmSBMP4nVXMFt4gusqWWHghQF0qNT4V5KHo4Jatvd+2L5VHKFnnIjXVuDnaHIRz7ZuHSnlf0RuZkOwWA==}
 
   '@exodus/bytes@1.16.0':
     resolution: {integrity: sha512-IcpW84uEn3N7ETtNZMlxKhfl6Pec8rUNGOTBtWbK1FKhJxIFAptZyVrvVRVBimAJxJCgc3PxepxkdWWG4DVzfA==}
@@ -746,11 +746,11 @@ snapshots:
 
   '@chevrotain/utils@13.2.0': {}
 
-  '@dagrejs/dagre@3.1.4':
+  '@dagrejs/dagre@3.1.3':
     dependencies:
-      '@dagrejs/graphlib': 4.0.8
+      '@dagrejs/graphlib': 4.0.6
 
-  '@dagrejs/graphlib@4.0.8': {}
+  '@dagrejs/graphlib@4.0.6': {}
 
   '@exodus/bytes@1.16.0': {}
 
