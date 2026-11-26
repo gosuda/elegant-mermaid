@@ -52,7 +52,10 @@ jobs:
       - name: "Install playground packages"
         run: "pnpm --dir playground install --frozen-lockfile"
       - name: "Build the site"
-        run: "BASE_PATH=/elegant-mermaid just playground-build"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          test -z "$(go env GOCACHEPROG)"
+          BASE_PATH=/elegant-mermaid just playground-build
       - name: "Configure Pages"
         uses: "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d" # v6.0.0
       - name: "Upload the site artifact"

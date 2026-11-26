@@ -37,17 +37,29 @@ jobs:
           tool: "just@1.59.0,cargo-nextest@0.9.151,cargo-deny@0.20.2"
       - name: "Check generated files"
         if: "!cancelled() && steps.setup.outcome == 'success'"
-        run: "just gen-check"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          test -z "$(go env GOCACHEPROG)"
+          just gen-check
       - name: "Run the Go gates"
         if: "!cancelled() && steps.setup.outcome == 'success'"
-        run: "just go-check"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          test -z "$(go env GOCACHEPROG)"
+          just go-check
       - name: "Run the Rust gates"
         if: "!cancelled() && steps.setup.outcome == 'success'"
         run: "just rust-check"
       - name: "Build both binaries"
         if: "!cancelled() && steps.setup.outcome == 'success'"
         id: "build"
-        run: "just build"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          test -z "$(go env GOCACHEPROG)"
+          just build
       - name: "Run parity"
         if: "!cancelled() && steps.build.outcome == 'success'"
-        run: "just parity"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          test -z "$(go env GOCACHEPROG)"
+          just parity
