@@ -652,7 +652,7 @@ theorem layout_routes_exclusive_clear (m : Model) (rules : List Rule) (scene : S
     (h : layout m rules = .ok scene) :
     Validator.C6 scene.layoutDump := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm, bind, Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric)

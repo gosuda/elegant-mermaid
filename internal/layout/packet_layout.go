@@ -222,7 +222,7 @@ func (p *packetPlan) measureText(text string, role scene.TextRole) (packetText, 
 	if p.profile == scene.ProfileVector {
 		metric = measure.ForRole(packetRole(role))
 	}
-	lines, err := measure.StyledLines(text, geom.I32Max, metric)
+	lines, err := measure.StyledLines(text, geom.I32Max, metric.WithFontFamily(p.in.Options.FontFamily))
 	if err != nil {
 		return packetText{}, geom.ErrOverflow
 	}

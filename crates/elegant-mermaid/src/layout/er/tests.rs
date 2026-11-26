@@ -78,6 +78,7 @@ fn er_table_keeps_columns() -> Result<(), &'static str> {
             h: 5,
         },
         Profile::Cell,
+        false,
     )
     .map_err(|_| "table failure")?;
     assert_eq!(
@@ -131,11 +132,11 @@ fn er_md_parent_has_no_marker() -> Result<(), &'static str> {
 fn er_height_reserves_only_the_header_divider_in_cells() -> Result<(), &'static str> {
     let text = "A<br/><br/>int|a||<br/>int|b||";
     assert_eq!(
-        table_size(text, Profile::Cell).map_err(|_| "cell size")?,
+        table_size(text, Profile::Cell, false).map_err(|_| "cell size")?,
         Size { w: 13, h: 6 }
     );
     assert_eq!(
-        table_size(text, Profile::Vector).map_err(|_| "vector size")?,
+        table_size(text, Profile::Vector, false).map_err(|_| "vector size")?,
         Size { w: 6400, h: 5760 }
     );
     Ok(())
@@ -146,8 +147,12 @@ fn er_escaped_fields_keep_multiline_text_and_column_delimiters() -> Result<(), &
     let encoded = encode_field("line1<br/>line2|literal\\n");
     assert_eq!(encoded, "line1\\nline2\\pliteral\\\\n");
     assert_eq!(decode_field(&encoded), "line1\nline2|literal\\n");
-    let table =
-        Table::new(&format!("A<br/><br/>{encoded}|name||"), Profile::Cell).map_err(|_| "table")?;
+    let table = Table::new(
+        &format!("A<br/><br/>{encoded}|name||"),
+        Profile::Cell,
+        false,
+    )
+    .map_err(|_| "table")?;
     assert_eq!(table.row_heights, [2]);
     Ok(())
 }
@@ -186,7 +191,7 @@ fn er_fields_emit_flagged_runs_and_keep_field_lines() -> Result<(), &'static str
     let min_width = constant(Profile::Cell, "min_width").map_err(|_| "min_width")?;
     let field_widths = [1, 2];
     let content_width = field_widths.iter().sum::<i32>() + px;
-    let size = table_size(text, Profile::Cell).map_err(|_| "cell size")?;
+    let size = table_size(text, Profile::Cell, false).map_err(|_| "cell size")?;
     assert_eq!(
         size,
         Size {
@@ -203,6 +208,7 @@ fn er_fields_emit_flagged_runs_and_keep_field_lines() -> Result<(), &'static str
             h: size.h,
         },
         Profile::Cell,
+        false,
     )
     .map_err(|_| "table items")?;
     let texts = items

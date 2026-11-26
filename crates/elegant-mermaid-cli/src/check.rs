@@ -10,8 +10,13 @@ struct Checked {
 }
 
 pub(crate) fn markdown_host(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|e| e == "md" || e == "markdown" || e == "mdx")
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| {
+            [".md", ".markdown", ".mdx"]
+                .iter()
+                .any(|suffix| name.ends_with(suffix))
+        })
 }
 
 fn check_input(path: &str, bytes: &[u8]) -> Checked {

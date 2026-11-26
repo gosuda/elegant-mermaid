@@ -1,3 +1,4 @@
 self-hosted-runner:
   labels:
-    - "ubuntu-26.04"
+    - "depot-ubuntu-24.04"
+    - "depot-ubuntu-24.04-8"

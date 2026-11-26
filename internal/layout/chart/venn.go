@@ -174,7 +174,7 @@ func (p *vennPlan) measureAll() error {
 		if p.items[i].title {
 			role = measure.RoleTitle
 		}
-		lines, err := measure.StyledLines(p.items[i].text, int32(p.width), measure.ForRole(role))
+		lines, err := measure.StyledLines(p.items[i].text, int32(p.width), measure.ForRole(role).WithFontFamily(p.o.FontFamily))
 		if err != nil {
 			return err
 		}

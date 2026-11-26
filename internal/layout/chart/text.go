@@ -7,9 +7,10 @@ import (
 )
 
 type textStyle struct {
-	profile scene.Profile
-	role    measure.Role
-	size    int32
+	profile    scene.Profile
+	role       measure.Role
+	size       int32
+	fontFamily string
 }
 
 func (s textStyle) lineHeight() int64 {
@@ -23,7 +24,7 @@ func (s textStyle) metric() measure.Metric {
 	if s.profile == scene.ProfileCell {
 		return measure.CellMetric()
 	}
-	return measure.Metric{Profile: measure.ProfileVector, SizePx: s.size, Weight: s.role.Weight()}
+	return measure.Metric{Profile: measure.ProfileVector, SizePx: s.size, Weight: s.role.Weight(), FontFamily: s.fontFamily != ""}
 }
 
 func (s textStyle) measure(text string) (textBox, error) {

@@ -21,16 +21,19 @@ The corpus recipes list their files with `git ls-files`. Run them in a git check
 
 ## CI split
 
-CI runs `gen-check go-check rust-check build parity`.
+The core CI workflow runs `gen-check go-check rust-check build parity`.
 
-Every other recipe is local only.
+The verification workflow also runs the house linter, Lean proof audit,
+scheduler model, corpus oracle, random graphs, geometry validation, Lean
+parity, quality comparisons, theme checks, native/WebAssembly parity, and
+browser tests. Its independent jobs install
+the pinned gate dependencies and have longer time limits than core CI.
+Failures in one independent gate MUST NOT suppress the other gate results.
 
-The reasons are:
+`just verify` remains the complete local entry point. Both workflows MUST
+pass before the repository is described as fully verified.
 
-- `slop` needs the house sloplint.
-- `proofs` needs the Lean toolchain.
-- `model` needs a JDK.
-- The rest would exceed the 30-minute job limit.
+`pages.yml` runs `playground-wasm` and `playground-sample`.
 
 ## Lean proofs
 

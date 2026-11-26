@@ -110,6 +110,11 @@
     "sha256": "80d00f8e616a0ef27fd6b8de3b758c06383b5d917e2977709578e68baf733bf1"
   },
   {
+    "path": "spec/data/upstream/mermaid-config.schema.yaml",
+    "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/2086904e76c692331e34a45d7cc3bc30860d040e/packages/mermaid/src/schemas/config.schema.yaml",
+    "sha256": "5e8d44ec7d6788474d835caa0ff22f51020b80f92febaa26562e11ca57dd053e"
+  },
+  {
     "path": "spec/data/fonts/NotoSansCJKsc-Regular.ttf",
     "url": "https://github.com/notofonts/noto-cjk/raw/main/Sans/Variable/TTF/NotoSansCJKsc-VF.ttf",
     "sha256": "3c450a7d2fd7dac4c24b84fcf2fa200486080cb7a5c1baf638bf078668165b6a"

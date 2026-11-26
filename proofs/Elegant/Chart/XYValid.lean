@@ -86,8 +86,8 @@ theorem lineHeight_nonneg (cell : Bool) (role : Measure.Role) {size : Int} (hs :
   · cases role <;>
       (apply Int.fdiv_nonneg <;> simp only [Measure.Role.sizePx, Measure.Role.lineHeightPx] <;> omega)
 
-theorem measureText_ok {cell : Bool} {text : String} {role : Measure.Role} {size : Int}
-    {tb : TextBox} (h : measureText cell text role size = .ok tb) (hs : 0 ≤ size) :
+theorem measureText_ok {fontFamily : Bool} {cell : Bool} {text : String} {role : Measure.Role} {size : Int}
+    {tb : TextBox} (h : measureText cell text role size fontFamily = .ok tb) (hs : 0 ≤ size) :
     0 ≤ tb.w ∧ 0 ≤ tb.h := by
   unfold measureText at h
   obtain ⟨m, _, h⟩ := bind_ok h
@@ -108,9 +108,9 @@ theorem styleOf_nonneg {c : XYConsts} (hc : 0 ≤ c.pointSize) {x : Axis} (hx : 
   · dsimp only; exact Int.fdiv_nonneg hc (by omega)
   · dsimp only; decide
 
-theorem measureAll_ok {c : XYConsts} (hc : 0 ≤ c.pointSize) {cell : Bool} {x : Axis}
+theorem measureAll_ok {fontFamily : Bool} {c : XYConsts} (hc : 0 ≤ c.pointSize) {cell : Bool} {x : Axis}
     (hx : 0 ≤ x.fontSize) {specs : List Spec} {items : List Item}
-    (h : measureAll c cell x specs = .ok items) : ItemsOk items := by
+    (h : measureAll c cell x specs fontFamily = .ok items) : ItemsOk items := by
   unfold measureAll at h
   refine mapM_ok_mem _ (fun it => 0 ≤ it.box.w ∧ 0 ≤ it.box.h) ?_ specs items h
   intro s it hit
@@ -198,8 +198,8 @@ structure PrepOk (profile : Profile) (p : Prep) : Prop where
   distinct : p.x0.Distinct
   edge : ((profile == .cell) = true ∧ p.c.edge = 1) ∨ ((profile == .cell) = false ∧ p.c.edge = 0)
 
-theorem prepare_spec {profile : Profile} {inp : Input} {p : Prep} (hin : InputOk inp)
-    (h : prepare profile inp = .ok p) : PrepOk profile p := by
+theorem prepare_spec {fontFamily : Bool} {profile : Profile} {inp : Input} {p : Prep} (hin : InputOk inp)
+    (h : prepare profile inp fontFamily = .ok p) : PrepOk profile p := by
   unfold prepare at h
   obtain ⟨c0, hl, h⟩ := bind_ok h
   obtain ⟨⟨x1, y1, cap⟩, hn, h⟩ := bind_ok h
@@ -245,8 +245,8 @@ theorem boxRect_plot (a : Arranged) (c : XYConsts) (cell : Bool) (inp : Input) :
 
 /-- The frame of a laid-out chart: the plot box comes first and lies inside the canvas, and every
 other box lies inside the plot box. -/
-theorem layout_frame {profile : Profile} {inp : Input} {r : Result} (hin : InputOk inp)
-    (h : layout profile inp = .ok r) :
+theorem layout_frame {fontFamily : Bool} {profile : Profile} {inp : Input} {r : Result} (hin : InputOk inp)
+    (h : layout profile inp fontFamily = .ok r) :
     ∃ (rest : List BoxSpec) (plot : Rect) (restRects : List Rect),
       r.boxes = plotBox :: rest ∧ (∀ b ∈ rest, b.isPlot = false) ∧
       r.boxRects = plot :: restRects ∧

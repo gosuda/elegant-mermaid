@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: "ubuntu-26.04"
+    runs-on: "depot-ubuntu-24.04"
     steps:
       - name: "Checkout"
         uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
@@ -35,13 +35,6 @@ jobs:
         uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
         with:
           tool: "just@1.59.0,wasm-bindgen@0.2.130"
-      - name: "Install binaryen"
-        run: |
-          curl -fsSL -o binaryen-version_133-x86_64-linux.tar.gz \
-            "https://github.com/WebAssembly/binaryen/releases/download/version_133/binaryen-version_133-x86_64-linux.tar.gz"
-          echo "2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489  binaryen-version_133-x86_64-linux.tar.gz" | sha256sum -c
-          mkdir -p .tools/binaryen
-          tar -xzf binaryen-version_133-x86_64-linux.tar.gz --strip-components=1 -C .tools/binaryen
       - name: "Set up pnpm"
         uses: "pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115" # v6.1.1
         with:
@@ -56,8 +49,10 @@ jobs:
         run: "pnpm --dir playground install --frozen-lockfile"
       - name: "Build the WebAssembly engines"
         run: "just playground-wasm"
+      - name: "Render the sample output"
+        run: "just playground-sample"
       - name: "Build the site"
-        run: "BASE_PATH=/elegant-mermaid pnpm --dir playground build"
+        run: "BASE_PATH=/elegant-mermaid just playground-build"
       - name: "Configure Pages"
         uses: "actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d" # v6.0.0
       - name: "Upload the site artifact"
@@ -66,7 +61,7 @@ jobs:
           path: "playground/build"
 
   deploy:
-    runs-on: "ubuntu-26.04"
+    runs-on: "depot-ubuntu-24.04"
     needs: "build"
     environment:
       name: "github-pages"

@@ -103,7 +103,7 @@ func (p *blockPlanner) scalePadding(px int32) int32 {
 }
 
 func (p *blockPlanner) measureText(text string) ([]measure.StyledLine, error) {
-	lines, err := measure.StyledLines(text, geom.I32Max, sequenceMetric(p.profile, measure.RoleLabel))
+	lines, err := measure.StyledLines(text, geom.I32Max, sequenceMetric(p.profile, measure.RoleLabel).WithFontFamily(p.in.Options.FontFamily))
 	if err != nil {
 		return nil, geom.ErrOverflow
 	}

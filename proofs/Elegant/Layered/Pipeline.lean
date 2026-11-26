@@ -130,8 +130,10 @@ def checkedParams (profile : Profile) (kind : String := "") : Except LayoutError
   | none => .error .domain
   | some P => if P.Valid then .ok P else .error .domain
 
-def metricOf : Profile → Except LayoutError Measure.Metric
-  | .vector => Measure.Role.label.metric
+def metricOf (profile : Profile) (fontFamily : Bool := false) :
+    Except LayoutError Measure.Metric :=
+  match profile with
+  | .vector => Measure.Role.label.metric fontFamily
   | .cell => .ok Measure.Metric.cell
 
 def nodeSize (P : Params) (lines : List Measure.Line) : Except LayoutError (Int × Int) :=
@@ -229,7 +231,7 @@ def measuredGraph (P : Params) (inp : Input) (o : Options) (lines : List (List M
     Except LayoutError Graph := do
   let nodes ← sizedNodes P lines
   let edges ← graphEdges inp
-  let m ← metricOf o.profile
+  let m ← metricOf o.profile o.fontFamily
   let labels ← measureLabels P m
     (Measure.wrapTarget m.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) inp o.direction
   let nodes ← (nodes.map (orientNode o.direction)).zipIdx.mapM fun q => do
@@ -891,7 +893,7 @@ def expandedComponentCost (P : Params) (inp : Input) (o : Options) (scene : Scen
     match expanded.boxes.find? (fun box => box.id == child.1) with
     | none => pure expanded
     | some frame =>
-      let metric ← metricOf o.profile
+      let metric ← metricOf o.profile o.fontFamily
       let index := (inp.boxes.findIdx? (fun box => box.id == child.1)).getD 0
       let lines ← StyledMeasure.wrap metric
         (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
@@ -940,7 +942,7 @@ def componentScene (P : Params) (inp : Input) (o : Options) (cg : Graph)
         id := label.model.id, owner := label.model.owner, text := label.model.text
         rect := orientRect o.direction part.height placed.2
         lines := label.lines.map fun line => String.ofList line.text }
-  let metric ← metricOf o.profile
+  let metric ← metricOf o.profile o.fontFamily
   let titleLabels ← inp.labels.filterMapM fun model => do
     match boxes.find? (fun box => box.id == model.owner && !box.exclusive) with
     | none => pure none
@@ -979,7 +981,7 @@ def layoutComponent (P : Params) (inp : Input) (o : Options) (g : Graph) (acc : 
   let result ← placePart comp chosen.value.1 chosen.value.2 P acc labels
   let childArea := inp.fixedAreas.foldl (fun total child =>
     if chosen.scene.boxes.any (fun box => box.id == child.1) then total + child.2 else total) 0
-  let metric ← metricOf o.profile
+  let metric ← metricOf o.profile o.fontFamily
   let titleAreas ← (inp.boxes.zipIdx.filter fun q =>
     q.1.role == .group && chosen.scene.boxes.any (fun box => box.id == q.1.id)).mapM fun q => do
       let lines ← StyledMeasure.wrap metric
@@ -993,7 +995,7 @@ def layoutComponent (P : Params) (inp : Input) (o : Options) (g : Graph) (acc : 
       (placed.1, { placed.2 with area := placed.2.area + childArea + titleAreas.sum })) }
 def layout (inp : Input) (o : Options) : Except LayoutError FamilyResult := do
   let P ← checkedParams o.profile inp.kind
-  let m ← metricOf o.profile
+  let m ← metricOf o.profile o.fontFamily
   let lines ← boxLines m
     (Measure.wrapTarget m.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) inp
   let measured ← measureLabels P m
@@ -1037,7 +1039,7 @@ def expandChild (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     | none => .error .domain
     | some frame => .ok frame
   let margin := P.canvasMargin
-  let metric ← metricOf o.profile
+  let metric ← metricOf o.profile o.fontFamily
   let index := (inp.boxes.findIdx? (fun box => box.id == group.id)).getD 0
   let titleLines ← StyledMeasure.wrap metric
     (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0))
@@ -1062,7 +1064,7 @@ def expandChild (P : Params) (inp : Input) (o : Options) (group : ModelBox)
     let label ← (childLabels ++ parent.scene.labels).find? (fun label => label.id == model.id)
     let titleRect := childTitleRect group.direction P.clusterPad titleWidth titleHeight frame.rect
     pure (if model.owner == group.id then { label with rect := titleRect } else label)
-  let metric ← metricOf o.profile
+  let metric ← metricOf o.profile o.fontFamily
   let lines ← boxLines metric
     (Measure.wrapTarget metric.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)) inp
   let titles := (group.id, childTitleRect group.direction P.clusterPad
@@ -1085,7 +1087,7 @@ def layoutRecursive : Nat → Input → Options → Except LayoutError FamilyRes
     | none => layout inp o
     | some group =>
       let P ← checkedParams o.profile inp.kind
-      let metric ← metricOf o.profile
+      let metric ← metricOf o.profile o.fontFamily
       let childInput := selectInput inp
         (fun box => Compound.inside inp.boxes group.id box.id) group.id
       let child ← layoutRecursive fuel childInput { o with direction := directionOf group.direction }

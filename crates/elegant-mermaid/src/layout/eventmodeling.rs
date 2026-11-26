@@ -32,7 +32,7 @@ pub(crate) fn from_eventmodeling(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Input {
-    options.config.clear();
+    options.set_kind_config(Default::default());
     options.profile = profile;
     let mut input = Input {
         kind: KIND,
@@ -142,14 +142,15 @@ fn metric(profile: Profile, role: TextRole) -> Metric {
 }
 
 fn measure_text(
-    profile: Profile,
+    input: &Input,
     text: &str,
     target: i32,
     role: TextRole,
 ) -> Result<Text, LayoutError> {
-    let height = line_height(profile)?;
-    let lines = measure::styled_lines(text, target, metric(profile, role))
-        .map_err(|_| LayoutError::Overflow)?;
+    let height = line_height(input.profile)?;
+    let metric =
+        crate::scene::configured_metric(metric(input.profile, role), &input.options.config);
+    let lines = measure::styled_lines(text, target, metric).map_err(|_| LayoutError::Overflow)?;
     let widest = lines.iter().map(|line| line.width).max().unwrap_or(0);
     let count = i32::try_from(lines.len()).map_err(|_| LayoutError::Overflow)?;
     Ok(Text {
@@ -191,7 +192,7 @@ fn decode(input: &Input) -> Result<Decoded, LayoutError> {
                 label: None,
             });
         } else {
-            let frame = decoded.frame(input.profile, item, wraps.frame)?;
+            let frame = decoded.frame(input, item, wraps.frame)?;
             decoded
                 .frame_at
                 .insert(item.id.clone(), decoded.graph.frames.len());
@@ -217,7 +218,7 @@ fn decode(input: &Input) -> Result<Decoded, LayoutError> {
 impl Decoded {
     fn frame(
         &mut self,
-        profile: Profile,
+        input: &Input,
         item: &InputBox,
         wrap: i32,
     ) -> Result<EventFrame, LayoutError> {
@@ -242,11 +243,9 @@ impl Decoded {
             id: item.id.clone(),
             lane,
             category: item.shape.clone(),
-            name: measure_text(profile, name, wrap, TextRole::Label)?,
+            name: measure_text(input, name, wrap, TextRole::Label)?,
             data: data
-                .map(|data| {
-                    measure_text(profile, &data.replace('\n', "<br>"), wrap, TextRole::Body)
-                })
+                .map(|data| measure_text(input, &data.replace('\n', "<br>"), wrap, TextRole::Body))
                 .transpose()?,
         })
     }
@@ -256,7 +255,7 @@ impl Decoded {
             let Some(&lane) = self.lane_at.get(&label.owner) else {
                 return Err(LayoutError::Domain);
             };
-            let text = measure_text(input.profile, &label.text, wrap, label.role)?;
+            let text = measure_text(input, &label.text, wrap, label.role)?;
             self.graph.lanes[lane].label = Some(text);
         }
         Ok(())

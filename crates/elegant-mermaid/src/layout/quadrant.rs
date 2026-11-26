@@ -20,11 +20,13 @@ pub(crate) fn from_quadrant(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, LayoutError> {
-    options.config = model
-        .config
-        .iter()
-        .map(|(key, value)| (key.clone(), DumpValue::Integer(*value)))
-        .collect();
+    options.set_kind_config(
+        model
+            .config
+            .iter()
+            .map(|(key, value)| (key.clone(), DumpValue::Integer(*value)))
+            .collect(),
+    );
     options.profile = profile;
     let payload = payload(model);
     let skeleton = chart::quadrant_skeleton(&payload);

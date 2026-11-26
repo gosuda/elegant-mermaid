@@ -28,14 +28,15 @@
 //!
 //! # Current implementation
 //!
-//! Parsing and rendering implement flowcharts, class diagrams, and state
-//! diagrams. Detection preserves other registered kinds; attempting their
-//! layout returns `RenderError::InvalidConfig`.
-//! Config text is checked against the shared mapping grammar. The keys `look`
-//! (`classic`, `handDrawn`, `neo`) and `handDrawnSeed` are honoured from the
-//! frontmatter `config` mapping, `%%{init}%%` directives, and
-//! `LayoutOptions::config`, in that order of increasing precedence; other keys
-//! await the shared config resolver. Icon packs come from
+//! Parsing, checking, layout, and rendering cover all registered diagram kinds.
+//! Config text is checked against the shared mapping grammar and key registry.
+//! Source limits (`maxTextSize`, `maxEdges`), font selection (`fontFamily`),
+//! `look` (`classic`, `handDrawn`, `neo`), and `handDrawnSeed` are resolved from
+//! the frontmatter `config` mapping, `%%{init}%%` directives, and
+//! `LayoutOptions::config`, in that order of increasing precedence. Per-call
+//! overrides recompute limit and font diagnostics without changing the document.
+//! A nonempty font family uses conservative Inter measurements for vector layout
+//! and is emitted in SVG font text. Icon packs come from
 //! `LayoutOptions::icon_packs`, and `layout_with_diagnostics` returns the
 //! layout-stage diagnostics, such as `icon/pack-missing`. SVG path text needs
 //! `SvgOptions::outlines`; `raster::inter_outlines` builds embedded Inter outlines.
@@ -46,7 +47,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::disallowed_methods, clippy::disallowed_types)]
 
-mod config;
+pub mod config;
 mod document;
 mod outlines;
 mod public_render;

@@ -2,6 +2,10 @@ use super::*;
 
 pub(super) fn diagnostic_row(code: &str) -> (&'static str, &'static str) {
     match code {
+        "limit/nesting-depth" => (
+            "nesting depth exceeds 64",
+            "Reduce the nesting to 64 levels or fewer.",
+        ),
         "flowchart/unexpected-token" => (
             "unexpected TOKEN, expected one of: LIST",
             "Remove the token, or replace it with one of the listed tokens.",

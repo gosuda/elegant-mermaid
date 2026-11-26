@@ -191,7 +191,7 @@ func (p *quadPlan) metric(role measure.Role, size int32) measure.Metric {
 	if p.cell {
 		return measure.CellMetric()
 	}
-	return measure.Metric{Profile: measure.ProfileVector, SizePx: size, Weight: role.Weight()}
+	return measure.Metric{Profile: measure.ProfileVector, SizePx: size, Weight: role.Weight(), FontFamily: p.o.FontFamily != ""}
 }
 
 func (p *quadPlan) styleOf(s quadLabel) (measure.Role, int32) {

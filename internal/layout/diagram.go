@@ -98,7 +98,9 @@ type Diagram struct {
 	architecture       *archmodel.Model
 	treeview           *treeviewModel
 	sankey             *sankeymodel.Model
-	look               syntax.Look
+	config             syntax.EffectiveConfig
+	baseDiagnostics    []diag.Diagnostic
+	edgeSpans          []source.Span
 }
 
 func ParseDiagram(src []byte) *Diagram {
@@ -109,11 +111,13 @@ func ParseDiagram(src []byte) *Diagram {
 	if bad >= 0 {
 		d.Diagnostics = append(d.Diagnostics, diag.Diagnostic{Code: "source/invalid-utf8", Severity: diag.SeverityError, Message: fmt.Sprintf("invalid UTF-8 at byte %d", bad), Span: source.Span{Start: bad, End: bad + 3}, Help: "Save the source as UTF-8."})
 	}
-	var lookDiags []diag.Diagnostic
-	d.look, lookDiags = syntax.ReadLook(d.configMappings()...)
-	d.Diagnostics = append(d.Diagnostics, lookDiags...)
+	var configDiags []diag.Diagnostic
+	d.config, configDiags = syntax.ReadEffectiveConfig(d.configMappings()...)
+	d.Diagnostics = append(d.Diagnostics, configDiags...)
 	d.resolve()
-	diag.Sort(d.Diagnostics)
+	d.edgeSpans = d.resolvedEdgeSpans()
+	d.baseDiagnostics = d.Diagnostics
+	d.Diagnostics = d.DiagnosticsFor(d.config)
 	return d
 }
 
@@ -174,10 +178,15 @@ func (d *Diagram) Supported() bool {
 }
 
 func (d *Diagram) Input(profile scene.Profile, options scene.Options) (Input, error) {
+	return d.InputConfigured(profile, options, d.config)
+}
+
+func (d *Diagram) InputConfigured(profile scene.Profile, options scene.Options, config syntax.EffectiveConfig) (Input, error) {
 	binding, ok := kindBindings[d.Kind]
 	if !ok {
 		return Input{}, fmt.Errorf("unsupported diagram kind: %s", d.Kind)
 	}
+	options.FontFamily = config.FontFamily
 	input, diagnostics, err := binding.input(d, profile, options)
 	if err != nil {
 		return Input{}, err
@@ -187,6 +196,7 @@ func (d *Diagram) Input(profile scene.Profile, options scene.Options) (Input, er
 			return Input{}, fmt.Errorf("%s: %s", diagnostic.Code, diagnostic.Message)
 		}
 	}
+	input.Options = withFontFamily(input.Options, config.FontFamily)
 	return input, nil
 }
 

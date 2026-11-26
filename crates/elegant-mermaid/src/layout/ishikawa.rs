@@ -29,7 +29,7 @@ pub fn from_ishikawa(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config.clear();
+    options.set_kind_config(Default::default());
     options.profile = profile;
     options.direction = Direction::Tb;
     let mut input = Input {
@@ -270,7 +270,8 @@ impl<'a> Plan<'a> {
     }
 
     fn measure(&mut self) -> Result<(), GeomError> {
-        let metric = metric(self.input.profile);
+        let metric =
+            crate::scene::configured_metric(metric(self.input.profile), &self.input.options.config);
         let max_width = match self.input.profile {
             Profile::Cell => i32::try_from(self.input.options.max_width).unwrap_or(i32::MAX),
             Profile::Vector => 0,

@@ -57,9 +57,11 @@ fn element_id(model: &Model, index: usize) -> String {
 
 fn append_box(input: &mut Input, id: String, rows: Vec<String>) -> Result<(), GeomError> {
     let text = rows.join("\n");
-    input
-        .sizes
-        .push(SizeRule::Content(table_size(&text, input.profile)?));
+    input.sizes.push(SizeRule::Content(table_size(
+        &text,
+        input.profile,
+        crate::scene::has_font_family(&input.options.config),
+    )?));
     input.labels.push(Label {
         id: format!("{id}.label"),
         owner: id.clone(),
@@ -150,11 +152,16 @@ fn line_height(profile: Profile) -> i32 {
     }
 }
 
-fn metric(profile: Profile) -> crate::measure::Metric {
-    if profile == Profile::Cell {
+fn metric(profile: Profile, font_family: bool) -> crate::measure::Metric {
+    let metric = if profile == Profile::Cell {
         crate::measure::Metric::Cell
     } else {
         crate::measure::Metric::for_role(crate::measure::Role::Label)
+    };
+    if font_family {
+        metric.with_font_family()
+    } else {
+        metric
     }
 }
 
@@ -165,16 +172,19 @@ fn metric(profile: Profile) -> crate::measure::Metric {
 /// piece yields no line.
 fn piece_lines<'a>(
     piece: &'a str,
-    profile: Profile,
+    metric: crate::measure::Metric,
 ) -> Result<Vec<crate::measure::StyledLine<'a>>, GeomError> {
-    crate::measure::styled_lines(piece, i32::MAX, metric(profile))
+    crate::measure::styled_lines(piece, i32::MAX, metric)
 }
 
 /// The scene runs of one structural row piece: one line per styled line,
 /// each carrying its bold and italic flags. An empty piece keeps one empty
 /// plain line, so plain rows emit exactly what `Run::plain` emitted.
-fn run_lines(piece: &str, profile: Profile) -> Result<Vec<Vec<crate::scene::Run>>, GeomError> {
-    let lines = piece_lines(piece, profile)?;
+fn run_lines(
+    piece: &str,
+    metric: crate::measure::Metric,
+) -> Result<Vec<Vec<crate::scene::Run>>, GeomError> {
+    let lines = piece_lines(piece, metric)?;
     let mapped = lines
         .iter()
         .map(|line| {
@@ -207,12 +217,13 @@ fn layout_error(error: GeomError) -> super::layered::LayoutError {
     }
 }
 
-fn table_size(text: &str, profile: Profile) -> Result<Size, GeomError> {
+fn table_size(text: &str, profile: Profile, font_family: bool) -> Result<Size, GeomError> {
+    let metric = metric(profile, font_family);
     let mut width = 0i32;
     let mut rows = 0i32;
     let padding_y = constant(profile, "padding_y")?;
     for piece in text.split('\n') {
-        let lines = piece_lines(piece, profile)?;
+        let lines = piece_lines(piece, metric)?;
         rows = rows
             .checked_add(i32::try_from(lines.len().max(1)).map_err(|_| GeomError::Overflow)?)
             .ok_or(GeomError::Overflow)?;
@@ -265,7 +276,12 @@ fn table_scene(
         let Some(bounds) = scene.boxes().iter().find(|bounds| bounds.id == node.id) else {
             continue;
         };
-        group.items = table_items(&node.text, bounds.rect, input.profile)?;
+        group.items = table_items(
+            &node.text,
+            bounds.rect,
+            input.profile,
+            crate::scene::has_font_family(&input.options.config),
+        )?;
     }
     Ok(crate::scene::Scene::new(
         scene.canvas(),
@@ -278,8 +294,10 @@ fn table_items(
     text: &str,
     rect: Rect,
     profile: Profile,
+    font_family: bool,
 ) -> Result<Vec<crate::scene::Item>, super::layered::LayoutError> {
     use crate::scene::*;
+    let metric = metric(profile, font_family);
     let padding_x = constant(profile, "padding_x")?;
     let padding_y = constant(profile, "padding_y")?;
     let pieces: Vec<&str> = text.split('\n').collect();
@@ -289,7 +307,7 @@ fn table_items(
     };
     let rows = pieces
         .iter()
-        .map(|piece| run_lines(piece, profile).map_err(layout_error))
+        .map(|piece| run_lines(piece, metric).map_err(layout_error))
         .collect::<Result<Vec<_>, super::layered::LayoutError>>()?;
     let header_rows = rows.iter().take(2).try_fold(0i32, |sum, lines| {
         let count = i32::try_from(lines.len()).map_err(|_| GeomError::Overflow)?;
@@ -454,6 +472,7 @@ mod tests {
                 h: 5120,
             },
             Profile::Vector,
+            false,
         )
         .map_err(|_| "table items")?;
         let dividers = items
@@ -523,7 +542,7 @@ mod tests {
             h: 4000,
         };
         let lines_of = |source: &str| -> Result<Vec<Vec<Vec<crate::scene::Run>>>, &'static str> {
-            let items = table_items(source, rect, Profile::Vector).map_err(|_| "items")?;
+            let items = table_items(source, rect, Profile::Vector, false).map_err(|_| "items")?;
             Ok(items
                 .iter()
                 .filter_map(|item| match item {
@@ -577,7 +596,7 @@ mod tests {
         let star = crate::measure::vector_width("*x", 14, crate::measure::Weight::Semibold)
             .map_err(|_| "width")?;
         assert_eq!(
-            table_size(r"\*x", profile).map_err(|_| "size")?,
+            table_size(r"\*x", profile, false).map_err(|_| "size")?,
             Size {
                 w: star + px,
                 h: height + py
@@ -588,7 +607,7 @@ mod tests {
         let b = crate::measure::vector_width("b", 14, crate::measure::Weight::Semibold)
             .map_err(|_| "width")?;
         assert_eq!(
-            table_size("a<br>b", profile).map_err(|_| "size")?,
+            table_size("a<br>b", profile, false).map_err(|_| "size")?,
             Size {
                 w: a.max(b) + px,
                 h: 2 * height + py
@@ -603,6 +622,7 @@ mod tests {
                 h: 20000,
             },
             profile,
+            false,
         )
         .map_err(|_| "items")?;
         let dividers = items
@@ -675,7 +695,7 @@ mod tests {
     #[test]
     fn vector_table_uses_measured_width_and_single_padding() -> Result<(), &'static str> {
         let profile = Profile::Vector;
-        let size = table_size("A\nB", profile).map_err(|_| "table size")?;
+        let size = table_size("A\nB", profile, false).map_err(|_| "table size")?;
         let a = crate::measure::vector_width("A", 14, crate::measure::Weight::Semibold)
             .map_err(|_| "A width")?;
         let b = crate::measure::vector_width("B", 14, crate::measure::Weight::Semibold)
@@ -738,6 +758,7 @@ mod tests {
                 h: 5,
             },
             Profile::Cell,
+            false,
         )
         .map_err(|_| "table items")?;
         let text = items

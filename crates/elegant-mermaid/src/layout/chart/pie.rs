@@ -207,12 +207,12 @@ pub(super) fn role_of(label: &Label) -> (Role, i32) {
     }
 }
 
-fn measure_text(label: &Label) -> Result<TextBox, LayoutError> {
+fn measure_text(label: &Label, font_family: bool) -> Result<TextBox, LayoutError> {
     let (role, size) = role_of(label);
     let metric = Metric::Vector {
         size_px: size,
         weight: role.weight(),
-        font_family: false,
+        font_family,
     };
     let lines = measure::styled_lines(&label.text, i32::MAX, metric)?;
     let widest = lines
@@ -436,7 +436,7 @@ impl<'a> PiePlan<'a> {
         self.texts = self
             .labels
             .iter()
-            .map(measure_text)
+            .map(|label| measure_text(label, crate::scene::has_font_family(&self.payload.config)))
             .collect::<Result<_, _>>()?;
         Ok(())
     }

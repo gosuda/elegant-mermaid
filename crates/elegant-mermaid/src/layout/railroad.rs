@@ -45,7 +45,7 @@ pub fn from_railroad(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config.clear();
+    options.set_kind_config(Default::default());
     let mut input = Input {
         kind: KIND,
         profile,
@@ -221,6 +221,7 @@ pub fn layout(input: &Input) -> Result<(Scene, bool), LayoutError> {
     } else {
         Metric::for_role(Role::Label)
     };
+    let metric = crate::scene::configured_metric(metric, &input.options.config);
     let scene = place::layout(
         &rules,
         Params {

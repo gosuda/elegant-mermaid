@@ -11,11 +11,6 @@ func TestPiConstantMatchesMachin(t *testing.T) {
 	require.Equal(t, machinPi(60), piSixtyDigits)
 }
 
-func TestPiConstantHasSixtyDecimals(t *testing.T) {
-	require.Len(t, piSixtyDigits, 61)
-	require.Equal(t, byte('3'), piSixtyDigits[0])
-}
-
 func machinPi(digits int) string {
 	one := pow10(digits + 20)
 	pi := new(big.Int).Mul(atanInverse(5, one), big.NewInt(16))

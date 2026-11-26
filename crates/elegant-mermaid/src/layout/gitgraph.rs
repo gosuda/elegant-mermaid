@@ -31,11 +31,13 @@ pub(crate) fn from_gitgraph(
     profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = model
-        .config
-        .iter()
-        .map(|(key, value)| (key.clone(), DumpValue::Bool(*value)))
-        .collect();
+    options.set_kind_config(
+        model
+            .config
+            .iter()
+            .map(|(key, value)| (key.clone(), DumpValue::Bool(*value)))
+            .collect(),
+    );
     options.profile = profile;
     let mut author = Author {
         model,
@@ -321,7 +323,7 @@ impl Decoded {
     ) -> Result<(), LayoutError> {
         let commit_labels = config_flag(&input.options, SHOW_COMMIT_IDS, true);
         for label in &input.labels {
-            let text = measure_text(input.profile, label)?;
+            let text = measure_text(input, label)?;
             if let Some(&lane) = lane_at.get(label.owner.as_str()) {
                 self.graph.branches[lane].label = Some(text);
                 self.slots.push(Slot::Branch(lane));
@@ -373,7 +375,8 @@ fn line_height(profile: Profile) -> Result<i32, LayoutError> {
         .ok_or(LayoutError::Domain)
 }
 
-fn measure_text(profile: Profile, label: &InputLabel) -> Result<Text, LayoutError> {
+fn measure_text(input: &Input, label: &InputLabel) -> Result<Text, LayoutError> {
+    let profile = input.profile;
     let height = line_height(profile)?;
     let metric = if profile == Profile::Cell {
         Metric::cell()
@@ -382,6 +385,7 @@ fn measure_text(profile: Profile, label: &InputLabel) -> Result<Text, LayoutErro
     } else {
         Metric::for_role(Role::Label)
     };
+    let metric = crate::scene::configured_metric(metric, &input.options.config);
     let lines =
         measure::styled_lines(&label.text, i32::MAX, metric).map_err(|_| LayoutError::Overflow)?;
     let widest = lines.iter().map(|line| line.width).max().unwrap_or(0);

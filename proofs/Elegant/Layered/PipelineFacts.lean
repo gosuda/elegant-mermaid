@@ -4266,7 +4266,7 @@ theorem placeComponent_routes_bounds_of_run
     (h : PipelineImpl.layout inp o = .ok result) :
     ∃ P metric lines measured graph mid packed straight,
       PipelineImpl.checkedParams o.profile inp.kind = .ok P ∧
-      PipelineImpl.metricOf o.profile = .ok metric ∧
+      PipelineImpl.metricOf o.profile o.fontFamily = .ok metric ∧
       PipelineImpl.boxLines metric
         (Measure.wrapTarget metric.profile P.wrapWidth
           (if o.profile == .cell then o.maxWidth else 0)) inp = .ok lines ∧

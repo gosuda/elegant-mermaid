@@ -5,18 +5,21 @@ pub struct Parsed {
     pub kind: Option<DiagramKind>,
     pub diagnostics: Vec<diag::Diagnostic>,
     pub model: Option<model::Resolved>,
+    pub config: elegant_mermaid::config::EffectiveConfig,
 }
 pub fn parse(bytes: &[u8]) -> Parsed {
     let document = elegant_mermaid::parse_bytes(bytes);
     let source = document.source().to_owned();
     let kind = document.kind();
     let diagnostics = document.diagnostics().to_vec();
+    let config = document.config().clone();
     let model = document.into_resolved();
     Parsed {
         source,
         kind,
         diagnostics,
         model,
+        config,
     }
 }
 pub fn has_errors(ds: &[diag::Diagnostic]) -> bool {

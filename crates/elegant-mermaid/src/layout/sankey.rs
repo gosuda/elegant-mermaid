@@ -11,7 +11,7 @@ pub(crate) fn from_sankey(
     _profile: Profile,
     mut options: DumpOptions,
 ) -> Result<Input, GeomError> {
-    options.config = model.config.clone();
+    options.set_kind_config(model.config.clone());
     options.profile = Profile::Vector;
     let skeleton = sankey::skeleton(model)?;
     let boxes = skeleton

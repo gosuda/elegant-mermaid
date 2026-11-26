@@ -209,7 +209,7 @@ def layout (m : Model) : Except LayoutFailure Layered.FamilyResult :=
   | none => do
     if !treeRelations m then throw (.geometry .domain)
     let c ← liftGeometry (load m)
-    let metric ← liftGeometry (labelMetric m.options.profile)
+    let metric ← liftGeometry (labelMetric m.options.profile m.options.fontFamily)
     let measured ← liftGeometry (m.boxes.mapM (measureBox m c metric))
     let ps := parents m
     let nodes : List Tree.Node := (measured.zip ps).map fun (s, p) => ⟨p, s.width, s.height⟩

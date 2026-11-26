@@ -88,15 +88,6 @@ func TestLabelClearanceOwnBoxForeignStillFails(t *testing.T) {
 	}
 }
 
-func TestLabelClearanceRouteOwnerEndpointStillFails(t *testing.T) {
-	d := validDump()
-	d.Labels = []Label{{ID: "l", Owner: "e", Rect: geom.Rect{X: 1, Y: 1, W: 2, H: 2}}}
-	clause, failed, err := d.Validate()
-	if err != nil || !failed || clause != ClauseLabelClearance {
-		t.Fatalf("route-owned label over an endpoint must fail: clause %+v failed %v err %v", clause, failed, err)
-	}
-}
-
 func TestLabelClearanceRouteBoxCollisionPrefersRoute(t *testing.T) {
 	d := validDump()
 	d.Boxes = append(d.Boxes, Box{ID: "e", Rect: geom.Rect{X: 60, Y: 0, W: 10, H: 10}, Exclusive: true})

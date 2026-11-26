@@ -5,6 +5,7 @@ use std::io::IsTerminal;
 pub struct Options {
     pub input: String,
     pub output: String,
+    pub artefact_dir: Option<String>,
     pub format: String,
     pub theme: String,
     pub background: String,
@@ -122,6 +123,7 @@ fn known(command: &str, name: &str) -> bool {
             [
                 "i",
                 "o",
+                "a",
                 "s",
                 "e",
                 "t",
@@ -139,6 +141,10 @@ fn set(o: &mut Options, name: &str, value: &str) -> Result<(), UsageError> {
     let target = match name {
         "i" => &mut o.input,
         "o" => &mut o.output,
+        "a" => {
+            o.artefact_dir = Some(value.to_owned());
+            return Ok(());
+        }
         "e" | "output-format" => &mut o.format,
         "t" => &mut o.theme,
         "b" => &mut o.background,
@@ -203,10 +209,12 @@ fn infer(output: &str) -> Result<String, UsageError> {
         }
         .into());
     }
-    match std::path::Path::new(output)
-        .extension()
-        .and_then(|s| s.to_str())
-    {
+    let suffix = output
+        .rsplit(std::path::is_separator)
+        .next()
+        .and_then(|name| name.rsplit_once('.'))
+        .map(|(_, suffix)| suffix);
+    match suffix {
         Some("svg") => Ok("svg".into()),
         Some("txt") => Ok("text".into()),
         Some("png") => Ok("png".into()),

@@ -5,6 +5,7 @@ pub mod c4;
 pub mod chart;
 pub mod class;
 pub mod cynefin;
+mod edges;
 pub mod er;
 pub mod eventmodeling;
 pub mod flowchart;

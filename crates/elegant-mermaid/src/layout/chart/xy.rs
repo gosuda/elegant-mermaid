@@ -112,6 +112,7 @@ pub(crate) struct XyPlan<'a> {
     pub xy: &'a Xy,
     pub c: Consts,
     pub cell: bool,
+    font_family: bool,
     pub x: Axis,
     pub y: Axis,
     pub capped: bool,
@@ -163,6 +164,7 @@ impl<'a> XyPlan<'a> {
             xy,
             c,
             cell: profile == Profile::Cell,
+            font_family: crate::scene::has_font_family(&chart.config),
             x,
             y,
             capped,
@@ -231,7 +233,7 @@ impl<'a> XyPlan<'a> {
             Metric::Vector {
                 size_px: size,
                 weight: role.weight(),
-                font_family: false,
+                font_family: self.font_family,
             }
         }
     }

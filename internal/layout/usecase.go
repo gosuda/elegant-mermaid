@@ -168,7 +168,7 @@ func usecaseFamilyInput(in Input) (layered.Input, error) {
 	input.Sizes = make([]geom.Size, len(in.Boxes))
 	input.Exact = make([]bool, len(in.Boxes))
 	for i, b := range in.Boxes {
-		size, exact, err := usecaseNodeSize(b, in.Profile)
+		size, exact, err := usecaseNodeSize(b, in.Profile, in.Options.FontFamily)
 		if err != nil {
 			return layered.Input{}, err
 		}
@@ -177,12 +177,12 @@ func usecaseFamilyInput(in Input) (layered.Input, error) {
 	return input, nil
 }
 
-func usecaseNodeSize(b Box, profile scene.Profile) (geom.Size, bool, error) {
+func usecaseNodeSize(b Box, profile scene.Profile, fontFamily string) (geom.Size, bool, error) {
 	spec := parseUsecaseShape(b.Shape)
 	if !spec.isActor() && spec.id != "usecaseEllipse" && spec.id != "usecaseBusiness" {
 		return geom.Size{}, false, nil
 	}
-	lines, err := measure.StyledLines(b.Text, usecaseConstant(profile, "usecase.wrapping_width"), usecaseMetric(profile))
+	lines, err := measure.StyledLines(b.Text, usecaseConstant(profile, "usecase.wrapping_width"), usecaseMetric(profile).WithFontFamily(fontFamily))
 	if err != nil {
 		return geom.Size{}, false, err
 	}

@@ -7,6 +7,7 @@ mod kernel_eval;
 mod layout;
 mod lint;
 mod options;
+mod output;
 mod paths;
 mod render;
 mod report;
@@ -107,7 +108,7 @@ fn environment() -> view::Environment {
 }
 fn render_help() -> String {
     format!(
-        "Render Mermaid as SVG, PNG, or terminal text\nUsage: emd render [INPUT] [-i INPUT] [-o OUTPUT] [-e svg|png|text] [-t THEME] [-b BACKGROUND] [-s SCALE] [--charset unicode|ascii] [--color auto|always|never] [--width COLS] [--svg-text font|paths] [--icon-pack FILE]... [-c CONFIG]\nDefaults: input stdin; output stdout; format inferred from -o (.svg, .png, .txt), else text on a terminal and svg otherwise; theme elegant-light (elegant-dark on a dark terminal for text); background theme bg; scale 2 (1 to 8, PNG pixels per px); charset unicode; color auto; width 0; svg-text font (paths draws glyph outlines, so the viewer needs no font); icon packs none; config none. Themes: {}. PNG needs -o FILE.png or a redirected stdout. -c reads upstream config text (a block mapping); --icon-pack reads an Iconify JSON file and may repeat.\nExample: emd render demo.mmd -e text\n",
+        "Render Mermaid as SVG, PNG, or terminal text\nUsage: emd render [INPUT] [-i INPUT] [-o OUTPUT] [-e svg|png|text] [-t THEME] [-b BACKGROUND] [-s SCALE] [--charset unicode|ascii] [--color auto|always|never] [--width COLS] [--svg-text font|paths] [--icon-pack FILE]... [-c CONFIG] [-a ARTEFACT_DIR]\nDefaults: input stdin; output stdout; format inferred from -o (.svg, .png, .txt), else text on a terminal and svg otherwise; theme elegant-light (elegant-dark on a dark terminal for text); background theme bg; scale 2 (1 to 8, PNG pixels per px); charset unicode; color auto; width 0; svg-text font (paths draws glyph outlines, so the viewer needs no font); icon packs none; config none; artefact directory none. Themes: {}. PNG needs -o FILE.png or a redirected stdout. -c reads upstream config text (a block mapping); --icon-pack reads an Iconify JSON file and may repeat. Markdown input needs -o or -a; -o HOST.md rewrites the host with image links, using SVG unless -e png is given. -a selects the image directory.\nExample: emd render demo.mmd -e text\n",
         elegant_mermaid::theme::names().join(", ")
     )
 }

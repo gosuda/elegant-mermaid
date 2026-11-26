@@ -77,10 +77,12 @@ def tableOfText (text : String) : Option Table := tableOfChars text.toList
 
 /-- The metric of compartment `index`: the cell metric in the cell profile; in the vector profile
 the heading (compartment 0) is label text and the member compartments are body text. -/
-def compartmentMetric : Profile → Nat → Except LayoutError Measure.Metric
+def compartmentMetric (profile : Profile) (index : Nat) (fontFamily : Bool := false) :
+    Except LayoutError Measure.Metric :=
+  match profile, index with
   | .cell, _ => pure Measure.Metric.cell
-  | .vector, 0 => Measure.Role.label.metric
-  | .vector, _ => Measure.Role.body.metric
+  | .vector, 0 => Measure.Role.label.metric fontFamily
+  | .vector, _ => Measure.Role.body.metric fontFamily
 
 /-- The lines of one row, wrapped without a width limit; a row with no line keeps one empty line. -/
 def rowLines (metric : Measure.Metric) (row : String) : Except LayoutError (List Measure.Line) :=
@@ -101,21 +103,21 @@ def measureCompartment (metric : Measure.Metric) :
       | .ok rest => .ok (lines ++ rest)
 
 /-- The measured lines of the heading, attribute, and method compartments, measured in order. -/
-def measureTable (profile : Profile) (t : Table) :
+def measureTable (profile : Profile) (t : Table) (fontFamily : Bool := false) :
     Except LayoutError (List (List Measure.Line)) :=
-  match compartmentMetric profile 0 with
+  match compartmentMetric profile 0 fontFamily with
   | .error e => .error e
   | .ok m0 =>
     match measureCompartment m0 t.head with
     | .error e => .error e
     | .ok head =>
-      match compartmentMetric profile 1 with
+      match compartmentMetric profile 1 fontFamily with
       | .error e => .error e
       | .ok m1 =>
         match measureCompartment m1 t.attributes with
         | .error e => .error e
         | .ok attributes =>
-          match compartmentMetric profile 2 with
+          match compartmentMetric profile 2 fontFamily with
           | .error e => .error e
           | .ok m2 =>
             match measureCompartment m2 t.methods with
@@ -152,8 +154,8 @@ def tableSize (profile : Profile) (compartments : List (List Measure.Line)) :
       ((compartments.length : Int) - 1) * LayoutConst.class_separator.get profile +
       (if profile = .cell then 2 else 0))
 
-def classSize (profile : Profile) (t : Table) : Except LayoutError Size :=
-  match measureTable profile t with
+def classSize (profile : Profile) (t : Table) (fontFamily : Bool := false) : Except LayoutError Size :=
+  match measureTable profile t fontFamily with
   | .error e => .error e
   | .ok compartments => tableSize profile compartments
 
@@ -167,7 +169,7 @@ def classSizes (m : Model) : Except LayoutError (List (String × Size)) :=
     match boxTable m b with
     | none => pure none
     | some t =>
-      let size ← classSize m.options.profile t
+      let size ← classSize m.options.profile t m.options.fontFamily
       let minW := LayoutConst.node_min_w.get m.options.profile
       let minH := LayoutConst.node_min_h.get m.options.profile
       pure (some (b.id, ⟨max size.w minW, max size.h minH⟩))
@@ -234,7 +236,7 @@ def decorateGroup (m : Model) (s : Scene) (group : Group) : Except LayoutError G
     match boxTable m b with
     | some t =>
       if group.role = .node then
-        match measureTable m.options.profile t with
+        match measureTable m.options.profile t m.options.fontFamily with
         | .error e => .error e
         | .ok compartments =>
           .ok { group with items := classPrimitives m.options.profile placed.rect compartments }

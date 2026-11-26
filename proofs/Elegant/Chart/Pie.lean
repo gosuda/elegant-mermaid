@@ -180,7 +180,8 @@ def layout (m : Model) : Except LayoutError Scene := do
     let kind := if l.id == "title" then 0 else if l.id.startsWith "legend." then 2 else 1
     let index := if kind = 2 then ((String.ofList (l.id.toList.drop 7)).toNat?).getD 0
       else ((String.ofList ((l.owner.toList).drop 1)).toNat?).getD 0
-    let metric ← if kind = 0 then Measure.Role.title.metric else Measure.Role.label.metric
+    let metric ← if kind = 0 then Measure.Role.title.metric m.options.fontFamily
+      else Measure.Role.label.metric m.options.fontFamily
     let lines ← Kinds.Common.unwrapped metric l.text
     let w := Kinds.Common.widest lines
     let h := (lines.length : Int) * (if kind = 0 then 1536 else 1280)

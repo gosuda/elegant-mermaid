@@ -97,9 +97,9 @@ def fit (width height : Int) (r : Rect) : Rect :=
     x := clamp r.x 0 (max (width-r.w) 0)
     y := clamp r.y 0 (max (height-r.h) 0) }
 
-def measure (width : Int) (l : ModelLabel) : Except LayoutError Item := do
+def measure (width : Int) (l : ModelLabel) (fontFamily : Bool := false) : Except LayoutError Item := do
   let role := if l.id == "title" then Measure.Role.title else Measure.Role.label
-  let metric ← XY.metricOf false role role.sizePx
+  let metric ← XY.metricOf false role role.sizePx fontFamily
   let lines ← match StyledMeasure.wrap metric width l.text.toList with
     | .error _ => throw .overflow
     | .ok ls => pure ls
@@ -204,7 +204,7 @@ def layoutCore (m : Model) : Except LayoutError Result := do
     (config m "width" (Int.fdiv (LayoutConst.venn_width.get .vector) 64))
     (config m "height" (Int.fdiv (LayoutConst.venn_height.get .vector) 64))) 4 * 64
   let width := 4*radius
-  let items ← m.labels.mapM (measure width)
+  let items ← m.labels.mapM (measure (fontFamily := m.options.fontFamily) width)
   let band := ((items.find? (fun i => i.label.id == "title")).map (·.box.h)).getD 0
   let width := items.foldl (fun w it => max w it.box.w) width
   let height := 4*radius+band

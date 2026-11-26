@@ -7,7 +7,7 @@ import (
 )
 
 func wrapLabel(text, kind string, o scene.Options) ([]measure.StyledLine, error) {
-	metric := metricFor(o.Profile)
+	metric := metricFor(o.Profile).WithFontFamily(o.FontFamily)
 	maxWidth := int32(0)
 	if o.Profile == scene.ProfileCell {
 		maxWidth = o.MaxWidth

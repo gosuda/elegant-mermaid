@@ -1,6 +1,8 @@
 package layout
 
 import (
+	"slices"
+
 	"github.com/gosuda/elegant-mermaid/internal/diag"
 	"github.com/gosuda/elegant-mermaid/internal/gen"
 	"github.com/gosuda/elegant-mermaid/internal/geom"
@@ -12,6 +14,19 @@ import (
 
 func FromAgentflow(m *agentflowmodel.Model, profile scene.Profile, options scene.Options) (Input, []diag.Diagnostic, error) {
 	options = resolveOptions(options)
+	options.Config = slices.DeleteFunc(slices.Clone(options.Config), func(entry scene.Config) bool {
+		return entry.Key == "flowchart.padding"
+	})
+	if m.PaddingSet {
+		if m.Padding < 0 {
+			return Input{}, nil, geom.ErrDomain
+		}
+		padding, err := agentflowCheckedI32(int64(m.Padding))
+		if err != nil {
+			return Input{}, nil, err
+		}
+		options.Config = append(options.Config, scene.ConfigInt("flowchart.padding", padding))
+	}
 	direction, _ := scene.ParseDirection(m.Direction)
 	in := Input{
 		Kind:      "agentflow",
@@ -46,7 +61,7 @@ func appendAgentflowNode(in *Input, m *agentflowmodel.Model, index int) error {
 		return nil
 	}
 	node := &m.Nodes[index]
-	text, size, err := agentflowContent(node.Label, m, in.Profile)
+	text, size, err := agentflowContent(node.Label, node.Shape, m, in.Profile, in.Options.FontFamily)
 	if err != nil {
 		return err
 	}
@@ -73,7 +88,7 @@ func appendAgentflowGroup(in *Input, m *agentflowmodel.Model, index int) error {
 		return nil
 	}
 	collapsed := agentflowCollapsed(&group.Appearance)
-	text, size, err := agentflowContent(group.Title, m, in.Profile)
+	text, size, err := agentflowContent(group.Title, "", m, in.Profile, in.Options.FontFamily)
 	if err != nil {
 		return err
 	}
@@ -84,7 +99,10 @@ func appendAgentflowGroup(in *Input, m *agentflowmodel.Model, index int) error {
 		if err != nil {
 			return err
 		}
-		size.H += agentflowLineHeight(in.Profile) + padY
+		size.H, err = agentflowCheckedI32(int64(size.H) + int64(agentflowLineHeight(in.Profile)) + int64(padY))
+		if err != nil {
+			return err
+		}
 	}
 	in.Boxes = append(in.Boxes, Box{ID: group.ID, Role: role, Shape: shape, Parent: group.Parent, Exclusive: exclusive, Direction: group.Direction, Text: text})
 	if !collapsed {
@@ -148,12 +166,12 @@ func agentflowLineHeight(profile scene.Profile) int32 {
 	return measure.RoleLabel.LineHeightPx() * 64
 }
 
-func agentflowMeasured(text string, profile scene.Profile) (int32, int32, error) {
+func agentflowMeasured(text string, profile scene.Profile, fontFamily string) (int32, int32, error) {
 	target, err := agentflowConstant(profile, "wrapping_width")
 	if err != nil {
 		return 0, 0, err
 	}
-	lines, err := measure.StyledLines(text, target, agentflowMetric(profile))
+	lines, err := measure.StyledLines(text, target, agentflowMetric(profile).WithFontFamily(fontFamily))
 	if err != nil {
 		return 0, 0, err
 	}
@@ -168,8 +186,8 @@ func agentflowMeasured(text string, profile scene.Profile) (int32, int32, error)
 	return width, height, nil
 }
 
-func agentflowContent(text string, m *agentflowmodel.Model, profile scene.Profile) (string, geom.Size, error) {
-	width, height, err := agentflowMeasured(text, profile)
+func agentflowContent(text, shape string, m *agentflowmodel.Model, profile scene.Profile, fontFamily string) (string, geom.Size, error) {
+	width, height, err := agentflowMeasured(text, profile, fontFamily)
 	if err != nil {
 		return "", geom.Size{}, err
 	}
@@ -177,13 +195,36 @@ func agentflowContent(text string, m *agentflowmodel.Model, profile scene.Profil
 	if err != nil {
 		return "", geom.Size{}, err
 	}
-	width += 2 * padX
-	height += 2 * padY
+	padX, err = agentflowContentPadding(shape, padX, profile)
+	if err != nil {
+		return "", geom.Size{}, err
+	}
+	width, err = agentflowCheckedI32(int64(width) + 2*int64(padX))
+	if err != nil {
+		return "", geom.Size{}, err
+	}
+	height, err = agentflowCheckedI32(int64(height) + 2*int64(padY))
+	if err != nil {
+		return "", geom.Size{}, err
+	}
 	minWidth, err := agentflowConstant(profile, "min_node_width")
 	if err != nil {
 		return "", geom.Size{}, err
 	}
 	return text, geom.Size{W: max(width, minWidth), H: height}, nil
+}
+
+func agentflowContentPadding(shape string, padding int32, profile scene.Profile) (int32, error) {
+	switch shape {
+	case "subroutine", "subprocess", "subproc", "framed-rectangle":
+		inset, err := agentflowConstant(profile, "padding")
+		if err != nil {
+			return 0, err
+		}
+		return agentflowCheckedI32(int64(padding) + int64(inset))
+	default:
+		return padding, nil
+	}
 }
 
 func agentflowPadding(m *agentflowmodel.Model, profile scene.Profile) (int32, int32, error) {
@@ -194,9 +235,12 @@ func agentflowPadding(m *agentflowmodel.Model, profile scene.Profile) (int32, in
 		}
 		return padding, padding, nil
 	}
-	padding := int32(m.Padding)
-	if padding < 0 {
+	if m.Padding < 0 {
 		return 0, 0, geom.ErrDomain
+	}
+	padding, err := agentflowCheckedI32(int64(m.Padding))
+	if err != nil {
+		return 0, 0, err
 	}
 	if profile == scene.ProfileVector {
 		scaled, err := agentflowCheckedI32(int64(padding) * 64)

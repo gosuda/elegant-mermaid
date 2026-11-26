@@ -957,7 +957,7 @@ theorem placeRule_orthogonal (m : Model) (metric : Measure.Metric)
 theorem layout_orthogonal (m : Model) (rules : List Rule) (s : Scene)
     (h : layout m rules = .ok s) : Validator.C4 s.layoutDump := by
   unfold layout at h
-  cases hm : metricFor m.profile with
+  cases hm : metricFor m.profile m.options.fontFamily with
   | error e => simp [hm,bind,Except.bind] at h
   | ok metric =>
     cases hf : rules.foldlM (placeRule m metric) {y := constant m.profile "margin"} with

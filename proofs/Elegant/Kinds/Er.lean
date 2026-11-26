@@ -68,8 +68,9 @@ def columnWidths (metric : Measure.Metric) (rows : List (List String)) :
 def separator (profile : Profile) : Int := if profile = .cell then 1 else 0
 
 /-- `erTableSize`: the table width and height, floored by `er.min_width` and `er.min_height`. -/
-def tableSize (profile : Profile) (text : String) : Except LayoutError Size := do
-  let metric ← labelMetric profile
+def tableSize (profile : Profile) (text : String) (fontFamily : Bool := false) :
+    Except LayoutError Size := do
+  let metric ← labelMetric profile fontFamily
   let table := parse text
   let columns ← columnWidths metric table.rows
   let rowHeights ← table.rows.mapM (rowHeight profile)
@@ -87,7 +88,7 @@ def isEntity (b : ModelBox) : Bool := b.shape == "erBox"
 
 def sizes (m : Model) : Except LayoutError (List (String × Size)) :=
   (m.boxes.filter isEntity).mapM fun b => do
-    let size ← tableSize m.options.profile (boxText m b)
+    let size ← tableSize m.options.profile (boxText m b) m.options.fontFamily
     pure (b.id, withFamilyMinimum m.options.profile size)
 
 def input (m : Model) (fixed : List (String × Size)) : Layered.Input :=
@@ -124,9 +125,9 @@ def columnTexts (metric : Measure.Metric) (rows : List (List String)) (heights :
 
 /-- The table of one entity: the frame, the heading rule, one rule between neighbouring columns,
 then the heading and the column texts. -/
-def tablePrimitives (profile : Profile) (rect : Rect) (text : String) :
+def tablePrimitives (profile : Profile) (rect : Rect) (text : String) (fontFamily : Bool := false) :
     Except LayoutError (List Primitive) := do
-  let metric ← labelMetric profile
+  let metric ← labelMetric profile fontFamily
   let table := parse text
   let columns ← columnWidths metric table.rows
   let heights ← table.rows.mapM (rowHeight profile)
@@ -157,7 +158,8 @@ def decorateGroup (m : Model) (s : Scene) (group : Group) : Except LayoutError G
       s.boxes.find? (fun b => b.id == group.owner) with
   | some b, some placed =>
     if isEntity b then do
-      pure { group with items := ← tablePrimitives m.options.profile placed.rect (boxText m b) }
+      let items ← tablePrimitives m.options.profile placed.rect (boxText m b) m.options.fontFamily
+      pure { group with items := items }
     else pure group
   | _, _ => pure group
 

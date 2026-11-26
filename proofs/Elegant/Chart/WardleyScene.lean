@@ -142,7 +142,7 @@ def routeGeometry (g : Geometry) (r : ModelRoute) : Except LayoutError Route := 
 def layoutWith (c : Constants) (input : Input) (m : Model) : Except LayoutError Scene := do
   let cell := m.profile == .cell
   let g := arrange c.geometry input
-  let measured ← measureLabels c.fonts cell m.labels
+  let measured ← measureLabels c.fonts cell m.labels m.options.fontFamily
   let (annotationBox, labels) ← placeLabels c.labels cell input g m.routes measured
   let boxes ← m.boxes.mapM fun b => do
     let rect ← boxRect g annotationBox b.id

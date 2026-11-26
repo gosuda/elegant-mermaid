@@ -254,7 +254,8 @@ impl<'a> Plan<'a> {
         let wrap = i32::try_from(self.width).unwrap_or(i32::MAX);
         for item in &mut self.items {
             let role = role_of(item.title);
-            let lines = measure::styled_lines(&item.text, wrap, Metric::for_role(role))?;
+            let metric = crate::scene::configured_metric(Metric::for_role(role), &self.v.config);
+            let lines = measure::styled_lines(&item.text, wrap, metric)?;
             let widest = lines
                 .iter()
                 .map(|line| i64::from(line.width))

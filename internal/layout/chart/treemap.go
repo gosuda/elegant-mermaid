@@ -137,16 +137,17 @@ func flattenTreemap(t *chartmodel.Treemap) []treemapNode {
 }
 
 type treemapPlan struct {
-	c       treemapConsts
-	profile scene.Profile
-	cell    bool
-	title   string
-	nodes   []treemapNode
-	leaves  int
-	canvasW int64
-	canvasH int64
-	capped  bool
-	labels  []treemapLabel
+	c          treemapConsts
+	profile    scene.Profile
+	fontFamily string
+	cell       bool
+	title      string
+	nodes      []treemapNode
+	leaves     int
+	canvasW    int64
+	canvasH    int64
+	capped     bool
+	labels     []treemapLabel
 }
 
 func newTreemapPlan(m *chartmodel.Chart, o scene.Options) (*treemapPlan, error) {
@@ -154,7 +155,7 @@ func newTreemapPlan(m *chartmodel.Chart, o scene.Options) (*treemapPlan, error) 
 	if err != nil {
 		return nil, err
 	}
-	p := &treemapPlan{c: c, profile: o.Profile, cell: o.Profile == scene.ProfileCell, title: m.Title, nodes: flattenTreemap(m.Treemap)}
+	p := &treemapPlan{c: c, profile: o.Profile, fontFamily: o.FontFamily, cell: o.Profile == scene.ProfileCell, title: m.Title, nodes: flattenTreemap(m.Treemap)}
 	if err = p.aggregate(); err != nil {
 		return nil, err
 	}

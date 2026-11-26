@@ -547,16 +547,16 @@ fn shift_rect_by(rect: &mut Rect, axis: Axis, delta: i64) -> Result<(), LayoutEr
 
 fn meets_interior(outer: &Rect, inner: &Rect) -> bool {
     i64::from(outer.x).max(i64::from(inner.x))
-        < i64::from(outer.x + outer.w).min(i64::from(inner.x + inner.w))
+        < (i64::from(outer.x) + i64::from(outer.w)).min(i64::from(inner.x) + i64::from(inner.w))
         && i64::from(outer.y).max(i64::from(inner.y))
-            < i64::from(outer.y + outer.h).min(i64::from(inner.y + inner.h))
+            < (i64::from(outer.y) + i64::from(outer.h)).min(i64::from(inner.y) + i64::from(inner.h))
 }
 
 fn strictly_inside(outer: &Rect, inner: &Rect) -> bool {
     i64::from(outer.x) < i64::from(inner.x)
-        && i64::from(inner.x + inner.w) < i64::from(outer.x + outer.w)
+        && i64::from(inner.x) + i64::from(inner.w) < i64::from(outer.x) + i64::from(outer.w)
         && i64::from(outer.y) < i64::from(inner.y)
-        && i64::from(inner.y + inner.h) < i64::from(outer.y + outer.h)
+        && i64::from(inner.y) + i64::from(inner.h) < i64::from(outer.y) + i64::from(outer.h)
 }
 
 /// The ancestors of a label's owner: the owner box's ancestors for a box label, and
@@ -619,7 +619,7 @@ fn relocate_labels(
 ) -> Result<(), LayoutError> {
     let gap = i64::from(constant(profile, "slot")?);
     let strip = narrow(checked_add(geometry_max(dump, items, axis)?, gap)?)?;
-    let mut moves: Vec<Rect> = Vec::new();
+    let mut moves = Vec::new();
     let offenders: Vec<usize> = {
         let parents: std::collections::BTreeMap<&str, &str> = dump
             .boxes
@@ -646,8 +646,13 @@ fn relocate_labels(
     };
     for index in offenders {
         let label = &mut dump.labels[index];
-        moves.push(label.rect);
-        axis.set_start(&mut label.rect, strip);
+        let after = vacant_label_strip(label.rect, axis, strip, gap, &moves)?;
+        moves.push(LabelRelocation {
+            index,
+            before: label.rect,
+            after,
+        });
+        label.rect = after;
     }
     if moves.is_empty() {
         return Ok(());
@@ -655,13 +660,45 @@ fn relocate_labels(
     for group in items.iter_mut() {
         for item in &mut group.items {
             if let Item::Text(text) = item
-                && moves.contains(&text.rect)
+                && let Some(change) = moves.iter().find(|change| {
+                    group.owner == dump.labels[change.index].owner && text.rect == change.before
+                })
             {
-                axis.set_start(&mut text.rect, strip);
+                text.rect = change.after;
             }
         }
     }
     Ok(())
+}
+
+struct LabelRelocation {
+    index: usize,
+    before: Rect,
+    after: Rect,
+}
+
+fn vacant_label_strip(
+    mut rect: Rect,
+    axis: Axis,
+    strip: i32,
+    gap: i64,
+    moved: &[LabelRelocation],
+) -> Result<Rect, LayoutError> {
+    axis.set_start(&mut rect, strip);
+    loop {
+        let mut next = i64::from(axis.start(rect));
+        for previous in moved {
+            if meets_interior(&rect, &previous.after) {
+                let end =
+                    i64::from(axis.start(previous.after)) + i64::from(axis.len(previous.after));
+                next = next.max(checked_add(end, gap)?);
+            }
+        }
+        if next == i64::from(axis.start(rect)) {
+            return Ok(rect);
+        }
+        axis.set_start(&mut rect, narrow(next)?);
+    }
 }
 
 fn move_group(group: &mut scene::Group, pin: &Pin) -> Result<(), LayoutError> {

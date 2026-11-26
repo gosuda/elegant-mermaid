@@ -52,6 +52,10 @@ pub enum UsageError {
     UnknownFormat { output: String },
     #[error("cannot write PNG to a terminal; use -o FILE.png or redirect stdout to a file")]
     PngToTerminal,
+    #[error("rendering Markdown input requires -o OUTPUT or -a ARTEFACT_DIR")]
+    MarkdownNeedsOutput,
+    #[error("-a requires Markdown input")]
+    ArtefactsNeedMarkdown,
     #[error("--metrics needs --profile vector")]
     MetricsNeedVector,
     #[error("--dump requires --metrics")]

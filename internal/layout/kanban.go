@@ -207,7 +207,7 @@ func (p *kanbanPlan) text(box Box) string {
 }
 
 func (p *kanbanPlan) lines(text string, wrap int32) ([]measure.StyledLine, error) {
-	lines, err := measure.StyledLines(text, max(wrap, 1), sequenceMetric(p.in.Profile, measure.RoleLabel))
+	lines, err := measure.StyledLines(text, max(wrap, 1), sequenceMetric(p.in.Profile, measure.RoleLabel).WithFontFamily(p.in.Options.FontFamily))
 	if err != nil {
 		return nil, geom.ErrOverflow
 	}
