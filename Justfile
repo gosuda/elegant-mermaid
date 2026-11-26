@@ -9,32 +9,45 @@ gen-check:
     go run ./tools/specgen -check
 
 # Go checks: gofmt, go vet, golangci-lint, race tests, govulncheck; accepts `just go-check PKG='./x/...'`
-go-check PKG='./...': build
-    {{ if trim_start_match(PKG, 'PKG=') != './...' { "go test -list '.*' " + trim_start_match(PKG, 'PKG=') + " | grep '^Test' >/dev/null" } else { "true" } }}
-    gofmt -d $(go list -f '{{{{.Dir}}' ./...)
-    test -z "$(gofmt -l $(go list -f '{{{{.Dir}}' ./...))"
-    go vet {{ trim_start_match(PKG, 'PKG=') }}
-    go tool golangci-lint run
-    EMD_BIN="{{ justfile_directory() }}/bin/emd-go" go test -race {{ trim_start_match(PKG, 'PKG=') }}
-    go tool govulncheck ./...
+go-check PKG='./...':
+    @status=0; built=1; \
+    just build-go || { status=1; built=0; }; \
+    {{ if trim_start_match(PKG, 'PKG=') != './...' { "go test -list '.*' " + trim_start_match(PKG, 'PKG=') + " | grep '^Test' >/dev/null" } else { "true" } }} || status=1; \
+    gofmt -d $(go list -f '{{{{.Dir}}' ./...) || status=1; \
+    test -z "$(gofmt -l $(go list -f '{{{{.Dir}}' ./...))" || status=1; \
+    go vet {{ trim_start_match(PKG, 'PKG=') }} || status=1; \
+    go tool golangci-lint run || status=1; \
+    if test "$built" = 1; then EMD_BIN="{{ justfile_directory() }}/bin/emd-go" go test -race {{ trim_start_match(PKG, 'PKG=') }} || status=1; fi; \
+    go tool govulncheck ./... || status=1; \
+    exit "$status"
 
 # Rust checks: fmt, clippy, nextest, cargo-deny, doc tests; accepts `just rust-check FILTER=name`
-rust-check FILTER='': build
-    cargo fmt --check
-    cargo clippy --all-targets --all-features --locked -- -D warnings
-    EMD_BIN="{{ justfile_directory() }}/bin/emd-rs" cargo nextest run --all-features --locked --no-fail-fast {{ trim_start_match(FILTER, 'FILTER=') }} {{ if trim_start_match(FILTER, 'FILTER=') == '' { '--no-tests=pass' } else { '--no-tests=fail' } }}
-    cargo deny --locked check
-    cargo test --doc --locked -p elegant-mermaid
+rust-check FILTER='':
+    @status=0; built=1; \
+    just build-rs || { status=1; built=0; }; \
+    cargo fmt --check || status=1; \
+    cargo clippy --all-targets --all-features --locked -- -D warnings || status=1; \
+    if test "$built" = 1; then EMD_BIN="{{ justfile_directory() }}/bin/emd-rs" cargo nextest run --all-features --locked --no-fail-fast {{ trim_start_match(FILTER, 'FILTER=') }} {{ if trim_start_match(FILTER, 'FILTER=') == '' { '--no-tests=pass' } else { '--no-tests=fail' } }} || status=1; fi; \
+    cargo deny --locked check || status=1; \
+    cargo test --doc --locked --no-fail-fast -p elegant-mermaid || status=1; \
+    exit "$status"
 
 # House lint: upstream standard profile, failing on major findings
 slop:
     sloplint check . --format agent --strictness standard --mode threshold --fail-on major
 
-# Build both binaries: bin/emd-go and bin/emd-rs
-build:
+# Build the Go CLI only: bin/emd-go
+build-go:
     go build -trimpath -o bin/emd-go ./cmd/emd
+
+# Build the Rust CLI only: bin/emd-rs
+build-rs:
+    mkdir -p bin
     cargo build --release --locked -p emd-cli
     cp "${CARGO_TARGET_DIR:-target}/release/emd" bin/emd-rs
+
+# Build both binaries: bin/emd-go and bin/emd-rs
+build: build-go build-rs
 
 # Build both WebAssembly engines into playground/static/wasm
 playground-wasm:

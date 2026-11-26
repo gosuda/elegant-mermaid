@@ -16,7 +16,7 @@ require (
 	github.com/fsnotify/fsnotify v1.10.1
 	golang.org/x/image v0.48.0
 	golang.org/x/sys v0.50.0
-	golang.org/x/term v0.46.0
+	golang.org/x/term v0.48.0
 	pgregory.net/rapid v1.3.0
 )
 

@@ -14,11 +14,14 @@ concurrency:
 
 jobs:
   gates:
+    if: "github.event_name == 'workflow_dispatch' || github.event_name == 'merge_group' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork)"
     runs-on: "depot-ubuntu-24.04"
     timeout-minutes: 30
     steps:
       - name: "Checkout"
         uses: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1" # v7.0.1
+        with:
+          persist-credentials: false
       - name: "Set up Go"
         uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e" # v7.0.0
         with:
@@ -30,12 +33,35 @@ jobs:
         uses: "Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0" # v2.9.3
       - name: "Install gate tools"
         uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
+        id: "setup"
         with:
           tool: "just@1.59.0,cargo-nextest@0.9.151,cargo-deny@0.20.2"
-      - name: "Run the core gates"
+      - name: "Check generated files"
+        if: "!cancelled() && steps.setup.outcome == 'success'"
         run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
           just gen-check
+      - name: "Run the Go gates"
+        if: "!cancelled() && steps.setup.outcome == 'success'"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
           just go-check
-          just rust-check
+      - name: "Run the Rust gates"
+        if: "!cancelled() && steps.setup.outcome == 'success'"
+        run: "just rust-check"
+      - name: "Build both binaries"
+        if: "!cancelled() && steps.setup.outcome == 'success'"
+        id: "build"
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          effective_gocacheprog="$(go env GOCACHEPROG)"
+          test -z "$effective_gocacheprog"
           just build
+      - name: "Run parity"
+        if: "!cancelled() && steps.build.outcome == 'success'"
+        run: |
           just parity
