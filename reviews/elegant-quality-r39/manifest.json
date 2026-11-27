@@ -1,0 +1,224 @@
+{
+  "schema": 1,
+  "purpose": "Inactive, parent-owned execution draft: compare the actual unchanged quality lane on maintained and candidate sources, then run the missed candidate theme recipe.",
+  "status": "inactive-draft-not-executed",
+  "branch": "ci/elegant-quality-diagnostic-20261127-r39",
+  "base": "98ef933e487f502e2e3555750e6621291ba21601",
+  "actual_main_at_draft": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+  "maintained_branch": "followup/merged-threads-1127",
+  "scope": "Only reviews/elegant-quality-r39/ files are authored. No active workflow, product source, PR, maintained ref, threshold or baseline is changed.",
+  "sources": {
+    "maintained": {
+      "repository": "gosuda/elegant-mermaid",
+      "head": "98ef933e487f502e2e3555750e6621291ba21601",
+      "tree": "078133b8e3287d02e29a1165c004d85c108b7200",
+      "blobs": 6711,
+      "index_sha256": "a7e62a4177ff031f095a860a88b2345e4b2959357f0e334c8f2687f61ee66a7d"
+    },
+    "candidate": {
+      "repository": "gosuda/elegant-mermaid",
+      "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+      "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+      "blobs": 6714,
+      "index_sha256": "7644655272b6fbc1d1d08a32772ee70530357263a0238c3f006d91be5a4f5c9a"
+    }
+  },
+  "maintained_index_parts": [
+    "maintained-index-01.json",
+    "maintained-index-02.json",
+    "maintained-index-03.json",
+    "maintained-index-04.json",
+    "maintained-index-05.json"
+  ],
+  "candidate_index": "Apply the eight exact before/after entries in candidate-delta.json to the authenticated maintained index. Native identity verifies every resulting file byte/mode and the committed/staged Git tree.",
+  "proof_sha256": {
+    "verify.py": "67247644ade283583c38cc355ff073be18c42aba96549cf794f4235338e1503f",
+    "support.py": "cb84d3d3cdee24ab31f817b88963650318f1785ba70271a3cb7b01b34c858386",
+    "capture.py": "a1cbc53c9841b5ac384f403d31f097666d471bc79cbf44ae57fa20dfbcc7dce8",
+    "candidate-delta.json": "09a1dab6ee00b8c40b15404297cf123914c4d04ae8b59e189801db631ee0bc67",
+    "maintained-index-01.json": "3dfdedc67ab03f0a1358e563de732c13444bfa91ce6235bd83909adfb7b1009b",
+    "maintained-index-02.json": "2428846aaf28d666c2e3ba55554913d8c2913f04577079e97ca2dfe8dec1c477",
+    "maintained-index-03.json": "1e3216c5a09c0d4a6c8ddba961696f5f1f8531e635d17d8dc0256909b5646545",
+    "maintained-index-04.json": "c727c85b942b435f2fe93660860253fe2162e67b3a8339ed52cbcbb1f5ff3e37",
+    "maintained-index-05.json": "40c5f2dbf98de40f5246e817203fd77d9185c00162cd84ea9f0a0491050535f3",
+    "archive.py": "ea46d8ede758fcb4b2ebc544276fb55371e557a316f58237a7e491ca9e20d74c",
+    "artifact_support.py": "8b7664601fe768540f2c44274e92a6a23f35efbb045d0597800f3f44b605a739",
+    "prior-report.json": "63135439debbbe4ad7b5b5a983ec00cf1fa51037c2cb90fe6581118209716aee",
+    "README.md": "d15a3dec1aad52e8350477a4c5b42f990c2282086b084910500e7d3cb13a59ff"
+  },
+  "workflow_sha256": "f6831302ae5ce20b917a23e1de6249f5faaaf1b86d3ace69642fd820f6360572",
+  "active_workflow_required": ".github/workflows/elegant-quality-r39.yml",
+  "tools": {
+    "go": "1.27.4",
+    "node": "26.13.1",
+    "pnpm": "12.23.0",
+    "rust": "1.100.0",
+    "just": "1.59.0",
+    "nextest": "0.9.151",
+    "uv": "0.13.9",
+    "python": "3.15"
+  },
+  "source_inputs": [
+    {
+      "path": "Justfile",
+      "git_blob": "2c028998ed49a9d4c256796b301aec0a52dc9b9e",
+      "sha256": "dbe1798f40064cc2f503d6f7fe17e6e594c6b5272072d0d9e60780a7d81dc681"
+    },
+    {
+      "path": "tools/quality/main.go",
+      "git_blob": "603a9f827e7280dac385a1dee87732f45aeaf456",
+      "sha256": "6612c8f5db3243a82c820ff1c2db7cea8db1b6df72aba6a096bb0e3202711118"
+    },
+    {
+      "path": "tools/upstream-oracle/baseline.mjs",
+      "git_blob": "7c638a750ad436eb4c60622abbdd0e178e2adeb7",
+      "sha256": "8e48ba291f41864047784c4dc9d6d9d6333f0759fe9fbcd373cf21133f2936df"
+    },
+    {
+      "path": "tools/upstream-oracle/package.json",
+      "git_blob": "56441c17ff42cf12b7e445d698d91b284429157d",
+      "sha256": "b670dbcc795515ff5ed24b8301c9bdac0a539eea7e7171f5f7d58426b3557fa5"
+    },
+    {
+      "path": "tools/upstream-oracle/pnpm-lock.yaml",
+      "git_blob": "08bab79475a1133fdd584aed14a9edf0e5f7a242",
+      "sha256": "f68a71acf5642257fc93b93fbd2de766ba51a2d136dbb49d4bf5a30b7e076252"
+    },
+    {
+      "path": "corpus/quality-corpus.txt",
+      "git_blob": "0f1fe2b4916536987430670554763bb3a1b9c9e8",
+      "sha256": "829e522a7f66a0c3bac3f9f25770044c80dc0a705c9ef2df0bde4ab89188a031"
+    },
+    {
+      "path": "corpus/quality-exceptions.json",
+      "git_blob": "e4e0347d3eef1d2e296b1cfeea64cbd791602db3",
+      "sha256": "642be5de0d4681598cf06db18f20dda75adc5f9c89cec7875505e2a3340ad9fd"
+    },
+    {
+      "path": "corpus/verdicts.json",
+      "git_blob": "9e27421a05c685677972bf4b5bcef8c0af80fe06",
+      "sha256": "eb7b1af3d2364c49648602a0dd2d9451db9477975419a9893d3377928ad0b2e3"
+    },
+    {
+      "path": "spec/data/layout-constants.json",
+      "git_blob": "1b3873b54ba087046a10b6f8579f6b932523a791",
+      "sha256": "70699ae36132da1f097ebca23545c3d10fa89190b6d53e238c82c068e92bf475"
+    }
+  ],
+  "upstream_dependencies": {
+    "@dagrejs/dagre": "3.1.3",
+    "elkjs": "0.12.1",
+    "mermaid": "12.3.0"
+  },
+  "expected_selected_fixtures": 2075,
+  "expected_native_cli_invocations_per_lane": 8300,
+  "command": [
+    "just",
+    "quality",
+    "JOBS=1"
+  ],
+  "operational_controls": {
+    "affinity": "One CPU chosen from the original allowed mask; inherited by each command and descendant. Original supervisor mask is restored immediately after spawn.",
+    "gomaxprocs": "8, exactly as in the failed r36 source driver; the one-CPU OS mask remains authoritative.",
+    "separation": "Two checkouts, two fresh Go module/build caches, two real binaries, two node_modules/pnpm stores, two baseline cache roots, two evidence streams.",
+    "observation": "An explicitly disclosed launcher at untracked bin/emd-go forwards unchanged argv to the fresh lane-specific binary and relays stdout/stderr bytes unchanged. It records raw exits, byte hashes, and exact metric bytes from the actual quality calls. No separate replay of corpus measurements or alternate scorer.",
+    "binary_binding": "Real binary SHA-256 before/after quality, Go VCS build information, per-call device/inode/size/mtime/mode precondition, explicit real path and binary digest in every capture.",
+    "command_cleanup": "All commands own a new session/process group. Timeout/failure kills and reaps the group. Source restoration is forbidden while any owned process remains active.",
+    "timeouts": {
+      "quality_seconds_per_lane": 2700,
+      "theme_seconds": 1800,
+      "driver_seconds": 9000,
+      "workflow_minutes": 180
+    },
+    "failures": "Each lane runs independently. Actual quality exit 1 remains recorded as failure and makes the final diagnostic exit nonzero. A complete comparison does not make a failed source gate pass.",
+    "source_restoration": "Every tracked blob and executable mode is authenticated before execution, after quality, before restoration and after git restore. Both roots are restored only after all owned groups are quiescent.",
+    "publication_eligible": false
+  },
+  "theme": {
+    "command": [
+      "just",
+      "theme-check"
+    ],
+    "lane": "candidate",
+    "independent": true,
+    "prerequisite": "Only the Justfile build dependency (Go and Rust native release builds), pinned Rust/nextest, and the already installed Node oracle packages. No house lint, Lean, browser, WASM or full verify repeat.",
+    "source_mutation": false
+  },
+  "inherited_static_input_inconsistency": {
+    "corpus_paths": 2075,
+    "saved_exception_report_fixtures": 857,
+    "saved_exception_count": 419,
+    "claim": "The unchanged gate requires both files to match computed output, while exceptionBytes always uses len(selected fixtures). These committed counts cannot both match. This is distinct from the four measured runtime failures; no baseline update is proposed."
+  },
+  "prior_failures": [
+    {
+      "run": 45988680468,
+      "job": 140470677698,
+      "producer": "761b6a3fa979838fd68d6949c7db2a9734e880c0",
+      "conclusion": "failure",
+      "raw_exit": 137,
+      "timed_out": false,
+      "artifact": 15193342317,
+      "zip_sha256": "f80ae39c29b9cac507f372ef83abb43e187e16a6c1311e1aa1880ab0bd2096d3",
+      "cause": "Signal 9 observed; no OOM cause established.",
+      "gate_reuse": false
+    },
+    {
+      "run": 45996807575,
+      "job": 140498128585,
+      "producer": "cd6ece93aad807f38ccea0a0e756673180dc2a9f",
+      "conclusion": "failure",
+      "raw_exit": 1,
+      "timed_out": false,
+      "seconds": 5741.2944982690005,
+      "artifact": 15203392839,
+      "zip_sha256": "e0f8d8c1373c962f1aa56316108dac3802bcb1141274c3ce926b9d9f552420b9",
+      "log_sha256": "8916f76e4137eb87d2b9e0ce92e5eaeb696d3cdcfaea215a97f1baa2e1791174",
+      "monitor_errors": [],
+      "source_restored": true,
+      "quality_gates": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "theme_reached": false,
+      "gate_reuse": false
+    }
+  ],
+  "previous_windows": {
+    "run": 45986012440,
+    "job": 140461698955,
+    "conclusion": "success",
+    "artifact": 15190844868,
+    "zip_sha256": "2e5cc75d9b3881b034e73944030dd0d7937e89246aa506e247973eb823be6d47",
+    "source": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+    "new_windows_job": false
+  },
+  "publication_eligible": false,
+  "prior_artifact": {
+    "producer": "cd6ece93aad807f38ccea0a0e756673180dc2a9f",
+    "run": 45996807575,
+    "job": 140498128585,
+    "artifact": 15203392839,
+    "name": "elegant-paired-full-r36",
+    "zip_bytes": 279013,
+    "zip_sha256": "e0f8d8c1373c962f1aa56316108dac3802bcb1141274c3ce926b9d9f552420b9",
+    "conclusion": "failure",
+    "log_sha256": "8916f76e4137eb87d2b9e0ce92e5eaeb696d3cdcfaea215a97f1baa2e1791174"
+  },
+  "artifact_helper_review": {
+    "source_repository": "gosuda/sloplint",
+    "source_commit": "686ec4055949fe7c439776196636604f287b039e",
+    "source_path": "ci-tools/spira47-review-r37/artifact_support.py",
+    "original_sha256": "b3f27ccd5d75efea94530f1294d7e0d23d89b46d7d9e5771cc0b3d32a56d1b28",
+    "adapted_sha256": "8b7664601fe768540f2c44274e92a6a23f35efbb045d0597800f3f44b605a739",
+    "sole_delta": "base = \"/repos/gosuda/sloplint\" becomes base = \"/repos/gosuda/elegant-mermaid\"",
+    "token_boundary": "API requests only; no Authorization on the storage redirect; token removed from product/dependency subprocess environments"
+  },
+  "prior_retirement": {
+    "commit": "483b404282b0b74b880b1b6f7f095706f296fa8a",
+    "path": "reviews/elegant-paired-full-r36/terminal.json",
+    "sha256": "48e2120fd952440ea32b427dd30eeec4594ea4b457a240962caa0b6915b0e1af"
+  }
+}

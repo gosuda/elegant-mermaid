@@ -1,0 +1,3557 @@
+[
+  {
+    "path": "proofs/Elegant/Layered/ExecutedPartFrameCoresClosed.lean",
+    "mode": "100644",
+    "sha": "a90b3de71f91d2f1f72edc0aeae43bd9b6475085"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExecutedPortsFacts.lean",
+    "mode": "100644",
+    "sha": "7d3ef5d6ebd64b6d43ba13da003bbdc847be7f61"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildAncestryProof.lean",
+    "mode": "100644",
+    "sha": "66e95c53f73a34af99289bb8f2128f8b7ec8cad1"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildC2Facts.lean",
+    "mode": "100644",
+    "sha": "51495f7205cd16fc1f9793179acebdd9a119cd29"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildC6GeometryExecuted.lean",
+    "mode": "100644",
+    "sha": "45da1053f3e06a5e6220d5c904af16389bd05e59"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildC6GeometryProof.lean",
+    "mode": "100644",
+    "sha": "74d01d4f53ac57fa7cd5669d2288bf0ed94077af"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildC6StepFacts.lean",
+    "mode": "100644",
+    "sha": "91094a9a176214254e1eb00520af7af3454f9753"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildC7GeometryProof.lean",
+    "mode": "100644",
+    "sha": "b33d193b58b6f1cf915de3ec7446f6150ed4d364"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildC8GeometryProof.lean",
+    "mode": "100644",
+    "sha": "7948739d65967a02a862a394e606182fffeb2a43"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildC8aGeometryExecuted.lean",
+    "mode": "100644",
+    "sha": "f6ea0447dd2f6d0eccb95df3cb9c1773105ac44a"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildCanvasFitProof.lean",
+    "mode": "100644",
+    "sha": "1fef596c74e8a11a137971168625f031923db769"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildChildSceneProof.lean",
+    "mode": "100644",
+    "sha": "17d142d4b415192db4a3556aa7c26ff2987c6781"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildContainment.lean",
+    "mode": "100644",
+    "sha": "f8e5ddceddfa75be64ed614cd64f01094e1424aa"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildFitPerCallProof.lean",
+    "mode": "100644",
+    "sha": "aba58ed055df4cc26a00fe872506ac916fa537de"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildFitsFacts.lean",
+    "mode": "100644",
+    "sha": "3a3568dcad2f8a1b386225efd64d04f6c1897148"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildFrameLiftProof.lean",
+    "mode": "100644",
+    "sha": "24c94e7ba26d41ca33d889bccc1e4b12a6eb5429"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildFrameLiftResiduals.lean",
+    "mode": "100644",
+    "sha": "cac94b8522f2271b8a55d62dc535e2ca95e4fd5f"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildLabelFactsProof.lean",
+    "mode": "100644",
+    "sha": "570c1bc59b19b6db7825db414ef6751ff91882e1"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentAttachedMultiEdgeProof.lean",
+    "mode": "100644",
+    "sha": "b887bc179c3a5303240fe042f9d4582c6315b9a6"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentFixedForeignProof.lean",
+    "mode": "100644",
+    "sha": "bb143af92bacb76adb1980abcae97bfa44cf27bc"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentFixedMissProof.lean",
+    "mode": "100644",
+    "sha": "c9d965cfb76f89c4297ecd0bd9c2924cd9ae02c3"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentFrameDirect.lean",
+    "mode": "100644",
+    "sha": "0451456f56888aa7208ae86a292a0d0150843eb8"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentFrameProof.lean",
+    "mode": "100644",
+    "sha": "3b9223212c51a60ba733b5c3245ec4f266f4ca9c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentFrameStrictProof.lean",
+    "mode": "100644",
+    "sha": "0a35d09b4fb332371359d79b4a1161711f0d8981"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentPortMissProof.lean",
+    "mode": "100644",
+    "sha": "4a425800c3bfe828fae1e02eb849f42fa7992a82"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentPortStraightMissProof.lean",
+    "mode": "100644",
+    "sha": "b3cf69666cc25610451878a848f7d737de2e29b2"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentRouteAttachedCtxProof.lean",
+    "mode": "100644",
+    "sha": "dd4c2ec8fd14db5dff30a8665c663753dcb2a979"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentRouteClearProof.lean",
+    "mode": "100644",
+    "sha": "bea4a988de8385cb36a0fdb6ae898b3fcbd6efe7"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildParentRouteRunProof.lean",
+    "mode": "100644",
+    "sha": "db020d31bfe4af110b4fa2c0c89769f884908196"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildStepsFacts.lean",
+    "mode": "100644",
+    "sha": "55033b1444a24e4de0e337f71a3b28f0c727e379"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildStructureFacts.lean",
+    "mode": "100644",
+    "sha": "7d0133403d535b598771d4e5844e9eed3f1b55f9"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ExpandChildTitleBandProof.lean",
+    "mode": "100644",
+    "sha": "aa9f2e97a4a01940c6811c1202d52737991bcf06"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FallbackCaptionClearProof.lean",
+    "mode": "100644",
+    "sha": "3386629f756a3fab866e44eeceed0daff4e2e745"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FallbackOwnerFrameProof.lean",
+    "mode": "100644",
+    "sha": "4fadef2801da68ad672787003208acaeda5b2442"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FallbackOwnerStrictStepProof.lean",
+    "mode": "100644",
+    "sha": "16a8869d5ffc812d8add164c0f38f37637f3195c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FamilyAssembly.lean",
+    "mode": "100644",
+    "sha": "ad6f4ca526fd1f839036779d5bd0726b978bb78e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FamilyAssemblyB.lean",
+    "mode": "100644",
+    "sha": "04822c7bdcfcebae0f6171840b984af483eecad7"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FamilyC5.lean",
+    "mode": "100644",
+    "sha": "b0b7c8f6c7f3aab1e374abcbbd2e3ee8f9abdea6"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FamilyC5B.lean",
+    "mode": "100644",
+    "sha": "a844f8a2c8ab2d09485f1355694c00460111ff72"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FamilyC5Measured.lean",
+    "mode": "100644",
+    "sha": "70b87ec380bf9611e9567f03c10900e2c0f4b38e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FamilyStepFacts.lean",
+    "mode": "100644",
+    "sha": "671a67309eee43a4d23c187f7f8a97868722cf9b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FixedOwnerFit.lean",
+    "mode": "100644",
+    "sha": "d1148af222eaefc2a7c0ef2e0be6b3364f629072"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatC2.lean",
+    "mode": "100644",
+    "sha": "d1acae3a47689ba164639e823207af5d622d1692"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatC6Assembly.lean",
+    "mode": "100644",
+    "sha": "982a691210f555b7f27ae7e9c404f3e4151f0a6c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatC6ClosedProof.lean",
+    "mode": "100644",
+    "sha": "9b1c5ede9a452d60798537b4fa88c0c62ddeb94e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatC6LoopProof.lean",
+    "mode": "100644",
+    "sha": "ef2a0c52134eda0f0cba63403f5f9e50efc29da8"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatC6Loops.lean",
+    "mode": "100644",
+    "sha": "1c986bbccc0130adefbf8866428816ecf420e8e5"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatC6ScopeBridgeProof.lean",
+    "mode": "100644",
+    "sha": "dc8fc18f5f58b5567e969c14029bf3e9234f2f21"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatC6ScopeResidualsProof.lean",
+    "mode": "100644",
+    "sha": "f4e3fd7de1437da6378e08e09c50614dc1ec0e7e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatC8aExecutedProof.lean",
+    "mode": "100644",
+    "sha": "d6b2179d31b979456da3eef33a0b42eb4b28c234"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatFixedFrameLabelProof.lean",
+    "mode": "100644",
+    "sha": "87d941597fe4685f1fe7d6755b6a4e0853fd9013"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FlatGroupEndpointsProof.lean",
+    "mode": "100644",
+    "sha": "abbd19c2a375d4bdc53e0ec4516a0e25207a1ee9"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignBorderAlignRankProof.lean",
+    "mode": "100644",
+    "sha": "768a83b0d18b172c6059b72ad8b32b76aef001f5"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignBorderAnchorsProof.lean",
+    "mode": "100644",
+    "sha": "f41ef6005a362f34d0df93e7e32d86e31786df41"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignBorderChainXAlignedClosed.lean",
+    "mode": "100644",
+    "sha": "9b77042acd9252151e85239569dbec8cc80a9c12"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignBorderDivergeFramedProof.lean",
+    "mode": "100644",
+    "sha": "b350376268d026f7e20a19deb1f4dd8cb956c3ec"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignBorderDivergeStableProof.lean",
+    "mode": "100644",
+    "sha": "8c3183069805fa0f16ac5e76040d5691507e6e71"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignBorderEdgesNoncrossingProof.lean",
+    "mode": "100644",
+    "sha": "59e43485a2a287528ab1b50eeccfc2733d206ea4"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignBorderSideUpsProof.lean",
+    "mode": "100644",
+    "sha": "04c5ece2f8736b0d9661958ef98af6aa1ef9d9a8"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignBorderSpansProof.lean",
+    "mode": "100644",
+    "sha": "30aa97cd76ca51adaf6890ce13f57ab1fc1152b1"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignBottomInCandidateProof.lean",
+    "mode": "100644",
+    "sha": "4940b5968de673310f637773e7d19001a0920712"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignClusterFactsProof.lean",
+    "mode": "100644",
+    "sha": "8a2c533110c5460c8872d4edd47b335bc6396047"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignFrameClearance.lean",
+    "mode": "100644",
+    "sha": "7dafbf0855c9a754e67298a5d0d0a9825b26b43d"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignMemberRankBoundsProof.lean",
+    "mode": "100644",
+    "sha": "3a5ad9a453aac9c5b593fdd800f0406aeabac1b6"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignNonGroupSpansProof.lean",
+    "mode": "100644",
+    "sha": "f096c93332223a7f3376fde0500cf94259a7eaaf"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignSideChainShapeProof.lean",
+    "mode": "100644",
+    "sha": "d15429c81110e4838d815e5385246cf1aa84e68d"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignSideFoldBoundProof.lean",
+    "mode": "100644",
+    "sha": "c0c92b5a296601913714dad39fae8d660a05a236"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignSideMarkingCrossedProof.lean",
+    "mode": "100644",
+    "sha": "bc1a73f7278feba26e98d3f8dd51aacac74f22a6"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignSpansClosed.lean",
+    "mode": "100644",
+    "sha": "2e81d0bbc89ba7fd0c526d9095c5572f01127c4e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForeignSpansFacts.lean",
+    "mode": "100644",
+    "sha": "664d61e0bc725b740b5ecc0e59dc9816fc0ec011"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ForwardLane.lean",
+    "mode": "100644",
+    "sha": "ada7543311ae7fdb3a1ce79623cb17a94f783813"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FrameClearanceBottomFacts.lean",
+    "mode": "100644",
+    "sha": "48025950fdf69748cf79797ebeb35f12830c0d80"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FrameClearanceFacts.lean",
+    "mode": "100644",
+    "sha": "678669874e3417f6f832ffca6950386ed73b5cb9"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FrameClearanceSeam.lean",
+    "mode": "100644",
+    "sha": "60dba50fe06d335c6caf1a3db027b7db5827fb53"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FrameEnvelope.lean",
+    "mode": "100644",
+    "sha": "a5d56f016fdc5ce684e4db59968c37b6bca5f5ce"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FrameLabelsProof.lean",
+    "mode": "100644",
+    "sha": "68f47d8162ea74c0b57ee7ef31d27ef49954cf4c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FramePorts.lean",
+    "mode": "100644",
+    "sha": "cdd7c2ef530bb0e9cd18de60ab34c31a3f53754e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/FramedParentsSub.lean",
+    "mode": "100644",
+    "sha": "a2e0dde827698857ed36c1bba5ab64d167836571"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupAnchorFactsProof.lean",
+    "mode": "100644",
+    "sha": "5878bb3ac5582ffbebcaaf682ed6e1a3d63c0618"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupAnchors.lean",
+    "mode": "100644",
+    "sha": "5acc63a59a93b3b4447c778ffb3e4083b7758b87"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupAttachSeamFacts.lean",
+    "mode": "100644",
+    "sha": "9241acb4b9a9a97baef891150a55270a70f000d2"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupBottomBoundaryProof.lean",
+    "mode": "100644",
+    "sha": "12940d1c96d5442e6aa12fff63285093d587682e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupEndpointC5.lean",
+    "mode": "100644",
+    "sha": "7e11e06d51b8635ad205fec750234203a281c62e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupFrameSizingFacts.lean",
+    "mode": "100644",
+    "sha": "2d39089dca05c02713b471a526554c99033eacdd"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupRouteAttachment.lean",
+    "mode": "100644",
+    "sha": "7fe7b3c3d097dc6ac8d0ea2cbc80d139690d3939"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupTailPortProof.lean",
+    "mode": "100644",
+    "sha": "061995718961446dba470fc164c356b85429b991"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupTitleFirstTextProof.lean",
+    "mode": "100644",
+    "sha": "b4b48aef6cb45b4a44ef655ec0821c9cddc9205e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupTopFacts.lean",
+    "mode": "100644",
+    "sha": "c84df8a1af63d569ef6732048fb39a4ab9105ee2"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupTopRank.lean",
+    "mode": "100644",
+    "sha": "cefadf3ec3447c8457c5a57233a9e4599a08608c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupTopRankResidualsProof.lean",
+    "mode": "100644",
+    "sha": "b2015ef8ae8d15ffc5c6459d9dfb6474de41a62c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/GroupWidthFacts.lean",
+    "mode": "100644",
+    "sha": "ff3dfdadc80c12e3e0e150a0b191504ba8300c7e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/InputFixedFit.lean",
+    "mode": "100644",
+    "sha": "687ca40b0477f3fe757d3c60dcd075f423d21d20"
+  },
+  {
+    "path": "proofs/Elegant/Layered/InsetFit.lean",
+    "mode": "100644",
+    "sha": "51086f485c88f7390994f3b28a1f09a6a91b768b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LabelRunBridgeFacts.lean",
+    "mode": "100644",
+    "sha": "61298c1cf7972362037b02de349bcede58afe264"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Labels.lean",
+    "mode": "100644",
+    "sha": "ecd644f8fd0d9c10dbdc69e9a4487f4234370c97"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LabelsC7.lean",
+    "mode": "100644",
+    "sha": "692befaa6dc3524b28abaf233456e1604a76b207"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LabelsC7Bridges.lean",
+    "mode": "100644",
+    "sha": "6d826cf67fcf8cae0fd5a306608bb752cc6ccfa9"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LabelsC7Captions.lean",
+    "mode": "100644",
+    "sha": "d6eb3212cd2e32ef4308be0b87812dff8c8c2dc7"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LabelsC7RunLocal.lean",
+    "mode": "100644",
+    "sha": "435449a989fc07c8da171a9a14a1c968b6cc8bee"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LabelsC7RunLocalFacts.lean",
+    "mode": "100644",
+    "sha": "e9fb0b6fb59cc987b28241662cc352f34e103efc"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LabelsC8b.lean",
+    "mode": "100644",
+    "sha": "f5ace3235437f34cf821b4b1a0444ada310299ba"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LabelsC8bFacts.lean",
+    "mode": "100644",
+    "sha": "97f4177fd1e97e3300feacefeb79af9746c8e76a"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LabelsClearance.lean",
+    "mode": "100644",
+    "sha": "06522b0ccec2efdd578d7fc6c823eed7ca0b30c7"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBands.lean",
+    "mode": "100644",
+    "sha": "4c7ef265fedbcffad7003909e2347a88363fc3c9"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsBoxClauses.lean",
+    "mode": "100644",
+    "sha": "2ac8d58a9117823c59885c5ad7c496f627a1f89e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsBoxClausesExecuted.lean",
+    "mode": "100644",
+    "sha": "bb39bf2e6a0068b5f6cd823fd3f08285b2b7bd09"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsBoxClausesProof.lean",
+    "mode": "100644",
+    "sha": "9a2294046a5c61635de7a851b2b7a9f50d517e45"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsClearance.lean",
+    "mode": "100644",
+    "sha": "f48c63732abf7f6a2225faf4d191d2102c90b801"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsCoverage.lean",
+    "mode": "100644",
+    "sha": "86aaafba7d0486f2407204d560bcca40c73db110"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsCoverageProof.lean",
+    "mode": "100644",
+    "sha": "cb8b8f85f5fc455215687efc148801883593144a"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsFindRouteClearProof.lean",
+    "mode": "100644",
+    "sha": "3d827005fcb3ba979243de8e1a92a41be0bc22ac"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsFindRouteFactsProof.lean",
+    "mode": "100644",
+    "sha": "d3f0014e5b477803159ba435cfcc1f1ddc8a6968"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsFrameClause.lean",
+    "mode": "100644",
+    "sha": "50f94df7085063a9942a5afadc6a118ace20b871"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsFrameClauseExecuted.lean",
+    "mode": "100644",
+    "sha": "0fa039e1b8c76cc41fbd795782e80e281a386099"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsKeptClearExecutedProof.lean",
+    "mode": "100644",
+    "sha": "4a8d7f9473f5a6fd6d6708e290e1f7595a48ceb1"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsLabelClauses.lean",
+    "mode": "100644",
+    "sha": "a9f3dad753f40adc0e145414a4d72202e96189f2"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsLooseLowerProof.lean",
+    "mode": "100644",
+    "sha": "037eb07c11c552e7a3c09f1dce50a8e1f623ba25"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsLooseRouteBoundProof.lean",
+    "mode": "100644",
+    "sha": "8d0bbf426fb239afa8e109298713d183c8091a2b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsLooseVictimProof.lean",
+    "mode": "100644",
+    "sha": "8be3b6b44f363410f2bb1158110bacccb6d4d9dc"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsPhaseFacts.lean",
+    "mode": "100644",
+    "sha": "fc867fc34357fc9eed90a745855c3f8fd99ff7fb"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsRouteClauses.lean",
+    "mode": "100644",
+    "sha": "a29a5865835cb8eb5d3c18fb70cc7feec6011d96"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsRouteClausesProof.lean",
+    "mode": "100644",
+    "sha": "883d674028c07ffb727d3ab6bd296bfa495f1c94"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsSetupResidualProof.lean",
+    "mode": "100644",
+    "sha": "ea0950b769a2cd318b539bef7da5ed6fec740eec"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneBandsTextCases.lean",
+    "mode": "100644",
+    "sha": "f7786e20782852374a9723b2a46969e8dadc9bb4"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEnds.lean",
+    "mode": "100644",
+    "sha": "bd7cdec9a4429c279b037d5c62103d451a24071b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsClauses.lean",
+    "mode": "100644",
+    "sha": "3b6037e92f0d0c0c5a85a87f1d0d0b2555d1b633"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinEnds.lean",
+    "mode": "100644",
+    "sha": "8f6959f0f1e65292ea118525b089f6e7ce3e7968"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinExec.lean",
+    "mode": "100644",
+    "sha": "5e487eb96635c3797d5e4eb6d1eda91c60ffde00"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinFacts.lean",
+    "mode": "100644",
+    "sha": "fefa39b0acd1d7a1cef7dbf2a67275ad86b5375c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinFrameTransport.lean",
+    "mode": "100644",
+    "sha": "ca9edb77f0fc59edfc47784e3918e347d695ce46"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinGapClear.lean",
+    "mode": "100644",
+    "sha": "338f3f60351ba973da2e51fa6af2a2ba68cd1b36"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinLanesClauses.lean",
+    "mode": "100644",
+    "sha": "a4632abdc8c812d5b2b6e79b830b5bced0697e29"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinPhaseApply.lean",
+    "mode": "100644",
+    "sha": "d58a95b69d8c1ee13089f160871d9a3a6eb1a2ef"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinPhaseReroute.lean",
+    "mode": "100644",
+    "sha": "fd561cb815a33c4ae1242f3b7bcb3d89e863c917"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinPhases.lean",
+    "mode": "100644",
+    "sha": "ebec1d56204f5ed5533b6ca3d088cc4869f9f833"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinRerouteBoundary.lean",
+    "mode": "100644",
+    "sha": "7beb53b2ad9b5d6aa3b2bac49c71a9f83df9aaff"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsPinRerouteFresh.lean",
+    "mode": "100644",
+    "sha": "45eb33c1c7d88e09e148e7a54aa6fc5b4d9c083c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneEndsRouteClauses.lean",
+    "mode": "100644",
+    "sha": "e4e3b1a7571f4198d344b37234700c751eeadd84"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneMetadata.lean",
+    "mode": "100644",
+    "sha": "9975b442bab9ab00d102c64a6ca8f735f4bfd079"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LaneValidity.lean",
+    "mode": "100644",
+    "sha": "22c18b11fc6fcef9308c14f2ebabb02c7388e3a7"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LayeredAdmission.lean",
+    "mode": "100644",
+    "sha": "bb35424543847fc5c733ec1c86b132dfc50f81bc"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopBoxBorderZeroProof.lean",
+    "mode": "100644",
+    "sha": "762b3f1d06240e19c2defc7ea481c9775e252120"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopExtentReservationProof.lean",
+    "mode": "100644",
+    "sha": "337cc0651cddf8801fa996b183d08476056e68ac"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopFootprintBeyondPlainProof.lean",
+    "mode": "100644",
+    "sha": "8dd29174f514d6603e8807d7f30f8d703a201b17"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopFootprintBeyondProperProof.lean",
+    "mode": "100644",
+    "sha": "33f70da700417e17a74edf7e4d93e307862f329d"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopFootprintBeyondTopProof.lean",
+    "mode": "100644",
+    "sha": "61c6490e767eebf9deccc4684053f16a84703e22"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopFootprintFactsProof.lean",
+    "mode": "100644",
+    "sha": "3687c659624d56efafcf24d4c9771ba412f5a156"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopFootprintGeneralOrder.lean",
+    "mode": "100644",
+    "sha": "5a8bdfc31e360bd0514861d344f997e93397bca9"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopFootprintGroupHullProof.lean",
+    "mode": "100644",
+    "sha": "6f34b386b75ff6adecf384212a134d6ff4d4b466"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopFootprintResidualProof.lean",
+    "mode": "100644",
+    "sha": "6226dc93b648f4a9c678fcf06cf37af6cd4f4379"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopFootprintTopSeparationCondProof.lean",
+    "mode": "100644",
+    "sha": "da8833d371b8d9dd2a9795caaa8d61bb88837e05"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopHullCoverProof.lean",
+    "mode": "100644",
+    "sha": "b8f1cea81f7541cbb6dba102886b3c4a6cfe7e80"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopHullExtentFitProof.lean",
+    "mode": "100644",
+    "sha": "79fa938f906b63bffa39e4100130d4b1cac4ef49"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopRectCrossPartProof.lean",
+    "mode": "100644",
+    "sha": "2a0b3f063a0f1eb36bcbeee8dc3cfe4d5dd014c4"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopRectPlainSourceProof.lean",
+    "mode": "100644",
+    "sha": "82ec188a784d800b282d07cbb0be6070914d687c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopRectRealClosed.lean",
+    "mode": "100644",
+    "sha": "7ae84fb89991998e2701a0b33c5bf397d63d42f4"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopRectRealQProof.lean",
+    "mode": "100644",
+    "sha": "108d2f09a44783048fa84fdea38a7936a370bd1b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopRectResidualsProof.lean",
+    "mode": "100644",
+    "sha": "e115ff14d77511e22de7ec731e9be6ae99b93d6b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopRectSamePartExecuted.lean",
+    "mode": "100644",
+    "sha": "52c66ddf9841835638f8677ed059effa04e0ec7d"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopRectTitleCopySepProof.lean",
+    "mode": "100644",
+    "sha": "85dccecb34ea2b810700ce9e32099e93a6e8006c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResGroupHullRightAncestorRanksProof.lean",
+    "mode": "100644",
+    "sha": "40cb2d20e156e3694d22d6f91c17587336ea7445"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResGroupHullRightMemberProof.lean",
+    "mode": "100644",
+    "sha": "84e9188df448addf1ba9bfe40398a7bd0bf9c7ca"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResGroupHullRightProof.lean",
+    "mode": "100644",
+    "sha": "7498db07511bd16c71752d89d73d38622887f7da"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResGroupHullRightWitnessProof.lean",
+    "mode": "100644",
+    "sha": "0b4b1281e38d6012e885062e3637b3d2775b9944"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResMarkerCopyProof.lean",
+    "mode": "100644",
+    "sha": "3b186f334f18995796699259b7ece01b1503790d"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResNeighborDisjointProof.lean",
+    "mode": "100644",
+    "sha": "bd3bef0f2853a84e798525f572651cf2a3da2fd7"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResNeighborGapDisjCasesProof.lean",
+    "mode": "100644",
+    "sha": "b1add3249107456367ea4408103a797ca12e3da2"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResNeighborGapGroupProof.lean",
+    "mode": "100644",
+    "sha": "42bf6d45a788a5a64a2cd15e40e4dc041f763e9f"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResNeighborGapGroupTopWitnessProof.lean",
+    "mode": "100644",
+    "sha": "d48624a42bb3c2071ae4c79741a09f3e01887a13"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResNeighborGapOffRankProof.lean",
+    "mode": "100644",
+    "sha": "5ced78ddea52f8c93002e7e3c5f15f2396e61834"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResNeighborGapProof.lean",
+    "mode": "100644",
+    "sha": "3413201c0de1034d9385a9d46f1f7d3147098f5e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResOffRankParentChainProof.lean",
+    "mode": "100644",
+    "sha": "aa0ab4a0a359b721842a411b54cef3122effcdb0"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopResTopReservationProof.lean",
+    "mode": "100644",
+    "sha": "f06722395eb8438db7d53d504ec32c78dff08a9b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/LoopTopSliverGapProof.lean",
+    "mode": "100644",
+    "sha": "cac0fe599648021d51f5e197fa4fda97f909fdc0"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Loops.lean",
+    "mode": "100644",
+    "sha": "9274acfdeecfaa563a0d441ca17329c34ab08f7c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/MemberInFrame.lean",
+    "mode": "100644",
+    "sha": "509eb3a8609199f02b6b178e93bcdde6efa3e54b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/MergedAncestorsProof.lean",
+    "mode": "100644",
+    "sha": "ec2223e4a33814318bf5e74c95af11595150e070"
+  },
+  {
+    "path": "proofs/Elegant/Layered/MergedRouteIdsProof.lean",
+    "mode": "100644",
+    "sha": "e8684700af1476fa728c5792f99723435b2a266d"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Metadata.lean",
+    "mode": "100644",
+    "sha": "174b13d74a37ff4d576f4da42718059e08f42de0"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Normalize.lean",
+    "mode": "100644",
+    "sha": "39173e0be6fbd9e1ea66fdc23b8be09d3f856db4"
+  },
+  {
+    "path": "proofs/Elegant/Layered/NoteFootprintDisjoint.lean",
+    "mode": "100644",
+    "sha": "9c5ecbf27493650dd2bcd61665458443cf3a2e5c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/NoteIds.lean",
+    "mode": "100644",
+    "sha": "e7c69e5509650fd82c51b282715ac7dc2dfaa787"
+  },
+  {
+    "path": "proofs/Elegant/Layered/NoteParents.lean",
+    "mode": "100644",
+    "sha": "04272181918103f99a1755cf339dba9b94307a8f"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Order.lean",
+    "mode": "100644",
+    "sha": "76c7d4c3345362fc0af941026a8916465edc0879"
+  },
+  {
+    "path": "proofs/Elegant/Layered/OrdinaryAttachedFlatFrameProof.lean",
+    "mode": "100644",
+    "sha": "b6da714d7b005ce08abd0c51b2a18d43f021b829"
+  },
+  {
+    "path": "proofs/Elegant/Layered/OrthogonalityFacts.lean",
+    "mode": "100644",
+    "sha": "ca805f5efdacdaa8fefaa94c0b9a3431033833f4"
+  },
+  {
+    "path": "proofs/Elegant/Layered/OutputParentContained.lean",
+    "mode": "100644",
+    "sha": "e5021dfb3d966ff79abfc0c6dd8dbbb5ca854cff"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Pack.lean",
+    "mode": "100644",
+    "sha": "d4d74069b41eef1117bff3a494339fb4ee7db692"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ParentAttachedClosedProof.lean",
+    "mode": "100644",
+    "sha": "e3069089969da224d9100bd0da667b20ef949edc"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ParentContainmentFacts.lean",
+    "mode": "100644",
+    "sha": "185439bdb717264b172d94047bcf0fba5fa65d50"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ParentFrameFitClosureProof.lean",
+    "mode": "100644",
+    "sha": "b577880c40f150a51be300dc9633b2849c6a773f"
+  },
+  {
+    "path": "proofs/Elegant/Layered/PartCaptionRunClearProof.lean",
+    "mode": "100644",
+    "sha": "38ce9195b9593cd15d1e0cb67215bfee2776c8fd"
+  },
+  {
+    "path": "proofs/Elegant/Layered/PartFrameCoresProof.lean",
+    "mode": "100644",
+    "sha": "ff688b9da2e064f40d2ce254b8ec21909ff0fb40"
+  },
+  {
+    "path": "proofs/Elegant/Layered/PartFrameWitnessProof.lean",
+    "mode": "100644",
+    "sha": "910899bfbbdb22e631532915a4be857df8fd50b6"
+  },
+  {
+    "path": "proofs/Elegant/Layered/PartPositiveContentProof.lean",
+    "mode": "100644",
+    "sha": "884b93bff9d07a322d13a2b682e062a82fc77eaa"
+  },
+  {
+    "path": "proofs/Elegant/Layered/PartSeparation.lean",
+    "mode": "100644",
+    "sha": "2e67e86430bdd4bf3faa0d49b36b6a08f00c8dab"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Pipeline.lean",
+    "mode": "100644",
+    "sha": "34184fe8607cc3e47833393762eb4e96b21e996c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/PipelineFacts.lean",
+    "mode": "100644",
+    "sha": "27410b59e1c35b091e2fcc72d03ab6af749f6461"
+  },
+  {
+    "path": "proofs/Elegant/Layered/PlaceBoundsBeyondNodesProof.lean",
+    "mode": "100644",
+    "sha": "561ab25e983267eb63a67f815a3062f5c343657e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/PlainNodeSizingFacts.lean",
+    "mode": "100644",
+    "sha": "6b660ab140023b877e17c7d41191d1421a1d106d"
+  },
+  {
+    "path": "proofs/Elegant/Layered/PolylineBoxMiss.lean",
+    "mode": "100644",
+    "sha": "d4e41b7d6537e25032b19b0ec34697bdbd51fe30"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Portfolio.lean",
+    "mode": "100644",
+    "sha": "62fd5c0a622bc3b23c7063179c4a8495eddd9003"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Rank.lean",
+    "mode": "100644",
+    "sha": "e9c9e652b6e360c873794f0aa392bbe1b721ea31"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RankSiblingDisjoint.lean",
+    "mode": "100644",
+    "sha": "9942b5f43da2a28e9d7366819f3ab44fce992075"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Reachability.lean",
+    "mode": "100644",
+    "sha": "6f4eab7dabd76ecf6cbe399c43156079099646d8"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveBEq.lean",
+    "mode": "100644",
+    "sha": "f32a641f8b95955a9e34f470f365d83a7f5f6f8c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveBLiftsA.lean",
+    "mode": "100644",
+    "sha": "9ba1d15b0db0b09c6b0b9af2f0ff18326bce8fa3"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveBLiftsB.lean",
+    "mode": "100644",
+    "sha": "2fe122059e3eb22000813d571d3fd9b61923d878"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveC1C3.lean",
+    "mode": "100644",
+    "sha": "15a753fb41c330e8b0458d4da5f0a51d4a194356"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveC2.lean",
+    "mode": "100644",
+    "sha": "952ef49ed736473f26792589fc08f71e633186d2"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveC6.lean",
+    "mode": "100644",
+    "sha": "a5e3db3ffbd3205560777ba5b89898cbc0793a95"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveC7.lean",
+    "mode": "100644",
+    "sha": "9aac0d789c936d57a8d2d369d6e146c9388606bb"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveC78.lean",
+    "mode": "100644",
+    "sha": "aa2aa4ed987246119458d924525a50880f891425"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveCallContext.lean",
+    "mode": "100644",
+    "sha": "268f543eec49bd234f31649e70924acbed0c9194"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveCallParams.lean",
+    "mode": "100644",
+    "sha": "8ffdae67a0143a56eaf4bd9261f015dd95be3726"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveFit.lean",
+    "mode": "100644",
+    "sha": "90a92175fd23c20da5583be07f5daecd546dcf9d"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RecursiveStepFacts.lean",
+    "mode": "100644",
+    "sha": "ad4a92cf12ead147da18ace8270daa361d421d1c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RegionModel.lean",
+    "mode": "100644",
+    "sha": "47896324f22956af4fb551173051b9051682e21a"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RegionPipeline.lean",
+    "mode": "100644",
+    "sha": "536357d042d59b213886b23023783b240c33c3d3"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RegionPlacement.lean",
+    "mode": "100644",
+    "sha": "2294ac742832f69bf03c1678d8fcc98901d3b65f"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Route.lean",
+    "mode": "100644",
+    "sha": "22c84cea7b031e78686cfc12d447cc4b84be3ece"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteLabelDummyCellProof.lean",
+    "mode": "100644",
+    "sha": "08ed110ee894c6da8e9d2403e17b2f5566f6b409"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteLabelForeignClearProof.lean",
+    "mode": "100644",
+    "sha": "822cf18901420c502b9b9747eb43a32940645cea"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteLabelLeftoverPairProof.lean",
+    "mode": "100644",
+    "sha": "ba5be58c20721eb1f4fbeedee35f4baee9224f17"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteLabelsPlacedProof.lean",
+    "mode": "100644",
+    "sha": "96a6532c1198ce1d82b50f17b2227066c4d4e264"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteNonforwardLabelClearProof.lean",
+    "mode": "100644",
+    "sha": "2a1755cc7832360aad89be7d2b719cebaf72bb16"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteProxyStart.lean",
+    "mode": "100644",
+    "sha": "8445ab43ad8a86a91f5145ac59c1c1c18c983a31"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteRunClearCases.lean",
+    "mode": "100644",
+    "sha": "1f78028518055383a27483421a702c249bb97688"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteRunClearClosed.lean",
+    "mode": "100644",
+    "sha": "f28c0d44bb4a816453f74c0f77e0f62fd70ac610"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteScopeClearance.lean",
+    "mode": "100644",
+    "sha": "504914582844cd298935e7829357fac6d963ad8c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RouteTransport.lean",
+    "mode": "100644",
+    "sha": "033fb5fe430f740352957ccf9f520314315933b2"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RunLocalLabelClearanceProof.lean",
+    "mode": "100644",
+    "sha": "21b7164b91c0806845603638f9d65890415d0914"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RunLocalLoopFootprintProof.lean",
+    "mode": "100644",
+    "sha": "fea35ef0667aa2ef5ffd6e4b3c00f100ee67eed2"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RunLocalSeparationsProof.lean",
+    "mode": "100644",
+    "sha": "e1fc7ed1ef7ba8094e1af3bfac46855db2a2a95c"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RunStageChainKeys.lean",
+    "mode": "100644",
+    "sha": "46a4b585b932ca2aaeb16fd7b9d6a47ef54ec2bf"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RunStageChainKeysResiduals.lean",
+    "mode": "100644",
+    "sha": "ba9fc5e592236a8be75084b454b758b7d57673cb"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RunStageNodeFacts.lean",
+    "mode": "100644",
+    "sha": "f7c76393187f7705a553693cca4f0087f6009f18"
+  },
+  {
+    "path": "proofs/Elegant/Layered/RunStagePathFacts.lean",
+    "mode": "100644",
+    "sha": "2d35223ed90f1d0be0af9ea9f4dbb32b26f887e4"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SceneBounds.lean",
+    "mode": "100644",
+    "sha": "da5509e9a38b633f9465c27f5d75cf16bf4bb689"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SceneParentsProof.lean",
+    "mode": "100644",
+    "sha": "6d9604a959a00a0fdd03f913e6a2d0fa4c937c29"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SeamClosureGlue.lean",
+    "mode": "100644",
+    "sha": "a4550af6b9b1fa134f05a0608b7f94830e3cfe63"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SelectFacts.lean",
+    "mode": "100644",
+    "sha": "dcc94a637706d35f6c92e8ab5292a0da946dfa81"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SelectInputCaptionTextProof.lean",
+    "mode": "100644",
+    "sha": "ab35faf86674b0cbb9ab840aacca41d4d5b095a1"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SelectInputWellFormed.lean",
+    "mode": "100644",
+    "sha": "7419ba48e42717de926c2e6d1e20bfc99aa81a41"
+  },
+  {
+    "path": "proofs/Elegant/Layered/ShapeIncidentInheritedProof.lean",
+    "mode": "100644",
+    "sha": "da5c3bb11e682600d9180768dd7b50dadd4adc50"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SideMarkerAnchorCoverProof.lean",
+    "mode": "100644",
+    "sha": "350e7bdc902ce27da1e60fc56ada63ea9a87d134"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SideMarkerFactsProof.lean",
+    "mode": "100644",
+    "sha": "6dab195188323201cdb36aba0e57671c9831f8c8"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SideMarkerPathsProof.lean",
+    "mode": "100644",
+    "sha": "794b6f3b0fe48bf2171502637071eea36dc26034"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SideMarkerTopInCandidateProof.lean",
+    "mode": "100644",
+    "sha": "fd941f53b7dc9b30aed40a2a2bf7e7a16f7cd51b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SizingCoverageBridge.lean",
+    "mode": "100644",
+    "sha": "fb5e78e116aa3e464c1ab7ae7f0b46ddce6cf6bd"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SizingFacts.lean",
+    "mode": "100644",
+    "sha": "a43985a311f45ce7a722a17cb29f2700d44d2796"
+  },
+  {
+    "path": "proofs/Elegant/Layered/StatePipeline.lean",
+    "mode": "100644",
+    "sha": "fea395350a52facb97d68f8178c7b741276925b1"
+  },
+  {
+    "path": "proofs/Elegant/Layered/Straighten.lean",
+    "mode": "100644",
+    "sha": "b7bfc2f36827dc7ba2796ad6ff1c91622aa0041a"
+  },
+  {
+    "path": "proofs/Elegant/Layered/StraightenFacts.lean",
+    "mode": "100644",
+    "sha": "61c3a470ef473bd81b518a56b41f5f51b92fcc9e"
+  },
+  {
+    "path": "proofs/Elegant/Layered/StrictDummyFrameProof.lean",
+    "mode": "100644",
+    "sha": "316984d9a58635098197e699277df06f94fa31f4"
+  },
+  {
+    "path": "proofs/Elegant/Layered/StrictMemberFrameProof.lean",
+    "mode": "100644",
+    "sha": "148ef78bb32f514254968924cf6646c37354172b"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SubInputWellFormedFacts.lean",
+    "mode": "100644",
+    "sha": "f7d8a29ec98ec9cb188a6c1d57f0b1826fb801b5"
+  },
+  {
+    "path": "proofs/Elegant/Layered/SwimlanePinPointOrthogonalityProof.lean",
+    "mode": "100644",
+    "sha": "46bc67fb5ceee9c3920a880a8179bc8e6fdb7928"
+  },
+  {
+    "path": "proofs/Elegant/Layered/TitleCopySpanFacts.lean",
+    "mode": "100644",
+    "sha": "967510b8c4c40decca762b8547205f5991e72033"
+  },
+  {
+    "path": "proofs/Elegant/Layered/TitleCopySpanProof.lean",
+    "mode": "100644",
+    "sha": "f97699d2d617315e25a64962e1fc7b703d6a7b58"
+  },
+  {
+    "path": "proofs/Elegant/Layered/TitleExclusiveSamePartProof.lean",
+    "mode": "100644",
+    "sha": "58025087bf4438d5f326593257a29456322ec6bb"
+  },
+  {
+    "path": "proofs/Elegant/Layered/VisibilityRoute.lean",
+    "mode": "100644",
+    "sha": "ba28a3523b77e61748b1aa0633271ad657b8e5e0"
+  },
+  {
+    "path": "proofs/Elegant/Measure.lean",
+    "mode": "100644",
+    "sha": "66e970cf10e5a56ce65746346b89580bb94952b3"
+  },
+  {
+    "path": "proofs/Elegant/Model.lean",
+    "mode": "100644",
+    "sha": "93a584a1f3f7a748db8cba7cecd34da20f80b1cb"
+  },
+  {
+    "path": "proofs/Elegant/Railroad.lean",
+    "mode": "100644",
+    "sha": "ea9cd55270de2dc3320890398cd74a33f99d3dd2"
+  },
+  {
+    "path": "proofs/Elegant/RailroadAssemblyFacts.lean",
+    "mode": "100644",
+    "sha": "f41623bee661a87d0d9767857197abed2cbefc8a"
+  },
+  {
+    "path": "proofs/Elegant/RailroadClearanceFacts.lean",
+    "mode": "100644",
+    "sha": "2ae787a5dd7626b7f1369d0c58041ffd9bb7a8d1"
+  },
+  {
+    "path": "proofs/Elegant/RailroadContainmentFacts.lean",
+    "mode": "100644",
+    "sha": "fcfc93097f0c0c3021115ae124f7868a457f506f"
+  },
+  {
+    "path": "proofs/Elegant/RailroadFacts.lean",
+    "mode": "100644",
+    "sha": "76ec6f2797a5ff3db94722a17cfc124567f03ff7"
+  },
+  {
+    "path": "proofs/Elegant/RailroadFrameFacts.lean",
+    "mode": "100644",
+    "sha": "4a3ccff20708245f730a75e0bd27de986400180e"
+  },
+  {
+    "path": "proofs/Elegant/Scene.lean",
+    "mode": "100644",
+    "sha": "f7f9a9cda455ea143099b89e5e94c73d2310897e"
+  },
+  {
+    "path": "proofs/Elegant/Sequence.lean",
+    "mode": "100644",
+    "sha": "436883134ddf876f01ccb417270c892bdb8702ef"
+  },
+  {
+    "path": "proofs/Elegant/SequenceAnc.lean",
+    "mode": "100644",
+    "sha": "0922309009cd4e21d5a90b4a62f5e9abcfa43941"
+  },
+  {
+    "path": "proofs/Elegant/SequenceClose.lean",
+    "mode": "100644",
+    "sha": "cfd066cb5467549704fcfb2d77951342467e4106"
+  },
+  {
+    "path": "proofs/Elegant/SequenceClose2.lean",
+    "mode": "100644",
+    "sha": "89341ed8425e5b4c8b261a11428ddbb841316ae0"
+  },
+  {
+    "path": "proofs/Elegant/SequenceClose3.lean",
+    "mode": "100644",
+    "sha": "2bf47ab293337011973be27348b5aec6dd94dcd9"
+  },
+  {
+    "path": "proofs/Elegant/SequenceClose4.lean",
+    "mode": "100644",
+    "sha": "1068557f4b78ef2e705e5d470b1f6bce7d101430"
+  },
+  {
+    "path": "proofs/Elegant/SequenceConsts.lean",
+    "mode": "100644",
+    "sha": "57f20aae3ffa316d75741ae7298b10244a73086f"
+  },
+  {
+    "path": "proofs/Elegant/SequenceDump.lean",
+    "mode": "100644",
+    "sha": "77c9d0ca3a24a63c6066905fe24c91abfea21da3"
+  },
+  {
+    "path": "proofs/Elegant/SequenceFacts.lean",
+    "mode": "100644",
+    "sha": "c099be5492e22ecfb54cd4fe61d90fb595318650"
+  },
+  {
+    "path": "proofs/Elegant/SequenceFinal.lean",
+    "mode": "100644",
+    "sha": "0238960b5ff4121c0b19cf3c02bc9e3f7f5e84ec"
+  },
+  {
+    "path": "proofs/Elegant/SequenceFinal2.lean",
+    "mode": "100644",
+    "sha": "13ec1eeb6038668809f62c11167547d6a3300bd2"
+  },
+  {
+    "path": "proofs/Elegant/SequenceHdr.lean",
+    "mode": "100644",
+    "sha": "b756b4ad062c0a77d956658436445ddf3df82c6f"
+  },
+  {
+    "path": "proofs/Elegant/SequenceInv.lean",
+    "mode": "100644",
+    "sha": "937863606e342444be5d194c0a0f09c5abaf3be8"
+  },
+  {
+    "path": "proofs/Elegant/SequenceLeaf.lean",
+    "mode": "100644",
+    "sha": "385e8b268e086b2aed75313ff06bd672ba223349"
+  },
+  {
+    "path": "proofs/Elegant/SequenceLock1.lean",
+    "mode": "100644",
+    "sha": "170687b4402b66ba1bdef06d3f4e0f9466d8ca71"
+  },
+  {
+    "path": "proofs/Elegant/SequenceLock2.lean",
+    "mode": "100644",
+    "sha": "cd3d22be781afc9ba5f1e08d7055795753b279dd"
+  },
+  {
+    "path": "proofs/Elegant/SequencePlan.lean",
+    "mode": "100644",
+    "sha": "023b26e50ab7a3573a91d91c5f0025c6a2e5dac5"
+  },
+  {
+    "path": "proofs/Elegant/SequenceStep.lean",
+    "mode": "100644",
+    "sha": "d1f0c57f74b8270af1e50315ead93f58ebaf5518"
+  },
+  {
+    "path": "proofs/Elegant/SequenceStep2.lean",
+    "mode": "100644",
+    "sha": "e180665ce442c7a5ad47dea46005c21527717946"
+  },
+  {
+    "path": "proofs/Elegant/SequenceStep3.lean",
+    "mode": "100644",
+    "sha": "15f60aad4a63f63e5d2dad1fd306a315f14086e9"
+  },
+  {
+    "path": "proofs/Elegant/SequenceValid.lean",
+    "mode": "100644",
+    "sha": "01d66786cd98c14e9956f89c6ebac9099e92f707"
+  },
+  {
+    "path": "proofs/Elegant/SequenceValid1.lean",
+    "mode": "100644",
+    "sha": "2617c47f91d9923252b679abf217a266dff5b3dd"
+  },
+  {
+    "path": "proofs/Elegant/SequenceValid2.lean",
+    "mode": "100644",
+    "sha": "de1ac458420f759d83dd1dfb1697a778802827b4"
+  },
+  {
+    "path": "proofs/Elegant/SequenceValid3.lean",
+    "mode": "100644",
+    "sha": "54c83cce1602c3cebac08cbddc9051f793eb32c7"
+  },
+  {
+    "path": "proofs/Elegant/SequenceValid4.lean",
+    "mode": "100644",
+    "sha": "44cc35cbeda29e51bc48aa972506e15bae136769"
+  },
+  {
+    "path": "proofs/Elegant/SequenceValid5.lean",
+    "mode": "100644",
+    "sha": "1d401d2b3b34a5c4991477dfe457e5afb577d223"
+  },
+  {
+    "path": "proofs/Elegant/SequenceValid6.lean",
+    "mode": "100644",
+    "sha": "7124e2c9d7bee155519003ae02c919e861545952"
+  },
+  {
+    "path": "proofs/Elegant/SequenceValid7.lean",
+    "mode": "100644",
+    "sha": "e9e43f1cdc6317962f1e2f5690cd9d1987331435"
+  },
+  {
+    "path": "proofs/Elegant/SequenceValid8.lean",
+    "mode": "100644",
+    "sha": "00eafec3628094e9b5cbdb94a0de29d8429d4181"
+  },
+  {
+    "path": "proofs/Elegant/StyledMeasure.lean",
+    "mode": "100644",
+    "sha": "5bedd81fa037395da67b8fa83d313e47c590f694"
+  },
+  {
+    "path": "proofs/Elegant/Text/Braille.lean",
+    "mode": "100644",
+    "sha": "3dca5e1a237c98c61bda636cf5d8170c205749b5"
+  },
+  {
+    "path": "proofs/Elegant/Text/BrailleRender.lean",
+    "mode": "100644",
+    "sha": "63567c5ad4bf52174c08d9640f17fd066b29dfd8"
+  },
+  {
+    "path": "proofs/Elegant/Text/Canvas.lean",
+    "mode": "100644",
+    "sha": "68032cfd256848eba30d12bb0fff9db2427a0795"
+  },
+  {
+    "path": "proofs/Elegant/Text/Join.lean",
+    "mode": "100644",
+    "sha": "4ee8d8b9f5ef80ef7257d0def7522769bcf886c1"
+  },
+  {
+    "path": "proofs/Elegant/Text/Place.lean",
+    "mode": "100644",
+    "sha": "6ad2d71e71df4d2517a05418c2a28c963f741e02"
+  },
+  {
+    "path": "proofs/Elegant/Text/Render.lean",
+    "mode": "100644",
+    "sha": "435bcce636972facc17dc16af5e9542a2c1126dd"
+  },
+  {
+    "path": "proofs/Elegant/TimelineValidity.lean",
+    "mode": "100644",
+    "sha": "18040d29e075420321dc54a3d90453ecd3bf0737"
+  },
+  {
+    "path": "proofs/Elegant/Tree.lean",
+    "mode": "100644",
+    "sha": "7cd0902a976c63cfc432bb6a96e8cc88b1ff1100"
+  },
+  {
+    "path": "proofs/Elegant/TreeFacts.lean",
+    "mode": "100644",
+    "sha": "1c47606763522a25ac5d734a9071511cd620e162"
+  },
+  {
+    "path": "proofs/Elegant/TreeNormalized.lean",
+    "mode": "100644",
+    "sha": "7580192a1877a3ace19fc11924f5be88607a4e70"
+  },
+  {
+    "path": "proofs/Elegant/TreeValid.lean",
+    "mode": "100644",
+    "sha": "ddd4b9dcc626e5b3e441e8d05878a5e4f64814d5"
+  },
+  {
+    "path": "proofs/Elegant/Treeview.lean",
+    "mode": "100644",
+    "sha": "635deda6396342873b2186bea64c96190d8a618c"
+  },
+  {
+    "path": "proofs/ElegantGeometry.lean",
+    "mode": "100644",
+    "sha": "3f3f88f63b47940bccf920997e844c8c8ca66f43"
+  },
+  {
+    "path": "proofs/ElegantGeometry/Basic.lean",
+    "mode": "100644",
+    "sha": "490d140b0075e96d9535525e11f1a35d60a32dd7"
+  },
+  {
+    "path": "proofs/ElegantGeometry/Compaction.lean",
+    "mode": "100644",
+    "sha": "72cb3a233992795d7e935a51913932175addc241"
+  },
+  {
+    "path": "proofs/ElegantGeometry/Crossings.lean",
+    "mode": "100644",
+    "sha": "ee7f8980fbdc492e8ee55b3a32295cb8ea0065bd"
+  },
+  {
+    "path": "proofs/ElegantGeometry/Disjoint.lean",
+    "mode": "100644",
+    "sha": "eb0ad3a0099b988762989851dd8c9ab00543e512"
+  },
+  {
+    "path": "proofs/ElegantGeometry/DumpReader.lean",
+    "mode": "100644",
+    "sha": "35edaf1dc84fd4f261d7863d7cbb775361968c0b"
+  },
+  {
+    "path": "proofs/ElegantGeometry/Eval.lean",
+    "mode": "100644",
+    "sha": "c3c540b7d7e0c51b5181ea18201184539d497c05"
+  },
+  {
+    "path": "proofs/ElegantGeometry/Route.lean",
+    "mode": "100644",
+    "sha": "92320504ac88cee162ac8fb5dc684f8648ae8c34"
+  },
+  {
+    "path": "proofs/ElegantGeometry/Trig.lean",
+    "mode": "100644",
+    "sha": "fb8874db061edd9a2c666871c66977095b0b2733"
+  },
+  {
+    "path": "proofs/ElegantGeometry/Validator.lean",
+    "mode": "100644",
+    "sha": "66a935f37722aef3656f3e8ede3dba2163ac9735"
+  },
+  {
+    "path": "proofs/Main.lean",
+    "mode": "100644",
+    "sha": "b1b9a9ce8d00bdf7ef4b69fdd0f37f8da445baef"
+  },
+  {
+    "path": "proofs/lake-manifest.json",
+    "mode": "100644",
+    "sha": "a3e270e76fb90f2d000f2a64946fc265bd2f79e8"
+  },
+  {
+    "path": "proofs/lakefile.toml",
+    "mode": "100644",
+    "sha": "867794c785927b0e58fffdddfb7ccc80005d7f85"
+  },
+  {
+    "path": "proofs/lean-toolchain",
+    "mode": "100644",
+    "sha": "a6aff065db2882c535684f8c5bcd4f16e9a23915"
+  },
+  {
+    "path": "proofs/scripts/audit.sh",
+    "mode": "100755",
+    "sha": "f61b0799a806d56ee9d673a6ae781d8c04f3a051"
+  },
+  {
+    "path": "proofs/theorems.txt",
+    "mode": "100644",
+    "sha": "e092cc40759bb1d61c3b3f0c2845b8c089b8f289"
+  },
+  {
+    "path": "public_config_edges_test.go",
+    "mode": "100644",
+    "sha": "9afa4081f09a83f55c3e2a920bad5ed03d8c32e5"
+  },
+  {
+    "path": "public_config_kinds_test.go",
+    "mode": "100644",
+    "sha": "ac21cb213544bab09200f5b3c038c452b6fbda84"
+  },
+  {
+    "path": "public_config_test.go",
+    "mode": "100644",
+    "sha": "fb6cb092127d0c9b4ef7cc3f453546d208a2ea8f"
+  },
+  {
+    "path": "public_limits_test.go",
+    "mode": "100644",
+    "sha": "6482f0ee22d96dc3bfd46adfe2398e4e6ed153c8"
+  },
+  {
+    "path": "public_test.go",
+    "mode": "100644",
+    "sha": "6968089a26afaca0134bdea5c4d1b073ecc6083a"
+  },
+  {
+    "path": "raster/error_texts_test.go",
+    "mode": "100644",
+    "sha": "4a86fc52c61c4a97e147682f923a84a13e624ea8"
+  },
+  {
+    "path": "raster/fallback.go",
+    "mode": "100644",
+    "sha": "a202048953c8572d51a041c37ea47f70b859bb5f"
+  },
+  {
+    "path": "raster/fallback_test.go",
+    "mode": "100644",
+    "sha": "5ac4d2d2e41f9045a4568a364f73faa561cbb988"
+  },
+  {
+    "path": "raster/fonts/Inter-Regular.ttf",
+    "mode": "100644",
+    "sha": "b7aaca8de1fe458399e17311d35d543a1fa2f984"
+  },
+  {
+    "path": "raster/fonts/Inter-SemiBold.ttf",
+    "mode": "100644",
+    "sha": "47f8ab1d68144fc004b310d65d95180d502b449b"
+  },
+  {
+    "path": "raster/fonts/LICENSE.txt",
+    "mode": "100644",
+    "sha": "9b2ca37b3ffc77391d8b2ebef4a974ef32bf46ea"
+  },
+  {
+    "path": "raster/fonts/LICENSES-NOTO.txt",
+    "mode": "100644",
+    "sha": "583076f56e890ca3061e3494d2643e5b524133ab"
+  },
+  {
+    "path": "raster/fonts/NotoEmoji-Regular.ttf",
+    "mode": "100644",
+    "sha": "301fd8b3ea27659ed231b96e76bbff059663f66a"
+  },
+  {
+    "path": "raster/fonts/NotoSans-Regular.ttf",
+    "mode": "100644",
+    "sha": "b83c8bfde50c253d9f2b8d24e7d0321bc127ba82"
+  },
+  {
+    "path": "raster/fonts/NotoSans-SemiBold.ttf",
+    "mode": "100644",
+    "sha": "0f2bfa7f2c5867b6c5f3706c93b06d9abb39d8bd"
+  },
+  {
+    "path": "raster/fonts/NotoSansCJKsc-Regular.ttf",
+    "mode": "100644",
+    "sha": "1c9cbddb1b1be3e626f7fe866ffed7417309782f"
+  },
+  {
+    "path": "raster/fonts/NotoSansCJKsc-SemiBold.ttf",
+    "mode": "100644",
+    "sha": "423b232757b2208d5695ec50344cd875379d3cf2"
+  },
+  {
+    "path": "raster/fonts/NotoSansCoptic-Regular.ttf",
+    "mode": "100644",
+    "sha": "c9d60d7169b4de5000db0238e94cbed7d4a4e2ac"
+  },
+  {
+    "path": "raster/fonts/NotoSansMath-Regular.ttf",
+    "mode": "100644",
+    "sha": "7e505c9bad286732f4d6daf0165e6b6cbbe57079"
+  },
+  {
+    "path": "raster/fonts/NotoSansSymbols-Regular.ttf",
+    "mode": "100644",
+    "sha": "90be567ba2e461110145a4fef90960936c4aaa6d"
+  },
+  {
+    "path": "raster/fonts/NotoSansSymbols-SemiBold.ttf",
+    "mode": "100644",
+    "sha": "c18bcac57749ffa642f252b627b86e5b44bc87fe"
+  },
+  {
+    "path": "raster/fonts/NotoSansSymbols2-Regular.ttf",
+    "mode": "100644",
+    "sha": "caf89dd0e60e23ac39ce18da823095959d409437"
+  },
+  {
+    "path": "raster/fonts_browser.go",
+    "mode": "100644",
+    "sha": "2f2b07cf7c87e71cab888210275a7f4661b6db3b"
+  },
+  {
+    "path": "raster/fonts_native.go",
+    "mode": "100644",
+    "sha": "2f74e4882a2ffd955a3e503d5dbaac6bc01b8756"
+  },
+  {
+    "path": "raster/geometry.go",
+    "mode": "100644",
+    "sha": "dd9fbf1b7899bce99b6c094cdb3bc0f8a20927f2"
+  },
+  {
+    "path": "raster/raster.go",
+    "mode": "100644",
+    "sha": "0383bec98b4131dca753ac3e2d4698a5fef17d3e"
+  },
+  {
+    "path": "raster/raster_test.go",
+    "mode": "100644",
+    "sha": "7c80480da1968150406cc940b2369b16ed45a56c"
+  },
+  {
+    "path": "raster/stroke.go",
+    "mode": "100644",
+    "sha": "2a9f78f86e2e7c247fef41f22a7a99d36a29a03d"
+  },
+  {
+    "path": "raster/stroke_test.go",
+    "mode": "100644",
+    "sha": "d116417cdd9e949928f842d403474d7ebae4e61e"
+  },
+  {
+    "path": "raster/text.go",
+    "mode": "100644",
+    "sha": "f3f158953b32f329770573e5c4a33e06781ca9d8"
+  },
+  {
+    "path": "raster/textpaths_test.go",
+    "mode": "100644",
+    "sha": "77e9211c34371de35de5c38e347f2822887d6c76"
+  },
+  {
+    "path": "raster_scene.go",
+    "mode": "100644",
+    "sha": "ee36b1d3124abc62c862ba6c34ff0c977e2dbf98"
+  },
+  {
+    "path": "render.go",
+    "mode": "100644",
+    "sha": "e308021094d120565d0ec3f6328f652722d45bf4"
+  },
+  {
+    "path": "rust-toolchain.toml",
+    "mode": "100644",
+    "sha": "640a93b2aa0b414440705d09f9cf5384443aa022"
+  },
+  {
+    "path": "spec/cli.md",
+    "mode": "100644",
+    "sha": "332ce0684abcb453788a85d2da7f257996640710"
+  },
+  {
+    "path": "spec/config.md",
+    "mode": "100644",
+    "sha": "acc0c99e8a4438ed02290315b7cbe4aeac945dc7"
+  },
+  {
+    "path": "spec/data/SOURCES.json",
+    "mode": "100644",
+    "sha": "30f5d2fbc31d1a79cf4accfc80e00bd72f6fb1c5"
+  },
+  {
+    "path": "spec/data/cell-symbols.json",
+    "mode": "100644",
+    "sha": "286e5e7812102607362dfdbcb8f8843f9a819f57"
+  },
+  {
+    "path": "spec/data/config-keys/agentflow.json",
+    "mode": "100644",
+    "sha": "9f460730d6d4b5709da98b379a0075d8a4950fa1"
+  },
+  {
+    "path": "spec/data/config-keys/architecture.json",
+    "mode": "100644",
+    "sha": "8f72a30d55253e41fe995999747bd83d1cf7aa4e"
+  },
+  {
+    "path": "spec/data/config-keys/block.json",
+    "mode": "100644",
+    "sha": "0245a55e2f23e4c5d6749be2dc446484f362f618"
+  },
+  {
+    "path": "spec/data/config-keys/c4.json",
+    "mode": "100644",
+    "sha": "5bc57f78980e2ba1ee41b3501db39b748fb57479"
+  },
+  {
+    "path": "spec/data/config-keys/class.json",
+    "mode": "100644",
+    "sha": "4897effe04d79b2d370ed5277eccf5b4de1580c4"
+  },
+  {
+    "path": "spec/data/config-keys/common.json",
+    "mode": "100644",
+    "sha": "1a5a98ccbccc2139bd91c5b7a0af152ac99566e8"
+  },
+  {
+    "path": "spec/data/config-keys/cynefin.json",
+    "mode": "100644",
+    "sha": "5b0b8e0d31a7d490481235a7e15a774817c31fde"
+  },
+  {
+    "path": "spec/data/config-keys/er.json",
+    "mode": "100644",
+    "sha": "b7faaeca871b0e633b0063b14988bd0186a46e90"
+  },
+  {
+    "path": "spec/data/config-keys/eventmodeling.json",
+    "mode": "100644",
+    "sha": "9cfe0049f786265b73045a7ce90e0b7cf379baa8"
+  },
+  {
+    "path": "spec/data/config-keys/flowchart.json",
+    "mode": "100644",
+    "sha": "28e7e30007d1e0f67f6a0cc101de1711230b5c0e"
+  },
+  {
+    "path": "spec/data/config-keys/gantt.json",
+    "mode": "100644",
+    "sha": "390b57f5cb3ecd55773a118003beacbe8ccce1f0"
+  },
+  {
+    "path": "spec/data/config-keys/gitgraph.json",
+    "mode": "100644",
+    "sha": "d3b986bf14d0a01a917131e20fa96e8d2c5d4c1b"
+  },
+  {
+    "path": "spec/data/config-keys/info.json",
+    "mode": "100644",
+    "sha": "fe51488c7066f6687ef680d6bfaa4f7768ef205c"
+  },
+  {
+    "path": "spec/data/config-keys/ishikawa.json",
+    "mode": "100644",
+    "sha": "4f7d4fef18693db787d470a1eed7258786ebc45c"
+  },
+  {
+    "path": "spec/data/config-keys/journey.json",
+    "mode": "100644",
+    "sha": "3ddc84e8b8dac0f3187378c5bc9be2d94113088d"
+  },
+  {
+    "path": "spec/data/config-keys/kanban.json",
+    "mode": "100644",
+    "sha": "14095f073f900ff88a5e397bbb895818daf642de"
+  },
+  {
+    "path": "spec/data/config-keys/mindmap.json",
+    "mode": "100644",
+    "sha": "21a00dfe7a86a3568ae5574f586e7df0bb7035fc"
+  },
+  {
+    "path": "spec/data/config-keys/packet.json",
+    "mode": "100644",
+    "sha": "6d92a20bfc4788abd157db5b8894dd274c7ad481"
+  },
+  {
+    "path": "spec/data/config-keys/pie.json",
+    "mode": "100644",
+    "sha": "5f1083cb5a94b975c0f09b08fc3f05b4bddf778d"
+  },
+  {
+    "path": "spec/data/config-keys/quadrant.json",
+    "mode": "100644",
+    "sha": "16d97e1f6b2e64604ecbacea61f9dd63185bda2b"
+  },
+  {
+    "path": "spec/data/config-keys/radar.json",
+    "mode": "100644",
+    "sha": "b0599553e752fd2eefc1a1f792742c29d6081fc5"
+  },
+  {
+    "path": "spec/data/config-keys/railroad.json",
+    "mode": "100644",
+    "sha": "d9caa77f938e2be9d2e0b954b77a01e78c088717"
+  },
+  {
+    "path": "spec/data/config-keys/requirement.json",
+    "mode": "100644",
+    "sha": "2ca905171f5a147a737e499ed4e7c62d2176925b"
+  },
+  {
+    "path": "spec/data/config-keys/sankey.json",
+    "mode": "100644",
+    "sha": "f12fb475b8c0706d7f9cf3cc6f0dc034b19f156c"
+  },
+  {
+    "path": "spec/data/config-keys/sequence.json",
+    "mode": "100644",
+    "sha": "0ae05d44d565d0872e0fc0cec4c9d5a31c71f601"
+  },
+  {
+    "path": "spec/data/config-keys/state.json",
+    "mode": "100644",
+    "sha": "a3749c9daa2ae9b1e219e4406b6faf21298fdbca"
+  },
+  {
+    "path": "spec/data/config-keys/swimlane.json",
+    "mode": "100644",
+    "sha": "94193a41fe6f7a76de23a71786958db0423bb0fc"
+  },
+  {
+    "path": "spec/data/config-keys/timeline.json",
+    "mode": "100644",
+    "sha": "bd9f06be235e9302841a3e0ecdb8c172c7b3c321"
+  },
+  {
+    "path": "spec/data/config-keys/treemap.json",
+    "mode": "100644",
+    "sha": "3e84f2bfce8babfa093b6432da03bf6ce8080692"
+  },
+  {
+    "path": "spec/data/config-keys/treeview.json",
+    "mode": "100644",
+    "sha": "5d79a046a7576b38c6c145f9f2965f2b22f2cdc1"
+  },
+  {
+    "path": "spec/data/config-keys/usecase.json",
+    "mode": "100644",
+    "sha": "bb6e5134daa0592cb3f92a8375316fa6015d2a17"
+  },
+  {
+    "path": "spec/data/config-keys/venn.json",
+    "mode": "100644",
+    "sha": "d6550a83f43d2a2fb0a2299c6d71b4d157839cf3"
+  },
+  {
+    "path": "spec/data/config-keys/wardley.json",
+    "mode": "100644",
+    "sha": "f7694c428a295b83c7b457f12d1cac40056c1bdf"
+  },
+  {
+    "path": "spec/data/config-keys/xychart.json",
+    "mode": "100644",
+    "sha": "b3f0c595dc0fcf3b67b354aee2b0129e96999ed8"
+  },
+  {
+    "path": "spec/data/diagnostics/agentflow.json",
+    "mode": "100644",
+    "sha": "ba2fb817d374b074ecaf74235e152db6e0aca81a"
+  },
+  {
+    "path": "spec/data/diagnostics/architecture.json",
+    "mode": "100644",
+    "sha": "9bcc781f2ccc4d0093ea245d2d7dafc23ff27059"
+  },
+  {
+    "path": "spec/data/diagnostics/block.json",
+    "mode": "100644",
+    "sha": "43df7d0e743a90100f8ab174e97f37e433db3d2d"
+  },
+  {
+    "path": "spec/data/diagnostics/c4.json",
+    "mode": "100644",
+    "sha": "b8027dc9729cc71e25e8692d8588b401c57b2e29"
+  },
+  {
+    "path": "spec/data/diagnostics/class.json",
+    "mode": "100644",
+    "sha": "74c48d762e01135ae1c110469a3349907a17ac8b"
+  },
+  {
+    "path": "spec/data/diagnostics/common.json",
+    "mode": "100644",
+    "sha": "bded183efef77dddb6054d98d662c7157839ee3f"
+  },
+  {
+    "path": "spec/data/diagnostics/cynefin.json",
+    "mode": "100644",
+    "sha": "61e6b8a0b6302ce33b5a210359f77341f4ad49a7"
+  },
+  {
+    "path": "spec/data/diagnostics/er.json",
+    "mode": "100644",
+    "sha": "139b8f26dea9184d975694e15501083e2f3636c5"
+  },
+  {
+    "path": "spec/data/diagnostics/eventmodeling.json",
+    "mode": "100644",
+    "sha": "cea675d5d7945d2aa3d6bc129d9e2a823afe512c"
+  },
+  {
+    "path": "spec/data/diagnostics/flowchart.json",
+    "mode": "100644",
+    "sha": "5e8eb0cca078cfb19cdecc8b480d49f390f25dfb"
+  },
+  {
+    "path": "spec/data/diagnostics/gantt.json",
+    "mode": "100644",
+    "sha": "ff7408059bd100d43aa629f7b869e292360147ff"
+  },
+  {
+    "path": "spec/data/diagnostics/gitgraph.json",
+    "mode": "100644",
+    "sha": "68436ff29c4747578adb35c6acc46aaccbd66e3e"
+  },
+  {
+    "path": "spec/data/diagnostics/info.json",
+    "mode": "100644",
+    "sha": "d06c4d57af2213413c5b42923497a7b2df737425"
+  },
+  {
+    "path": "spec/data/diagnostics/ishikawa.json",
+    "mode": "100644",
+    "sha": "526b167acc416eab56b7b9582938086bc9869edc"
+  },
+  {
+    "path": "spec/data/diagnostics/journey.json",
+    "mode": "100644",
+    "sha": "712997d5d041680ca79daa4268d79938249a221d"
+  },
+  {
+    "path": "spec/data/diagnostics/kanban.json",
+    "mode": "100644",
+    "sha": "d3e64361ad9a13753f61cbd806b1c59a59b3f874"
+  },
+  {
+    "path": "spec/data/diagnostics/mindmap.json",
+    "mode": "100644",
+    "sha": "5e1af7e7007d3639c491cf01f7e0999c70e193e6"
+  },
+  {
+    "path": "spec/data/diagnostics/packet.json",
+    "mode": "100644",
+    "sha": "01eb9c817d21efb5f3ec81606012da9b32f3122f"
+  },
+  {
+    "path": "spec/data/diagnostics/pie.json",
+    "mode": "100644",
+    "sha": "6fde74dc0eaf6ebd22c2e8f788978cfe25f04b5a"
+  },
+  {
+    "path": "spec/data/diagnostics/quadrant.json",
+    "mode": "100644",
+    "sha": "d51bc5777fa0d30260fea049cb00c631b7fe1d2a"
+  },
+  {
+    "path": "spec/data/diagnostics/radar.json",
+    "mode": "100644",
+    "sha": "774171e881e47983baae5febbd8fca5c995dd31d"
+  },
+  {
+    "path": "spec/data/diagnostics/railroad.json",
+    "mode": "100644",
+    "sha": "00cc71158e071502415ca820e76fa0fd88b0587a"
+  },
+  {
+    "path": "spec/data/diagnostics/requirement.json",
+    "mode": "100644",
+    "sha": "ab7b54b5d8c9a87139327fcd115a55046e531085"
+  },
+  {
+    "path": "spec/data/diagnostics/sankey.json",
+    "mode": "100644",
+    "sha": "6daffdca9a23fa6435629d0eb79519cea27ddb81"
+  },
+  {
+    "path": "spec/data/diagnostics/sequence.json",
+    "mode": "100644",
+    "sha": "4c4970adf2893b91f1961a57018031dd44a4546e"
+  },
+  {
+    "path": "spec/data/diagnostics/state.json",
+    "mode": "100644",
+    "sha": "c08ed6a1a31315b0b370a0fe9f76a0a89016fcf7"
+  },
+  {
+    "path": "spec/data/diagnostics/swimlane.json",
+    "mode": "100644",
+    "sha": "0c2a337894f7501055a5c8ce26b8f6153e615996"
+  },
+  {
+    "path": "spec/data/diagnostics/timeline.json",
+    "mode": "100644",
+    "sha": "30dba82015d7445a673fb00a8c4aca3866bbc3a0"
+  },
+  {
+    "path": "spec/data/diagnostics/treemap.json",
+    "mode": "100644",
+    "sha": "6c5bc4f00df4daf955de5e03880333710233cff1"
+  },
+  {
+    "path": "spec/data/diagnostics/treeview.json",
+    "mode": "100644",
+    "sha": "3d8c5390a604c72e8a0bf5a530a480bb92ae25a2"
+  },
+  {
+    "path": "spec/data/diagnostics/usecase.json",
+    "mode": "100644",
+    "sha": "e703b381b97b1114eddf47b558be2c3e9e8d3d79"
+  },
+  {
+    "path": "spec/data/diagnostics/venn.json",
+    "mode": "100644",
+    "sha": "e09f1dd4a6ed086285daae2dcf76b1a0d4c3168f"
+  },
+  {
+    "path": "spec/data/diagnostics/wardley.json",
+    "mode": "100644",
+    "sha": "ebabdcbefe2a7a11377547397318205701b87fd5"
+  },
+  {
+    "path": "spec/data/diagnostics/xychart.json",
+    "mode": "100644",
+    "sha": "246662fe336e1431a67b1943907b5b96e9add486"
+  },
+  {
+    "path": "spec/data/entities.json",
+    "mode": "100644",
+    "sha": "557170b41f47a13a46ec695561eb5fe76da73bdb"
+  },
+  {
+    "path": "spec/data/fonts/Inter-Regular.ttf",
+    "mode": "100644",
+    "sha": "b7aaca8de1fe458399e17311d35d543a1fa2f984"
+  },
+  {
+    "path": "spec/data/fonts/Inter-Regular.woff2",
+    "mode": "100644",
+    "sha": "2bcd222ecfae996d035ff72bf70672305cc29261"
+  },
+  {
+    "path": "spec/data/fonts/Inter-SemiBold.ttf",
+    "mode": "100644",
+    "sha": "47f8ab1d68144fc004b310d65d95180d502b449b"
+  },
+  {
+    "path": "spec/data/fonts/Inter-SemiBold.woff2",
+    "mode": "100644",
+    "sha": "fbae113d2855e22c06376495bd2dfe5f02411272"
+  },
+  {
+    "path": "spec/data/fonts/LICENSE.txt",
+    "mode": "100644",
+    "sha": "9b2ca37b3ffc77391d8b2ebef4a974ef32bf46ea"
+  },
+  {
+    "path": "spec/data/fonts/LICENSES-NOTO.txt",
+    "mode": "100644",
+    "sha": "583076f56e890ca3061e3494d2643e5b524133ab"
+  },
+  {
+    "path": "spec/data/fonts/NotoEmoji-Regular.ttf",
+    "mode": "100644",
+    "sha": "301fd8b3ea27659ed231b96e76bbff059663f66a"
+  },
+  {
+    "path": "spec/data/fonts/NotoSans-Regular.ttf",
+    "mode": "100644",
+    "sha": "b83c8bfde50c253d9f2b8d24e7d0321bc127ba82"
+  },
+  {
+    "path": "spec/data/fonts/NotoSans-SemiBold.ttf",
+    "mode": "100644",
+    "sha": "0f2bfa7f2c5867b6c5f3706c93b06d9abb39d8bd"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansCJKsc-Regular.ttf",
+    "mode": "100644",
+    "sha": "1c9cbddb1b1be3e626f7fe866ffed7417309782f"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansCJKsc-SemiBold.ttf",
+    "mode": "100644",
+    "sha": "423b232757b2208d5695ec50344cd875379d3cf2"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansCoptic-Regular.ttf",
+    "mode": "100644",
+    "sha": "c9d60d7169b4de5000db0238e94cbed7d4a4e2ac"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansMath-Regular.ttf",
+    "mode": "100644",
+    "sha": "7e505c9bad286732f4d6daf0165e6b6cbbe57079"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansSymbols-Regular.ttf",
+    "mode": "100644",
+    "sha": "90be567ba2e461110145a4fef90960936c4aaa6d"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansSymbols-SemiBold.ttf",
+    "mode": "100644",
+    "sha": "c18bcac57749ffa642f252b627b86e5b44bc87fe"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansSymbols2-Regular.ttf",
+    "mode": "100644",
+    "sha": "caf89dd0e60e23ac39ce18da823095959d409437"
+  },
+  {
+    "path": "spec/data/glyph-join.json",
+    "mode": "100644",
+    "sha": "287339ff42bba494870504dcd0c3115ac9e1cd77"
+  },
+  {
+    "path": "spec/data/kinds.json",
+    "mode": "100644",
+    "sha": "570c556fd38698f2c48e66337d9ee00e29060888"
+  },
+  {
+    "path": "spec/data/layout-constants.json",
+    "mode": "100644",
+    "sha": "1b3873b54ba087046a10b6f8579f6b932523a791"
+  },
+  {
+    "path": "spec/data/lint-rules/architecture.json",
+    "mode": "100644",
+    "sha": "288d9f02a63894fd35a7c27fa91ad790a72f3fff"
+  },
+  {
+    "path": "spec/data/lint-rules/block.json",
+    "mode": "100644",
+    "sha": "346e7abfdf0ec22d535b4e6f39d1f8189590c3eb"
+  },
+  {
+    "path": "spec/data/lint-rules/c4.json",
+    "mode": "100644",
+    "sha": "32e5d539c80b69ba07ab14702d2a06d4aa0648a7"
+  },
+  {
+    "path": "spec/data/lint-rules/class.json",
+    "mode": "100644",
+    "sha": "c1cb2a178a4c1536e9516b009d3de93956baa0d1"
+  },
+  {
+    "path": "spec/data/lint-rules/common.json",
+    "mode": "100644",
+    "sha": "d859ac21b0dbe4564f7c9fa854dda8862e01660a"
+  },
+  {
+    "path": "spec/data/lint-rules/er.json",
+    "mode": "100644",
+    "sha": "a62c58f025fa22019535ea6110107d922655860e"
+  },
+  {
+    "path": "spec/data/lint-rules/eventmodeling.json",
+    "mode": "100644",
+    "sha": "9a702c7a3a425c8215577c3efac99f1819d854b3"
+  },
+  {
+    "path": "spec/data/lint-rules/flowchart.json",
+    "mode": "100644",
+    "sha": "a417fe25070839559f1377eeb75146773de4cd70"
+  },
+  {
+    "path": "spec/data/lint-rules/gantt.json",
+    "mode": "100644",
+    "sha": "163d4cc02fbab0d643a30d41bd01cb8225448670"
+  },
+  {
+    "path": "spec/data/lint-rules/gitgraph.json",
+    "mode": "100644",
+    "sha": "95b27a7debe8c88498240c2a8b9bbfeacdcb0584"
+  },
+  {
+    "path": "spec/data/lint-rules/ishikawa.json",
+    "mode": "100644",
+    "sha": "072f2595234a82ab5863ba02b94d65898b34ec61"
+  },
+  {
+    "path": "spec/data/lint-rules/journey.json",
+    "mode": "100644",
+    "sha": "cd29bc4441d8ee10f4bfb6a0253f7431ea673ec1"
+  },
+  {
+    "path": "spec/data/lint-rules/kanban.json",
+    "mode": "100644",
+    "sha": "8bce9bb82aa6ed8ac6c7e6521232fd72ccda957a"
+  },
+  {
+    "path": "spec/data/lint-rules/mindmap.json",
+    "mode": "100644",
+    "sha": "6e365deeb8499233610d46fecda7c70dc74fafb2"
+  },
+  {
+    "path": "spec/data/lint-rules/packet.json",
+    "mode": "100644",
+    "sha": "64ca59f9e3024bea72c201f9c5e9bc3fbc5431bc"
+  },
+  {
+    "path": "spec/data/lint-rules/pie.json",
+    "mode": "100644",
+    "sha": "f3d2e8334ad14e384f8c94cf1d394a9e9ae625d5"
+  },
+  {
+    "path": "spec/data/lint-rules/quadrant.json",
+    "mode": "100644",
+    "sha": "a3332542e13183ded14983b518abde9f1327215f"
+  },
+  {
+    "path": "spec/data/lint-rules/radar.json",
+    "mode": "100644",
+    "sha": "99e48b60bc41d2fc64d13ff1adcfb38c6245e6e4"
+  },
+  {
+    "path": "spec/data/lint-rules/requirement.json",
+    "mode": "100644",
+    "sha": "458b8aea11cc3a77cb1dc753ad3fff8f0f51ff85"
+  },
+  {
+    "path": "spec/data/lint-rules/sankey.json",
+    "mode": "100644",
+    "sha": "3a09c14f2cf5059145684621a55c099f9a2b7297"
+  },
+  {
+    "path": "spec/data/lint-rules/sequence.json",
+    "mode": "100644",
+    "sha": "891f83a3d90e9d4adecfe47fe43effc59861c865"
+  },
+  {
+    "path": "spec/data/lint-rules/state.json",
+    "mode": "100644",
+    "sha": "e1f2d4a7f2a2b10b2695fac6d4f88e0bce10a011"
+  },
+  {
+    "path": "spec/data/lint-rules/timeline.json",
+    "mode": "100644",
+    "sha": "4d382f9493d6187e128c6ad3339e454eff32e49e"
+  },
+  {
+    "path": "spec/data/lint-rules/treemap.json",
+    "mode": "100644",
+    "sha": "c2fa826f5e70daab0344df1320853f5b64082a39"
+  },
+  {
+    "path": "spec/data/lint-rules/treeview.json",
+    "mode": "100644",
+    "sha": "d35e629a788366fb01b22c401d12e4d4f6eda201"
+  },
+  {
+    "path": "spec/data/lint-rules/venn.json",
+    "mode": "100644",
+    "sha": "5905b68aa9e45942b080520b9dd04f2c1caea408"
+  },
+  {
+    "path": "spec/data/lint-rules/wardley.json",
+    "mode": "100644",
+    "sha": "2f82810c94a7cd7ffe2f0c4171e52b06abd79f7c"
+  },
+  {
+    "path": "spec/data/lint-rules/xychart.json",
+    "mode": "100644",
+    "sha": "4ee7d80f525b40441d4b3a1e15d84bb08d52520b"
+  },
+  {
+    "path": "spec/data/markers.json",
+    "mode": "100644",
+    "sha": "a15e774762cc3ad44f3d644aff14c7eb4dd5b5eb"
+  },
+  {
+    "path": "spec/data/palettes/catppuccin.json",
+    "mode": "100644",
+    "sha": "7c5a15a0a8614e35395947d77bc603303429d3bc"
+  },
+  {
+    "path": "spec/data/palettes/colorbrewer-paired.json",
+    "mode": "100644",
+    "sha": "5badad4fcbfc0f86afc3460ceec054aefad2ccc3"
+  },
+  {
+    "path": "spec/data/palettes/nord.json",
+    "mode": "100644",
+    "sha": "067046fdca327961c3b32e9803271d7819324d40"
+  },
+  {
+    "path": "spec/data/palettes/primer.json",
+    "mode": "100644",
+    "sha": "d8231ff9536156235be3f0fbae60c33d032e062c"
+  },
+  {
+    "path": "spec/data/palettes/radix.json",
+    "mode": "100644",
+    "sha": "e59ea3c45cccb537ecb367d8a132465cec6f80c7"
+  },
+  {
+    "path": "spec/data/palettes/solarized.json",
+    "mode": "100644",
+    "sha": "aba3590d991b7feff858a84f372cc3abab9fbbe2"
+  },
+  {
+    "path": "spec/data/scripts.json",
+    "mode": "100644",
+    "sha": "4afde344530982b6532d98e10281befd62ce24a1"
+  },
+  {
+    "path": "spec/data/shapes.json",
+    "mode": "100644",
+    "sha": "c58c5bd58f9b78d6106437df88e793d47a4a0926"
+  },
+  {
+    "path": "spec/data/styles.json",
+    "mode": "100644",
+    "sha": "193648b24773d96f8c62e8c4b02c460e13f49e47"
+  },
+  {
+    "path": "spec/data/themes.json",
+    "mode": "100644",
+    "sha": "8fe39ef5790e150a545133d4c99d91ea16ad2fef"
+  },
+  {
+    "path": "spec/data/unicode/DerivedCoreProperties.txt",
+    "mode": "100644",
+    "sha": "a41de001b7e2359fc4073faf52a69eea616ad5da"
+  },
+  {
+    "path": "spec/data/unicode/DerivedGeneralCategory.txt",
+    "mode": "100644",
+    "sha": "647bc7c0885627a88893f3c7d0ac7dfc37896e61"
+  },
+  {
+    "path": "spec/data/unicode/EastAsianWidth.txt",
+    "mode": "100644",
+    "sha": "cfb34b1f09cc1b0d657ca995186611dfc8de98df"
+  },
+  {
+    "path": "spec/data/unicode/GraphemeBreakProperty.txt",
+    "mode": "100644",
+    "sha": "7f1f2339fc9ff6c6699cce00e2e4eb615cf262ef"
+  },
+  {
+    "path": "spec/data/unicode/GraphemeBreakTest.txt",
+    "mode": "100644",
+    "sha": "75196cefa5ad20776d7737fc9f3a37c53c87c231"
+  },
+  {
+    "path": "spec/data/unicode/LICENSE.txt",
+    "mode": "100644",
+    "sha": "56da58912807030b451a4700687d5bd02c72d6ed"
+  },
+  {
+    "path": "spec/data/unicode/PropList.txt",
+    "mode": "100644",
+    "sha": "3f1b6ec294fe7fc898c060ab1bc90b66dbb1275e"
+  },
+  {
+    "path": "spec/data/unicode/emoji-data.txt",
+    "mode": "100644",
+    "sha": "7a383f0dcfd6ad65a2b7b5e90f701e38485f151f"
+  },
+  {
+    "path": "spec/data/upstream/mermaid-config.schema.yaml",
+    "mode": "100644",
+    "sha": "8c4148c6cdc2ddf051b6047caa6204dfd0667fc2"
+  },
+  {
+    "path": "spec/detection.md",
+    "mode": "100644",
+    "sha": "eb9b188ad9ec33af8c3190d39ac1c57762de8cf4"
+  },
+  {
+    "path": "spec/diagnostics.md",
+    "mode": "100644",
+    "sha": "3bdafe4df5c2e712d602897835092dabfcb91956"
+  },
+  {
+    "path": "spec/geometry-kernel.md",
+    "mode": "100644",
+    "sha": "b3e8a515bab59215e347bede2051bd7bed83072b"
+  },
+  {
+    "path": "spec/golden/empty-subgraph-cycle.mmd",
+    "mode": "100644",
+    "sha": "123c5704378844aa04ff3f6e1390d193c0dfc17a"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/forward-reference.mmd",
+    "mode": "100644",
+    "sha": "dbc2e3912f420c288df1ff371c0582ba6f1e146b"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/forward-reference.state.json",
+    "mode": "100644",
+    "sha": "51bc60f8c82e1aec6d13a9e337a2915102e640d2"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/lane-boundary.mmd",
+    "mode": "100644",
+    "sha": "62620d9ea9216a55af27a5e3a671f457da11ce2f"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/lane-boundary.state.json",
+    "mode": "100644",
+    "sha": "369fa392e3c75795f06c752b415effcf99d4aa3e"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/lane-sharing.mmd",
+    "mode": "100644",
+    "sha": "69743a4728b28a4107457c8837dc140aa3e9b43b"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/lane-sharing.state.json",
+    "mode": "100644",
+    "sha": "3b1e76c3ed1c2bc44e410ceac4969e921e6f60d2"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/leading-zeros.mmd",
+    "mode": "100644",
+    "sha": "6d55cd1827ab2bb769e0be3fe4215474706828d7"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/leading-zeros.state.json",
+    "mode": "100644",
+    "sha": "60ebb0e8ab746463729b69c9af887bf98b0180e4"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/namespace-repeat.mmd",
+    "mode": "100644",
+    "sha": "2af396451e834c8d816f83f1f7a8e44476f1e638"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/namespace-repeat.state.json",
+    "mode": "100644",
+    "sha": "9eb2b0c03b86eb6a2c026d3f5c0b945a9cc399bd"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/qualified-arity.mmd",
+    "mode": "100644",
+    "sha": "d401e6536bd5942e5d1993965d75f5abe36df2d0"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/qualified-arity.state.json",
+    "mode": "100644",
+    "sha": "d479ce8fb659536e3ed7a86279bb62181047a6be"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/reset-sources.mmd",
+    "mode": "100644",
+    "sha": "2f1799ab1ff760bcd8b14267417a632c2d1ea10a"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/reset-sources.state.json",
+    "mode": "100644",
+    "sha": "5a8c8994eef5ebe21ff782d4fc0857c3ea30d70a"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/same-lane.mmd",
+    "mode": "100644",
+    "sha": "50bf354db75fb03d15e3e3cea5b1e8a3ccd2db42"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/same-lane.state.json",
+    "mode": "100644",
+    "sha": "278cd35570325854da89a7be2585c26c01527dfc"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/self-reference.mmd",
+    "mode": "100644",
+    "sha": "5151464eda20815ac5c0932407ad23ab9aa3b62f"
+  },
+  {
+    "path": "spec/golden/eventmodeling/cases/self-reference.state.json",
+    "mode": "100644",
+    "sha": "0f7227741bc4f1fedc21a4fbc0a1653782069388"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0001.state.json",
+    "mode": "100644",
+    "sha": "026a23883ea39980b1e8f1f088b71fdbcc27ba74"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0002.state.json",
+    "mode": "100644",
+    "sha": "026a23883ea39980b1e8f1f088b71fdbcc27ba74"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0003.state.json",
+    "mode": "100644",
+    "sha": "026a23883ea39980b1e8f1f088b71fdbcc27ba74"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0004.state.json",
+    "mode": "100644",
+    "sha": "1d8de29d7b653ef7d054f3b1464a500ae0c0eea4"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0005.state.json",
+    "mode": "100644",
+    "sha": "1d8de29d7b653ef7d054f3b1464a500ae0c0eea4"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0006.state.json",
+    "mode": "100644",
+    "sha": "8b112833bb40408eda9b3f9d989990b86d6bca81"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0007.state.json",
+    "mode": "100644",
+    "sha": "8b112833bb40408eda9b3f9d989990b86d6bca81"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0008.state.json",
+    "mode": "100644",
+    "sha": "a577fd5fd0a2589a3c40cd9203a5a5b6fbf80750"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0009.state.json",
+    "mode": "100644",
+    "sha": "1b875c323543a57a08d8b99678c5f59e203f25be"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0010.state.json",
+    "mode": "100644",
+    "sha": "026a23883ea39980b1e8f1f088b71fdbcc27ba74"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0011.state.json",
+    "mode": "100644",
+    "sha": "a1283a4d8b45c4e0547ed9aa1ed4101b654c800a"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0012.state.json",
+    "mode": "100644",
+    "sha": "3e6e5ad6903e5c1b9db4e3063c1872e14290b58d"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~0013.state.json",
+    "mode": "100644",
+    "sha": "89446c1487aa0a8cece7d1d9ea6646e942c99b48"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~pr-check~state-change-pattern.state.json",
+    "mode": "100644",
+    "sha": "1d8de29d7b653ef7d054f3b1464a500ae0c0eea4"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~pr-check~state-view-pattern.state.json",
+    "mode": "100644",
+    "sha": "026a23883ea39980b1e8f1f088b71fdbcc27ba74"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~pr-check~translation-pattern.state.json",
+    "mode": "100644",
+    "sha": "1d8de29d7b653ef7d054f3b1464a500ae0c0eea4"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~pr-check~with-data-block-reference.state.json",
+    "mode": "100644",
+    "sha": "026a23883ea39980b1e8f1f088b71fdbcc27ba74"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~pr-check~with-multiple-source-relations.state.json",
+    "mode": "100644",
+    "sha": "e36176725b54f435df4d74441dc14ab4e3f94ded"
+  },
+  {
+    "path": "spec/golden/eventmodeling/corpus/eventmodeling~pr-check~with-qualified-names.state.json",
+    "mode": "100644",
+    "sha": "c7b71df528637e552c0464dd22a49878bb05523f"
+  },
+  {
+    "path": "spec/golden/eventmodeling/syntax-cases.json",
+    "mode": "100644",
+    "sha": "2c74a2c075cdbef3034de912cf67b74311748af3"
+  },
+  {
+    "path": "spec/golden/lint/error-duplicate-ids.github",
+    "mode": "100644",
+    "sha": "c13868efe27f522706295fbd047662837a0217dd"
+  },
+  {
+    "path": "spec/golden/lint/error-duplicate-ids.info.txt",
+    "mode": "100644",
+    "sha": "4a1616e7ee9266bb8feca54f6e2d9dd4fa901949"
+  },
+  {
+    "path": "spec/golden/lint/error-duplicate-ids.json",
+    "mode": "100644",
+    "sha": "1a9a9163c8948973053dcaf478d442ddd9f6a14a"
+  },
+  {
+    "path": "spec/golden/lint/error-duplicate-ids.mmd",
+    "mode": "100644",
+    "sha": "9a0af4b592dbe8485dbcb47c33d013fc66209655"
+  },
+  {
+    "path": "spec/golden/lint/error-duplicate-ids.sarif",
+    "mode": "100644",
+    "sha": "fe2eb0f51e311c2a72e53458ec541f4d6938c6c3"
+  },
+  {
+    "path": "spec/golden/lint/error-duplicate-ids.text",
+    "mode": "100644",
+    "sha": "16746ea472a752ffd44386fcc744bf0ad8b58c8d"
+  },
+  {
+    "path": "spec/golden/lint/safe-fix-arrow-invalid.github",
+    "mode": "100644",
+    "sha": "ef2064015746500b5a6e86cee4790dd9c3bf3611"
+  },
+  {
+    "path": "spec/golden/lint/safe-fix-arrow-invalid.json",
+    "mode": "100644",
+    "sha": "227d41d35ea956cdd00de2b3e3927b0dcc13be16"
+  },
+  {
+    "path": "spec/golden/lint/safe-fix-arrow-invalid.mmd",
+    "mode": "100644",
+    "sha": "48325a88d754e17f7c32cf1f1e6a1d5ae683aa87"
+  },
+  {
+    "path": "spec/golden/lint/safe-fix-arrow-invalid.sarif",
+    "mode": "100644",
+    "sha": "6d482636221560b2f509778816568dae5dbddffe"
+  },
+  {
+    "path": "spec/golden/lint/safe-fix-arrow-invalid.text",
+    "mode": "100644",
+    "sha": "9c74a0125a00cb103d303efa63b2786034666d68"
+  },
+  {
+    "path": "spec/golden/lint/suppressed-duplicate-ids.github",
+    "mode": "100644",
+    "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+  },
+  {
+    "path": "spec/golden/lint/suppressed-duplicate-ids.json",
+    "mode": "100644",
+    "sha": "25298d0a55aa7d0c8dd44b40c4adf931efbbc377"
+  },
+  {
+    "path": "spec/golden/lint/suppressed-duplicate-ids.mmd",
+    "mode": "100644",
+    "sha": "1fcf8225dfc61b5bc61fe99bf63499aa871f5ed2"
+  },
+  {
+    "path": "spec/golden/lint/suppressed-duplicate-ids.sarif",
+    "mode": "100644",
+    "sha": "de4a47ba07f443465205309cf2d62468d66a039c"
+  },
+  {
+    "path": "spec/golden/lint/suppressed-duplicate-ids.text",
+    "mode": "100644",
+    "sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"
+  },
+  {
+    "path": "spec/golden/lint/unsafe-fix-end-without-subgraph.github",
+    "mode": "100644",
+    "sha": "85a83a513fec96c476cd261662dcd83fb78ef802"
+  },
+  {
+    "path": "spec/golden/lint/unsafe-fix-end-without-subgraph.json",
+    "mode": "100644",
+    "sha": "eed6369df34cfdccc0a115201d3b19c0ed3222c4"
+  },
+  {
+    "path": "spec/golden/lint/unsafe-fix-end-without-subgraph.mmd",
+    "mode": "100644",
+    "sha": "f1bca242d510d78fb5d7f1e88445b129014d761a"
+  },
+  {
+    "path": "spec/golden/lint/unsafe-fix-end-without-subgraph.sarif",
+    "mode": "100644",
+    "sha": "a3c049ec10deb65787fb5bc12ecfe8d47fa6a2bf"
+  },
+  {
+    "path": "spec/golden/lint/unsafe-fix-end-without-subgraph.text",
+    "mode": "100644",
+    "sha": "bfa26bc095ade0ad9adb5642561041baeb322d03"
+  },
+  {
+    "path": "spec/golden/lint/warning-quote-unclosed.github",
+    "mode": "100644",
+    "sha": "1eb8565827697b1a62630515c002ed55ec8b866b"
+  },
+  {
+    "path": "spec/golden/lint/warning-quote-unclosed.json",
+    "mode": "100644",
+    "sha": "b7059cf2de39e3531bded07787a1bfb5f4693473"
+  },
+  {
+    "path": "spec/golden/lint/warning-quote-unclosed.mmd",
+    "mode": "100644",
+    "sha": "2454673940acbe2d4895a610489fbe5c885c0140"
+  },
+  {
+    "path": "spec/golden/lint/warning-quote-unclosed.sarif",
+    "mode": "100644",
+    "sha": "fe6168e71dcb522e377055e5fc65b61ea14d195c"
+  },
+  {
+    "path": "spec/golden/lint/warning-quote-unclosed.text",
+    "mode": "100644",
+    "sha": "8471c0ac00dccb291dafd32e82e1cbad7070de2c"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/control-lane-to-lane-lr.mmd",
+    "mode": "100644",
+    "sha": "0c89fdf1e2f0cc9da487533e53f6a4ee8bff0426"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/control-lane-to-member-lr.mmd",
+    "mode": "100644",
+    "sha": "0510a50da3675fb3ad1f67401484851465c092f6"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/control-lane-to-other-member-lr.mmd",
+    "mode": "100644",
+    "sha": "62704b31983aade124248987f4a35b8bbd295c9f"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/control-member-to-lane-tb.mmd",
+    "mode": "100644",
+    "sha": "cd5c242411713b18efc14841e82a1417a65a82e3"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/control-nested-self-lr.mmd",
+    "mode": "100644",
+    "sha": "b7513addd56d3036ddec2655696a5366327c84b4"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/control-nested-to-lane-tb.mmd",
+    "mode": "100644",
+    "sha": "5c1a7d999b54a539aa29ce82069dd352f5a7e72f"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-bt.mmd",
+    "mode": "100644",
+    "sha": "fd0bc7e1b97d6caba69a4d271599bbfeb7785bec"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-double-lr.mmd",
+    "mode": "100644",
+    "sha": "02ff88362d0c4c0f60ff435eba057c733cc186b7"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-double-tb.mmd",
+    "mode": "100644",
+    "sha": "5630a628941bebfac2cce26f4451d12cf76cf1f5"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-empty-lr.mmd",
+    "mode": "100644",
+    "sha": "ff190a0e91ac90609b1f5b192c5b26443385544d"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-label-lr.mmd",
+    "mode": "100644",
+    "sha": "0da9ad80b9612df17a1a4fe727419dabdae8b3f9"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-last-tb.mmd",
+    "mode": "100644",
+    "sha": "24d7cc2f9d721b0fe24b1ee424bf96e0a8f17a41"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-long-label-lr.mmd",
+    "mode": "100644",
+    "sha": "eedb7671d669f0b4037cb2de84383970fa833c98"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-loose-lr.mmd",
+    "mode": "100644",
+    "sha": "83f578bbbe5171d127357d71f364406dc4b8a7fc"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-lr.mmd",
+    "mode": "100644",
+    "sha": "5b333328dc717c26e53c2748ce101de222af36e8"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-rl.mmd",
+    "mode": "100644",
+    "sha": "95269a955d97774eef6a36c865b415e5d3339aed"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-tb.mmd",
+    "mode": "100644",
+    "sha": "1e4cc20bde69702a8d6f99b0079077bccdd46a0a"
+  },
+  {
+    "path": "spec/golden/swimlane/lane-ends/lane-self-two-member-lr.mmd",
+    "mode": "100644",
+    "sha": "0796bad16a37e47ce7805eb4da597690e5fd444e"
+  },
+  {
+    "path": "spec/golden/two-node.layout.json",
+    "mode": "100644",
+    "sha": "84b6c6eb4d613a4c2c2038f144b04d5c11141289"
+  },
+  {
+    "path": "spec/grammar/agentflow.md",
+    "mode": "100644",
+    "sha": "a1dd9778acc7a8636bb8d38a12b060a0cd15d005"
+  },
+  {
+    "path": "spec/grammar/architecture.md",
+    "mode": "100644",
+    "sha": "336ea346484be0e7ddcd386208f48fd8bb90bc8f"
+  },
+  {
+    "path": "spec/grammar/block.md",
+    "mode": "100644",
+    "sha": "373a471580e1643e2a12bdbe3b45c8b143f5de6c"
+  },
+  {
+    "path": "spec/grammar/c4.md",
+    "mode": "100644",
+    "sha": "de4ed5c9d8424392af71a3720fbcbef5c483ec20"
+  },
+  {
+    "path": "spec/grammar/class.md",
+    "mode": "100644",
+    "sha": "590674bfaf3b26df0058fd2a61a1bcf0bd5e4076"
+  },
+  {
+    "path": "spec/grammar/cynefin.md",
+    "mode": "100644",
+    "sha": "a3840bc48022721bf5a86fee3a2deda990518618"
+  },
+  {
+    "path": "spec/grammar/er.md",
+    "mode": "100644",
+    "sha": "a7f21639598d4006f689c1aa69a23abff3d0912b"
+  },
+  {
+    "path": "spec/grammar/eventmodeling.md",
+    "mode": "100644",
+    "sha": "062b176eb54ddecd15229c2cf08db2d2ef727ef7"
+  },
+  {
+    "path": "spec/grammar/flowchart.md",
+    "mode": "100644",
+    "sha": "4cc36198bded6c8ec1210be32debb91f144c8849"
+  },
+  {
+    "path": "spec/grammar/gantt.md",
+    "mode": "100644",
+    "sha": "96cf462ec108f46df6908a1f3cf134e09b19f867"
+  },
+  {
+    "path": "spec/grammar/gitgraph.md",
+    "mode": "100644",
+    "sha": "1556c865b2346ca996c723483db5d1f51a14a7bb"
+  },
+  {
+    "path": "spec/grammar/info.md",
+    "mode": "100644",
+    "sha": "568d8436a45956bbe02807f4c15d6ff6fe1cc589"
+  },
+  {
+    "path": "spec/grammar/ishikawa.md",
+    "mode": "100644",
+    "sha": "5075ef7b9eecf50804e94d52a85ffa22e40da8bc"
+  },
+  {
+    "path": "spec/grammar/journey.md",
+    "mode": "100644",
+    "sha": "3e56ac25a9dc94674ca5f8dbf15c6cdb95ab9f6b"
+  },
+  {
+    "path": "spec/grammar/kanban.md",
+    "mode": "100644",
+    "sha": "0da8cb28eafc95092d55032704ab41d63c6cd820"
+  },
+  {
+    "path": "spec/grammar/mindmap.md",
+    "mode": "100644",
+    "sha": "1fae1d51708853e03870d5506ace70b8fec9d48c"
+  },
+  {
+    "path": "spec/grammar/packet.md",
+    "mode": "100644",
+    "sha": "a18f206edd6d1651104174ebd7f8373da35b9268"
+  },
+  {
+    "path": "spec/grammar/pie.md",
+    "mode": "100644",
+    "sha": "92747a39660ae5f4e73bad91fa6ed902d2a2e71b"
+  },
+  {
+    "path": "spec/grammar/quadrant.md",
+    "mode": "100644",
+    "sha": "2ac0fc40eadfb8078f8776b667b4b5530a73a0a5"
+  },
+  {
+    "path": "spec/grammar/radar.md",
+    "mode": "100644",
+    "sha": "f082ad1fcde69209172f36e1595e80c966d43920"
+  },
+  {
+    "path": "spec/grammar/railroad.md",
+    "mode": "100644",
+    "sha": "efd2e5d76e8fcd860f1ce94a7ddde3ab9670a9b1"
+  },
+  {
+    "path": "spec/grammar/requirement.md",
+    "mode": "100644",
+    "sha": "81da888aaba72c49612c08392e29290b99b146f8"
+  },
+  {
+    "path": "spec/grammar/sankey.md",
+    "mode": "100644",
+    "sha": "12ed3b8dad4bc4e50fa2764a29456db9b4b04fd7"
+  },
+  {
+    "path": "spec/grammar/sequence.md",
+    "mode": "100644",
+    "sha": "1560b9e74c1a8aa666fbd1000d4a6da4a5e8e58f"
+  },
+  {
+    "path": "spec/grammar/state.md",
+    "mode": "100644",
+    "sha": "5eeaa12386426b68fe0295641626441c4e24d1a3"
+  },
+  {
+    "path": "spec/grammar/swimlane.md",
+    "mode": "100644",
+    "sha": "f4191ec7118bf5e6e5deec2cca4eb4fb4bb7a427"
+  },
+  {
+    "path": "spec/grammar/timeline.md",
+    "mode": "100644",
+    "sha": "4d1ffce823aa857ed0f5d472d339d15d8448d023"
+  },
+  {
+    "path": "spec/grammar/treemap.md",
+    "mode": "100644",
+    "sha": "f168b6c6d446c9cbf71088aa911125b54b1d9269"
+  },
+  {
+    "path": "spec/grammar/treeview.md",
+    "mode": "100644",
+    "sha": "bf4a52202a8c6c0ff70dafee3d2bea6f9c3ff6ea"
+  },
+  {
+    "path": "spec/grammar/usecase.md",
+    "mode": "100644",
+    "sha": "6bd2fa3333b4f01603ebc8c723e1f8896c8d7526"
+  },
+  {
+    "path": "spec/grammar/venn.md",
+    "mode": "100644",
+    "sha": "bf370384b1a3055919837a8af492c561f9e59439"
+  },
+  {
+    "path": "spec/grammar/wardley.md",
+    "mode": "100644",
+    "sha": "555b4739612b4236b789e1b669e34fc557dac255"
+  },
+  {
+    "path": "spec/grammar/xychart.md",
+    "mode": "100644",
+    "sha": "bee8a003b38cbaaa095c83a8048c78cf84f0b907"
+  },
+  {
+    "path": "spec/layout-dump.md",
+    "mode": "100644",
+    "sha": "b54f36ae46e7bdb5003bce3699609e96cf0fa6f9"
+  },
+  {
+    "path": "spec/layout/charts.md",
+    "mode": "100644",
+    "sha": "a48f33c0f5e02655d631b532dc044727917f13cc"
+  },
+  {
+    "path": "spec/layout/grid.md",
+    "mode": "100644",
+    "sha": "5d1e200ed06959422051776e701d0f8fa0853a34"
+  },
+  {
+    "path": "spec/layout/lanes.md",
+    "mode": "100644",
+    "sha": "9f741801d00ae09eb6fbb82a34340332e426f983"
+  },
+  {
+    "path": "spec/layout/layered.md",
+    "mode": "100644",
+    "sha": "8713f5c6feb3dea118f614a0a7cc4b346fbf1db2"
+  },
+  {
+    "path": "spec/layout/railroad.md",
+    "mode": "100644",
+    "sha": "7162587b424df56098f32b8266b60d4721fe504f"
+  },
+  {
+    "path": "spec/layout/routing.md",
+    "mode": "100644",
+    "sha": "7be0239fb31ba447145a42e9a69201dc65fb75e1"
+  },
+  {
+    "path": "spec/layout/sequence.md",
+    "mode": "100644",
+    "sha": "e40e470b61bf35b26b2c80c255d68d9587dcbbf4"
+  },
+  {
+    "path": "spec/layout/tree.md",
+    "mode": "100644",
+    "sha": "90c3b643d3115bd064996fbebffd7098556eb3cc"
+  },
+  {
+    "path": "spec/lean-reference.md",
+    "mode": "100644",
+    "sha": "7f025c07d9a79f12cd155587e268a216fbe86327"
+  },
+  {
+    "path": "spec/library-surface.md",
+    "mode": "100644",
+    "sha": "1baab29418c464488a8e7776a0e89d04124af736"
+  },
+  {
+    "path": "spec/lint.md",
+    "mode": "100644",
+    "sha": "68a91b8044b6a1646d66827e67c3ec1b9b7a8230"
+  },
+  {
+    "path": "spec/markdown-extraction.md",
+    "mode": "100644",
+    "sha": "09c18fca3d824d760c8612ddafe63b482c085603"
+  },
+  {
+    "path": "spec/math.md",
+    "mode": "100644",
+    "sha": "c1a14dfdebc5bdefc332cfe8dc955d7b01b0b3e5"
+  },
+  {
+    "path": "spec/model-dump.md",
+    "mode": "100644",
+    "sha": "65668c7eb08d7a8f49d39182e8ef6e19442cdec5"
+  },
+  {
+    "path": "spec/preprocessing.md",
+    "mode": "100644",
+    "sha": "547b67137fa6cbb04ba3f3f7dcf889499f56603f"
+  },
+  {
+    "path": "spec/preview-scheduler.md",
+    "mode": "100644",
+    "sha": "4603cea304c9610bba9d96270fe835e1ef53f8b6"
+  },
+  {
+    "path": "spec/quality-metrics.md",
+    "mode": "100644",
+    "sha": "1d4033dc84c9dc34b47a239edb6450ffb193e3b3"
+  },
+  {
+    "path": "spec/render-cells.md",
+    "mode": "100644",
+    "sha": "9d2f7a37df88f4fb66b8f41f34dc1c456b011d28"
+  },
+  {
+    "path": "spec/render-raster.md",
+    "mode": "100644",
+    "sha": "5ec482d31258bdf24a33488b936f4092414c08e9"
+  },
+  {
+    "path": "spec/render-svg.md",
+    "mode": "100644",
+    "sha": "5e2a84b58035823af362d8267a00051a2c59d87c"
+  },
+  {
+    "path": "spec/scene.md",
+    "mode": "100644",
+    "sha": "62f8a80a2f2b4a79516bfcb45d61144e1726f492"
+  },
+  {
+    "path": "spec/source-and-positions.md",
+    "mode": "100644",
+    "sha": "afb4d6e7626267ab1374cd10c88b5f3bd14df12c"
+  },
+  {
+    "path": "spec/terminal-graphics.md",
+    "mode": "100644",
+    "sha": "da71ce2770aca5f5b3df51ccb5b1307235cbc09b"
+  },
+  {
+    "path": "spec/text-measurement.md",
+    "mode": "100644",
+    "sha": "89c59f048b97e85d45ccb33b9c9b348a7caf5255"
+  },
+  {
+    "path": "spec/themes.md",
+    "mode": "100644",
+    "sha": "9191fd40705e5756fb83ee55cde78ee0c99ef7db"
+  },
+  {
+    "path": "spec/viewer.md",
+    "mode": "100644",
+    "sha": "462662801a24b6f9c7ac613486c9e6fcbc729977"
+  },
+  {
+    "path": "spec/wasm-interface.md",
+    "mode": "100644",
+    "sha": "6f70d084cbbb1337391f41810fa721e8b6dbadd8"
+  },
+  {
+    "path": "tools/harvest/flat.go",
+    "mode": "100644",
+    "sha": "e8fd4b73e66852293fe7e6091472c0a0b633c09f"
+  },
+  {
+    "path": "tools/harvest/flat_test.go",
+    "mode": "100644",
+    "sha": "6a264096b69fe137f51ac9bcc8811b48ee16cc21"
+  },
+  {
+    "path": "tools/harvest/harvest_test.go",
+    "mode": "100644",
+    "sha": "7d26e4edc68c9758d398077d18213de739ac8eca"
+  },
+  {
+    "path": "tools/harvest/header.go",
+    "mode": "100644",
+    "sha": "f37b0c2a82cf3b4666c1c40678b216979cab66fb"
+  },
+  {
+    "path": "tools/harvest/main.go",
+    "mode": "100644",
+    "sha": "7b62c9a301e866080afcd26e62cb555bbe1013b6"
+  },
+  {
+    "path": "tools/harvest/manifest.go",
+    "mode": "100644",
+    "sha": "4fa61c2bd06aba3ca9440f89633201b8f7ce3505"
+  },
+  {
+    "path": "tools/harvest/registry.go",
+    "mode": "100644",
+    "sha": "24f9429c2596e0f7849668fa28b5f74d3e8a789b"
+  },
+  {
+    "path": "tools/harvest/sources.go",
+    "mode": "100644",
+    "sha": "a311850ed9fd6a0e7c013d1547b33e88d83dd943"
+  },
+  {
+    "path": "tools/kernelgen/main.go",
+    "mode": "100644",
+    "sha": "e199c0e98e75d0fa3ce0e051a2dd785c55e0c45b"
+  },
+  {
+    "path": "tools/kernelgen/main_test.go",
+    "mode": "100644",
+    "sha": "68321be2ac1f436ec86468b461b6eacebdfd99cd"
+  },
+  {
+    "path": "tools/markdown-parity/cases.go",
+    "mode": "100644",
+    "sha": "fcbfc1256a7a45775dfa0c30ec932b904063dd68"
+  },
+  {
+    "path": "tools/markdown-parity/main.go",
+    "mode": "100644",
+    "sha": "db16b4968d5c93e3356400d7ee28a6cf25572130"
+  },
+  {
+    "path": "tools/quality/fixture_list_test.go",
+    "mode": "100644",
+    "sha": "cdf14d65b2d7d8218989b7db5f1423db1fb0b6d0"
+  },
+  {
+    "path": "tools/quality/main.go",
+    "mode": "100644",
+    "sha": "603a9f827e7280dac385a1dee87732f45aeaf456"
+  },
+  {
+    "path": "tools/quality/main_test.go",
+    "mode": "100644",
+    "sha": "4abd1960eb9df619f82e696b2ca6fafc019599c7"
+  },
+  {
+    "path": "tools/randgraph/gen/gen.go",
+    "mode": "100644",
+    "sha": "a4584a86955185bd1382855f312f581e5c234481"
+  },
+  {
+    "path": "tools/randgraph/gen/gen_test.go",
+    "mode": "100644",
+    "sha": "89a7e346a3a073f9c0233969c75a466156484192"
+  },
+  {
+    "path": "tools/randgraph/main.go",
+    "mode": "100644",
+    "sha": "02542a26523f41e2c42d11a5d002a74615c42371"
+  },
+  {
+    "path": "tools/specgen/advances.go",
+    "mode": "100644",
+    "sha": "f128113d9802d6015f2031ebed7c087a2a0b94e8"
+  },
+  {
+    "path": "tools/specgen/assemble.go",
+    "mode": "100644",
+    "sha": "2e78745c3a58fc5d1d2ed83662ad3f77faad7600"
+  },
+  {
+    "path": "tools/specgen/blob_test.go",
+    "mode": "100644",
+    "sha": "056e7443e4f6ae24db7db901912c5c0e9a92090b"
+  },
+  {
+    "path": "tools/specgen/check.go",
+    "mode": "100644",
+    "sha": "41b5ff8ac0f2233d344e74882cfdf8b801e946e4"
+  },
+  {
+    "path": "tools/specgen/check_test.go",
+    "mode": "100644",
+    "sha": "7bcefa97ef2ccc33f00de832f82301617c56be9e"
+  },
+  {
+    "path": "tools/specgen/contrast.go",
+    "mode": "100644",
+    "sha": "add1db519ab41ebc64e68c74c3426a9b5d167fbe"
+  },
+  {
+    "path": "tools/specgen/contrast_test.go",
+    "mode": "100644",
+    "sha": "3edfd566b2cf0a048864119e07e38070a7ce1de7"
+  },
+  {
+    "path": "tools/specgen/emit.go",
+    "mode": "100644",
+    "sha": "ee2435f2c1871b2b858103425ab5809c98ae0ab0"
+  },
+  {
+    "path": "tools/specgen/emoji.go",
+    "mode": "100644",
+    "sha": "5a70cd2a29c76008c623a6ae9289fa8e0f839be6"
+  },
+  {
+    "path": "tools/specgen/emoji_test.go",
+    "mode": "100644",
+    "sha": "f9230ed8398f496708ab48b4577b72915d4fbd0e"
+  },
+  {
+    "path": "tools/specgen/extras.go",
+    "mode": "100644",
+    "sha": "cef69a641ccc85e09803b1e6905269fb10dba397"
+  },
+  {
+    "path": "tools/specgen/gen.go",
+    "mode": "100644",
+    "sha": "c547cbde0ef7d489c6a8e78af99ba287c8cd4205"
+  },
+  {
+    "path": "tools/specgen/inputs.go",
+    "mode": "100644",
+    "sha": "d7ce78624178acf17f696677b273ace6d19af99e"
+  },
+  {
+    "path": "tools/specgen/json.go",
+    "mode": "100644",
+    "sha": "ac75a64c03ad6cf6e9b9f6cc157040f36efa66ac"
+  },
+  {
+    "path": "tools/specgen/lean.go",
+    "mode": "100644",
+    "sha": "8be2e94ae23800fabfe33bcf64afb68c7c823a6f"
+  },
+  {
+    "path": "tools/specgen/lean_layoutconst.go",
+    "mode": "100644",
+    "sha": "a71e51bac589e0315ea7c8f32595ff2614ad43e3"
+  },
+  {
+    "path": "tools/specgen/lean_layoutconst_test.go",
+    "mode": "100644",
+    "sha": "05dc2c8f341c3e66ef16cae719e9fdedd28676e0"
+  },
+  {
+    "path": "tools/specgen/main.go",
+    "mode": "100644",
+    "sha": "571c18865c527032c1f8822c2e138200da37d346"
+  },
+  {
+    "path": "tools/specgen/markers.go",
+    "mode": "100644",
+    "sha": "ba36b2dbaf6472faa4a47aeab850cb818e65f425"
+  },
+  {
+    "path": "tools/specgen/markers_test.go",
+    "mode": "100644",
+    "sha": "25875bad42dcc6da1af73edb15498755876f7cad"
+  },
+  {
+    "path": "tools/specgen/math.go",
+    "mode": "100644",
+    "sha": "880a5fb8ba880fd910451ee1589c7aa49efcee79"
+  },
+  {
+    "path": "tools/specgen/math_test.go",
+    "mode": "100644",
+    "sha": "83719463b31fbdddca487e649444540e31074b2d"
+  },
+  {
+    "path": "tools/specgen/pi_test.go",
+    "mode": "100644",
+    "sha": "9c04abfe136505f3f38c240cfea4ee5af8a65cab"
+  },
+  {
+    "path": "tools/specgen/ranges_test.go",
+    "mode": "100644",
+    "sha": "8ff5ebba46ec935780b16465b51761fb2e7beff1"
+  },
+  {
+    "path": "tools/specgen/sine.go",
+    "mode": "100644",
+    "sha": "cbec016ac446348eb89e7a53bcf7c22b32b0c096"
+  },
+  {
+    "path": "tools/specgen/sine_test.go",
+    "mode": "100644",
+    "sha": "a940fada56b8a715a0b2736ae9e8eed9c752144f"
+  },
+  {
+    "path": "tools/specgen/sixel.go",
+    "mode": "100644",
+    "sha": "4c3b7ba607b53a6892fc5c39ad9021e3f408ea4d"
+  },
+  {
+    "path": "tools/specgen/tables.go",
+    "mode": "100644",
+    "sha": "24f0cb3957ef0c672ed874e6cdc88cbbe8d79d03"
+  },
+  {
+    "path": "tools/specgen/ucd.go",
+    "mode": "100644",
+    "sha": "4607008f2cbd0bfeeba47e94042c23ea3d2b82b9"
+  },
+  {
+    "path": "tools/upstream-oracle/baseline.mjs",
+    "mode": "100644",
+    "sha": "7c638a750ad436eb4c60622abbdd0e178e2adeb7"
+  },
+  {
+    "path": "tools/upstream-oracle/config-keys.mjs",
+    "mode": "100644",
+    "sha": "a727fa96696c08dc5eca79d46bb4d9f1f3b17e3b"
+  },
+  {
+    "path": "tools/upstream-oracle/d3.mjs",
+    "mode": "100644",
+    "sha": "c7947239dba701050604577f541f98b572ea074e"
+  },
+  {
+    "path": "tools/upstream-oracle/er-probe.mjs",
+    "mode": "100644",
+    "sha": "c1cc81554ec135c1740bc7cb5d1a327e4a4efd21"
+  },
+  {
+    "path": "tools/upstream-oracle/eventmodeling-state.mjs",
+    "mode": "100644",
+    "sha": "0b01d8876b4db0f7be52a3c57ef3146b7a5a5db3"
+  },
+  {
+    "path": "tools/upstream-oracle/eventmodeling-verdicts.mjs",
+    "mode": "100644",
+    "sha": "5bb66dd1357b48c7ace5ba5561d6dde1d8c101ba"
+  },
+  {
+    "path": "tools/upstream-oracle/package.json",
+    "mode": "100644",
+    "sha": "56441c17ff42cf12b7e445d698d91b284429157d"
+  },
+  {
+    "path": "tools/upstream-oracle/pnpm-lock.yaml",
+    "mode": "100644",
+    "sha": "08bab79475a1133fdd584aed14a9edf0e5f7a242"
+  },
+  {
+    "path": "tools/upstream-oracle/themes.mjs",
+    "mode": "100755",
+    "sha": "d1b5cd274d131665b597c294d7115dd1d112bec7"
+  },
+  {
+    "path": "tools/upstream-oracle/verdicts.mjs",
+    "mode": "100755",
+    "sha": "8845a598b34737650f4aaeb82898719f3a2b4c8a"
+  },
+  {
+    "path": "types.go",
+    "mode": "100644",
+    "sha": "45cc3715ef3641a518d2a6bd56314afb0a80526e"
+  },
+  {
+    "path": "types_test.go",
+    "mode": "100644",
+    "sha": "82b8d55c782d957f37718ead762d7b4b0fa94f87"
+  },
+  {
+    "path": "version.go",
+    "mode": "100644",
+    "sha": "315387c7faa517b4b95e1e41d9856f11758acc51"
+  }
+]

@@ -1,0 +1,94 @@
+[
+  {
+    "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+    "before": {
+      "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+      "mode": "100644",
+      "sha": "dc5ba45a8501b4692d65280843b0a1d04c2cf507"
+    },
+    "after": {
+      "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+      "mode": "100644",
+      "sha": "b9f4909d409fb930fb65e967b8ec2e889cb1049b"
+    }
+  },
+  {
+    "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
+    "before": {
+      "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
+      "mode": "100644",
+      "sha": "b5ca4f592a3bbd960a89b9dce9a207bf67cae824"
+    },
+    "after": {
+      "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
+      "mode": "100644",
+      "sha": "72f608a5feb64f9db209477bf1e944f6cd1dba59"
+    }
+  },
+  {
+    "path": "internal/cli/output_path.go",
+    "before": {
+      "path": "internal/cli/output_path.go",
+      "mode": "100644",
+      "sha": "076b73a87da92c6f6ed160709900dde7021e8ae0"
+    },
+    "after": {
+      "path": "internal/cli/output_path.go",
+      "mode": "100644",
+      "sha": "65763bf3918d849a648cbd1ee660f6d2066e1f86"
+    }
+  },
+  {
+    "path": "internal/cli/output_path_other.go",
+    "before": null,
+    "after": {
+      "path": "internal/cli/output_path_other.go",
+      "mode": "100644",
+      "sha": "eae671aafb7b2e301904806a58102fceadc1e9f3"
+    }
+  },
+  {
+    "path": "internal/cli/output_path_windows.go",
+    "before": null,
+    "after": {
+      "path": "internal/cli/output_path_windows.go",
+      "mode": "100644",
+      "sha": "e4df84d38bdda02697cbb8f8ee6526eb6bb37103"
+    }
+  },
+  {
+    "path": "internal/cli/output_path_windows_test.go",
+    "before": null,
+    "after": {
+      "path": "internal/cli/output_path_windows_test.go",
+      "mode": "100644",
+      "sha": "75a009cbbcd8e91009c8c4e36b44454ce6396272"
+    }
+  },
+  {
+    "path": "internal/cli/render_markdown_output.go",
+    "before": {
+      "path": "internal/cli/render_markdown_output.go",
+      "mode": "100644",
+      "sha": "67cb152fa6eb6bbf8a162fda5e87c773b87aed8e"
+    },
+    "after": {
+      "path": "internal/cli/render_markdown_output.go",
+      "mode": "100644",
+      "sha": "56219e81b88ae75d852124f0a2fa2c28cf6a0825"
+    }
+  },
+  {
+    "path": "internal/tui/read_windows.go",
+    "before": {
+      "path": "internal/tui/read_windows.go",
+      "mode": "100644",
+      "sha": "565f970f312de42b06695105111c17038e67d91e"
+    },
+    "after": {
+      "path": "internal/tui/read_windows.go",
+      "mode": "100644",
+      "sha": "16aca04f822298b8a8bc162cde9367c9c2be5bb9"
+    }
+  }
+]

@@ -1,0 +1,93 @@
+name: "Elegant paired quality diagnostic r39"
+on:
+  push:
+    branches: ["ci/elegant-quality-diagnostic-20261127-r39"]
+    paths:
+      - ".github/workflows/elegant-quality-r39.yml"
+      - "reviews/elegant-quality-r39/**"
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: "elegant-quality-r39-${{ github.ref }}"
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+jobs:
+  quality-comparison:
+    runs-on: depot-ubuntu-24.04-8
+    timeout-minutes: 180
+    env:
+      GOENV: "off"
+      GOCACHEPROG: ""
+      GOTOOLCHAIN: "local"
+      GOMAXPROCS: "8"
+      RUSTUP_TOOLCHAIN: "1.100.0"
+      CARGO_BUILD_JOBS: "4"
+      CARGO_INCREMENTAL: "0"
+      RUSTC_WRAPPER: ""
+      RUSTC_WORKSPACE_WRAPPER: ""
+    steps:
+      - name: Checkout exact maintained source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 98ef933e487f502e2e3555750e6621291ba21601
+          path: maintained
+          persist-credentials: false
+      - name: Checkout exact candidate source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: eb11dfb51e044cd31712fbda0f1e39cb374639ae
+          path: candidate
+          persist-credentials: false
+      - name: Checkout this proof
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: proof
+          persist-credentials: false
+      - name: Install pinned Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: "1.27.4"
+          cache: false
+      - name: Install Rust for the independent missed theme recipe
+        run: rustup toolchain install 1.100.0 --profile minimal
+      - name: Install only the required gate tools
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39
+        with:
+          tool: "just@1.59.0,cargo-nextest@0.9.151"
+      - name: Install pinned pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+        with:
+          version: "12.23.0"
+      - name: Install pinned Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "26.13.1"
+          package-manager-cache: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d
+        with:
+          version: "0.13.9"
+          python-version: "3.15"
+          enable-cache: false
+      - name: Execute the paired diagnostic and missed theme recipe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          test -z "$(go env GOCACHEPROG)"
+          mkdir -p "$RUNNER_TEMP/elegant-quality-evidence" "$RUNNER_TEMP/elegant-quality-builds"
+          uv run --no-project --python 3.15 \
+            proof/reviews/elegant-quality-r39/verify.py \
+            proof/reviews/elegant-quality-r39 maintained candidate \
+            "$RUNNER_TEMP/elegant-quality-evidence" "$RUNNER_TEMP/elegant-quality-builds"
+      - name: Preserve actual outcomes and exact source identities
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: elegant-quality-r39
+          path: ${{ runner.temp }}/elegant-quality-evidence
+          if-no-files-found: error
+          retention-days: 7
