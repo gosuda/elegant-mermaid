@@ -49,11 +49,17 @@ pub(super) fn write(
         Some(path) => Some(resolve_target(path)?),
         None => None,
     };
-    for (target, image) in image_targets.iter().zip(encoded) {
-        atomic_write(target, &image.bytes)?;
+    // The writer gets the resolved path, but diagnostics name the path the
+    // user supplied, mirroring the Go engine.
+    for ((target, image), path) in image_targets.iter().zip(encoded).zip(&plan.images) {
+        crate::output::write_file(target, &image.bytes, None)
+            .map_err(|source| write_error(path, source))?;
     }
-    if let (Some(target), Some(bytes)) = (host_target, host) {
-        atomic_write(&target, &bytes)?;
+    if let (Some(target), Some(bytes), Some(path)) =
+        (host_target.as_ref(), host.as_ref(), plan.host.as_ref())
+    {
+        crate::output::write_file(target, bytes, None)
+            .map_err(|source| write_error(path, source))?;
     }
     Ok(())
 }
@@ -202,10 +208,6 @@ fn consumed_ending(span: &[u8]) -> &[u8] {
     } else {
         b""
     }
-}
-
-fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
-    crate::output::write_file(path, bytes, None).map_err(|source| write_error(path, source))
 }
 
 fn write_error(path: &Path, source: io::Error) -> CliError {

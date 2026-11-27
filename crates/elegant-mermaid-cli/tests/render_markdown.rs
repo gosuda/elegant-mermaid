@@ -400,6 +400,22 @@ fn markdown_output_directory_operands_are_not_renamed() -> TestResult {
 }
 
 #[test]
+fn markdown_image_write_failure_names_the_requested_path() -> TestResult {
+    let fixture = Fixture::new()?;
+    fixture.two_blocks()?;
+    std::fs::create_dir_all(fixture.0.join("assets"))?;
+    std::fs::create_dir(fixture.0.join("assets/input-1.svg"))?;
+    let output = fixture.run(&["render", "input.md", "-a", "assets"])?;
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert_eq!(
+        output.stderr,
+        b"cannot write assets/input-1.svg: is a directory\n".as_slice()
+    );
+    Ok(())
+}
+
+#[test]
 fn markdown_write_failures_keep_mapped_diagnostics() -> TestResult {
     let fixture = Fixture::new()?;
     fixture.write(
