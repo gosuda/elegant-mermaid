@@ -107,7 +107,7 @@ pub(crate) fn resolved_target(path: &Path) -> io::Result<PathBuf> {
     if name.is_empty() {
         return Err(io::ErrorKind::IsADirectory.into());
     }
-    Ok(directory.join(name.as_ref()))
+    Ok(directory.join(&*name))
 }
 
 fn resolved_from(path: &Path, base: &Path) -> io::Result<PathBuf> {
@@ -140,7 +140,7 @@ fn resolved_from(path: &Path, base: &Path) -> io::Result<PathBuf> {
                 let last = components.peek().is_none() && !trailing_marker;
                 let name = input_name(name, literal, last)?;
                 if !name.is_empty() {
-                    directory.push(name.as_ref());
+                    directory.push(&*name);
                 }
                 resolve_existing_directory(&mut directory)?;
             }
@@ -596,11 +596,11 @@ mod tests {
             ("assets..", false, "assets.."),
         ] {
             assert_eq!(
-                super::input_name(OsStr::new(name), false, last)?.as_ref(),
+                &*super::input_name(OsStr::new(name), false, last)?,
                 OsStr::new(expected)
             );
             assert_eq!(
-                super::input_name(OsStr::new(name), true, last)?.as_ref(),
+                &*super::input_name(OsStr::new(name), true, last)?,
                 OsStr::new(name)
             );
         }
