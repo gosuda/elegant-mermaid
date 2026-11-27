@@ -271,7 +271,6 @@ def main() -> None:
         report["final_index_sha256"] = identity(entries, tree, "after")
         run("source-unchanged", ["git", "diff", "--exit-code", "HEAD"])
         report["source_gates_passed"] = True
-        report["publication_eligible"] = True
     finally:
         try:
             run("restore-isolated-source", ["git", "restore", "--source", head, "--staged", "--worktree", "--", "."])
@@ -279,6 +278,7 @@ def main() -> None:
             run("source-restoration", ["git", "diff", "--exit-code", "HEAD"])
             report["source_restored"] = True
         finally:
+            report["publication_eligible"] = bool(report["source_gates_passed"] and report["source_restored"])
             report["commands"] = [asdict(receipt) for receipt in RECEIPTS]
             (OUTPUT / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
             print("FULL_VERIFY_REPORT " + json.dumps(report), flush=True)

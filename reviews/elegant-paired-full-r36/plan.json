@@ -1,17 +1,17 @@
 {
   "schema": 1,
-  "status": "draft-awaiting-native-namespace-discriminator-and-final-formatted-source",
+  "status": "draft-awaiting-focused-windows-proof",
   "publication_eligible": false,
   "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
   "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
-  "provisional_source": "b60c42d2b887e5c3de048c9bdd3828e51665a9d8",
-  "provisional_tree": "728e8e818219a1c73441d78e4d212a09a5cec900",
+  "provisional_source": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+  "provisional_tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
   "command": [
     "just",
     "verify"
   ],
   "source_binding": "Final source commit/tree/full index will be fixed after focused Windows proof. Current driver and workflow are drafts; no active workflow exists.",
-  "driver_sha256": "aed9c16d8a8108947f5ad2f40dfb8eece134eda08c0615c6468c978ef4b6a211",
+  "driver_sha256": "2c5bc97a9c58a0bedaf15590e962d2a973e92a7d3f3afad79c288cd8773b99db",
   "workflow_draft_sha256": "64fdfa48f514db3aca4899ef61125a40c51ee4a6da768315991e9f422af69ae4",
   "dependencies": {
     "rust": "1.100.0",
@@ -37,9 +37,35 @@
   "no_source_changes": true,
   "namespace_review": {
     "reviewer": "/root/bitcoin_round7",
-    "verdict": "One concrete DeviceNS normalization hypothesis; no additional static focused-driver blocker. Native result pending.",
+    "verdict": "Native discriminator confirmed the three DeviceNS errors. Both engine corrections are frozen; the focused Windows follow-up remains pending.",
     "primary_source": "https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats#skip-normalization",
-    "finding": "Only exact \\\\?\\ skips Win32 normalization. Both authored engines currently classify \\\\.\\ as literal. A raw CreateFileW/GetFinalPathNameByHandleW witness must decide the correction before full gates.",
-    "runtime_claim": false
+    "native_run": 45975185314,
+    "native_job": 140425035974,
+    "native_artifact": 15186617469,
+    "native_artifact_sha256": "de31ec0bbc57efa4a65fae7fa6744bc6d4b490a6188b6a53d83785d6e0d64094",
+    "native_observations": 12,
+    "native_mismatches_before_repair": 3,
+    "runtime_claim": true
+  },
+  "full_driver_review": {
+    "reviewer": "/root/bitcoin_round7",
+    "verdict": "One report-state defect corrected; no additional static blocker. Runtime execution remains required.",
+    "correction": "publication_eligible is derived from source_gates_passed and source_restored immediately before report serialization.",
+    "source_changes": false
+  },
+  "focused_failure": {
+    "producer": "483590023502427eee4dbb946f3c31ef57b13015",
+    "run": 45976852511,
+    "job": 140430617604,
+    "result": "failure",
+    "failing_gate": "candidate-go-lint",
+    "actual_exit": 1,
+    "expected_exit": 0,
+    "diagnostic": "TestMarkdownWindowsNamespaceNormalization cognitive complexity 28 exceeds unchanged limit 15",
+    "artifact": 15187753936,
+    "artifact_sha256": "4f0a57ba34a3939c0fb66bc096a807d8fc8841a26717e90cb93a083dd229acbc",
+    "formatted_tree": "ca39add4228047157b215c282f0bc4ed850d4032",
+    "source_restored": true,
+    "go_ownership_and_cli_parity_reached": false
   }
 }
