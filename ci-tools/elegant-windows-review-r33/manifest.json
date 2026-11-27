@@ -1,0 +1,31 @@
+{
+  "scope": "Unchanged-source native Windows baseline for Elegant Mermaid PR28. No production repair and no repository-wide gate.",
+  "source": "9a11e8cc04299367d07c0137653fa87a4e1b945b",
+  "source_tree": "84ec8efbabe4a833539ec1875a4a95e30de3a08d",
+  "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+  "source_blobs": 6711,
+  "proof_sha256": {
+    "verify.py": "c470b05fcc9c91f7907419d0060addfff325624bc38d249a59841a7d2ce31885",
+    "windows-regressions.rs": "9570a81fb6e3959459d238420b9e2659cbc6b96535688a40de76bdccb98a07a8",
+    "source-index.json": "df7a73c355bc297eba2cd5800d7c4b39413a1f2c20252318fa613f9e680eeed6"
+  },
+  "workflow_sha256": "a8eda707e9138dc4358f769298a20da53b46a2314631e8a66a13d3d2bad9a409",
+  "expected": {
+    "existing_windows_controls": 5,
+    "new_regression_exits": [
+      101,
+      101,
+      101,
+      101
+    ],
+    "go_cli": "observations only; inspect before repair"
+  },
+  "threads": [
+    "PRRT_kwDOVq13pc68pWwR",
+    "PRRT_kwDOVq13pc68pWwz",
+    "PRRT_kwDOVq13pc68pWxW",
+    "PRRT_kwDOVq13pc68pWyD",
+    "PRRT_kwDOVq13pc68pWym"
+  ],
+  "publication_eligible": false
+}
