@@ -30,7 +30,7 @@ func (input windowsInput) Read(delay time.Duration) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if event == windows.WAIT_TIMEOUT {
+		if event == uint32(windows.WAIT_TIMEOUT) {
 			return nil, nil
 		}
 		var record console.InputRecord
