@@ -1,0 +1,128 @@
+{
+  "observed_at": "2026-11-27 09:49:40 UTC",
+  "scope": "Public Elegant Mermaid PR28 focused native Windows path proof",
+  "status": "in_progress",
+  "producer": {
+    "commit": "483590023502427eee4dbb946f3c31ef57b13015",
+    "tree": "28da46bd3747f26bdb05da3d2b825ce29d7dc820",
+    "branch": "ci/elegant-paired-windows-proof-20261127-r35",
+    "workflow": ".github/workflows/elegant-paired-windows-r35.yml",
+    "workflow_sha256": "8f867f6ad22211a099e0cc0273b92f999e546bccf89329c92f18e8e24fb48a0d",
+    "run": 45976852511,
+    "job": 140430617604,
+    "url": "https://github.com/gosuda/elegant-mermaid/actions/runs/45976852511",
+    "runner": "depot-windows-2025"
+  },
+  "reviewed_preparation": {
+    "commit": "769fd56d40f22e8dbbde564a5b1be8c87f711ada",
+    "driver": "ci-tools/elegant-paired-windows-r35/verify.py",
+    "driver_sha256": "61c29de5e44785eb7818e52eba9bfd4510573de14ac4212eb8748eead041d2dd",
+    "manifest_sha256": "145cd88d342305d1877e25b62e1ccc48c4f4ea3c39e2839eb71c06e2b951176b",
+    "candidate_index_sha256": "a7382677606d0264c2a57e62985d34dbfb6b02d1c4029c9c9d4e6175064d9963",
+    "parent_review": "Accepted before workflow installation; compile-before-RED, exact identity/restoration and preserved prior gates verified."
+  },
+  "source": {
+    "commit": "61271a6955012abce15de62703246cef0e6c883f",
+    "tree": "893180e7febfec410cd7fc22618e9b9fa601fb7e",
+    "blobs": 6714,
+    "authored_paths": [
+      {
+        "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+        "blob": "4a21648a7189cf2b702ca741a25af5ed470ad08b",
+        "sha256": "520f747b327d6cbb54c275fff43af3a77b9821745e491dab1b2a06fafa342c4e"
+      },
+      {
+        "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
+        "blob": "72f608a5feb64f9db209477bf1e944f6cd1dba59",
+        "sha256": "4df4aee4fe01ab75c0ab02ee51c673daa2c73a26d337fdc8fe372c415bb96d40"
+      },
+      {
+        "path": "internal/cli/output_path.go",
+        "blob": "48db99aa006c76312e3a0fd7d00c7c1823bcde48",
+        "sha256": "01dbbc98bf4e6de8d2cdc81d170edc9525c84dda9ff2220d3bc2fba130514c05"
+      },
+      {
+        "path": "internal/cli/output_path_other.go",
+        "blob": "eae671aafb7b2e301904806a58102fceadc1e9f3",
+        "sha256": "329ccb54ca178fc8a8ef1637d44edcddcb8b86f455f619f6848573ceec189b99"
+      },
+      {
+        "path": "internal/cli/output_path_windows.go",
+        "blob": "e4df84d38bdda02697cbb8f8ee6526eb6bb37103",
+        "sha256": "1f9a3b4bb22850d2ae48c9c76fac34a9e427fcca6a45c8b1ebada4930eca28e0"
+      },
+      {
+        "path": "internal/cli/output_path_windows_test.go",
+        "blob": "19b2d25a06be5687bdbad59c89a296b796d552f3",
+        "sha256": "b0b71c14f55d4dde9b785a0a4e0b23cf85dc4d0d9ca66228e3c6f1b516cd0f07"
+      },
+      {
+        "path": "internal/cli/render_markdown_output.go",
+        "blob": "56219e81b88ae75d852124f0a2fa2c28cf6a0825",
+        "sha256": "f421bb245022a7cf94f729adf0248fbd1ef63a389e6da39b533a334a99e655a2"
+      },
+      {
+        "path": "internal/tui/read_windows.go",
+        "blob": "16aca04f822298b8a8bc162cde9367c9c2be5bb9",
+        "sha256": "1937464d90f4ad2558593f86b434b7c41b12cdaa111457465c80598def3c03fa"
+      }
+    ],
+    "formatting": "Only the eight agreed paths may be formatted; all actual resulting contents/tree/index are emitted before source gates."
+  },
+  "required_scope": {
+    "rust_permanent_controls": 13,
+    "candidate_frozen_witnesses": 4,
+    "go_named_tests": 6,
+    "real_cli_cases_per_engine": 20,
+    "final_filename_cases_per_engine": 4,
+    "old_predicate_mutations": {
+      "rust_exit": 101,
+      "go_exit": 1,
+      "go_failures": [
+        "device-dot-final",
+        "device-dot-intermediate",
+        "device-space-final"
+      ],
+      "go_control_passes": 9,
+      "tests_byte_identical": true
+    },
+    "gates": [
+      "Separate old/current source witnesses and restoration",
+      "Native normalization observer",
+      "Candidate formatting and full source identity",
+      "Compiled old-predicate mutations with exact restoration",
+      "Permanent Rust controls and frozen candidate witnesses",
+      "CLI crate Clippy, release build and Markdown nextest",
+      "Go CLI build, scoped format/vet/golangci-lint and six required native tests",
+      "Real Go/Rust CLI placement/URL/SVG parity",
+      "Whitespace and complete original-source restoration"
+    ]
+  },
+  "prior_native_namespace": {
+    "checkpoint_commit": "f1ed6a54cccf90e039c4b91cdc8cbd2c095039cb",
+    "path": "reviews/elegant-device-namespace-r36/checkpoint.json",
+    "sha256": "f749b3bb9741007d176afda5a229de281fd028b2946db8041cf4dfd018f88837",
+    "workflow_retired": true,
+    "first_run": 45974466878,
+    "first_status": "failure: raw native phase exit 0, candidate compilation exit 1",
+    "second_run": 45975185314,
+    "second_status": "success as observation harness; three resolver identity mismatches confirmed",
+    "second_artifact": 15186617469,
+    "second_artifact_sha256": "de31ec0bbc57efa4a65fae7fa6744bc6d4b490a6188b6a53d83785d6e0d64094"
+  },
+  "fresh_refs": {
+    "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+    "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33"
+  },
+  "ownership": {
+    "worker": "Rust paths and this focused proof; no further writes while yielding",
+    "parent": "Monitor remote proof, review/launch repository-wide verification on exact final formatted tree, maintained publication and review-thread disposition"
+  },
+  "publication_eligible": false,
+  "full_repository_gates": {
+    "status": "not run on this candidate",
+    "draft_commit": "6f63dd053fbe3d7ea9d5bc706b022607c9a1eeef",
+    "owner": "parent"
+  },
+  "next": "Preserve actual gate exits. Reconstruct and verify final formatted tree if preparation succeeds. Do not publish until focused and parent repository-wide gates pass. Retire only this owned workflow after it is terminal."
+}
