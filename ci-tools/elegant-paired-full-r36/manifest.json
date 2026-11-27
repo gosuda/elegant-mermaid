@@ -10,12 +10,13 @@
     "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33"
   },
   "proof_sha256": {
-    "verify.py": "9140ccd9547d14288189943c9b30f872cde42de17e158c2993bf23beca909e12",
+    "verify.py": "cda769fd39f01791f628e31242948d9d857a48ff90472e9719bdc27e49c29b5e",
     "source-index.json": "a28fbae32feab70597e0575634293875e88f7bb8cc12ef1ee8299cc8f6e8995e",
     "windows-receipt.json": "cb3d5f186f76fc77c0c3bdb11464d49d58d84dae85feb352dcdee287a4a2b772",
-    "resource_support.py": "3da8974d51a980377b4e0ac4e43cf0467ce6760e0dc514db088c7d7f7b0e6e4f"
+    "resource_support.py": "965c3bde14d78a95070cd76ebcef4a98ad80167409fe0f702d4d7eae0034c5ab",
+    "resource_support_test.py": "c9f3da59d51a755b2068680b25694bd99d32256efa89420a21e35970cc84f011"
   },
-  "workflow_sha256": "786c116f555a2a1a532bb7539120177b50e61280605d388a1d8677b015b2695a",
+  "workflow_sha256": "dceca491cf24643dd36da644c18ee735d338be96f586380a0a09c7fef4d73c9d",
   "tools": {
     "rust": "1.100.0",
     "go": "1.27.4",
@@ -114,5 +115,22 @@
     "no_environment_assumption": "Default jobs is resolved before Rayon; RAYON_NUM_THREADS would not control this pool.",
     "resource_metrics": "Before/after kernel cgroup memory files plus2-second process RSS/HWM/thread/affinity samples. Sampled peaks and kernel-scope historical peaks are labeled.",
     "coverage": "Require the literal agent summary; reject actual meta/parse-error timeout records, preserve other syntax-error records and skipped total. No threshold or baseline exemptions."
+  },
+  "resource_failure_controls": {
+    "cases": 4,
+    "real_native_children": true,
+    "expected_raw_exits": [
+      -9,
+      -9,
+      0,
+      137
+    ],
+    "publication_requires": "All monitor fault controls pass, actual full just verify passes, no linter timeout, and exact source restoration.",
+    "previous_proposal": "9c407c140996d99f9985ad2f8f33a038d87d2a2e",
+    "previous_proposal_executed": false,
+    "review_fixes": [
+      "Retain owned child before affinity restoration can fail; abort/reap on every post-spawn failure.",
+      "Keep actual child exit and explicit monitor errors if sample or finish fails; monitor errors remain fatal."
+    ]
   }
 }

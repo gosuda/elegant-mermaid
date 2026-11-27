@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import resource
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -54,6 +55,14 @@ def process_sample(pid: int) -> dict[str, object] | None:
             "affinity": affinity, "children": children}
 
 
+def abort_process_group(child: subprocess.Popen[bytes]) -> int:
+    try:
+        os.killpg(child.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    return child.wait()
+
+
 class ResourceTrace:
     def __init__(self, output: Path) -> None:
         self.path = output / "resource-samples.jsonl"
@@ -69,25 +78,33 @@ class ResourceTrace:
         self.samples = 0
         self.started = time.monotonic()
         self.parent_affinity_restored = False
+        self.child: subprocess.Popen[bytes] | None = None
 
     def spawn(self, command: list[str], cwd: Path, env: dict[str, str],
               stream: BinaryIO) -> subprocess.Popen[bytes]:
         try:
-            os.sched_setaffinity(0, self.selected_affinity)
-            child = subprocess.Popen(
-                command, cwd=cwd, env=env, stdout=stream,
-                stderr=subprocess.STDOUT, start_new_session=True,
-            )
-        finally:
-            os.sched_setaffinity(0, self.original_affinity)
-            self.parent_affinity_restored = sorted(os.sched_getaffinity(0)) == self.original_affinity
-        if not self.parent_affinity_restored:
-            raise RuntimeError("Supervisor CPU affinity did not restore")
-        print("FULL_AFFINITY " + json.dumps({
-            "argv": command, "original": self.original_affinity,
-            "selected": self.selected_affinity, "supervisor_restored": True,
-        }), flush=True)
-        return child
+            try:
+                os.sched_setaffinity(0, self.selected_affinity)
+                self.child = subprocess.Popen(
+                    command, cwd=cwd, env=env, stdout=stream,
+                    stderr=subprocess.STDOUT, start_new_session=True,
+                )
+            finally:
+                os.sched_setaffinity(0, self.original_affinity)
+                self.parent_affinity_restored = sorted(os.sched_getaffinity(0)) == self.original_affinity
+            if not self.parent_affinity_restored:
+                raise RuntimeError("Supervisor CPU affinity did not restore")
+            print("FULL_AFFINITY " + json.dumps({
+                "argv": command, "original": self.original_affinity,
+                "selected": self.selected_affinity, "supervisor_restored": True,
+            }), flush=True)
+            if self.child is None:
+                raise RuntimeError("Child creation returned no owned process")
+            return self.child
+        except BaseException:
+            if self.child is not None:
+                abort_process_group(self.child)
+            raise
 
     def sample(self, root_pid: int) -> None:
         waiting = [root_pid]
@@ -127,18 +144,22 @@ class ResourceTrace:
         with self.path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(record) + "\n")
 
-    def finish(self) -> dict[str, object]:
+    def known_report(self) -> dict[str, object]:
         report: dict[str, object] = {
-            "before": self.before, "after": memory_snapshot(),
+            "before": self.before,
             "original_affinity": self.original_affinity,
             "selected_affinity": self.selected_affinity,
             "supervisor_affinity_restored": self.parent_affinity_restored,
             "samples": self.samples,
-            "peak_sampled_tree_rss_kib": self.peak_tree_rss_kib,
+            "peak_sampled_observed_subtree_rss_kib": self.peak_tree_rss_kib,
             "peak_sampled_linter_rss_kib": self.peak_linter_rss_kib,
             "linter_processes": list(self.linter_observations.values()),
-            "children_ru_maxrss_kib": resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss,
-            "scope": "The CPU mask applies to the entire unchanged just verify process and descendants. RSS is sampled; cgroup counters retain their recorded kernel scope.",
+            "scope": "The CPU mask applies to the entire unchanged just verify process and descendants. RSS is sampled from process-leader child lists, which can omit children forked by other threads; it is an observed subtree, not an exhaustive total. Cgroup counters retain their recorded kernel scope.",
         }
-        print("FULL_RESOURCE_REPORT " + json.dumps(report), flush=True)
+        return report
+
+    def finish(self) -> dict[str, object]:
+        report = self.known_report()
+        report["after"] = memory_snapshot()
+        report["children_ru_maxrss_kib"] = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
         return report

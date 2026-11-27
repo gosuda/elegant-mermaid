@@ -96,6 +96,14 @@ jobs:
           pnpm --dir source/tools/upstream-oracle install --frozen-lockfile
           pnpm --dir source/playground install --frozen-lockfile
           pnpm --dir source/playground exec playwright install --with-deps chromium
+      - name: Prove monitor failures retain and reap native child outcomes
+        run: |
+          mkdir -p "$RUNNER_TEMP/elegant-full-evidence"
+          uv run --no-project --python 3.15 \
+            proof/ci-tools/elegant-paired-full-r36/resource_support_test.py \
+            source proof/ci-tools/elegant-paired-full-r36 "$RUNNER_TEMP/elegant-resource-controls" \
+            > "$RUNNER_TEMP/elegant-full-evidence/resource-controls.log" 2>&1
+          cat "$RUNNER_TEMP/elegant-full-evidence/resource-controls.log"
       - name: Run the complete root verification and source identity checks
         run: |
           export GOENV=off GOCACHEPROG=''

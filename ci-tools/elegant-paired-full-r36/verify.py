@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Final
 
-from resource_support import ResourceTrace
+from resource_support import ResourceTrace, abort_process_group
 
 SOURCE: Final = Path(sys.argv[1]).absolute()
 PROOF: Final = Path(sys.argv[2]).absolute()
@@ -40,11 +40,12 @@ class SourceEntry:
 class Receipt:
     name: str
     command: tuple[str, ...]
-    raw_exit: int
+    raw_exit: int | None
     timed_out: bool
     seconds: float
     log_sha256: str
     accepted: bool
+    monitor_errors: tuple[str, ...]
 
 
 RECEIPTS: Final[list[Receipt]] = []
@@ -118,15 +119,24 @@ def environment() -> dict[str, str]:
     return env
 
 
-def run(name: str, command: list[str], timeout: int = 300) -> Path:
+def run(name: str, command: list[str], timeout: int = 300,
+        measure_resources: bool = False) -> Path:
     log = OUTPUT / f"{name}.log"
     started = time.monotonic()
     timed_out = False
-    print("FULL_COMMAND_START " + json.dumps({"name": name, "command": command}), flush=True)
-    trace = ResourceTrace(OUTPUT) if name == "just-verify" else None
+    raw_exit: int | None = None
+    trace: ResourceTrace | None = None
     process: subprocess.Popen[bytes] | None = None
+    original_error: BaseException | None = None
+    monitor_errors: list[str] = []
+    phase = "start"
+    print("FULL_COMMAND_START " + json.dumps({"name": name, "command": command}), flush=True)
     try:
+        if measure_resources:
+            phase = "monitor-start"
+            trace = ResourceTrace(OUTPUT)
         with log.open("wb") as stream:
+            phase = "spawn"
             if trace is None:
                 process = subprocess.Popen(
                     command, cwd=SOURCE, env=environment(), stdout=stream,
@@ -138,7 +148,9 @@ def run(name: str, command: list[str], timeout: int = 300) -> Path:
             next_progress = started + 30
             while True:
                 if trace is not None:
+                    phase = "monitor-sample"
                     trace.sample(process.pid)
+                phase = "wait"
                 remaining = deadline - time.monotonic()
                 try:
                     raw_exit = process.wait(timeout=max(0.001, min(2 if trace is not None else 30, remaining)))
@@ -153,37 +165,41 @@ def run(name: str, command: list[str], timeout: int = 300) -> Path:
                             next_progress = time.monotonic() + 30
                         continue
                     timed_out = True
-                    os.killpg(process.pid, signal.SIGTERM)
-                    try:
-                        raw_exit = process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        os.killpg(process.pid, signal.SIGKILL)
-                        raw_exit = process.wait()
+                    raw_exit = abort_process_group(process)
                     break
-    except BaseException:
-        if process is not None and process.poll() is None:
-            os.killpg(process.pid, signal.SIGTERM)
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait()
-        raise
+    except BaseException as error:
+        original_error = error
+        monitor_errors.append(f"{phase}: {type(error).__name__}: {error}")
+        owned_child = process if process is not None else (trace.child if trace is not None else None)
+        if owned_child is not None:
+            raw_exit = abort_process_group(owned_child)
     finally:
         if trace is not None:
-            RESOURCE_REPORTS.append(trace.finish())
-    accepted = raw_exit == 0 and not timed_out
+            try:
+                measured = trace.finish()
+            except BaseException as error:
+                if original_error is None:
+                    original_error = error
+                monitor_errors.append(f"monitor-finish: {type(error).__name__}: {error}")
+                measured = trace.known_report()
+            measured["monitor_errors"] = list(monitor_errors)
+            RESOURCE_REPORTS.append(measured)
+            print("FULL_RESOURCE_REPORT " + json.dumps(measured), flush=True)
+    accepted = raw_exit == 0 and not timed_out and not monitor_errors
     receipt = Receipt(
         name, tuple(command), raw_exit, timed_out, time.monotonic() - started,
-        file_digest(log), accepted,
+        file_digest(log) if log.exists() else "", accepted, tuple(monitor_errors),
     )
     RECEIPTS.append(receipt)
     print("FULL_COMMAND_RESULT " + json.dumps(asdict(receipt)), flush=True)
     if not accepted:
-        with log.open("rb") as stream:
-            stream.seek(max(0, log.stat().st_size - 120_000))
-            print(stream.read().decode("utf-8", errors="replace"), flush=True)
-        raise RuntimeError(f"{name} failed with actual exit {raw_exit}; timeout={timed_out}")
+        if log.exists():
+            with log.open("rb") as stream:
+                stream.seek(max(0, log.stat().st_size - 120_000))
+                print(stream.read().decode("utf-8", errors="replace"), flush=True)
+        raise RuntimeError(
+            f"{name} failed with actual exit {raw_exit}; timeout={timed_out}; monitor_errors={monitor_errors}"
+        ) from original_error
     return log
 
 
@@ -284,7 +300,7 @@ def main() -> None:
             "binary_sha256": file_digest(house_binary),
             "install_metadata_sha256": file_digest(install_metadata),
         }
-        full_log = run("just-verify", ["just", "verify"], timeout=9600)
+        full_log = run("just-verify", ["just", "verify"], timeout=9600, measure_resources=True)
         markers = {
             line.strip()[5:]
             for line in full_log.read_text(encoding="utf-8", errors="strict").splitlines()
