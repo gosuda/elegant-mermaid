@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "status": "in_progress",
+  "observed_at": "2026-11-27T12:13:10Z",
+  "producer": "cd6ece93aad807f38ccea0a0e756673180dc2a9f",
+  "producer_tree": "bdf5d9d82879019045e027e764fec6613dd8ad18",
+  "run": 45996807575,
+  "job": 140498128585,
+  "source": {
+    "repository": "gosuda/elegant-mermaid",
+    "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+    "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+    "blobs": 6714,
+    "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+    "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33"
+  },
+  "manifest_sha256": "0ab939ce852b5848edaf7b003194f05cd8fbb5399735a777182d19336c1ac44f",
+  "prior_failure": {
+    "producer": "761b6a3fa979838fd68d6949c7db2a9734e880c0",
+    "run": 45988680468,
+    "job": 140470677698,
+    "raw_exit": 137,
+    "timed_out": false,
+    "conclusion": "failure",
+    "artifact": 15193342317,
+    "zip_sha256": "f80ae39c29b9cac507f372ef83abb43e187e16a6c1311e1aa1880ab0bd2096d3",
+    "receipt_commit": "91a657362d6995c29b8fd3a92b11da797089fdee",
+    "receipt_sha256": "070ab4a9149e2c1b7f06a3498911ec2afd1825aab4b700e722f71a0ffd411ea9",
+    "log_sha256": "340eb4463ac43bbba25444365ae265ba27dac4cbd992c366b74892e784da4b8a",
+    "cause": "Signal9 is observed. No OOM attribution is established by that run.",
+    "gate_reuse": false
+  },
+  "review": {
+    "reviewer": "/root/bitcoin_round7",
+    "verdict": "No remaining static blocker on exact cd6ece93; all five payload hashes and limited diff verified. No native execution by reviewer.",
+    "prior_unexecuted_proposal": "9c407c140996d99f9985ad2f8f33a038d87d2a2e",
+    "addressed_findings": [
+      "Retain/reap owned child across post-spawn restoration failures",
+      "Preserve actual child outcome when monitoring fails"
+    ],
+    "native_controls_pending": true,
+    "all_full_gates_pending": true
+  },
+  "windows_terminal": {
+    "commit": "87961c30a5f412d6e97e610fac0b6711897e9547",
+    "run": 45986012440,
+    "source": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+    "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+    "source_unchanged": true
+  },
+  "publication_eligible": false,
+  "fully_verified": false
+}
