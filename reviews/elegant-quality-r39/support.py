@@ -221,8 +221,13 @@ class Runner:
                     self.drain(child.pid)
                 except (OSError, RuntimeError) as error:
                     errors.append(f"cleanup: {error}")
+            log_sha256 = ""
+            try:
+                log_sha256 = digest(log)
+            except OSError as error:
+                errors.append(f"log digest: {type(error).__name__}: {error}")
             record = Receipt(name, tuple(command), str(root), raw, timed_out,
-                             time.monotonic() - started, digest(log) if log.exists() else "",
+                             time.monotonic() - started, log_sha256,
                              self.selected_affinity, tuple(errors),
                              raw == 0 and not timed_out and not errors)
             self.receipts.append(record)

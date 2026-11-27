@@ -72,6 +72,12 @@ jobs:
           version: "0.13.9"
           python-version: "3.15"
           enable-cache: false
+      - name: Prove known exits survive log-hash failure
+        run: |
+          mkdir -p "$RUNNER_TEMP/elegant-quality-evidence"
+          uv run --no-project --python 3.15 \
+            proof/reviews/elegant-quality-r39/runner_receipt_control.py \
+            "$RUNNER_TEMP/elegant-quality-evidence"
       - name: Execute the paired diagnostic and missed theme recipe
         env:
           GH_TOKEN: ${{ github.token }}

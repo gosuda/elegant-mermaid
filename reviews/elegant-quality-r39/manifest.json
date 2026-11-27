@@ -33,7 +33,7 @@
   "candidate_index": "Apply the eight exact before/after entries in candidate-delta.json to the authenticated maintained index. Native identity verifies every resulting file byte/mode and the committed/staged Git tree.",
   "proof_sha256": {
     "verify.py": "67247644ade283583c38cc355ff073be18c42aba96549cf794f4235338e1503f",
-    "support.py": "cb84d3d3cdee24ab31f817b88963650318f1785ba70271a3cb7b01b34c858386",
+    "support.py": "bd6b5a0fc4e10dc9bfbfe8a85952a834cff08662601d4662badd1becfd1adf1d",
     "capture.py": "a1cbc53c9841b5ac384f403d31f097666d471bc79cbf44ae57fa20dfbcc7dce8",
     "candidate-delta.json": "09a1dab6ee00b8c40b15404297cf123914c4d04ae8b59e189801db631ee0bc67",
     "maintained-index-01.json": "3dfdedc67ab03f0a1358e563de732c13444bfa91ce6235bd83909adfb7b1009b",
@@ -44,9 +44,10 @@
     "archive.py": "ea46d8ede758fcb4b2ebc544276fb55371e557a316f58237a7e491ca9e20d74c",
     "artifact_support.py": "8b7664601fe768540f2c44274e92a6a23f35efbb045d0597800f3f44b605a739",
     "prior-report.json": "63135439debbbe4ad7b5b5a983ec00cf1fa51037c2cb90fe6581118209716aee",
-    "README.md": "d15a3dec1aad52e8350477a4c5b42f990c2282086b084910500e7d3cb13a59ff"
+    "README.md": "d15a3dec1aad52e8350477a4c5b42f990c2282086b084910500e7d3cb13a59ff",
+    "runner_receipt_control.py": "099908fa0e0cb53829539865b50fe45e20aaf8214a1e64bdaf44d1ad07147228"
   },
-  "workflow_sha256": "f6831302ae5ce20b917a23e1de6249f5faaaf1b86d3ace69642fd820f6360572",
+  "workflow_sha256": "a5759847b74c55da6b1749f7fd0cbdf0bc64c82f91abe7cc034a7bb35ecb9239",
   "active_workflow_required": ".github/workflows/elegant-quality-r39.yml",
   "tools": {
     "go": "1.27.4",
@@ -220,5 +221,14 @@
     "commit": "483b404282b0b74b880b1b6f7f095706f296fa8a",
     "path": "reviews/elegant-paired-full-r36/terminal.json",
     "sha256": "48e2120fd952440ea32b427dd30eeec4594ea4b457a240962caa0b6915b0e1af"
+  },
+  "review_correction": {
+    "reviewed_draft": "3c9e0e7460430665f2cf67d566a8066916e78999",
+    "finding": "A final log-hash OSError could erase a known child exit before the command receipt was appended.",
+    "repair": "Preserve the known raw exit in an IO-free receipt with an empty hash and explicit fatal log-digest error.",
+    "native_control": "A real child prints its PID and exits 23. Only its final digest call is fault-injected; the control requires the receipt, exact observer error, reaped child, absent group and original supervisor affinity.",
+    "source_and_gate_delta": false,
+    "quality_driver_unchanged": true,
+    "executed": false
   }
 }
