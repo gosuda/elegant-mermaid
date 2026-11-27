@@ -177,7 +177,17 @@ fn resolve_existing_directory(path: &mut PathBuf, literal: bool) -> io::Result<(
         Err(error) => return Err(error),
     };
     if metadata.file_type().is_symlink() {
-        *path = adopt(path.canonicalize()?, literal);
+        let canonical = path.canonicalize()?;
+        let ordinary = adopt(canonical.clone(), literal);
+        // The canonical target names the exact directory. Keep the ordinary
+        // spelling only while it still reaches that directory; a verbatim-only
+        // name (trailing dots or spaces) would otherwise be re-read with
+        // Win32 normalization and lost.
+        *path = if !literal && !ordinary.exists() && canonical.exists() {
+            canonical
+        } else {
+            ordinary
+        };
         if !path.metadata()?.is_dir() {
             return Err(io::ErrorKind::NotADirectory.into());
         }
@@ -418,6 +428,27 @@ mod tests {
             )?,
             "assets/image.svg"
         );
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn ordinary_symlinks_keep_verbatim_only_targets() -> std::io::Result<()> {
+        let directory = TestDir::new()?;
+        let literal = directory.0.join("assets ");
+        std::fs::create_dir_all(&literal)?;
+        let link = directory.0.join("linked");
+        match std::os::windows::fs::symlink_dir(&literal, &link) {
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => return Ok(()),
+            Err(error) => return Err(error),
+            Ok(()) => {}
+        }
+        let ordinary = ordinary_spelling(&directory.0)?;
+        let resolved = super::resolved_from(Path::new("linked"), &ordinary)?;
+        assert_eq!(resolved, literal);
+        std::fs::write(resolved.join("probe.svg"), b"<svg")?;
+        assert!(literal.join("probe.svg").exists());
+        assert!(!ordinary.join("assets").join("probe.svg").exists());
         Ok(())
     }
 
