@@ -66,18 +66,23 @@ pub(crate) fn relative_url(target: &Path, host: &Path) -> io::Result<String> {
 /// Existing components must be directories. Missing components are prospective
 /// directories, so their suffix can be resolved before any output is created.
 pub(crate) fn resolved_directory(path: &Path) -> io::Result<PathBuf> {
-    let mut directory = std::env::current_dir()?.canonicalize()?;
+    resolved_from(path, &std::env::current_dir()?.canonicalize()?)
+}
+
+fn resolved_from(path: &Path, base: &Path) -> io::Result<PathBuf> {
+    let literal = is_verbatim(path);
+    let mut directory = adopt(base.to_path_buf(), literal);
     for component in path.components() {
         match component {
             Component::Prefix(prefix) => {
                 directory = PathBuf::from(prefix.as_os_str());
                 if !path.has_root() {
-                    directory = std::path::absolute(directory)?.canonicalize()?;
+                    directory = adopt(std::path::absolute(directory)?.canonicalize()?, literal);
                 }
             }
             Component::RootDir => {
                 directory.push(component.as_os_str());
-                directory = directory.canonicalize()?;
+                directory = adopt(directory.canonicalize()?, literal);
             }
             Component::CurDir => {}
             Component::ParentDir => {
@@ -85,21 +90,67 @@ pub(crate) fn resolved_directory(path: &Path) -> io::Result<PathBuf> {
             }
             Component::Normal(name) => {
                 directory.push(name);
-                resolve_existing_directory(&mut directory)?;
+                resolve_existing_directory(&mut directory, literal)?;
             }
         }
     }
     Ok(directory)
 }
 
-fn resolve_existing_directory(path: &mut PathBuf) -> io::Result<()> {
+/// Whether the input names a verbatim Windows path, which keeps every
+/// component literal. Anything else resolves with ordinary normalization.
+fn is_verbatim(path: &Path) -> bool {
+    matches!(
+        path.components().next(),
+        Some(Component::Prefix(prefix))
+            if matches!(
+                prefix.kind(),
+                std::path::Prefix::VerbatimDisk(_)
+                    | std::path::Prefix::VerbatimUNC(..)
+                    | std::path::Prefix::Verbatim(_)
+                    | std::path::Prefix::DeviceNS(_)
+            )
+    )
+}
+
+/// Spelling adopted for a freshly canonicalized path. On Windows,
+/// `canonicalize` returns a verbatim (`\\?\`) path, on which trailing dots
+/// and spaces stay literal. Ordinary inputs must keep ordinary Win32
+/// normalization (`assets.` names `assets`), so drop the verbatim prefix.
+/// Explicitly verbatim inputs keep it.
+#[cfg(windows)]
+fn adopt(canonical: PathBuf, literal: bool) -> PathBuf {
+    if literal {
+        return canonical;
+    }
+    let mut components = canonical.components();
+    let disk = match components.next() {
+        Some(Component::Prefix(prefix)) => match prefix.kind() {
+            std::path::Prefix::VerbatimDisk(drive) => {
+                PathBuf::from(format!("{}:", char::from(drive)))
+            }
+            _ => return canonical,
+        },
+        _ => return canonical,
+    };
+    let mut ordinary = disk;
+    ordinary.extend(components);
+    ordinary
+}
+
+#[cfg(not(windows))]
+fn adopt(canonical: PathBuf, _literal: bool) -> PathBuf {
+    canonical
+}
+
+fn resolve_existing_directory(path: &mut PathBuf, literal: bool) -> io::Result<()> {
     let metadata = match std::fs::symlink_metadata(path.as_path()) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
         Err(error) => return Err(error),
     };
     if metadata.file_type().is_symlink() {
-        *path = path.canonicalize()?;
+        *path = adopt(path.canonicalize()?, literal);
         if !path.metadata()?.is_dir() {
             return Err(io::ErrorKind::NotADirectory.into());
         }
@@ -288,6 +339,39 @@ mod tests {
             assert_eq!(relative_url(&ordinary.join(&image), &host)?, "image.svg");
             assert_eq!(relative_url(&image, &ordinary.join(&host))?, "image.svg");
         }
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn ordinary_trailing_dots_keep_win32_normalization() -> std::io::Result<()> {
+        let directory = TestDir::new()?;
+        let mut components = directory.0.components();
+        let Some(std::path::Component::Prefix(prefix)) = components.next() else {
+            return Err(std::io::ErrorKind::InvalidInput.into());
+        };
+        let mut base = match prefix.kind() {
+            std::path::Prefix::VerbatimDisk(drive) => {
+                PathBuf::from(format!("{}:", char::from(drive)))
+            }
+            _ => PathBuf::from(prefix.as_os_str()),
+        };
+        for component in components {
+            base.push(component.as_os_str());
+        }
+        std::fs::create_dir_all(base.join("assets"))?;
+        let resolved = super::resolved_from(Path::new("assets."), &base)?;
+        assert_eq!(
+            resolved.canonicalize()?,
+            base.join("assets").canonicalize()?
+        );
+        std::fs::write(resolved.join("probe.svg"), b"<svg")?;
+        assert!(base.join("assets/probe.svg").exists());
+        let verbatim = base.canonicalize()?;
+        assert_eq!(
+            super::resolved_from(&verbatim.join("assets."), &base)?,
+            verbatim.join("assets.")
+        );
         Ok(())
     }
 }
