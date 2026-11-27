@@ -243,7 +243,7 @@ You need:
 - Go, at the toolchain version in [`go.mod`](go.mod).
 - Rust, at the version in [`rust-toolchain.toml`](rust-toolchain.toml). `rustup` installs it on first use.
 - [just](https://github.com/casey/just).
-- For the full gate: Lean 4 through `elan` (version in [`proofs/lean-toolchain`](proofs/lean-toolchain)), a Java runtime for the TLA+ model check, and Node.js with pnpm for the upstream oracle. The WebAssembly parity check also needs the `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`) with `wasm-bindgen` 0.2.130 as pinned in `verify.yml`, and the end-to-end tests need a Playwright browser (`pnpm --dir playground exec playwright install chromium`) or a system browser through `PLAYWRIGHT_CHANNEL`.
+- For the full gate: Lean 4 through `elan` (version in [`proofs/lean-toolchain`](proofs/lean-toolchain)), a Java runtime for the TLA+ model check, and Node.js with pnpm for the upstream oracle. The WebAssembly parity check also needs the `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`) with `wasm-bindgen` 0.2.130 as pinned in `verify.yml`, and the end-to-end tests need the playground packages (`pnpm --dir playground install --frozen-lockfile`) plus a Playwright browser (`pnpm --dir playground exec playwright install chromium`) or a system browser through `PLAYWRIGHT_CHANNEL`.
 
 Build and test:
 
