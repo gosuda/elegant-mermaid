@@ -1,0 +1,40 @@
+{
+  "scope": "Observation only: external maintained revision plus the parent's exact timeout type conversion. No renderer source changes.",
+  "status": "prepared-not-launched",
+  "source": null,
+  "source_tree": null,
+  "maintained_source": "98ef933e487f502e2e3555750e6621291ba21601",
+  "maintained_tree": "078133b8e3287d02e29a1165c004d85c108b7200",
+  "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+  "source_blobs": 6711,
+  "proof_sha256": {
+    "verify.py": "942a3f7230cc6ea16c291081a633d7a9916347a3625357752ffcc9426d763cd1",
+    "windows-regressions.rs": "9570a81fb6e3959459d238420b9e2659cbc6b96535688a40de76bdccb98a07a8",
+    "normalization.rs": "a59287cdf25daff7406b92dba82a2daccf60649e0a829390dec3cf1d3b3f8dc1",
+    "source-index.json": "18f7319bc9c3d1e83a99ef34f5e583c179b1bc07ffc56368b588c749215b9c04"
+  },
+  "workflow_sha256": "d19b8cb5e752265fd4c3d77a14768cbe441fe05c958a44ec67894131fffd1747",
+  "parent_owned_timeout": {
+    "path": "internal/tui/read_windows.go",
+    "sha256": "1937464d90f4ad2558593f86b434b7c41b12cdaa111457465c80598def3c03fa",
+    "blob": "16aca04f822298b8a8bc162cde9367c9c2be5bb9"
+  },
+  "expected": {
+    "current_windows_controls": 8,
+    "frozen_witness_tests": 4,
+    "accepted_raw_test_exits": [
+      0,
+      101
+    ],
+    "native_normalization_observations": 19,
+    "go_cli_observations": 20
+  },
+  "publication_eligible": false,
+  "candidate_verified": false,
+  "baseline_receipts": [
+    "../baseline1.json",
+    "../baseline2.json"
+  ],
+  "frozen_test_boundary": "All four original test sources remain byte-identical. Their actual outcomes are observations. The later ordinary-space native-write precondition appends a filename before resolving the directory operand; this branch was not reached in the old failing runs and must not be mistaken for a renderer defect if it becomes reachable. Correcting it requires a separately recorded observer correction and unchanged-source rerun.",
+  "activation": "Parent must read fresh maintained/main refs, create the timeout-only current source snapshot, fill source/source_tree, verify the full expected index, and substitute PARENT_SOURCE_COMMIT in the workflow draft. A placeholder source causes a hard failure. No workflow is installed by this handoff."
+}

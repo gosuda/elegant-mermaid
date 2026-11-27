@@ -1,4 +1,4 @@
-name: "Elegant Windows review baseline r33"
+name: "Elegant Windows current-head observations r33"
 on:
   push:
     branches: ["ci/elegant-windows-review-20261127-r33"]
@@ -11,7 +11,7 @@ concurrency:
   group: "elegant-windows-review-r33-${{ github.ref }}"
   cancel-in-progress: false
 jobs:
-  baseline:
+  observe:
     runs-on: depot-windows-2025
     timeout-minutes: 30
     defaults:
@@ -30,7 +30,7 @@ jobs:
       - name: Checkout the frozen source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 9c8339a1c214eb93c92384db55edc0e89851ea8a
+          ref: "@@PARENT_SOURCE_COMMIT@@"
           path: source
           persist-credentials: false
       - name: Checkout this proof
@@ -73,14 +73,14 @@ jobs:
           $evidence = Join-Path $env:RUNNER_TEMP "emd-windows-evidence"
           New-Item -ItemType Directory -Path $evidence -ErrorAction Stop | Out-Null
           @{ windows = [Environment]::OSVersion.VersionString; architecture = $env:PROCESSOR_ARCHITECTURE; native_unc_available = $true; run = $env:GITHUB_RUN_ID; attempt = $env:GITHUB_RUN_ATTEMPT } | ConvertTo-Json | Set-Content -Path (Join-Path $evidence "runner.json") -Encoding utf8
-      - name: Run the unchanged-source baseline and native observations
+      - name: Observe the current renderer against frozen native witnesses
         run: |
           $ErrorActionPreference = "Stop"
           $env:GOENV = "off"
           $env:GOCACHEPROG = ""
           $effective = go env GOCACHEPROG
           if ($LASTEXITCODE -ne 0 -or -not [string]::IsNullOrEmpty($effective)) { throw "External Go cache is active" }
-          uv run --no-project --python 3.15 proof/ci-tools/elegant-windows-review-r33/verify.py source proof/ci-tools/elegant-windows-review-r33 "$env:RUNNER_TEMP/emd-windows-evidence"
+          uv run --no-project --python 3.15 proof/reviews/elegant-windows-review-r33/next-native/verify.py source proof/reviews/elegant-windows-review-r33/next-native "$env:RUNNER_TEMP/emd-windows-evidence"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Remove the disposable native share
         if: always()
