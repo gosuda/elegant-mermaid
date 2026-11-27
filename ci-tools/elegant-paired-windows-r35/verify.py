@@ -155,6 +155,90 @@ def path_witnesses(source: Snapshot, tests: bytes) -> None:
         path.write_bytes(original)
 
 
+def namespace_mutations(source: Snapshot, formatted_index: list[dict[str, str]]) -> None:
+    rust_path = source.root / LINKS
+    go_path = source.root / "internal/cli/output_path_windows.go"
+    go_test_path = source.root / "internal/cli/output_path_windows_test.go"
+    rust_fixed, go_fixed = rust_path.read_bytes(), go_path.read_bytes()
+    go_tests = go_test_path.read_bytes()
+    rust_anchor = b"                    | std::path::Prefix::Verbatim(_)\n"
+    rust_old = rust_anchor + b"                    | std::path::Prefix::DeviceNS(_)\n"
+    go_anchor = b'return strings.HasPrefix(path, "\\\\\\\\?\\\\")'
+    go_old = go_anchor + b' || strings.HasPrefix(path, "\\\\\\\\.\\\\")'
+    if rust_fixed.count(rust_anchor) != 1 or b"std::path::Prefix::DeviceNS" in rust_fixed:
+        raise RuntimeError("Rust namespace mutation is not uniquely bound")
+    if go_fixed.count(go_anchor) != 1 or go_old in go_fixed:
+        raise RuntimeError("Go namespace mutation is not uniquely bound")
+    rust_mutant = rust_fixed.replace(rust_anchor, rust_old)
+    go_mutant = go_fixed.replace(go_anchor, go_old)
+    if rust_mutant.replace(rust_old, rust_anchor) != rust_fixed:
+        raise RuntimeError("Rust mutation changed more than its prefix predicate")
+    if go_mutant.replace(go_old, go_anchor) != go_fixed:
+        raise RuntimeError("Go mutation changed more than its prefix predicate")
+    test_start = rust_fixed.index(b"    fn device_and_ordinary_names_share_native_directory_identities")
+    test_end = rust_fixed.index(b"    #[cfg(windows)]", test_start)
+    rust_test = rust_fixed[test_start:test_end]
+    if rust_test not in rust_mutant:
+        raise RuntimeError("Rust namespace regression bytes changed in mutation")
+    mutant = Snapshot("candidate-namespace-mutant", source.root, source.head,
+                      source.tree, source.index, source.controls, source.exits)
+    rust_binary = BUILDS / "candidate-namespace-mutant-rust.exe"
+    try:
+        rust_path.write_bytes(rust_mutant)
+        run("namespace-rust-mutant-compile",
+            ["rustc", "--edition=2024", "--test", LINKS, "-o", str(rust_binary)], mutant)
+        rust_log = run("namespace-rust-mutant-red", [
+            str(rust_binary), "--exact",
+            "tests::device_and_ordinary_names_share_native_directory_identities",
+            "--nocapture", "--test-threads=1",
+        ], mutant, 101)
+        if ("test result: FAILED. 0 passed; 1 failed;" not in rust_log
+                or 'device "assets." intermediate=false' not in rust_log):
+            raise RuntimeError("Rust mutation did not fail the frozen device identity assertion")
+    finally:
+        rust_path.write_bytes(rust_fixed)
+    if rust_path.read_bytes() != rust_fixed:
+        raise RuntimeError("Rust namespace mutation was not restored")
+    identity(source, formatted_index)
+    go_binary = BUILDS / "candidate-namespace-mutant-go.exe"
+    test_name = "TestMarkdownWindowsNamespaceNormalization"
+    try:
+        go_path.write_bytes(go_mutant)
+        if go_test_path.read_bytes() != go_tests:
+            raise RuntimeError("Go namespace regression bytes changed")
+        run("namespace-go-mutant-compile", [
+            "go", "test", "-c", "-o", str(go_binary), "./internal/cli",
+        ], mutant)
+        go_log = run("namespace-go-mutant-red", [
+            str(go_binary), "-test.v", "-test.count=1",
+            "-test.run", f"^{test_name}$",
+        ], mutant, 1)
+        failed = set(re.findall(r"^\s*--- FAIL: (" + test_name + r"/[^ ]+) ",
+                                go_log, flags=re.MULTILINE))
+        expected = {f"{test_name}/{case}" for case in (
+            "device-dot-final", "device-dot-intermediate", "device-space-final",
+        )}
+        passed = set(re.findall(r"^\s*--- PASS: (" + test_name + r"/[^ ]+) ",
+                                go_log, flags=re.MULTILINE))
+        if failed != expected or len(passed) != 9:
+            raise RuntimeError("Go mutation failure identities differ from the raw native witness")
+        if "directory identity for " not in go_log:
+            raise RuntimeError("Go mutation lacks its native file identity assertion")
+    finally:
+        go_path.write_bytes(go_fixed)
+    if go_path.read_bytes() != go_fixed or go_test_path.read_bytes() != go_tests:
+        raise RuntimeError("Go namespace mutation was not restored")
+    identity(source, formatted_index)
+    print("NAMESPACE_MUTATION_RECEIPT " + json.dumps({
+        "rust_fixed_sha256": digest(rust_fixed), "rust_mutant_sha256": digest(rust_mutant),
+        "rust_test_sha256": digest(rust_test), "rust_exit": 101,
+        "go_fixed_sha256": digest(go_fixed), "go_mutant_sha256": digest(go_mutant),
+        "go_test_file_sha256": digest(go_tests), "go_exit": 1,
+        "go_failed_subtests": sorted(failed), "go_passed_subtests": sorted(passed),
+        "exact_source_restored": True,
+    }), flush=True)
+
+
 def format_owned_source(source: Snapshot) -> tuple[list[dict[str, str]], str]:
     before = {path: (source.root / path).read_bytes() for path in OWNED}
     run("candidate-format-owned", ["rustfmt", "--edition", "2024", *RUST_OWNED], source)
@@ -416,6 +500,7 @@ def main() -> None:
             raise RuntimeError("native normalization observation count differs")
         formatted_index, tree = format_owned_source(candidate)
         report["compiled_tree"] = tree
+        namespace_mutations(candidate, formatted_index)
         path_witnesses(candidate, corrected)
         identity(candidate, formatted_index)
         run("candidate-clippy",

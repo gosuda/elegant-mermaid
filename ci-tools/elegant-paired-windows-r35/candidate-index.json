@@ -18247,7 +18247,7 @@
   {
     "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
     "mode": "100644",
-    "sha": "cda91da81c630a5ec577e4a1ca6c22f04fe44cfc"
+    "sha": "4a21648a7189cf2b702ca741a25af5ed470ad08b"
   },
   {
     "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
@@ -22707,12 +22707,12 @@
   {
     "path": "internal/cli/output_path_windows.go",
     "mode": "100644",
-    "sha": "5c115ec00cb47fd8dc4aa4234d5e889ec674ee05"
+    "sha": "e4df84d38bdda02697cbb8f8ee6526eb6bb37103"
   },
   {
     "path": "internal/cli/output_path_windows_test.go",
     "mode": "100644",
-    "sha": "2563014e8d7389795a8c0c2b5c154992e24090f3"
+    "sha": "19b2d25a06be5687bdbad59c89a296b796d552f3"
   },
   {
     "path": "internal/cli/png_test.go",

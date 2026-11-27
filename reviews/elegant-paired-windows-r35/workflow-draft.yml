@@ -42,7 +42,7 @@ jobs:
       - name: Checkout the paired candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: b60c42d2b887e5c3de048c9bdd3828e51665a9d8
+          ref: 61271a6955012abce15de62703246cef0e6c883f
           path: candidate
           persist-credentials: false
       - name: Checkout this proof

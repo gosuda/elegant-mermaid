@@ -30,10 +30,10 @@
       ]
     },
     "candidate": {
-      "head": "b60c42d2b887e5c3de048c9bdd3828e51665a9d8",
-      "tree": "728e8e818219a1c73441d78e4d212a09a5cec900",
+      "head": "61271a6955012abce15de62703246cef0e6c883f",
+      "tree": "893180e7febfec410cd7fc22618e9b9fa601fb7e",
       "blobs": 6714,
-      "controls": 12,
+      "controls": 13,
       "exits": [
         0,
         0,
@@ -45,8 +45,8 @@
   "source_payload": [
     {
       "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
-      "blob": "cda91da81c630a5ec577e4a1ca6c22f04fe44cfc",
-      "sha256": "e155793dfbb63d0e3df7e9e2c3826469d7a87f8b8cf8756903fed836f98f4580"
+      "blob": "4a21648a7189cf2b702ca741a25af5ed470ad08b",
+      "sha256": "520f747b327d6cbb54c275fff43af3a77b9821745e491dab1b2a06fafa342c4e"
     },
     {
       "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
@@ -65,13 +65,13 @@
     },
     {
       "path": "internal/cli/output_path_windows.go",
-      "blob": "5c115ec00cb47fd8dc4aa4234d5e889ec674ee05",
-      "sha256": "ee720c3e1720f203026cfc514897affc121fe507e46920cc3979c529200a7f92"
+      "blob": "e4df84d38bdda02697cbb8f8ee6526eb6bb37103",
+      "sha256": "1f9a3b4bb22850d2ae48c9c76fac34a9e427fcca6a45c8b1ebada4930eca28e0"
     },
     {
       "path": "internal/cli/output_path_windows_test.go",
-      "blob": "2563014e8d7389795a8c0c2b5c154992e24090f3",
-      "sha256": "d137b1fb7a1b1c74d1f935eccf72e78e8007ec3ad7701e15d897a1ee8283826b"
+      "blob": "19b2d25a06be5687bdbad59c89a296b796d552f3",
+      "sha256": "b0b71c14f55d4dde9b785a0a4e0b23cf85dc4d0d9ca66228e3c6f1b516cd0f07"
     },
     {
       "path": "internal/cli/render_markdown_output.go",
@@ -85,31 +85,44 @@
     }
   ],
   "proof_sha256": {
-    "verify.py": "c25de9c526d8fc2c2b2a575ad5e02bb46a00eecb7720b90271ab104d3493c308",
+    "verify.py": "61c29de5e44785eb7818e52eba9bfd4510573de14ac4212eb8748eead041d2dd",
     "windows-regressions-frozen.rs": "9570a81fb6e3959459d238420b9e2659cbc6b96535688a40de76bdccb98a07a8",
     "windows-regressions.rs": "8186147fc09d1a87b398e245f3ee2074d5c746128729aec002ab62481839272d",
     "observer-correction.diff": "931cd6b87a2a019ab5a3b8796707e2056893c63bc721b47c635f836913540be4",
     "normalization.rs": "a59287cdf25daff7406b92dba82a2daccf60649e0a829390dec3cf1d3b3f8dc1",
     "old-index.json": "7d047ed2e51f93acafc2a49b8d9aa2baae4d601ca57369c72dde78482c0bca1a",
     "current-index.json": "18f7319bc9c3d1e83a99ef34f5e583c179b1bc07ffc56368b588c749215b9c04",
-    "candidate-index.json": "c9c45a750f482973d826a29f970effd7363b013ac8e7468990e303f9acd9923a",
-    "current-source-receipt.json": "bf3b9709dfcc392ca15883335280a507793d857f76d7789a5989119d3d4b6197"
+    "candidate-index.json": "a7382677606d0264c2a57e62985d34dbfb6b02d1c4029c9c9d4e6175064d9963",
+    "current-source-receipt.json": "bf3b9709dfcc392ca15883335280a507793d857f76d7789a5989119d3d4b6197",
+    "namespace-source-receipt.json": "f749b3bb9741007d176afda5a229de281fd028b2946db8041cf4dfd018f88837"
   },
-  "workflow_sha256": "68d53afe09012a3b7953912bd053d287a7a2565e08a0a6050c38d72db75acaa5",
+  "workflow_sha256": "8f867f6ad22211a099e0cc0273b92f999e546bccf89329c92f18e8e24fb48a0d",
   "go_test_names": [
     "TestMarkdownWindowsDirectorySpellings",
     "TestMarkdownWindowsMixedPrefixes",
     "TestMarkdownWindowsSymlinkRetainsLiteralAncestor",
     "TestMarkdownWindowsFinalNamesAndLinks",
-    "TestMarkdownWindowsFinalLinkIsReplaced"
+    "TestMarkdownWindowsFinalLinkIsReplaced",
+    "TestMarkdownWindowsNamespaceNormalization"
   ],
   "expected": {
     "frozen_path_cases": 4,
     "native_normalization_observations": 19,
     "real_cli_cases_per_engine": 20,
     "final_filename_cases_per_engine": 4,
-    "go_ownership_tests": 5,
-    "engine_host_and_image_bytes_identical": true
+    "go_ownership_tests": 6,
+    "engine_host_and_image_bytes_identical": true,
+    "namespace_mutations": {
+      "rust_exit": 101,
+      "go_exit": 1,
+      "go_failed_subtests": [
+        "device-dot-final",
+        "device-dot-intermediate",
+        "device-space-final"
+      ],
+      "go_other_passed_subtests": 9,
+      "tests_unchanged": true
+    }
   },
   "observer_correction": "Only two native prerequisite expressions canonicalize the directory operand before appending native.svg. The original module, inputs, URL assertions and historical failures remain immutable. Both prior source snapshots rerun before candidate application.",
   "format_scope": [
@@ -140,7 +153,20 @@
       "run": 45958671740,
       "artifact": 15180505210,
       "zip_sha256": "479c9dd718bb8428a2e49bbadcda2c35d54ecb9d73eafc12d5a6fe98425c49c0"
+    },
+    "namespace": {
+      "commit": "f1ed6a54cccf90e039c4b91cdc8cbd2c095039cb",
+      "path": "reviews/elegant-device-namespace-r36/checkpoint.json",
+      "sha256": "f749b3bb9741007d176afda5a229de281fd028b2946db8041cf4dfd018f88837",
+      "run": 45975185314,
+      "job": 140425035974,
+      "artifact": 15186617469,
+      "zip_sha256": "de31ec0bbc57efa4a65fae7fa6744bc6d4b490a6188b6a53d83785d6e0d64094",
+      "unfixed_candidate_matches": 9,
+      "native_inputs": 12,
+      "preserved_initial_compile_failure": 45974466878
     }
   },
-  "publication_eligible": false
+  "publication_eligible": false,
+  "mutation_scope": "After candidate formatting, reinsert only each prior DeviceNS/literal-device prefix alternative. Require compilation success, frozen identity assertion failures and exact test/source restoration before positive gates. Rust uses a separate standalone binary; Go uses a separate scratch compiler cache and executable."
 }
