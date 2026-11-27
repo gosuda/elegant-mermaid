@@ -30,7 +30,7 @@ jobs:
       - name: Checkout the frozen source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 9a11e8cc04299367d07c0137653fa87a4e1b945b
+          ref: 9c8339a1c214eb93c92384db55edc0e89851ea8a
           path: source
           persist-credentials: false
       - name: Checkout this proof

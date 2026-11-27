@@ -27302,7 +27302,7 @@
   {
     "path": "internal/tui/read_windows.go",
     "mode": "100644",
-    "sha": "565f970f312de42b06695105111c17038e67d91e"
+    "sha": "16aca04f822298b8a8bc162cde9367c9c2be5bb9"
   },
   {
     "path": "internal/tui/render.go",

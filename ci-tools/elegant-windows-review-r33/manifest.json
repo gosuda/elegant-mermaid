@@ -1,15 +1,16 @@
 {
-  "scope": "Unchanged-source native Windows baseline for Elegant Mermaid PR28. No production repair and no repository-wide gate.",
-  "source": "9a11e8cc04299367d07c0137653fa87a4e1b945b",
-  "source_tree": "84ec8efbabe4a833539ec1875a4a95e30de3a08d",
+  "scope": "Native Windows path baseline on unchanged renderer source, with the parent's exact one-line Go timeout type repair.",
+  "source": "9c8339a1c214eb93c92384db55edc0e89851ea8a",
+  "source_tree": "079aff7611f119cfdcad0e302193be935cadc13f",
   "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
   "source_blobs": 6711,
   "proof_sha256": {
-    "verify.py": "c470b05fcc9c91f7907419d0060addfff325624bc38d249a59841a7d2ce31885",
+    "verify.py": "0ac58b96eb9e12cd9aec3ef03aaf53e17e269fea4189ef7fb69632542f9483dc",
     "windows-regressions.rs": "9570a81fb6e3959459d238420b9e2659cbc6b96535688a40de76bdccb98a07a8",
-    "source-index.json": "df7a73c355bc297eba2cd5800d7c4b39413a1f2c20252318fa613f9e680eeed6"
+    "source-index.json": "7d047ed2e51f93acafc2a49b8d9aa2baae4d601ca57369c72dde78482c0bca1a",
+    "normalization.rs": "a59287cdf25daff7406b92dba82a2daccf60649e0a829390dec3cf1d3b3f8dc1"
   },
-  "workflow_sha256": "a8eda707e9138dc4358f769298a20da53b46a2314631e8a66a13d3d2bad9a409",
+  "workflow_sha256": "3cfd7f4ee5e502f88d280f9b5e77eee7148d92c51d587993d3c239d2d8ac7ee9",
   "expected": {
     "existing_windows_controls": 5,
     "new_regression_exits": [
@@ -27,5 +28,17 @@
     "PRRT_kwDOVq13pc68pWyD",
     "PRRT_kwDOVq13pc68pWym"
   ],
-  "publication_eligible": false
+  "publication_eligible": false,
+  "previous_failure": {
+    "commit": "61d18f89837237ff58b1280a73bc110108440f9e",
+    "path": "reviews/elegant-windows-review-r33/baseline1.json",
+    "run": 45957390047,
+    "artifact": 15179641741
+  },
+  "parent_owned_go_delta": {
+    "path": "internal/tui/read_windows.go",
+    "sha256": "1937464d90f4ad2558593f86b434b7c41b12cdaa111457465c80598def3c03fa",
+    "change": "Convert the typed WAIT_TIMEOUT constant to uint32 for comparison with WaitForSingleObject's result."
+  },
+  "observer_correction": "Resolve an ordinary directory operand before appending the native probe filename. The four frozen Rust regressions and all their expected values remain byte-identical. Separate native absolute/canonical observations record the relevant Windows normalization boundary."
 }

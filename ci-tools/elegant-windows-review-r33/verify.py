@@ -15,7 +15,7 @@ PROOF: Final = Path(sys.argv[2]).absolute()
 OUTPUT: Final = Path(sys.argv[3]).absolute()
 OUTPUT.mkdir(parents=True, exist_ok=True)
 RELATIVE: Final = Path("crates/elegant-mermaid-cli/src/render/markdown/links.rs")
-HEAD: Final = "9a11e8cc04299367d07c0137653fa87a4e1b945b"
+HEAD: Final = "9c8339a1c214eb93c92384db55edc0e89851ea8a"
 RECEIPTS: list[dict[str, str | int | list[str]]] = []
 
 
@@ -101,9 +101,10 @@ def observe_go(binary: Path) -> None:
             directory.mkdir()
             (directory / "assets").mkdir()
             ordinary = directory / f"assets{suffix}"
-            (ordinary / "native.svg").write_bytes(b"native")
+            resolved_operand = ordinary.resolve(strict=True)
+            (resolved_operand / "native.svg").write_bytes(b"native")
             if (directory / "assets/native.svg").read_bytes() != b"native":
-                raise RuntimeError("ordinary native normalization mismatch")
+                raise RuntimeError("ordinary native directory normalization mismatch")
             cases.append(Case(f"{kind}-{label}", "report.md", str(ordinary),
                               directory / "assets", "assets/report-1.svg", directory))
             missing = directory / "future."
@@ -193,6 +194,9 @@ def main() -> None:
             if marker not in log:
                 raise RuntimeError(f"{name}: native filesystem witness did not finish")
         (SOURCE / RELATIVE).write_bytes(original)
+        normalization = OUTPUT / "normalization.exe"
+        run("compile-native-normalization", ["rustc", "--edition=2024", str(PROOF / "normalization.rs"), "-o", str(normalization)])
+        run("native-normalization", [str(normalization)])
         go_binary = OUTPUT / "emd-go.exe"
         run("build-go-observer", ["go", "build", "-trimpath", "-o", str(go_binary), "./cmd/emd"])
         observe_go(go_binary)
