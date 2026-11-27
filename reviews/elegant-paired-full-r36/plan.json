@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "status": "draft-awaiting-native-namespace-discriminator-and-final-formatted-source",
+  "publication_eligible": false,
+  "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+  "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+  "provisional_source": "b60c42d2b887e5c3de048c9bdd3828e51665a9d8",
+  "provisional_tree": "728e8e818219a1c73441d78e4d212a09a5cec900",
+  "command": [
+    "just",
+    "verify"
+  ],
+  "source_binding": "Final source commit/tree/full index will be fixed after focused Windows proof. Current driver and workflow are drafts; no active workflow exists.",
+  "driver_sha256": "aed9c16d8a8108947f5ad2f40dfb8eece134eda08c0615c6468c978ef4b6a211",
+  "workflow_draft_sha256": "64fdfa48f514db3aca4899ef61125a40c51ee4a6da768315991e9f422af69ae4",
+  "dependencies": {
+    "rust": "1.100.0",
+    "go": "1.27.4",
+    "node": "26.13.1",
+    "pnpm": "12.23.0",
+    "lean": "4.35.0",
+    "just": "1.59.0",
+    "nextest": "0.9.151",
+    "cargo_deny": "0.20.2",
+    "jaq": "3.2.0",
+    "wasm_bindgen": "0.2.130",
+    "tlc": "1.7.4",
+    "sloplint_source": "72f29bae0ba1187da854e080c998b8a21f1e4640",
+    "uv": "0.13.9",
+    "python": "3.15"
+  },
+  "dependency_sources": [
+    "Exact source go.mod/rust-toolchain.toml/Cargo.lock/proofs/lean-toolchain",
+    "Exact source playground/package.json and tools/upstream-oracle/package.json",
+    "Existing verification workflow pinned tools and archive digests"
+  ],
+  "no_source_changes": true,
+  "namespace_review": {
+    "reviewer": "/root/bitcoin_round7",
+    "verdict": "One concrete DeviceNS normalization hypothesis; no additional static focused-driver blocker. Native result pending.",
+    "primary_source": "https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats#skip-normalization",
+    "finding": "Only exact \\\\?\\ skips Win32 normalization. Both authored engines currently classify \\\\.\\ as literal. A raw CreateFileW/GetFinalPathNameByHandleW witness must decide the correction before full gates.",
+    "runtime_claim": false
+  }
+}
