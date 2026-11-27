@@ -1,0 +1,203 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-11-27T10:55:01Z",
+  "status": "in_progress",
+  "scope": "Focused native Windows follow-up; no maintained publication or repository-wide gate.",
+  "producer": {
+    "commit": "8a34e7a360d6fc0f403650a37e6e5d241fc6e296",
+    "tree": "5460a84d1f4d8d19afb5c0101a4212feb4d37768",
+    "branch": "ci/elegant-paired-windows-proof-20261127-r35",
+    "run": 45986012440,
+    "job": 140461698955,
+    "url": "https://github.com/gosuda/elegant-mermaid/actions/runs/45986012440",
+    "runner": "depot-windows-2025"
+  },
+  "source": {
+    "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+    "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+    "blobs": 6714,
+    "controls": 13,
+    "exits": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "source_index_sha256": "a28fbae32feab70597e0575634293875e88f7bb8cc12ef1ee8299cc8f6e8995e",
+  "source_payload": [
+    {
+      "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+      "blob": "b9f4909d409fb930fb65e967b8ec2e889cb1049b",
+      "sha256": "0f59c96ada3f2b50cf9fe1273e91668b38b5d7a6d91d13481d42a3f1b1e67071"
+    },
+    {
+      "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
+      "blob": "72f608a5feb64f9db209477bf1e944f6cd1dba59",
+      "sha256": "4df4aee4fe01ab75c0ab02ee51c673daa2c73a26d337fdc8fe372c415bb96d40"
+    },
+    {
+      "path": "internal/cli/output_path.go",
+      "blob": "65763bf3918d849a648cbd1ee660f6d2066e1f86",
+      "sha256": "36182d311af48adc2a8a1a3b2f98fc9515d5b263b0ed439b78c43c2f1472c049"
+    },
+    {
+      "path": "internal/cli/output_path_other.go",
+      "blob": "eae671aafb7b2e301904806a58102fceadc1e9f3",
+      "sha256": "329ccb54ca178fc8a8ef1637d44edcddcb8b86f455f619f6848573ceec189b99"
+    },
+    {
+      "path": "internal/cli/output_path_windows.go",
+      "blob": "e4df84d38bdda02697cbb8f8ee6526eb6bb37103",
+      "sha256": "1f9a3b4bb22850d2ae48c9c76fac34a9e427fcca6a45c8b1ebada4930eca28e0"
+    },
+    {
+      "path": "internal/cli/output_path_windows_test.go",
+      "blob": "75a009cbbcd8e91009c8c4e36b44454ce6396272",
+      "sha256": "0ee586956afe171ee11cda29b6d40f4d1a36091609a96d82fc0c0b7b1cf90485"
+    },
+    {
+      "path": "internal/cli/render_markdown_output.go",
+      "blob": "56219e81b88ae75d852124f0a2fa2c28cf6a0825",
+      "sha256": "f421bb245022a7cf94f729adf0248fbd1ef63a389e6da39b533a334a99e655a2"
+    },
+    {
+      "path": "internal/tui/read_windows.go",
+      "blob": "16aca04f822298b8a8bc162cde9367c9c2be5bb9",
+      "sha256": "1937464d90f4ad2558593f86b434b7c41b12cdaa111457465c80598def3c03fa"
+    }
+  ],
+  "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+  "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+  "metadata_only_change": {
+    "path": "ci-tools/elegant-paired-windows-r35/manifest.json",
+    "field": "observer_correction",
+    "manifest_sha256": "d8994d200bfbca1aac9e3860eb22462e9af0c7aa11226cccc6064bbc843ae963",
+    "handoff_sha256": "cd077fc9383bef217baf18c4cca249f0bb2d648e7a5f5046b47d5fba2ea00722",
+    "approved_draft": "0eb795140d7443de542a1197cfcde080cb18061d",
+    "driver_sha256": "825a0bebb56c44b35c09aeb23fea5819cb3bd8cb73db0e044fcbff2a1aadec8d",
+    "reuse_helper_sha256": "ce0040bcd25b7d97b312a16d56faf6fc636d2705f17d70ef9f03f299b23a7df0",
+    "workflow_sha256": "5ecb77932d142d1eec1d6a6f92dd34d1682a24a30c4ca0bb422ecdad6ee4a6f8",
+    "meaning": "The old source snapshots were rerun in the historical failed proof. This follow-up authenticates and reuses the unchanged receipts; no source or gate semantic change."
+  },
+  "prior_run": {
+    "producer": "483590023502427eee4dbb946f3c31ef57b13015",
+    "run_id": 45976852511,
+    "job_id": 140430617604,
+    "artifact_id": 15187753936,
+    "zip_sha256": "4f0a57ba34a3939c0fb66bc096a807d8fc8841a26717e90cb93a083dd229acbc",
+    "zip_bytes": 511350,
+    "job_log_sha256": "ea630da8d65e583a716dec25ff2d0a8ab90fc0c670333cb69e17d7dfb92a668d",
+    "compiled_tree": "ca39add4228047157b215c282f0bc4ed850d4032",
+    "compiled_index_sha256": "a4cdf7ab96f93bfdacd43852ef4076e4431e0569421d472d8e91bd7f17099534",
+    "reused_command_names": [
+      "old-head",
+      "old-tree",
+      "current-head",
+      "current-tree",
+      "old-compile-path-tests",
+      "old-permanent-path-controls",
+      "old-mixed-prefixes",
+      "old-literal-link",
+      "old-normalized-urls",
+      "old-unc-normalization",
+      "old-restoration",
+      "current-compile-path-tests",
+      "current-permanent-path-controls",
+      "current-mixed-prefixes",
+      "current-literal-link",
+      "current-normalized-urls",
+      "current-unc-normalization",
+      "current-restoration",
+      "compile-native-normalization",
+      "native-normalization",
+      "namespace-rust-mutant-compile",
+      "namespace-rust-mutant-red",
+      "candidate-compile-path-tests",
+      "candidate-permanent-path-controls",
+      "candidate-mixed-prefixes",
+      "candidate-literal-link",
+      "candidate-normalized-urls",
+      "candidate-unc-normalization",
+      "candidate-clippy",
+      "candidate-markdown-tests",
+      "old-final-restoration",
+      "current-final-restoration"
+    ],
+    "only_changed_path": "internal/cli/output_path_windows_test.go",
+    "new_authored_test_sha256": "0ee586956afe171ee11cda29b6d40f4d1a36091609a96d82fc0c0b7b1cf90485",
+    "prior_run_conclusion": "failure",
+    "verification": "Live run/job/artifact metadata, downloaded ZIP digest, full archived job log/report, all 59 per-command logs, eight emitted source blobs and complete compiled index. New source must differ in exactly the Go test, before and after allowed formatting.",
+    "conclusion": "failure",
+    "sole_unexpected_receipt": {
+      "name": "candidate-go-lint",
+      "exit": 1,
+      "expected": 0,
+      "reason": "TestMarkdownWindowsNamespaceNormalization cognitive complexity 28 exceeded 15"
+    },
+    "checkpoint_commit": "753dca6d7205a8bafad2a42708ba0d24d2fd4e33",
+    "checkpoint_path": "reviews/elegant-paired-windows-r35/failed-run-45976852511.json",
+    "checkpoint_sha256": "43fc2f33df312caa9dfb542fa50da0728d364ca1d79e433402439b382b807caa"
+  },
+  "planned_reuse": {
+    "count": 32,
+    "names": [
+      "old-head",
+      "old-tree",
+      "current-head",
+      "current-tree",
+      "old-compile-path-tests",
+      "old-permanent-path-controls",
+      "old-mixed-prefixes",
+      "old-literal-link",
+      "old-normalized-urls",
+      "old-unc-normalization",
+      "old-restoration",
+      "current-compile-path-tests",
+      "current-permanent-path-controls",
+      "current-mixed-prefixes",
+      "current-literal-link",
+      "current-normalized-urls",
+      "current-unc-normalization",
+      "current-restoration",
+      "compile-native-normalization",
+      "native-normalization",
+      "namespace-rust-mutant-compile",
+      "namespace-rust-mutant-red",
+      "candidate-compile-path-tests",
+      "candidate-permanent-path-controls",
+      "candidate-mixed-prefixes",
+      "candidate-literal-link",
+      "candidate-normalized-urls",
+      "candidate-unc-normalization",
+      "candidate-clippy",
+      "candidate-markdown-tests",
+      "old-final-restoration",
+      "current-final-restoration"
+    ],
+    "authentication_status": "pending execution",
+    "qualification": "Expected-negative receipts remain negative. No historical failure is relabeled as success."
+  },
+  "new_execution": {
+    "gates": [
+      "Go namespace mutation",
+      "Go format/vet/golangci-lint",
+      "Go CLI build",
+      "Six Go ownership tests",
+      "Fresh Rust CLI build",
+      "All 20+4 CLI cases per engine and exact parity",
+      "Whitespace and complete source restoration"
+    ],
+    "status": "in_progress",
+    "results": null,
+    "artifact": null
+  },
+  "root_verification": {
+    "owner": "parent",
+    "status": "not launched",
+    "inactive_draft": "c0883fecfa8d5fd131b4a2497664beb665b0f7e8",
+    "requirement": "Actual root just verify on the final formatted source/tree/index"
+  },
+  "publication_eligible": false,
+  "repository_wide_gates_run": false
+}
