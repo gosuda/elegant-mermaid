@@ -1,0 +1,387 @@
+{
+  "source": {
+    "commit": "9c8339a1c214eb93c92384db55edc0e89851ea8a",
+    "tree": "079aff7611f119cfdcad0e302193be935cadc13f",
+    "parent": "9a11e8cc04299367d07c0137653fa87a4e1b945b",
+    "sole_change": "internal/tui/read_windows.go: compare the representable WAIT_TIMEOUT constant as uint32",
+    "tracked_blobs": 6711,
+    "index_sha256": "5c10bc2318af563cba6c892e59e54a4ac636318c42c321e0b692f686be55c2e2",
+    "source_restored": true
+  },
+  "proof": {
+    "producer": "7f8292448342eb8de8238f510ac5eab71f4c3e0e",
+    "run": 45958671740,
+    "job": 140371036418,
+    "conclusion": "success",
+    "meaning": "The unchanged-renderer expected-RED harness and native observations completed. No product repair is verified.",
+    "artifact_id": 15180505210,
+    "artifact_zip_sha256": "479c9dd718bb8428a2e49bbadcda2c35d54ecb9d73eafc12d5a6fe98425c49c0",
+    "log_sha256": "cf6ff08681824ed3cbd69e8f324a9239a9efd26a190f7d5eba9f951a5fda1e8a"
+  },
+  "commands": [
+    {
+      "name": "source-head",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "ae52b850bef1b8d327be0a16ceb8df948c36eb6c82ef48875578976dfa6b85ee"
+    },
+    {
+      "name": "rust-version",
+      "command": [
+        "rustc",
+        "--version"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "387a6a26aa138b0d02a2efe623dd9ef0c8e277e1bc880361695007393c3d2e15"
+    },
+    {
+      "name": "go-version",
+      "command": [
+        "go",
+        "version"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "bd74e61f96314b4c2e72e63319395345bc2817752bbdd3fc177a9edb2eb2ba14"
+    },
+    {
+      "name": "compile-regressions",
+      "command": [
+        "rustc",
+        "--edition=2024",
+        "--test",
+        "crates\\elegant-mermaid-cli\\src\\render\\markdown\\links.rs",
+        "-o",
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "existing-path-controls",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--nocapture",
+        "--skip",
+        "review_windows_tests"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "f346b22d577fae49e57376e38f39f5258700b8458d6b2895650caebe560b285a"
+    },
+    {
+      "name": "mixed-prefixes",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--exact",
+        "review_windows_tests::review_mixed_windows_prefixes_form_relative_urls",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "expected": 101,
+      "log_sha256": "e894c7a457d7d381b9e3701ff96338bb5bbf6853b1210d9fad007320c8132e45"
+    },
+    {
+      "name": "literal-link",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--exact",
+        "review_windows_tests::review_ordinary_link_preserves_literal_target",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "expected": 101,
+      "log_sha256": "eb2c4b0c2637571816d00589b4754f7004fec034c8562d85a94f7736c8cd05b9"
+    },
+    {
+      "name": "normalized-urls",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--exact",
+        "review_windows_tests::review_ordinary_trailing_components_use_normalized_urls",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "expected": 101,
+      "log_sha256": "b3656e801261572185c4b8de6bc0dfe71a33d2fc4bbc7bc1c670f6ffe834dfca"
+    },
+    {
+      "name": "unc-normalization",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--exact",
+        "review_windows_tests::review_unc_components_use_ordinary_normalization",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "expected": 101,
+      "log_sha256": "9fd9647be0985ac81f3b10bbf6bcef6bfcacd39848534de11112122264da9d77"
+    },
+    {
+      "name": "compile-native-normalization",
+      "command": [
+        "rustc",
+        "--edition=2024",
+        "C:\\actions-runner\\elegant-mermaid\\elegant-mermaid\\proof\\ci-tools\\elegant-windows-review-r33\\normalization.rs",
+        "-o",
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\normalization.exe"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "native-normalization",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\normalization.exe"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "f7816fb8e06c503ce10f1b370e02777beb064217be0a11ece1886c1200cb5b29"
+    },
+    {
+      "name": "build-go-observer",
+      "command": [
+        "go",
+        "build",
+        "-trimpath",
+        "-o",
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\emd-go.exe",
+        "./cmd/emd"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "1b3125829c599779e2f58dba15a86b0fe972b0f061f07cc55be2bebc4dfcb0c0"
+    },
+    {
+      "name": "source-restoration",
+      "command": [
+        "git",
+        "diff",
+        "--exit-code"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "normalization_observations": [
+    "WINDOWS_NORMALIZE name=\"assets.\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets..\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets. \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets...\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets.\\\\child\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\\\\child\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets\\\\child\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\\\\child\")",
+    "WINDOWS_NORMALIZE name=\"assets \\\\child\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets \\\\child\") canonical=Err(Os { code: 3, kind: NotFound, message: \"The system cannot find the path specified.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\assets \\\\child\")",
+    "WINDOWS_NORMALIZE name=\"assets..\\\\child\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\assets..\\\\child\") canonical=Err(Os { code: 3, kind: NotFound, message: \"The system cannot find the path specified.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\assets..\\\\child\")",
+    "WINDOWS_NORMALIZE name=\".\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\")",
+    "WINDOWS_NORMALIZE name=\"..\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\") isolated=Ok(\"C:\\\\\")",
+    "WINDOWS_NORMALIZE name=\"...\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\". \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\".. \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\"... \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\" \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\" a\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\ a\") canonical=Err(Os { code: 2, kind: NotFound, message: \"The system cannot find the file specified.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\ a\")",
+    "WINDOWS_NORMALIZE name=\"a\\t\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\a\\t\") canonical=Err(Os { code: 123, kind: InvalidFilename, message: \"The filename, directory name, or volume label syntax is incorrect.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\a\\t\")",
+    "WINDOWS_NORMALIZE name=\"assets.\\\\..\\\\future\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\future\") canonical=Err(Os { code: 2, kind: NotFound, message: \"The system cannot find the file specified.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\future\")",
+    "WINDOWS_NORMALIZE name=\"literal \\\\child\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\literal \\\\child\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r33-45958671740-1\\\\local\\\\normalization-observer\\\\literal \\\\child\") isolated=Ok(\"C:\\\\__emd_component__\\\\literal \\\\child\")"
+  ],
+  "go_cli_observations": [
+    {
+      "id": "local-dot",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](assets/report-1.svg)\n",
+      "expected_host": "![diagram](assets/report-1.svg)\n",
+      "image_exists": true,
+      "matches": true
+    },
+    {
+      "id": "local-dot-missing",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](future./future-1.svg)\n",
+      "expected_host": "![diagram](future/future-1.svg)\n",
+      "image_exists": true,
+      "matches": false
+    },
+    {
+      "id": "local-dot-literal",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](literal/literal-1.svg)\n",
+      "expected_host": "![diagram](literal./literal-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "local-space",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](assets/report-1.svg)\n",
+      "expected_host": "![diagram](assets/report-1.svg)\n",
+      "image_exists": true,
+      "matches": true
+    },
+    {
+      "id": "local-space-missing",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](future./future-1.svg)\n",
+      "expected_host": "![diagram](future/future-1.svg)\n",
+      "image_exists": true,
+      "matches": false
+    },
+    {
+      "id": "local-space-literal",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](literal/literal-1.svg)\n",
+      "expected_host": "![diagram](literal%20/literal-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "local-mixed-assets",
+      "exit": 2,
+      "stderr": "cannot write assets.md: Rel: can't make \\\\?\\C:\\actions-runner\\_temp\\emd-windows-r33-45958671740-1\\local\\go-local-mixed\\assets\\assets-1.svg relative to C:\\actions-runner\\_temp\\emd-windows-r33-45958671740-1\\local\\go-local-mixed\n",
+      "host": "",
+      "expected_host": "![diagram](assets/assets-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "local-mixed-host",
+      "exit": 2,
+      "stderr": "cannot write \\\\?\\C:\\actions-runner\\_temp\\emd-windows-r33-45958671740-1\\local\\go-local-mixed\\host.md: Rel: can't make C:\\actions-runner\\_temp\\emd-windows-r33-45958671740-1\\local\\go-local-mixed\\assets\\host-1.svg relative to \\\\?\\C:\\actions-runner\\_temp\\emd-windows-r33-45958671740-1\\local\\go-local-mixed\n",
+      "host": "",
+      "expected_host": "![diagram](assets/host-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "unc-dot",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](assets/report-1.svg)\n",
+      "expected_host": "![diagram](assets/report-1.svg)\n",
+      "image_exists": true,
+      "matches": true
+    },
+    {
+      "id": "unc-dot-missing",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](future./future-1.svg)\n",
+      "expected_host": "![diagram](future/future-1.svg)\n",
+      "image_exists": true,
+      "matches": false
+    },
+    {
+      "id": "unc-dot-literal",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](literal/literal-1.svg)\n",
+      "expected_host": "![diagram](literal./literal-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "unc-space",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](assets/report-1.svg)\n",
+      "expected_host": "![diagram](assets/report-1.svg)\n",
+      "image_exists": true,
+      "matches": true
+    },
+    {
+      "id": "unc-space-missing",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](future./future-1.svg)\n",
+      "expected_host": "![diagram](future/future-1.svg)\n",
+      "image_exists": true,
+      "matches": false
+    },
+    {
+      "id": "unc-space-literal",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](literal/literal-1.svg)\n",
+      "expected_host": "![diagram](literal%20/literal-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "unc-mixed-assets",
+      "exit": 2,
+      "stderr": "cannot write assets.md: Rel: can't make \\\\?\\UNC\\localhost\\emd-r33-45958671740-1\\go-unc-mixed\\assets\\assets-1.svg relative to \\\\localhost\\emd-r33-45958671740-1\\go-unc-mixed\n",
+      "host": "",
+      "expected_host": "![diagram](assets/assets-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "unc-mixed-host",
+      "exit": 2,
+      "stderr": "cannot write \\\\?\\UNC\\localhost\\emd-r33-45958671740-1\\go-unc-mixed\\host.md: Rel: can't make \\\\localhost\\emd-r33-45958671740-1\\go-unc-mixed\\assets\\host-1.svg relative to \\\\?\\UNC\\localhost\\emd-r33-45958671740-1\\go-unc-mixed\n",
+      "host": "",
+      "expected_host": "![diagram](assets/host-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "symlink-space",
+      "exit": 2,
+      "stderr": "cannot write report.md: The system cannot find the file specified.\n",
+      "host": "",
+      "expected_host": "![diagram](literal%20/report-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "symlink-space-child-dot",
+      "exit": 2,
+      "stderr": "cannot write child.md: The system cannot find the file specified.\n",
+      "host": "",
+      "expected_host": "![diagram](literal%20/child/child-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "symlink-dot",
+      "exit": 2,
+      "stderr": "cannot write report.md: The system cannot find the file specified.\n",
+      "host": "",
+      "expected_host": "![diagram](literal./report-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "symlink-dot-child-dot",
+      "exit": 2,
+      "stderr": "cannot write child.md: The system cannot find the file specified.\n",
+      "host": "",
+      "expected_host": "![diagram](literal./child/child-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    }
+  ],
+  "go_cli_contract_matches": 4,
+  "go_cli_total": 20,
+  "notes": [
+    "All four frozen Rust regressions remain byte-identical to the first baseline and fail after successful native filesystem prerequisites. All five existing controls pass.",
+    "The Go build now succeeds after only the parent-owned timeout conversion. Its path functions remain original. Go results are observations, not an oracle.",
+    "Native absolute/canonical calls distinguish final directory operands from intermediate components: final dots/spaces are removed, a single intermediate period is removed, and intermediate spaces/multiple periods are preserved.",
+    "The first-run Go compile failure and restoration remain immutable in baseline1.json."
+  ],
+  "publication_eligible": false
+}
