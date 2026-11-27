@@ -1,0 +1,121 @@
+name: "Elegant paired complete verification r36"
+on:
+  push:
+    branches: ["ci/elegant-paired-full-20261127-r36"]
+    paths:
+      - ".github/workflows/elegant-paired-full-r36.yml"
+      - "ci-tools/elegant-paired-full-r36/**"
+permissions:
+  contents: read
+concurrency:
+  group: "elegant-paired-full-r36-${{ github.ref }}"
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash --noprofile --norc -euo pipefail {0}
+jobs:
+  verify:
+    runs-on: depot-ubuntu-24.04-8
+    timeout-minutes: 210
+    env:
+      CARGO_BUILD_JOBS: "4"
+      CARGO_INCREMENTAL: "0"
+      RUSTC_WRAPPER: ""
+      RUSTC_WORKSPACE_WRAPPER: ""
+      RUSTUP_TOOLCHAIN: "1.100.0"
+      GOENV: "off"
+      GOCACHEPROG: ""
+      GOTOOLCHAIN: "local"
+      LEAN_NUM_THREADS: "4"
+      BASE_PATH: "/elegant-mermaid"
+    steps:
+      - name: Checkout exact paired source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: eb11dfb51e044cd31712fbda0f1e39cb374639ae
+          path: source
+          persist-credentials: false
+      - name: Checkout this proof
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: proof
+          persist-credentials: false
+      - name: Install pinned Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: "1.27.4"
+          cache: false
+      - name: Install pinned Rust and WebAssembly target
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal --component rustfmt,clippy
+          rustup target add --toolchain 1.100.0 wasm32-unknown-unknown
+      - name: Install pinned gate tools
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39
+        with:
+          tool: "just@1.59.0,cargo-nextest@0.9.151,cargo-deny@0.20.2,jaq@3.2.0,wasm-bindgen@0.2.130"
+      - name: Install the source-pinned package manager
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115
+        with:
+          version: "12.23.0"
+      - name: Install pinned Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: "26.13.1"
+          package-manager-cache: false
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d
+        with:
+          version: "0.13.9"
+          python-version: "3.15"
+          enable-cache: false
+      - name: Install pinned Lean and model checker
+        run: |
+          test "$(cat source/proofs/lean-toolchain)" = "leanprover/lean4:v4.35.0"
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/emd-lean.tar.zst" \
+            "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-linux.tar.zst"
+          echo "7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d  $RUNNER_TEMP/emd-lean.tar.zst" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/emd-lean" source/.tools
+          tar --zstd -xf "$RUNNER_TEMP/emd-lean.tar.zst" --strip-components=1 -C "$RUNNER_TEMP/emd-lean"
+          echo "$RUNNER_TEMP/emd-lean/bin" >> "$GITHUB_PATH"
+          curl --fail --location --retry 3 --output source/.tools/tla2tools.jar \
+            "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar"
+          echo "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88  source/.tools/tla2tools.jar" | sha256sum --check
+          java -version
+      - name: Install the pinned house linter
+        run: |
+          export RUSTC_WRAPPER='' RUSTC_WORKSPACE_WRAPPER='' CARGO_INCREMENTAL=0
+          export CARGO_TARGET_DIR="$RUNNER_TEMP/emd-house-target"
+          cargo install --git https://github.com/gosuda/sloplint \
+            --rev 72f29bae0ba1187da854e080c998b8a21f1e4640 --locked \
+            --root "$RUNNER_TEMP/emd-house" sloplint
+          echo "EMD_HOUSE_ROOT=$RUNNER_TEMP/emd-house" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/emd-house/bin" >> "$GITHUB_PATH"
+      - name: Install frozen oracle and browser dependencies
+        run: |
+          test "$(pnpm --version)" = "12.23.0"
+          pnpm --dir source/tools/upstream-oracle install --frozen-lockfile
+          pnpm --dir source/playground install --frozen-lockfile
+          pnpm --dir source/playground exec playwright install --with-deps chromium
+      - name: Run the complete root verification and source identity checks
+        run: |
+          export GOENV=off GOCACHEPROG=''
+          test -z "$(go env GOCACHEPROG)"
+          uv run --no-project --python 3.15 \
+            proof/ci-tools/elegant-paired-full-r36/verify.py \
+            source proof/ci-tools/elegant-paired-full-r36 "$RUNNER_TEMP/elegant-full-evidence"
+      - name: Preserve complete verification evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: elegant-paired-full-r36
+          path: ${{ runner.temp }}/elegant-full-evidence
+          if-no-files-found: error
+          retention-days: 7
+      - name: Preserve browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: elegant-paired-full-r36-browser
+          path: source/playground/test-results
+          if-no-files-found: ignore
+          retention-days: 7

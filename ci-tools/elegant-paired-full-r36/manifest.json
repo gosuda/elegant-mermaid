@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "purpose": "Run the exact repository root just verify after the successful paired native Windows proof.",
+  "source": {
+    "repository": "gosuda/elegant-mermaid",
+    "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+    "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+    "blobs": 6714,
+    "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+    "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33"
+  },
+  "proof_sha256": {
+    "verify.py": "2c5bc97a9c58a0bedaf15590e962d2a973e92a7d3f3afad79c288cd8773b99db",
+    "source-index.json": "a28fbae32feab70597e0575634293875e88f7bb8cc12ef1ee8299cc8f6e8995e",
+    "windows-receipt.json": "cb3d5f186f76fc77c0c3bdb11464d49d58d84dae85feb352dcdee287a4a2b772"
+  },
+  "workflow_sha256": "786c116f555a2a1a532bb7539120177b50e61280605d388a1d8677b015b2695a",
+  "tools": {
+    "rust": "1.100.0",
+    "go": "1.27.4",
+    "node": "26.13.1",
+    "pnpm": "12.23.0",
+    "lean": "4.35.0",
+    "just": "1.59.0",
+    "nextest": "0.9.151",
+    "cargo_deny": "0.20.2",
+    "jaq": "3.2.0",
+    "wasm_bindgen": "0.2.130",
+    "tlc": "1.7.4",
+    "sloplint_source": "72f29bae0ba1187da854e080c998b8a21f1e4640",
+    "uv": "0.13.9",
+    "python": "3.15"
+  },
+  "command": [
+    "just",
+    "verify"
+  ],
+  "required_recipes": [
+    "gen-check",
+    "go-check",
+    "rust-check",
+    "markdown-paths",
+    "slop",
+    "build",
+    "proofs",
+    "model",
+    "oracle",
+    "parity",
+    "markdown-parity",
+    "wasm-parity",
+    "playground-check",
+    "playground-e2e",
+    "layered-random-check",
+    "kernel-diff",
+    "validate",
+    "lean-parity",
+    "quality",
+    "theme-check"
+  ],
+  "windows": {
+    "producer": "8a34e7a360d6fc0f403650a37e6e5d241fc6e296",
+    "run": 45986012440,
+    "job": 140461698955,
+    "artifact": 15190844868,
+    "zip_sha256": "2e5cc75d9b3881b034e73944030dd0d7937e89246aa506e247973eb823be6d47",
+    "source_restored": true,
+    "focused_passed": true,
+    "source_format_changed": false
+  },
+  "source_review": {
+    "reviewer": "/root/bitcoin_round7",
+    "receipt_reuse_proposal": "0eb795140d7443de542a1197cfcde080cb18061d",
+    "verdict": "No blocking finding for exact proof and source. Complete 6,714-path/mode comparison independently verified only the Go test-file delta from the failed formatted source.",
+    "full_driver_review": {
+      "reviewer": "/root/bitcoin_round7",
+      "verdict": "One report-state defect corrected; no additional static blocker. Runtime execution remains required.",
+      "correction": "publication_eligible is derived from source_gates_passed and source_restored immediately before report serialization.",
+      "source_changes": false
+    }
+  },
+  "publication_eligible": false,
+  "fully_verified_requires": "Successful full root command plus successful ordinary core and verification workflows, per AGENTS.md; this manifest makes no pending-run success claim."
+}
