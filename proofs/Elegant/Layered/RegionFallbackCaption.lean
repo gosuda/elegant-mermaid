@@ -263,7 +263,7 @@ def R_NonfixedGroupTitle (exactIds : List String)
  private def rfbPhases (inp : Input) (idSets : List (String × List String))
      (o : Options) : Except LayoutError (Params × List (List Measure.Line) × Acc) := do
    let P ← checkedParams o.profile inp.kind
-   let m ← metricOf o.profile
+   let m ← metricOf o.profile o.fontFamily
    let target := Measure.wrapTarget m.profile P.wrapWidth
      (if o.profile == .cell then o.maxWidth else 0)
    let lines ← boxLines m target inp
