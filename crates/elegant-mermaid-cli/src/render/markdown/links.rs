@@ -477,10 +477,23 @@ mod tests {
         );
         std::fs::write(resolved.join("probe.svg"), b"<svg")?;
         assert!(base.join("assets/probe.svg").exists());
+        // The link keeps the supplied spelling, which Win32 resolves to the
+        // same directory the file landed in.
+        assert_eq!(
+            super::relative_url(&resolved.join("probe.svg"), &base.join("out.md"))?,
+            "assets./probe.svg"
+        );
         let verbatim = base.canonicalize()?;
         assert_eq!(
             super::resolved_from(&verbatim.join("assets."), &base)?,
             verbatim.join("assets.")
+        );
+        assert_eq!(
+            super::relative_url(
+                &verbatim.join("assets.").join("probe.svg"),
+                &verbatim.join("out.md")
+            )?,
+            "assets./probe.svg"
         );
         Ok(())
     }
