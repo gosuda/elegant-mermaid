@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "status": "retired_after_failed_required_gate",
+  "observed_at": "2026-11-27T14:15:00Z",
+  "source": {
+    "repository": "gosuda/elegant-mermaid",
+    "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+    "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+    "blobs": 6714,
+    "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+    "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33"
+  },
+  "latest_run": {
+    "producer": "cd6ece93aad807f38ccea0a0e756673180dc2a9f",
+    "run": 45996807575,
+    "job": 140498128585,
+    "conclusion": "failure",
+    "actual_exit": 1,
+    "failed_recipe": "quality",
+    "timed_out": false,
+    "monitor_errors": [],
+    "artifact": 15203392839,
+    "zip_sha256": "e0f8d8c1373c962f1aa56316108dac3802bcb1141274c3ce926b9d9f552420b9",
+    "job_log_sha256": "4cd238fd11d5133563487fd9c7748af3c9ed528bcb3eefdb38e10864c684cdea",
+    "complete_command_log_sha256": "8916f76e4137eb87d2b9e0ce92e5eaeb696d3cdcfaea215a97f1baa2e1791174",
+    "source_restored": true,
+    "receipt_commit": "09af758dab63a73cca6b57e32b1cf791f9ef9026",
+    "receipt_sha256": "a8c85c008a42b5c9532b28eedd2ceea0686676239eb47ae4f6935a3d8fd817fc"
+  },
+  "original_failed_run": {
+    "producer": "761b6a3fa979838fd68d6949c7db2a9734e880c0",
+    "run": 45988680468,
+    "job": 140470677698,
+    "raw_exit": 137,
+    "timed_out": false,
+    "conclusion": "failure",
+    "artifact": 15193342317,
+    "zip_sha256": "f80ae39c29b9cac507f372ef83abb43e187e16a6c1311e1aa1880ab0bd2096d3",
+    "receipt_commit": "91a657362d6995c29b8fd3a92b11da797089fdee",
+    "receipt_sha256": "070ab4a9149e2c1b7f06a3498911ec2afd1825aab4b700e722f71a0ffd411ea9",
+    "log_sha256": "340eb4463ac43bbba25444365ae265ba27dac4cbd992c366b74892e784da4b8a",
+    "cause": "Signal9 is observed. No OOM attribution is established by that run.",
+    "gate_reuse": false
+  },
+  "windows_receipt": {
+    "commit": "87961c30a5f412d6e97e610fac0b6711897e9547",
+    "run": 45986012440,
+    "conclusion": "success",
+    "source_unchanged": true
+  },
+  "read_only_attribution": {
+    "reviewer": "/root/bitcoin_round7/bamti_relation_followup/elegant_mermaid_followup",
+    "executed_by_reviewer": false,
+    "findings": [
+      "The eight-file path delta has no identified path into the Linux Go vector/layout/metrics dispatch.",
+      "Unchanged committed quality-corpus lists 2075 paths, while quality-exceptions declares 857 fixtures and 419 exceptions; the current exact-file checks cannot both match.",
+      "This saved-file inconsistency does not establish numerical equivalence or excuse the four measured quality failures."
+    ],
+    "unexecuted_followup": "One isolated paired quality diagnostic and the unreached theme-check are being prepared; no baseline or threshold edit."
+  },
+  "recipe_coverage": {
+    "source": "Strict sequential root Justfile order plus the actual reached quality recipe.",
+    "preceding_recipes_returned_zero_inferred": 18,
+    "quality": "failure",
+    "theme_check": "not reached",
+    "full_command_log_in_artifact": true,
+    "visible_failure_log_tail_bytes": 120000,
+    "individual_prior_recipe_logs_independently_inspected": false
+  },
+  "retirement": {
+    "removed_workflow": ".github/workflows/elegant-paired-full-r36.yml",
+    "maintained_source_written": false
+  },
+  "publication_eligible": false,
+  "fully_verified": false
+}
