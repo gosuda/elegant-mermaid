@@ -110,17 +110,16 @@ func markdownFormatExtension(format string) string {
 func commitMarkdownOutputs(outputs []markdownOutput) error {
 	resolved := make([]markdownOutput, 0, len(outputs))
 	for _, output := range outputs {
-		directory, err := resolvedOutputDirectory(outputDirectory(output.path))
+		target, err := resolvedOutputTarget(output.path)
 		if err != nil {
 			return fileerr.Write(output.path, err)
 		}
-		if err := os.MkdirAll(directory, 0o755); err != nil {
-			return fileerr.Write(output.path, err)
+		resolved = append(resolved, markdownOutput{path: target, data: output.data})
+	}
+	for i, output := range resolved {
+		if err := os.MkdirAll(outputDirectory(output.path), 0o755); err != nil {
+			return fileerr.Write(outputs[i].path, err)
 		}
-		resolved = append(resolved, markdownOutput{
-			path: joinOutputPath(directory, filepath.Base(output.path)),
-			data: output.data,
-		})
 	}
 	for i, output := range resolved {
 		if err := atomicOutput(output.path, output.data); err != nil {
@@ -205,11 +204,11 @@ func markdownRelativeLink(host, artifact string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	parent, err := resolvedOutputDirectory(outputDirectory(artifact))
+	target, err := resolvedOutputTarget(artifact)
 	if err != nil {
 		return "", err
 	}
-	relative, err := filepath.Rel(directory, filepath.Join(parent, filepath.Base(artifact)))
+	relative, err := filepath.Rel(directory, target)
 	if err != nil {
 		return "", err
 	}
