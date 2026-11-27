@@ -1,0 +1,561 @@
+{
+  "schema": 1,
+  "status": "failure",
+  "observed_at": "2026-11-27T14:00:23Z",
+  "producer": "cd6ece93aad807f38ccea0a0e756673180dc2a9f",
+  "producer_tree": "bdf5d9d82879019045e027e764fec6613dd8ad18",
+  "run": 45996807575,
+  "job": 140498128585,
+  "source": {
+    "repository": "gosuda/elegant-mermaid",
+    "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+    "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+    "blobs": 6714,
+    "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+    "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33"
+  },
+  "manifest_sha256": "0ab939ce852b5848edaf7b003194f05cd8fbb5399735a777182d19336c1ac44f",
+  "artifact": {
+    "id": 15203392839,
+    "bytes": 279013,
+    "zip_sha256": "e0f8d8c1373c962f1aa56316108dac3802bcb1141274c3ce926b9d9f552420b9",
+    "api_and_upload_match": true,
+    "zip_downloaded_by_coordinator": false
+  },
+  "job_log_sha256": "4cd238fd11d5133563487fd9c7748af3c9ed528bcb3eefdb38e10864c684cdea",
+  "failure": {
+    "command": [
+      "just",
+      "verify"
+    ],
+    "raw_exit": 1,
+    "timed_out": false,
+    "monitor_errors": [],
+    "recipe": "quality",
+    "failed_gates": [
+      "hard constraints",
+      "total crossings",
+      "total soft cost",
+      "exceptions <= 5 percent"
+    ],
+    "cause": "The quality measurements fail their unchanged gate. Source-versus-baseline attribution has not yet been established."
+  },
+  "prior_failure": {
+    "producer": "761b6a3fa979838fd68d6949c7db2a9734e880c0",
+    "run": 45988680468,
+    "job": 140470677698,
+    "raw_exit": 137,
+    "timed_out": false,
+    "conclusion": "failure",
+    "artifact": 15193342317,
+    "zip_sha256": "f80ae39c29b9cac507f372ef83abb43e187e16a6c1311e1aa1880ab0bd2096d3",
+    "receipt_commit": "91a657362d6995c29b8fd3a92b11da797089fdee",
+    "receipt_sha256": "070ab4a9149e2c1b7f06a3498911ec2afd1825aab4b700e722f71a0ffd411ea9",
+    "log_sha256": "340eb4463ac43bbba25444365ae265ba27dac4cbd992c366b74892e784da4b8a",
+    "cause": "Signal9 is observed. No OOM attribution is established by that run.",
+    "gate_reuse": false
+  },
+  "resource_controls": [
+    {
+      "name": "post-spawn-affinity-error",
+      "receipt": {
+        "name": "post-spawn-affinity-error",
+        "command": [
+          "/home/runner/.local/share/uv/python/cpython-3.15.2-linux-x86_64-gnu/bin/python3.15",
+          "-c",
+          "import time; time.sleep(60)"
+        ],
+        "raw_exit": -9,
+        "timed_out": false,
+        "seconds": 0.005101082999999562,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "accepted": false,
+        "monitor_errors": [
+          "spawn: OSError: frozen post-spawn affinity failure"
+        ]
+      },
+      "native_child_reaped": true,
+      "process_group_absent": true,
+      "fault": "affinity"
+    },
+    {
+      "name": "sampling-error",
+      "receipt": {
+        "name": "sampling-error",
+        "command": [
+          "/home/runner/.local/share/uv/python/cpython-3.15.2-linux-x86_64-gnu/bin/python3.15",
+          "-c",
+          "import time; time.sleep(60)"
+        ],
+        "raw_exit": -9,
+        "timed_out": false,
+        "seconds": 0.0037203560000023117,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "accepted": false,
+        "monitor_errors": [
+          "monitor-sample: OSError: frozen sample failure"
+        ]
+      },
+      "native_child_reaped": true,
+      "process_group_absent": true,
+      "fault": "sample"
+    },
+    {
+      "name": "finish-after-success",
+      "receipt": {
+        "name": "finish-after-success",
+        "command": [
+          "/home/runner/.local/share/uv/python/cpython-3.15.2-linux-x86_64-gnu/bin/python3.15",
+          "-c",
+          "import sys; sys.exit(0)"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.007594094000012319,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "accepted": false,
+        "monitor_errors": [
+          "monitor-finish: OSError: frozen finish failure"
+        ]
+      },
+      "native_child_reaped": true,
+      "process_group_absent": true,
+      "fault": "finish"
+    },
+    {
+      "name": "finish-after-exit137",
+      "receipt": {
+        "name": "finish-after-exit137",
+        "command": [
+          "/home/runner/.local/share/uv/python/cpython-3.15.2-linux-x86_64-gnu/bin/python3.15",
+          "-c",
+          "import sys; sys.exit(137)"
+        ],
+        "raw_exit": 137,
+        "timed_out": false,
+        "seconds": 0.007283873000005769,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "accepted": false,
+        "monitor_errors": [
+          "monitor-finish: OSError: frozen finish failure"
+        ]
+      },
+      "native_child_reaped": true,
+      "process_group_absent": true,
+      "fault": "finish"
+    }
+  ],
+  "report": {
+    "schema": 1,
+    "manifest": {
+      "schema": 1,
+      "purpose": "Repeat the exact full root command on unchanged paired source with measured single-CPU scheduling.",
+      "source": {
+        "repository": "gosuda/elegant-mermaid",
+        "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+        "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+        "blobs": 6714,
+        "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+        "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33"
+      },
+      "proof_sha256": {
+        "verify.py": "cda769fd39f01791f628e31242948d9d857a48ff90472e9719bdc27e49c29b5e",
+        "source-index.json": "a28fbae32feab70597e0575634293875e88f7bb8cc12ef1ee8299cc8f6e8995e",
+        "windows-receipt.json": "cb3d5f186f76fc77c0c3bdb11464d49d58d84dae85feb352dcdee287a4a2b772",
+        "resource_support.py": "965c3bde14d78a95070cd76ebcef4a98ad80167409fe0f702d4d7eae0034c5ab",
+        "resource_support_test.py": "c9f3da59d51a755b2068680b25694bd99d32256efa89420a21e35970cc84f011"
+      },
+      "workflow_sha256": "dceca491cf24643dd36da644c18ee735d338be96f586380a0a09c7fef4d73c9d",
+      "tools": {
+        "rust": "1.100.0",
+        "go": "1.27.4",
+        "node": "26.13.1",
+        "pnpm": "12.23.0",
+        "lean": "4.35.0",
+        "just": "1.59.0",
+        "nextest": "0.9.151",
+        "cargo_deny": "0.20.2",
+        "jaq": "3.2.0",
+        "wasm_bindgen": "0.2.130",
+        "tlc": "1.7.4",
+        "sloplint_source": "72f29bae0ba1187da854e080c998b8a21f1e4640",
+        "uv": "0.13.9",
+        "python": "3.15"
+      },
+      "command": [
+        "just",
+        "verify"
+      ],
+      "required_recipes": [
+        "gen-check",
+        "go-check",
+        "rust-check",
+        "markdown-paths",
+        "slop",
+        "build",
+        "proofs",
+        "model",
+        "oracle",
+        "parity",
+        "markdown-parity",
+        "wasm-parity",
+        "playground-check",
+        "playground-e2e",
+        "layered-random-check",
+        "kernel-diff",
+        "validate",
+        "lean-parity",
+        "quality",
+        "theme-check"
+      ],
+      "windows": {
+        "producer": "8a34e7a360d6fc0f403650a37e6e5d241fc6e296",
+        "run": 45986012440,
+        "job": 140461698955,
+        "artifact": 15190844868,
+        "zip_sha256": "2e5cc75d9b3881b034e73944030dd0d7937e89246aa506e247973eb823be6d47",
+        "source_restored": true,
+        "focused_passed": true,
+        "source_format_changed": false
+      },
+      "source_review": {
+        "reviewer": "/root/bitcoin_round7",
+        "receipt_reuse_proposal": "0eb795140d7443de542a1197cfcde080cb18061d",
+        "verdict": "No blocking finding for exact proof and source. Complete 6,714-path/mode comparison independently verified only the Go test-file delta from the failed formatted source.",
+        "full_driver_review": {
+          "reviewer": "/root/bitcoin_round7",
+          "verdict": "One report-state defect corrected; no additional static blocker. Runtime execution remains required.",
+          "correction": "publication_eligible is derived from source_gates_passed and source_restored immediately before report serialization.",
+          "source_changes": false
+        },
+        "resource_review": {
+          "reviewer": "/root/bitcoin_round7/bamti_relation_followup/elegant_mermaid_followup",
+          "verdict": "Source review supports affinity as an operational scheduling control; original termination cause remains unproven. No native execution by reviewer."
+        }
+      },
+      "publication_eligible": false,
+      "fully_verified_requires": "Successful full root command plus successful ordinary core and verification workflows, per AGENTS.md; this manifest makes no pending-run success claim.",
+      "prior_failure": {
+        "producer": "761b6a3fa979838fd68d6949c7db2a9734e880c0",
+        "run": 45988680468,
+        "job": 140470677698,
+        "raw_exit": 137,
+        "timed_out": false,
+        "conclusion": "failure",
+        "artifact": 15193342317,
+        "zip_sha256": "f80ae39c29b9cac507f372ef83abb43e187e16a6c1311e1aa1880ab0bd2096d3",
+        "receipt_commit": "91a657362d6995c29b8fd3a92b11da797089fdee",
+        "receipt_sha256": "070ab4a9149e2c1b7f06a3498911ec2afd1825aab4b700e722f71a0ffd411ea9",
+        "log_sha256": "340eb4463ac43bbba25444365ae265ba27dac4cbd992c366b74892e784da4b8a",
+        "cause": "Signal9 is observed. No OOM attribution is established by that run.",
+        "gate_reuse": false
+      },
+      "operational_change": {
+        "scope": "One CPU selected from the original allowed mask for the unchanged just verify child and all descendants. Supervisor mask restored immediately.",
+        "arguments_unchanged": true,
+        "linter_source_unchanged": true,
+        "source_unchanged": true,
+        "thresholds_unchanged": true,
+        "discovery_scope_unchanged": true,
+        "source_basis": [
+          "https://github.com/gosuda/sloplint/blob/72f29bae0ba1187da854e080c998b8a21f1e4640/crates/sloplint/src/lib.rs",
+          "https://github.com/rust-lang/rust/blob/1.100.0/library/std/src/sys/thread/unix.rs"
+        ],
+        "no_environment_assumption": "Default jobs is resolved before Rayon; RAYON_NUM_THREADS would not control this pool.",
+        "resource_metrics": "Before/after kernel cgroup memory files plus2-second process RSS/HWM/thread/affinity samples. Sampled peaks and kernel-scope historical peaks are labeled.",
+        "coverage": "Require the literal agent summary; reject actual meta/parse-error timeout records, preserve other syntax-error records and skipped total. No threshold or baseline exemptions."
+      },
+      "resource_failure_controls": {
+        "cases": 4,
+        "real_native_children": true,
+        "expected_raw_exits": [
+          -9,
+          -9,
+          0,
+          137
+        ],
+        "publication_requires": "All monitor fault controls pass, actual full just verify passes, no linter timeout, and exact source restoration.",
+        "previous_proposal": "9c407c140996d99f9985ad2f8f33a038d87d2a2e",
+        "previous_proposal_executed": false,
+        "review_fixes": [
+          "Retain owned child before affinity restoration can fail; abort/reap on every post-spawn failure.",
+          "Keep actual child exit and explicit monitor errors if sample or finish fails; monitor errors remain fatal."
+        ]
+      }
+    },
+    "source_gates_passed": false,
+    "source_restored": true,
+    "publication_eligible": false,
+    "initial_index_sha256": "7644655272b6fbc1d1d08a32772ee70530357263a0238c3f006d91be5a4f5c9a",
+    "house_linter": {
+      "source": "72f29bae0ba1187da854e080c998b8a21f1e4640",
+      "binary_sha256": "e303c421408cade7e0071f9ba61365e5325b8ab275974d70a2c9b6a3714911d3",
+      "install_metadata_sha256": "9c2c7dc8ab6a15e92cd83d690ad5aa78c529b092d0160d249c4db566653b0654"
+    },
+    "restored_index_sha256": "7644655272b6fbc1d1d08a32772ee70530357263a0238c3f006d91be5a4f5c9a",
+    "commands": [
+      {
+        "name": "rust-version",
+        "command": [
+          "rustc",
+          "--version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.007326802999983784,
+        "log_sha256": "56625f11cb9e645f8e638a6bcdf0565a20a8724585b537b8548886789b9f77be",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "go-version",
+        "command": [
+          "go",
+          "version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.0020605090000174187,
+        "log_sha256": "a29205bd83967c2f70e6768fae009600038d6056499fa289de9d5f9b79beaef4",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "node-version",
+        "command": [
+          "node",
+          "--version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.0027266320000194355,
+        "log_sha256": "417336d0f30f0481a3e337b10abf4da8263d1a181c639c757a2a68401935bdb6",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "pnpm-version",
+        "command": [
+          "pnpm",
+          "--version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.0076354649999927915,
+        "log_sha256": "84a532e2f3ff95712b674f57ade343a3601a956b873d5d29576e84243b15c95b",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "just-version",
+        "command": [
+          "just",
+          "--version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.0008601339999927404,
+        "log_sha256": "9b7567d90fbce31fba37284f79c4d38cbbe20b42fa01cfa5504d27838a5e11ce",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "nextest-version",
+        "command": [
+          "cargo",
+          "nextest",
+          "--version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.009213811000023497,
+        "log_sha256": "0525f6ec293e727519a57ddc6b879d5d5eafc896911f2ea5fccadf24033a78f7",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "deny-version",
+        "command": [
+          "cargo",
+          "deny",
+          "--version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.008434609000005366,
+        "log_sha256": "1758f5ea93d8ad3585079f05c19358b7bb969cce1bf6c7bdab6659a8cd1ef6b8",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "jaq-version",
+        "command": [
+          "jaq",
+          "--version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.0010845049999943512,
+        "log_sha256": "90e26d20ad23be749691cda1b734235b6bd98e3f467ba36ea99e567c353ff8e0",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "wasm-bindgen-version",
+        "command": [
+          "wasm-bindgen",
+          "--version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.0006089620000011564,
+        "log_sha256": "fd69e3062d74b1da5a4f88cbc40bdd8cc9bfc885aa74d58cc481641f1169c73c",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "lean-version",
+        "command": [
+          "lean",
+          "--version"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.023966608999984373,
+        "log_sha256": "eb22144228dd41cd51a0c84af4f976cd0cef473102dcf99b60be756b11f2b95a",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "go-cache-disabled",
+        "command": [
+          "go",
+          "env",
+          "GOCACHEPROG"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.0022911110000052304,
+        "log_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "just-verify",
+        "command": [
+          "just",
+          "verify"
+        ],
+        "raw_exit": 1,
+        "timed_out": false,
+        "seconds": 5741.2944982690005,
+        "log_sha256": "8916f76e4137eb87d2b9e0ce92e5eaeb696d3cdcfaea215a97f1baa2e1791174",
+        "accepted": false,
+        "monitor_errors": []
+      },
+      {
+        "name": "restore-isolated-source",
+        "command": [
+          "git",
+          "restore",
+          "--source",
+          "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+          "--staged",
+          "--worktree",
+          "--",
+          "."
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.015163160000156495,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "accepted": true,
+        "monitor_errors": []
+      },
+      {
+        "name": "source-restoration",
+        "command": [
+          "git",
+          "diff",
+          "--exit-code",
+          "HEAD"
+        ],
+        "raw_exit": 0,
+        "timed_out": false,
+        "seconds": 0.0032919960003710003,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "accepted": true,
+        "monitor_errors": []
+      }
+    ],
+    "resource_reports": [
+      {
+        "before": {
+          "proc_cgroup": "0::/system.slice/actions-runner.service\n",
+          "groups": {
+            "/sys/fs/cgroup": {},
+            "/sys/fs/cgroup/system.slice/actions-runner.service": {
+              "memory.current": "11527413760",
+              "memory.peak": "11782164480",
+              "memory.max": "max",
+              "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+              "memory.events.local": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+            }
+          },
+          "proc_meminfo": "MemTotal:       32875868 kB\nMemFree:        20303504 kB\nMemAvailable:   31793556 kB\nBuffers:          102620 kB\nCached:         11524932 kB\nSwapCached:            0 kB\nActive:          2356004 kB\nInactive:        9597120 kB\nActive(anon):       7104 kB\nInactive(anon):   409380 kB\nActive(file):    2348900 kB\nInactive(file):  9187740 kB\nUnevictable:       18444 kB\nMlocked:               0 kB\nSwapTotal:       4194300 kB\nSwapFree:        4194300 kB\nZswap:                 0 kB\nZswapped:              0 kB\nDirty:           2307736 kB\nWriteback:             0 kB\nAnonPages:        338716 kB\nMapped:           455664 kB\nShmem:             72452 kB\nKReclaimable:     419708 kB\nSlab:             515996 kB\nSReclaimable:     419708 kB\nSUnreclaim:        96288 kB\nKernelStack:        4444 kB\nPageTables:         5336 kB\nSecPageTables:         0 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    20632232 kB\nCommitted_AS:    1742416 kB\nVmallocTotal:   34359738367 kB\nVmallocUsed:        9468 kB\nVmallocChunk:          0 kB\nPercpu:             3296 kB\nAnonHugePages:    208896 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:         0 kB\nFilePmdMapped:         0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:       16384 kB\nDirectMap2M:     2080768 kB\nDirectMap1G:    33554432 kB\n"
+        },
+        "original_affinity": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "selected_affinity": [
+          0
+        ],
+        "supervisor_affinity_restored": true,
+        "samples": 2868,
+        "peak_sampled_observed_subtree_rss_kib": 7354500,
+        "peak_sampled_linter_rss_kib": 7340772,
+        "linter_processes": [
+          {
+            "pid": 53406,
+            "rss_kib": 7306224,
+            "hwm_kib": 7340464,
+            "threads": 3,
+            "command": "sloplint check . --format agent --strictness standard --mode threshold --fail-on major ",
+            "executable": "/home/runner/work/_temp/emd-house/bin/sloplint",
+            "affinity": [
+              0
+            ],
+            "children": []
+          }
+        ],
+        "scope": "The CPU mask applies to the entire unchanged just verify process and descendants. RSS is sampled from process-leader child lists, which can omit children forked by other threads; it is an observed subtree, not an exhaustive total. Cgroup counters retain their recorded kernel scope.",
+        "after": {
+          "proc_cgroup": "0::/system.slice/actions-runner.service\n",
+          "groups": {
+            "/sys/fs/cgroup": {},
+            "/sys/fs/cgroup/system.slice/actions-runner.service": {
+              "memory.current": "20769198080",
+              "memory.peak": "26308681728",
+              "memory.max": "max",
+              "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0",
+              "memory.events.local": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+            }
+          },
+          "proc_meminfo": "MemTotal:       32875868 kB\nMemFree:        11194644 kB\nMemAvailable:   31706760 kB\nBuffers:          175912 kB\nCached:         20084540 kB\nSwapCached:            0 kB\nActive:          7121620 kB\nInactive:       13514932 kB\nActive(anon):       8564 kB\nInactive(anon):   462888 kB\nActive(file):    7113056 kB\nInactive(file): 13052044 kB\nUnevictable:       18444 kB\nMlocked:               0 kB\nSwapTotal:       4194300 kB\nSwapFree:        4194300 kB\nZswap:                 0 kB\nZswapped:              0 kB\nDirty:             15476 kB\nWriteback:             0 kB\nAnonPages:        393388 kB\nMapped:           466860 kB\nShmem:             76924 kB\nKReclaimable:     813312 kB\nSlab:             944688 kB\nSReclaimable:     813312 kB\nSUnreclaim:       131376 kB\nKernelStack:        4264 kB\nPageTables:         5956 kB\nSecPageTables:         0 kB\nNFS_Unstable:          0 kB\nBounce:                0 kB\nWritebackTmp:          0 kB\nCommitLimit:    20632232 kB\nCommitted_AS:    1768864 kB\nVmallocTotal:   34359738367 kB\nVmallocUsed:       10364 kB\nVmallocChunk:          0 kB\nPercpu:             3488 kB\nAnonHugePages:    292864 kB\nShmemHugePages:        0 kB\nShmemPmdMapped:        0 kB\nFileHugePages:         0 kB\nFilePmdMapped:         0 kB\nHugePages_Total:       0\nHugePages_Free:        0\nHugePages_Rsvd:        0\nHugePages_Surp:        0\nHugepagesize:       2048 kB\nHugetlb:               0 kB\nDirectMap4k:       16384 kB\nDirectMap2M:     2080768 kB\nDirectMap1G:    33554432 kB\n"
+        },
+        "children_ru_maxrss_kib": 7340464,
+        "monitor_errors": []
+      }
+    ]
+  },
+  "source_restored": true,
+  "publication_eligible": false,
+  "fully_verified": false
+}
