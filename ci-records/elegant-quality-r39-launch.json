@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "phase": "native-diagnostic-running",
+  "producer": "0527c35790115c3e27dfacc3a90a7d5bed7aa2a2",
+  "producer_tree": "16ae4fbb13fe6e2ec1c58d52ae905e1818039806",
+  "run": 46020711860,
+  "job": 140579338862,
+  "url": "https://github.com/gosuda/elegant-mermaid/actions/runs/46020711860",
+  "manifest_sha256": "589bf1f3ceadecdf21fb62785fc2933a154f6acc8d66f25695ee99bbd7ff362a",
+  "workflow_sha256": "a5759847b74c55da6b1749f7fd0cbdf0bc64c82f91abe7cc034a7bb35ecb9239",
+  "sources": {
+    "maintained": {
+      "repository": "gosuda/elegant-mermaid",
+      "head": "98ef933e487f502e2e3555750e6621291ba21601",
+      "tree": "078133b8e3287d02e29a1165c004d85c108b7200",
+      "blobs": 6711,
+      "index_sha256": "a7e62a4177ff031f095a860a88b2345e4b2959357f0e334c8f2687f61ee66a7d"
+    },
+    "candidate": {
+      "repository": "gosuda/elegant-mermaid",
+      "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+      "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+      "blobs": 6714,
+      "index_sha256": "7644655272b6fbc1d1d08a32772ee70530357263a0238c3f006d91be5a4f5c9a"
+    }
+  },
+  "original_draft_review": {
+    "commit": "3c9e0e7460430665f2cf67d566a8066916e78999",
+    "coordinator": {
+      "proofs": [
+        {
+          "path": "verify.py",
+          "ok": true
+        },
+        {
+          "path": "support.py",
+          "ok": true
+        },
+        {
+          "path": "capture.py",
+          "ok": true
+        },
+        {
+          "path": "candidate-delta.json",
+          "ok": true
+        },
+        {
+          "path": "maintained-index-01.json",
+          "ok": true
+        },
+        {
+          "path": "maintained-index-02.json",
+          "ok": true
+        },
+        {
+          "path": "maintained-index-03.json",
+          "ok": true
+        },
+        {
+          "path": "maintained-index-04.json",
+          "ok": true
+        },
+        {
+          "path": "maintained-index-05.json",
+          "ok": true
+        },
+        {
+          "path": "archive.py",
+          "ok": true
+        },
+        {
+          "path": "artifact_support.py",
+          "ok": true
+        },
+        {
+          "path": "prior-report.json",
+          "ok": true
+        },
+        {
+          "path": "README.md",
+          "ok": true
+        }
+      ],
+      "workflow_sha256": "f6831302ae5ce20b917a23e1de6249f5faaaf1b86d3ace69642fd820f6360572",
+      "manifest_sha256": "d24dad7c08192798525a15765a4a76ca9cf6e90b7273abd6925e29f8fa73c3c9",
+      "prior_report_exact": true,
+      "helper_sole_delta": true,
+      "all_source_indices_match_github": true,
+      "source_input_blobs_identical": true,
+      "quality_recipe_args": "quality *ARGS explicitly accepts JOBS=<n>; no build dependency",
+      "theme_recipe_dependency": "theme-check: build",
+      "publication_eligible": false
+    },
+    "independent_finding": "Final log hashing could omit a known raw exit if it raised."
+  },
+  "corrected_review": {
+    "reviewer": "/root/bitcoin_round7",
+    "commit": "889a81eed03787a2c0ad60b23886e9fb5d6ae106",
+    "tree": "e56defdefbbd177fa6ec9ed0e609c9ccc8f9a896",
+    "verdict": "No remaining static finding. Exact four-path correction and all hashes verified; real-child control and unchanged measurement/source boundaries accepted for native execution.",
+    "native_execution": false
+  },
+  "corrected_files": {
+    "support_sha256": "bd6b5a0fc4e10dc9bfbfe8a85952a834cff08662601d4662badd1becfd1adf1d",
+    "control_sha256": "099908fa0e0cb53829539865b50fe45e20aaf8214a1e64bdaf44d1ad07147228",
+    "manifest_sha256": "589bf1f3ceadecdf21fb62785fc2933a154f6acc8d66f25695ee99bbd7ff362a",
+    "workflow_sha256": "a5759847b74c55da6b1749f7fd0cbdf0bc64c82f91abe7cc034a7bb35ecb9239"
+  },
+  "native_control": {
+    "step": "Prove known exits survive log-hash failure",
+    "api_conclusion": "success",
+    "full_receipt_read_pending": true
+  },
+  "previous_full_verification": {
+    "run": 45996807575,
+    "conclusion": "failure",
+    "actual_exit": 1,
+    "quality_gates": [
+      false,
+      false,
+      false,
+      false
+    ],
+    "theme_reached": false
+  },
+  "diagnostic_complete": false,
+  "source_gates_passed": false,
+  "publication_eligible": false
+}
