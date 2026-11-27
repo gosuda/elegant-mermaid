@@ -1,0 +1,66 @@
+name: "Elegant raw Windows namespace observation r36"
+on:
+  push:
+    branches: ["ci/elegant-device-namespace-20261127-r36"]
+    paths:
+      - ".github/workflows/elegant-device-namespace-r36.yml"
+      - "ci-tools/elegant-device-namespace-r36/**"
+permissions:
+  contents: read
+concurrency:
+  group: "elegant-device-namespace-r36-${{ github.ref }}"
+  cancel-in-progress: false
+jobs:
+  observe:
+    runs-on: depot-windows-2025
+    timeout-minutes: 20
+    env:
+      RUSTUP_TOOLCHAIN: "1.100.0"
+      RUSTC_WRAPPER: ""
+      RUSTC_WORKSPACE_WRAPPER: ""
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - name: Preserve exact checkout bytes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Checkout immutable proof
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: "${{ github.sha }}"
+          path: proof
+          persist-credentials: false
+      - name: Checkout unchanged authored candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: b60c42d2b887e5c3de048c9bdd3828e51665a9d8
+          path: source
+          persist-credentials: false
+      - name: Install pinned Python runner
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d
+        with:
+          version: "0.13.9"
+          python-version: "3.15"
+          enable-cache: false
+      - name: Install standalone Rust compiler
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          rustup toolchain install 1.100.0 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Observe raw namespace identities and unchanged resolver
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          uv run --no-project --python 3.15 proof/ci-tools/elegant-device-namespace-r36/verify.py source proof/ci-tools/elegant-device-namespace-r36 "${{ runner.temp }}/elegant-namespace-r36-evidence"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve complete native evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: "elegant-device-namespace-r36-${{ github.run_id }}"
+          path: "${{ runner.temp }}/elegant-namespace-r36-evidence"
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,52 @@
+{
+  "source": {
+    "commit": "b60c42d2b887e5c3de048c9bdd3828e51665a9d8",
+    "tree": "728e8e818219a1c73441d78e4d212a09a5cec900",
+    "blobs": 6714,
+    "links_sha256": "e155793dfbb63d0e3df7e9e2c3826469d7a87f8b8cf8756903fed836f98f4580"
+  },
+  "maintained_head": "98ef933e487f502e2e3555750e6621291ba21601",
+  "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+  "files": {
+    "native.ps1": "129baede5a874c8f357a3152603fec49ad33d8daa2d56049c48b590980bef54b",
+    "namespace-observer.rs": "8ca35cc8cdf40b7f96ed43b6cea15786621a5c1fe61344dc3c2332b6f7f0e0e7",
+    "verify.py": "9d0f8d8b921a4c154f8e97bc6cfda804a1b36f1bcd7a3af9647a32b5ae21ed66",
+    "candidate-index.json": "c9c45a750f482973d826a29f970effd7363b013ac8e7468990e303f9acd9923a"
+  },
+  "purpose": "Observe actual Windows namespace identity before changing either engine's DeviceNS predicate. Native errors and candidate mismatches are recorded independently; no expected mapping is assumed.",
+  "matrix": {
+    "prefixes": [
+      "ordinary",
+      "device",
+      "verbatim"
+    ],
+    "suffixes": [
+      "dot",
+      "space"
+    ],
+    "positions": [
+      "final without trailing separator",
+      "intermediate before child"
+    ],
+    "cases": 12,
+    "fixtures": 6
+  },
+  "native_apis": [
+    "CreateDirectoryW",
+    "CreateFileW",
+    "GetFileInformationByHandle",
+    "GetFinalPathNameByHandleW",
+    "CloseHandle"
+  ],
+  "prior_receipt": "https://github.com/gosuda/elegant-mermaid/blob/070eafd851c1bc8074e6436362661a02bbdfbea3/reviews/elegant-current-windows-r34/checkpoint.json",
+  "prior_receipt_sha256": "bf3b9709dfcc392ca15883335280a507793d857f76d7789a5989119d3d4b6197",
+  "full_paired_proof": "05a80ea47ba66d67fceb29b767caca6449fbb60d",
+  "full_paired_proof_launched": false,
+  "source_changes": "None; a standalone observation test is temporarily appended and restored. No repository build, full gate, Go edit or maintained publication.",
+  "documentation": [
+    "https://learn.microsoft.com/en-us/dotnet/standard/io/file-path-formats#skip-normalization",
+    "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew",
+    "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfinalpathnamebyhandlew",
+    "https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-getfileinformationbyhandle"
+  ]
+}
