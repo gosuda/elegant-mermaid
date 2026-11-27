@@ -1,0 +1,118 @@
+name: "Elegant paired Windows path proof r35"
+on:
+  push:
+    branches: ["ci/elegant-paired-windows-proof-20261127-r35"]
+    paths:
+      - ".github/workflows/elegant-paired-windows-r35.yml"
+      - "ci-tools/elegant-paired-windows-r35/**"
+permissions:
+  contents: read
+concurrency:
+  group: "elegant-paired-windows-r35-${{ github.ref }}"
+  cancel-in-progress: false
+jobs:
+  focused:
+    runs-on: depot-windows-2025
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_BUILD_JOBS: "4"
+      CARGO_INCREMENTAL: "0"
+      RUSTC_WRAPPER: ""
+      RUSTC_WORKSPACE_WRAPPER: ""
+      GOENV: "off"
+      GOCACHEPROG: ""
+    steps:
+      - name: Preserve exact source bytes
+        run: git config --global core.autocrlf false
+      - name: Checkout the earlier renderer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9c8339a1c214eb93c92384db55edc0e89851ea8a
+          path: old
+          persist-credentials: false
+      - name: Checkout the current renderer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 325bc562588b1989cdd137116e937784865ee5ad
+          path: current
+          persist-credentials: false
+      - name: Checkout the paired candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 61271a6955012abce15de62703246cef0e6c883f
+          path: candidate
+          persist-credentials: false
+      - name: Checkout this proof
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: proof
+          persist-credentials: false
+      - name: Install the frozen Rust toolchain
+        working-directory: candidate
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup component add --toolchain 1.100.0 rustfmt clippy
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version: "1.27.4"
+          cache: false
+      - name: Install pinned nextest
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39
+        with:
+          tool: "cargo-nextest@0.9.151"
+      - name: Install uv
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d
+        with:
+          version: "0.13.9"
+          python-version: "3.15"
+          enable-cache: false
+      - name: Prepare native local and UNC filesystem roots
+        run: |
+          $ErrorActionPreference = "Stop"
+          $root = Join-Path $env:RUNNER_TEMP "emd-windows-r35-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $local = Join-Path $root "local"
+          $network = Join-Path $root "network"
+          New-Item -ItemType Directory -Path $local, $network -ErrorAction Stop | Out-Null
+          $shareName = "emd-r35-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          $account = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+          Start-Service LanmanServer -ErrorAction Stop
+          New-SmbShare -Name $shareName -Path $network -FullAccess $account -ErrorAction Stop | Out-Null
+          $unc = "\\localhost\$shareName"
+          if (-not (Test-Path -LiteralPath $unc -PathType Container)) { throw "Native UNC share is unavailable" }
+          "EMD_TEST_LOCAL_ROOT=$local" | Add-Content -Path $env:GITHUB_ENV -Encoding utf8
+          "EMD_TEST_UNC_ROOT=$unc" | Add-Content -Path $env:GITHUB_ENV -Encoding utf8
+          "EMD_TEST_SHARE=$shareName" | Add-Content -Path $env:GITHUB_ENV -Encoding utf8
+          $evidence = Join-Path $env:RUNNER_TEMP "emd-windows-evidence"
+          New-Item -ItemType Directory -Path $evidence -ErrorAction Stop | Out-Null
+          @{ windows = [Environment]::OSVersion.VersionString; architecture = $env:PROCESSOR_ARCHITECTURE; native_unc_available = $true; run = $env:GITHUB_RUN_ID; attempt = $env:GITHUB_RUN_ATTEMPT } | ConvertTo-Json | Set-Content -Path (Join-Path $evidence "runner.json") -Encoding utf8
+      - name: Verify frozen baselines and the paired candidate
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:GOENV = "off"
+          $env:GOCACHEPROG = ""
+          $effective = go env GOCACHEPROG
+          if ($LASTEXITCODE -ne 0 -or -not [string]::IsNullOrEmpty($effective)) { throw "External Go cache is active" }
+          uv run --no-project --python 3.15 proof/ci-tools/elegant-paired-windows-r35/verify.py . proof/ci-tools/elegant-paired-windows-r35 "$env:RUNNER_TEMP/emd-windows-evidence"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Remove the disposable native share
+        if: always()
+        run: |
+          $ErrorActionPreference = "Stop"
+          $shareName = "emd-r35-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          if (Get-SmbShare -Name $shareName -ErrorAction SilentlyContinue) {
+            Remove-SmbShare -Name $shareName -Force -ErrorAction Stop
+          }
+      - name: Preserve evidence
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: elegant-paired-windows-r35
+          path: ${{ runner.temp }}/emd-windows-evidence
+          if-no-files-found: error
+          retention-days: 7
