@@ -173,38 +173,49 @@ func TestMarkdownWindowsNamespaceNormalization(t *testing.T) {
 		{"verbatim-space-intermediate", "\\\\?\\", "assets \\child", "assets \\child", "assets%20/child"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			base := markdownWindowsDirectory(t)
-			for _, name := range []string{"assets", "assets.", "assets "} {
-				if err := os.Mkdir(base+"\\"+name, 0o755); err != nil {
-					t.Fatal(err)
-				}
-				if err := os.Mkdir(base+"\\"+name+"\\child", 0o755); err != nil {
-					t.Fatal(err)
-				}
-			}
+			base := markdownWindowsNamespaceDirectories(t)
 			root := strings.TrimPrefix(base, "\\\\?\\")
 			if tc.prefix == "" && strings.HasPrefix(root, "UNC\\") {
 				root = "\\\\" + root[len("UNC\\"):]
 			}
 			operand := tc.prefix + root + "\\" + tc.operand
-			resolved, err := resolvedOutputDirectory(operand)
-			if err != nil {
-				t.Fatal(err)
-			}
-			actual, err := os.Stat(resolved)
-			if err != nil {
-				t.Fatal(err)
-			}
-			expected, err := os.Stat(base + "\\" + tc.actual)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !os.SameFile(actual, expected) {
-				t.Fatalf("directory identity for %q: got %q, want %q", operand, resolved, tc.actual)
-			}
+			requireMarkdownWindowsDirectoryIdentity(t, operand, base+"\\"+tc.actual)
 			requireMarkdownSuccess(t, "render", "input.md", "-o", "report.md", "-a", operand)
 			requireMarkdownText(t, "report.md", "![diagram]("+tc.url+"/report-1.svg)\n")
 			requireMarkdownWindowsImage(t, base+"\\"+tc.actual+"\\report-1.svg")
 		})
+	}
+}
+
+func markdownWindowsNamespaceDirectories(t *testing.T) string {
+	t.Helper()
+	base := markdownWindowsDirectory(t)
+	for _, name := range []string{"assets", "assets.", "assets "} {
+		if err := os.Mkdir(base+"\\"+name, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(base+"\\"+name+"\\child", 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return base
+}
+
+func requireMarkdownWindowsDirectoryIdentity(t *testing.T, operand, expectedPath string) {
+	t.Helper()
+	resolved, err := resolvedOutputDirectory(operand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := os.Stat(resolved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err := os.Stat(expectedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(actual, expected) {
+		t.Fatalf("directory identity for %q: got %q, want %q", operand, resolved, expectedPath)
 	}
 }

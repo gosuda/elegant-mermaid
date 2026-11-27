@@ -27,4 +27,3 @@ func joinOutputPath(directory, name string) string {
 	}
 	return directory + string(os.PathSeparator) + name
 }
-

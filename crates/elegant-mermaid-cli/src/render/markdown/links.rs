@@ -526,7 +526,10 @@ mod tests {
             let native = ordinary.join(name).canonicalize()?;
             assert_eq!(native, directory.0.join("assets").canonicalize()?);
             std::fs::write(native.join("native.svg"), b"native")?;
-            assert_eq!(std::fs::read(directory.0.join("assets/native.svg"))?, b"native");
+            assert_eq!(
+                std::fs::read(directory.0.join("assets/native.svg"))?,
+                b"native"
+            );
             assert_eq!(resolved_directory(&ordinary.join(name))?, native);
             assert_eq!(
                 relative_url(
@@ -536,7 +539,10 @@ mod tests {
                 "assets/image.svg"
             );
             assert_eq!(
-                relative_url(&ordinary.join("future./image.svg"), &ordinary.join("out.md"))?,
+                relative_url(
+                    &ordinary.join("future./image.svg"),
+                    &ordinary.join("out.md")
+                )?,
                 "future/image.svg"
             );
             let literal = directory.0.join(name);
@@ -685,7 +691,11 @@ mod tests {
             std::os::windows::fs::symlink_file("image.svg", &link)?;
             let resolved = super::resolved_target(&link)?;
             assert_eq!(resolved, directory.0.join("linked.svg"));
-            assert!(std::fs::symlink_metadata(resolved)?.file_type().is_symlink());
+            assert!(
+                std::fs::symlink_metadata(resolved)?
+                    .file_type()
+                    .is_symlink()
+            );
         }
         Ok(())
     }
