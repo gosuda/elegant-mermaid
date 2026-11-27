@@ -120,14 +120,31 @@ theorem flat_layout_routes_inset {inp : Input} {o : Options} {res : FamilyResult
   rw [execution.scene_eq] at hcr ⊢
   obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hcr
   have hzip : (cr, i) ∈ (sceneOf execution.params inp o execution.lines
-      execution.packedAcc execution.measured).routes.zipIdx :=
+      execution.straightAcc execution.measured).routes.zipIdx :=
     List.mem_zipIdx_iff_getElem?.mpr hi
   have hm : 0 ≤ execution.params.canvasMargin := by
     have := checkedParams_canvasMargin_ge_one execution.checked
     omega
-  have hacc := execution.packedAcc_bounded execution.components_parts_bounded
+  have hacc := execution.straightAcc_bounded execution.components_parts_bounded
   exact sceneOf_routes_pointIn_inset execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc hm (cr, i) hzip p hp
+    execution.straightAcc execution.measured hacc hm (cr, i) hzip p hp
+
+/-- Straightening preserves the installed-title captions: titles and canvas height are unchanged. -/
+private theorem sceneTitlesExpr_straightAcc {inp : Input} {o : Options} {res : FamilyResult}
+    (P : Params) (lines : List (List Measure.Line))
+    (execution : SceneExecution inp o res) :
+    sceneTitlesExpr P inp o lines execution.straightAcc =
+      sceneTitlesExpr P inp o lines execution.packedAcc := by
+  unfold sceneTitlesExpr
+  rw [execution.straight_titles, execution.straight_canvasH]
+
+/-- Straightening preserves the scene boxes: rects and canvas height are unchanged. -/
+private theorem sceneBoxesExpr_straightAcc {inp : Input} {o : Options} {res : FamilyResult}
+    (P : Params) (execution : SceneExecution inp o res) :
+    sceneBoxesExpr P inp o execution.straightAcc =
+      sceneBoxesExpr P inp o execution.packedAcc := by
+  unfold sceneBoxesExpr
+  rw [(straightenAcc_fields execution.straight_eq).1, execution.straight_canvasH]
 
 /-- Labels of a successful flat `layout` lie in the margin inset of the
 canvas.  The three `sceneOf` label families transport separately: measured
@@ -154,7 +171,7 @@ theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult
     Except.ok.inj (hchecked'.symm.trans execution.checked)
   subst hP'eq
   rw [execution.scene_eq] at hinset
-  have hacc := execution.packedAcc_bounded execution.components_parts_bounded
+  have hacc := execution.straightAcc_bounded execution.components_parts_bounded
   have hmargin : 0 ≤ execution.params.canvasMargin := by
     have := checkedParams_canvasMargin_ge_one execution.checked
     omega
@@ -170,15 +187,15 @@ theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult
     | some measured =>
       simp only [hm, Option.some.injEq] at hemitted
       subst cl
-      have hrect : let rect := execution.packedAcc.labels.getD measured.index default
-          0 ≤ rect.x ∧ rect.x + rect.w ≤ execution.packedAcc.canvasW ∧
-          0 ≤ rect.y ∧ rect.y + rect.h ≤ execution.packedAcc.canvasH ∧
+      have hrect : let rect := execution.straightAcc.labels.getD measured.index default
+          0 ≤ rect.x ∧ rect.x + rect.w ≤ execution.straightAcc.canvasW ∧
+          0 ≤ rect.y ∧ rect.y + rect.h ≤ execution.straightAcc.canvasH ∧
           0 ≤ rect.w ∧ 0 ≤ rect.h := by
-        cases hget : execution.packedAcc.labels[measured.index]? with
+        cases hget : execution.straightAcc.labels[measured.index]? with
         | none =>
           rw [Array.getD_eq_getD_getElem?, hget]
-          change 0 ≤ (0 : Int) ∧ 0 ≤ execution.packedAcc.canvasW ∧
-            0 ≤ (0 : Int) ∧ 0 ≤ execution.packedAcc.canvasH ∧
+          change 0 ≤ (0 : Int) ∧ 0 ≤ execution.straightAcc.canvasW ∧
+            0 ≤ (0 : Int) ∧ 0 ≤ execution.straightAcc.canvasH ∧
             0 ≤ (0 : Int) ∧ 0 ≤ (0 : Int)
           exact ⟨by omega, hacc.canvas_w_nonneg, by omega, hacc.canvas_h_nonneg,
             by omega, by omega⟩
@@ -186,7 +203,7 @@ theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult
           rw [Array.getD_eq_getD_getElem?, hget]
           exact hacc.labels_bounded measured.index stored hget
       exact orient_shiftRect_inset_containsCellRect o.direction
-        execution.packedAcc.canvasW execution.packedAcc.canvasH
+        execution.straightAcc.canvasW execution.straightAcc.canvasH
         execution.params.canvasMargin _ hrect hmargin
     | none =>
       simp only [hm] at hemitted
@@ -197,13 +214,13 @@ theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult
         simp only [ho, Option.some.injEq] at hemitted
         subst cl
         show (insetRect (sceneOf execution.params inp o execution.lines
-              execution.packedAcc execution.measured).canvas
+              execution.straightAcc execution.measured).canvas
               execution.params.canvasMargin).Contained
             (sceneCaptionRect execution.params inp o execution.lines
-              execution.packedAcc ownerIndex q.1.owner)
+              execution.straightAcc ownerIndex q.1.owner)
         simp only [sceneCaptionRect]
         cases hT : (sceneTitlesExpr execution.params inp o execution.lines
-            execution.packedAcc).find? (fun title => title.1 == q.1.owner) with
+            execution.straightAcc).find? (fun title => title.1 == q.1.owner) with
         | none =>
           simp only [Option.map_none, Option.getD_none]
           obtain ⟨hltB, hmatch, _⟩ :=
@@ -229,39 +246,45 @@ theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult
                 List.mem_zipIdx_iff_getElem?.mp hqmem
               have hqlabel : q.1 ∈ inp.labels := List.mem_of_getElem? hqget
               have hnone : (sceneTitlesExpr execution.params inp o execution.lines
-                  execution.packedAcc).find? (fun title => title.1 ==
+                  execution.straightAcc).find? (fun title => title.1 ==
                     (inp.boxes[ownerIndex]'hltB).id) = none := by
                 rw [hoboxId]
                 exact hT
               have hown : ∃ l ∈ inp.labels,
                   l.owner = (inp.boxes[ownerIndex]'hltB).id :=
                 ⟨q.1, hqlabel, hoboxId.symm⟩
+              have hnoneP : (sceneTitlesExpr execution.params inp o execution.lines
+                  execution.packedAcc).find? (fun title => title.1 ==
+                    (inp.boxes[ownerIndex]'hltB).id) = none := by
+                rw [← sceneTitlesExpr_straightAcc]
+                exact hnone
               have hcontain :
                   ((sceneBoxesExpr execution.params inp o
-                    execution.packedAcc).getD ownerIndex
+                    execution.straightAcc).getD ownerIndex
                     ⟨"", "", default, "", false⟩).rect.Contained
                     (ownedTextRect execution.params
                       ((sceneBoxesExpr execution.params inp o
-                        execution.packedAcc).getD ownerIndex
+                        execution.straightAcc).getD ownerIndex
                         ⟨"", "", default, "", false⟩)
-                      (execution.lines.getD ownerIndex [])) :=
-                hfall execution ownerIndex _ hobox hnone hex hown
+                      (execution.lines.getD ownerIndex [])) := by
+                have h := hfall execution ownerIndex _ hobox hnoneP hex hown
+                rwa [← sceneBoxesExpr_straightAcc] at h
               have hlt : ownerIndex <
                   (sceneBoxesExpr execution.params inp o
-                    execution.packedAcc).length := by
+                    execution.straightAcc).length := by
                 have hlt' := (List.findIdx?_eq_some_iff_getElem.mp ho).1
                 simp only [sceneBoxesExpr, List.length_map, List.length_zipIdx]
                 omega
               have hgetD : (sceneBoxesExpr execution.params inp o
-                    execution.packedAcc).getD ownerIndex ⟨"", "", default, "", false⟩ =
+                    execution.straightAcc).getD ownerIndex ⟨"", "", default, "", false⟩ =
                   (sceneBoxesExpr execution.params inp o
-                    execution.packedAcc)[ownerIndex]'hlt := by
+                    execution.straightAcc)[ownerIndex]'hlt := by
                 rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hlt]
                 rfl
               have hmem : (sceneBoxesExpr execution.params inp o
-                    execution.packedAcc).getD ownerIndex ⟨"", "", default, "", false⟩ ∈
+                    execution.straightAcc).getD ownerIndex ⟨"", "", default, "", false⟩ ∈
                   (sceneOf execution.params inp o execution.lines
-                    execution.packedAcc execution.measured).boxes := by
+                    execution.straightAcc execution.measured).boxes := by
                 rw [hgetD]
                 exact List.getElem_mem _
               have hboxIn := hinset _ hmem
@@ -279,18 +302,21 @@ theorem flat_layout_labels_inset {inp : Input} {o : Options} {res : FamilyResult
           let size := match o.direction with
             | .LR | .RL => Size.mk height width
             | .TB | .BT => Size.mk width height
-          have hfit := execution.packed_title_caption_fit stored hstored
+          have hstoredP : stored ∈ execution.packedAcc.titles := by
+            rw [← execution.straight_titles]
+            exact hstored
+          have hfit := execution.packed_title_caption_fit stored hstoredP
           change 0 ≤ size.w ∧ 0 ≤ size.h ∧ size.w ≤ stored.2.w ∧
             size.h ≤ stored.2.h at hfit
           have hstoredB := hacc.titles_bounded stored hstored
           have hrect : 0 ≤ stored.2.x ∧ stored.2.x + size.w ≤
-              execution.packedAcc.canvasW ∧
+              execution.straightAcc.canvasW ∧
               0 ≤ stored.2.y ∧ stored.2.y + size.h ≤
-                execution.packedAcc.canvasH ∧
+                execution.straightAcc.canvasH ∧
               0 ≤ size.w ∧ 0 ≤ size.h :=
             ⟨hstoredB.1, by omega, hstoredB.2.2.1, by omega, hfit.1, hfit.2.1⟩
           exact orient_shiftRect_inset_containsCellRect o.direction
-            execution.packedAcc.canvasW execution.packedAcc.canvasH
+            execution.straightAcc.canvasW execution.straightAcc.canvasH
             execution.params.canvasMargin { stored.2 with w := size.w, h := size.h }
             hrect hmargin
 /-- Labels of a successful `layoutRecursive` lie in the margin inset of the

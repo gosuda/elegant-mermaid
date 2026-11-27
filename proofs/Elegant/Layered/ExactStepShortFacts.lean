@@ -61,13 +61,13 @@ private theorem ESS_flatInset (exactIds : List String) :
     FlatInsetB (layoutX exactIds) := by
   intro inp o res h
   obtain ⟨execution⟩ := layoutX_sceneExecution h
-  have hacc := SceneExecutionX.packedAcc_bounded execution
+  have hacc := SceneExecutionX.straightAcc_bounded execution
     (exactPartsBounded' execution)
   have hm1 := checkedParams_canvasMargin_ge_one execution.checked
   refine ⟨execution.params, execution.checked, by omega, ?_⟩
   rw [execution.scene_eq]
   exact sceneOf_boxes_inset execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc (by omega)
+    execution.straightAcc execution.measured hacc (by omega)
 
 /-- Frame reservation of an executed exact `expandChild` call: the located
 group frame dominates the `childFrameSize` for the inner title lines.
@@ -1279,6 +1279,7 @@ private theorem ESS_layout_ids {exactIds : List String} {inp : Input} {o : Optio
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
   · simp at h
   · have h := Except.ok.inj h
@@ -1652,6 +1653,7 @@ private theorem ESS_layout_box_parent {exactIds : List String} {inp : Input} {o 
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
   · simp at h
   · have h := Except.ok.inj h
@@ -1749,6 +1751,7 @@ private theorem ESS_layout_mirror (exactIds : List String) {inp : Input} {o : Op
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
   · simp at h

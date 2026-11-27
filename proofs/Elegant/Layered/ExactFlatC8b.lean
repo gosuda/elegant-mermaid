@@ -291,11 +291,18 @@ private theorem b8_layout_c8b {exactIds : List String} {inp : Input} {o : Option
     Validator.C8b res.scene.layoutDump := by
   have hfallApp := hfall execution hfit
   obtain ⟨hpackLabels, hpackTitles⟩ := hpack
+  have hlabBridge : (sceneOf execution.params inp o execution.lines
+      execution.straightAcc execution.measured).labels =
+      (sceneOf execution.params inp o execution.lines execution.packedAcc
+        execution.measured).labels :=
+    (sceneOf_straightenAcc execution.params inp o execution.lines
+      execution.packedAcc execution.straightAcc execution.measured
+      execution.straight_eq).2.2
   have hidsNodup : (inp.boxes.map (·.id)).Nodup := Model.boxIds_nodup hwf
   intro g hgMem hgRole l hlMem
   simp only [Scene.layoutDump] at hgMem hlMem
   obtain ⟨sl, hsl, hlEq⟩ := List.mem_map.mp hlMem
-  rw [execution.scene_eq] at hsl
+  rw [execution.scene_eq, hlabBridge] at hsl
   obtain ⟨qL, hqL, hemitted⟩ := List.mem_filterMap.mp hsl
   obtain ⟨source, indexL⟩ := qL
   have hsrcL : inp.labels[indexL]? = some source :=
@@ -374,8 +381,8 @@ private theorem b8_layout_c8b {exactIds : List String} {inp : Input} {o : Option
         cases hselD with
         | inl hsel =>
           have hgMemScene : g ∈ res.scene.boxes := by
-            rw [execution.scene_eq]
-            exact List.mem_map.mpr ⟨(hgBox, hKey), hq, hgeq⟩
+            rw [execution.boxes_eq_mapX]
+            exact hgMem
           have hlrect : sl.rect = ownedTextRect execution.params
               ((sceneBoxesExpr execution.params inp o execution.packedAcc).getD
                 ownerIndex ⟨"", "", default, "", false⟩)

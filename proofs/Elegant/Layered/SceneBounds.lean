@@ -631,6 +631,7 @@ structure SceneExecution (inp : Input) (o : Options) (res : FamilyResult) where
   graph : Graph
   componentsAcc : Acc
   packedAcc : Acc
+  straightAcc : Acc
   checked : checkedParams o.profile inp.kind = .ok params
   metric_eq : metricOf o.profile o.fontFamily = .ok metric
   lines_eq : boxLines metric
@@ -646,16 +647,66 @@ structure SceneExecution (inp : Input) (o : Options) (res : FamilyResult) where
       Array.replicate inp.routes.length [], Array.replicate inp.labels.length default,
       false, [], []⟩ = .ok componentsAcc
   packed_eq : packAcc params o componentsAcc = .ok packedAcc
-  scene_eq : res.scene = sceneOf params inp o lines packedAcc measured
+  straight_eq : straightenAcc inp packedAcc = .ok straightAcc
+  scene_eq : res.scene = sceneOf params inp o lines straightAcc measured
 
 /-- Extract the exact measured graph, selected-component fold, and packed
 accumulator that `layout` used; no `toOption.getD` reconstruction is involved. -/
 theorem layout_sceneExecution {inp : Input} {o : Options} {res : FamilyResult}
     (h : layout inp o = .ok res) : Nonempty (SceneExecution inp o res) := by
-  obtain ⟨P, metric, lines, measured, graph, componentsAcc, packedAcc,
-    hP, hm, hl, hmeasured, hg, hc, hp, hs, _, _⟩ := Layered.layout_success_phases h
-  exact ⟨⟨P, metric, lines, measured, graph, componentsAcc, packedAcc,
-    hP, hm, hl, hmeasured, hg, hc, hp, hs⟩⟩
+  obtain ⟨P, metric, lines, measured, graph, componentsAcc, packedAcc, straightAcc,
+    hP, hm, hl, hmeasured, hg, hc, hp, hstraight, hs, _, _⟩ := Layered.layout_success_phases h
+  exact ⟨⟨P, metric, lines, measured, graph, componentsAcc, packedAcc, straightAcc,
+    hP, hm, hl, hmeasured, hg, hc, hp, hstraight, hs⟩⟩
+
+/-- Straightening changes only the routes. -/
+theorem straightenAcc_fields {inp : Input} {acc s : Acc} (h : straightenAcc inp acc = .ok s) :
+    s.rects = acc.rects ∧ s.labels = acc.labels ∧ s.titles = acc.titles ∧
+    s.canvasW = acc.canvasW ∧ s.canvasH = acc.canvasH := by
+  obtain ⟨_, _, h2⟩ := bind_ok h
+  have he := Except.ok.inj h2
+  subst he
+  exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+
+/-- The scene built from a straightened accumulator keeps the canvas, boxes,
+and labels of the scene built from the packed accumulator. -/
+theorem sceneOf_straightenAcc (P : Params) (inp : Input) (o : Options)
+    (lines : List (List Measure.Line)) (acc s : Acc) (measured : List MeasuredLabel)
+    (h : straightenAcc inp acc = .ok s) :
+    (sceneOf P inp o lines s measured).canvas = (sceneOf P inp o lines acc measured).canvas ∧
+    (sceneOf P inp o lines s measured).boxes = (sceneOf P inp o lines acc measured).boxes ∧
+    (sceneOf P inp o lines s measured).labels = (sceneOf P inp o lines acc measured).labels := by
+  obtain ⟨r1, r2, r3, r4, r5⟩ := straightenAcc_fields h
+  simp only [sceneOf, r1, r2, r3, r4, r5] <;> trivial
+
+/-- Straightening leaves the canvas, boxes, and labels of the scene unchanged. -/
+theorem SceneExecution.scene_canvas {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecution inp o res) :
+    (sceneOf execution.params inp o execution.lines execution.straightAcc execution.measured).canvas =
+    (sceneOf execution.params inp o execution.lines execution.packedAcc execution.measured).canvas :=
+  (sceneOf_straightenAcc _ _ _ _ _ _ _ execution.straight_eq).1
+
+theorem SceneExecution.scene_boxes {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecution inp o res) :
+    (sceneOf execution.params inp o execution.lines execution.straightAcc execution.measured).boxes =
+    (sceneOf execution.params inp o execution.lines execution.packedAcc execution.measured).boxes :=
+  (sceneOf_straightenAcc _ _ _ _ _ _ _ execution.straight_eq).2.1
+
+theorem SceneExecution.scene_labels {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecution inp o res) :
+    (sceneOf execution.params inp o execution.lines execution.straightAcc execution.measured).labels =
+    (sceneOf execution.params inp o execution.lines execution.packedAcc execution.measured).labels :=
+  (sceneOf_straightenAcc _ _ _ _ _ _ _ execution.straight_eq).2.2
+
+theorem SceneExecution.straight_titles {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecution inp o res) :
+    execution.straightAcc.titles = execution.packedAcc.titles :=
+  (straightenAcc_fields execution.straight_eq).2.2.1
+
+theorem SceneExecution.straight_canvasH {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecution inp o res) :
+    execution.straightAcc.canvasH = execution.packedAcc.canvasH :=
+  (straightenAcc_fields execution.straight_eq).2.2.2.2
 
 theorem SceneExecution.parameter_signs {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res) :
@@ -781,6 +832,7 @@ theorem layout_canvas_margins {inp : Input} {o : Options} {res : FamilyResult}
   have hb := packAcc_canvas_nonneg execution.packed_eq
   rw [← checkedParams_canvasMargin execution.checked]
   rw [execution.scene_eq]
+  rw [execution.scene_canvas]
   change _ ≤ (orientCanvas o.direction
     (execution.packedAcc.canvasW + 2 * _)
     (execution.packedAcc.canvasH + 2 * _)).w ∧
@@ -3155,6 +3207,592 @@ theorem SceneExecution.packedAcc_bounded {inp : Input} {o : Options} {res : Fami
     exact fun i r hi _ => (layout_startAcc_defaults inp).2.2 i r hi
   exact packAcc_bounded hparts hstart_rects hstart_routes hstart_labels execution.packed_eq
 
+/-- Each bounding-box coordinate belongs to some route point. -/
+theorem straightExtent_mem (pts : List Point) : ∀ (x0 y0 x1 y1 : Int),
+    straightExtent pts = some (x0, y0, x1, y1) →
+    x0 ∈ pts.map (·.x) ∧ x1 ∈ pts.map (·.x) ∧
+      y0 ∈ pts.map (·.y) ∧ y1 ∈ pts.map (·.y) := by
+  induction pts with
+  | nil =>
+    intro x0 y0 x1 y1 h
+    simp [straightExtent] at h
+  | cons q rest ih =>
+    intro x0 y0 x1 y1 h
+    simp only [straightExtent] at h
+    cases hext : straightExtent rest with
+    | none =>
+      rw [hext] at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      exact ⟨by simp [← h.1], by simp [← h.2.2.1], by simp [← h.2.1], by simp [← h.2.2.2]⟩
+    | some e =>
+      obtain ⟨a, b, c, d⟩ := e
+      obtain ⟨m1, m2, m3, m4⟩ := ih a b c d hext
+      rw [hext] at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl, rfl, rfl⟩ := h
+      refine ⟨?_, ?_, ?_, ?_⟩
+      · rcases Int.le_total a q.x with hle | hge
+        · rw [show min a q.x = a from by omega]
+          exact List.mem_cons_of_mem _ m1
+        · rw [show min a q.x = q.x from by omega]
+          simp
+      · rcases Int.le_total c q.x with hle | hge
+        · rw [show max c q.x = q.x from by omega]
+          simp
+        · rw [show max c q.x = c from by omega]
+          exact List.mem_cons_of_mem _ m2
+      · rcases Int.le_total b q.y with hle | hge
+        · rw [show min b q.y = b from by omega]
+          exact List.mem_cons_of_mem _ m3
+        · rw [show min b q.y = q.y from by omega]
+          simp
+      · rcases Int.le_total d q.y with hle | hge
+        · rw [show max d q.y = q.y from by omega]
+          simp
+        · rw [show max d q.y = d from by omega]
+          exact List.mem_cons_of_mem _ m4
+
+/-- A route inside the bounding box of a bounded route is bounded. -/
+theorem straightInside_bounded {old new : List Point} {W H : Int}
+    (h : straightInside old new = true) (hold : ∀ a ∈ old, PtOK W H a) :
+    ∀ p ∈ new, PtOK W H p := by
+  unfold straightInside at h
+  cases hext : straightExtent old with
+  | none =>
+    rw [hext] at h
+    have hnil : new = [] := List.isEmpty_iff.mp (by simpa using h)
+    subst hnil
+    intro p hp
+    cases hp
+  | some e =>
+    obtain ⟨x0, y0, x1, y1⟩ := e
+    rw [hext] at h
+    obtain ⟨m1, m2, m3, m4⟩ := straightExtent_mem _ _ _ _ _ hext
+    obtain ⟨_, q1, h1⟩ := List.mem_map.mp m1
+    obtain ⟨_, q2, h2⟩ := List.mem_map.mp m2
+    obtain ⟨_, q3, h3⟩ := List.mem_map.mp m3
+    obtain ⟨_, q4, h4⟩ := List.mem_map.mp m4
+    have o1 := hold _ q1
+    have o2 := hold _ q2
+    have o3 := hold _ q3
+    have o4 := hold _ q4
+    intro p hp
+    have hdec := of_decide_eq_true (List.all_eq_true.mp h p hp)
+    unfold PtOK at o1 o2 o3 o4 hdec ⊢
+    omega
+
+/-- A two-point vertical corridor: the only route shape straightening installs. -/
+def IsCorridor (pts : List Point) : Prop :=
+  ∃ x y₀ y₁ : Int, y₀ < y₁ ∧ pts = [⟨x, y₀⟩, ⟨x, y₁⟩]
+
+/-- The route a plan installs lies inside the box of the route it replaces. -/
+theorem straightenPlan_inside {ctx : StraightenCtx} {boxes : List (Bool × Rect)}
+    {st : StraightenWork} {i : Nat} {routing : Routing} {decl : Nat} {pts : List Point}
+    (h : straightenPlan ctx boxes st i = .ok (some (routing, decl, pts))) :
+    straightInside (st.routes.getD decl []) pts = true := by
+  unfold straightenPlan at h
+  obtain ⟨opt, _, h⟩ := bind_ok h
+  cases opt with
+  | none =>
+    simp only at h
+    cases h
+  | some span =>
+    simp only at h
+    cases hclear : !straightStepClear boxes span.tailRect span.headRect span.top span.bottom
+        span.column with
+    | true =>
+      simp only [hclear] at h
+      cases h
+    | false =>
+      simp only [hclear] at h
+      cases hbusy : straightStepBusy st.routes span.decl span.top span.bottom span.column with
+      | true =>
+        simp only [hbusy] at h
+        cases h
+      | false =>
+        simp only [hbusy] at h
+        cases hgrew : straightCrossingsGrew st.routes span.decl (st.routes.getD span.decl [])
+            span.points || !straightInside (st.routes.getD span.decl []) span.points with
+        | true =>
+          simp only [hgrew] at h
+          cases h
+        | false =>
+          simp only [hgrew] at h
+          have hk := Option.some.inj (Except.ok.inj h)
+          simp only [Prod.mk.injEq] at hk
+          have hi : straightInside (st.routes.getD span.decl []) span.points = true := by
+            cases hinside : straightInside (st.routes.getD span.decl []) span.points with
+            | true => rfl
+            | false =>
+              rw [hinside] at hgrew
+              simp at hgrew
+          rw [hk.2.1, hk.2.2] at hi
+          exact hi
+
+/-- A plan that installs a route names the span it installs. -/
+theorem straightenPlan_points {ctx : StraightenCtx} {boxes : List (Bool × Rect)}
+    {st : StraightenWork} {i : Nat} {routing : Routing} {decl : Nat} {pts : List Point}
+    (h : straightenPlan ctx boxes st i = .ok (some (routing, decl, pts))) :
+    ∃ span : StraightSpan, straightSpanOf ctx st.routing i = .ok (some span) ∧
+      routing = straightSnap st.routing i span.pin ∧ decl = span.decl ∧ pts = span.points := by
+  unfold straightenPlan at h
+  obtain ⟨opt, hspan, h⟩ := bind_ok h
+  cases opt with
+  | none =>
+    simp only at h
+    cases h
+  | some span =>
+    simp only at h
+    cases hclear : !straightStepClear boxes span.tailRect span.headRect span.top span.bottom
+        span.column with
+    | true =>
+      simp only [hclear] at h
+      cases h
+    | false =>
+      simp only [hclear] at h
+      cases hbusy : straightStepBusy st.routes span.decl span.top span.bottom span.column with
+      | true =>
+        simp only [hbusy] at h
+        cases h
+      | false =>
+        simp only [hbusy] at h
+        cases hgrew : straightCrossingsGrew st.routes span.decl (st.routes.getD span.decl [])
+            span.points || !straightInside (st.routes.getD span.decl []) span.points with
+        | true =>
+          simp only [hgrew] at h
+          cases h
+        | false =>
+          simp only [hgrew] at h
+          have hk := Option.some.inj (Except.ok.inj h)
+          simp only [Prod.mk.injEq] at hk
+          exact ⟨span, hspan, hk.1.symm, hk.2.1.symm, hk.2.2.symm⟩
+
+/-- A plan that installs a route passes the obstacle check on the global boxes. -/
+theorem straightenPlan_clear {ctx : StraightenCtx} {boxes : List (Bool × Rect)}
+    {st : StraightenWork} {i : Nat} {routing : Routing} {decl : Nat} {pts : List Point}
+    (h : straightenPlan ctx boxes st i = .ok (some (routing, decl, pts))) :
+    ∃ span : StraightSpan, straightSpanOf ctx st.routing i = .ok (some span) ∧
+      routing = straightSnap st.routing i span.pin ∧ decl = span.decl ∧ pts = span.points ∧
+      straightStepClear boxes span.tailRect span.headRect span.top span.bottom span.column = true := by
+  unfold straightenPlan at h
+  obtain ⟨opt, hspan, h⟩ := bind_ok h
+  cases opt with
+  | none =>
+    simp only at h
+    cases h
+  | some span =>
+    simp only at h
+    cases hclear : !straightStepClear boxes span.tailRect span.headRect span.top span.bottom
+        span.column with
+    | true =>
+      simp only [hclear] at h
+      cases h
+    | false =>
+      simp only [hclear] at h
+      have hclr : straightStepClear boxes span.tailRect span.headRect span.top span.bottom
+          span.column = true := by
+        cases hc : straightStepClear boxes span.tailRect span.headRect span.top span.bottom
+            span.column with
+        | true => rfl
+        | false =>
+          rw [hc] at hclear
+          simp at hclear
+      cases hbusy : straightStepBusy st.routes span.decl span.top span.bottom span.column with
+      | true =>
+        simp only [hbusy] at h
+        cases h
+      | false =>
+        simp only [hbusy] at h
+        cases hgrew : straightCrossingsGrew st.routes span.decl (st.routes.getD span.decl [])
+            span.points || !straightInside (st.routes.getD span.decl []) span.points with
+        | true =>
+          simp only [hgrew] at h
+          cases h
+        | false =>
+          simp only [hgrew] at h
+          have hk := Option.some.inj (Except.ok.inj h)
+          simp only [Prod.mk.injEq] at hk
+          exact ⟨span, hspan, hk.1.symm, hk.2.1.symm, hk.2.2.symm, hclr⟩
+
+/-- A span that survives narrowing rises from its top to its bottom. -/
+theorem straightSpanOf_top_lt {ctx : StraightenCtx} {routing : Routing} {i : Nat}
+    {span : StraightSpan} (h : straightSpanOf ctx routing i = .ok (some span)) :
+    span.top < span.bottom := by
+  unfold straightSpanOf at h
+  cases he : ctx.proper.edges[i]? with
+  | none =>
+    simp only [he] at h
+    cases h
+  | some e =>
+    simp only [he] at h
+    cases hel : !straightEdgeEligible ctx routing i e with
+    | true =>
+      simp only [hel] at h
+      cases h
+    | false =>
+      simp only [hel] at h
+      cases hgeom : straightGeom ctx routing i e with
+      | mk tw hw th hh tailLeft headLeft lo hi cx =>
+        simp only [hgeom] at h
+        by_cases hlo : lo > hi
+        · rw [ite_eq_left hlo] at h
+          cases h
+        · rw [ite_eq_right hlo] at h
+          obtain ⟨pin, _, h⟩ := bind_ok h
+          obtain ⟨top, _, h⟩ := bind_ok h
+          obtain ⟨bottom, _, h⟩ := bind_ok h
+          by_cases hge : top ≥ bottom
+          · rw [ite_eq_left hge] at h
+            cases h
+          · rw [ite_eq_right hge] at h
+            obtain ⟨column, _, h⟩ := bind_ok h
+            have hlt : top < bottom := by omega
+            have hs := Option.some.inj (Except.ok.inj h)
+            subst hs
+            exact hlt
+
+/-- One step keeps every route in the canvas. -/
+theorem straightenStep_bounded {ctx : StraightenCtx} {boxes : List (Bool × Rect)}
+    {st st' : StraightenWork} {i : Nat} {W H : Int} (h : straightenStep ctx boxes st i = .ok st')
+    (hstart : ∀ (j : Nat) (pts : List Point), st.routes[j]? = some pts → ∀ p ∈ pts, PtOK W H p) :
+    st'.routes.size = st.routes.size ∧
+    ∀ (j : Nat) (pts : List Point), st'.routes[j]? = some pts → ∀ p ∈ pts, PtOK W H p := by
+  obtain ⟨plan, hp, h⟩ := bind_ok h
+  cases plan with
+  | none =>
+    have he := Except.ok.inj h
+    subst he
+    exact ⟨rfl, hstart⟩
+  | some plan =>
+    obtain ⟨routing, decl, pts⟩ := plan
+    have hi := straightenPlan_inside hp
+    have he := Except.ok.inj h
+    subst he
+    refine ⟨by split <;> simp, fun j pts hj p hp => ?_⟩
+    have hold : ∀ a ∈ st.routes.getD decl [], PtOK W H a := by
+      rw [Array.getD_eq_getD_getElem?]
+      cases hget : st.routes[decl]? with
+      | none => simp
+      | some old =>
+        simp only [Option.getD_some]
+        exact hstart decl old hget
+    by_cases hd : decl < st.routes.size
+    · rw [dite_eq_left hd, Array.getElem?_set] at hj
+      split at hj
+      · obtain ⟨rfl⟩ := Option.some.inj hj
+        exact straightInside_bounded hi hold p hp
+      · exact hstart j pts hj p hp
+    · rw [dite_eq_right hd] at hj
+      exact hstart j pts hj p hp
+
+/-- One step installs only old routes or corridors. -/
+theorem straightenStep_cases {ctx : StraightenCtx} {boxes : List (Bool × Rect)}
+    {st st' : StraightenWork} {i : Nat} (h : straightenStep ctx boxes st i = .ok st') :
+    ∀ (decl : Nat) (pts : List Point), st'.routes[decl]? = some pts →
+      st.routes[decl]? = some pts ∨ IsCorridor pts := by
+  obtain ⟨plan, hp, h⟩ := bind_ok h
+  cases plan with
+  | none =>
+    have he := Except.ok.inj h
+    subst he
+    intro decl pts hj
+    exact Or.inl hj
+  | some plan =>
+    obtain ⟨_, decl', pts'⟩ := plan
+    obtain ⟨span, hspan, _, _, hpts⟩ := straightenPlan_points hp
+    have hlt : span.top < span.bottom := straightSpanOf_top_lt hspan
+    have he := Except.ok.inj h
+    subst he
+    intro decl pts hj
+    by_cases hd : decl' < st.routes.size
+    · rw [dite_eq_left hd, Array.getElem?_set] at hj
+      split at hj
+      · obtain ⟨rfl⟩ := Option.some.inj hj
+        exact Or.inr ⟨span.column, span.top, span.bottom, hlt,
+          hpts.trans (show span.points = [⟨span.column, span.top⟩, ⟨span.column, span.bottom⟩]
+            from rfl)⟩
+      · exact Or.inl hj
+    · rw [dite_eq_right hd] at hj
+      exact Or.inl hj
+
+/-- One step keeps every route orthogonal. -/
+theorem straightenStep_orthogonal {ctx : StraightenCtx} {boxes : List (Bool × Rect)}
+    {st st' : StraightenWork} {i : Nat} (h : straightenStep ctx boxes st i = .ok st')
+    (hstart : ∀ (j : Nat) (pts : List Point), st.routes[j]? = some pts →
+      Polyline.isOrthogonal pts = true) :
+    ∀ (j : Nat) (pts : List Point), st'.routes[j]? = some pts →
+      Polyline.isOrthogonal pts = true := by
+  obtain ⟨plan, hp, h⟩ := bind_ok h
+  cases plan with
+  | none =>
+    have he := Except.ok.inj h
+    subst he
+    exact hstart
+  | some plan =>
+    obtain ⟨_, decl, pts'⟩ := plan
+    obtain ⟨span, _, _, _, hpts⟩ := straightenPlan_points hp
+    have he := Except.ok.inj h
+    subst he
+    intro j pts hj
+    by_cases hd : decl < st.routes.size
+    · rw [dite_eq_left hd, Array.getElem?_set] at hj
+      split at hj
+      · obtain ⟨rfl⟩ := Option.some.inj hj
+        rw [hpts]
+        show Polyline.isOrthogonal [⟨span.column, span.top⟩, ⟨span.column, span.bottom⟩] = true
+        simp [Polyline.isOrthogonal]
+      · exact hstart j pts hj
+    · rw [dite_eq_right hd] at hj
+      exact hstart j pts hj
+
+/-- The edge loop keeps every route in the canvas. -/
+theorem straightenFrom_bounded {ctx : StraightenCtx} {boxes : List (Bool × Rect)} {W H : Int} :
+    ∀ (n start : Nat) (st st' : StraightenWork), straightenFrom ctx boxes n start st = .ok st' →
+    (∀ (j : Nat) (pts : List Point), st.routes[j]? = some pts → ∀ p ∈ pts, PtOK W H p) →
+    st'.routes.size = st.routes.size ∧
+    ∀ (j : Nat) (pts : List Point), st'.routes[j]? = some pts → ∀ p ∈ pts, PtOK W H p := by
+  intro n
+  induction n with
+  | zero =>
+    intro start st st' h hstart
+    have he := Except.ok.inj h
+    subst he
+    exact ⟨rfl, hstart⟩
+  | succ n ih =>
+    intro start st st' h hstart
+    obtain ⟨st1, h1, h2⟩ := bind_ok h
+    obtain ⟨e1, hr1⟩ := straightenStep_bounded h1 hstart
+    obtain ⟨e2, hr2⟩ := ih (start + 1) st1 st' h2 hr1
+    exact ⟨e2.trans e1, hr2⟩
+
+/-- The edge loop installs only old routes or corridors. -/
+theorem straightenFrom_cases {ctx : StraightenCtx} {boxes : List (Bool × Rect)} :
+    ∀ (n start : Nat) (st st' : StraightenWork), straightenFrom ctx boxes n start st = .ok st' →
+    ∀ (decl : Nat) (pts : List Point), st'.routes[decl]? = some pts →
+      st.routes[decl]? = some pts ∨ IsCorridor pts := by
+  intro n
+  induction n with
+  | zero =>
+    intro start st st' h decl pts hj
+    have he := Except.ok.inj h
+    subst he
+    exact Or.inl hj
+  | succ n ih =>
+    intro start st st' h decl pts hj
+    obtain ⟨st1, h1, h2⟩ := bind_ok h
+    cases ih (start + 1) st1 st' h2 decl pts hj with
+    | inl hmid => exact straightenStep_cases h1 decl pts hmid
+    | inr hc => exact Or.inr hc
+
+/-- The edge loop keeps every route orthogonal. -/
+theorem straightenFrom_orthogonal {ctx : StraightenCtx} {boxes : List (Bool × Rect)} :
+    ∀ (n start : Nat) (st st' : StraightenWork), straightenFrom ctx boxes n start st = .ok st' →
+    (∀ (j : Nat) (pts : List Point), st.routes[j]? = some pts →
+      Polyline.isOrthogonal pts = true) →
+    ∀ (j : Nat) (pts : List Point), st'.routes[j]? = some pts →
+      Polyline.isOrthogonal pts = true := by
+  intro n
+  induction n with
+  | zero =>
+    intro start st st' h hstart
+    have he := Except.ok.inj h
+    subst he
+    exact hstart
+  | succ n ih =>
+    intro start st st' h hstart
+    obtain ⟨st1, h1, h2⟩ := bind_ok h
+    have hr1 := straightenStep_orthogonal h1 hstart
+    exact ih (start + 1) st1 st' h2 hr1
+
+theorem straightenComponent_bounded {ctx : StraightenCtx} {boxes : List (Bool × Rect)}
+    {routes out : Array (List Point)} {W H : Int} (h : straightenComponent ctx boxes routes = .ok out)
+    (hstart : ∀ (j : Nat) (pts : List Point), routes[j]? = some pts → ∀ p ∈ pts, PtOK W H p) :
+    out.size = routes.size ∧
+    ∀ (j : Nat) (pts : List Point), out[j]? = some pts → ∀ p ∈ pts, PtOK W H p := by
+  obtain ⟨st, h1, h2⟩ := bind_ok h
+  have he := Except.ok.inj h2
+  subst he
+  exact straightenFrom_bounded _ _ _ _ h1 hstart
+
+/-- One component installs only old routes or corridors. -/
+theorem straightenComponent_cases {ctx : StraightenCtx} {boxes : List (Bool × Rect)}
+    {routes out : Array (List Point)} (h : straightenComponent ctx boxes routes = .ok out) :
+    ∀ (decl : Nat) (pts : List Point), out[decl]? = some pts →
+      routes[decl]? = some pts ∨ IsCorridor pts := by
+  obtain ⟨st, h1, h2⟩ := bind_ok h
+  have he := Except.ok.inj h2
+  subst he
+  exact straightenFrom_cases _ _ _ _ h1
+
+/-- One component keeps every route orthogonal. -/
+theorem straightenComponent_orthogonal {ctx : StraightenCtx} {boxes : List (Bool × Rect)}
+    {routes out : Array (List Point)} (h : straightenComponent ctx boxes routes = .ok out)
+    (hstart : ∀ (j : Nat) (pts : List Point), routes[j]? = some pts →
+      Polyline.isOrthogonal pts = true) :
+    ∀ (j : Nat) (pts : List Point), out[j]? = some pts →
+      Polyline.isOrthogonal pts = true := by
+  obtain ⟨st, h1, h2⟩ := bind_ok h
+  have he := Except.ok.inj h2
+  subst he
+  exact straightenFrom_orthogonal _ _ _ _ h1 hstart
+
+/-- Straightening keeps every route in the canvas. -/
+theorem straightenParts_bounded {boxesOf : StraightenCtx → List Nat → List (Bool × Rect)} {rects : Array Rect} {W H : Int} :
+    ∀ (parts : List ((List Nat) × Part)) (routes out : Array (List Point)),
+    straightenParts boxesOf rects parts routes = .ok out →
+    (∀ (i : Nat) (pts : List Point), routes[i]? = some pts → ∀ p ∈ pts, PtOK W H p) →
+    out.size = routes.size ∧
+    ∀ (i : Nat) (pts : List Point), out[i]? = some pts → ∀ p ∈ pts, PtOK W H p := by
+  intro parts
+  induction parts with
+  | nil =>
+    intro routes out h hstart
+    have he := Except.ok.inj h
+    subst he
+    exact ⟨rfl, hstart⟩
+  | cons q rest ih =>
+    intro routes out h hstart
+    simp only [straightenParts] at h
+    cases hoff : straightenOffset q.1 q.2 rects with
+    | none =>
+      simp only [hoff] at h
+      exact ih routes out h hstart
+    | some off =>
+      obtain ⟨ctx0, ox, oy⟩ := off
+      simp only [hoff] at h
+      cases hcomp : straightenComponent { ctx0 with dx := ctx0.dx + ox, dy := ctx0.dy + oy } (boxesOf ctx0 q.1)
+        routes with
+      | ok updated =>
+        rw [hcomp] at h
+        obtain ⟨e1, hr1⟩ := straightenComponent_bounded hcomp hstart
+        obtain ⟨e2, hr2⟩ := ih updated out h hr1
+        exact ⟨e2.trans e1, hr2⟩
+      | error e =>
+        simp only [hcomp] at h
+        cases h
+
+/-- Straightening installs only old routes or corridors. -/
+theorem straightenParts_cases {boxesOf : StraightenCtx → List Nat → List (Bool × Rect)} {rects : Array Rect} :
+    ∀ (parts : List ((List Nat) × Part)) (routes out : Array (List Point)),
+    straightenParts boxesOf rects parts routes = .ok out →
+    ∀ (i : Nat) (pts : List Point), out[i]? = some pts →
+      routes[i]? = some pts ∨ IsCorridor pts := by
+  intro parts
+  induction parts with
+  | nil =>
+    intro routes out h i pts hi
+    have he := Except.ok.inj h
+    subst he
+    exact Or.inl hi
+  | cons q rest ih =>
+    intro routes out h i pts hi
+    simp only [straightenParts] at h
+    cases hoff : straightenOffset q.1 q.2 rects with
+    | none =>
+      simp only [hoff] at h
+      exact ih routes out h i pts hi
+    | some off =>
+      obtain ⟨ctx0, ox, oy⟩ := off
+      simp only [hoff] at h
+      cases hcomp : straightenComponent { ctx0 with dx := ctx0.dx + ox, dy := ctx0.dy + oy } (boxesOf ctx0 q.1)
+        routes with
+      | ok updated =>
+        rw [hcomp] at h
+        cases ih updated out h i pts hi with
+        | inl hmid => exact straightenComponent_cases hcomp i pts hmid
+        | inr hc => exact Or.inr hc
+      | error e =>
+        simp only [hcomp] at h
+        cases h
+
+/-- Straightening keeps every route orthogonal. -/
+theorem straightenParts_orthogonal {boxesOf : StraightenCtx → List Nat → List (Bool × Rect)} {rects : Array Rect} :
+    ∀ (parts : List ((List Nat) × Part)) (routes out : Array (List Point)),
+    straightenParts boxesOf rects parts routes = .ok out →
+    (∀ (i : Nat) (pts : List Point), routes[i]? = some pts →
+      Polyline.isOrthogonal pts = true) →
+    ∀ (i : Nat) (pts : List Point), out[i]? = some pts →
+      Polyline.isOrthogonal pts = true := by
+  intro parts
+  induction parts with
+  | nil =>
+    intro routes out h hstart
+    have he := Except.ok.inj h
+    subst he
+    exact hstart
+  | cons q rest ih =>
+    intro routes out h hstart
+    simp only [straightenParts] at h
+    cases hoff : straightenOffset q.1 q.2 rects with
+    | none =>
+      simp only [hoff] at h
+      exact ih routes out h hstart
+    | some off =>
+      obtain ⟨ctx0, ox, oy⟩ := off
+      simp only [hoff] at h
+      cases hcomp : straightenComponent { ctx0 with dx := ctx0.dx + ox, dy := ctx0.dy + oy } (boxesOf ctx0 q.1)
+        routes with
+      | ok updated =>
+        rw [hcomp] at h
+        have hr1 := straightenComponent_orthogonal hcomp hstart
+        exact ih updated out h hr1
+      | error e =>
+        simp only [hcomp] at h
+        cases h
+
+/-- Straightening changes only the routes and keeps every route in the canvas. -/
+theorem straightenAcc_bounded {inp : Input} {acc s : Acc} {W H : Int} (h : straightenAcc inp acc = .ok s)
+    (hstart : ∀ (i : Nat) (pts : List Point), acc.routes[i]? = some pts → ∀ p ∈ pts, PtOK W H p) :
+    s.rects = acc.rects ∧ s.labels = acc.labels ∧ s.titles = acc.titles ∧
+    s.canvasW = acc.canvasW ∧ s.canvasH = acc.canvasH ∧ s.routes.size = acc.routes.size ∧
+    ∀ (i : Nat) (pts : List Point), s.routes[i]? = some pts → ∀ p ∈ pts, PtOK W H p := by
+  obtain ⟨routes, h1, h2⟩ := bind_ok h
+  have he := Except.ok.inj h2
+  subst he
+  simp only [straightenRoutes] at h1
+  exact ⟨rfl, rfl, rfl, rfl, rfl, straightenParts_bounded _ _ _ h1 hstart⟩
+
+theorem straightenAcc_route_cases {inp : Input} {acc s : Acc} (h : straightenAcc inp acc = .ok s) :
+    ∀ (decl : Nat) (pts : List Point), s.routes[decl]? = some pts →
+      acc.routes[decl]? = some pts ∨ IsCorridor pts := by
+  obtain ⟨routes, h1, h2⟩ := bind_ok h
+  have he := Except.ok.inj h2
+  subst he
+  simp only [straightenRoutes] at h1
+  exact straightenParts_cases _ _ _ h1
+
+theorem straightenAcc_routes_orthogonal {inp : Input} {acc s : Acc}
+    (h : straightenAcc inp acc = .ok s)
+    (hstart : ∀ (j : Nat) (pts : List Point), acc.routes[j]? = some pts →
+      Polyline.isOrthogonal pts = true) :
+    ∀ (j : Nat) (pts : List Point), s.routes[j]? = some pts → Polyline.isOrthogonal pts = true := by
+  obtain ⟨routes, h1, h2⟩ := bind_ok h
+  have he := Except.ok.inj h2
+  subst he
+  simp only [straightenRoutes] at h1
+  exact straightenParts_orthogonal _ _ _ h1 hstart
+
+/-- With bounded parts, the straightened accumulator is bounded: every rewrite
+stays inside the bounding box of the route it replaces. -/
+theorem SceneExecution.straightAcc_bounded {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecution inp o res)
+    (hparts : ∀ q ∈ execution.componentsAcc.parts, PartBounded q.2) :
+    AccBounded execution.straightAcc.canvasW execution.straightAcc.canvasH execution.straightAcc := by
+  have hp := execution.packedAcc_bounded hparts
+  obtain ⟨r1, r2, r3, r4, r5, _, hroutes⟩ :=
+    straightenAcc_bounded execution.straight_eq hp.routes_bounded
+  rw [r4, r5]
+  refine ⟨hp.canvas_w_nonneg, hp.canvas_h_nonneg, ?_, ?_, hroutes, ?_⟩
+  · intro i r hi
+    rw [r1] at hi
+    exact hp.rects_bounded i r hi
+  · intro t ht
+    rw [r3] at ht
+    exact hp.titles_bounded t ht
+  · intro i r hi
+    rw [r2] at hi
+    exact hp.labels_bounded i r hi
+
 /-- Boxes, routes, and canvas dimensions of a successful leaf execution are
 contained in the canvas whenever every placed component part is bounded. -/
 theorem layout_scene_box_route_bounded {inp : Input} {o : Options} {res : FamilyResult}
@@ -3167,17 +3805,17 @@ theorem layout_scene_box_route_bounded {inp : Input} {o : Options} {res : Family
       (∀ q ∈ res.scene.routes.zipIdx, ∀ p ∈ q.1.points,
         Size.containsCell res.scene.canvas p = true) := by
   let execution := Classical.choice (layout_sceneExecution h)
-  have hacc := execution.packedAcc_bounded hparts
+  have hacc := execution.straightAcc_bounded hparts
   have _hm := layout_canvas_margins h
   have hm1 := checkedParams_canvasMargin_ge_one execution.checked
   have hm0 := canvasMarginOf_ge_one o.profile inp.kind
   refine ⟨by omega, by omega, ?_, ?_⟩
   · rw [execution.scene_eq]
     exact sceneOf_boxes_bounded execution.params inp o execution.lines
-      execution.packedAcc execution.measured hacc (by omega)
+      execution.straightAcc execution.measured hacc (by omega)
   · rw [execution.scene_eq]
     exact sceneOf_routes_bounded execution.params inp o execution.lines
-      execution.packedAcc execution.measured hacc hm1
+      execution.straightAcc execution.measured hacc hm1
 
 theorem layout_scene_box_route_bounded_of_success
     {inp : Input} {o : Options} {res : FamilyResult}
@@ -3216,6 +3854,7 @@ theorem SceneExecution.measured_rect_bounded
       exact hacc.labels_bounded index stored hget
   have hmargin := checkedParams_canvasMargin_ge_one execution.checked
   rw [execution.scene_eq]
+  rw [execution.scene_canvas]
   exact orient_shiftRect_containsCellRect o.direction execution.packedAcc.canvasW
     execution.packedAcc.canvasH execution.params.canvasMargin _ hrect (by omega)
 
@@ -3243,6 +3882,7 @@ theorem SceneExecution.measured_label_bounded
     rfl
   have hcontained := execution.measured_rect_bounded measured.index
   rw [execution.scene_eq] at hcontained ⊢
+  simp only [execution.scene_labels, execution.scene_canvas] at hcontained ⊢
   exact ⟨placed, hemitted, rfl, rfl, hcontained⟩
 
 theorem SceneExecution.packed_title_caption_fit
@@ -3329,6 +3969,7 @@ theorem SceneExecution.title_rect_bounded
     ⟨hstored.1, by omega, hstored.2.2.1, by omega, hfit.1, hfit.2.1⟩
   have hmargin := checkedParams_canvasMargin_ge_one execution.checked
   rw [execution.scene_eq]
+  rw [execution.scene_canvas]
   exact orient_shiftRect_containsCellRect o.direction execution.packedAcc.canvasW
     execution.packedAcc.canvasH execution.params.canvasMargin
     { title.2 with w := size.w, h := size.h } hrect (by omega)
@@ -3393,6 +4034,7 @@ theorem SceneExecution.unmeasured_title_label_bounded
       simp only [htitle, Option.map_some, Option.getD_some] <;>
       rfl
   rw [execution.scene_eq] at hbound ⊢
+  simp only [execution.scene_labels, execution.scene_canvas] at hbound ⊢
   exact ⟨placed, hemitted, rfl, rfl, hbound⟩
 
 theorem ownedTextRect_containsCellRect (P : Params) (canvas : Size)
@@ -3474,6 +4116,7 @@ theorem SceneExecution.unmeasured_fallback_label_bounded
       simp only [hd, Option.bind_eq_bind, Pure.pure] at htitle ⊢ <;>
       simp only [htitle, Option.map_none, Option.getD_none, placed, hd]
   rw [execution.scene_eq] at hfallback ⊢
+  simp only [execution.scene_labels, execution.scene_canvas] at hfallback ⊢
   exact ⟨placed, hemitted, rfl, rfl, hfallback⟩
 
 theorem FrameOrigin.caption_cellBounds {o : Options} {id : String} {size : Size}
@@ -3523,6 +4166,7 @@ theorem SceneExecution.owner_rect_bounded
       exact hacc.rects_bounded index stored hget
   have hmargin := checkedParams_canvasMargin_ge_one execution.checked
   rw [execution.scene_eq]
+  rw [execution.scene_canvas]
   exact orient_shiftRect_containsCellRect o.direction execution.packedAcc.canvasW
     execution.packedAcc.canvasH execution.params.canvasMargin _ hrect (by omega)
 
@@ -3580,6 +4224,7 @@ theorem SceneExecution.canvas_nonneg
   have hw := hacc.canvas_w_nonneg
   have hh := hacc.canvas_h_nonneg
   rw [execution.scene_eq]
+  rw [execution.scene_canvas]
   unfold sceneOf orientCanvas
   dsimp only
   cases o.direction <;> dsimp only <;> constructor <;> omega
@@ -3598,13 +4243,13 @@ theorem SceneExecution.primitiveBounds_of_box_sizing_labels
     (hlabels : ∀ label ∈ res.scene.labels,
       Size.containsCellRect res.scene.canvas label.rect = true) :
     res.scene.PrimitiveBounds := by
-  have hacc := execution.packedAcc_bounded execution.components_parts_bounded
+  have hacc := execution.straightAcc_bounded execution.components_parts_bounded
   have hmargin := checkedParams_canvasMargin_ge_one execution.checked
   have signs := execution.parameter_signs
   have hboxes := sceneOf_boxes_bounded execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc (by omega)
+    execution.straightAcc execution.measured hacc (by omega)
   have hroutes := sceneOf_routes_bounded execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc hmargin
+    execution.straightAcc execution.measured hacc hmargin
   have htitles := execution.scene_titles_bounded
   rw [execution.scene_eq] at hsizing hlabels htitles ⊢
   apply sceneOf_primitiveBounds
@@ -3616,7 +4261,8 @@ theorem SceneExecution.primitiveBounds_of_box_sizing_labels
     exact ⟨hboxes q hq, (hsizing q hq).1, (hsizing q hq).2⟩
   · exact hroutes
   · exact hlabels
-  · exact htitles
+  · rw [execution.straight_titles, execution.straight_canvasH]
+    exact htitles
 
 theorem frameRect_plain_dims (P : Params) (cg : Graph) (run : Run)
     (i : Nat) (node : ProperNode)
@@ -3948,7 +4594,7 @@ theorem SceneExecution.boxes_eq_map
           (orientRect o.direction execution.packedAcc.canvasH
             (execution.packedAcc.rects.getD q.2 default)))
         q.1.parent q.1.exclusive) :=
-  congrArg (fun s : Scene => s.boxes) execution.scene_eq
+  (congrArg (fun s : Scene => s.boxes) execution.scene_eq).trans execution.scene_boxes
 
 theorem SceneExecution.box_role_cases
     {inp : Input} {o : Options} {res : FamilyResult}
@@ -3977,11 +4623,11 @@ theorem SceneExecution.fallback_of_sizing
       (ownedTextRect execution.params
         (res.scene.boxes.getD index ⟨"", "", default, "", false⟩)
         (execution.lines.getD index [])) = true := by
-  have hacc := execution.packedAcc_bounded execution.components_parts_bounded
+  have hacc := execution.straightAcc_bounded execution.components_parts_bounded
   have hmargin := checkedParams_canvasMargin_ge_one execution.checked
   have signs := execution.parameter_signs
   have hboxes := sceneOf_boxes_bounded execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc (by omega)
+    execution.straightAcc execution.measured hacc (by omega)
   have hget : res.scene.boxes[index]? = some res.scene.boxes[index] :=
     List.getElem?_eq_getElem hi
   have hmem : (res.scene.boxes[index], index) ∈ res.scene.boxes.zipIdx :=
@@ -3990,7 +4636,8 @@ theorem SceneExecution.fallback_of_sizing
       res.scene.boxes[index] := by
     simp only [List.getD_eq_getElem?_getD, hget, Option.getD_some]
   have hr : Size.containsCellRect res.scene.canvas res.scene.boxes[index].rect = true := by
-    have hb := hboxes (res.scene.boxes[index], index) (by rw [← execution.scene_eq]; exact hmem)
+    have hb := hboxes (res.scene.boxes[index], index)
+      (by rw [← execution.scene_eq]; exact hmem)
     rw [← execution.scene_eq] at hb
     exact hb
   have hheight : ((execution.lines.getD index []).length : Int) * execution.params.lineH ≤
@@ -4034,7 +4681,7 @@ theorem SceneExecution.labels_bounded_of_ownedTextRects
       Size.containsCellRect res.scene.canvas label.rect = true := by
   intro label hl
   have hbox := execution.boxes_eq_map
-  rw [execution.scene_eq] at hl
+  rw [execution.scene_eq, execution.scene_labels] at hl
   obtain ⟨q, _, hemitted⟩ := List.mem_filterMap.mp hl
   cases hexclusive : inp.boxes.any
       (fun box => box.id == q.1.owner && box.exclusive) with

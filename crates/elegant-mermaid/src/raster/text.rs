@@ -1,7 +1,7 @@
 use super::{RasterError, encode, invalid, paint};
 use crate::{
     r#gen::advances::ADVANCES,
-    outlines::{self, Command, Contours, GlyphOutlines},
+    outlines::{self, Command, Contours, GlyphOutlines, fallback::NotoFonts},
     scene::TextItem,
     theme::{TextChoice, Theme, Token},
 };
@@ -17,7 +17,19 @@ static EMBEDDED: LazyLock<GlyphOutlines> = LazyLock::new(|| {
         (0, include_bytes!("../../assets/fonts/Inter-Regular.ttf")),
         (1, include_bytes!("../../assets/fonts/Inter-SemiBold.ttf")),
     ];
-    GlyphOutlines::new(fonts.map(|(weight, data)| load(weight, data)))
+    let noto = NotoFonts {
+        emoji: include_bytes!("../../assets/fonts/NotoEmoji-Regular.ttf"),
+        sans_regular: include_bytes!("../../assets/fonts/NotoSans-Regular.ttf"),
+        sans_semibold: include_bytes!("../../assets/fonts/NotoSans-SemiBold.ttf"),
+        symbols_regular: include_bytes!("../../assets/fonts/NotoSansSymbols-Regular.ttf"),
+        symbols_semibold: include_bytes!("../../assets/fonts/NotoSansSymbols-SemiBold.ttf"),
+        symbols2: include_bytes!("../../assets/fonts/NotoSansSymbols2-Regular.ttf"),
+        math: include_bytes!("../../assets/fonts/NotoSansMath-Regular.ttf"),
+        cjk_regular: include_bytes!("../../assets/fonts/NotoSansCJKsc-Regular.ttf"),
+        cjk_semibold: include_bytes!("../../assets/fonts/NotoSansCJKsc-SemiBold.ttf"),
+        coptic: include_bytes!("../../assets/fonts/NotoSansCoptic-Regular.ttf"),
+    };
+    GlyphOutlines::with_fallback(fonts.map(|(weight, data)| load(weight, data)), noto)
 });
 
 /// The outlines of the embedded Inter fonts, built on first use.
@@ -143,8 +155,14 @@ mod missing_glyph_regression {
     use std::error::Error;
     use tiny_skia::{Pixmap, Transform};
 
-    const MISSING_NARROW: char = '\u{0378}';
-    const MISSING_WIDE: char = '\u{4E00}';
+    const MISSING_NARROW: char = match char::from_u32(0x378) {
+        Some(c) => c,
+        None => '?',
+    };
+    const MISSING_NARROW_2: char = match char::from_u32(0x379) {
+        Some(c) => c,
+        None => '?',
+    };
     const VISIBLE: char = 'A';
     const X0: i32 = 1280;
     const Y0: i32 = 1280;
@@ -182,7 +200,7 @@ mod missing_glyph_regression {
         let outlines = inter_outlines();
         for (name, c, expected_width) in [
             ("narrow", MISSING_NARROW, 1_u8),
-            ("wide", MISSING_WIDE, 2_u8),
+            ("narrow2", MISSING_NARROW_2, 1_u8),
         ] {
             assert_eq!(
                 table_width(u32::from(c)),
@@ -192,6 +210,11 @@ mod missing_glyph_regression {
             assert!(
                 !outlines.has_outline(w, u32::from(c)),
                 "{name} {c:?} gained an Inter outline; choose another missing glyph"
+            );
+            assert!(
+                crate::outlines::fallback::font_for_codepoint(outlines.noto(), w, u32::from(c))
+                    .is_none(),
+                "{name} {c:?} gained a fallback outline; choose another missing glyph"
             );
             let key = (w.index(), u32::from(c));
             let index = ADVANCES.partition_point(|row| (row.weight, row.cp) < key);
@@ -249,12 +272,12 @@ mod missing_glyph_regression {
 
     #[test]
     fn missing_glyph_prefix_moves_visible_glyph_by_the_upem_rule() -> Result<(), Box<dyn Error>> {
-        let prefixed = format!("{MISSING_NARROW}{MISSING_WIDE}{VISIBLE}");
+        let prefixed = format!("{MISSING_NARROW}{MISSING_NARROW_2}{VISIBLE}");
         for (role, name) in [(TextRole::Body, "regular"), (TextRole::Label, "semibold")] {
             let w = weight_for(role);
             assert_missing_glyphs_have_no_outline(w)?;
             let em = upem(w);
-            let prefix_units = floor_div(6 * em + 5, 10) + em;
+            let prefix_units = 2 * floor_div(6 * em + 5, 10);
             let factor = SIZE_PX as f32 * 64.0 / em as f32;
             let required_offset =
                 i32::try_from((prefix_units as f32 * factor + 0.5).floor() as i64)
@@ -278,13 +301,13 @@ mod missing_glyph_regression {
 
     #[test]
     fn missing_glyph_width_shifts_end_aligned_glyph() -> Result<(), Box<dyn Error>> {
-        let suffixed = format!("{VISIBLE}{MISSING_NARROW}{MISSING_WIDE}");
+        let suffixed = format!("{VISIBLE}{MISSING_NARROW}{MISSING_NARROW_2}");
         for (role, name) in [(TextRole::Body, "regular"), (TextRole::Label, "semibold")] {
             let w = weight_for(role);
             assert_missing_glyphs_have_no_outline(w)?;
             let em = upem(w);
             let visible_units = i64::from(table_advance(w, u32::from(VISIBLE))?);
-            let missing_units = floor_div(6 * em + 5, 10) + em;
+            let missing_units = 2 * floor_div(6 * em + 5, 10);
             let scaled = |units: i64| ceil_div(units * i64::from(SIZE_PX) * 64, em);
             let required_shift =
                 i32::try_from(scaled(visible_units + missing_units) - scaled(visible_units))
@@ -303,6 +326,16 @@ mod missing_glyph_regression {
                 "{name}: end-aligned glyph must land at the independently computed origin"
             );
         }
+        Ok(())
+    }
+    #[test]
+    fn fallback_cjk_emoji_math_symbols_paint() -> Result<(), Box<dyn Error>> {
+        for glyph in ["中", "文", "😀", "𝔘", "⚗"] {
+            let pix = render(TextRole::Body, Align::Start, glyph, X0)?;
+            assert_painted(&pix, glyph);
+        }
+        let pix = render(TextRole::Body, Align::Start, "中文 😀 𝔘 ⚗", X0)?;
+        assert_painted(&pix, "fallback label");
         Ok(())
     }
 }

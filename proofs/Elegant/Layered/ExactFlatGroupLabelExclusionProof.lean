@@ -602,6 +602,9 @@ private theorem foreignLabelNotInside {exactIds : List String} {inp : Input} {o 
   have hline := checkedParams_lineH_nonneg execution.checked
   have hacc := execution.packedAcc_bounded (exactPartsBounded' execution)
   rw [execution.scene_eq] at hlabel
+  have hlabBridge := (sceneOf_straightenAcc execution.params inp o execution.lines
+    execution.packedAcc execution.straightAcc execution.measured execution.straight_eq).2.2
+  rw [hlabBridge] at hlabel
   obtain ⟨⟨original, index⟩, hzip, hemitted⟩ := List.mem_filterMap.mp hlabel
   cases hex : inp.boxes.any (fun box => box.id == original.owner && box.exclusive) with
   | true => simp only [hex, ↓reduceIte] at hemitted; cases hemitted

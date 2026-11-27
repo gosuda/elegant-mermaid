@@ -111,6 +111,7 @@ fn embedded_nodes_and_routes_change_the_parent_cost_denominator() -> Result<(), 
         loop_extents: Vec::new(),
         label_reservations: Vec::new(),
         budget: false,
+        straighten: None,
     };
     assert_eq!(score(&graph, &input, &measurements, &part)?, 3);
     Ok(())

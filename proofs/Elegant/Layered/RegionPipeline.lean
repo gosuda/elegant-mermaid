@@ -70,6 +70,7 @@ def layoutRIds (exactIds : List String) (idSets : List (String × List String))
   let acc ← (components g).foldlM
     (fun acc comp => layoutComponentR P exactIds spec inp o g acc comp measured) start
   let acc ← packAcc P o acc
+  let acc ← straightenAcc inp acc
   let scene := sceneOf P inp o lines acc measured
   if I32_MAX < scene.canvas.w ∨ I32_MAX < scene.canvas.h then throw .overflow
   else pure ⟨scene, acc.budget, acc.parts.foldl (fun area part => area + part.2.area) 0⟩

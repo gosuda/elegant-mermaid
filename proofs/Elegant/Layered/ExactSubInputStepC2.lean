@@ -69,7 +69,7 @@ theorem subInputWellFormedB_layoutX (exactIds : List String) :
 
 /-- Exact leaf id fact: `layoutX` builds its scene with the same `sceneOf`
 call as `layout`, so the proof is `layout_ids` with one extra bind for the
-`exactGraph` step. -/
+`exactGraph` step and one for the `straightenAcc` step. -/
 private theorem X_layout_ids {exactIds : List String} {inp : Input} {o : Options}
     {res : FamilyResult} (h : layoutX exactIds inp o = .ok res) :
     res.scene.boxes.map (·.id) = inp.boxes.map (·.id) ∧
@@ -82,6 +82,7 @@ private theorem X_layout_ids {exactIds : List String} {inp : Input} {o : Options
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
@@ -104,6 +105,7 @@ private theorem X_layout_box_parent {exactIds : List String} {inp : Input} {o : 
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
   split at h

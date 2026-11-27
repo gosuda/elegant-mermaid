@@ -75,7 +75,7 @@ def lepePhaseRestore : Prop :=
 /-- Phase fact: `relocateLabels` leaves boxes and routes alone. -/
 def lepePhaseRelocate : Prop :=
   ∀ {axis : Axis} {frames : List LaneFrame} {s result : Scene} {strip gap : Int}
-    (h : relocateLabels axis strip gap s = .ok result)
+    (_h : relocateLabels axis strip gap s = .ok result)
     (_hE : EndsOnOld axis frames s.layoutDump),
     EndsOnOld axis frames result.layoutDump
 

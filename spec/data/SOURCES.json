@@ -113,5 +113,60 @@
     "path": "spec/data/upstream/mermaid-config.schema.yaml",
     "url": "https://raw.githubusercontent.com/mermaid-js/mermaid/2086904e76c692331e34a45d7cc3bc30860d040e/packages/mermaid/src/schemas/config.schema.yaml",
     "sha256": "5e8d44ec7d6788474d835caa0ff22f51020b80f92febaa26562e11ca57dd053e"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansCJKsc-Regular.ttf",
+    "url": "https://github.com/notofonts/noto-cjk/raw/main/Sans/Variable/TTF/NotoSansCJKsc-VF.ttf",
+    "sha256": "3c450a7d2fd7dac4c24b84fcf2fa200486080cb7a5c1baf638bf078668165b6a"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansCJKsc-SemiBold.ttf",
+    "url": "https://github.com/notofonts/noto-cjk/raw/main/Sans/Variable/TTF/NotoSansCJKsc-VF.ttf",
+    "sha256": "a70aa1c2d17dfba013b9c177560973b8804ad84b828e6b6465b9ba1331ad21e1"
+  },
+  {
+    "path": "spec/data/fonts/NotoSans-Regular.ttf",
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/NotoSans%5Bwdth,wght%5D.ttf",
+    "sha256": "3b669debc9377551b0a50bfd7f663c17b8a1272fcd4cf884a0d1bbf1a7f6e8e0"
+  },
+  {
+    "path": "spec/data/fonts/NotoSans-SemiBold.ttf",
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/NotoSans%5Bwdth,wght%5D.ttf",
+    "sha256": "17a01e23b6a6f64093ae6ef23cbf85b809d621f2b39f5433b9e7f2f7b1e8ef1e"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansSymbols-Regular.ttf",
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssymbols/NotoSansSymbols%5Bwght%5D.ttf",
+    "sha256": "21569f918d291d417ee2ea624ed901628e7d1d9353299afac504d2a78f137565"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansSymbols-SemiBold.ttf",
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssymbols/NotoSansSymbols%5Bwght%5D.ttf",
+    "sha256": "61f4d56e974bd902ed863df7eeade97ecd334d4b0a141bce43690d4262076b47"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansSymbols2-Regular.ttf",
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssymbols2/NotoSansSymbols2-Regular.ttf",
+    "sha256": "7d5fb73b7ca67a6798101741f5d280a3d016a56a197afcd4199dbb57b4b82a21"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansMath-Regular.ttf",
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosansmath/NotoSansMath-Regular.ttf",
+    "sha256": "3f495fe933c06786e4d5f6d86b8ee70b6753a68ee3b9d87528726de0f6e2c47d"
+  },
+  {
+    "path": "spec/data/fonts/NotoSansCoptic-Regular.ttf",
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanscoptic/NotoSansCoptic-Regular.ttf",
+    "sha256": "51990af1bb0df7be8bfe98fda97769cecfa36eee15381e5504df400276abd735"
+  },
+  {
+    "path": "spec/data/fonts/NotoEmoji-Regular.ttf",
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/notoemoji/NotoEmoji%5Bwght%5D.ttf",
+    "sha256": "051a401d1d6f1efd9db8c974f448f91c7153bcd6012ed535c46a067565bab89e"
+  },
+  {
+    "path": "spec/data/fonts/LICENSES-NOTO.txt",
+    "url": "https://openfontlicense.org/open-font-license-official-text/",
+    "sha256": "042fdbc4ed9f9f7a6a4e1f814b06c5ef435ce0465e39b6ae02d09a44135b523c"
   }
 ]

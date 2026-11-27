@@ -125,7 +125,7 @@ func (r *renderer) header(opts Options, width, height string) {
 	}
 	font := opts.FontFamily
 	if font == "" {
-		font = "Inter, 'Helvetica Neue', Arial, sans-serif"
+		font = "Inter, 'Noto Sans', 'Noto Sans Symbols', 'Noto Sans Symbols 2', 'Noto Sans Math', 'Noto Sans CJK SC', 'Noto Sans Coptic', 'Noto Emoji', 'Helvetica Neue', Arial, sans-serif"
 	}
 	fmt.Fprintf(&r.Builder, "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 %s %s' width='%s' height='%s' font-family='%s' role='graphics-document document' aria-roledescription='diagram' aria-labelledby='%stitle'", width, height, width, height, escape(font), opts.IDPrefix)
 	if opts.Description != "" {

@@ -98,7 +98,12 @@ private theorem leaf_caption_source {ids : List String} {inp : Input} {o : Optio
         refine ⟨key, box, hget, hp.2, hp.1.trans howner.symm,
           ⟨source, List.mem_of_getElem? hsource, hp.1.symm⟩, ?_⟩
         rw [hp.1]
-        exact (congrArg (fun label : SceneLabel => label.toLabel.rect) hemitted).symm
+        have heq : l = _ := hemitted.symm
+        rw [congrArg (fun s : SceneLabel => s.rect) heq]
+        unfold sceneCaptionRect
+        have hfields := straightenAcc_fields execution.straight_eq
+        rw [hfields.1, hfields.2.2.1, hfields.2.2.2.2]
+        rfl
 
 private theorem nonedge_sceneItem_source {P : Params} {inp : Input} {boxes : List Box}
     {routes : List Route} {lines : List (List Measure.Line)} {labels : List SceneLabel}
@@ -183,11 +188,13 @@ theorem exact_leaf_caption_agreement {ids : List String} {inp : Input}
     leaf_caption_source execution hdisjoint hlabel hmodelOwner
   obtain ⟨actual, ha, haOwner, haRole, haFirst⟩ :=
     exact_leaf_caption_firstText execution hwf hfit hkey hex howned
+  have hfields_items := straightenAcc_fields execution.straight_eq
   have hitems : res.scene.items =
       applyTitles (sceneTitlesExpr execution.params inp o execution.lines execution.packedAcc)
         (sceneItems execution.params inp res.scene.boxes res.scene.routes execution.lines
           res.scene.labels) := by
     rw [execution.scene_eq]
+    simp only [sceneOf, hfields_items.2.2.1, hfields_items.2.2.2.2]
     rfl
   have hids : (res.scene.boxes.map (·.id)).Nodup := by
     rw [hsceneIds]

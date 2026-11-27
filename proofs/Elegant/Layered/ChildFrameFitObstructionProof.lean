@@ -10,14 +10,32 @@ private theorem rect_dims_of_cell_bounds {canvas : Size} {rect : Rect}
   simp only [Size.containsCellRect, decide_eq_true_iff] at h
   exact ⟨h.2.2.1, h.2.2.2.1⟩
 
+/-- Straightening preserves the installed-title captions: titles and canvas height are unchanged. -/
+private theorem sceneTitlesExpr_straightAcc {inp : Input} {o : Options} {res : FamilyResult}
+    (P : Params) (lines : List (List Measure.Line))
+    (execution : SceneExecution inp o res) :
+    sceneTitlesExpr P inp o lines execution.straightAcc =
+      sceneTitlesExpr P inp o lines execution.packedAcc := by
+  unfold sceneTitlesExpr
+  rw [execution.straight_titles, execution.straight_canvasH]
+
+/-- Straightening preserves the scene boxes: rects and canvas height are unchanged. -/
+private theorem sceneBoxesExpr_straightAcc {inp : Input} {o : Options} {res : FamilyResult}
+    (P : Params) (execution : SceneExecution inp o res) :
+    sceneBoxesExpr P inp o execution.straightAcc =
+      sceneBoxesExpr P inp o execution.packedAcc := by
+  unfold sceneBoxesExpr
+  rw [(straightenAcc_fields execution.straight_eq).1, execution.straight_canvasH]
+
 private theorem flat_layout_label_dims {inp : Input} {o : Options} {res : FamilyResult}
     (run : layout inp o = .ok res) :
     ∀ label ∈ res.scene.labels, 0 ≤ label.rect.w ∧ 0 ≤ label.rect.h := by
   obtain ⟨execution⟩ := layout_sceneExecution run
   have boxesBounded := (layout_scene_box_route_bounded_of_success run).2.2.1
   have lineHeight := (checkedParams_sizing_nonneg execution.checked).1
-  have boxesEq : res.scene.boxes = sceneBoxesExpr execution.params inp o execution.packedAcc :=
-    execution.boxes_eq_map
+  have boxesEq : res.scene.boxes = sceneBoxesExpr execution.params inp o execution.straightAcc := by
+    rw [sceneBoxesExpr_straightAcc]
+    exact execution.boxes_eq_map
   intro label member
   rw [execution.scene_eq] at member
   obtain ⟨source, _, emitted⟩ := List.mem_filterMap.mp member
@@ -29,7 +47,33 @@ private theorem flat_layout_label_dims {inp : Input} {o : Options} {res : Family
     | some measured =>
       simp only [measuredAt, Option.some.injEq] at emitted
       subst label
-      exact rect_dims_of_cell_bounds (execution.measured_rect_bounded measured.index)
+      have hacc := execution.straightAcc_bounded execution.components_parts_bounded
+      have hrect :
+          let rect := execution.straightAcc.labels.getD measured.index default
+          0 ≤ rect.x ∧ rect.x + rect.w ≤ execution.straightAcc.canvasW ∧
+          0 ≤ rect.y ∧ rect.y + rect.h ≤ execution.straightAcc.canvasH ∧
+          0 ≤ rect.w ∧ 0 ≤ rect.h := by
+        cases hget : execution.straightAcc.labels[measured.index]? with
+        | none =>
+          rw [Array.getD_eq_getD_getElem?, hget]
+          change 0 ≤ (0 : Int) ∧ 0 ≤ execution.straightAcc.canvasW ∧
+            0 ≤ (0 : Int) ∧ 0 ≤ execution.straightAcc.canvasH ∧
+            0 ≤ (0 : Int) ∧ 0 ≤ (0 : Int)
+          exact ⟨by omega, hacc.canvas_w_nonneg, by omega, hacc.canvas_h_nonneg,
+            by omega, by omega⟩
+        | some stored =>
+          rw [Array.getD_eq_getD_getElem?, hget]
+          exact hacc.labels_bounded measured.index stored hget
+      have hmargin := checkedParams_canvasMargin_ge_one execution.checked
+      have hcontained : Size.containsCellRect res.scene.canvas
+          (shiftRect execution.params.canvasMargin execution.params.canvasMargin
+            (orientRect o.direction execution.straightAcc.canvasH
+              (execution.straightAcc.labels.getD measured.index default))) = true := by
+        rw [execution.scene_eq]
+        exact orient_shiftRect_containsCellRect o.direction
+          execution.straightAcc.canvasW execution.straightAcc.canvasH
+          execution.params.canvasMargin _ hrect (by omega)
+      exact rect_dims_of_cell_bounds hcontained
     | none =>
       simp only [measuredAt] at emitted
       cases ownerAt : inp.boxes.findIdx?
@@ -39,15 +83,17 @@ private theorem flat_layout_label_dims {inp : Input} {o : Options} {res : Family
         simp only [ownerAt, Option.some.injEq] at emitted
         subst label
         let rect := sceneCaptionRect execution.params inp o execution.lines
-          execution.packedAcc ownerIndex source.1.owner
+          execution.straightAcc ownerIndex source.1.owner
         change 0 ≤ rect.w ∧ 0 ≤ rect.h
         simp only [rect, sceneCaptionRect]
         cases titleAt : (sceneTitlesExpr execution.params inp o execution.lines
-            execution.packedAcc).find? (fun title => title.1 == source.1.owner) with
+            execution.straightAcc).find? (fun title => title.1 == source.1.owner) with
         | some title =>
           simp only [Option.map_some, Option.getD_some]
+          have htitleP := titleAt
+          rw [sceneTitlesExpr_straightAcc] at htitleP
           exact rect_dims_of_cell_bounds
-            (execution.scene_titles_bounded title (List.mem_of_find?_eq_some titleAt))
+            (execution.scene_titles_bounded title (List.mem_of_find?_eq_some htitleP))
         | none =>
           simp only [Option.map_none, Option.getD_none, ← boxesEq]
           let box := res.scene.boxes.getD ownerIndex ⟨"", "", default, "", false⟩

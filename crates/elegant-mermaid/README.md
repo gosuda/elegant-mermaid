@@ -23,6 +23,7 @@ The three diagram rows are the same bytes the repository ships as the text-rende
 
 - **One binary, no browser:** `emd` renders without a JavaScript runtime or a DOM; the npm package ships the compiled binary behind a small Node launcher, so the npm command still needs Node.js.
 - **Two engines, one output:** the Go and Rust implementations produce byte-identical output. `just parity` compares them over a corpus of 3,566 diagrams.
+- **Text beyond Latin:** CJK text, emoji, and mathematical and technical symbols draw from Noto fallback fonts bundled beside Inter, in PNG and in SVG drawn as paths, and no diagram changes layout.
 - **33 diagram kinds:** from flowchart and sequence to gantt, sankey, and railroad. The full list is under [Diagram kinds](#diagram-kinds).
 - **Checker and linter:** stable diagnostic codes, safe automatic fixes, and text, JSON, SARIF, or GitHub annotation output.
 - **Integer geometry:** layout uses no floating point. A Lean 4 model in [`proofs/`](proofs) checks layouts against hard geometry constraints.
@@ -258,4 +259,4 @@ Generated files come from `tools/specgen`. Edit the sources under [`spec/`](spec
 
 ## License
 
-Apache-2.0. See [`LICENSE`](LICENSE). The bundled Inter fonts are under OFL-1.1 and the Unicode data under Unicode-3.0; [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists every bundled work.
+Apache-2.0. See [`LICENSE`](LICENSE). The bundled Inter and Noto fonts are under OFL-1.1 and the Unicode data under Unicode-3.0; [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) lists every bundled work.

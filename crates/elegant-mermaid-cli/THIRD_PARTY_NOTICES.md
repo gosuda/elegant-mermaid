@@ -101,6 +101,31 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
+## Noto fallback fonts (OFL-1.1)
+
+Licence: OFL-1.1
+
+Seven font families from the Noto project ship behind Inter as fallback
+fonts: Noto Sans CJK SC, Noto Sans, Noto Sans Symbols, Noto Sans
+Symbols 2, Noto Sans Math, Noto Sans Coptic and Noto Emoji. Each one
+carries the SIL Open Font License, Version 1.1, printed in full in the
+Inter section above, with its own copyright notice. The complete
+license text of every family is in `spec/data/fonts/LICENSES-NOTO.txt`,
+which also records how each file was made from its upstream source.
+
+Notice text, one line per family (`spec/data/fonts/LICENSES-NOTO.txt`
+and the `name` table of each font):
+
+```text
+© 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/latin-greek-cyrillic)
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/symbols)
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/symbols)
+Copyright 2022 Google LLC. All Rights Reserved.
+Copyright 2022 The Noto Project Authors (https://github.com/notofonts/coptic)
+Copyright 2013 Google LLC
+```
+
 ## Unicode data (Unicode-3.0)
 
 Licence: Unicode-3.0
