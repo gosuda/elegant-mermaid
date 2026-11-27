@@ -42,7 +42,7 @@ pub(crate) fn relative_url(target: &Path, host: &Path) -> io::Result<String> {
     let common = target
         .iter()
         .zip(&parent)
-        .take_while(|(left, right)| left == right)
+        .take_while(|(left, right)| same_volume(left, right))
         .count();
     if common == 0 {
         return Err(io::Error::new(
@@ -61,6 +61,33 @@ pub(crate) fn relative_url(target: &Path, host: &Path) -> io::Result<String> {
         url.push('.');
     }
     Ok(url)
+}
+
+/// Whether two leading components name the same volume. Comparison only:
+/// resolved paths keep their spelling for filesystem operations. An
+/// ordinary drive prefix matches its verbatim form by drive letter;
+/// anything else must already be identical.
+fn same_volume(left: &Component, right: &Component) -> bool {
+    if left == right {
+        return true;
+    }
+    match (left, right) {
+        (Component::Prefix(left), Component::Prefix(right)) => {
+            same_drive(left.kind(), right.kind())
+        }
+        _ => false,
+    }
+}
+
+/// Whether two Windows prefixes name the same drive by letter.
+fn same_drive(left: std::path::Prefix<'_>, right: std::path::Prefix<'_>) -> bool {
+    match (left, right) {
+        (std::path::Prefix::Disk(left), std::path::Prefix::VerbatimDisk(right))
+        | (std::path::Prefix::VerbatimDisk(left), std::path::Prefix::Disk(right)) => {
+            left.eq_ignore_ascii_case(&right)
+        }
+        _ => false,
+    }
 }
 
 /// Existing components must be directories. Missing components are prospective
@@ -278,6 +305,16 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn verbatim_and_ordinary_drive_prefixes_share_a_volume() {
+        use std::path::Prefix::{Disk, VerbatimDisk};
+        assert!(super::same_drive(Disk(b'C'), VerbatimDisk(b'C')));
+        assert!(super::same_drive(VerbatimDisk(b'c'), Disk(b'C')));
+        assert!(!super::same_drive(Disk(b'C'), VerbatimDisk(b'D')));
+        assert!(!super::same_drive(Disk(b'C'), Disk(b'D')));
+        assert!(!super::same_drive(VerbatimDisk(b'C'), VerbatimDisk(b'D')));
+    }
+
     #[cfg(unix)]
     #[test]
     fn directory_links_resolve_before_parents_and_final_links_stay_literal() -> std::io::Result<()>
@@ -339,6 +376,48 @@ mod tests {
             assert_eq!(relative_url(&ordinary.join(&image), &host)?, "image.svg");
             assert_eq!(relative_url(&image, &ordinary.join(&host))?, "image.svg");
         }
+        Ok(())
+    }
+    /// The same directory in ordinary spelling, so a probe exercises the
+    /// Win32-normalized form instead of the canonical verbatim one.
+    #[cfg(windows)]
+    fn ordinary_spelling(canonical: &Path) -> std::io::Result<PathBuf> {
+        let mut components = canonical.components();
+        let mut ordinary = match components.next() {
+            Some(std::path::Component::Prefix(prefix)) => match prefix.kind() {
+                std::path::Prefix::VerbatimDisk(drive) => {
+                    PathBuf::from(format!("{}:", char::from(drive)))
+                }
+                _ => return Err(std::io::ErrorKind::InvalidInput.into()),
+            },
+            _ => return Err(std::io::ErrorKind::InvalidInput.into()),
+        };
+        for component in components {
+            ordinary.push(component.as_os_str());
+        }
+        Ok(ordinary)
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn mixed_ordinary_and_verbatim_paths_share_the_same_drive() -> std::io::Result<()> {
+        let directory = TestDir::new()?;
+        std::fs::create_dir_all(directory.0.join("assets"))?;
+        let ordinary = ordinary_spelling(&directory.0)?;
+        assert_eq!(
+            relative_url(
+                &directory.0.join("assets").join("image.svg"),
+                &ordinary.join("out.md")
+            )?,
+            "assets/image.svg"
+        );
+        assert_eq!(
+            relative_url(
+                &ordinary.join("assets").join("image.svg"),
+                &directory.0.join("out.md")
+            )?,
+            "assets/image.svg"
+        );
         Ok(())
     }
 
