@@ -1,0 +1,504 @@
+{
+  "producer": "2c47b06828bf4c1d0d81feba68b2c99b81d214e6",
+  "run": 45974466878,
+  "job": 140422635303,
+  "conclusion": "failure",
+  "artifact": {
+    "id": 15186462446,
+    "zip_sha256": "6368a36fd6bd8a65050769e137f6b8439a5449cbe45dd568d19bf25c45d2a7b9",
+    "bytes": 951124
+  },
+  "log_sha256": "f0d93c32d6e4515090e6819ed95076cc25829a04443c9f18655339c8bad470ba",
+  "native_stage": {
+    "exit": 0,
+    "observations": [
+      {
+        "prefix": "ordinary",
+        "suffix": "dot",
+        "matched_fixture_ids": [
+          "trimmed-final"
+        ],
+        "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.",
+        "position": "final",
+        "native": {
+          "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.",
+          "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073",
+          "Identity": "1c9e0f09:00050000:00184c26",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 66,
+          "Success": true
+        },
+        "id": "ordinary-dot-final"
+      },
+      {
+        "prefix": "ordinary",
+        "suffix": "dot",
+        "matched_fixture_ids": [
+          "trimmed-intermediate"
+        ],
+        "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.\\child",
+        "position": "intermediate",
+        "native": {
+          "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.\\child",
+          "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e005c006300680069006c0064",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets\\child",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073005c006300680069006c0064",
+          "Identity": "1c9e0f09:00030000:00184c28",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 72,
+          "Success": true
+        },
+        "id": "ordinary-dot-intermediate"
+      },
+      {
+        "prefix": "ordinary",
+        "suffix": "space",
+        "matched_fixture_ids": [
+          "trimmed-final"
+        ],
+        "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets ",
+        "position": "final",
+        "native": {
+          "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets ",
+          "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073",
+          "Identity": "1c9e0f09:00050000:00184c26",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 66,
+          "Success": true
+        },
+        "id": "ordinary-space-final"
+      },
+      {
+        "prefix": "ordinary",
+        "suffix": "space",
+        "matched_fixture_ids": [
+          "space-intermediate"
+        ],
+        "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+        "position": "intermediate",
+        "native": {
+          "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+          "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020005c006300680069006c0064",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020005c006300680069006c0064",
+          "Identity": "1c9e0f09:00010000:00184c49",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 73,
+          "Success": true
+        },
+        "id": "ordinary-space-intermediate"
+      },
+      {
+        "prefix": "device",
+        "suffix": "dot",
+        "matched_fixture_ids": [
+          "trimmed-final"
+        ],
+        "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.",
+        "position": "final",
+        "native": {
+          "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.",
+          "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073",
+          "Identity": "1c9e0f09:00050000:00184c26",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 66,
+          "Success": true
+        },
+        "id": "device-dot-final"
+      },
+      {
+        "prefix": "device",
+        "suffix": "dot",
+        "matched_fixture_ids": [
+          "trimmed-intermediate"
+        ],
+        "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.\\child",
+        "position": "intermediate",
+        "native": {
+          "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.\\child",
+          "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e005c006300680069006c0064",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets\\child",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073005c006300680069006c0064",
+          "Identity": "1c9e0f09:00030000:00184c28",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 72,
+          "Success": true
+        },
+        "id": "device-dot-intermediate"
+      },
+      {
+        "prefix": "device",
+        "suffix": "space",
+        "matched_fixture_ids": [
+          "trimmed-final"
+        ],
+        "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets ",
+        "position": "final",
+        "native": {
+          "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets ",
+          "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073",
+          "Identity": "1c9e0f09:00050000:00184c26",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 66,
+          "Success": true
+        },
+        "id": "device-space-final"
+      },
+      {
+        "prefix": "device",
+        "suffix": "space",
+        "matched_fixture_ids": [
+          "space-intermediate"
+        ],
+        "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+        "position": "intermediate",
+        "native": {
+          "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+          "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020005c006300680069006c0064",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020005c006300680069006c0064",
+          "Identity": "1c9e0f09:00010000:00184c49",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 73,
+          "Success": true
+        },
+        "id": "device-space-intermediate"
+      },
+      {
+        "prefix": "verbatim",
+        "suffix": "dot",
+        "matched_fixture_ids": [
+          "dot-final"
+        ],
+        "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.",
+        "position": "final",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e",
+          "Identity": "1c9e0f09:00020000:00184c2e",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 67,
+          "Success": true
+        },
+        "id": "verbatim-dot-final"
+      },
+      {
+        "prefix": "verbatim",
+        "suffix": "dot",
+        "matched_fixture_ids": [
+          "dot-intermediate"
+        ],
+        "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.\\child",
+        "position": "intermediate",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.\\child",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e005c006300680069006c0064",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.\\child",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e005c006300680069006c0064",
+          "Identity": "1c9e0f09:00020000:00184c47",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 73,
+          "Success": true
+        },
+        "id": "verbatim-dot-intermediate"
+      },
+      {
+        "prefix": "verbatim",
+        "suffix": "space",
+        "matched_fixture_ids": [
+          "space-final"
+        ],
+        "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets ",
+        "position": "final",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets ",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets ",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020",
+          "Identity": "1c9e0f09:00020000:00184c48",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 67,
+          "Success": true
+        },
+        "id": "verbatim-space-final"
+      },
+      {
+        "prefix": "verbatim",
+        "suffix": "space",
+        "matched_fixture_ids": [
+          "space-intermediate"
+        ],
+        "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+        "position": "intermediate",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020005c006300680069006c0064",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020005c006300680069006c0064",
+          "Identity": "1c9e0f09:00010000:00184c49",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 73,
+          "Success": true
+        },
+        "id": "verbatim-space-intermediate"
+      }
+    ],
+    "fixture_identities": [
+      {
+        "id": "trimmed-final",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073",
+          "Identity": "1c9e0f09:00050000:00184c26",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 66,
+          "Success": true
+        }
+      },
+      {
+        "id": "trimmed-intermediate",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets\\child",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073005c006300680069006c0064",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets\\child",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073005c006300680069006c0064",
+          "Identity": "1c9e0f09:00030000:00184c28",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 72,
+          "Success": true
+        }
+      },
+      {
+        "id": "dot-final",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e",
+          "Identity": "1c9e0f09:00020000:00184c2e",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 67,
+          "Success": true
+        }
+      },
+      {
+        "id": "dot-intermediate",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.\\child",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e005c006300680069006c0064",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets.\\child",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c006100730073006500740073002e005c006300680069006c0064",
+          "Identity": "1c9e0f09:00020000:00184c47",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 73,
+          "Success": true
+        }
+      },
+      {
+        "id": "space-final",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets ",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets ",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020",
+          "Identity": "1c9e0f09:00020000:00184c48",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 67,
+          "Success": true
+        }
+      },
+      {
+        "id": "space-intermediate",
+        "native": {
+          "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+          "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020005c006300680069006c0064",
+          "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45974466878-1\\assets \\child",
+          "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370034003400360036003800370038002d0031005c0061007300730065007400730020005c006300680069006c0064",
+          "Identity": "1c9e0f09:00010000:00184c49",
+          "FailedApi": "",
+          "Error": 0,
+          "CloseError": 0,
+          "Attributes": 16,
+          "FinalPathLength": 73,
+          "Success": true
+        }
+      }
+    ]
+  },
+  "candidate_stage": {
+    "exit": 1,
+    "phase": "standalone compilation",
+    "error": "Four E0283 ambiguities for Cow<OsStr>.as_ref(), in join/push and two existing candidate assertions. No candidate resolver observations executed.",
+    "compile_only_correction": {
+      "source_sha256_before": "e155793dfbb63d0e3df7e9e2c3826469d7a87f8b8cf8756903fed836f98f4580",
+      "source_sha256_after": "54d99139c47b753207cfdb47e4999788235d44c72708bfdcc9c43714fe4d4292",
+      "changes": [
+        {
+          "before": "Ok(directory.join(name.as_ref()))",
+          "after": "Ok(directory.join(&*name))"
+        },
+        {
+          "before": "directory.push(name.as_ref());",
+          "after": "directory.push(&*name);"
+        },
+        {
+          "before": "super::input_name(OsStr::new(name), false, last)?.as_ref(),",
+          "after": "&*super::input_name(OsStr::new(name), false, last)?,"
+        },
+        {
+          "before": "super::input_name(OsStr::new(name), true, last)?.as_ref(),",
+          "after": "&*super::input_name(OsStr::new(name), true, last)?,"
+        }
+      ]
+    }
+  },
+  "report": {
+    "source": {
+      "commit": "b60c42d2b887e5c3de048c9bdd3828e51665a9d8",
+      "tree": "728e8e818219a1c73441d78e4d212a09a5cec900",
+      "blobs": 6714,
+      "links_sha256": "e155793dfbb63d0e3df7e9e2c3826469d7a87f8b8cf8756903fed836f98f4580"
+    },
+    "producer": "2c47b06828bf4c1d0d81feba68b2c99b81d214e6",
+    "run_id": "45974466878",
+    "attempt": "1",
+    "source_restored": true,
+    "source_identity": {
+      "label": "after",
+      "commit": "b60c42d2b887e5c3de048c9bdd3828e51665a9d8",
+      "tree": "728e8e818219a1c73441d78e4d212a09a5cec900",
+      "tracked_blobs": 6714,
+      "content_index_sha256": "cf8f3194d0fefc0484cce0ca74ae9ea5a2f2072606782b95d82cc1166a45a21b"
+    },
+    "failure": "RuntimeError: candidate-standalone-compile: actual exit 1",
+    "commands": [
+      {
+        "name": "source-head",
+        "command": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "5fe1c7e2b13114685ab8462f3c3330e8ee4638edb927587faa15c0c516cc3c75"
+      },
+      {
+        "name": "source-tree",
+        "command": [
+          "git",
+          "rev-parse",
+          "HEAD^{tree}"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "6f11810343ab571f789d622895c018a28634d9fc6b43d0ffef5701f1926cae04"
+      },
+      {
+        "name": "native-namespace",
+        "command": [
+          "pwsh",
+          "-NoProfile",
+          "-File",
+          "C:\\actions-runner\\elegant-mermaid\\elegant-mermaid\\proof\\ci-tools\\elegant-device-namespace-r36\\native.ps1",
+          "-Evidence",
+          "C:\\actions-runner\\_temp\\elegant-namespace-r36-evidence",
+          "-Phase",
+          "native"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "b12d093024c050986fae2af7a10dfbefa4cf643517101a7f6ca8aa6c741c73d7"
+      },
+      {
+        "name": "rust-version",
+        "command": [
+          "rustc",
+          "--version"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "56625f11cb9e645f8e638a6bcdf0565a20a8724585b537b8548886789b9f77be"
+      },
+      {
+        "name": "candidate-standalone-compile",
+        "command": [
+          "rustc",
+          "--edition=2024",
+          "--test",
+          "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+          "-o",
+          "C:\\actions-runner\\_temp\\emd-namespace-r36-builds\\candidate-namespace.exe"
+        ],
+        "exit": 1,
+        "expected": 0,
+        "log_sha256": "e5073346c70993854c33f1321592d1fab447d9b60127aa52cdae675d8d359fa0"
+      }
+    ],
+    "scope": "native namespace observation and standalone Rust resolver; no repository gates"
+  },
+  "decision": "Native evidence supports treating device namespace paths as ordinary for component normalization. Candidate comparison remains unexecuted because of its compile error. The full paired proof remains unlaunched."
+}

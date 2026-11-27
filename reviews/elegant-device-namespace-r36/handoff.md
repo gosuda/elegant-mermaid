@@ -22,3 +22,9 @@ File SHA-256 values:
 - workflow.yml: 64b4d5fe644ae8a95f3c3817c63330eae6a06911a945dfbb6e898f0f1b87e2dc
 
 This is an observation harness. Successful completion does not assert that the candidate matches Windows for every case.
+
+## Compile-only follow-up
+
+The first run 45974466878 completed all twelve raw native observations with exit 0, then failed standalone Rust compilation with four E0283 ambiguities. Its complete record is in first-result.json. The original source was restored.
+
+The follow-up source is 2bc5029c2a8166c3c7cb15cb7f801dd8b9f1718d, tree 2da5688b438cc275010ff3ee120b41c13670264c. Its sole delta from b60c42d2 is four explicit Cow<OsStr> borrow expressions. The DeviceNS predicate and every native input remain unchanged. This repetition observes the compilable old predicate before any namespace behavior repair.

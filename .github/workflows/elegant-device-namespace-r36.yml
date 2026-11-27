@@ -35,7 +35,7 @@ jobs:
       - name: Checkout unchanged authored candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: b60c42d2b887e5c3de048c9bdd3828e51665a9d8
+          ref: 2bc5029c2a8166c3c7cb15cb7f801dd8b9f1718d
           path: source
           persist-credentials: false
       - name: Install pinned Python runner

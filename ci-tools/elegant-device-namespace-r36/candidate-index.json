@@ -18247,7 +18247,7 @@
   {
     "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
     "mode": "100644",
-    "sha": "cda91da81c630a5ec577e4a1ca6c22f04fe44cfc"
+    "sha": "221922bb3f9673390dde777309d4d1ed399a61a0"
   },
   {
     "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
