@@ -352,6 +352,8 @@ private theorem xcsw_sceneCaptionBoxContainmentFitW {exactIds : List String}
           rw [congrArg (fun s : SceneLabel => s.rect) heq]
           unfold sceneCaptionRect
           rw [hlmodel]
+          have hfields := straightenAcc_fields execution.straight_eq
+          rw [hfields.1, hfields.2.2.1, hfields.2.2.2.2]
           rfl
         have hscope' : b.id ∉ res.scene.layoutDump.labelOwnerAnc
             (X_captionLabel exactIds execution ownerIndex source l.lines) := by

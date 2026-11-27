@@ -278,20 +278,47 @@ private theorem scene_cardinality {inp : Input} {o : Options} {res : FamilyResul
     (by rfl) execution.components_eq (measuredGraph_decls_nodup execution.graph_eq)
     packed execution.packed_eq hpacked c q hselected i _ _ [] hentry hpartNodup hrouteSize
   have hscene := Elegant.Layered.sceneOf_route_points execution.params inp o execution.lines
-    execution.packedAcc execution.measured key hkey
-  rw [← execution.scene_eq, hindex, Option.map_some, ← hdecl, hpackedRoute] at hscene
-  have heq := Option.some.inj hscene
-  have hcard : pts = [] ∨ 1 < pts.length := by
-    unfold pts
-    cases hfind : loops.find? (fun l => l.1 == edge.decl) with
-    | none =>
-      simp only [Option.map_none, Option.getD_none]
-      exact routed_cardinality hP hnd hcshape hrun hc (List.getElem?_eq_some_iff.mp hedge).1 edge
-    | some loop =>
-      simp only [Option.map_some, Option.getD_some]
-      exact Or.inr (loop_cardinality hloops (List.mem_of_find?_eq_some hfind))
-  rw [heq]
-  simpa using hcard
+    execution.straightAcc execution.measured key hkey
+  rw [← execution.scene_eq, hindex, Option.map_some, ← hdecl] at hscene
+  have hkey' : edge.decl < inp.routes.length := by
+    rw [hdecl]
+    exact hkey
+  have hpsize : execution.packedAcc.routes.size = inp.routes.length := by
+    rw [Elegant.Layered.packAcc_routes_size execution.packed_eq, hsize]
+  have hsizeS : edge.decl < execution.straightAcc.routes.size := by
+    have hpb := execution.packedAcc_bounded execution.components_parts_bounded
+    obtain ⟨_, _, _, _, _, hsz, _⟩ :=
+      Elegant.Layered.PipelineImpl.straightenAcc_bounded execution.straight_eq hpb.routes_bounded
+    rw [hsz, hpsize]
+    exact hkey'
+  have hgetS : execution.straightAcc.routes[edge.decl]? =
+      some (execution.straightAcc.routes.getD edge.decl []) := by
+    simp only [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hsizeS,
+      Option.getD_some]
+  rcases execution.route_cases hgetS with hpackedPts | hinst
+  · have hbridgeEq : execution.packedAcc.routes.getD edge.decl [] =
+        execution.straightAcc.routes.getD edge.decl [] := by
+      rw [Array.getD_eq_getD_getElem?, hpackedPts, Option.getD_some]
+    rw [← hbridgeEq, hpackedRoute] at hscene
+    have heq := Option.some.inj hscene
+    have hcard : pts = [] ∨ 1 < pts.length := by
+      unfold pts
+      cases hfind : loops.find? (fun l => l.1 == edge.decl) with
+      | none =>
+        simp only [Option.map_none, Option.getD_none]
+        exact routed_cardinality hP hnd hcshape hrun hc (List.getElem?_eq_some_iff.mp hedge).1 edge
+      | some loop =>
+        simp only [Option.map_some, Option.getD_some]
+        exact Or.inr (loop_cardinality hloops (List.mem_of_find?_eq_some hfind))
+    rw [heq]
+    simpa using hcard
+  · obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, hptsEq, _, _, _, _, _, _⟩ :=
+      execution.installed_endpoints hinst
+    rw [hptsEq] at hscene
+    have heq := Option.some.inj hscene
+    refine Or.inr ?_
+    rw [heq]
+    simp
 
 private theorem recursive_cardinality (fuel : Nat) {inp : Input} {o : Options}
     {res : FamilyResult} (hwf : WellFormed (inputModel inp o))

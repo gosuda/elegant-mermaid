@@ -142,7 +142,15 @@ func layoutComponents(g *Graph, thoroughness int) (Layout, error) {
 		}
 		layouts = append(layouts, part)
 	}
-	return Pack(layouts, PackOptions{MaxWidth: g.MaxWidth, Gap: g.NodeGap, AspectNum: g.AspectNum, AspectDen: g.AspectDen})
+	out, err := Pack(layouts, PackOptions{MaxWidth: g.MaxWidth, Gap: g.NodeGap, AspectNum: g.AspectNum, AspectDen: g.AspectDen})
+	if err != nil {
+		return Layout{}, err
+	}
+	if err := straightenMerged(&out); err != nil {
+		return Layout{}, err
+	}
+	out.straighten = nil
+	return out, nil
 }
 
 func applyLayout(s *scene.Scene, part Layout) {

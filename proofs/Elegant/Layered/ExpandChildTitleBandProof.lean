@@ -55,7 +55,7 @@ private theorem layout_canvas_ge_margins {inp : Input} {o : Options}
       orientCanvas o.direction
         (exec.packedAcc.canvasW + 2 * exec.params.canvasMargin)
         (exec.packedAcc.canvasH + 2 * exec.params.canvasMargin) := rfl
-  rw [exec.scene_eq, hcan]
+  rw [exec.scene_eq, exec.scene_canvas, hcan]
   unfold orientCanvas
   generalize o.direction = d
   cases d <;> dsimp only <;> omega

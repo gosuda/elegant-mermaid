@@ -69,6 +69,7 @@ private theorem layout_label_mem {inp : Input} {o : Options} {res : FamilyResult
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨_, _, h⟩ := bind_ok h
   obtain ⟨acc, _, h⟩ := bind_ok h
+  obtain ⟨acc, _, h⟩ := bind_ok h
   split at h
   · simp at h
   · have heq := Except.ok.inj h

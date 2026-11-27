@@ -2,6 +2,7 @@ import Elegant.Layered.ExactFlatC6LoopScopeProof
 import Elegant.Layered.ExactFlatForeignLoopProof
 import Elegant.Layered.ExactGroupOverlapClosedProof
 import Elegant.Layered.ExactPlainRightNonPlainProof
+import Elegant.Layered.ExactStraightenFacts
 
 set_option autoImplicit false
 
@@ -43,7 +44,16 @@ private theorem loopCandidateSlotPos {exactIds : List String} {inp : Input}
   rw [hc, hs, hslot0]
   omega
 
-set_option maxHeartbeats 1200000 in
+
+/-- Exact execution keeps the route array length. -/
+private theorem X6_components_routes_size {exactIds : List String}
+    {inp : Input} {o : Options} {res : FamilyResult}
+    (execution : SceneExecutionX exactIds inp o res) :
+    execution.componentsAcc.routes.size = inp.routes.length := by
+  have h := ExactStraighten.components_fold_routes_size execution.params exactIds inp o execution.graph
+    execution.measured (components execution.graph) _ _ execution.components_eq
+  simpa only [Array.size_replicate] using h
+
 /-- Exact self-loop clearance for the flat C6 assembler. The old footprint can be
 shorter than an exact loop's bend stack, so the same-part proof uses the full
 reservation. Distinct packed shelves are axis-separated even at zero extent. -/
@@ -143,10 +153,66 @@ theorem X6_loopCaseW_holds (exactIds : List String)
             (exactLoopEnvelopeMiss_closed exactIds inp o res execution hwf hfp q.1.1 candidate run
               (candidateOrder candidate) cg i edge pos hcomp rfl hrun hedge hself hcovered hreal
               htailScope hheadScope)
-      have hrScene := X_chosen_part_route_from_points execution packed hpacked hselected hlocal hnd hmodel
-      have hrPoints := congrArg Route.points (Option.some.inj (hrAt.symm.trans hrScene))
-      rw [hrPoints, hbrect]
-      exact parent_port_miss_transport hmiss execution.params.canvasMargin o.direction
-        execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY
+      have hsuff : res.scene.routes[edge.decl]? =
+          some (Route.mk (inp.routes[edge.decl]).id (inp.routes[edge.decl]).fromId
+            (inp.routes[edge.decl]).toId (inp.routes[edge.decl]).orthogonal
+            (loop.2.points.map (routePointTransport execution.params.canvasMargin o.direction
+              execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY))) →
+          ¬ Polyline.hitsRect r.points b.rect := by
+        intro hscene0
+        have hrPoints := congrArg Route.points (Option.some.inj (hrAt.symm.trans hscene0))
+        rw [hrPoints, hbrect]
+        exact parent_port_miss_transport hmiss execution.params.canvasMargin o.direction
+          execution.packedAcc.canvasH q.2.x q.2.y bounds.minX bounds.minY
+      have hscene := X_chosen_part_route_from_points execution packed hpacked hselected hlocal hnd hmodel
+      rcases hscene with hscene | ⟨pts, hcor, hrouteC⟩
+      · exact hsuff hscene
+      · obtain ⟨_x, _y₀, _y₁, _hlt, hptsEq⟩ := hcor
+        have hgetD : execution.straightAcc.routes.getD edge.decl [] = pts :=
+          ExactStraighten.straight_points_of_scene execution hrouteC
+        have hne : pts ≠ [] := by
+          rw [hptsEq]
+          intro hcon
+          simp at hcon
+        have hpts : execution.straightAcc.routes[edge.decl]? = some pts := by
+          have hgd : (execution.straightAcc.routes[edge.decl]?.getD []) = pts := by
+            have h := hgetD
+            rw [Array.getD_eq_getD_getElem?] at h
+            exact h
+          cases ho : execution.straightAcc.routes[edge.decl]? with
+          | none =>
+            simp only [ho, Option.getD_none] at hgd
+            exact absurd hgd.symm hne
+          | some _v =>
+            simp only [ho, Option.getD_some] at hgd
+            exact congrArg Option.some hgd
+        rcases ExactStraighten.route_cases execution X_componentRun_normalized_source hpts with hpackedPts | hinst
+        · have hrouteSize : edge.decl < execution.componentsAcc.routes.size := by
+            rw [X6_components_routes_size execution]
+            exact hdeclLen
+          have hpackedRoute := ExactStraighten.actual_components_packAcc_routes_getD
+            (by rfl) execution.components_eq
+            (exactGraph_decls_nodup execution.graph0_eq execution.graph_eq)
+            packed execution.packed_eq hpacked c q hselected i _ _ [] hlocal hnd hrouteSize
+          have hbridge : execution.packedAcc.routes.getD edge.decl [] =
+              execution.straightAcc.routes.getD edge.decl [] := by
+            rw [hgetD, Array.getD_eq_getD_getElem?, hpackedPts, Option.getD_some]
+          have hneg : -bounds.minY = 0 - bounds.minY := by omega
+          have hmodelEq : inp.routes[edge.decl]'hdeclLen = inp.routes[edge.decl] :=
+            Option.some.inj ((List.getElem?_eq_getElem hdeclLen).symm.trans hmodel)
+          have hstraight0 := sceneOf_routes_getElem? execution.params inp o execution.lines
+            execution.straightAcc execution.measured edge.decl hdeclLen
+          rw [← execution.scene_eq] at hstraight0
+          rw [ExactStraighten.straight_canvasH execution] at hstraight0
+          rw [hmodelEq] at hstraight0
+          have hptsEq2 : pts =
+              (loop.2.points.map (shiftPoint (0 - bounds.minX) (0 - bounds.minY))).map
+                (shiftPoint q.2.x q.2.y) := by
+            rw [← hgetD, ← hbridge]
+            rw [hneg] at hpackedRoute
+            exact hpackedRoute
+          rw [hgetD, hptsEq2, routePointTransport_eq] at hstraight0
+          exact hsuff hstraight0
+        · exact absurd hinst (execution.straight_corridor_not_selfloop hselected hedge hself)
 
 end Elegant.Layered.PipelineImpl

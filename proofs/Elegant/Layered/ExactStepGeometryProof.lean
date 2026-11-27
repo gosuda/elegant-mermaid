@@ -73,13 +73,13 @@ theorem XG_flatInset (exactIds : List String) :
     FlatInsetB (layoutX exactIds) := by
   intro inp o res h
   obtain ⟨execution⟩ := layoutX_sceneExecution h
-  have hacc := SceneExecutionX.packedAcc_bounded execution
+  have hacc := SceneExecutionX.straightAcc_bounded execution
     (exactPartsBounded' execution)
   have hm1 := checkedParams_canvasMargin_ge_one execution.checked
   refine ⟨execution.params, execution.checked, by omega, ?_⟩
   rw [execution.scene_eq]
   exact sceneOf_boxes_inset execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc (by omega)
+    execution.straightAcc execution.measured hacc (by omega)
 /-- Frame reservation of an executed exact `expandChild` call: the located
 group frame dominates the `childFrameSize` for the inner title lines.
 `XG_` copy of the private `ESS_frame_size_bounds`
@@ -296,15 +296,15 @@ theorem XG_flat_routes_insetX (exactIds : List String) {inp : Input} {o : Option
   rw [execution.scene_eq] at hcr ⊢
   obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hcr
   have hzip : (cr, i) ∈ (sceneOf execution.params inp o execution.lines
-      execution.packedAcc execution.measured).routes.zipIdx :=
+      execution.straightAcc execution.measured).routes.zipIdx :=
     List.mem_zipIdx_iff_getElem?.mpr hi
   have hm : 0 ≤ execution.params.canvasMargin := by
     have := checkedParams_canvasMargin_ge_one execution.checked
     omega
-  have hacc := SceneExecutionX.packedAcc_bounded execution
+  have hacc := SceneExecutionX.straightAcc_bounded execution
     (exactPartsBounded' execution)
   exact sceneOf_routes_pointIn_inset execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc hm (cr, i) hzip p hp
+    execution.straightAcc execution.measured hacc hm (cr, i) hzip p hp
 /-- The located group frame contains the shifted child margin inset: the
 strict content fit weakened to containment, with the inset rect folded. -/
 theorem XG_frame_fitB (exactIds : List String)

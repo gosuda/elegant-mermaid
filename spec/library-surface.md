@@ -24,7 +24,7 @@ This file lists the public names of the Go package `mermaid`, the Go package `ra
     |---|---|
     |`FixOutcome` (none in Go; `ApplyFixes` returns `(out []byte, applied int)`)|`FixOutcome{text: String, applied: usize}`|
     |`IconPack` (unexported state)|`IconPack` (private state)|
-    |`GlyphOutlines` (unexported: per weight and rune, move/line/quad commands in font units, and units per em)|`GlyphOutlines` (private state)|
+    |`GlyphOutlines` (unexported: per weight and rune, move/line/quad commands in font units, units per em, and the Noto fallback font bytes of render-svg-63)|`GlyphOutlines` (private state)|
     |`Profile uint8`|`Profile`|
     |`Limits{MaxNodes, MaxEdges, MaxTextBytes int}`|`Limits{max_nodes: u32, max_edges: u32, max_text_bytes: u32}`|
     |`Cancel` (none in Go; Go functions take `context.Context`)|`Cancel` (private `Option<Arc<AtomicBool>>`)|

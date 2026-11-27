@@ -1,7 +1,7 @@
 package raster
 
 import (
-	"embed"
+	"fmt"
 	"image"
 	"image/color"
 	"sync"
@@ -16,9 +16,6 @@ import (
 	"golang.org/x/image/math/fixed"
 	"golang.org/x/image/vector"
 )
-
-//go:embed fonts/*.ttf
-var fonts embed.FS
 
 var embeddedOutlines = sync.OnceValues(loadOutlines)
 
@@ -40,12 +37,22 @@ func loadOutlines() (scenelink.Outlines, error) {
 	for i, name := range names {
 		data, err := fonts.ReadFile(name)
 		if err != nil {
-			return out, err
+			return out, fmt.Errorf("read %s: %w", name, err)
 		}
 		out[i], err = loadFont(data, uint8(i))
 		if err != nil {
-			return out, err
+			return out, fmt.Errorf("load %s: %w", name, err)
 		}
+		files := fallbackFiles(i)
+		fb := make([]scenelink.FallbackFace, len(files))
+		for j, fn := range files {
+			d, err := fonts.ReadFile(fn)
+			if err != nil {
+				return out, fmt.Errorf("read %s: %w", fn, err)
+			}
+			fb[j] = fallbackFace(fn, d)
+		}
+		out[i].Fallback = fb
 	}
 	return out, nil
 }

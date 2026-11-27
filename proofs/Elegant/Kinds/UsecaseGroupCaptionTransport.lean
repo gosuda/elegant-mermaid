@@ -143,10 +143,12 @@ private theorem captionSceneSources_of_items {inp : Input} {s : Scene} {P : Para
 private theorem exactFlat_captionSources {ids : List String} {inp : Input} {o : Options}
     {res : FamilyResult} (hrun : layoutX ids inp o = .ok res) : CaptionSceneSources inp res.scene := by
   obtain ⟨execution⟩ := layoutX_sceneExecution hrun
+  have hfields_items1 := straightenAcc_fields execution.straight_eq
   have hitems : res.scene.items =
       applyTitles (sceneTitlesExpr execution.params inp o execution.lines execution.packedAcc)
         (sceneItems execution.params inp res.scene.boxes res.scene.routes execution.lines res.scene.labels) := by
     rw [execution.scene_eq]
+    simp only [sceneOf, hfields_items1.2.2.1, hfields_items1.2.2.2.2]
     rfl
   refine captionSceneSources_of_items hitems ?_ ?_
   · intro box hb
@@ -434,10 +436,12 @@ theorem exact_leaf_group_caption_agreement {ids : List String} {inp : Input}
     (execution : SceneExecutionX ids inp o res) (hwf : WellFormed (inputModel inp o))
     (hfit : InputFixedFit inp o) (hdisjoint : BoxRouteIdsDisjoint inp) :
     GroupCaptionAgreement res.scene := by
+  have hfields_items2 := straightenAcc_fields execution.straight_eq
   have hitems : res.scene.items =
       applyTitles (sceneTitlesExpr execution.params inp o execution.lines execution.packedAcc)
         (sceneItems execution.params inp res.scene.boxes res.scene.routes execution.lines res.scene.labels) := by
     rw [execution.scene_eq]
+    simp only [sceneOf, hfields_items2.2.2.1, hfields_items2.2.2.2]
     rfl
   intro label hl display hd hr ho
   have hd' := hd

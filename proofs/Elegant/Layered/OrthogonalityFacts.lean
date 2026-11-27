@@ -294,10 +294,27 @@ private theorem packAcc_routes_orthogonal {P : Params} {o : Options} {acc out : 
       (componentCandidate_shape (components_nodup _ _ hcomp) hs index)
       hrun hloops 0
   have hpacked := packAcc_routes_orthogonal hmid hparts execution.packed_eq
+  have hstart : ∀ (j : Nat) (pts : List Point), execution.packedAcc.routes[j]? = some pts →
+      Polyline.isOrthogonal pts = true := by
+    intro j pts hj
+    have hget : execution.packedAcc.routes.getD j [] = pts := by
+      rw [Array.getD_eq_getD_getElem?, hj, Option.getD_some]
+    rw [← hget]
+    exact hpacked j
+  have hstraight := straightenAcc_routes_orthogonal execution.straight_eq hstart
+  have hstraightD : ∀ k, Polyline.isOrthogonal (execution.straightAcc.routes.getD k []) = true := by
+    intro k
+    cases hget : execution.straightAcc.routes[k]? with
+    | none =>
+      rw [Array.getD_eq_getD_getElem?, hget, Option.getD_none]
+      rfl
+    | some pts =>
+      rw [Array.getD_eq_getD_getElem?, hget, Option.getD_some]
+      exact hstraight k pts hget
   rw [execution.scene_eq]
   intro route hroute
   obtain ⟨q, _, rfl⟩ := List.mem_map.mp hroute
-  exact (Layered.isOrthogonal_shift_orient _ _ _ _ _).mpr (hpacked q.2)
+  exact (Layered.isOrthogonal_shift_orient _ _ _ _ _).mpr (hstraightD q.2)
 
 theorem SceneExecution.c4 {inp : Input} {o : Options} {res : FamilyResult}
     (execution : SceneExecution inp o res) : Validator.C4 res.scene.layoutDump := by

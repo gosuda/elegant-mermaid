@@ -68,7 +68,9 @@ func (c orderedComponent) place(g *Graph) (Layout, error) {
 		return Layout{}, err
 	}
 	placement := componentPlacement{proper: p, x: x, y: y, bounds: routing.ClusterBounds}
-	return placement.finish(g, Layout{Routes: routes, Labels: labels, LabelReservations: routing.LabelReservations, BudgetExhausted: c.budgetExhausted})
+	part := Layout{Routes: routes, Labels: labels, LabelReservations: routing.LabelReservations, BudgetExhausted: c.budgetExhausted}
+	part.straighten = []straightenContext{{proper: p, layers: order.Layers, x: x, y: y, top: top, routing: routing}}
+	return placement.finish(g, part)
 }
 
 type componentPlacement struct {

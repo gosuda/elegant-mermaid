@@ -22,7 +22,7 @@ theorem layoutRecursiveB_caption_lines {ids : List String} {fuel : Nat} {inp : I
       ∃ (P : Params) (metric : Measure.Metric) (lines : List (List Measure.Line)),
         checkedParams o.profile inp.kind = .ok P ∧ metricOf o.profile o.fontFamily = .ok metric ∧
         boxLines metric (captionWrapTarget P metric o) inp = .ok lines := by
-    obtain ⟨P, metric, lines, _, _, _, _, _, hP, hm, hl, _⟩ := layoutX_success_phases hflat
+    obtain ⟨P, metric, lines, _, _, _, _, _, _, hP, hm, hl, _⟩ := layoutX_success_phases hflat
     exact ⟨P, metric, lines, hP, hm, hl⟩
   cases fuel with
   | zero => exact flat h

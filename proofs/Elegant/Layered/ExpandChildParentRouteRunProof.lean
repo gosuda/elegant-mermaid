@@ -1,5 +1,6 @@
 import Elegant.Layered.FlatC6LoopProof
 import Elegant.Layered.RecursiveCallContext
+import Elegant.Layered.StraightenFacts
 
 set_option autoImplicit false
 
@@ -403,13 +404,37 @@ private theorem frameRun_scene_loop_route_points {inp : Input} {o : Options} {re
     packed execution.packed_eq hpacked c q hselected i _ _ [] hget_pC hpartNodup hrouteSize
   have hkdecl : edge.decl < inp.routes.length := by simpa only [cg, he] using hk
   have hk'' : edge.decl < inp.routes.length := hkdecl
-  have hscene := sceneOf_routes_getElem? execution.params inp o execution.lines
-    execution.packedAcc execution.measured edge.decl hkdecl
-  rw [← execution.scene_eq] at hscene
-  rw [hpackedRoute] at hscene
-  rw [routePointTransport_eq] at hscene
-  refine ⟨(inp.routes[edge.decl]'hk''), List.getElem?_eq_getElem hk'', ?_⟩
-  exact hscene
+  have hsceneS := sceneOf_routes_getElem? execution.params inp o execution.lines
+    execution.straightAcc execution.measured edge.decl hkdecl
+  rw [← execution.scene_eq] at hsceneS
+  rw [execution.straight_canvasH] at hsceneS
+  have hpsize : execution.packedAcc.routes.size = inp.routes.length := by
+    rw [Elegant.Layered.packAcc_routes_size execution.packed_eq, hsize]
+  have hsizeS : edge.decl < execution.straightAcc.routes.size := by
+    have hpb := execution.packedAcc_bounded execution.components_parts_bounded
+    obtain ⟨_, _, _, _, _, hsz, _⟩ :=
+      straightenAcc_bounded execution.straight_eq hpb.routes_bounded
+    rw [hsz, hpsize]
+    exact hkdecl
+  have hgetS : execution.straightAcc.routes[edge.decl]? =
+      some (execution.straightAcc.routes.getD edge.decl []) := by
+    simp only [Array.getD_eq_getD_getElem?, Array.getElem?_eq_getElem hsizeS,
+      Option.getD_some]
+  rcases execution.route_cases hgetS with hpackedS | hinst
+  · have hbridge : execution.packedAcc.routes.getD edge.decl [] =
+        execution.straightAcc.routes.getD edge.decl [] := by
+      rw [Array.getD_eq_getD_getElem?, hpackedS, Option.getD_some]
+    rw [← hbridge] at hsceneS
+    rw [hpackedRoute] at hsceneS
+    rw [routePointTransport_eq] at hsceneS
+    refine ⟨(inp.routes[edge.decl]'hk''), List.getElem?_eq_getElem hk'', ?_⟩
+    exact hsceneS
+  · exfalso
+    have hrouteKey : inp.routes[edge.decl]? = some (inp.routes[edge.decl]'hkdecl) :=
+      List.getElem?_eq_getElem hkdecl
+    have heq := execution.self_edge_route_ends hedge hself _hrun hrouteKey
+    have hne := execution.installed_route_ends hinst hrouteKey
+    exact absurd heq hne
 
 /-! ## Split residuals (moved here from `ExpandChildParentRouteClearProof`) -/
 
@@ -663,204 +688,509 @@ theorem flatFrameChainMiss {pinp : Input} {o : Options} {pres : FamilyResult} {g
     exact (List.find?_eq_none.mp hfound l hl) (by simp [he])
   obtain ⟨modelRoute, native, hmodelRoute, hnative, hnativeOrig, hroutes⟩ :=
     execution.chosen_part_route_entry packed hpacked hselected hrun hpart hedge hloopen
-  dsimp only at hroutes
   have hkeyedge : pres.scene.routes[edge.decl]? = some r := by
     rw [hdecl]
     exact hkget
-  have hreq : r = Route.mk modelRoute.id modelRoute.fromId modelRoute.toId
+  have hsuff : (r = Route.mk modelRoute.id modelRoute.fromId modelRoute.toId
       modelRoute.orthogonal
       (native.points.map (routePointTransport execution.params.canvasMargin o.direction
         execution.packedAcc.canvasH q.2.x q.2.y
         (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate)
           run execution.measured loops).minX
         (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate)
-          run execution.measured loops).minY)) :=
-    Option.some.inj (hkeyedge.symm.trans hroutes)
-  have hbridge' := hbridge execution packed hpacked hq1comp hrun hloops hpart hselected
-    hedge hkeyedge hb hframe hscope
-  cases hbridge' with
-  | inl hleft =>
-    obtain ⟨v, gkey, gsrc, hv, hsource, hsrcId, hvlen, hreal, hborder0, hbrect⟩ := hleft
-    obtain ⟨chain, hchainget, hchainlen, _, _, hsegs⟩ :=
-      componentRun_semantic_node_chain hrun hedge hself
-    obtain ⟨properEdge, hPEmem, hPEorig, _, _, _⟩ := hsegs 0 (by omega) (by omega)
-    obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hPEmem
-    have hjlt : j < run.proper.edges.length := (List.getElem?_eq_some_iff.mp hj).1
-    have hjedge : RouteImpl.edgeAt run.proper j = properEdge := by
-      unfold RouteImpl.edgeAt
-      rw [List.getD_eq_getElem?_getD, hj]
-      rfl
-    have hjmem : j ∈ RouteImpl.edgesOf run.proper i := by
-      refine List.mem_filter.mpr ⟨List.mem_range.mpr hjlt, ?_⟩
-      rw [hjedge]
-      simp [hPEorig]
-    cases h₀ : (RouteImpl.edgesOf run.proper i).head? with
-    | none =>
-      have hnil : RouteImpl.edgesOf run.proper i = [] := (List.head?_eq_none_iff).mp h₀
-      rw [hnil] at hjmem
-      exact absurd hjmem List.not_mem_nil
-    | some i₀ =>
-      cases h₁ : (RouteImpl.edgesOf run.proper i).getLast? with
+          run execution.measured loops).minY))) →
+      ¬ Polyline.hitsRect r.points b.rect := by
+    intro hreq
+    have hbridge' := hbridge execution packed hpacked hq1comp hrun hloops hpart hselected
+      hedge hkeyedge hb hframe hscope
+    cases hbridge' with
+    | inl hleft =>
+      obtain ⟨v, gkey, gsrc, hv, hsource, hsrcId, hvlen, hreal, hborder0, hbrect⟩ := hleft
+      obtain ⟨chain, hchainget, hchainlen, _, _, hsegs⟩ :=
+        componentRun_semantic_node_chain hrun hedge hself
+      obtain ⟨properEdge, hPEmem, hPEorig, _, _, _⟩ := hsegs 0 (by omega) (by omega)
+      obtain ⟨j, hj⟩ := List.mem_iff_getElem?.mp hPEmem
+      have hjlt : j < run.proper.edges.length := (List.getElem?_eq_some_iff.mp hj).1
+      have hjedge : RouteImpl.edgeAt run.proper j = properEdge := by
+        unfold RouteImpl.edgeAt
+        rw [List.getD_eq_getElem?_getD, hj]
+        rfl
+      have hjmem : j ∈ RouteImpl.edgesOf run.proper i := by
+        refine List.mem_filter.mpr ⟨List.mem_range.mpr hjlt, ?_⟩
+        rw [hjedge]
+        simp [hPEorig]
+      cases h₀ : (RouteImpl.edgesOf run.proper i).head? with
       | none =>
-        have hnil : RouteImpl.edgesOf run.proper i = [] := (List.getLast?_eq_none_iff).mp h₁
+        have hnil : RouteImpl.edgesOf run.proper i = [] := (List.head?_eq_none_iff).mp h₀
         rw [hnil] at hjmem
         exact absurd hjmem List.not_mem_nil
-      | some i₁ =>
-        have hfirst : (RouteImpl.edgesOf run.proper native.original).head? = some i₀ := by
-          rw [hnativeOrig]; exact h₀
-        have hlast : (RouteImpl.edgesOf run.proper native.original).getLast? = some i₁ := by
-          rw [hnativeOrig]; exact h₁
-        have hnd : RouteImpl.nodeDecl run.proper v = gkey :=
-          hnodeDecl execution q.1.1 candidate run hq1comp hrun v gkey gsrc hv hsource
-        have hscoping := hscoped execution q.1.1 candidate run hq1comp hrun i edge native r
-          hedge hnative hnativeOrig hkeyedge i₀ i₁ hfirst hlast
-        have hv0 : v ≠ (RouteImpl.edgeAt run.proper i₀).tail := by
-          intro hev
-          have hbx : pinp.boxes[RouteImpl.nodeDecl run.proper
-              (RouteImpl.edgeAt run.proper i₀).tail]? = some gsrc := by
-            have hshift : RouteImpl.nodeDecl run.proper
-                (RouteImpl.edgeAt run.proper i₀).tail =
-                RouteImpl.nodeDecl run.proper v := by rw [hev]
-            rw [hshift, hnd]
-            exact hsource
-          have hmem2 : gsrc.id ∈ LayoutDump.routeScope pres.scene.layoutDump r :=
-            hscoping.1 gsrc hbx
-          rw [hsrcId] at hmem2
-          exact hscope hmem2
-        have hv1 : v ≠ (RouteImpl.edgeAt run.proper i₁).head := by
-          intro hev
-          have hbx : pinp.boxes[RouteImpl.nodeDecl run.proper
-              (RouteImpl.edgeAt run.proper i₁).head]? = some gsrc := by
-            have hshift : RouteImpl.nodeDecl run.proper
-                (RouteImpl.edgeAt run.proper i₁).head =
-                RouteImpl.nodeDecl run.proper v := by rw [hev]
-            rw [hshift, hnd]
-            exact hsource
-          have hmem2 : gsrc.id ∈ LayoutDump.routeScope pres.scene.layoutDump r :=
-            hscoping.2 gsrc hbx
-          rw [hsrcId] at hmem2
-          exact hscope hmem2
-        have hne : ((componentCandidate execution.graph q.1.1 candidate).nodes.getD v
-            default).border ≠ -2 := by
-          rw [hborder0]
-          decide
-        have hclearRun : FrameClearance run.proper run.layers run.xs :=
-          hclear execution q.1.1 candidate run (candidateOrder candidate) hq1comp hrun
-        have hmissFlat : ¬ Polyline.hitsRect native.points
-            (RouteImpl.boxRect run.proper run.xs run.ys v) :=
-          componentRun_route_avoids_nodes (checkedParams_valid execution.checked)
-            (componentCandidate_decls_nodup_of_measuredGraph execution.graph_eq q.1.1 candidate)
-            (componentCandidate_shape (components_nodup execution.graph q.1.1 hq1comp)
-              (measuredGraph_shape execution.graph_eq) candidate)
-            hclearRun hrun native (List.mem_iff_getElem?.mpr ⟨i, hnative⟩) i₀ i₁ hfirst hlast
-            v (componentRun_original_nodes_covered hrun v hvlen) hreal hv0 hv1
-        have hmissT : ¬ Polyline.hitsRect
-            (native.points.map (routePointTransport execution.params.canvasMargin o.direction
+      | some i₀ =>
+        cases h₁ : (RouteImpl.edgesOf run.proper i).getLast? with
+        | none =>
+          have hnil : RouteImpl.edgesOf run.proper i = [] := (List.getLast?_eq_none_iff).mp h₁
+          rw [hnil] at hjmem
+          exact absurd hjmem List.not_mem_nil
+        | some i₁ =>
+          have hfirst : (RouteImpl.edgesOf run.proper native.original).head? = some i₀ := by
+            rw [hnativeOrig]; exact h₀
+          have hlast : (RouteImpl.edgesOf run.proper native.original).getLast? = some i₁ := by
+            rw [hnativeOrig]; exact h₁
+          have hnd : RouteImpl.nodeDecl run.proper v = gkey :=
+            hnodeDecl execution q.1.1 candidate run hq1comp hrun v gkey gsrc hv hsource
+          have hscoping := hscoped execution q.1.1 candidate run hq1comp hrun i edge native r
+            hedge hnative hnativeOrig hkeyedge i₀ i₁ hfirst hlast
+          have hv0 : v ≠ (RouteImpl.edgeAt run.proper i₀).tail := by
+            intro hev
+            have hbx : pinp.boxes[RouteImpl.nodeDecl run.proper
+                (RouteImpl.edgeAt run.proper i₀).tail]? = some gsrc := by
+              have hshift : RouteImpl.nodeDecl run.proper
+                  (RouteImpl.edgeAt run.proper i₀).tail =
+                  RouteImpl.nodeDecl run.proper v := by rw [hev]
+              rw [hshift, hnd]
+              exact hsource
+            have hmem2 : gsrc.id ∈ LayoutDump.routeScope pres.scene.layoutDump r :=
+              hscoping.1 gsrc hbx
+            rw [hsrcId] at hmem2
+            exact hscope hmem2
+          have hv1 : v ≠ (RouteImpl.edgeAt run.proper i₁).head := by
+            intro hev
+            have hbx : pinp.boxes[RouteImpl.nodeDecl run.proper
+                (RouteImpl.edgeAt run.proper i₁).head]? = some gsrc := by
+              have hshift : RouteImpl.nodeDecl run.proper
+                  (RouteImpl.edgeAt run.proper i₁).head =
+                  RouteImpl.nodeDecl run.proper v := by rw [hev]
+              rw [hshift, hnd]
+              exact hsource
+            have hmem2 : gsrc.id ∈ LayoutDump.routeScope pres.scene.layoutDump r :=
+              hscoping.2 gsrc hbx
+            rw [hsrcId] at hmem2
+            exact hscope hmem2
+          have hne : ((componentCandidate execution.graph q.1.1 candidate).nodes.getD v
+              default).border ≠ -2 := by
+            rw [hborder0]
+            decide
+          have hclearRun : FrameClearance run.proper run.layers run.xs :=
+            hclear execution q.1.1 candidate run (candidateOrder candidate) hq1comp hrun
+          have hmissFlat : ¬ Polyline.hitsRect native.points
+              (RouteImpl.boxRect run.proper run.xs run.ys v) :=
+            componentRun_route_avoids_nodes (checkedParams_valid execution.checked)
+              (componentCandidate_decls_nodup_of_measuredGraph execution.graph_eq q.1.1 candidate)
+              (componentCandidate_shape (components_nodup execution.graph q.1.1 hq1comp)
+                (measuredGraph_shape execution.graph_eq) candidate)
+              hclearRun hrun native (List.mem_iff_getElem?.mpr ⟨i, hnative⟩) i₀ i₁ hfirst hlast
+              v (componentRun_original_nodes_covered hrun v hvlen) hreal hv0 hv1
+          have hmissT : ¬ Polyline.hitsRect
+              (native.points.map (routePointTransport execution.params.canvasMargin o.direction
+                execution.packedAcc.canvasH q.2.x q.2.y
+                (placeBounds execution.params
+                  (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+                  loops).minX
+                (placeBounds execution.params
+                  (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+                  loops).minY))
+              (shiftRect execution.params.canvasMargin execution.params.canvasMargin
+                (orientRect o.direction execution.packedAcc.canvasH
+                  (shiftRect (q.2.x - (placeBounds execution.params
+                      (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+                      loops).minX)
+                    (q.2.y - (placeBounds execution.params
+                      (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+                      loops).minY)
+                    (RouteImpl.boxRect run.proper run.xs run.ys v)))) := by
+            rw [← routePointTransport_eq, ← shiftRect_pack_normalize,
+              not_hitsRect_shift_orient_iff, not_hitsRect_shift_iff, not_hitsRect_shift_iff]
+            exact hmissFlat
+          rw [congrArg Route.points hreq, hbrect, shiftRect_pack_normalize,
+            plain_frame_eq_boxRect execution.params
+              (componentCandidate execution.graph q.1.1 candidate) run v
+              (componentRun_original_nodes_covered hrun v hvlen) hne]
+          exact hmissT
+    | inr hright =>
+      obtain ⟨c', r', hne, hshelfget, hbIn⟩ := hright
+      have hc'len : c' < packed.boxes.length :=
+        (List.getElem?_eq_some_iff.mp hshelfget).1
+      have hmemc : execution.componentsAcc.parts[c]? = some q.1 := zip_getElem?_left hselected
+      have hclt : c < packed.boxes.length := by
+        rw [Pack.pack_count hpacked]
+        simpa only [List.length_map] using (List.getElem?_eq_some_iff.mp hmemc).1
+      have hshelfC : packed.boxes[c]? = some q.2 := (List.getElem?_zip_eq_some.mp hselected).2
+      have hloopen' : ∀ l ∈ loops,
+          l.1 ≠ ((componentCandidate execution.graph q.1.1 candidate).edges[i]).decl := by
+        intro l hl he
+        exact hloopen l hl (by rw [he, (List.getElem?_eq_some_iff.mp hedge).2])
+      have hplaced := placeComponent_route_entry_of_producer hrun 0 loops i hi hloopen'
+      rw [show ((componentCandidate execution.graph q.1.1 candidate).edges[i]).decl = edge.decl
+          by rw [(List.getElem?_eq_some_iff.mp hedge).2]] at hplaced
+      rw [(List.getElem?_eq_some_iff.mp hnative).2] at hplaced
+      have hrouteMem : (edge.decl, native.points.map
+          (shiftPoint (0 - (placeBounds execution.params
+              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+              loops).minX)
+            (0 - (placeBounds execution.params
+              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+              loops).minY))) ∈ q.1.2.routes := by
+        rw [show q.1.2.routes =
+            (placeComponent execution.params
+              (componentCandidate execution.graph q.1.1 candidate) run 0 execution.measured
+              loops).routes from by rw [hpart]]
+        exact List.mem_of_getElem? hplaced
+      have hin := part_route_points_within_shelf hpacked hmemc hclt
+      have hptsIn : ∀ p ∈ r.points, pointInRect (shelfRectT execution packed c) p := by
+        intro p hp
+        rw [congrArg Route.points hreq] at hp
+        obtain ⟨p', hp'mem, hpeq⟩ := List.mem_map.mp hp
+        have hp'in : shiftPoint
+            (0 - (placeBounds execution.params
+              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+              loops).minX)
+            (0 - (placeBounds execution.params
+              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+              loops).minY) p' ∈
+            native.points.map (shiftPoint
+              (0 - (placeBounds execution.params
+                (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+                loops).minX)
+              (0 - (placeBounds execution.params
+                (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+                loops).minY)) :=
+          List.mem_map_of_mem hp'mem
+        have hin' := hin _ hrouteMem _ hp'in
+        have hconv : partPointT execution packed c (shiftPoint
+            (0 - (placeBounds execution.params
+              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+              loops).minX)
+            (0 - (placeBounds execution.params
+              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
+              loops).minY) p') =
+            routePointTransport execution.params.canvasMargin o.direction
               execution.packedAcc.canvasH q.2.x q.2.y
               (placeBounds execution.params
                 (componentCandidate execution.graph q.1.1 candidate) run execution.measured
                 loops).minX
               (placeBounds execution.params
                 (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-                loops).minY))
-            (shiftRect execution.params.canvasMargin execution.params.canvasMargin
-              (orientRect o.direction execution.packedAcc.canvasH
-                (shiftRect (q.2.x - (placeBounds execution.params
-                    (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-                    loops).minX)
-                  (q.2.y - (placeBounds execution.params
-                    (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-                    loops).minY)
-                  (RouteImpl.boxRect run.proper run.xs run.ys v)))) := by
-          rw [← routePointTransport_eq, ← shiftRect_pack_normalize,
-            not_hitsRect_shift_orient_iff, not_hitsRect_shift_iff, not_hitsRect_shift_iff]
-          exact hmissFlat
-        rw [congrArg Route.points hreq, hbrect, shiftRect_pack_normalize,
-          plain_frame_eq_boxRect execution.params
-            (componentCandidate execution.graph q.1.1 candidate) run v
-            (componentRun_original_nodes_covered hrun v hvlen) hne]
-        exact hmissT
-  | inr hright =>
-    obtain ⟨c', r', hne, hshelfget, hbIn⟩ := hright
-    have hc'len : c' < packed.boxes.length :=
-      (List.getElem?_eq_some_iff.mp hshelfget).1
-    have hmemc : execution.componentsAcc.parts[c]? = some q.1 := zip_getElem?_left hselected
-    have hclt : c < packed.boxes.length := by
-      rw [Pack.pack_count hpacked]
-      simpa only [List.length_map] using (List.getElem?_eq_some_iff.mp hmemc).1
-    have hshelfC : packed.boxes[c]? = some q.2 := (List.getElem?_zip_eq_some.mp hselected).2
-    have hloopen' : ∀ l ∈ loops,
-        l.1 ≠ ((componentCandidate execution.graph q.1.1 candidate).edges[i]).decl := by
-      intro l hl he
-      exact hloopen l hl (by rw [he, (List.getElem?_eq_some_iff.mp hedge).2])
-    have hplaced := placeComponent_route_entry_of_producer hrun 0 loops i hi hloopen'
-    rw [show ((componentCandidate execution.graph q.1.1 candidate).edges[i]).decl = edge.decl
-        by rw [(List.getElem?_eq_some_iff.mp hedge).2]] at hplaced
-    rw [(List.getElem?_eq_some_iff.mp hnative).2] at hplaced
-    have hrouteMem : (edge.decl, native.points.map
-        (shiftPoint (0 - (placeBounds execution.params
-            (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-            loops).minX)
-          (0 - (placeBounds execution.params
-            (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-            loops).minY))) ∈ q.1.2.routes := by
-      rw [show q.1.2.routes =
+                loops).minY p' := by
+          simp only [partPointT, routePointTransport, hshelfC, Option.getD_some,
+            frameRun_shiftPoint_compose]
+        rw [← hpeq, ← hconv]
+        exact hin'
+      intro hhit
+      obtain ⟨hw, hh, hnm⟩ := hhit
+      have hposS := hpos execution packed hpacked hselected hedge
+      have hposB : 0 < (shelfRectT execution packed c').w ∧
+          0 < (shelfRectT execution packed c').h := by
+        have hbIn2 := hbIn
+        unfold Rect.Contained at hbIn2
+        obtain ⟨hb1, hb2, hb3, hb4⟩ := hbIn2
+        constructor <;> omega
+      exact hnm (frameRun_allSegsMiss_of_shelves
+        (partsShelvesDisjoint_of_pack hpacked c c' hclt hc'len (Ne.symm hne)) hptsIn hposS
+          hposB hbIn)
+  rcases hroutes with hroutes | hcorr
+  · exact hsuff (Option.some.inj (hkeyedge.symm.trans hroutes))
+  case inr =>
+    obtain ⟨pts, hcor, hrouteC⟩ := hcorr
+    obtain ⟨_x, _y₀, _y₁, _hlt, hptsEq⟩ := hcor
+    have hgd : execution.straightAcc.routes.getD edge.decl [] = pts :=
+      execution.straight_points_of_scene hrouteC
+    have hptsAcc : execution.straightAcc.routes[edge.decl]? = some pts := by
+      have hne : pts ≠ [] := by
+        rw [hptsEq]
+        intro hcon
+        simp at hcon
+      have hgd2 : (execution.straightAcc.routes[edge.decl]?.getD []) = pts := by
+        have h := hgd
+        rw [Array.getD_eq_getD_getElem?] at h
+        exact h
+      cases ho : execution.straightAcc.routes[edge.decl]? with
+      | none =>
+        simp only [ho, Option.getD_none] at hgd2
+        exact absurd hgd2.symm hne
+      | some _v =>
+        simp only [ho, Option.getD_some] at hgd2
+        exact congrArg Option.some hgd2
+    rcases execution.route_cases_clear hptsAcc with hpackedPts | ⟨qW, ctx0W, oxW, oyW, iW, eW, routingW, spanW, hmemW, hctxW, hoffW, heW, hdeclW, hspanW, hptsW, hclearW⟩
+    · have heP : ((componentCandidate execution.graph q.1.1 candidate).edges[i]).decl =
+          edge.decl :=
+        congrArg Edge.decl (List.getElem?_eq_some_iff.mp hedge).2
+      have hloopP : ∀ l ∈ loops,
+          l.1 ≠ ((componentCandidate execution.graph q.1.1 candidate).edges[i]).decl := by
+        intro l hl he
+        exact hloopen l hl (by rw [he, (List.getElem?_eq_some_iff.mp hedge).2])
+      have hgetP := placeComponent_route_entry_of_producer hrun 0 loops i hi hloopP
+      have hpartRoutes : q.1.2.routes =
           (placeComponent execution.params
             (componentCandidate execution.graph q.1.1 candidate) run 0 execution.measured
-            loops).routes from by rw [hpart]]
-      exact List.mem_of_getElem? hplaced
-    have hin := part_route_points_within_shelf hpacked hmemc hclt
-    have hptsIn : ∀ p ∈ r.points, pointInRect (shelfRectT execution packed c) p := by
-      intro p hp
-      rw [congrArg Route.points hreq] at hp
-      obtain ⟨p', hp'mem, hpeq⟩ := List.mem_map.mp hp
-      have hp'in : shiftPoint
-          (0 - (placeBounds execution.params
-            (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-            loops).minX)
-          (0 - (placeBounds execution.params
-            (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-            loops).minY) p' ∈
-          native.points.map (shiftPoint
-            (0 - (placeBounds execution.params
-              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-              loops).minX)
-            (0 - (placeBounds execution.params
-              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-              loops).minY)) :=
-        List.mem_map_of_mem hp'mem
-      have hin' := hin _ hrouteMem _ hp'in
-      have hconv : partPointT execution packed c (shiftPoint
-          (0 - (placeBounds execution.params
-            (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-            loops).minX)
-          (0 - (placeBounds execution.params
-            (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-            loops).minY) p') =
-          routePointTransport execution.params.canvasMargin o.direction
+            loops).routes := by
+        rw [hpart]
+      rw [← hpartRoutes] at hgetP
+      have hnd : ((componentCandidate execution.graph q.1.1 candidate).edges.map
+          (·.decl)).Nodup :=
+        componentCandidate_decls_nodup_of_measuredGraph execution.graph_eq q.1.1 candidate
+      have hpartNodup : (q.1.2.routes.map (·.1)).Nodup := by
+        rw [hpartRoutes]
+        exact placeComponent_routes_decls_nodup execution.params
+          (componentCandidate execution.graph q.1.1 candidate) run 0 execution.measured
+          loops hnd
+      have hsizeC : execution.componentsAcc.routes.size = pinp.routes.length := by
+        have h := frameRun_components_fold_routes_size execution.params pinp o
+          execution.graph execution.measured _ _ _ execution.components_eq
+        simpa only [Array.size_replicate] using h
+      have hrouteSize : ((componentCandidate execution.graph q.1.1 candidate).edges[i]).decl <
+          execution.componentsAcc.routes.size := by
+        rw [heP, hdecl, hsizeC]
+        exact _hkeylen
+      have hpackedRoute := Elegant.Layered.actual_components_packAcc_routes_getD
+        (by rfl) execution.components_eq (measuredGraph_decls_nodup execution.graph_eq)
+        packed execution.packed_eq hpacked c q hselected i _ _ [] hgetP hpartNodup hrouteSize
+      have hnativeGet := (List.getElem?_eq_some_iff.mp hnative).2
+      have hbridgeS : execution.packedAcc.routes.getD edge.decl [] =
+          execution.straightAcc.routes.getD edge.decl [] := by
+        rw [hgd, Array.getD_eq_getD_getElem?, hpackedPts, Option.getD_some]
+      rw [heP] at hpackedRoute
+      rw [← hgd] at hrouteC
+      rw [← hbridgeS] at hrouteC
+      rw [hpackedRoute, routePointTransport_eq, hnativeGet] at hrouteC
+      have hreqP : r = Route.mk modelRoute.id modelRoute.fromId modelRoute.toId
+          modelRoute.orthogonal
+          (native.points.map (routePointTransport execution.params.canvasMargin o.direction
             execution.packedAcc.canvasH q.2.x q.2.y
-            (placeBounds execution.params
-              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-              loops).minX
-            (placeBounds execution.params
-              (componentCandidate execution.graph q.1.1 candidate) run execution.measured
-            loops).minY p' := by
-        simp only [partPointT, routePointTransport, hshelfC, Option.getD_some,
-          frameRun_shiftPoint_compose]
-      rw [← hpeq, ← hconv]
-      exact hin'
-    intro hhit
-    obtain ⟨hw, hh, hnm⟩ := hhit
-    have hposS := hpos execution packed hpacked hselected hedge
-    have hposB : 0 < (shelfRectT execution packed c').w ∧
-        0 < (shelfRectT execution packed c').h := by
-      have hbIn2 := hbIn
-      unfold Rect.Contained at hbIn2
-      obtain ⟨hb1, hb2, hb3, hb4⟩ := hbIn2
-      constructor <;> omega
-    exact hnm (frameRun_allSegsMiss_of_shelves
-      (partsShelvesDisjoint_of_pack hpacked c c' hclt hc'len (Ne.symm hne)) hptsIn hposS
-        hposB hbIn)
+            (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate)
+              run execution.measured loops).minX
+            (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate)
+              run execution.measured loops).minY)) :=
+        Option.some.inj (hkeyedge.symm.trans hrouteC)
+      exact hsuff hreqP
+    · have heligW : straightEdgeEligible ({ctx0W with dx := ctx0W.dx + oxW, dy := ctx0W.dy + oyW}) routingW iW eW = true := by
+        have hproperW0 : ({ctx0W with dx := ctx0W.dx + oxW, dy := ctx0W.dy + oyW}).proper = ctx0W.proper := rfl
+        have h := hspanW
+        unfold straightSpanOf at h
+        rw [hproperW0] at h
+        simp only [heW] at h
+        by_cases hb : straightEdgeEligible ({ctx0W with dx := ctx0W.dx + oxW, dy := ctx0W.dy + oyW}) routingW iW eW
+        · exact hb
+        · simp only [hb, Bool.not_false] at h
+          cases h
+      have hneW0 : eW.tail ≠ eW.head := by
+        unfold straightEdgeEligible at heligW
+        simp only [Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq] at heligW
+        obtain ⟨⟨⟨⟨⟨⟨_, _⟩, _⟩, _⟩, hNeW0⟩, _⟩, _⟩ := heligW
+        intro hcon
+        rw [hcon] at hNeW0
+        simp at hNeW0
+      have hinstW : Installed execution.packedAcc edge.decl pts :=
+        ⟨qW, ctx0W, oxW, oyW, iW, eW, spanW, hmemW, hctxW, hoffW, heW, hdeclW, hneW0, routingW, hspanW, hptsW⟩
+      have hinst' := hinstW
+      rw [hdecl] at hinst'
+      obtain ⟨tailKeyS, headKeyS, tailRectS, headRectS, spanS, _htailLtS, _hheadLtS, htkBoxS, hhkBoxS, htkS, hhkS, htrS, hhrS, hth0S, hhh0S, _htxS, _htwS, _hhxS, _hhwS, hcolT1, hcolT2, hcolH1, hcolH2, htopS, hbotS, hptsS⟩ :=
+        execution.installed_part_edge_rects hinst' hselected hedge hdecl hrun hpart
+      -- the corridor points are the span's two points
+      have hlit : spanS.points = [⟨spanS.column, spanS.top⟩, ⟨spanS.column, spanS.bottom⟩] := rfl
+      have hpxEq : ([⟨spanS.column, spanS.top⟩, ⟨spanS.column, spanS.bottom⟩] : List Point) = [⟨_x, _y₀⟩, ⟨_x, _y₁⟩] :=
+        hlit.symm.trans (hptsS.symm.trans hptsEq)
+      have htopEq : spanS.top = _y₀ := by
+        have h1 : List.head? ([⟨spanS.column, spanS.top⟩, ⟨spanS.column, spanS.bottom⟩] : List Point) = some ⟨spanS.column, spanS.top⟩ := rfl
+        rw [hpxEq] at h1
+        have h2 : List.head? ([⟨_x, _y₀⟩, ⟨_x, _y₁⟩] : List Point) = some ⟨_x, _y₀⟩ := rfl
+        rw [h2] at h1
+        have h3 := Option.some.inj h1
+        have h4 := congrArg Point.y h3
+        exact h4.symm
+      have hbotEq : spanS.bottom = _y₁ := by
+        have h1 : ([⟨spanS.column, spanS.top⟩, ⟨spanS.column, spanS.bottom⟩] : List Point).tail.head? = some ⟨spanS.column, spanS.bottom⟩ := rfl
+        rw [hpxEq] at h1
+        have h2 : ([⟨_x, _y₀⟩, ⟨_x, _y₁⟩] : List Point).tail.head? = some ⟨_x, _y₁⟩ := rfl
+        rw [h2] at h1
+        have h3 := Option.some.inj h1
+        have h4 := congrArg Point.y h3
+        exact h4.symm
+      have hcolEq : spanS.column = _x := by
+        have h1 : List.head? ([⟨spanS.column, spanS.top⟩, ⟨spanS.column, spanS.bottom⟩] : List Point) = some ⟨spanS.column, spanS.top⟩ := rfl
+        rw [hpxEq] at h1
+        have h2 : List.head? ([⟨_x, _y₀⟩, ⟨_x, _y₁⟩] : List Point) = some ⟨_x, _y₀⟩ := rfl
+        rw [h2] at h1
+        have h3 := Option.some.inj h1
+        have h4 := congrArg Point.x h3
+        exact h4.symm
+      -- the packed tail/head rectangles, transported, are the part's shelf contents
+      have hentryT : (q.1.1.zip q.1.2.rects)[edge.tail]? = some (tailKeyS, shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.tail)) :=
+        chosen_part_frame_entry hpart htkS
+      have hentryH : (q.1.1.zip q.1.2.rects)[edge.head]? = some (headKeyS, shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.head)) :=
+        chosen_part_frame_entry hpart hhkS
+      have hsizeT : tailKeyS < execution.componentsAcc.rects.size := by
+        rw [execution.components_rects_size]; exact htkBoxS
+      have hsizeH : headKeyS < execution.componentsAcc.rects.size := by
+        rw [execution.components_rects_size]; exact hhkBoxS
+      have hpackT : execution.packedAcc.rects.getD tailKeyS default = shiftRect q.2.x q.2.y (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.tail)) :=
+        actual_components_packed_rect_value (by rfl) execution.components_eq execution.packed_eq packed hpacked hselected hentryT hsizeT default
+      have hpackH : execution.packedAcc.rects.getD headKeyS default = shiftRect q.2.x q.2.y (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.head)) :=
+        actual_components_packed_rect_value (by rfl) execution.components_eq execution.packed_eq packed hpacked hselected hentryH hsizeH default
+      have htailEq : tailRectS = shiftRect q.2.x q.2.y (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.tail)) := by
+        have h1 := hpackT
+        rw [Array.getD_eq_getD_getElem?, htrS, Option.getD_some] at h1
+        exact h1
+      have hheadEq : headRectS = shiftRect q.2.x q.2.y (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.head)) := by
+        have h1 := hpackH
+        rw [Array.getD_eq_getD_getElem?, hhrS, Option.getD_some] at h1
+        exact h1
+      have hrpts : r.points = (([⟨_x, _y₀⟩, ⟨_x, _y₁⟩] : List Point).map fun p => shiftPoint execution.params.canvasMargin execution.params.canvasMargin (orientPoint o.direction execution.packedAcc.canvasH p)) := by
+        have heq := Option.some.inj (hkeyedge.symm.trans hrouteC)
+        have h := congrArg Route.points heq
+        rwa [hptsEq] at h
+      have hbridgeC := hbridge execution packed hpacked hq1comp hrun hloops hpart hselected hedge hkeyedge hb hframe hscope
+      cases hbridgeC with
+      | inl hleft =>
+        obtain ⟨v, gkey, gsrc, hv, hsource, _hsrcId, hvlen, hreal, hborder0, hbrect⟩ := hleft
+        by_cases heqT : v = edge.tail
+        · -- the corridor starts on the frame's own bottom edge: y-equality, no column needed
+          have hbT0 : b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin (orientRect o.direction execution.packedAcc.canvasH tailRectS) := by
+            rw [hbrect, heqT, htailEq]
+          have hsegP : Polyline.segMisses ⟨_x, _y₀⟩ ⟨_x, _y₁⟩ tailRectS := by
+            have h4 : min _y₀ _y₁ ≥ tailRectS.y + tailRectS.h := by
+              have hle : _y₀ ≤ _y₁ := by omega
+              have hy0 : _y₀ = tailRectS.y + tailRectS.h := by rw [← htopEq, htopS]
+              omega
+            exact Or.inr (Or.inr (Or.inr (Or.inl h4)))
+          have hsegT := (segMisses_shift execution.params.canvasMargin execution.params.canvasMargin _ _ _).mpr ((segMisses_orient o.direction execution.packedAcc.canvasH _ _ _).mpr hsegP)
+          have hAS : Polyline.allSegsMiss r.points b.rect := by
+            rw [hrpts, hbT0]
+            exact ⟨hsegT, trivial⟩
+          intro hhit
+          obtain ⟨hw, hh, hnm⟩ := hhit
+          exact hnm hAS
+        · by_cases heqH : v = edge.head
+          · -- the corridor ends on the frame's own top edge: symmetric
+            have hbH0 : b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin (orientRect o.direction execution.packedAcc.canvasH headRectS) := by
+              rw [hbrect, heqH, hheadEq]
+            have hsegP : Polyline.segMisses ⟨_x, _y₀⟩ ⟨_x, _y₁⟩ headRectS := by
+              have h3 : max _y₀ _y₁ ≤ headRectS.y := by
+                have hle : _y₀ ≤ _y₁ := by omega
+                have hy1 : _y₁ = headRectS.y := by rw [← hbotEq, hbotS]
+                omega
+              exact Or.inr (Or.inr (Or.inl h3))
+            have hsegT := (segMisses_shift execution.params.canvasMargin execution.params.canvasMargin _ _ _).mpr ((segMisses_orient o.direction execution.packedAcc.canvasH _ _ _).mpr hsegP)
+            have hAS : Polyline.allSegsMiss r.points b.rect := by
+              rw [hrpts, hbH0]
+              exact ⟨hsegT, trivial⟩
+            intro hhit
+            obtain ⟨hw, hh, hnm⟩ := hhit
+            exact hnm hAS
+          · -- same-part frame at a different vertex: corridor misses every same-part box
+            obtain ⟨hqW1, hqW2, horigW⟩ :=
+              execution.installed_edge_installer hinstW hselected hedge rfl hrun hpart qW ctx0W iW eW hmemW hctxW heW hdeclW
+            have hpos := execution.installed_edge_endpoints hinstW hselected hedge rfl hrun hpart qW ctx0W iW eW hmemW hctxW heW hdeclW hspanW
+            have hneTW : v ≠ eW.tail := fun hcon => heqT (hcon.trans hpos.1)
+            have hneHW : v ≠ eW.head := fun hcon => heqH (hcon.trans hpos.2)
+            have hvW : qW.1[v]? = some gkey := by rw [hqW1]; exact hv
+            obtain ⟨gn, hcand⟩ : ∃ gn, (componentCandidate execution.graph q.1.1 candidate).nodes[v]? = some gn :=
+              ⟨_, List.getElem?_eq_getElem hvlen⟩
+            have hbord : gn.border = 0 := by
+              have h := hborder0
+              rw [List.getD_eq_getElem?_getD, hcand, Option.getD_some] at h
+              exact h
+            have hrealW_run : straightRealNode run.proper v = true :=
+              execution.installed_component_node_real hrun hcand hbord hreal
+            have hproperW : ctx0W.proper = run.proper := by
+              have hc := hctxW
+              rw [hqW2, hpart] at hc
+              unfold placeComponent at hc
+              dsimp only at hc
+              exact congrArg StraightenCtx.proper (Option.some.inj hc).symm
+            have hrealW : straightRealNode ctx0W.proper v = true := by
+              rw [hproperW]
+              exact hrealW_run
+            have hsizeP : gkey < execution.packedAcc.rects.size := by
+              rw [execution.packed_rects_size]
+              exact (List.getElem?_eq_some_iff.mp hsource).1
+            have hneF : execution.packedAcc.rects[gkey]? ≠ none := by
+              intro hcon
+              have hle := Array.getElem?_eq_none_iff.mp hcon
+              omega
+            obtain ⟨rectW, hlookW⟩ := Option.ne_none_iff_exists'.mp hneF
+            have hentryV : (q.1.1.zip q.1.2.rects)[v]? = some (gkey, shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run v)) :=
+              chosen_part_frame_entry hpart hv
+            have hsizeV : gkey < execution.componentsAcc.rects.size := by
+              rw [execution.components_rects_size]
+              exact (List.getElem?_eq_some_iff.mp hsource).1
+            have hpackV : execution.packedAcc.rects.getD gkey default = shiftRect q.2.x q.2.y (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run v)) :=
+              actual_components_packed_rect_value (by rfl) execution.components_eq execution.packed_eq packed hpacked hselected hentryV hsizeV default
+            have hrectEq : rectW = shiftRect q.2.x q.2.y (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run v)) := by
+              have h1 := hpackV
+              rw [Array.getD_eq_getD_getElem?, hlookW, Option.getD_some] at h1
+              exact h1
+            have hbV : b.rect = shiftRect execution.params.canvasMargin execution.params.canvasMargin (orientRect o.direction execution.packedAcc.canvasH rectW) := by
+              rw [hbrect, hrectEq]
+            have hmissW : ¬ Polyline.hitsRect pts rectW := by
+              by_cases hposH : 0 < rectW.h
+              · have h0W : 0 ≤ rectW.h := by omega
+                exact execution.installed_corridor_misses_part_boxes hmemW hctxW hoffW heW hdeclW hspanW hptsW hclearW v gkey rectW hvW hneTW hneHW hlookW h0W (Or.inr hrealW)
+              · have hle : rectW.h ≤ 0 := by omega
+                exact Polyline.not_hits_of_zero (Or.inr hle)
+            have hmissW' : ¬ Polyline.hitsRect ([⟨_x, _y₀⟩, ⟨_x, _y₁⟩]) rectW := by
+              rw [hptsEq] at hmissW
+              exact hmissW
+            rw [hrpts, hbV]
+            exact not_hitsRect_shift_orient _ _ _ _ _ _ hmissW'
+      | inr hright =>
+        obtain ⟨c', r', hne, hshelfget, hbIn⟩ := hright
+        have hc'len : c' < packed.boxes.length :=
+          (List.getElem?_eq_some_iff.mp hshelfget).1
+        have hmemc : execution.componentsAcc.parts[c]? = some q.1 := zip_getElem?_left hselected
+        have hclt : c < packed.boxes.length := by
+          rw [Pack.pack_count hpacked]
+          simpa only [List.length_map] using (List.getElem?_eq_some_iff.mp hmemc).1
+        have hshelfC : packed.boxes[c]? = some q.2 := (List.getElem?_zip_eq_some.mp hselected).2
+        have haccT := corridor_onBoundary_acc (x := _x) (y₀ := _y₀) (y₁ := _y₁) hth0S hhh0S ⟨by rw [← hcolEq]; exact hcolT1, by rw [← hcolEq]; exact hcolT2⟩ ⟨by rw [← hcolEq]; exact hcolH1, by rw [← hcolEq]; exact hcolH2⟩ (by rw [← htopEq, htopS]) (by rw [← hbotEq, hbotS])
+        have haccS := corridor_onBoundary_scene (margin := execution.params.canvasMargin) (d := o.direction) (h := execution.packedAcc.canvasH) haccT
+        have hptsIn : ∀ p ∈ r.points, pointInRect (shelfRectT execution packed c) p := by
+          intro p hp
+          rw [hrpts] at hp
+          simp only [List.map_cons, List.map_nil, List.mem_cons] at hp
+          rcases hp with rfl | rfl | hmemNil
+          · -- first endpoint: transported tail rect is shelf-contained
+            have hmemT : pointInRect (shiftRect execution.params.canvasMargin execution.params.canvasMargin (orientRect o.direction execution.packedAcc.canvasH tailRectS)) (shiftPoint execution.params.canvasMargin execution.params.canvasMargin (orientPoint o.direction execution.packedAcc.canvasH ⟨_x, _y₀⟩)) := by
+              obtain ⟨hx1, hx2, hy1, hy2, _⟩ := haccS.left
+              exact ⟨hx1, hx2, hy1, hy2⟩
+            have hsubT : (shelfRectT execution packed c).Contained (shiftRect execution.params.canvasMargin execution.params.canvasMargin (orientRect o.direction execution.packedAcc.canvasH tailRectS)) := by
+              rw [htailEq]
+              have hRmemT : (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.tail)) ∈ q.1.2.rects :=
+                (List.of_mem_zip (List.mem_of_getElem? hentryT)).2
+              have hcontT := part_rects_within_shelf hpacked hmemc hclt _ hRmemT
+              have heqT : shiftRect execution.params.canvasMargin execution.params.canvasMargin (orientRect o.direction execution.packedAcc.canvasH (shiftRect q.2.x q.2.y (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.tail)))) = partRectT execution packed c (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.tail)) := by
+                simp only [partRectT, hshelfC, Option.getD_some]
+              rw [heqT]
+              exact hcontT
+            obtain ⟨s1, s2, s3, s4⟩ := hsubT
+            obtain ⟨m1, m2, m3, m4⟩ := hmemT
+            exact ⟨by omega, by omega, by omega, by omega⟩
+          · -- second endpoint: transported head rect is shelf-contained
+            have hmemH : pointInRect (shiftRect execution.params.canvasMargin execution.params.canvasMargin (orientRect o.direction execution.packedAcc.canvasH headRectS)) (shiftPoint execution.params.canvasMargin execution.params.canvasMargin (orientPoint o.direction execution.packedAcc.canvasH ⟨_x, _y₁⟩)) := by
+              obtain ⟨hx1, hx2, hy1, hy2, _⟩ := haccS.right
+              exact ⟨hx1, hx2, hy1, hy2⟩
+            have hsubH : (shelfRectT execution packed c).Contained (shiftRect execution.params.canvasMargin execution.params.canvasMargin (orientRect o.direction execution.packedAcc.canvasH headRectS)) := by
+              rw [hheadEq]
+              have hRmemH : (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.head)) ∈ q.1.2.rects :=
+                (List.of_mem_zip (List.mem_of_getElem? hentryH)).2
+              have hcontH := part_rects_within_shelf hpacked hmemc hclt _ hRmemH
+              have heqH : shiftRect execution.params.canvasMargin execution.params.canvasMargin (orientRect o.direction execution.packedAcc.canvasH (shiftRect q.2.x q.2.y (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.head)))) = partRectT execution packed c (shiftRect (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minX) (0 - (placeBounds execution.params (componentCandidate execution.graph q.1.1 candidate) run execution.measured loops).minY) (frameRect execution.params (componentCandidate execution.graph q.1.1 candidate) run edge.head)) := by
+                simp only [partRectT, hshelfC, Option.getD_some]
+              rw [heqH]
+              exact hcontH
+            obtain ⟨s1, s2, s3, s4⟩ := hsubH
+            obtain ⟨m1, m2, m3, m4⟩ := hmemH
+            exact ⟨by omega, by omega, by omega, by omega⟩
+          · exact absurd hmemNil (by simp)
+        intro hhit
+        obtain ⟨hw, hh, hnm⟩ := hhit
+        have hposS := hpos execution packed hpacked hselected hedge
+        have hposB : 0 < (shelfRectT execution packed c').w ∧ 0 < (shelfRectT execution packed c').h := by
+          have hbIn2 := hbIn
+          unfold Rect.Contained at hbIn2
+          obtain ⟨hb1, hb2, hb3, hb4⟩ := hbIn2
+          constructor <;> omega
+        exact hnm (frameRun_allSegsMiss_of_shelves
+          (partsShelvesDisjoint_of_pack hpacked c c' hclt hc'len (Ne.symm hne)) hptsIn hposS
+            hposB hbIn)
 
 /-! ## Flat loop miss -/
 
@@ -1106,7 +1436,7 @@ theorem flat_frame_clear {pinp : Input} {o : Options} {pres : FamilyResult} {gro
   have hlen : pres.scene.routes.length = pinp.routes.length := by
     rw [execution.scene_eq]
     exact sceneOf_routes_length execution.params pinp o execution.lines
-      execution.packedAcc execution.measured
+      execution.straightAcc execution.measured
   have hkey : key < pinp.routes.length := by
     rw [← hlen]
     exact (List.getElem?_eq_some_iff.mp hkget).1

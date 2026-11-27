@@ -190,13 +190,13 @@ theorem exactBaseSeams (exactIds : List String) :
     Layered.PipelineImpl.BaseSeams (Layered.PipelineImpl.layoutX exactIds) where
   flatInset := fun inp o res h => by
     obtain ⟨execution⟩ := Layered.PipelineImpl.layoutX_sceneExecution h
-    have hacc := Layered.PipelineImpl.SceneExecutionX.packedAcc_bounded execution
+    have hacc := Layered.PipelineImpl.SceneExecutionX.straightAcc_bounded execution
       (Layered.PipelineImpl.exactPartsBounded' execution)
     have hm1 := Layered.PipelineImpl.checkedParams_canvasMargin_ge_one execution.checked
     refine ⟨execution.params, execution.checked, by omega, ?_⟩
     rw [execution.scene_eq]
     exact Layered.PipelineImpl.sceneOf_boxes_inset execution.params inp o execution.lines
-      execution.packedAcc execution.measured hacc (by omega)
+      execution.straightAcc execution.measured hacc (by omega)
   flatC3 := Layered.PipelineImpl.flatC3B_layoutX exactIds
   flatC2 := Layered.PipelineImpl.flatC2B_layoutX exactIds
   flatC4 := fun inp o res h route hroute => by

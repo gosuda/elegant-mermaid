@@ -150,7 +150,7 @@ private def xfsOk (exactIds : List String) (inp : Input) : Bool :=
 private def xfsPhases (exactIds : List String) (inp : Input)
     (o : Options) : Except LayoutError (Params × List (List Measure.Line) × Acc) := do
   let P ← checkedParams o.profile inp.kind
-  let m ← metricOf o.profile
+  let m ← metricOf o.profile o.fontFamily
   let target := Measure.wrapTarget m.profile P.wrapWidth (if o.profile == .cell then o.maxWidth else 0)
   let lines ← boxLines m target inp
   let measured ← measureLabels P m target inp o.direction

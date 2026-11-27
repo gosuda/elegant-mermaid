@@ -183,7 +183,7 @@ fn header(o: &Options<'_>, w: &str, h: &str) -> String {
         o.title.into()
     };
     let font = if o.font_family.is_empty() {
-        "Inter, 'Helvetica Neue', Arial, sans-serif"
+        "Inter, 'Noto Sans', 'Noto Sans Symbols', 'Noto Sans Symbols 2', 'Noto Sans Math', 'Noto Sans CJK SC', 'Noto Sans Coptic', 'Noto Emoji', 'Helvetica Neue', Arial, sans-serif"
     } else {
         o.font_family
     };

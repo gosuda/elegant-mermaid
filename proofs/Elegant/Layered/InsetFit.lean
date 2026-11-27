@@ -121,7 +121,8 @@ theorem layout_inset {inp : Input} {o : Options} {res : FamilyResult}
   refine ⟨execution.params, execution.checked, by omega, ?_⟩
   rw [execution.scene_eq]
   exact sceneOf_boxes_inset execution.params inp o execution.lines
-    execution.packedAcc execution.measured hacc (by omega)
+    execution.straightAcc execution.measured
+    (execution.straightAcc_bounded execution.components_parts_bounded) (by omega)
 
 /-- The shifted child *inset* canvas fits inside a frame whose width and
 height dominate `childFrameSize`, WITHOUT any `margin ≤ pad` premise: the
