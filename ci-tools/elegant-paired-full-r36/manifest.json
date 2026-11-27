@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "purpose": "Run the exact repository root just verify after the successful paired native Windows proof.",
+  "purpose": "Repeat the exact full root command on unchanged paired source with measured single-CPU scheduling.",
   "source": {
     "repository": "gosuda/elegant-mermaid",
     "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
@@ -10,9 +10,10 @@
     "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33"
   },
   "proof_sha256": {
-    "verify.py": "2c5bc97a9c58a0bedaf15590e962d2a973e92a7d3f3afad79c288cd8773b99db",
+    "verify.py": "9140ccd9547d14288189943c9b30f872cde42de17e158c2993bf23beca909e12",
     "source-index.json": "a28fbae32feab70597e0575634293875e88f7bb8cc12ef1ee8299cc8f6e8995e",
-    "windows-receipt.json": "cb3d5f186f76fc77c0c3bdb11464d49d58d84dae85feb352dcdee287a4a2b772"
+    "windows-receipt.json": "cb3d5f186f76fc77c0c3bdb11464d49d58d84dae85feb352dcdee287a4a2b772",
+    "resource_support.py": "3da8974d51a980377b4e0ac4e43cf0467ce6760e0dc514db088c7d7f7b0e6e4f"
   },
   "workflow_sha256": "786c116f555a2a1a532bb7539120177b50e61280605d388a1d8677b015b2695a",
   "tools": {
@@ -76,8 +77,42 @@
       "verdict": "One report-state defect corrected; no additional static blocker. Runtime execution remains required.",
       "correction": "publication_eligible is derived from source_gates_passed and source_restored immediately before report serialization.",
       "source_changes": false
+    },
+    "resource_review": {
+      "reviewer": "/root/bitcoin_round7/bamti_relation_followup/elegant_mermaid_followup",
+      "verdict": "Source review supports affinity as an operational scheduling control; original termination cause remains unproven. No native execution by reviewer."
     }
   },
   "publication_eligible": false,
-  "fully_verified_requires": "Successful full root command plus successful ordinary core and verification workflows, per AGENTS.md; this manifest makes no pending-run success claim."
+  "fully_verified_requires": "Successful full root command plus successful ordinary core and verification workflows, per AGENTS.md; this manifest makes no pending-run success claim.",
+  "prior_failure": {
+    "producer": "761b6a3fa979838fd68d6949c7db2a9734e880c0",
+    "run": 45988680468,
+    "job": 140470677698,
+    "raw_exit": 137,
+    "timed_out": false,
+    "conclusion": "failure",
+    "artifact": 15193342317,
+    "zip_sha256": "f80ae39c29b9cac507f372ef83abb43e187e16a6c1311e1aa1880ab0bd2096d3",
+    "receipt_commit": "91a657362d6995c29b8fd3a92b11da797089fdee",
+    "receipt_sha256": "070ab4a9149e2c1b7f06a3498911ec2afd1825aab4b700e722f71a0ffd411ea9",
+    "log_sha256": "340eb4463ac43bbba25444365ae265ba27dac4cbd992c366b74892e784da4b8a",
+    "cause": "Signal9 is observed. No OOM attribution is established by that run.",
+    "gate_reuse": false
+  },
+  "operational_change": {
+    "scope": "One CPU selected from the original allowed mask for the unchanged just verify child and all descendants. Supervisor mask restored immediately.",
+    "arguments_unchanged": true,
+    "linter_source_unchanged": true,
+    "source_unchanged": true,
+    "thresholds_unchanged": true,
+    "discovery_scope_unchanged": true,
+    "source_basis": [
+      "https://github.com/gosuda/sloplint/blob/72f29bae0ba1187da854e080c998b8a21f1e4640/crates/sloplint/src/lib.rs",
+      "https://github.com/rust-lang/rust/blob/1.100.0/library/std/src/sys/thread/unix.rs"
+    ],
+    "no_environment_assumption": "Default jobs is resolved before Rayon; RAYON_NUM_THREADS would not control this pool.",
+    "resource_metrics": "Before/after kernel cgroup memory files plus2-second process RSS/HWM/thread/affinity samples. Sampled peaks and kernel-scope historical peaks are labeled.",
+    "coverage": "Require the literal agent summary; reject actual meta/parse-error timeout records, preserve other syntax-error records and skipped total. No threshold or baseline exemptions."
+  }
 }

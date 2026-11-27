@@ -13,6 +13,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Final
 
+from resource_support import ResourceTrace
+
 SOURCE: Final = Path(sys.argv[1]).absolute()
 PROOF: Final = Path(sys.argv[2]).absolute()
 OUTPUT: Final = Path(sys.argv[3]).absolute()
@@ -46,6 +48,7 @@ class Receipt:
 
 
 RECEIPTS: Final[list[Receipt]] = []
+RESOURCE_REPORTS: Final[list[dict[str, object]]] = []
 
 
 def sha256(data: bytes) -> str:
@@ -120,32 +123,55 @@ def run(name: str, command: list[str], timeout: int = 300) -> Path:
     started = time.monotonic()
     timed_out = False
     print("FULL_COMMAND_START " + json.dumps({"name": name, "command": command}), flush=True)
-    with log.open("wb") as stream:
-        process = subprocess.Popen(
-            command, cwd=SOURCE, env=environment(), stdout=stream,
-            stderr=subprocess.STDOUT, start_new_session=True,
-        )
-        deadline = started + timeout
-        while True:
-            remaining = deadline - time.monotonic()
-            try:
-                raw_exit = process.wait(timeout=max(0.001, min(30, remaining)))
-                break
-            except subprocess.TimeoutExpired:
-                if time.monotonic() < deadline:
-                    print("FULL_COMMAND_PROGRESS " + json.dumps({
-                        "name": name, "seconds": round(time.monotonic() - started, 1),
-                        "log_bytes": log.stat().st_size,
-                    }), flush=True)
-                    continue
-                timed_out = True
-                os.killpg(process.pid, signal.SIGTERM)
+    trace = ResourceTrace(OUTPUT) if name == "just-verify" else None
+    process: subprocess.Popen[bytes] | None = None
+    try:
+        with log.open("wb") as stream:
+            if trace is None:
+                process = subprocess.Popen(
+                    command, cwd=SOURCE, env=environment(), stdout=stream,
+                    stderr=subprocess.STDOUT, start_new_session=True,
+                )
+            else:
+                process = trace.spawn(command, SOURCE, environment(), stream)
+            deadline = started + timeout
+            next_progress = started + 30
+            while True:
+                if trace is not None:
+                    trace.sample(process.pid)
+                remaining = deadline - time.monotonic()
                 try:
-                    raw_exit = process.wait(timeout=5)
+                    raw_exit = process.wait(timeout=max(0.001, min(2 if trace is not None else 30, remaining)))
+                    break
                 except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    raw_exit = process.wait()
-                break
+                    if time.monotonic() < deadline:
+                        if time.monotonic() >= next_progress:
+                            print("FULL_COMMAND_PROGRESS " + json.dumps({
+                                "name": name, "seconds": round(time.monotonic() - started, 1),
+                                "log_bytes": log.stat().st_size,
+                            }), flush=True)
+                            next_progress = time.monotonic() + 30
+                        continue
+                    timed_out = True
+                    os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        raw_exit = process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        raw_exit = process.wait()
+                    break
+    except BaseException:
+        if process is not None and process.poll() is None:
+            os.killpg(process.pid, signal.SIGTERM)
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+        raise
+    finally:
+        if trace is not None:
+            RESOURCE_REPORTS.append(trace.finish())
     accepted = raw_exit == 0 and not timed_out
     receipt = Receipt(
         name, tuple(command), raw_exit, timed_out, time.monotonic() - started,
@@ -267,6 +293,27 @@ def main() -> None:
         if markers != set(EXPECTED_GATES):
             raise RuntimeError(f"Missing complete verification recipe markers: {set(EXPECTED_GATES) - markers}")
         report["completed_recipes"] = list(EXPECTED_GATES)
+        whole_log = full_log.read_text(encoding="utf-8", errors="strict")
+        summaries = [line for line in whole_log.splitlines() if line.startswith("summary: strictness=")]
+        if len(summaries) != 1:
+            raise RuntimeError("Missing or ambiguous required house-linter summary")
+        parsed = dict(re.findall(r"([a-z_]+)=([a-z0-9]+)", summaries[0]))
+        if parsed.get("strictness") != "standard" or not parsed.get("files", "").isdigit():
+            raise RuntimeError("Invalid house-linter coverage summary")
+        record_pattern = re.compile(r"^(?P<path>\S.*):(?P<line>[0-9]+):(?P<column>[0-9]+): (?P<severity>blocker|critical|major|minor|info)/(?P<confidence>low|medium|high): (?P<message>.*) \[(?P<rule>meta/parse-error)\]$")
+        incomplete = [match.groupdict() for line in whole_log.splitlines()
+                      if (match := record_pattern.fullmatch(line)) is not None]
+        timed_out_files = [row for row in incomplete
+                           if row["message"] == "parse timed out; other rules skipped for this file"]
+        report["lint_coverage"] = {
+            "summary": summaries[0], "fields": parsed,
+            "parse_error_records": incomplete, "timeout_records": timed_out_files,
+            "scope": "The original severity gate is unchanged. Existing syntax/generated-file exclusions remain visible; an affinity-sensitive parser timeout makes this proof ineligible.",
+        }
+        if timed_out_files:
+            raise RuntimeError("House linter timed out on files under the recorded CPU mask")
+        if not RESOURCE_REPORTS or not RESOURCE_REPORTS[-1].get("linter_processes"):
+            raise RuntimeError("No actual pinned house-linter process was observed")
         run("whitespace", ["git", "diff", "--check", "HEAD"])
         report["final_index_sha256"] = identity(entries, tree, "after")
         run("source-unchanged", ["git", "diff", "--exit-code", "HEAD"])
@@ -280,6 +327,7 @@ def main() -> None:
         finally:
             report["publication_eligible"] = bool(report["source_gates_passed"] and report["source_restored"])
             report["commands"] = [asdict(receipt) for receipt in RECEIPTS]
+            report["resource_reports"] = RESOURCE_REPORTS
             (OUTPUT / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
             print("FULL_VERIFY_REPORT " + json.dumps(report), flush=True)
 
