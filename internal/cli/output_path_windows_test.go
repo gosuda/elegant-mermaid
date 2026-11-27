@@ -154,3 +154,57 @@ func TestMarkdownWindowsFinalLinkIsReplaced(t *testing.T) {
 		t.Fatalf("final entry was followed instead of replaced: %v, %v", info, err)
 	}
 }
+
+func TestMarkdownWindowsNamespaceNormalization(t *testing.T) {
+	for _, tc := range []struct {
+		name, prefix, operand, actual, url string
+	}{
+		{"ordinary-dot-final", "", "assets.", "assets", "assets"},
+		{"ordinary-dot-intermediate", "", "assets.\\child", "assets\\child", "assets/child"},
+		{"ordinary-space-final", "", "assets ", "assets", "assets"},
+		{"ordinary-space-intermediate", "", "assets \\child", "assets \\child", "assets%20/child"},
+		{"device-dot-final", "\\\\.\\", "assets.", "assets", "assets"},
+		{"device-dot-intermediate", "\\\\.\\", "assets.\\child", "assets\\child", "assets/child"},
+		{"device-space-final", "\\\\.\\", "assets ", "assets", "assets"},
+		{"device-space-intermediate", "\\\\.\\", "assets \\child", "assets \\child", "assets%20/child"},
+		{"verbatim-dot-final", "\\\\?\\", "assets.", "assets.", "assets."},
+		{"verbatim-dot-intermediate", "\\\\?\\", "assets.\\child", "assets.\\child", "assets./child"},
+		{"verbatim-space-final", "\\\\?\\", "assets ", "assets ", "assets%20"},
+		{"verbatim-space-intermediate", "\\\\?\\", "assets \\child", "assets \\child", "assets%20/child"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			base := markdownWindowsDirectory(t)
+			for _, name := range []string{"assets", "assets.", "assets "} {
+				if err := os.Mkdir(base+"\\"+name, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(base+"\\"+name+"\\child", 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			root := strings.TrimPrefix(base, "\\\\?\\")
+			if tc.prefix == "" && strings.HasPrefix(root, "UNC\\") {
+				root = "\\\\" + root[len("UNC\\"):]
+			}
+			operand := tc.prefix + root + "\\" + tc.operand
+			resolved, err := resolvedOutputDirectory(operand)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual, err := os.Stat(resolved)
+			if err != nil {
+				t.Fatal(err)
+			}
+			expected, err := os.Stat(base + "\\" + tc.actual)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !os.SameFile(actual, expected) {
+				t.Fatalf("directory identity for %q: got %q, want %q", operand, resolved, tc.actual)
+			}
+			requireMarkdownSuccess(t, "render", "input.md", "-o", "report.md", "-a", operand)
+			requireMarkdownText(t, "report.md", "![diagram]("+tc.url+"/report-1.svg)\n")
+			requireMarkdownWindowsImage(t, base+"\\"+tc.actual+"\\report-1.svg")
+		})
+	}
+}

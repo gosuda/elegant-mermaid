@@ -110,7 +110,7 @@ func resolvedOutputTarget(path string) (string, error) {
 }
 
 func literalWindowsOutputPath(path string) bool {
-	return strings.HasPrefix(path, "\\\\?\\") || strings.HasPrefix(path, "\\\\.\\")
+	return strings.HasPrefix(path, "\\\\?\\")
 }
 
 // A synthetic ancestor keeps native lexical normalization away from a real
