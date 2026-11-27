@@ -1,0 +1,1043 @@
+{
+  "scope": "Public Elegant Mermaid PR28 native namespace observation only",
+  "producer": {
+    "commit": "0833834b497450c44ded136b9ca2bcab3b2d246d",
+    "tree": "58ae28bbec7ba1fd3636a8beaaf8be7431dbe1eb",
+    "branch": "ci/elegant-device-namespace-20261127-r36",
+    "run": 45975185314,
+    "job": 140425035974,
+    "url": "https://github.com/gosuda/elegant-mermaid/actions/runs/45975185314",
+    "runner": "depot-windows-2025",
+    "conclusion": "success"
+  },
+  "artifact": {
+    "id": 15186617469,
+    "bytes": 954485,
+    "zip_sha256": "de31ec0bbc57efa4a65fae7fa6744bc6d4b490a6188b6a53d83785d6e0d64094",
+    "verification": "Artifact API producer/digest matches upload log; native records read from complete decoded job log.",
+    "url": "https://github.com/gosuda/elegant-mermaid/actions/runs/45975185314/artifacts/15186617469"
+  },
+  "decoded_log": {
+    "chars": 112219,
+    "sha256": "1f54e080a4d1d2244be391ef459c4ec530057b75961e34a3c73671fdb5971dc4",
+    "complete_records": {
+      "native": 12,
+      "candidate_comparisons": 12,
+      "fixtures": 6,
+      "commands": 7
+    }
+  },
+  "source": {
+    "commit": "2bc5029c2a8166c3c7cb15cb7f801dd8b9f1718d",
+    "tree": "2da5688b438cc275010ff3ee120b41c13670264c",
+    "blobs": 6714,
+    "links_sha256": "54d99139c47b753207cfdb47e4999788235d44c72708bfdcc9c43714fe4d4292"
+  },
+  "report": {
+    "source": {
+      "commit": "2bc5029c2a8166c3c7cb15cb7f801dd8b9f1718d",
+      "tree": "2da5688b438cc275010ff3ee120b41c13670264c",
+      "blobs": 6714,
+      "links_sha256": "54d99139c47b753207cfdb47e4999788235d44c72708bfdcc9c43714fe4d4292"
+    },
+    "producer": "0833834b497450c44ded136b9ca2bcab3b2d246d",
+    "run_id": "45975185314",
+    "attempt": "1",
+    "source_restored": true,
+    "source_identity": {
+      "label": "after",
+      "commit": "2bc5029c2a8166c3c7cb15cb7f801dd8b9f1718d",
+      "tree": "2da5688b438cc275010ff3ee120b41c13670264c",
+      "tracked_blobs": 6714,
+      "content_index_sha256": "c34eaea189af032e39666c3cea1eda37172e22651d80caa10ba2d2cff9a8cdde"
+    },
+    "failure": null,
+    "commands": [
+      {
+        "name": "source-head",
+        "command": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "7ae26df489c74657d9e45b20098f80059788b856193421168bfe0b7ee1386eea"
+      },
+      {
+        "name": "source-tree",
+        "command": [
+          "git",
+          "rev-parse",
+          "HEAD^{tree}"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "ca54627961dc10d917bc7a5eeb461bb77042f333d9cd3168a1e9a16430859d78"
+      },
+      {
+        "name": "native-namespace",
+        "command": [
+          "pwsh",
+          "-NoProfile",
+          "-File",
+          "C:\\actions-runner\\elegant-mermaid\\elegant-mermaid\\proof\\ci-tools\\elegant-device-namespace-r36\\native.ps1",
+          "-Evidence",
+          "C:\\actions-runner\\_temp\\elegant-namespace-r36-evidence",
+          "-Phase",
+          "native"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "99971934d85d4d6c2a335b46b07a99dd7739d27b5c6e65b38e7412e554f43e0b"
+      },
+      {
+        "name": "rust-version",
+        "command": [
+          "rustc",
+          "--version"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "56625f11cb9e645f8e638a6bcdf0565a20a8724585b537b8548886789b9f77be"
+      },
+      {
+        "name": "candidate-standalone-compile",
+        "command": [
+          "rustc",
+          "--edition=2024",
+          "--test",
+          "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+          "-o",
+          "C:\\actions-runner\\_temp\\emd-namespace-r36-builds\\candidate-namespace.exe"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "candidate-standalone-observe",
+        "command": [
+          "C:\\actions-runner\\_temp\\emd-namespace-r36-builds\\candidate-namespace.exe",
+          "--exact",
+          "namespace_observer_r36::raw_namespace_paths",
+          "--nocapture",
+          "--test-threads=1"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "3fd9bf9baf2d3397fadac50e17f587c9868a6a2a5fdb43faebc07bf83a1545f7"
+      },
+      {
+        "name": "candidate-native-identity",
+        "command": [
+          "pwsh",
+          "-NoProfile",
+          "-File",
+          "C:\\actions-runner\\elegant-mermaid\\elegant-mermaid\\proof\\ci-tools\\elegant-device-namespace-r36\\native.ps1",
+          "-Evidence",
+          "C:\\actions-runner\\_temp\\elegant-namespace-r36-evidence",
+          "-Phase",
+          "candidate"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "8aa20dabcca9d719f40def5ae517f6e32e3fcdcfe555b17fe83d6dd1f834727a"
+      }
+    ],
+    "scope": "native namespace observation and standalone Rust resolver; no repository gates"
+  },
+  "native_fixtures": [
+    {
+      "id": "trimmed-final",
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      }
+    },
+    {
+      "id": "trimmed-intermediate",
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets\\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c37",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 72,
+        "Success": true
+      }
+    },
+    {
+      "id": "dot-final",
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "Identity": "1c9e0f09:00020000:00184c3c",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      }
+    },
+    {
+      "id": "dot-intermediate",
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c56",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      }
+    },
+    {
+      "id": "space-final",
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "Identity": "1c9e0f09:00020000:00184c57",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      }
+    },
+    {
+      "id": "space-intermediate",
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      }
+    }
+  ],
+  "native_observations": [
+    {
+      "native": {
+        "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      },
+      "id": "ordinary-dot-final",
+      "suffix": "dot",
+      "prefix": "ordinary",
+      "position": "final",
+      "matched_fixture_ids": [
+        "trimmed-final"
+      ],
+      "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets."
+    },
+    {
+      "native": {
+        "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c37",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 72,
+        "Success": true
+      },
+      "id": "ordinary-dot-intermediate",
+      "suffix": "dot",
+      "prefix": "ordinary",
+      "position": "intermediate",
+      "matched_fixture_ids": [
+        "trimmed-intermediate"
+      ],
+      "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child"
+    },
+    {
+      "native": {
+        "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      },
+      "id": "ordinary-space-final",
+      "suffix": "space",
+      "prefix": "ordinary",
+      "position": "final",
+      "matched_fixture_ids": [
+        "trimmed-final"
+      ],
+      "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets "
+    },
+    {
+      "native": {
+        "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      },
+      "id": "ordinary-space-intermediate",
+      "suffix": "space",
+      "prefix": "ordinary",
+      "position": "intermediate",
+      "matched_fixture_ids": [
+        "space-intermediate"
+      ],
+      "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child"
+    },
+    {
+      "native": {
+        "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      },
+      "id": "device-dot-final",
+      "suffix": "dot",
+      "prefix": "device",
+      "position": "final",
+      "matched_fixture_ids": [
+        "trimmed-final"
+      ],
+      "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets."
+    },
+    {
+      "native": {
+        "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c37",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 72,
+        "Success": true
+      },
+      "id": "device-dot-intermediate",
+      "suffix": "dot",
+      "prefix": "device",
+      "position": "intermediate",
+      "matched_fixture_ids": [
+        "trimmed-intermediate"
+      ],
+      "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child"
+    },
+    {
+      "native": {
+        "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      },
+      "id": "device-space-final",
+      "suffix": "space",
+      "prefix": "device",
+      "position": "final",
+      "matched_fixture_ids": [
+        "trimmed-final"
+      ],
+      "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets "
+    },
+    {
+      "native": {
+        "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      },
+      "id": "device-space-intermediate",
+      "suffix": "space",
+      "prefix": "device",
+      "position": "intermediate",
+      "matched_fixture_ids": [
+        "space-intermediate"
+      ],
+      "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child"
+    },
+    {
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "Identity": "1c9e0f09:00020000:00184c3c",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      },
+      "id": "verbatim-dot-final",
+      "suffix": "dot",
+      "prefix": "verbatim",
+      "position": "final",
+      "matched_fixture_ids": [
+        "dot-final"
+      ],
+      "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets."
+    },
+    {
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c56",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      },
+      "id": "verbatim-dot-intermediate",
+      "suffix": "dot",
+      "prefix": "verbatim",
+      "position": "intermediate",
+      "matched_fixture_ids": [
+        "dot-intermediate"
+      ],
+      "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child"
+    },
+    {
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "Identity": "1c9e0f09:00020000:00184c57",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      },
+      "id": "verbatim-space-final",
+      "suffix": "space",
+      "prefix": "verbatim",
+      "position": "final",
+      "matched_fixture_ids": [
+        "space-final"
+      ],
+      "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets "
+    },
+    {
+      "native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      },
+      "id": "verbatim-space-intermediate",
+      "suffix": "space",
+      "prefix": "verbatim",
+      "position": "intermediate",
+      "matched_fixture_ids": [
+        "space-intermediate"
+      ],
+      "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child"
+    }
+  ],
+  "candidate_observations": [
+    {
+      "same_native_identity": true,
+      "id": "ordinary-dot-final",
+      "raw_input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+      "rust": {
+        "id": "ordinary-dot-final",
+        "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": true,
+      "id": "ordinary-dot-intermediate",
+      "raw_input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+      "rust": {
+        "id": "ordinary-dot-intermediate",
+        "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets\\child",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c37",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 72,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets\\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c37",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 72,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": true,
+      "id": "ordinary-space-final",
+      "raw_input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+      "rust": {
+        "id": "ordinary-space-final",
+        "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": true,
+      "id": "ordinary-space-intermediate",
+      "raw_input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+      "rust": {
+        "id": "ordinary-space-intermediate",
+        "input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": false,
+      "id": "device-dot-final",
+      "raw_input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+      "rust": {
+        "id": "device-dot-final",
+        "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "Identity": "1c9e0f09:00020000:00184c3c",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": false,
+      "id": "device-dot-intermediate",
+      "raw_input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+      "rust": {
+        "id": "device-dot-intermediate",
+        "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c37",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 72,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c56",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": false,
+      "id": "device-space-final",
+      "raw_input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+      "rust": {
+        "id": "device-space-final",
+        "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073",
+        "Identity": "1c9e0f09:00020000:00184c35",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 66,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "Identity": "1c9e0f09:00020000:00184c57",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": true,
+      "id": "device-space-intermediate",
+      "raw_input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+      "rust": {
+        "id": "device-space-intermediate",
+        "input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "\\\\.\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "005c005c002e005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": true,
+      "id": "verbatim-dot-final",
+      "raw_input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+      "rust": {
+        "id": "verbatim-dot-final",
+        "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "Identity": "1c9e0f09:00020000:00184c3c",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e",
+        "Identity": "1c9e0f09:00020000:00184c3c",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": true,
+      "id": "verbatim-dot-intermediate",
+      "raw_input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+      "rust": {
+        "id": "verbatim-dot-intermediate",
+        "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c56",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets.\\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c006100730073006500740073002e005c006300680069006c0064",
+        "Identity": "1c9e0f09:00020000:00184c56",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": true,
+      "id": "verbatim-space-final",
+      "raw_input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+      "rust": {
+        "id": "verbatim-space-final",
+        "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "Identity": "1c9e0f09:00020000:00184c57",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets ",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020",
+        "Identity": "1c9e0f09:00020000:00184c57",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 67,
+        "Success": true
+      }
+    },
+    {
+      "same_native_identity": true,
+      "id": "verbatim-space-intermediate",
+      "raw_input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+      "rust": {
+        "id": "verbatim-space-intermediate",
+        "input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "status": "ok",
+        "resolved": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "error_kind": "",
+        "os_error": 0
+      },
+      "oracle": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      },
+      "resolved_native": {
+        "Input": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "InputUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "FinalPath": "\\\\?\\C:\\actions-runner\\_temp\\emd-namespace-r36-45975185314-1\\assets \\child",
+        "FinalPathUtf16": "005c005c003f005c0043003a005c0061006300740069006f006e0073002d00720075006e006e00650072005c005f00740065006d0070005c0065006d0064002d006e0061006d006500730070006100630065002d007200330036002d00340035003900370035003100380035003300310034002d0031005c0061007300730065007400730020005c006300680069006c0064",
+        "Identity": "1c9e0f09:00010000:00184c58",
+        "FailedApi": "",
+        "Error": 0,
+        "CloseError": 0,
+        "Attributes": 16,
+        "FinalPathLength": 73,
+        "Success": true
+      }
+    }
+  ],
+  "summary": {
+    "cases": 12,
+    "raw_native_open_failures": 0,
+    "candidate_resolver_errors": 0,
+    "candidate_same_native_identity": 9,
+    "candidate_comparison_is_observational": true,
+    "binary_sha256": "331d6e5bba102fec26f3548f46962471272ebc949d05145d35a3247fa126a5aa"
+  },
+  "conclusions": [
+    "All twelve raw CreateFileW calls succeed and all six fixture directories have distinct native file identities.",
+    "Ordinary and device prefixes trim final dot/space and intermediate dot; intermediate space remains literal. Verbatim prefixes preserve each literal suffix.",
+    "The unchanged DeviceNS candidate reaches three different directory identities: device-dot-final, device-dot-intermediate and device-space-final. Nine controls match.",
+    "This successful observation harness is not successful candidate verification. The full paired proof remains unlaunched."
+  ],
+  "preserved_failure": {
+    "producer": "2c47b06828bf4c1d0d81feba68b2c99b81d214e6",
+    "run": 45974466878,
+    "job": 140422635303,
+    "conclusion": "failure",
+    "native_exit": 0,
+    "compile_exit": 1,
+    "artifact": 15186462446,
+    "zip_sha256": "6368a36fd6bd8a65050769e137f6b8439a5449cbe45dd568d19bf25c45d2a7b9",
+    "record": "https://github.com/gosuda/elegant-mermaid/blob/0833834b497450c44ded136b9ca2bcab3b2d246d/reviews/elegant-device-namespace-r36/first-result.json",
+    "record_sha256": "2410e10b16b21dc390e2d3e8c6357cc03cf3233c4a678cf40060a374cd1de1f2"
+  },
+  "proposed_rust_repair": {
+    "commit": "d0e68a0925ecef73e79f3ebbf012b3a84158a28e",
+    "tree": "1fadbe432b0b2b8d66564941d7b90c5d5af4dd82",
+    "parent": "2bc5029c2a8166c3c7cb15cb7f801dd8b9f1718d",
+    "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+    "sha256": "520f747b327d6cbb54c275fff43af3a77b9821745e491dab1b2a06fafa342c4e",
+    "status": "Untested; remove only DeviceNS from literal predicate and add twelve-case permanent native-identity regression. Parent owns matching Go integration and repository-wide gates."
+  },
+  "write_order_assessment": {
+    "status": "Read-only source assessment, no executed witness and no change",
+    "finding": "Host rewrite resolves all image targets and the host directory before mkdir; generated non-host images share one directory. No concrete stable-filesystem later-resolution failure after an earlier mkdir was established."
+  },
+  "maintained_head": "98ef933e487f502e2e3555750e6621291ba21601",
+  "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+  "retirement": {
+    "owned_workflow": ".github/workflows/elegant-device-namespace-r36.yml",
+    "action": "Removed additively with this checkpoint after both observer runs became terminal.",
+    "original_full_proof": "05a80ea47ba66d67fceb29b767caca6449fbb60d",
+    "full_proof_still_unlaunched": true
+  },
+  "previous_receipt": "https://github.com/gosuda/elegant-mermaid/blob/070eafd851c1bc8074e6436362661a02bbdfbea3/reviews/elegant-current-windows-r34/checkpoint.json"
+}
