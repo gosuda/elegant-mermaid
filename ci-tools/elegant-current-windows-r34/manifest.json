@@ -8,7 +8,7 @@
   "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
   "source_blobs": 6711,
   "proof_sha256": {
-    "verify.py": "b26fe9131721da28e565af564fcf69298d9959e88ad7a4d76ef287d9e5339dcd",
+    "verify.py": "3accd3429cbbd3be2e59aa2a6e980b0ae67f8531b5fcfcc82657e1b88c7067b8",
     "windows-regressions.rs": "9570a81fb6e3959459d238420b9e2659cbc6b96535688a40de76bdccb98a07a8",
     "normalization.rs": "a59287cdf25daff7406b92dba82a2daccf60649e0a829390dec3cf1d3b3f8dc1",
     "source-index.json": "18f7319bc9c3d1e83a99ef34f5e583c179b1bc07ffc56368b588c749215b9c04"

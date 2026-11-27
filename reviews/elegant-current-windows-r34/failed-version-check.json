@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "producer": "75ccda34d78734fc80c4ffd7eb6d2e9e667414bc",
+  "run": 45965047081,
+  "job": 140391619825,
+  "conclusion": "failure",
+  "actual_driver_exit": 1,
+  "artifact": {
+    "id": 15182751418,
+    "node_id": "MDg6QXJ0aWZhY3QxNTE4Mjc1MTQxOA==",
+    "name": "elegant-current-windows-r34",
+    "size_in_bytes": 1542,
+    "url": "https://api.github.com/repos/gosuda/elegant-mermaid/actions/artifacts/15182751418",
+    "archive_download_url": "https://api.github.com/repos/gosuda/elegant-mermaid/actions/artifacts/15182751418/zip",
+    "expired": false,
+    "digest": "sha256:4e731835f5d87a41b422537ccb4fa8c41eae02c3b9a9a2bc2140baf34aa44820",
+    "created_at": "2026-11-27T08:24:31Z",
+    "updated_at": "2026-11-27T08:24:31Z",
+    "expires_at": "2026-12-04T08:24:30Z",
+    "workflow_run": {
+      "id": 45965047081,
+      "repository_id": 1454208933,
+      "head_repository_id": 1454208933,
+      "head_branch": "ci/elegant-current-windows-20261127-r34",
+      "head_sha": "75ccda34d78734fc80c4ffd7eb6d2e9e667414bc"
+    }
+  },
+  "raw_log_sha256": "1526dcfb8acf0678bc3f4af90c0ea42ddc434193e42ab33a8bc800cd4c35473f",
+  "source": "325bc562588b1989cdd137116e937784865ee5ad",
+  "source_tree": "df6f7ed72cf64d8102f7024c9cf37a072e3a40ef",
+  "source_restored": true,
+  "all_source_blobs_verified": 6711,
+  "cause": "The observer required the combined rustc stdout/stderr to start with the version. Rustup emitted normal toolchain synchronization messages before the exact rustc1.100.0 line. No Rust regression, filesystem observation or Go build ran.",
+  "correction": {
+    "before": "        if not run(\"rust-version\", [\"rustc\", \"--version\"]).startswith(\"rustc 1.100.0 \"):\n            raise RuntimeError(\"unexpected Rust version\")",
+    "after": "        rust_output = run(\"rust-version\", [\"rustc\", \"--version\"])\n        rust_versions = [line for line in rust_output.splitlines() if line.startswith(\"rustc \")]\n        if len(rust_versions) != 1 or not rust_versions[0].startswith(\"rustc 1.100.0 \"):\n            raise RuntimeError(\"unexpected Rust version\")",
+    "driver_before": "b26fe9131721da28e565af564fcf69298d9959e88ad7a4d76ef287d9e5339dcd",
+    "driver_after": "3accd3429cbbd3be2e59aa2a6e980b0ae67f8531b5fcfcc82657e1b88c7067b8",
+    "source_or_assertion_changes": false,
+    "frozen_witness_sha256": "9570a81fb6e3959459d238420b9e2659cbc6b96535688a40de76bdccb98a07a8",
+    "workflow_sha256": "fd4d7b77ea4f419cd631b6cec55c57afd3b00a7bccff328262999a996f17984a"
+  },
+  "publication_eligible": false
+}

@@ -179,7 +179,9 @@ def main() -> None:
         if run("source-tree", ["git", "rev-parse", "HEAD^{tree}"]).strip() != TREE:
             raise RuntimeError("wrong source tree")
         identity()
-        if not run("rust-version", ["rustc", "--version"]).startswith("rustc 1.100.0 "):
+        rust_output = run("rust-version", ["rustc", "--version"])
+        rust_versions = [line for line in rust_output.splitlines() if line.startswith("rustc ")]
+        if len(rust_versions) != 1 or not rust_versions[0].startswith("rustc 1.100.0 "):
             raise RuntimeError("unexpected Rust version")
         if not run("go-version", ["go", "version"]).startswith("go version go1.27.4 windows/amd64"):
             raise RuntimeError("unexpected Go version")
