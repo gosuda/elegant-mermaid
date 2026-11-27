@@ -14,5 +14,5 @@ The parent separately owns the actual root just verify gate on the final source 
 
 Driver SHA-256: 825a0bebb56c44b35c09aeb23fea5819cb3bd8cb73db0e044fcbff2a1aadec8d
 Receipt helper SHA-256: ce0040bcd25b7d97b312a16d56faf6fc636d2705f17d70ef9f03f299b23a7df0
-Manifest SHA-256: d2acb21d0828340392e52b2a01086be24a95405e411f7f620d329c206b3d8847
+Manifest SHA-256: d8994d200bfbca1aac9e3860eb22462e9af0c7aa11226cccc6064bbc843ae963
 Workflow SHA-256: 5ecb77932d142d1eec1d6a6f92dd34d1682a24a30c4ca0bb422ecdad6ee4a6f8

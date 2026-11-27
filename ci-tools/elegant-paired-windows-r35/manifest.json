@@ -128,7 +128,7 @@
       "tests_unchanged": true
     }
   },
-  "observer_correction": "Only two native prerequisite expressions canonicalize the directory operand before appending native.svg. The original module, inputs, URL assertions and historical failures remain immutable. Both prior source snapshots rerun before candidate application.",
+  "observer_correction": "Only two native prerequisite expressions canonicalize the directory operand before appending native.svg. The original module, inputs, URL assertions and historical failures remain immutable. Both prior source snapshots were rerun before candidate application in the historical proof (run 45976852511). This test-only follow-up authenticates and reuses those unchanged receipts.",
   "format_scope": [
     "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
     "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
