@@ -160,7 +160,6 @@ fn is_verbatim(path: &Path) -> bool {
                 std::path::Prefix::VerbatimDisk(_)
                     | std::path::Prefix::VerbatimUNC(..)
                     | std::path::Prefix::Verbatim(_)
-                    | std::path::Prefix::DeviceNS(_)
             )
     )
 }
@@ -546,6 +545,48 @@ mod tests {
                 relative_url(&literal.join("image.svg"), &directory.0.join("out.md"))?,
                 format!("{encoded}/image.svg")
             );
+        }
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn device_and_ordinary_names_share_native_directory_identities() -> std::io::Result<()> {
+        let directory = TestDir::new()?;
+        let ordinary = ordinary_spelling(&directory.0)?;
+        let mut device = std::ffi::OsString::from(r"\\.\");
+        device.push(ordinary.as_os_str());
+        let device = PathBuf::from(device);
+        for name in ["assets", "assets.", "assets "] {
+            std::fs::create_dir_all(directory.0.join(name).join("child"))?;
+        }
+        // Raw CreateFileW observations distinguish these literal siblings.
+        for (prefix, root, literal) in [
+            ("ordinary", ordinary.as_path(), false),
+            ("device", device.as_path(), false),
+            ("verbatim", directory.0.as_path(), true),
+        ] {
+            for name in ["assets.", "assets "] {
+                for intermediate in [false, true] {
+                    let expected_name = if literal || (intermediate && name == "assets ") {
+                        name
+                    } else {
+                        "assets"
+                    };
+                    let input = root.join(name);
+                    let expected = directory.0.join(expected_name);
+                    let (input, expected) = if intermediate {
+                        (input.join("child"), expected.join("child"))
+                    } else {
+                        (input, expected)
+                    };
+                    assert_eq!(
+                        resolved_directory(&input)?,
+                        expected,
+                        "{prefix} {name:?} intermediate={intermediate}",
+                    );
+                }
+            }
         }
         Ok(())
     }
