@@ -1,0 +1,166 @@
+{
+  "scope": "Elegant Mermaid PR28 Windows path review baseline; source repair not yet applied.",
+  "source": {
+    "commit": "9a11e8cc04299367d07c0137653fa87a4e1b945b",
+    "tree": "84ec8efbabe4a833539ec1875a4a95e30de3a08d",
+    "tracked_blobs": 6711,
+    "index_sha256": "0a9d6b2c94d059f9a4e3a8f934a252ea3fa02b1c6c5124c7b4be20cc82fa3be0",
+    "restored": true
+  },
+  "proof": {
+    "proposal": "9a235ee6543901158cd6ddac39472cfb3d754937",
+    "producer": "96312519c1b85bad72a5416599a4bc8a21ea66d2",
+    "run": 45957390047,
+    "job": 140366917477,
+    "runner": "depot-windows-2025",
+    "conclusion": "failure",
+    "log_sha256": "a3989dc919da4b2858b352a9d7249f7627feda93af8901fe33b8d1cb9e7e243f",
+    "artifact_id": 15179641741,
+    "artifact_zip_sha256": "96a38e289cd618f72784d2a2d7fbbfe8cb333bb0e858202339a6664a3d643082"
+  },
+  "commands": [
+    {
+      "name": "source-head",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "5d8d7ada7668d44d1078bb677af7b6691d2bb07bbe762e36f9b0add5e9af395e"
+    },
+    {
+      "name": "rust-version",
+      "command": [
+        "rustc",
+        "--version"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "387a6a26aa138b0d02a2efe623dd9ef0c8e277e1bc880361695007393c3d2e15"
+    },
+    {
+      "name": "go-version",
+      "command": [
+        "go",
+        "version"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "bd74e61f96314b4c2e72e63319395345bc2817752bbdd3fc177a9edb2eb2ba14"
+    },
+    {
+      "name": "compile-regressions",
+      "command": [
+        "rustc",
+        "--edition=2024",
+        "--test",
+        "crates\\elegant-mermaid-cli\\src\\render\\markdown\\links.rs",
+        "-o",
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "existing-path-controls",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--nocapture",
+        "--skip",
+        "review_windows_tests"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "0787ed4f094aea4bd713c03c85b592234776004317fdbe175f85a6ea50057777"
+    },
+    {
+      "name": "mixed-prefixes",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--exact",
+        "review_windows_tests::review_mixed_windows_prefixes_form_relative_urls",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "expected": 101,
+      "log_sha256": "e894c7a457d7d381b9e3701ff96338bb5bbf6853b1210d9fad007320c8132e45"
+    },
+    {
+      "name": "literal-link",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--exact",
+        "review_windows_tests::review_ordinary_link_preserves_literal_target",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "expected": 101,
+      "log_sha256": "eb2c4b0c2637571816d00589b4754f7004fec034c8562d85a94f7736c8cd05b9"
+    },
+    {
+      "name": "normalized-urls",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--exact",
+        "review_windows_tests::review_ordinary_trailing_components_use_normalized_urls",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "expected": 101,
+      "log_sha256": "9993edbd0408e613553d52b4910ee332a4893ffe996f6dc5894f31507e6400f3"
+    },
+    {
+      "name": "unc-normalization",
+      "command": [
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+        "--exact",
+        "review_windows_tests::review_unc_components_use_ordinary_normalization",
+        "--nocapture"
+      ],
+      "exit": 101,
+      "expected": 101,
+      "log_sha256": "9fd9647be0985ac81f3b10bbf6bcef6bfcacd39848534de11112122264da9d77"
+    },
+    {
+      "name": "build-go-observer",
+      "command": [
+        "go",
+        "build",
+        "-trimpath",
+        "-o",
+        "C:\\actions-runner\\_temp\\emd-windows-evidence\\emd-go.exe",
+        "./cmd/emd"
+      ],
+      "exit": 1,
+      "expected": 0,
+      "log_sha256": "ab5ebf7b76e3b3f634bf200f145a4f83082f8b6e12aef855989f7c86d0e0fafe"
+    },
+    {
+      "name": "source-restoration",
+      "command": [
+        "git",
+        "diff",
+        "--exit-code"
+      ],
+      "exit": 0,
+      "expected": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "established": [
+    "Native local and UNC filesystem roots prepared successfully.",
+    "The standalone Rust path test binary compiled successfully; five existing Windows controls passed.",
+    "Four new tests each exited 101 after their native filesystem prerequisite completed: mixed prefix URL, literal-space symlink target, emitted trailing-dot URL, ordinary UNC trailing-dot directory.",
+    "Each original tracked source blob and index mode was restored."
+  ],
+  "failure": "The unchanged Go CLI did not compile: internal/tui/read_windows.go:33 compares uint32 event with syscall.Errno windows.WAIT_TIMEOUT.",
+  "not_established": [
+    "No Go CLI observations executed.",
+    "No product repair, full repository gate, candidate verification, or publication."
+  ],
+  "preserved_hypothesis": "Additional ordinary-space cases are not established by the first failing dot assertions. Native directory-operand normalization must be distinguished from normalization after appending a child filename.",
+  "publication_eligible": false
+}
