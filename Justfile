@@ -32,9 +32,19 @@ rust-check FILTER='':
     cargo test --doc --locked --no-fail-fast -p elegant-mermaid || status=1; \
     exit "$status"
 
+# Pinned house linter revision; the verify workflow reads it with `just --evaluate sloplint_rev`
+sloplint_rev := "72f29bae0ba1187da854e080c998b8a21f1e4640"
+
 # House lint: upstream standard profile, failing on major findings
-slop:
-    sloplint check . --format agent --strictness standard --mode threshold --fail-on major
+slop: _sloplint-install
+    .tools/sloplint/bin/sloplint check . --format agent --strictness standard --mode threshold --fail-on major
+
+[private]
+_sloplint-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if test -x "{{ justfile_directory() }}/.tools/sloplint/bin/sloplint"; then exit 0; fi
+    cargo install --git https://github.com/gosuda/sloplint --rev {{ sloplint_rev }} --locked --root "{{ justfile_directory() }}/.tools/sloplint" sloplint
 
 # Build the Go CLI only: bin/emd-go
 build-go:
