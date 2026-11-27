@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "recorded_at": "2026-11-27 11:15:10 UTC",
+  "status": "in_progress",
+  "producer": "761b6a3fa979838fd68d6949c7db2a9734e880c0",
+  "run": 45988680468,
+  "job": 140470677698,
+  "source": {
+    "repository": "gosuda/elegant-mermaid",
+    "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+    "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
+    "blobs": 6714,
+    "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+    "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33"
+  },
+  "manifest_sha256": "374ab7eac1e2b07b96d63650ac5a630c3d3c952f5700b32f478f9e243b0ed03f",
+  "windows_proof": {
+    "run": 45986012440,
+    "job": 140461698955,
+    "result": "success",
+    "artifact": 15190844868,
+    "zip_sha256": "2e5cc75d9b3881b034e73944030dd0d7937e89246aa506e247973eb823be6d47",
+    "reused_expected_receipts": 32,
+    "executed_expected_receipts": 28,
+    "paired_native_cases": 24,
+    "source_restored": true,
+    "format_changed": false
+  },
+  "full_command": [
+    "just",
+    "verify"
+  ],
+  "required_recipes": [
+    "gen-check",
+    "go-check",
+    "rust-check",
+    "markdown-paths",
+    "slop",
+    "build",
+    "proofs",
+    "model",
+    "oracle",
+    "parity",
+    "markdown-parity",
+    "wasm-parity",
+    "playground-check",
+    "playground-e2e",
+    "layered-random-check",
+    "kernel-diff",
+    "validate",
+    "lean-parity",
+    "quality",
+    "theme-check"
+  ],
+  "publication_eligible": false,
+  "source_published": false
+}
