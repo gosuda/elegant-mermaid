@@ -1,5 +1,7 @@
 //! Markdown text escaping and relative image URLs.
 
+use std::borrow::Cow;
+use std::ffi::OsStr;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 
@@ -22,21 +24,15 @@ pub(crate) fn alt_text(title: &str) -> String {
     escaped
 }
 
-/// Resolve ancestor directories in filesystem order. The final output filename
-/// stays literal because the atomic writer replaces that entry, including links.
+/// Resolve ancestor directories in filesystem order. Normalize the final output
+/// name without following it, because the atomic writer replaces that entry.
 pub(crate) fn relative_url(target: &Path, host: &Path) -> io::Result<String> {
     let parent = host
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
     let parent = resolved_directory(parent)?;
-    let name = target.file_name().ok_or_else(|| {
-        io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "cannot make asset path relative to host",
-        )
-    })?;
-    let target = resolved_directory(target.parent().unwrap_or(Path::new(".")))?.join(name);
+    let target = resolved_target(target)?;
     let target: Vec<_> = target.components().collect();
     let parent: Vec<_> = parent.components().collect();
     let common = target
@@ -96,28 +92,57 @@ pub(crate) fn resolved_directory(path: &Path) -> io::Result<PathBuf> {
     resolved_from(path, &std::env::current_dir()?.canonicalize()?)
 }
 
+/// Resolve the parent directory and the final operand name without following
+/// the final entry. Link planning and the atomic writer must use this same path.
+pub(crate) fn resolved_target(path: &Path) -> io::Result<PathBuf> {
+    let parent = path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let directory = resolved_directory(parent)?;
+    let name = path
+        .file_name()
+        .ok_or_else(|| io::Error::from(io::ErrorKind::IsADirectory))?;
+    let name = input_name(name, is_verbatim(path), true)?;
+    if name.is_empty() {
+        return Err(io::ErrorKind::IsADirectory.into());
+    }
+    Ok(directory.join(name.as_ref()))
+}
+
 fn resolved_from(path: &Path, base: &Path) -> io::Result<PathBuf> {
     let literal = is_verbatim(path);
-    let mut directory = adopt(base.to_path_buf(), literal);
-    for component in path.components() {
+    let mut directory = base.to_path_buf();
+    let mut components = path.components().peekable();
+    let trailing_marker = path
+        .as_os_str()
+        .as_encoded_bytes()
+        .rsplit(|byte| std::path::is_separator(char::from(*byte)))
+        .next()
+        .is_some_and(|name| name.is_empty() || name == b".");
+    while let Some(component) = components.next() {
         match component {
             Component::Prefix(prefix) => {
                 directory = PathBuf::from(prefix.as_os_str());
                 if !path.has_root() {
-                    directory = adopt(std::path::absolute(directory)?.canonicalize()?, literal);
+                    directory = std::path::absolute(directory)?.canonicalize()?;
                 }
             }
             Component::RootDir => {
                 directory.push(component.as_os_str());
-                directory = adopt(directory.canonicalize()?, literal);
+                directory = directory.canonicalize()?;
             }
             Component::CurDir => {}
             Component::ParentDir => {
                 directory.pop();
             }
             Component::Normal(name) => {
-                directory.push(name);
-                resolve_existing_directory(&mut directory, literal)?;
+                let last = components.peek().is_none() && !trailing_marker;
+                let name = input_name(name, literal, last)?;
+                if !name.is_empty() {
+                    directory.push(name.as_ref());
+                }
+                resolve_existing_directory(&mut directory)?;
             }
         }
     }
@@ -140,59 +165,54 @@ fn is_verbatim(path: &Path) -> bool {
     )
 }
 
-/// Spelling adopted for a freshly canonicalized path. On Windows,
-/// `canonicalize` returns a verbatim (`\\?\`) path, on which trailing dots
-/// and spaces stay literal. Ordinary inputs must keep ordinary Win32
-/// normalization (`assets.` names `assets`), so drop the verbatim prefix.
-/// Explicitly verbatim inputs keep it.
+/// Normalize only an operand component. The synthetic root cannot reinterpret
+/// a resolved ancestor with a literal trailing dot or space. The sentinel child
+/// supplies native intermediate-component context without a filesystem lookup.
 #[cfg(windows)]
-fn adopt(canonical: PathBuf, literal: bool) -> PathBuf {
+fn input_name(name: &OsStr, literal: bool, last: bool) -> io::Result<Cow<'_, OsStr>> {
     if literal {
-        return canonical;
+        return Ok(Cow::Borrowed(name));
     }
-    let mut components = canonical.components();
-    let disk = match components.next() {
-        Some(Component::Prefix(prefix)) => match prefix.kind() {
-            std::path::Prefix::VerbatimDisk(drive) => {
-                PathBuf::from(format!("{}:", char::from(drive)))
-            }
-            _ => return canonical,
-        },
-        _ => return canonical,
+    let mut probe = PathBuf::from(r"C:\");
+    probe.push(name);
+    if !last {
+        probe.push("__emd_next_component__");
+    }
+    let mut normalized = std::path::absolute(probe)?;
+    if !last && !normalized.pop() {
+        return Err(io::ErrorKind::InvalidInput.into());
+    }
+    let suffix = normalized
+        .strip_prefix(r"C:\")
+        .map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
+    let mut components = suffix.components();
+    let name = match (components.next(), components.next()) {
+        (None, None) => OsStr::new("").to_os_string(),
+        (Some(Component::Normal(name)), None) => name.to_os_string(),
+        _ => return Err(io::ErrorKind::InvalidInput.into()),
     };
-    let mut ordinary = disk;
-    ordinary.extend(components);
-    ordinary
+    Ok(Cow::Owned(name))
 }
 
 #[cfg(not(windows))]
-fn adopt(canonical: PathBuf, _literal: bool) -> PathBuf {
-    canonical
+fn input_name(name: &OsStr, _literal: bool, _last: bool) -> io::Result<Cow<'_, OsStr>> {
+    Ok(Cow::Borrowed(name))
 }
 
-fn resolve_existing_directory(path: &mut PathBuf, literal: bool) -> io::Result<()> {
+fn resolve_existing_directory(path: &mut PathBuf) -> io::Result<()> {
     let metadata = match std::fs::symlink_metadata(path.as_path()) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
         Err(error) => return Err(error),
     };
-    if metadata.file_type().is_symlink() {
-        let canonical = path.canonicalize()?;
-        let ordinary = adopt(canonical.clone(), literal);
-        // The canonical target names the exact directory. Keep the ordinary
-        // spelling only while it still reaches that directory; a verbatim-only
-        // name (trailing dots or spaces) would otherwise be re-read with
-        // Win32 normalization and lost.
-        *path = if !literal && !ordinary.exists() && canonical.exists() {
-            canonical
-        } else {
-            ordinary
-        };
+    if !metadata.is_dir() && !metadata.file_type().is_symlink() {
+        return Err(io::ErrorKind::NotADirectory.into());
+    }
+    if metadata.file_type().is_symlink() || cfg!(windows) {
+        *path = path.canonicalize()?;
         if !path.metadata()?.is_dir() {
             return Err(io::ErrorKind::NotADirectory.into());
         }
-    } else if !metadata.is_dir() {
-        return Err(io::ErrorKind::NotADirectory.into());
     }
     Ok(())
 }
@@ -477,11 +497,10 @@ mod tests {
         );
         std::fs::write(resolved.join("probe.svg"), b"<svg")?;
         assert!(base.join("assets/probe.svg").exists());
-        // The link keeps the supplied spelling, which Win32 resolves to the
-        // same directory the file landed in.
+        // The ordinary link names the native directory where the file landed.
         assert_eq!(
             super::relative_url(&resolved.join("probe.svg"), &base.join("out.md"))?,
-            "assets./probe.svg"
+            "assets/probe.svg"
         );
         let verbatim = base.canonicalize()?;
         assert_eq!(
@@ -495,6 +514,138 @@ mod tests {
             )?,
             "assets./probe.svg"
         );
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn ordinary_directory_names_use_native_locations_and_urls() -> std::io::Result<()> {
+        for (name, encoded) in [("assets.", "assets."), ("assets ", "assets%20")] {
+            let directory = TestDir::new()?;
+            let ordinary = ordinary_spelling(&directory.0)?;
+            std::fs::create_dir(directory.0.join("assets"))?;
+            let native = ordinary.join(name).canonicalize()?;
+            assert_eq!(native, directory.0.join("assets").canonicalize()?);
+            std::fs::write(native.join("native.svg"), b"native")?;
+            assert_eq!(std::fs::read(directory.0.join("assets/native.svg"))?, b"native");
+            assert_eq!(resolved_directory(&ordinary.join(name))?, native);
+            assert_eq!(
+                relative_url(
+                    &ordinary.join(name).join("image.svg"),
+                    &ordinary.join("out.md")
+                )?,
+                "assets/image.svg"
+            );
+            assert_eq!(
+                relative_url(&ordinary.join("future./image.svg"), &ordinary.join("out.md"))?,
+                "future/image.svg"
+            );
+            let literal = directory.0.join(name);
+            std::fs::create_dir(&literal)?;
+            assert_eq!(
+                relative_url(&literal.join("image.svg"), &directory.0.join("out.md"))?,
+                format!("{encoded}/image.svg")
+            );
+        }
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn directory_links_keep_literal_ancestors_before_normalized_children() -> std::io::Result<()> {
+        for (suffix, encoded) in [(" ", "%20"), (".", ".")] {
+            let directory = TestDir::new()?;
+            let ordinary = ordinary_spelling(&directory.0)?;
+            let target = directory.0.join(format!("assets{suffix}"));
+            std::fs::create_dir(&target)?;
+            std::fs::create_dir(target.join("child"))?;
+            std::fs::create_dir(directory.0.join("assets"))?;
+            let link = ordinary.join("linked");
+            std::os::windows::fs::symlink_dir(&target, &link)?;
+            std::fs::write(link.join("native.svg"), b"literal")?;
+            assert_eq!(std::fs::read(target.join("native.svg"))?, b"literal");
+            assert!(!directory.0.join("assets/native.svg").exists());
+            let native_child = link.join("child.").canonicalize()?;
+            assert_eq!(native_child, target.join("child").canonicalize()?);
+            let resolved = resolved_directory(&link)?;
+            assert_eq!(resolved, target.canonicalize()?);
+            std::fs::write(resolved.join("written.svg"), b"literal")?;
+            assert_eq!(std::fs::read(target.join("written.svg"))?, b"literal");
+            assert!(!directory.0.join("assets/written.svg").exists());
+            assert_eq!(resolved_directory(&link.join("child."))?, native_child);
+            assert_eq!(
+                relative_url(&link.join("child./image.svg"), &ordinary.join("out.md"))?,
+                format!("assets{encoded}/child/image.svg")
+            );
+        }
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_normalization_retains_intermediate_component_spelling() -> std::io::Result<()> {
+        use std::ffi::OsStr;
+
+        for (name, last, expected) in [
+            ("assets.", true, "assets"),
+            ("assets ", true, "assets"),
+            ("assets..", true, "assets"),
+            ("...", true, ""),
+            ("assets.", false, "assets"),
+            ("assets ", false, "assets "),
+            ("assets..", false, "assets.."),
+        ] {
+            assert_eq!(
+                super::input_name(OsStr::new(name), false, last)?.as_ref(),
+                OsStr::new(expected)
+            );
+            assert_eq!(
+                super::input_name(OsStr::new(name), true, last)?.as_ref(),
+                OsStr::new(name)
+            );
+        }
+        let directory = TestDir::new()?;
+        let literal = directory.0.join("literal ");
+        std::fs::create_dir(&literal)?;
+        std::fs::create_dir(literal.join("child"))?;
+        let ordinary = ordinary_spelling(&directory.0)?.join(r"literal \child");
+        let native = ordinary.canonicalize()?;
+        assert_eq!(native, literal.join("child").canonicalize()?);
+        assert_eq!(resolved_directory(&ordinary)?, native);
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn final_windows_names_are_normalized_without_following_links() -> std::io::Result<()> {
+        for (name, encoded) in [("image.svg.", "image.svg."), ("image.svg ", "image.svg%20")] {
+            let directory = TestDir::new()?;
+            let ordinary = ordinary_spelling(&directory.0)?;
+            std::fs::write(ordinary.join(name), b"ordinary")?;
+            assert_eq!(std::fs::read(directory.0.join("image.svg"))?, b"ordinary");
+            assert_eq!(
+                super::resolved_target(&ordinary.join(name))?,
+                directory.0.join("image.svg")
+            );
+            assert_eq!(
+                relative_url(&ordinary.join(name), &ordinary.join("out.md"))?,
+                "image.svg"
+            );
+            std::fs::write(directory.0.join(name), b"literal")?;
+            assert_eq!(
+                super::resolved_target(&directory.0.join(name))?,
+                directory.0.join(name)
+            );
+            assert_eq!(
+                relative_url(&directory.0.join(name), &directory.0.join("out.md"))?,
+                encoded
+            );
+            let link = ordinary.join("linked.svg");
+            std::os::windows::fs::symlink_file("image.svg", &link)?;
+            let resolved = super::resolved_target(&link)?;
+            assert_eq!(resolved, directory.0.join("linked.svg"));
+            assert!(std::fs::symlink_metadata(resolved)?.file_type().is_symlink());
+        }
         Ok(())
     }
 }
