@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "phase": "repair-published-existing-quality-failures-disclosed",
+  "phase": "repair-published-ordinary-core-success-existing-quality-failures",
   "repository": "gosuda/elegant-mermaid",
   "pull_request": 28,
   "source": {
@@ -93,13 +93,20 @@
     "thread_count": 5,
     "unresolved": 0,
     "review_status": "Devin Review: failure, review skipped because diff exceeds size limit",
-    "review_failure_treated_as_pass": false
+    "review_failure_treated_as_pass": false,
+    "mergeable": true,
+    "mergeable_state": "unstable"
   },
   "ordinary_checks": {
     "core": {
       "context": "ci / gates",
       "check_id": 140593484661,
-      "status": "in_progress",
+      "status": "completed",
+      "conclusion": "success",
+      "started_at": "2026-11-27T15:25:58Z",
+      "completed_at": "2026-11-27T15:31:03Z",
+      "title": "Succeeded in 5m 5s",
+      "annotations_count": 0,
       "url": "https://depot.dev/orgs/82fbfnflkc/workflows/flp15zj982?job=dmvxgg97hn&repo=gosuda%2Felegant-mermaid"
     },
     "github_fallback": {
@@ -111,12 +118,28 @@
   "fully_verified": false,
   "source_gates_passed": false,
   "threshold_or_baseline_changes": false,
-  "pr_body_sha256": "cd379dd3d9813ff1356384e340c3769c2af205773f3985806543b7b2679da0b3",
+  "pr_body_sha256": "c5f48dcb34bf1afebf0033aff546b822793b3ef1b292d8583e3de405293e487d",
   "publication_basis": "Additive repair authorized by the user. Exact native/source evidence is retained and identical inherited failures are disclosed. AGENTS requires ordinary core and verification success before calling the repository fully verified; that condition remains unmet.",
   "retirement": {
     "branch": "ci/elegant-quality-diagnostic-20261127-r39",
     "parent": "593b01af206b0ea150dff392898b3f0561ef2625",
     "removed_workflow": ".github/workflows/elegant-quality-r39.yml",
-    "source_changes": false
+    "source_changes": false,
+    "workflow_absent_verified": true,
+    "retirement_commit": "c2e888cdea20bfdefbd63ec3e36feee08cbef8c9",
+    "retirement_runs": 0
+  },
+  "independent_monitor": {
+    "reviewer": "/root/bitcoin_round7/bamti_relation_followup/elegant_mermaid_followup",
+    "observed_at": "2026-11-27T15:32:34Z",
+    "head": "296d0d348d18d3310bd15107df1d913301d35498",
+    "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+    "threads": 5,
+    "inline_comments": 10,
+    "unresolved": 0,
+    "ordinary_core": "success",
+    "github_fallback": "skipped",
+    "review_bot": "failure: diff exceeds size limit",
+    "new_jobs": false
   }
 }
