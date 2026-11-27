@@ -226,6 +226,7 @@ jobs:
         with:
           version: "12.18.0"
       - name: "Set up Node"
+        id: "node"
         uses: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1" # v7.1.0
         with:
           node-version: "26.13.1"
@@ -256,7 +257,7 @@ jobs:
         if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just quality JOBS=4"
       - name: "Check themes and config coverage"
-        if: "!cancelled() && steps.go.outcome == 'success' && steps.rust.outcome == 'success' && steps.tools.outcome == 'success'"
+        if: "!cancelled() && steps.go.outcome == 'success' && steps.rust.outcome == 'success' && steps.tools.outcome == 'success' && steps.node.outcome == 'success'"
         run: "just --no-deps theme-check"
 
   house:
