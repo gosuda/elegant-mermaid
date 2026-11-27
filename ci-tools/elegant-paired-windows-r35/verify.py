@@ -10,6 +10,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
+from receipt_reuse import authenticate, require_test_only_delta
 
 WORKSPACE: Final = Path(sys.argv[1]).absolute()
 PROOF: Final = Path(sys.argv[2]).absolute()
@@ -155,51 +156,19 @@ def path_witnesses(source: Snapshot, tests: bytes) -> None:
         path.write_bytes(original)
 
 
-def namespace_mutations(source: Snapshot, formatted_index: list[dict[str, str]]) -> None:
-    rust_path = source.root / LINKS
+def namespace_go_mutation(source: Snapshot, formatted_index: list[dict[str, str]]) -> None:
     go_path = source.root / "internal/cli/output_path_windows.go"
     go_test_path = source.root / "internal/cli/output_path_windows_test.go"
-    rust_fixed, go_fixed = rust_path.read_bytes(), go_path.read_bytes()
-    go_tests = go_test_path.read_bytes()
-    rust_anchor = b"                    | std::path::Prefix::Verbatim(_)\n"
-    rust_old = rust_anchor + b"                    | std::path::Prefix::DeviceNS(_)\n"
+    go_fixed, go_tests = go_path.read_bytes(), go_test_path.read_bytes()
     go_anchor = b'return strings.HasPrefix(path, "\\\\\\\\?\\\\")'
     go_old = go_anchor + b' || strings.HasPrefix(path, "\\\\\\\\.\\\\")'
-    if rust_fixed.count(rust_anchor) != 1 or b"std::path::Prefix::DeviceNS" in rust_fixed:
-        raise RuntimeError("Rust namespace mutation is not uniquely bound")
     if go_fixed.count(go_anchor) != 1 or go_old in go_fixed:
         raise RuntimeError("Go namespace mutation is not uniquely bound")
-    rust_mutant = rust_fixed.replace(rust_anchor, rust_old)
     go_mutant = go_fixed.replace(go_anchor, go_old)
-    if rust_mutant.replace(rust_old, rust_anchor) != rust_fixed:
-        raise RuntimeError("Rust mutation changed more than its prefix predicate")
     if go_mutant.replace(go_old, go_anchor) != go_fixed:
         raise RuntimeError("Go mutation changed more than its prefix predicate")
-    test_start = rust_fixed.index(b"    fn device_and_ordinary_names_share_native_directory_identities")
-    test_end = rust_fixed.index(b"    #[cfg(windows)]", test_start)
-    rust_test = rust_fixed[test_start:test_end]
-    if rust_test not in rust_mutant:
-        raise RuntimeError("Rust namespace regression bytes changed in mutation")
     mutant = Snapshot("candidate-namespace-mutant", source.root, source.head,
                       source.tree, source.index, source.controls, source.exits)
-    rust_binary = BUILDS / "candidate-namespace-mutant-rust.exe"
-    try:
-        rust_path.write_bytes(rust_mutant)
-        run("namespace-rust-mutant-compile",
-            ["rustc", "--edition=2024", "--test", LINKS, "-o", str(rust_binary)], mutant)
-        rust_log = run("namespace-rust-mutant-red", [
-            str(rust_binary), "--exact",
-            "tests::device_and_ordinary_names_share_native_directory_identities",
-            "--nocapture", "--test-threads=1",
-        ], mutant, 101)
-        if ("test result: FAILED. 0 passed; 1 failed;" not in rust_log
-                or 'device "assets." intermediate=false' not in rust_log):
-            raise RuntimeError("Rust mutation did not fail the frozen device identity assertion")
-    finally:
-        rust_path.write_bytes(rust_fixed)
-    if rust_path.read_bytes() != rust_fixed:
-        raise RuntimeError("Rust namespace mutation was not restored")
-    identity(source, formatted_index)
     go_binary = BUILDS / "candidate-namespace-mutant-go.exe"
     test_name = "TestMarkdownWindowsNamespaceNormalization"
     try:
@@ -229,9 +198,7 @@ def namespace_mutations(source: Snapshot, formatted_index: list[dict[str, str]])
     if go_path.read_bytes() != go_fixed or go_test_path.read_bytes() != go_tests:
         raise RuntimeError("Go namespace mutation was not restored")
     identity(source, formatted_index)
-    print("NAMESPACE_MUTATION_RECEIPT " + json.dumps({
-        "rust_fixed_sha256": digest(rust_fixed), "rust_mutant_sha256": digest(rust_mutant),
-        "rust_test_sha256": digest(rust_test), "rust_exit": 101,
+    print("GO_NAMESPACE_MUTATION_RECEIPT " + json.dumps({
         "go_fixed_sha256": digest(go_fixed), "go_mutant_sha256": digest(go_mutant),
         "go_test_file_sha256": digest(go_tests), "go_exit": 1,
         "go_failed_subtests": sorted(failed), "go_passed_subtests": sorted(passed),
@@ -440,15 +407,14 @@ def restore_owned(source: Snapshot, original: dict[str, bytes]) -> None:
 
 
 def main() -> None:
-    old, current, candidate = (snapshot(name) for name in ("old", "current", "candidate"))
-    sources = (old, current, candidate)
+    candidate = snapshot("candidate")
     original = {path: (candidate.root / path).read_bytes() for path in OWNED}
-    report: dict[str, str | int | bool | list[dict[str, str | int | list[str]]]] = {
+    report: dict[str, object] = {
         "candidate": candidate.head, "authored_tree": candidate.tree,
         "publication_eligible": False, "source_restored": False,
         "focused_verification_passed": False, "repository_wide_gates_run": False,
+        "prior_run_conclusion": "failure", "reused_commands": [], "executed_commands": [],
     }
-    formatted_index: list[dict[str, str]] | None = None
     try:
         for name, wanted in MANIFEST["proof_sha256"].items():
             if digest((PROOF / name).read_bytes()) != wanted:
@@ -456,67 +422,29 @@ def main() -> None:
         workflow = WORKSPACE / "proof" / ".github/workflows/elegant-paired-windows-r35.yml"
         if digest(workflow.read_bytes()) != MANIFEST["workflow_sha256"]:
             raise RuntimeError("producer workflow hash mismatch")
-        for source in sources:
-            if run(f"{source.name}-head", ["git", "rev-parse", "HEAD"], source).strip() != source.head:
-                raise RuntimeError("wrong frozen source commit")
-            if run(f"{source.name}-tree", ["git", "rev-parse", "HEAD^{tree}"], source).strip() != source.tree:
-                raise RuntimeError("wrong frozen source tree")
-            identity(source)
-        rust_version = run("rust-version", ["rustc", "--version"], current)
-        go_version = run("go-version", ["go", "version"], current)
-        nextest_version = run("nextest-version", ["cargo", "nextest", "--version"], candidate)
+        if run("candidate-head", ["git", "rev-parse", "HEAD"], candidate).strip() != candidate.head:
+            raise RuntimeError("wrong frozen source commit")
+        if run("candidate-tree", ["git", "rev-parse", "HEAD^{tree}"], candidate).strip() != candidate.tree:
+            raise RuntimeError("wrong frozen source tree")
+        identity(candidate)
+        rust_version = run("rust-version", ["rustc", "--version"], candidate)
+        go_version = run("go-version", ["go", "version"], candidate)
         rust_lines = [line for line in rust_version.splitlines() if line.startswith("rustc ")]
         if len(rust_lines) != 1 or not rust_lines[0].startswith("rustc 1.100.0 "):
             raise RuntimeError("Rust toolchain identity differs")
         if go_version.strip() != "go version go1.27.4 windows/amd64":
             raise RuntimeError("Go toolchain identity differs")
-        nextest_lines = [line for line in nextest_version.splitlines() if line.startswith("cargo-nextest ")]
-        if len(nextest_lines) != 1 or not nextest_lines[0].startswith("cargo-nextest 0.9.151"):
-            raise RuntimeError("nextest identity differs")
         if run("go-cache-disabled", ["go", "env", "GOCACHEPROG"], candidate).strip():
             raise RuntimeError("external Go cache is active")
-        frozen = (PROOF / "windows-regressions-frozen.rs").read_bytes()
-        corrected = (PROOF / "windows-regressions.rs").read_bytes()
-        expected = frozen.replace(
-            b'ordinary.join(spelling).join("native.svg")',
-            b'ordinary.join(spelling).canonicalize()?.join("native.svg")',
-        ).replace(
-            b'ordinary.join(name).join("native.svg")',
-            b'ordinary.join(name).canonicalize()?.join("native.svg")',
-        )
-        if corrected != expected or corrected == frozen:
-            raise RuntimeError("observer correction changed the frozen source or assertions")
-        path_witnesses(old, corrected)
-        identity(old)
-        run("old-restoration", ["git", "diff", "--exit-code", "HEAD"], old)
-        path_witnesses(current, corrected)
-        identity(current)
-        run("current-restoration", ["git", "diff", "--exit-code", "HEAD"], current)
-        normalization = BUILDS / "native-normalization.exe"
-        run("compile-native-normalization",
-            ["rustc", "--edition=2024", str(PROOF / "normalization.rs"), "-o", str(normalization)], current)
-        normalization_log = run("native-normalization", [str(normalization)], current)
-        if sum(line.startswith("WINDOWS_NORMALIZE ") for line in normalization_log.splitlines()) != 19:
-            raise RuntimeError("native normalization observation count differs")
+        prior = authenticate(PROOF, OUTPUT, MANIFEST["receipt_reuse"])
+        report["authenticated_prior_evidence"] = prior.provenance
+        report["reused_commands"] = prior.reused
+        allowed = "internal/cli/output_path_windows_test.go"
+        require_test_only_delta(candidate.root, prior, allowed)
         formatted_index, tree = format_owned_source(candidate)
         report["compiled_tree"] = tree
-        namespace_mutations(candidate, formatted_index)
-        path_witnesses(candidate, corrected)
-        identity(candidate, formatted_index)
-        run("candidate-clippy",
-            ["cargo", "clippy", "-p", "emd-cli", "--all-targets", "--all-features", "--locked",
-             "--", "-D", "warnings"], candidate)
-        run("candidate-rust-cli",
-            ["cargo", "build", "-p", "emd-cli", "--bin", "emd", "--all-features", "--locked", "--release"], candidate)
-        rust_binary = BUILDS / "cargo-candidate/release/emd.exe"
-        if not rust_binary.is_file():
-            raise RuntimeError("fresh Rust CLI missing")
-        os.environ["EMD_BIN"] = str(rust_binary)
-        run("candidate-markdown-tests",
-            ["cargo", "nextest", "run", "-p", "emd-cli", "--all-features", "--locked", "--no-fail-fast",
-             "--no-tests=fail", "-E", "test(render::markdown::)"], candidate)
-        go_binary = BUILDS / "emd-go.exe"
-        run("candidate-go-cli", ["go", "build", "-trimpath", "-o", str(go_binary), "./cmd/emd"], candidate)
+        report["test_only_delta"] = require_test_only_delta(candidate.root, prior, allowed)
+        namespace_go_mutation(candidate, formatted_index)
         go_files = sorted(str(path.relative_to(candidate.root))
                           for path in (candidate.root / "internal/cli").glob("*.go"))
         if not go_files:
@@ -525,9 +453,11 @@ def main() -> None:
             raise RuntimeError("candidate Go formatting differs")
         run("candidate-go-vet", ["go", "vet", "./internal/cli"], candidate)
         run("candidate-go-lint", ["go", "tool", "golangci-lint", "run", "./internal/cli"], candidate)
+        go_binary = BUILDS / "emd-go.exe"
+        run("candidate-go-cli", ["go", "build", "-trimpath", "-o", str(go_binary), "./cmd/emd"], candidate)
         go_tests: list[str] = MANIFEST["go_test_names"]
-        if not go_tests or any(not re.fullmatch("Test[A-Za-z0-9_]+", name) for name in go_tests):
-            raise RuntimeError("targeted Go test names are not bound")
+        if len(go_tests) != 6 or any(not re.fullmatch("Test[A-Za-z0-9_]+", name) for name in go_tests):
+            raise RuntimeError("six targeted Go test names are not bound")
         pattern = "^(" + "|".join(go_tests) + ")$"
         os.environ["EMD_BIN"] = str(go_binary)
         go_log = run("candidate-go-ownership-tests",
@@ -535,6 +465,12 @@ def main() -> None:
         passed = set(re.findall(r"^--- PASS: (Test[A-Za-z0-9_]+) ", go_log, flags=re.MULTILINE))
         if passed != set(go_tests):
             raise RuntimeError("one or more required native Go ownership tests did not pass")
+        run("candidate-rust-cli",
+            ["cargo", "build", "-p", "emd-cli", "--bin", "emd", "--all-features", "--locked", "--release"],
+            candidate)
+        rust_binary = BUILDS / "cargo-candidate/release/emd.exe"
+        if not rust_binary.is_file():
+            raise RuntimeError("fresh Rust CLI missing")
         print("BUILT_BINARIES " + json.dumps({
             "go_sha256": digest(go_binary.read_bytes()),
             "rust_sha256": digest(rust_binary.read_bytes()),
@@ -550,13 +486,12 @@ def main() -> None:
         report["focused_verification_passed"] = True
     finally:
         restore_owned(candidate, original)
-        for source in sources:
-            identity(source)
-            run(f"{source.name}-final-restoration", ["git", "diff", "--exit-code", "HEAD"], source)
+        identity(candidate)
+        run("candidate-final-restoration", ["git", "diff", "--exit-code", "HEAD"], candidate)
         report["source_restored"] = True
-        report["commands"] = RECEIPTS
+        report["executed_commands"] = RECEIPTS
         (OUTPUT / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-        print("FOCUSED_WINDOWS_REPORT " + json.dumps(report), flush=True)
+        print("FOCUSED_WINDOWS_FOLLOWUP_REPORT " + json.dumps(report), flush=True)
 
 
 if __name__ == "__main__":

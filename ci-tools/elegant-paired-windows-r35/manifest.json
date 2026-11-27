@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "scope": "Focused native Windows proof only; parent owns repository-wide gates and maintained publication.",
-  "status": "prepared-not-launched",
+  "status": "prepared-authenticated-test-only-followup",
   "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
   "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
   "sources": {
@@ -30,8 +30,8 @@
       ]
     },
     "candidate": {
-      "head": "61271a6955012abce15de62703246cef0e6c883f",
-      "tree": "893180e7febfec410cd7fc22618e9b9fa601fb7e",
+      "head": "eb11dfb51e044cd31712fbda0f1e39cb374639ae",
+      "tree": "1629dfcca209b305a96dceebafef8bb4e5bf3267",
       "blobs": 6714,
       "controls": 13,
       "exits": [
@@ -45,8 +45,8 @@
   "source_payload": [
     {
       "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
-      "blob": "4a21648a7189cf2b702ca741a25af5ed470ad08b",
-      "sha256": "520f747b327d6cbb54c275fff43af3a77b9821745e491dab1b2a06fafa342c4e"
+      "blob": "b9f4909d409fb930fb65e967b8ec2e889cb1049b",
+      "sha256": "0f59c96ada3f2b50cf9fe1273e91668b38b5d7a6d91d13481d42a3f1b1e67071"
     },
     {
       "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
@@ -55,8 +55,8 @@
     },
     {
       "path": "internal/cli/output_path.go",
-      "blob": "48db99aa006c76312e3a0fd7d00c7c1823bcde48",
-      "sha256": "01dbbc98bf4e6de8d2cdc81d170edc9525c84dda9ff2220d3bc2fba130514c05"
+      "blob": "65763bf3918d849a648cbd1ee660f6d2066e1f86",
+      "sha256": "36182d311af48adc2a8a1a3b2f98fc9515d5b263b0ed439b78c43c2f1472c049"
     },
     {
       "path": "internal/cli/output_path_other.go",
@@ -70,8 +70,8 @@
     },
     {
       "path": "internal/cli/output_path_windows_test.go",
-      "blob": "19b2d25a06be5687bdbad59c89a296b796d552f3",
-      "sha256": "b0b71c14f55d4dde9b785a0a4e0b23cf85dc4d0d9ca66228e3c6f1b516cd0f07"
+      "blob": "75a009cbbcd8e91009c8c4e36b44454ce6396272",
+      "sha256": "0ee586956afe171ee11cda29b6d40f4d1a36091609a96d82fc0c0b7b1cf90485"
     },
     {
       "path": "internal/cli/render_markdown_output.go",
@@ -85,18 +85,22 @@
     }
   ],
   "proof_sha256": {
-    "verify.py": "61c29de5e44785eb7818e52eba9bfd4510573de14ac4212eb8748eead041d2dd",
+    "verify.py": "825a0bebb56c44b35c09aeb23fea5819cb3bd8cb73db0e044fcbff2a1aadec8d",
     "windows-regressions-frozen.rs": "9570a81fb6e3959459d238420b9e2659cbc6b96535688a40de76bdccb98a07a8",
     "windows-regressions.rs": "8186147fc09d1a87b398e245f3ee2074d5c746128729aec002ab62481839272d",
     "observer-correction.diff": "931cd6b87a2a019ab5a3b8796707e2056893c63bc721b47c635f836913540be4",
     "normalization.rs": "a59287cdf25daff7406b92dba82a2daccf60649e0a829390dec3cf1d3b3f8dc1",
     "old-index.json": "7d047ed2e51f93acafc2a49b8d9aa2baae4d601ca57369c72dde78482c0bca1a",
     "current-index.json": "18f7319bc9c3d1e83a99ef34f5e583c179b1bc07ffc56368b588c749215b9c04",
-    "candidate-index.json": "a7382677606d0264c2a57e62985d34dbfb6b02d1c4029c9c9d4e6175064d9963",
+    "candidate-index.json": "a28fbae32feab70597e0575634293875e88f7bb8cc12ef1ee8299cc8f6e8995e",
     "current-source-receipt.json": "bf3b9709dfcc392ca15883335280a507793d857f76d7789a5989119d3d4b6197",
-    "namespace-source-receipt.json": "f749b3bb9741007d176afda5a229de281fd028b2946db8041cf4dfd018f88837"
+    "namespace-source-receipt.json": "f749b3bb9741007d176afda5a229de281fd028b2946db8041cf4dfd018f88837",
+    "receipt_reuse.py": "ce0040bcd25b7d97b312a16d56faf6fc636d2705f17d70ef9f03f299b23a7df0",
+    "previous-failure.json": "43fc2f33df312caa9dfb542fa50da0728d364ca1d79e433402439b382b807caa",
+    "previous-job-log.json": "8248397137b2914db9a3ab61c57eb0978a2e9770ff8246fa94f3af51aceaa57d",
+    "previous-formatted-source.json": "00cfcf03a785682508a78a8728a3c86a1e860992e02f34560bdef86f5a253df5"
   },
-  "workflow_sha256": "8f867f6ad22211a099e0cc0273b92f999e546bccf89329c92f18e8e24fb48a0d",
+  "workflow_sha256": "5ecb77932d142d1eec1d6a6f92dd34d1682a24a30c4ca0bb422ecdad6ee4a6f8",
   "go_test_names": [
     "TestMarkdownWindowsDirectorySpellings",
     "TestMarkdownWindowsMixedPrefixes",
@@ -136,7 +140,7 @@
     "internal/tui/read_windows.go"
   ],
   "cache_isolation": "Every snapshot uses separate standalone binaries, CARGO_TARGET_DIR and GOCACHE. External Go cache and Rust wrappers are explicitly disabled at each command boundary.",
-  "artifact_scope": "Logs, full receipts, formatted eight-file source payload, complete compiled source index, observed SVG bytes and binary hashes. Executables and build/cache directories live outside the upload directory.",
+  "artifact_scope": "New logs and receipts, authenticated prior provenance, formatted source payload/index, observed SVG bytes and binary hashes. Binaries/builds and the downloaded prior ZIP are not uploaded.",
   "historical_receipts": {
     "current": {
       "commit": "070eafd851c1bc8074e6436362661a02bbdfbea3",
@@ -168,5 +172,63 @@
     }
   },
   "publication_eligible": false,
-  "mutation_scope": "After candidate formatting, reinsert only each prior DeviceNS/literal-device prefix alternative. Require compilation success, frozen identity assertion failures and exact test/source restoration before positive gates. Rust uses a separate standalone binary; Go uses a separate scratch compiler cache and executable."
+  "mutation_scope": "Rerun the changed Go test's old-prefix mutation after formatting; require compilation success, exactly three native-mismatched failures and nine passing controls, then restore source. The unchanged Rust mutation receipt is authenticated and reused.",
+  "receipt_reuse": {
+    "producer": "483590023502427eee4dbb946f3c31ef57b13015",
+    "run_id": 45976852511,
+    "job_id": 140430617604,
+    "artifact_id": 15187753936,
+    "zip_sha256": "4f0a57ba34a3939c0fb66bc096a807d8fc8841a26717e90cb93a083dd229acbc",
+    "zip_bytes": 511350,
+    "job_log_sha256": "ea630da8d65e583a716dec25ff2d0a8ab90fc0c670333cb69e17d7dfb92a668d",
+    "compiled_tree": "ca39add4228047157b215c282f0bc4ed850d4032",
+    "compiled_index_sha256": "a4cdf7ab96f93bfdacd43852ef4076e4431e0569421d472d8e91bd7f17099534",
+    "reused_command_names": [
+      "old-head",
+      "old-tree",
+      "current-head",
+      "current-tree",
+      "old-compile-path-tests",
+      "old-permanent-path-controls",
+      "old-mixed-prefixes",
+      "old-literal-link",
+      "old-normalized-urls",
+      "old-unc-normalization",
+      "old-restoration",
+      "current-compile-path-tests",
+      "current-permanent-path-controls",
+      "current-mixed-prefixes",
+      "current-literal-link",
+      "current-normalized-urls",
+      "current-unc-normalization",
+      "current-restoration",
+      "compile-native-normalization",
+      "native-normalization",
+      "namespace-rust-mutant-compile",
+      "namespace-rust-mutant-red",
+      "candidate-compile-path-tests",
+      "candidate-permanent-path-controls",
+      "candidate-mixed-prefixes",
+      "candidate-literal-link",
+      "candidate-normalized-urls",
+      "candidate-unc-normalization",
+      "candidate-clippy",
+      "candidate-markdown-tests",
+      "old-final-restoration",
+      "current-final-restoration"
+    ],
+    "only_changed_path": "internal/cli/output_path_windows_test.go",
+    "new_authored_test_sha256": "0ee586956afe171ee11cda29b6d40f4d1a36091609a96d82fc0c0b7b1cf90485",
+    "prior_run_conclusion": "failure",
+    "verification": "Live run/job/artifact metadata, downloaded ZIP digest, full archived job log/report, all 59 per-command logs, eight emitted source blobs and complete compiled index. New source must differ in exactly the Go test, before and after allowed formatting."
+  },
+  "followup_executed_gates": [
+    "Go namespace mutation",
+    "Go format/vet/golangci-lint",
+    "Go CLI build",
+    "Six Go ownership tests",
+    "Fresh Rust CLI build",
+    "All 20+4 CLI cases per engine and exact parity",
+    "Whitespace and complete source restoration"
+  ]
 }
