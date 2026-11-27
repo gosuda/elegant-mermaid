@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "scope": "Focused native Windows proof only; parent owns repository-wide gates and maintained publication.",
+  "status": "prepared-not-launched",
+  "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+  "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+  "sources": {
+    "old": {
+      "head": "9c8339a1c214eb93c92384db55edc0e89851ea8a",
+      "tree": "079aff7611f119cfdcad0e302193be935cadc13f",
+      "blobs": 6711,
+      "controls": 5,
+      "exits": [
+        101,
+        101,
+        101,
+        101
+      ]
+    },
+    "current": {
+      "head": "325bc562588b1989cdd137116e937784865ee5ad",
+      "tree": "df6f7ed72cf64d8102f7024c9cf37a072e3a40ef",
+      "blobs": 6711,
+      "controls": 8,
+      "exits": [
+        0,
+        101,
+        101,
+        101
+      ]
+    },
+    "candidate": {
+      "head": "b60c42d2b887e5c3de048c9bdd3828e51665a9d8",
+      "tree": "728e8e818219a1c73441d78e4d212a09a5cec900",
+      "blobs": 6714,
+      "controls": 12,
+      "exits": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "source_payload": [
+    {
+      "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+      "blob": "cda91da81c630a5ec577e4a1ca6c22f04fe44cfc",
+      "sha256": "e155793dfbb63d0e3df7e9e2c3826469d7a87f8b8cf8756903fed836f98f4580"
+    },
+    {
+      "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
+      "blob": "72f608a5feb64f9db209477bf1e944f6cd1dba59",
+      "sha256": "4df4aee4fe01ab75c0ab02ee51c673daa2c73a26d337fdc8fe372c415bb96d40"
+    },
+    {
+      "path": "internal/cli/output_path.go",
+      "blob": "48db99aa006c76312e3a0fd7d00c7c1823bcde48",
+      "sha256": "01dbbc98bf4e6de8d2cdc81d170edc9525c84dda9ff2220d3bc2fba130514c05"
+    },
+    {
+      "path": "internal/cli/output_path_other.go",
+      "blob": "eae671aafb7b2e301904806a58102fceadc1e9f3",
+      "sha256": "329ccb54ca178fc8a8ef1637d44edcddcb8b86f455f619f6848573ceec189b99"
+    },
+    {
+      "path": "internal/cli/output_path_windows.go",
+      "blob": "5c115ec00cb47fd8dc4aa4234d5e889ec674ee05",
+      "sha256": "ee720c3e1720f203026cfc514897affc121fe507e46920cc3979c529200a7f92"
+    },
+    {
+      "path": "internal/cli/output_path_windows_test.go",
+      "blob": "2563014e8d7389795a8c0c2b5c154992e24090f3",
+      "sha256": "d137b1fb7a1b1c74d1f935eccf72e78e8007ec3ad7701e15d897a1ee8283826b"
+    },
+    {
+      "path": "internal/cli/render_markdown_output.go",
+      "blob": "56219e81b88ae75d852124f0a2fa2c28cf6a0825",
+      "sha256": "f421bb245022a7cf94f729adf0248fbd1ef63a389e6da39b533a334a99e655a2"
+    },
+    {
+      "path": "internal/tui/read_windows.go",
+      "blob": "16aca04f822298b8a8bc162cde9367c9c2be5bb9",
+      "sha256": "1937464d90f4ad2558593f86b434b7c41b12cdaa111457465c80598def3c03fa"
+    }
+  ],
+  "proof_sha256": {
+    "verify.py": "c25de9c526d8fc2c2b2a575ad5e02bb46a00eecb7720b90271ab104d3493c308",
+    "windows-regressions-frozen.rs": "9570a81fb6e3959459d238420b9e2659cbc6b96535688a40de76bdccb98a07a8",
+    "windows-regressions.rs": "8186147fc09d1a87b398e245f3ee2074d5c746128729aec002ab62481839272d",
+    "observer-correction.diff": "931cd6b87a2a019ab5a3b8796707e2056893c63bc721b47c635f836913540be4",
+    "normalization.rs": "a59287cdf25daff7406b92dba82a2daccf60649e0a829390dec3cf1d3b3f8dc1",
+    "old-index.json": "7d047ed2e51f93acafc2a49b8d9aa2baae4d601ca57369c72dde78482c0bca1a",
+    "current-index.json": "18f7319bc9c3d1e83a99ef34f5e583c179b1bc07ffc56368b588c749215b9c04",
+    "candidate-index.json": "c9c45a750f482973d826a29f970effd7363b013ac8e7468990e303f9acd9923a",
+    "current-source-receipt.json": "bf3b9709dfcc392ca15883335280a507793d857f76d7789a5989119d3d4b6197"
+  },
+  "workflow_sha256": "68d53afe09012a3b7953912bd053d287a7a2565e08a0a6050c38d72db75acaa5",
+  "go_test_names": [
+    "TestMarkdownWindowsDirectorySpellings",
+    "TestMarkdownWindowsMixedPrefixes",
+    "TestMarkdownWindowsSymlinkRetainsLiteralAncestor",
+    "TestMarkdownWindowsFinalNamesAndLinks",
+    "TestMarkdownWindowsFinalLinkIsReplaced"
+  ],
+  "expected": {
+    "frozen_path_cases": 4,
+    "native_normalization_observations": 19,
+    "real_cli_cases_per_engine": 20,
+    "final_filename_cases_per_engine": 4,
+    "go_ownership_tests": 5,
+    "engine_host_and_image_bytes_identical": true
+  },
+  "observer_correction": "Only two native prerequisite expressions canonicalize the directory operand before appending native.svg. The original module, inputs, URL assertions and historical failures remain immutable. Both prior source snapshots rerun before candidate application.",
+  "format_scope": [
+    "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+    "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
+    "internal/cli/output_path.go",
+    "internal/cli/output_path_other.go",
+    "internal/cli/output_path_windows.go",
+    "internal/cli/output_path_windows_test.go",
+    "internal/cli/render_markdown_output.go",
+    "internal/tui/read_windows.go"
+  ],
+  "cache_isolation": "Every snapshot uses separate standalone binaries, CARGO_TARGET_DIR and GOCACHE. External Go cache and Rust wrappers are explicitly disabled at each command boundary.",
+  "artifact_scope": "Logs, full receipts, formatted eight-file source payload, complete compiled source index, observed SVG bytes and binary hashes. Executables and build/cache directories live outside the upload directory.",
+  "historical_receipts": {
+    "current": {
+      "commit": "070eafd851c1bc8074e6436362661a02bbdfbea3",
+      "path": "reviews/elegant-current-windows-r34/checkpoint.json",
+      "sha256": "bf3b9709dfcc392ca15883335280a507793d857f76d7789a5989119d3d4b6197",
+      "run": 45965964389,
+      "job": 140394595854,
+      "artifact": 15182991221,
+      "zip_sha256": "43abdd5c454fb0f73d75cdcc3f2a597b1a4961088e223e9f5d27bfa57c65531e"
+    },
+    "old": {
+      "commit": "b00002b71ff8460402ac41676a9e1c22f95d4230",
+      "path": "reviews/elegant-windows-review-r33/baseline2.json",
+      "run": 45958671740,
+      "artifact": 15180505210,
+      "zip_sha256": "479c9dd718bb8428a2e49bbadcda2c35d54ecb9d73eafc12d5a6fe98425c49c0"
+    }
+  },
+  "publication_eligible": false
+}

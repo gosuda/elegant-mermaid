@@ -1,0 +1,532 @@
+{
+  "schema": 1,
+  "repository": "gosuda/elegant-mermaid",
+  "pull_request": 28,
+  "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+  "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+  "source": "325bc562588b1989cdd137116e937784865ee5ad",
+  "source_tree": "df6f7ed72cf64d8102f7024c9cf37a072e3a40ef",
+  "scope": "Observe exact externally updated renderer source plus the previously proven one-line Windows wait type conversion; no path behavior repair applied.",
+  "producer": "635334e7b9ed3b784f4558d035df7791e8504cea",
+  "run": 45965964389,
+  "job": 140394595854,
+  "conclusion": "success",
+  "meaning": "Complete observational harness with genuine expected failures; not candidate verification.",
+  "artifact": {
+    "id": 15182991221,
+    "sha256": "43abdd5c454fb0f73d75cdcc3f2a597b1a4961088e223e9f5d27bfa57c65531e",
+    "size": 37689964,
+    "verification": "API producer metadata and uploaded artifact digest agree."
+  },
+  "raw_log_sha256": "c53724fc9b54bce744593d6690d745cecea190eaf30ab406841e53beff342564",
+  "normalized_log_sha256": "7e0fafd403bf4c7a1bcc6ceeb97e9737fcfd5b94914f139b88b621a4d394023e",
+  "report": {
+    "source": "325bc562588b1989cdd137116e937784865ee5ad",
+    "publication_eligible": false,
+    "source_restored": true,
+    "frozen_witness_observations_complete": true,
+    "candidate_verified": false,
+    "commands": [
+      {
+        "name": "source-head",
+        "command": [
+          "git",
+          "rev-parse",
+          "HEAD"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "ec75cafc373ac03d401905154a461b5bb23d93ee913153f8e7a07f99224cf6dd"
+      },
+      {
+        "name": "source-tree",
+        "command": [
+          "git",
+          "rev-parse",
+          "HEAD^{tree}"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "1563b4006465af6edad59b79bf5a735758179289d2be757612aad36e3fbb0e9a"
+      },
+      {
+        "name": "rust-version",
+        "command": [
+          "rustc",
+          "--version"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "387a6a26aa138b0d02a2efe623dd9ef0c8e277e1bc880361695007393c3d2e15"
+      },
+      {
+        "name": "go-version",
+        "command": [
+          "go",
+          "version"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "bd74e61f96314b4c2e72e63319395345bc2817752bbdd3fc177a9edb2eb2ba14"
+      },
+      {
+        "name": "compile-regressions",
+        "command": [
+          "rustc",
+          "--edition=2024",
+          "--test",
+          "crates\\elegant-mermaid-cli\\src\\render\\markdown\\links.rs",
+          "-o",
+          "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "existing-path-controls",
+        "command": [
+          "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+          "--nocapture",
+          "--skip",
+          "review_windows_tests"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "cf6bc35c361fa3d2f543d1a5743b359a98dc8b8686feb1bf234d9e9fb7233a53"
+      },
+      {
+        "name": "mixed-prefixes",
+        "command": [
+          "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+          "--exact",
+          "review_windows_tests::review_mixed_windows_prefixes_form_relative_urls",
+          "--nocapture"
+        ],
+        "exit": 0,
+        "expected": [
+          0,
+          101
+        ],
+        "log_sha256": "f9eb71c257cb744a8d9e13caf81c9a999ec3344f8af2a680c79cddc876011e7c"
+      },
+      {
+        "name": "literal-link",
+        "command": [
+          "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+          "--exact",
+          "review_windows_tests::review_ordinary_link_preserves_literal_target",
+          "--nocapture"
+        ],
+        "exit": 101,
+        "expected": [
+          0,
+          101
+        ],
+        "log_sha256": "271c7d9e4e4098b73257d542e90e95cc185766dbf90ca7cfeece1d2e3aaf4ec1"
+      },
+      {
+        "name": "normalized-urls",
+        "command": [
+          "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+          "--exact",
+          "review_windows_tests::review_ordinary_trailing_components_use_normalized_urls",
+          "--nocapture"
+        ],
+        "exit": 101,
+        "expected": [
+          0,
+          101
+        ],
+        "log_sha256": "00130a0121264927203aad5d3a8a3e22f04e687740c8e77e3f247d86db06098e"
+      },
+      {
+        "name": "unc-normalization",
+        "command": [
+          "C:\\actions-runner\\_temp\\emd-windows-evidence\\windows-regressions.exe",
+          "--exact",
+          "review_windows_tests::review_unc_components_use_ordinary_normalization",
+          "--nocapture"
+        ],
+        "exit": 101,
+        "expected": [
+          0,
+          101
+        ],
+        "log_sha256": "a6a41361bb042e4ced31217d8c1e6cb70160ed5e99eb7520ed109e718b890e13"
+      },
+      {
+        "name": "compile-native-normalization",
+        "command": [
+          "rustc",
+          "--edition=2024",
+          "C:\\actions-runner\\elegant-mermaid\\elegant-mermaid\\proof\\ci-tools\\elegant-current-windows-r34\\normalization.rs",
+          "-o",
+          "C:\\actions-runner\\_temp\\emd-windows-evidence\\normalization.exe"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "native-normalization",
+        "command": [
+          "C:\\actions-runner\\_temp\\emd-windows-evidence\\normalization.exe"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "0bed2e826b3fc093081e250d7442b4c8662cf9a3da2aecda8b14238288245f92"
+      },
+      {
+        "name": "build-go-observer",
+        "command": [
+          "go",
+          "build",
+          "-trimpath",
+          "-o",
+          "C:\\actions-runner\\_temp\\emd-windows-evidence\\emd-go.exe",
+          "./cmd/emd"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "1b3125829c599779e2f58dba15a86b0fe972b0f061f07cc55be2bebc4dfcb0c0"
+      },
+      {
+        "name": "source-restoration",
+        "command": [
+          "git",
+          "diff",
+          "--exit-code"
+        ],
+        "exit": 0,
+        "expected": 0,
+        "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  },
+  "native_go_observations": [
+    {
+      "id": "local-dot",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](assets/report-1.svg)\n",
+      "expected_host": "![diagram](assets/report-1.svg)\n",
+      "image_exists": true,
+      "matches": true
+    },
+    {
+      "id": "local-dot-missing",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](future./future-1.svg)\n",
+      "expected_host": "![diagram](future/future-1.svg)\n",
+      "image_exists": true,
+      "matches": false
+    },
+    {
+      "id": "local-dot-literal",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](literal/literal-1.svg)\n",
+      "expected_host": "![diagram](literal./literal-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "local-space",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](assets/report-1.svg)\n",
+      "expected_host": "![diagram](assets/report-1.svg)\n",
+      "image_exists": true,
+      "matches": true
+    },
+    {
+      "id": "local-space-missing",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](future./future-1.svg)\n",
+      "expected_host": "![diagram](future/future-1.svg)\n",
+      "image_exists": true,
+      "matches": false
+    },
+    {
+      "id": "local-space-literal",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](literal/literal-1.svg)\n",
+      "expected_host": "![diagram](literal%20/literal-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "local-mixed-assets",
+      "exit": 2,
+      "stderr": "cannot write assets.md: Rel: can't make \\\\?\\C:\\actions-runner\\_temp\\emd-windows-r34-45965964389-1\\local\\go-local-mixed\\assets\\assets-1.svg relative to C:\\actions-runner\\_temp\\emd-windows-r34-45965964389-1\\local\\go-local-mixed\n",
+      "host": "",
+      "expected_host": "![diagram](assets/assets-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "local-mixed-host",
+      "exit": 2,
+      "stderr": "cannot write \\\\?\\C:\\actions-runner\\_temp\\emd-windows-r34-45965964389-1\\local\\go-local-mixed\\host.md: Rel: can't make C:\\actions-runner\\_temp\\emd-windows-r34-45965964389-1\\local\\go-local-mixed\\assets\\host-1.svg relative to \\\\?\\C:\\actions-runner\\_temp\\emd-windows-r34-45965964389-1\\local\\go-local-mixed\n",
+      "host": "",
+      "expected_host": "![diagram](assets/host-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "unc-dot",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](assets/report-1.svg)\n",
+      "expected_host": "![diagram](assets/report-1.svg)\n",
+      "image_exists": true,
+      "matches": true
+    },
+    {
+      "id": "unc-dot-missing",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](future./future-1.svg)\n",
+      "expected_host": "![diagram](future/future-1.svg)\n",
+      "image_exists": true,
+      "matches": false
+    },
+    {
+      "id": "unc-dot-literal",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](literal/literal-1.svg)\n",
+      "expected_host": "![diagram](literal./literal-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "unc-space",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](assets/report-1.svg)\n",
+      "expected_host": "![diagram](assets/report-1.svg)\n",
+      "image_exists": true,
+      "matches": true
+    },
+    {
+      "id": "unc-space-missing",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](future./future-1.svg)\n",
+      "expected_host": "![diagram](future/future-1.svg)\n",
+      "image_exists": true,
+      "matches": false
+    },
+    {
+      "id": "unc-space-literal",
+      "exit": 0,
+      "stderr": "",
+      "host": "![diagram](literal/literal-1.svg)\n",
+      "expected_host": "![diagram](literal%20/literal-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "unc-mixed-assets",
+      "exit": 2,
+      "stderr": "cannot write assets.md: Rel: can't make \\\\?\\UNC\\localhost\\emd-r34-45965964389-1\\go-unc-mixed\\assets\\assets-1.svg relative to \\\\localhost\\emd-r34-45965964389-1\\go-unc-mixed\n",
+      "host": "",
+      "expected_host": "![diagram](assets/assets-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "unc-mixed-host",
+      "exit": 2,
+      "stderr": "cannot write \\\\?\\UNC\\localhost\\emd-r34-45965964389-1\\go-unc-mixed\\host.md: Rel: can't make \\\\localhost\\emd-r34-45965964389-1\\go-unc-mixed\\assets\\host-1.svg relative to \\\\?\\UNC\\localhost\\emd-r34-45965964389-1\\go-unc-mixed\n",
+      "host": "",
+      "expected_host": "![diagram](assets/host-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "symlink-space",
+      "exit": 2,
+      "stderr": "cannot write report.md: The system cannot find the file specified.\n",
+      "host": "",
+      "expected_host": "![diagram](literal%20/report-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "symlink-space-child-dot",
+      "exit": 2,
+      "stderr": "cannot write child.md: The system cannot find the file specified.\n",
+      "host": "",
+      "expected_host": "![diagram](literal%20/child/child-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "symlink-dot",
+      "exit": 2,
+      "stderr": "cannot write report.md: The system cannot find the file specified.\n",
+      "host": "",
+      "expected_host": "![diagram](literal./report-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    },
+    {
+      "id": "symlink-dot-child-dot",
+      "exit": 2,
+      "stderr": "cannot write child.md: The system cannot find the file specified.\n",
+      "host": "",
+      "expected_host": "![diagram](literal./child/child-1.svg)\n",
+      "image_exists": false,
+      "matches": false
+    }
+  ],
+  "native_normalization_observations": [
+    "WINDOWS_NORMALIZE name=\"assets.\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets..\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets. \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets...\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\")",
+    "WINDOWS_NORMALIZE name=\"assets.\\\\child\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\\\\child\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets\\\\child\") isolated=Ok(\"C:\\\\__emd_component__\\\\assets\\\\child\")",
+    "WINDOWS_NORMALIZE name=\"assets \\\\child\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets \\\\child\") canonical=Err(Os { code: 3, kind: NotFound, message: \"The system cannot find the path specified.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\assets \\\\child\")",
+    "WINDOWS_NORMALIZE name=\"assets..\\\\child\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\assets..\\\\child\") canonical=Err(Os { code: 3, kind: NotFound, message: \"The system cannot find the path specified.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\assets..\\\\child\")",
+    "WINDOWS_NORMALIZE name=\".\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\")",
+    "WINDOWS_NORMALIZE name=\"..\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\") isolated=Ok(\"C:\\\\\")",
+    "WINDOWS_NORMALIZE name=\"...\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\". \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\".. \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\"... \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\" \" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\") isolated=Ok(\"C:\\\\__emd_component__\\\\\")",
+    "WINDOWS_NORMALIZE name=\" a\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\ a\") canonical=Err(Os { code: 2, kind: NotFound, message: \"The system cannot find the file specified.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\ a\")",
+    "WINDOWS_NORMALIZE name=\"a\\t\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\a\\t\") canonical=Err(Os { code: 123, kind: InvalidFilename, message: \"The filename, directory name, or volume label syntax is incorrect.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\a\\t\")",
+    "WINDOWS_NORMALIZE name=\"assets.\\\\..\\\\future\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\future\") canonical=Err(Os { code: 2, kind: NotFound, message: \"The system cannot find the file specified.\" }) isolated=Ok(\"C:\\\\__emd_component__\\\\future\")",
+    "WINDOWS_NORMALIZE name=\"literal \\\\child\" absolute=Ok(\"C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\literal \\\\child\") canonical=Ok(\"\\\\\\\\?\\\\C:\\\\actions-runner\\\\_temp\\\\emd-windows-r34-45965964389-1\\\\local\\\\normalization-observer\\\\literal \\\\child\") isolated=Ok(\"C:\\\\__emd_component__\\\\literal \\\\child\")"
+  ],
+  "counts": {
+    "rust_current_controls_passed": 8,
+    "rust_frozen_outcomes": [
+      0,
+      101,
+      101,
+      101
+    ],
+    "native_go_matches": 4,
+    "native_go_cases": 20,
+    "source_blobs_restored": 6711
+  },
+  "failed_first_attempt": {
+    "producer": "75ccda34d78734fc80c4ffd7eb6d2e9e667414bc",
+    "run": 45965047081,
+    "job": 140391619825,
+    "conclusion": "failure",
+    "receipt": "failed-version-check.json",
+    "sha256": "8a8284210f2343662bf8fcbbf895c752be14ba89f2c09d7551883a0dcbfea0f0",
+    "no_path_tests_or_go_build_ran": true
+  },
+  "next_candidate": {
+    "schema": 1,
+    "maintained": "98ef933e487f502e2e3555750e6621291ba21601",
+    "actual_main": "afa5a631ec41cb1e9aa0634b2d547d084bd27e33",
+    "rust_candidate": "90765d6431c8b988783cb0383ac3293d251b363a",
+    "source": "b60c42d2b887e5c3de048c9bdd3828e51665a9d8",
+    "tree": "728e8e818219a1c73441d78e4d212a09a5cec900",
+    "blobs": 6714,
+    "authored_not_tested": true,
+    "files": [
+      {
+        "path": "internal/cli/output_path.go",
+        "sha256": "01dbbc98bf4e6de8d2cdc81d170edc9525c84dda9ff2220d3bc2fba130514c05"
+      },
+      {
+        "path": "internal/cli/output_path_other.go",
+        "sha256": "329ccb54ca178fc8a8ef1637d44edcddcb8b86f455f619f6848573ceec189b99"
+      },
+      {
+        "path": "internal/cli/output_path_windows.go",
+        "sha256": "ee720c3e1720f203026cfc514897affc121fe507e46920cc3979c529200a7f92"
+      },
+      {
+        "path": "internal/cli/render_markdown_output.go",
+        "sha256": "f421bb245022a7cf94f729adf0248fbd1ef63a389e6da39b533a334a99e655a2"
+      },
+      {
+        "path": "internal/tui/read_windows.go",
+        "sha256": "1937464d90f4ad2558593f86b434b7c41b12cdaa111457465c80598def3c03fa"
+      },
+      {
+        "path": "internal/cli/output_path_windows_test.go",
+        "sha256": "d137b1fb7a1b1c74d1f935eccf72e78e8007ec3ad7701e15d897a1ee8283826b"
+      },
+      {
+        "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+        "sha256": "e155793dfbb63d0e3df7e9e2c3826469d7a87f8b8cf8756903fed836f98f4580"
+      },
+      {
+        "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
+        "sha256": "4df4aee4fe01ab75c0ab02ee51c673daa2c73a26d337fdc8fe372c415bb96d40"
+      }
+    ],
+    "go_top_level_tests": [
+      "TestMarkdownWindowsDirectorySpellings",
+      "TestMarkdownWindowsMixedPrefixes",
+      "TestMarkdownWindowsSymlinkRetainsLiteralAncestor",
+      "TestMarkdownWindowsFinalNamesAndLinks",
+      "TestMarkdownWindowsFinalLinkIsReplaced"
+    ],
+    "changed_entries": [
+      {
+        "path": "crates/elegant-mermaid-cli/src/render/markdown/links.rs",
+        "mode": "100644",
+        "sha": "cda91da81c630a5ec577e4a1ca6c22f04fe44cfc"
+      },
+      {
+        "path": "crates/elegant-mermaid-cli/src/render/markdown/output.rs",
+        "mode": "100644",
+        "sha": "72f608a5feb64f9db209477bf1e944f6cd1dba59"
+      },
+      {
+        "path": "internal/cli/output_path.go",
+        "mode": "100644",
+        "sha": "48db99aa006c76312e3a0fd7d00c7c1823bcde48"
+      },
+      {
+        "path": "internal/cli/output_path_other.go",
+        "mode": "100644",
+        "sha": "eae671aafb7b2e301904806a58102fceadc1e9f3"
+      },
+      {
+        "path": "internal/cli/output_path_windows.go",
+        "mode": "100644",
+        "sha": "5c115ec00cb47fd8dc4aa4234d5e889ec674ee05"
+      },
+      {
+        "path": "internal/cli/output_path_windows_test.go",
+        "mode": "100644",
+        "sha": "2563014e8d7389795a8c0c2b5c154992e24090f3"
+      },
+      {
+        "path": "internal/cli/render_markdown_output.go",
+        "mode": "100644",
+        "sha": "56219e81b88ae75d852124f0a2fa2c28cf6a0825"
+      },
+      {
+        "path": "internal/tui/read_windows.go",
+        "mode": "100644",
+        "sha": "16aca04f822298b8a8bc162cde9367c9c2be5bb9"
+      }
+    ],
+    "windows_native_proof_pending": true,
+    "root_just_verify_pending": true,
+    "publication_eligible": false
+  },
+  "retirement": {
+    "workflow": ".github/workflows/elegant-current-windows-r34.yml",
+    "removed_in_this_additive_commit": true
+  },
+  "publication_eligible": false
+}

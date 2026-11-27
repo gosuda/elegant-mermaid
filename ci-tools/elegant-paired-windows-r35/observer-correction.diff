@@ -1,0 +1,8 @@
+--- windows-regressions.rs (frozen)
++++ windows-regressions.rs (observer correction)
+@@ review_ordinary_trailing_components_use_normalized_urls @@
+-            std::fs::write(ordinary.join(spelling).join("native.svg"), b"native")?;
++            std::fs::write(ordinary.join(spelling).canonicalize()?.join("native.svg"), b"native")?;
+@@ review_unc_components_use_ordinary_normalization @@
+-            std::fs::write(ordinary.join(name).join("native.svg"), b"native")?;
++            std::fs::write(ordinary.join(name).canonicalize()?.join("native.svg"), b"native")?;
