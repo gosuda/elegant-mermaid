@@ -1,5 +1,5 @@
 use super::Encoded;
-use super::links::{alt_text, relative_url, resolved_directory};
+use super::links::{alt_text, relative_url, resolved_target};
 use crate::error::CliError;
 use crate::options::Options;
 use elegant_mermaid::markdown::Block;
@@ -30,16 +30,12 @@ pub(super) fn write(
     // prefix cancelled by `..` must not be created, and a later symlink keeps
     // its meaning. Errors name the path the user supplied.
     let resolve_target = |path: &Path| -> Result<PathBuf, CliError> {
-        let parent = path
+        let target = resolved_target(path).map_err(|source| write_error(path, source))?;
+        let directory = target
             .parent()
-            .filter(|path| !path.as_os_str().is_empty())
-            .unwrap_or(Path::new("."));
-        let directory = resolved_directory(parent).map_err(|source| write_error(path, source))?;
-        std::fs::create_dir_all(&directory).map_err(|source| write_error(path, source))?;
-        let name = path
-            .file_name()
             .ok_or_else(|| write_error(path, io::Error::from(io::ErrorKind::IsADirectory)))?;
-        Ok(directory.join(name))
+        std::fs::create_dir_all(directory).map_err(|source| write_error(path, source))?;
+        Ok(target)
     };
     let mut image_targets = Vec::with_capacity(plan.images.len());
     for path in &plan.images {
