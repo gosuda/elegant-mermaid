@@ -277,7 +277,10 @@ jobs:
           tool: "just@1.59.0"
       - name: "Read the pinned house linter revision"
         id: "sloplint-pin"
-        run: "echo \"rev=$(just --evaluate sloplint_rev)\" >> \"$GITHUB_OUTPUT\""
+        run: |
+          rev="$(just --evaluate sloplint_rev)"
+          test -n "$rev"
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
       - name: "Restore the pinned house linter"
         id: "sloplint-cache"
         uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
