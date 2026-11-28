@@ -98,8 +98,14 @@ playground-e2e: playground-build
     PLAYGROUND_SERVER_MODE=dev pnpm --dir playground exec playwright test --grep 'both engines render the default source'
 
 # Lean build with warnings as errors, then the proof hygiene audit
-proofs:
+proofs: proofs-build proofs-audit
+
+# Lean build with warnings as errors; the proof hygiene audit runs separately
+proofs-build:
     cd proofs && lake build --wfail
+
+# Proof hygiene audit; fails without removing the built geometry executable
+proofs-audit:
     bash proofs/scripts/audit.sh
 
 # TLC model check of the preview scheduler
