@@ -282,21 +282,21 @@ jobs:
         id: "sloplint-cache"
         uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
-          path: ".tools/sloplint"
+          path: ".tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}"
           key: "sloplint-${{ steps.sloplint-pin.outputs.rev }}"
       - name: "Install the pinned house linter"
         id: "sloplint-install"
         if: "!cancelled() && steps.sloplint-cache.outputs.cache-hit != 'true'"
-        run: "cargo install --git https://github.com/gosuda/sloplint --rev ${{ steps.sloplint-pin.outputs.rev }} --locked --root \"$GITHUB_WORKSPACE/.tools/sloplint\" sloplint"
+        run: "cargo install --git https://github.com/gosuda/sloplint --rev ${{ steps.sloplint-pin.outputs.rev }} --locked --root \"$GITHUB_WORKSPACE/.tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}\" sloplint"
       - name: "Add the house linter to PATH"
         id: "sloplint"
         if: "!cancelled()"
-        run: "echo \"$GITHUB_WORKSPACE/.tools/sloplint/bin\" >> \"$GITHUB_PATH\""
+        run: "echo \"$GITHUB_WORKSPACE/.tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}/bin\" >> \"$GITHUB_PATH\""
       - name: "Save the pinned house linter"
         if: "!cancelled() && steps.sloplint-install.outcome == 'success'"
         uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
-          path: ".tools/sloplint"
+          path: ".tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}"
           key: "sloplint-${{ steps.sloplint-pin.outputs.rev }}"
       - name: "Run house lint"
         if: "!cancelled() && steps.sloplint.outcome == 'success'"

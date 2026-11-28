@@ -34,17 +34,20 @@ rust-check FILTER='':
 
 # Pinned house linter revision; the verify workflow reads it with `just --evaluate sloplint_rev`
 sloplint_rev := "72f29bae0ba1187da854e080c998b8a21f1e4640"
+# The install root names the revision, so a new pin never reuses an old binary
+sloplint_root := justfile_directory() / ".tools" / ("sloplint-" + sloplint_rev)
 
 # House lint: upstream standard profile, failing on major findings
 slop: _sloplint-install
-    .tools/sloplint/bin/sloplint check . --format agent --strictness standard --mode threshold --fail-on major
+    "{{ sloplint_root }}/bin/sloplint" check . --format agent --strictness standard --mode threshold --fail-on major
 
 [private]
 _sloplint-install:
     #!/usr/bin/env bash
     set -euo pipefail
-    if test -x "{{ justfile_directory() }}/.tools/sloplint/bin/sloplint"; then exit 0; fi
-    cargo install --git https://github.com/gosuda/sloplint --rev {{ sloplint_rev }} --locked --root "{{ justfile_directory() }}/.tools/sloplint" sloplint
+    root="{{ sloplint_root }}"
+    if test -x "$root/bin/sloplint"; then exit 0; fi
+    cargo install --git https://github.com/gosuda/sloplint --rev {{ sloplint_rev }} --locked --root "$root" sloplint
 
 # Build the Go CLI only: bin/emd-go
 build-go:
