@@ -275,26 +275,32 @@ jobs:
         uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
         with:
           tool: "just@1.59.0"
+      - name: "Read the pinned house linter revision"
+        id: "sloplint-pin"
+        run: |
+          rev="$(just --evaluate sloplint_rev)"
+          test -n "$rev"
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
       - name: "Restore the pinned house linter"
         id: "sloplint-cache"
         uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
-          path: ".tools/sloplint"
-          key: "sloplint-72f29bae0ba1187da854e080c998b8a21f1e4640"
+          path: ".tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}"
+          key: "sloplint-${{ steps.sloplint-pin.outputs.rev }}"
       - name: "Install the pinned house linter"
         id: "sloplint-install"
         if: "!cancelled() && steps.sloplint-cache.outputs.cache-hit != 'true'"
-        run: "cargo install --git https://github.com/gosuda/sloplint --rev 72f29bae0ba1187da854e080c998b8a21f1e4640 --locked --root \"$GITHUB_WORKSPACE/.tools/sloplint\" sloplint"
+        run: "cargo install --git https://github.com/gosuda/sloplint --rev ${{ steps.sloplint-pin.outputs.rev }} --locked --root \"$GITHUB_WORKSPACE/.tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}\" sloplint"
       - name: "Add the house linter to PATH"
         id: "sloplint"
         if: "!cancelled()"
-        run: "echo \"$GITHUB_WORKSPACE/.tools/sloplint/bin\" >> \"$GITHUB_PATH\""
+        run: "echo \"$GITHUB_WORKSPACE/.tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}/bin\" >> \"$GITHUB_PATH\""
       - name: "Save the pinned house linter"
         if: "!cancelled() && steps.sloplint-install.outcome == 'success'"
         uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
-          path: ".tools/sloplint"
-          key: "sloplint-72f29bae0ba1187da854e080c998b8a21f1e4640"
+          path: ".tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}"
+          key: "sloplint-${{ steps.sloplint-pin.outputs.rev }}"
       - name: "Run house lint"
         if: "!cancelled() && steps.sloplint.outcome == 'success'"
         run: "just slop"
