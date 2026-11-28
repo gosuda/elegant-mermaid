@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/gosuda/elegant-mermaid/internal/layout"
 	model "github.com/gosuda/elegant-mermaid/internal/model/treemap"
 	"github.com/gosuda/elegant-mermaid/internal/scene"
 	"github.com/gosuda/elegant-mermaid/internal/syntax"
@@ -134,6 +135,11 @@ func TestTreemapLeavesMatchD3WithinOnePixel(t *testing.T) {
 		ast, parsed := parser.Parse(data, syntax.Preprocess(data).Removed)
 		m, resolved := model.Resolve(data, ast)
 		if len(parsed)+len(resolved) > 0 || len(m.Roots) == 0 || hasConfigKey(m, "padding") {
+			continue
+		}
+		// sceneOf skips the whole test on a rejected source, so leave out
+		// files the layout rejects (config warnings) and compare the rest.
+		if len(layout.ParseDiagram(data).Diagnostics) != 0 {
 			continue
 		}
 		s := sceneOf(t, string(data), scene.ProfileVector)

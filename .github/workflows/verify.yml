@@ -149,12 +149,15 @@ jobs:
           restore-keys: |
             lake-${{ hashFiles('proofs/lean-toolchain', 'proofs/lakefile.toml', 'proofs/lake-manifest.json') }}-
             lake-
-      - name: "Build and audit every proof"
-        id: "proofs"
+      - name: "Build every proof"
+        id: "lake"
         if: "!cancelled() && steps.lean.outcome == 'success'"
-        run: "just proofs"
+        run: "just proofs-build"
+      - name: "Audit every proof"
+        if: "!cancelled() && steps.lake.outcome == 'success'"
+        run: "just proofs-audit"
       - name: "Save the lake build cache"
-        if: "!cancelled() && steps.proofs.outcome == 'success' && steps.lake-cache.outputs.cache-hit != 'true'"
+        if: "!cancelled() && steps.lake.outcome == 'success' && steps.lake-cache.outputs.cache-hit != 'true'"
         uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
           path: "proofs/.lake"
@@ -172,16 +175,16 @@ jobs:
         if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just --no-deps layered-random-check JOBS=4"
       - name: "Compare geometry kernels"
-        if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success' && steps.lake.outcome == 'success'"
         run: "just --no-deps kernel-diff"
       - name: "Validate every corpus layout"
-        if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success' && steps.lake.outcome == 'success'"
         run: "just validate JOBS=4"
       - name: "Compare every layout with Lean"
-        if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success' && steps.lake.outcome == 'success'"
         run: "just lean-parity JOBS=4"
       - name: "Upload verification binaries"
-        if: "!cancelled() && steps.engines.outcome == 'success' && steps.proofs.outcome == 'success'"
+        if: "!cancelled() && steps.engines.outcome == 'success' && steps.lake.outcome == 'success'"
         uses: "actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f" # v7.0.0
         with:
           name: "verification-binaries"
@@ -255,6 +258,9 @@ jobs:
       - name: "Check layout quality"
         if: "!cancelled() && steps.engines.outcome == 'success'"
         run: "just quality JOBS=4"
+      - name: "Compare treemaps with D3"
+        if: "!cancelled() && steps.engines.outcome == 'success'"
+        run: "just quality-d3"
       - name: "Check themes and config coverage"
         if: "!cancelled() && steps.go.outcome == 'success' && steps.rust.outcome == 'success' && steps.tools.outcome == 'success'"
         run: "just --no-deps theme-check"
@@ -275,26 +281,32 @@ jobs:
         uses: "taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39" # v2.90.3
         with:
           tool: "just@1.59.0"
+      - name: "Read the pinned house linter revision"
+        id: "sloplint-pin"
+        run: |
+          rev="$(just --evaluate sloplint_rev)"
+          test -n "$rev"
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
       - name: "Restore the pinned house linter"
         id: "sloplint-cache"
         uses: "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
-          path: ".tools/sloplint"
-          key: "sloplint-72f29bae0ba1187da854e080c998b8a21f1e4640"
+          path: ".tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}"
+          key: "sloplint-${{ steps.sloplint-pin.outputs.rev }}"
       - name: "Install the pinned house linter"
         id: "sloplint-install"
         if: "!cancelled() && steps.sloplint-cache.outputs.cache-hit != 'true'"
-        run: "cargo install --git https://github.com/gosuda/sloplint --rev 72f29bae0ba1187da854e080c998b8a21f1e4640 --locked --root \"$GITHUB_WORKSPACE/.tools/sloplint\" sloplint"
+        run: "cargo install --git https://github.com/gosuda/sloplint --rev ${{ steps.sloplint-pin.outputs.rev }} --locked --root \"$GITHUB_WORKSPACE/.tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}\" sloplint"
       - name: "Add the house linter to PATH"
         id: "sloplint"
         if: "!cancelled()"
-        run: "echo \"$GITHUB_WORKSPACE/.tools/sloplint/bin\" >> \"$GITHUB_PATH\""
+        run: "echo \"$GITHUB_WORKSPACE/.tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}/bin\" >> \"$GITHUB_PATH\""
       - name: "Save the pinned house linter"
         if: "!cancelled() && steps.sloplint-install.outcome == 'success'"
         uses: "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9" # v6.1.0
         with:
-          path: ".tools/sloplint"
-          key: "sloplint-72f29bae0ba1187da854e080c998b8a21f1e4640"
+          path: ".tools/sloplint-${{ steps.sloplint-pin.outputs.rev }}"
+          key: "sloplint-${{ steps.sloplint-pin.outputs.rev }}"
       - name: "Run house lint"
         if: "!cancelled() && steps.sloplint.outcome == 'success'"
         run: "just slop"

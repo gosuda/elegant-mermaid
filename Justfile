@@ -32,9 +32,22 @@ rust-check FILTER='':
     cargo test --doc --locked --no-fail-fast -p elegant-mermaid || status=1; \
     exit "$status"
 
+# Pinned house linter revision; the verify workflow reads it with `just --evaluate sloplint_rev`
+sloplint_rev := "72f29bae0ba1187da854e080c998b8a21f1e4640"
+# The install root names the revision, so a new pin never reuses an old binary
+sloplint_root := justfile_directory() / ".tools" / ("sloplint-" + sloplint_rev)
+
 # House lint: upstream standard profile, failing on major findings
-slop:
-    sloplint check . --format agent --strictness standard --mode threshold --fail-on major
+slop: _sloplint-install
+    "{{ sloplint_root }}/bin/sloplint" check . --format agent --strictness standard --mode threshold --fail-on major
+
+[private]
+_sloplint-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    root="{{ sloplint_root }}"
+    if test -x "$root/bin/sloplint"; then exit 0; fi
+    cargo install --git https://github.com/gosuda/sloplint --rev {{ sloplint_rev }} --locked --root "$root" sloplint
 
 # Build the Go CLI only: bin/emd-go
 build-go:
@@ -85,8 +98,14 @@ playground-e2e: playground-build
     PLAYGROUND_SERVER_MODE=dev pnpm --dir playground exec playwright test --grep 'both engines render the default source'
 
 # Lean build with warnings as errors, then the proof hygiene audit
-proofs:
+proofs: proofs-build proofs-audit
+
+# Lean build with warnings as errors; the proof hygiene audit runs separately
+proofs-build:
     cd proofs && lake build --wfail
+
+# Proof hygiene audit; fails without removing the built geometry executable
+proofs-audit:
     bash proofs/scripts/audit.sh
 
 # TLC model check of the preview scheduler
@@ -300,6 +319,10 @@ quality *ARGS:
     go run ./tools/quality -list > "$fixtures"
     EMD_BIN=bin/emd-go node tools/upstream-oracle/baseline.mjs "$fixtures" "$jobs"
     go run ./tools/quality -emd bin/emd-go -jobs "$jobs"
+
+# Treemap comparison against D3; runs where the oracle packages are installed
+quality-d3:
+    go test -count=1 -run '^TestTreemapLeavesMatchD3WithinOnePixel$' ./internal/layout/chart/
 
 # Format check on the staged content of Go and Rust files; the pre-commit hook runs it
 staged-format:
