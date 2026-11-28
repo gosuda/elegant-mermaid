@@ -320,6 +320,10 @@ quality *ARGS:
     EMD_BIN=bin/emd-go node tools/upstream-oracle/baseline.mjs "$fixtures" "$jobs"
     go run ./tools/quality -emd bin/emd-go -jobs "$jobs"
 
+# Treemap comparison against D3; runs where the oracle packages are installed
+quality-d3:
+    go test -count=1 -run '^TestTreemapLeavesMatchD3WithinOnePixel$' ./internal/layout/chart/
+
 # Format check on the staged content of Go and Rust files; the pre-commit hook runs it
 staged-format:
     #!/usr/bin/env bash
